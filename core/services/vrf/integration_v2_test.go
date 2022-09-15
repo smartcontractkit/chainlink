@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -35,11 +36,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2_upgradeable"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_proxy_admin"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -89,6 +93,10 @@ type coordinatorV2Universe struct {
 	maliciousConsumerContractAddress common.Address
 	revertingConsumerContract        *vrfv2_reverting_example.VRFV2RevertingExample
 	revertingConsumerContractAddress common.Address
+
+	// This is a VRFConsumerV2Upgradeable wrapper that points to the proxy address.
+	consumerProxyContract        *vrf_consumer_v2_upgradeable.VRFConsumerV2Upgradeable
+	consumerProxyContractAddress common.Address
 
 	// Abstract representation of the ethereum blockchain
 	backend        *backends.SimulatedBackend
@@ -206,6 +214,50 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
 
+	// Deploy upgradeable consumer, proxy, and proxy admin
+	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_upgradeable.DeployVRFConsumerV2Upgradeable(neil, backend)
+	require.NoError(t, err, "failed to deploy upgradeable consumer to simulated ethereum blockchain")
+	backend.Commit()
+
+	proxyAdminAddress, _, proxyAdmin, err := vrfv2_proxy_admin.DeployVRFV2ProxyAdmin(neil, backend)
+	require.NoError(t, err)
+	backend.Commit()
+
+	// provide abi-encoded initialize function call on the implementation contract
+	// so that it's called upon the proxy construction, to initialize it.
+	upgradeableAbi, err := vrf_consumer_v2_upgradeable.VRFConsumerV2UpgradeableMetaData.GetAbi()
+	require.NoError(t, err)
+	initializeCalldata, err := upgradeableAbi.Pack("initialize", coordinatorAddress, linkAddress)
+	hexified := hexutil.Encode(initializeCalldata)
+	t.Log("initialize calldata:", hexified, "coordinator:", coordinatorAddress.String(), "link:", linkAddress)
+	require.NoError(t, err)
+	proxyAddress, _, _, err := vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
+		neil, backend, upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata)
+	require.NoError(t, err)
+
+	_, err = linkContract.Transfer(sergey, proxyAddress, assets.Ether(500)) // Actually, LINK
+	require.NoError(t, err)
+	backend.Commit()
+
+	implAddress, err := proxyAdmin.GetProxyImplementation(nil, proxyAddress)
+	require.NoError(t, err)
+	t.Log("impl address:", implAddress.String())
+	require.Equal(t, upgradeableConsumerAddress, implAddress)
+
+	proxiedConsumer, err := vrf_consumer_v2_upgradeable.NewVRFConsumerV2Upgradeable(
+		proxyAddress, backend)
+	require.NoError(t, err)
+
+	cAddress, err := proxiedConsumer.COORDINATOR(nil)
+	require.NoError(t, err)
+	t.Log("coordinator address in proxy to upgradeable consumer:", cAddress.String())
+	require.Equal(t, coordinatorAddress, cAddress)
+
+	lAddress, err := proxiedConsumer.LINKTOKEN(nil)
+	require.NoError(t, err)
+	t.Log("link address in proxy to upgradeable consumer:", lAddress.String())
+	require.Equal(t, linkAddress, lAddress)
+
 	// Deploy always reverting consumer
 	revertingConsumerContractAddress, _, revertingConsumerContract, err := vrfv2_reverting_example.DeployVRFV2RevertingExample(
 		reverter, backend, coordinatorAddress, linkAddress,
@@ -247,6 +299,9 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 
 		revertingConsumerContract:        revertingConsumerContract,
 		revertingConsumerContractAddress: revertingConsumerContractAddress,
+
+		consumerProxyContract:        proxiedConsumer,
+		consumerProxyContractAddress: proxiedConsumer.Address(),
 
 		rootContract:                     coordinatorContract,
 		rootContractAddress:              coordinatorAddress,

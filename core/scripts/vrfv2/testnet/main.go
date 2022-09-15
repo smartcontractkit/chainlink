@@ -974,6 +974,8 @@ func main() {
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
+	case "deploy-upgradeable-contracts":
+		deployUpgradeableContracts(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

@@ -16,7 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2_upgradeable"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_proxy_admin"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
@@ -55,6 +58,35 @@ simulate     [type=ethcall
 decode_log->vrf->estimate_gas->simulate
 """ 
 `
+
+func deployUpgradeableContracts(e helpers.Environment) {
+	cmd := flag.NewFlagSet("deploy-upgradeable-contracts", flag.ExitOnError)
+	linkAddress := cmd.String("link-address", "", "address of link token")
+	coordinatorAddress := cmd.String("coordinator-address", "", "address of vrf coordinator")
+	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "coordinator-address")
+
+	upgradeableConsumerAddress, tx, _, err := vrf_consumer_v2_upgradeable.DeployVRFConsumerV2Upgradeable(
+		e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "upgradeable vrf consumer")
+
+	proxyAdminAddress, tx, _, err := vrfv2_proxy_admin.DeployVRFV2ProxyAdmin(e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "proxy admin")
+
+	upgradeableAbi, err := vrf_consumer_v2_upgradeable.VRFConsumerV2UpgradeableMetaData.GetAbi()
+	helpers.PanicErr(err)
+	initializeCalldata, err := upgradeableAbi.Pack("initialize",
+		common.HexToAddress(*coordinatorAddress), common.HexToAddress(*linkAddress))
+	helpers.PanicErr(err)
+
+	_, tx, _, err = vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
+		e.Owner, e.Ec, upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf consumer proxy")
+
+	fmt.Println("done!")
+}
 
 func deployUniverse(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)

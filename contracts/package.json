@@ -51,6 +51,7 @@
     "typescript": "^4.3.2"
   },
   "dependencies": {
-    "@eth-optimism/contracts": "^0.5.21"
+    "@eth-optimism/contracts": "^0.5.21",
+    "@openzeppelin/contracts-upgradeable": "^4.7.3"
   }
 }
