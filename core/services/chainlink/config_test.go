@@ -351,6 +351,7 @@ func TestConfig_Marshal(t *testing.T) {
 		RegistryPerformGasOverhead:   ptr[uint32](math.MaxUint32),
 		RegistrySyncInterval:         models.MustNewDuration(time.Hour),
 		RegistrySyncUpkeepQueueSize:  ptr[uint32](31),
+		RegistryMaxPerformDataSize:   ptr[uint32](5000),
 		TurnLookBack:                 ptr[int64](91),
 		TurnFlagEnabled:              ptr(true),
 		UpkeepCheckGasPriceEnabled:   ptr(true),
@@ -710,6 +711,7 @@ BaseFeeBufferPercent = 89
 MaximumGracePeriod = 31
 RegistryCheckGasOverhead = 90
 RegistryPerformGasOverhead = 4294967295
+RegistryMaxPerformDataSize = 5000
 RegistrySyncInterval = '1h0m0s'
 RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91
