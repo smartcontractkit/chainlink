@@ -30,7 +30,7 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
   struct Target {
     bool isActive;
     uint96 minBalance;
-    uint96 topUpAmount;
+    uint96 topUpLevel;
     uint56 lastTopUpTimestamp;
   }
 
@@ -59,16 +59,16 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
    * @notice Sets the list of subscriptions to watch and their funding parameters.
    * @param addresses the list of subscription ids to watch
    * @param minBalances the minimum balances for each subscription
-   * @param topUpAmounts the amount to top up each subscription
+   * @param topUpLevels the amount to top up to for each subscription
    */
   function setWatchList(
     address[] calldata addresses,
     uint96[] calldata minBalances,
-    uint96[] calldata topUpAmounts
+    uint96[] calldata topUpLevels
   ) external onlyOwner {
     if (
       addresses.length != minBalances.length ||
-      addresses.length != topUpAmounts.length ||
+      addresses.length != topUpLevels.length ||
       addresses.length > MAX_WATCHLIST_SIZE
     ) {
       revert InvalidWatchList();
@@ -84,13 +84,16 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      if (topUpAmounts[idx] == 0) {
+      if (topUpLevels[idx] == 0) {
+        revert InvalidWatchList();
+      }
+      if (topUpLevels[idx] <= minBalances[idx]) {
         revert InvalidWatchList();
       }
       s_targets[addresses[idx]] = Target({
         isActive: true,
         minBalance: minBalances[idx],
-        topUpAmount: topUpAmounts[idx],
+        topUpLevel: topUpLevels[idx],
         lastTopUpTimestamp: 0
       });
     }
@@ -114,12 +117,13 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
       uint256 targetTokenBalance = s_erc20Token.balanceOf(watchList[idx]);
       if (
         target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp &&
-        contractBalance >= target.topUpAmount &&
-        targetTokenBalance < target.minBalance
+        targetTokenBalance < target.minBalance &&
+        contractBalance >= (target.topUpLevel - targetTokenBalance)
       ) {
+        uint256 topUpAmount = target.topUpLevel - targetTokenBalance;
         needsFunding[count] = watchList[idx];
         count++;
-        contractBalance -= target.topUpAmount;
+        contractBalance -= topUpAmount;
       } else {
         require(count != 0);
       }
@@ -147,12 +151,13 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
         target.isActive &&
         target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp &&
         targetTokenBalance < target.minBalance &&
-        contractBalance >= target.topUpAmount
+        contractBalance >= (target.topUpLevel - targetTokenBalance)
       ) {
-        bool success = s_erc20Token.transfer(needsFunding[idx], target.topUpAmount);
+        uint256 topUpAmount = target.topUpLevel - targetTokenBalance;
+        bool success = s_erc20Token.transfer(needsFunding[idx], topUpAmount);
         if (success) {
           s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
-          contractBalance -= target.topUpAmount;
+          contractBalance -= topUpAmount;
           emit TopUpSucceeded(needsFunding[idx]);
         } else {
           emit TopUpFailed(needsFunding[idx]);
@@ -264,12 +269,12 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
     returns (
       bool isActive,
       uint96 minBalance,
-      uint96 topUpAmount,
+      uint96 topUpLevel,
       uint56 lastTopUpTimestamp
     )
   {
     Target memory target = s_targets[targetAddress];
-    return (target.isActive, target.minBalance, target.topUpAmount, target.lastTopUpTimestamp);
+    return (target.isActive, target.minBalance, target.topUpLevel, target.lastTopUpTimestamp);
   }
 
   /**

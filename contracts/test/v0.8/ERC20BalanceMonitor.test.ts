@@ -174,14 +174,14 @@ describe('ERC20BalanceMonitor', () => {
       const accountInfo = await bm.getAccountInfo(watchAddress1)
       assert.isTrue(accountInfo.isActive)
       expect(accountInfo.minBalance).to.equal(oneLINK)
-      expect(accountInfo.topUpAmount).to.equal(twoLINK)
+      expect(accountInfo.topUpLevel).to.equal(twoLINK)
       // add more to watchlist
       setTx = await bm
         .connect(owner)
         .setWatchList(
           [watchAddress1, watchAddress2, watchAddress3],
           [oneLINK, twoLINK, threeLINK],
-          [oneLINK, twoLINK, threeLINK],
+          [twoLINK, threeLINK, fiveLINK],
         )
       await setTx.wait()
       watchList = await bm.getWatchList()
@@ -191,20 +191,20 @@ describe('ERC20BalanceMonitor', () => {
       let accountInfo3 = await bm.getAccountInfo(watchAddress3)
       expect(accountInfo1.isActive).to.be.true
       expect(accountInfo1.minBalance).to.equal(oneLINK)
-      expect(accountInfo1.topUpAmount).to.equal(oneLINK)
+      expect(accountInfo1.topUpLevel).to.equal(twoLINK)
       expect(accountInfo2.isActive).to.be.true
       expect(accountInfo2.minBalance).to.equal(twoLINK)
-      expect(accountInfo2.topUpAmount).to.equal(twoLINK)
+      expect(accountInfo2.topUpLevel).to.equal(threeLINK)
       expect(accountInfo3.isActive).to.be.true
       expect(accountInfo3.minBalance).to.equal(threeLINK)
-      expect(accountInfo3.topUpAmount).to.equal(threeLINK)
+      expect(accountInfo3.topUpLevel).to.equal(fiveLINK)
       // remove some from watchlist
       setTx = await bm
         .connect(owner)
         .setWatchList(
           [watchAddress3, watchAddress1],
           [threeLINK, oneLINK],
-          [threeLINK, oneLINK],
+          [fiveLINK, twoLINK],
         )
       await setTx.wait()
       watchList = await bm.getWatchList()
@@ -224,9 +224,20 @@ describe('ERC20BalanceMonitor', () => {
         .setWatchList(
           [watchAddress1, watchAddress2, watchAddress1],
           [oneLINK, twoLINK, threeLINK],
-          [oneLINK, twoLINK, threeLINK],
+          [twoLINK, threeLINK, fiveLINK],
         )
       await expect(setTx).to.be.revertedWith(errMsg)
+    })
+
+    it('Should not allow a topUpLevel les than or equal to minBalance in the watchlist', async () => {
+      const setTx = bm
+        .connect(owner)
+        .setWatchList(
+          [watchAddress1, watchAddress2, watchAddress1],
+          [oneLINK, twoLINK, threeLINK],
+          [zeroLINK, twoLINK, threeLINK],
+        )
+      await expect(setTx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
     })
 
     it('Should not allow larger than maximum watchlist size', async () => {
