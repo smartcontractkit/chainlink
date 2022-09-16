@@ -1,5 +1,11 @@
 # @chainlink/contracts CHANGELOG.md
 
+## 0.5.0 - 2022-09-16
+
+### Changed
+
+- Fix EIP-150 Bug in VRFV2Wrapper.sol (b9d8261eaa05838b9b609ea02005ecca3b6adca3)
+
 ## 0.4.2 - 2022-07-20
 
 ### Changed
