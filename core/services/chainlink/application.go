@@ -202,7 +202,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
 	// Configure and optionally start the audit log forwarder service
-	auditLogger, err := audit.NewAuditLogger(globalLogger)
+	auditLogger, err := audit.NewAuditLogger(globalLogger, cfg.AuditLogger())
 	if err != nil {
 		return nil, errors.Errorf("Unable to initialize audit logger: %s", err)
 	}

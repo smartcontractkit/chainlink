@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -19,6 +20,7 @@ import (
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
+	AuditLogger         *audit.AuditLoggerConfig
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string

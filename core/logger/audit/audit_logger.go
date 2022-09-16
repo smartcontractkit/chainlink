@@ -24,6 +24,47 @@ type AuditLogger interface {
 	Audit(ctx context.Context, eventID EventID, data Data)
 }
 
+type AuditLoggerConfig struct {
+	forwardToUrl   string
+	environment    string
+	jsonWrapperKey string
+	headers        []serviceHeader
+}
+
+func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string, encodedHeaders string) (AuditLoggerConfig, error) {
+	environment := "production"
+	if isDev {
+		environment = "develop"
+	}
+
+	if forwardToUrl == "" {
+		return AuditLoggerConfig{}, errors.Errorf("No forwardToURL provided")
+	}
+
+	// Split and prepare optional service client headers from env variable
+	headers := []serviceHeader{}
+	if encodedHeaders != "" {
+		headerLines := strings.Split(encodedHeaders, "\\")
+		for _, header := range headerLines {
+			keyValue := strings.Split(header, "||")
+			if len(keyValue) != 2 {
+				return AuditLoggerConfig{}, errors.Errorf("Invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+			}
+			headers = append(headers, serviceHeader{
+				header: keyValue[0],
+				value:  keyValue[1],
+			})
+		}
+	}
+
+	return AuditLoggerConfig{
+		forwardToUrl:   forwardToUrl,
+		environment:    environment,
+		jsonWrapperKey: jsonWrapperKey,
+		headers:        headers,
+	}, nil
+}
+
 type AuditLoggerService struct {
 	logger          logger.Logger
 	enabled         bool
@@ -52,40 +93,15 @@ type WrappedAuditLog struct {
 // Parses and validates the AUDIT_LOGS_* environment values and returns an enabled
 // AuditLogger instance. If the environment variables are not set, the logger
 // is disabled and short circuits execution via enabled flag.
-func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
-	// Start parsing environment variables for audit logger
-	auditLogsURL := os.Getenv("AUDIT_LOGS_FORWARDER_URL")
-	if auditLogsURL == "" {
-		// Unset, return a disabled audit logger
-		logger.Info("No AUDIT_LOGS_FORWARDER_URL environment set, audit log events will not be captured")
-
+func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogger, error) {
+	if config == nil {
+		logger.Info("Audit logger configuration is nil. Cannot start audit logger subsystem and audit events will not be captured.")
 		return &AuditLoggerService{}, nil
 	}
 
-	env := "production"
-	if os.Getenv("CHAINLINK_DEV") == "true" {
-		env = "develop"
-	}
 	hostname, err := os.Hostname()
 	if err != nil {
 		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
-	}
-
-	// Split and prepare optional service client headers from env variable
-	headers := []serviceHeader{}
-	headersEncoded := os.Getenv("AUDIT_LOGS_FORWARDER_HEADERS")
-	if headersEncoded != "" {
-		headerLines := strings.Split(headersEncoded, "\\")
-		for _, header := range headerLines {
-			keyValue := strings.Split(header, "||")
-			if len(keyValue) != 2 {
-				return &AuditLoggerService{}, errors.Errorf("Invalid AUDIT_LOGS_FORWARDER_HEADERS value, single pair split on || required, got: %s", keyValue)
-			}
-			headers = append(headers, serviceHeader{
-				header: keyValue[0],
-				value:  keyValue[1],
-			})
-		}
 	}
 
 	loggingChannel := make(chan WrappedAuditLog, bufferCapacity)
@@ -94,10 +110,10 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 	auditLogger := AuditLoggerService{
 		logger:          logger.Helper(1),
 		enabled:         true,
-		serviceURL:      auditLogsURL,
-		serviceHeaders:  headers,
-		jsonWrapperKey:  os.Getenv("AUDIT_LOGS_FORWARDER_JSON_WRAPPER_KEY"),
-		environmentName: env,
+		serviceURL:      config.forwardToUrl,
+		serviceHeaders:  config.headers,
+		jsonWrapperKey:  config.jsonWrapperKey,
+		environmentName: config.environment,
 		hostname:        hostname,
 		localIP:         getLocalIP(),
 		loggingChannel:  loggingChannel,

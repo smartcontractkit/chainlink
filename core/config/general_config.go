@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -74,6 +75,7 @@ type GeneralOnlyConfig interface {
 	AdvisoryLockID() int64
 	AllowOrigins() string
 	AppID() uuid.UUID
+	AuditLogger() *audit.AuditLoggerConfig
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	AutoPprofBlockProfileRate() int
@@ -481,6 +483,32 @@ func (c *generalConfig) AppID() uuid.UUID {
 		c.appID = uuid.NewV4()
 	})
 	return c.appID
+}
+
+// Create the audit logger configuration to send events to an
+// external service
+func (c *generalConfig) AuditLogger() *audit.AuditLoggerConfig {
+	forwardToUrl := c.viper.GetString(envvar.Name("AuditLoggerForwardToUrl"))
+	// We have this check here to determine if we should enable the audit logger
+	// at all. If this is not set, then we don't need to output the error below
+	// when configuration fails.
+	if forwardToUrl == "" {
+		return nil
+	}
+
+	auditLogger, err := audit.NewAuditLoggerConfig(
+		forwardToUrl,
+		c.viper.GetBool(envvar.Name("Dev")),
+		c.viper.GetString(envvar.Name("AuditLoggerJsonWrapperKey")),
+		c.viper.GetString(envvar.Name("AuditLoggerHeaders")),
+	)
+
+	if err != nil {
+		c.lggr.Errorf("Audit logger configuration failed with: %s", err)
+		return nil
+	}
+
+	return &auditLogger
 }
 
 // AuthenticatedRateLimit defines the threshold to which authenticated requests

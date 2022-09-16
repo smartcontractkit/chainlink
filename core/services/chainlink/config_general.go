@@ -21,6 +21,7 @@ import (
 
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -164,6 +165,10 @@ func (g *generalConfig) StarkNetEnabled() bool {
 
 func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
+}
+
+func (g *generalConfig) AuditLogger() *audit.AuditLoggerConfig {
+	return g.c.AuditLogger
 }
 
 func (g *generalConfig) AuthenticatedRateLimit() int64 {

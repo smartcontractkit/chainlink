@@ -60,6 +60,11 @@ type ConfigSchema struct {
 	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
 	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
+	// Audit Logger
+	AuditLoggerForwardToUrl   string `env:"AUDIT_LOGGER_FORWARD_TO_URL" default:""`
+	AuditLoggerHeaders        string `env:"AUDIT_LOGGER_HEADERS" default:""`
+	AuditLoggerJsonWrapperKey string `env:"AUDIT_LOGGER_JSON_WRAPPER_KEY" default:""`
+
 	// Database
 	DatabaseListenerMaxReconnectDuration time.Duration `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"` //nodoc
 	DatabaseListenerMinReconnectInterval time.Duration `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`  //nodoc
