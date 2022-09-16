@@ -164,6 +164,11 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 
+[Pyroscope]
+AuthToken = 'pyroscope-token'
+ServerAddress = 'http://localhost:4040'
+Environment = 'tests'
+
 [Sentry]
 Debug = true
 DSN = 'sentry-dsn'
@@ -203,6 +208,7 @@ PriceDefault = '9.223372036854775807 ether'
 PriceMax = '281.474976710655 micro'
 PriceMin = '13 wei'
 LimitDefault = 12
+LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
 LimitOCRJobType = 1001
@@ -291,6 +297,20 @@ URL = 'http://solana.foo'
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
+
+[[Starknet]]
+ChainID = 'foobar'
+Enabled = true
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Bombay-12'

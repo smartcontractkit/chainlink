@@ -23,6 +23,7 @@
 	- [V2](#P2P-V2)
 - [Keeper](#Keeper)
 - [AutoPprof](#AutoPprof)
+- [Pyroscope](#Pyroscope)
 - [Sentry](#Sentry)
 - [EVM](#EVM)
 	- [BalanceMonitor](#EVM-BalanceMonitor)
@@ -35,6 +36,8 @@
 	- [Nodes](#EVM-Nodes)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
+- [Starknet](#Starknet)
+	- [Nodes](#Starknet-Nodes)
 - [Terra](#Terra)
 	- [Nodes](#Terra-Nodes)
 
@@ -1171,6 +1174,33 @@ GoroutineThreshold = 5000 # Default
 ```
 GoroutineThreshold is the maximum number of actively-running goroutines the node can spawn before profiling begins.
 
+## Pyroscope<a id='Pyroscope'></a>
+```toml
+[Pyroscope]
+ServerAddress = 'http://localhost:4040' # Example
+AuthToken = 'randomly-oauth-generated-token' # Example
+Environment = 'mainnet' # Default
+```
+
+
+### ServerAddress<a id='Pyroscope-ServerAddress'></a>
+```toml
+ServerAddress = 'http://localhost:4040' # Example
+```
+ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
+
+### AuthToken<a id='Pyroscope-AuthToken'></a>
+```toml
+AuthToken = 'randomly-oauth-generated-token' # Example
+```
+AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
+
+### Environment<a id='Pyroscope-Environment'></a>
+```toml
+Environment = 'mainnet' # Default
+```
+Environment sets the target environment tag in which profiles will be added to.
+
 ## Sentry<a id='Sentry'></a>
 ```toml
 [Sentry]
@@ -1238,6 +1268,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1248,12 +1279,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1304,6 +1335,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1314,12 +1346,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1370,6 +1402,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1380,12 +1413,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1436,6 +1469,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1446,12 +1480,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1503,6 +1537,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1513,12 +1548,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -1569,6 +1604,7 @@ PriceDefault = '50 mwei'
 PriceMax = '50 gwei'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1579,12 +1615,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1635,6 +1671,7 @@ PriceDefault = '50 mwei'
 PriceMax = '50 gwei'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1645,12 +1682,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1702,6 +1739,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1712,12 +1750,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1768,6 +1806,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1778,12 +1817,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -1833,6 +1872,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1843,12 +1883,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1898,6 +1938,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1908,12 +1949,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1965,6 +2006,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1975,12 +2017,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '30m0s'
@@ -2032,6 +2074,7 @@ PriceDefault = '1 gwei'
 PriceMax = '500 gwei'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2042,12 +2085,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -2098,6 +2141,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2108,12 +2152,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2164,6 +2208,7 @@ PriceDefault = '30 gwei'
 PriceMax = '200 micro'
 PriceMin = '30 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '20 gwei'
@@ -2174,12 +2219,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2230,6 +2275,7 @@ PriceDefault = '15 gwei'
 PriceMax = '200 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2240,12 +2286,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2297,6 +2343,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2307,12 +2354,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '30m0s'
@@ -2363,6 +2410,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2373,12 +2421,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2429,6 +2477,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2439,12 +2488,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2494,6 +2543,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2504,12 +2554,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2560,6 +2610,7 @@ PriceDefault = '15 gwei'
 PriceMax = '200 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2570,12 +2621,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2622,11 +2673,12 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
 PriceMax = '1 micro'
-PriceMin = '1 micro'
+PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2634,15 +2686,15 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2693,6 +2745,7 @@ PriceDefault = '25 gwei'
 PriceMax = '1 micro'
 PriceMin = '25 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2703,12 +2756,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2759,6 +2812,7 @@ PriceDefault = '25 gwei'
 PriceMax = '1 micro'
 PriceMin = '25 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2769,12 +2823,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2825,6 +2879,7 @@ PriceDefault = '1 gwei'
 PriceMax = '200 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '20 gwei'
@@ -2835,12 +2890,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2887,11 +2942,12 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
 PriceMax = '1 micro'
-PriceMin = '1 micro'
+PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2899,15 +2955,15 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2953,11 +3009,12 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
 PriceMax = '1 micro'
-PriceMin = '1 micro'
+PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2965,15 +3022,15 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -3024,6 +3081,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -3034,12 +3092,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -3090,6 +3148,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -3100,12 +3159,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -3156,6 +3215,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -3166,12 +3226,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -3384,6 +3444,7 @@ PriceDefault = '20 gwei' # Default
 PriceMax = '100 micro' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
+LimitMax = 500_000 # Default
 LimitOCRJobType = 100_000 # Example
 LimitDRJobType = 100_000 # Example
 LimitVRFJobType = 100_000 # Example
@@ -3459,6 +3520,12 @@ LimitDefault = 500_000 # Default
 ```
 LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
+
+### LimitMax<a id='EVM-GasEstimator-LimitMax'></a>
+```toml
+LimitMax = 500_000 # Default
+```
+LimitMax sets a maximum for _estimated_ gas limits. This currently only applies to `Arbitrum` `GasEstimatorMode`.
 
 ### LimitOCRJobType<a id='EVM-GasEstimator-LimitOCRJobType'></a>
 ```toml
@@ -3947,6 +4014,88 @@ Name is a unique (per-chain) identifier for this node.
 URL = 'http://solana.web' # Example
 ```
 URL is the HTTP(S) endpoint for this node.
+
+## Starknet<a id='Starknet'></a>
+```toml
+[[Starknet]]
+ChainID = 'foobar' # Example
+Enabled = true # Default
+OCR2CachePollPeriod = '5s' # Default
+OCR2CacheTTL = '1m' # Default
+RequestTimeout = '10s' # Default
+TxTimeout = '1m' # Default
+TxSendFrequency = '5s' # Default
+TxMaxBatchSize = 100 # Default
+```
+
+
+### ChainID<a id='Starknet-ChainID'></a>
+```toml
+ChainID = 'foobar' # Example
+```
+ChainID is the Starknet chain ID.
+
+### Enabled<a id='Starknet-Enabled'></a>
+```toml
+Enabled = true # Default
+```
+Enabled enables this chain.
+
+### OCR2CachePollPeriod<a id='Starknet-OCR2CachePollPeriod'></a>
+```toml
+OCR2CachePollPeriod = '5s' # Default
+```
+OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
+
+### OCR2CacheTTL<a id='Starknet-OCR2CacheTTL'></a>
+```toml
+OCR2CacheTTL = '1m' # Default
+```
+OCR2CacheTTL is the stale OCR2 cache deadline.
+
+### RequestTimeout<a id='Starknet-RequestTimeout'></a>
+```toml
+RequestTimeout = '10s' # Default
+```
+RequestTimeout is the RPC client timeout.
+
+### TxTimeout<a id='Starknet-TxTimeout'></a>
+```toml
+TxTimeout = '1m' # Default
+```
+TxTimeout is the timeout for sending txes to an RPC endpoint.
+
+### TxSendFrequency<a id='Starknet-TxSendFrequency'></a>
+```toml
+TxSendFrequency = '5s' # Default
+```
+TxSendFrequency is how often to broadcast batches of txes.
+
+### TxMaxBatchSize<a id='Starknet-TxMaxBatchSize'></a>
+```toml
+TxMaxBatchSize = 100 # Default
+```
+TxMaxBatchSize limits the size of tx batches.
+
+## Starknet.Nodes<a id='Starknet-Nodes'></a>
+```toml
+[[Starknet.Nodes]]
+Name = 'primary' # Example
+URL = 'http://stark.node' # Example
+```
+
+
+### Name<a id='Starknet-Nodes-Name'></a>
+```toml
+Name = 'primary' # Example
+```
+Name is a unique (per-chain) identifier for this node.
+
+### URL<a id='Starknet-Nodes-URL'></a>
+```toml
+URL = 'http://stark.node' # Example
+```
+URL is the base HTTP(S) endpoint for this node.
 
 ## Terra<a id='Terra'></a>
 ```toml

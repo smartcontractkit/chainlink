@@ -57,6 +57,7 @@ func TestResolver_Config(t *testing.T) {
 					GlobalEvmGasBumpTxDepth:              null.IntFrom(1),
 					GlobalEvmGasBumpWei:                  nil,
 					GlobalEvmGasLimitDefault:             null.IntFrom(1),
+					GlobalEvmGasLimitMax:                 null.IntFrom(10),
 					GlobalEvmGasLimitMultiplier:          null.FloatFrom(1),
 					GlobalEvmGasPriceDefault:             nil,
 					GlobalEvmGasTipCapDefault:            nil,

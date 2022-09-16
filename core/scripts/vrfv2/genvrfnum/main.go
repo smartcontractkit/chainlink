@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"time"
@@ -34,7 +33,7 @@ func main() {
 		helpers.PanicErr(err)
 		exportJSON, err := key.ToEncryptedJSON(*password, utils.DefaultScryptParams)
 		helpers.PanicErr(err)
-		err = ioutil.WriteFile(*outfile, exportJSON, 0600)
+		err = os.WriteFile(*outfile, exportJSON, 0600)
 		helpers.PanicErr(err)
 		fmt.Println("generated vrf key", key.PublicKey.String(), "and saved encrypted in", *outfile)
 	case "gen-vrf-numbers":
@@ -55,7 +54,7 @@ func main() {
 
 		helpers.ParseArgs(cmd, os.Args[2:], "pw", "sender", "blockhash")
 
-		fileBytes, err := ioutil.ReadFile(*keyPath)
+		fileBytes, err := os.ReadFile(*keyPath)
 		helpers.PanicErr(err)
 		key, err := vrfkey.FromEncryptedJSON(fileBytes, *password)
 		helpers.PanicErr(err)

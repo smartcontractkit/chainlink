@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -52,6 +53,13 @@ type Chain struct {
 	OCR *OCR
 }
 
+func (c Chain) ValidateConfig() (err error) {
+	if c.ChainType != nil && !config.ChainType(*c.ChainType).IsValid() {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType, Msg: config.ErrInvalidChainType.Error()})
+	}
+	return
+}
+
 type BalanceMonitor struct {
 	Enabled    *bool
 	BlockDelay *uint16
@@ -65,6 +73,7 @@ type GasEstimator struct {
 	PriceMin     *utils.Wei
 
 	LimitDefault    *uint32
+	LimitMax        *uint32
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
 
@@ -271,6 +280,13 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		}
 		v := uint32(cfg.EvmGasLimitDefault.Int64)
 		c.GasEstimator.LimitDefault = &v
+	}
+	if cfg.EvmGasLimitMax.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.EvmGasLimitMax.Int64)
+		c.GasEstimator.LimitMax = &v
 	}
 	if cfg.EvmGasLimitOCRJobType.Valid {
 		if c.GasEstimator == nil {

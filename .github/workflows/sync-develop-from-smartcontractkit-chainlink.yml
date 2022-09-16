@@ -10,6 +10,14 @@ jobs:
     name: Sync
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Sync
+        continue-on-error: true
       - uses: actions/checkout@v2
         with:
           ref: develop

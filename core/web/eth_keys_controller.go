@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 // ETHKeysController manages account keys
@@ -335,16 +336,32 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		return
 	}
 
-	nonceStr := c.Query("nextNonce")
-	if nonceStr != "" {
-		var nonce int64
+	var nonce int64 = -1
+	if nonceStr := c.Query("nextNonce"); nonceStr != "" {
 		nonce, err = strconv.ParseInt(nonceStr, 10, 64)
-		if err != nil {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "invalid nonce"))
+		if err != nil || nonce < 0 {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrapf(err, "invalid value for nonce: expected 0 or positive int, got: %s", nonceStr))
 			return
 		}
+	}
+	abandon := false
+	if abandonStr := c.Query("abandon"); abandonStr != "" {
+		abandon, err = strconv.ParseBool(abandonStr)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrapf(err, "invalid value for abandon: expected boolean, got: %s", abandonStr))
+			return
+		}
+	}
 
-		err = kst.Reset(address, chain.ID(), nonce)
+	// Reset the chain
+	if abandon || nonce >= 0 {
+		var resetErr error
+		err = chain.TxManager().Reset(func() {
+			if nonce >= 0 {
+				resetErr = kst.Reset(address, chain.ID(), nonce)
+			}
+		}, address, abandon)
+		err = multierr.Combine(err, resetErr)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return

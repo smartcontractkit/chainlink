@@ -28,8 +28,8 @@ type Eth interface {
 	Export(id string, password string) ([]byte, error)
 
 	Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
-	Disable(address common.Address, chainID *big.Int) error
-	Reset(address common.Address, chainID *big.Int, nonce int64) error
+	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
+	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
 	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
@@ -109,6 +109,7 @@ func (ks *eth) Create(chainIDs ...*big.Int) (ethkey.KeyV2, error) {
 	if err == nil {
 		ks.notify()
 	}
+	ks.logger.Infow(fmt.Sprintf("Created EVM key with ID %s", key.Address.Hex()), "address", key.Address.Hex(), "evmChainIDs", chainIDs)
 	return key, err
 }
 
@@ -135,7 +136,7 @@ func (ks *eth) EnsureKeys(chainIDs ...*big.Int) (err error) {
 		if err != nil {
 			return err
 		}
-		ks.logger.Infow("New key created", "address", newKey.Address.Hex(), "evmChainID", chainID)
+		ks.logger.Infow(fmt.Sprintf("Created EVM key with ID %s", newKey.Address.Hex()), "address", newKey.Address.Hex(), "evmChainID", chainID)
 	}
 
 	return nil
@@ -177,11 +178,26 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 }
 
 // Get the next nonce for the given key and chain. It is safest to always to go the DB for this
-func (ks *eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error) {
+func (ks *eth) GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
 	if !ks.exists(address) {
 		return 0, errors.Errorf("key with address %s does not exist", address.Hex())
 	}
-	return ks.orm.getNextNonce(address, chainID, qopts...)
+	nonce, err = ks.orm.getNextNonce(address, chainID, qopts...)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetNextNonce failed")
+	}
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	state, exists := ks.keyStates.KeyIDChainID[address.Hex()][chainID.String()]
+	if !exists {
+		return 0, errors.Errorf("state not found for address %s, chainID %s", address.Hex(), chainID.String())
+	}
+	if state.Disabled {
+		return 0, errors.Errorf("state is disabled for address %s, chainID %s", address.Hex(), chainID.String())
+	}
+	// Always clobber the memory nonce with the DB nonce
+	state.NextNonce = nonce
+	return nonce, nil
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
@@ -189,12 +205,30 @@ func (ks *eth) IncrementNextNonce(address common.Address, chainID *big.Int, curr
 	if !ks.exists(address) {
 		return errors.Errorf("key with address %s does not exist", address.Hex())
 	}
-	return ks.orm.incrementNextNonce(address, chainID, currentNonce, qopts...)
+	incrementedNonce, err := ks.orm.incrementNextNonce(address, chainID, currentNonce, qopts...)
+	if err != nil {
+		return errors.Wrap(err, "failed IncrementNextNonce")
+	}
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	state, exists := ks.keyStates.KeyIDChainID[address.Hex()][chainID.String()]
+	if !exists {
+		return errors.Errorf("state not found for address %s, chainID %s", address.Hex(), chainID.String())
+	}
+	if state.Disabled {
+		return errors.Errorf("state is disabled for address %s, chainID %s", address.Hex(), chainID.String())
+	}
+	state.NextNonce = incrementedNonce
+	return nil
 }
 
 func (ks *eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
+	_, found := ks.keyRing.Eth[address.Hex()]
+	if !found {
+		return errors.Errorf("no key exists with ID %s", address.Hex())
+	}
 	return ks.enable(address, chainID, qopts...)
 }
 
@@ -205,7 +239,7 @@ func (ks *eth) enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 VALUES ($1, 0, false, $2, NOW(), NOW()) ON CONFLICT (evm_chain_id, address) DO UPDATE SET
 disabled=false,
 updated_at=NOW()
-RETURNING id, address, evm_chain_id, disabled, created_at, updated_at;`
+RETURNING id, next_nonce, address, evm_chain_id, disabled, created_at, updated_at;`
 	q := ks.orm.q.WithOpts(qopts...)
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
 		return errors.Wrap(err, "failed to insert evm_key_state")
@@ -215,22 +249,32 @@ RETURNING id, address, evm_chain_id, disabled, created_at, updated_at;`
 	return nil
 }
 
-func (ks *eth) Disable(address common.Address, chainID *big.Int) error {
-	_, err := ks.orm.q.Exec(`UPDATE evm_key_states SET disabled = true WHERE address = $1 AND evm_chain_id = $2`, address, chainID.String())
+func (ks *eth) Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	_, found := ks.keyRing.Eth[address.Hex()]
+	if !found {
+		return errors.Errorf("no key exists with ID %s", address.Hex())
+	}
+	return ks.disable(address, chainID, qopts...)
+}
+
+func (ks *eth) disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
+	q := ks.orm.q.WithOpts(qopts...)
+	_, err := q.Exec(`UPDATE evm_key_states SET disabled = true WHERE address = $1 AND evm_chain_id = $2`, address, chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "failed to disable state")
 	}
 
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
 	ks.keyStates.disable(address, chainID)
 	ks.notify()
 	return nil
 }
 
 // Reset the key/chain nonce to the given one
-func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64) error {
-	res, err := ks.orm.q.Exec(`UPDATE evm_key_states SET next_nonce = $1 WHERE address = $2 AND evm_chain_id = $3`, nonce, address, chainID.String())
+func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error {
+	q := ks.orm.q.WithOpts(qopts...)
+	res, err := q.Exec(`UPDATE evm_key_states SET next_nonce = $1 WHERE address = $2 AND evm_chain_id = $3`, nonce, address, chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "failed to reset state")
 	}
@@ -241,6 +285,13 @@ func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64) erro
 	if rowsAffected == 0 {
 		return errors.Errorf("key state not found with address %s and chainID %s", address.Hex(), chainID.String())
 	}
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	state, exists := ks.keyStates.KeyIDChainID[address.Hex()][chainID.String()]
+	if !exists {
+		return errors.Errorf("state not found for address %s, chainID %s", address.Hex(), chainID.String())
+	}
+	state.NextNonce = nonce
 	return nil
 }
 

@@ -48,6 +48,28 @@ func TestMailbox(t *testing.T) {
 	require.Equal(t, expected, recvd)
 }
 
+func TestMailbox_RetrieveAll(t *testing.T) {
+	var (
+		expected  = []int{2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+		toDeliver = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+	)
+
+	const capacity = 10
+	m := utils.NewMailbox[int](capacity)
+
+	// Queue deliveries
+	for i, d := range toDeliver {
+		atCapacity := m.Deliver(d)
+		if atCapacity && i < capacity {
+			t.Errorf("mailbox at capacity %d", i)
+		} else if !atCapacity && i >= capacity {
+			t.Errorf("mailbox below capacity %d", i)
+		}
+	}
+
+	require.Equal(t, expected, m.RetrieveAll())
+}
+
 func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
 	m := utils.NewMailbox[int](2)
 

@@ -295,6 +295,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			chain.Client(),
 			cfg.LookbackBlocks,
 			chain.LogPoller(),
+			chain.Config().EvmFinalityDepth(),
 		)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "create ocr2vrf coordinator")
@@ -331,7 +332,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			DKGDatabase:                  ocrDB,
 			DKGLocalConfig:               lc,
 			DKGMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
-			Blockhashes:                  blockhashes.NewFixedBlockhashProvider(chain.Client(), 256, 256),
+			Blockhashes:                  blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), d.lggr, 256),
 			Serializer:                   reportserializer.NewReportSerializer(&altbn_128.G1{}),
 			JulesPerFeeCoin:              juelsPerFeeCoin,
 			Coordinator:                  coordinator,

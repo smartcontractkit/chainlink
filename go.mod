@@ -45,22 +45,23 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.19.0
 	github.com/pelletier/go-toml v1.9.5
-	github.com/pelletier/go-toml/v2 v2.0.2
+	github.com/pelletier/go-toml/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.5.3
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
+	github.com/pyroscope-io/client v0.3.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220824175208-161686d7493e
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220825163921-30bc3f6d41dc
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220829192456-1cce38dd3129
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220913010951-94dd0368b953
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220824174951-d1e2bcd51e46
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220802183403-8cb2a10769b5
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
@@ -86,7 +87,7 @@ require (
 	golang.org/x/text v0.3.7
 	golang.org/x/tools v0.1.12
 	gonum.org/v1/gonum v0.11.0
-	google.golang.org/protobuf v1.28.0
+	google.golang.org/protobuf v1.28.1
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
@@ -145,7 +146,7 @@ require (
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/gagliardetto/binary v0.6.1 // indirect
+	github.com/gagliardetto/binary v0.7.1 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -356,3 +357,8 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
+
+exclude (
+	github.com/influxdata/influxdb v1.8.3
+	github.com/labstack/echo/v4 v4.5.0
+)

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -104,7 +103,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)
 
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
 		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
 		if err != nil {
@@ -135,7 +134,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	}
 
 	// Update to latest version
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		version := versioning.NewNodeVersion(static.Version)
 		if err = verORM.UpsertNodeVersion(version); err != nil {
 			return nil, errors.Wrap(err, "UpsertNodeVersion")
@@ -591,18 +590,18 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
 }
 
 // Removes any stored cookie.
 func (d DiskCookieStore) Reset() error {
 	// Write empty bytes
-	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
-	b, err := ioutil.ReadFile(d.cookiePath())
+	b, err := os.ReadFile(d.cookiePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -774,7 +773,7 @@ func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger
 
 	// If there is only a single DB user, select it within the context of CLI
 	if len(users) == 1 {
-		lggr.Infof("Defaulted to assume single DB API User", "email", users[0].Email)
+		lggr.Infow("Defaulted to assume single DB API User", "email", users[0].Email)
 		return users[0], true
 	}
 
@@ -794,7 +793,7 @@ func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger
 		}
 	}
 	if populatedUser {
-		lggr.Infof("Defaulted to assume single DB admin API User", "email", singleAdmin)
+		lggr.Infow("Defaulted to assume single DB admin API User", "email", singleAdmin)
 		return singleAdmin, true
 	}
 
@@ -809,7 +808,7 @@ func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionReque
 	}
 
 	lggr.Debug("Initializing API credentials")
-	dat, err := ioutil.ReadFile(file)
+	dat, err := os.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err
 	}

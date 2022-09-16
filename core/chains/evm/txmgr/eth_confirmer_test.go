@@ -591,6 +591,47 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
 }
 
+func TestEthConfirmer_CheckForReceipts_HandlesNilMetaWithForwardingEnabled(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(1)
+	cfg.Overrides.GlobalEvmUseForwarders = null.BoolFrom(true)
+
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
+	ctx := testutils.Context(t)
+	// tx is not forwarded and doesn't have meta set. EthConfirmer should handle nil meta values
+	etx := cltest.MustInsertUnconfirmedEthTx(t, borm, 0, fromAddress)
+	attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 2)
+	attempt.EthTx.Meta = nil
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+
+	txmReceipt := evmtypes.Receipt{
+		TxHash:           attempt.Hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(42),
+		TransactionIndex: uint(1),
+	}
+
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 1 &&
+			cltest.BatchElemMatchesParams(b[0], attempt.Hash, "eth_getTransactionReceipt")
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &txmReceipt // confirmed
+	}).Once()
+
+	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+}
+
 func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 	t.Parallel()
 
@@ -1422,7 +1463,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(testutils.Context(t), q, lggr, fromAddress, currentHead, gasBumpThreshold, 4, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
-		require.Len(t, etxs, 1) // returns etxWithoutAttempts only - eligible for gas bumping because it technically doesn't have any attempts withing gasBumpThreshold blocks
+		require.Len(t, etxs, 1) // returns etxWithoutAttempts only - eligible for gas bumping because it technically doesn't have any attempts within gasBumpThreshold blocks
 		assert.Equal(t, etxWithoutAttempts.ID, etxs[0].ID)
 
 		etxs, err = txmgr.FindEthTxsRequiringRebroadcast(testutils.Context(t), q, lggr, fromAddress, currentHead, gasBumpThreshold, 5, 0, cltest.FixtureChainID)

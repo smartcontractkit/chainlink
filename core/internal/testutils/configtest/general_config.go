@@ -63,6 +63,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasBumpWei                     *big.Int
 	GlobalEvmGasFeeCapDefault               *big.Int
 	GlobalEvmGasLimitDefault                null.Int
+	GlobalEvmGasLimitMax                    null.Int
 	GlobalEvmGasLimitMultiplier             null.Float
 	GlobalEvmGasPriceDefault                *big.Int
 	GlobalEvmGasTipCapDefault               *big.Int
@@ -81,6 +82,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmMinGasPriceWei                 *big.Int
 	GlobalEvmNonceAutoSync                  null.Bool
 	GlobalEvmRPCDefaultBatchSize            null.Int
+	GlobalEvmUseForwarders                  null.Bool
 	GlobalFlagsContractAddress              null.String
 	GlobalGasEstimatorMode                  null.String
 	GlobalMinIncomingConfirmations          null.Int
@@ -570,6 +572,13 @@ func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	return c.GeneralConfig.GlobalEvmGasLimitDefault()
 }
 
+func (c *TestGeneralConfig) GlobalEvmGasLimitMax() (uint32, bool) {
+	if c.Overrides.GlobalEvmGasLimitMax.Valid {
+		return uint32(c.Overrides.GlobalEvmGasLimitMax.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitMax()
+}
+
 func (c *TestGeneralConfig) GlobalEvmGasLimitOCRJobType() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitOCRJobType.Valid {
 		return uint32(c.Overrides.GlobalEvmGasLimitOCRJobType.Int64), true
@@ -823,4 +832,11 @@ func (c *TestGeneralConfig) JobPipelineReaperInterval() time.Duration {
 		return *c.Overrides.JobPipelineReaperInterval
 	}
 	return c.GeneralConfig.JobPipelineReaperInterval()
+}
+
+func (c *TestGeneralConfig) GlobalEvmUseForwarders() (bool, bool) {
+	if c.Overrides.GlobalEvmUseForwarders.Valid {
+		return c.Overrides.GlobalEvmUseForwarders.Bool, true
+	}
+	return c.GeneralConfig.GlobalEvmUseForwarders()
 }

@@ -9,12 +9,16 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
+	"gopkg.in/guregu/null.v4"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
@@ -26,6 +30,7 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -53,7 +58,7 @@ func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3)
+		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
 	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory, lp)
 
 	_, err := txm.SendEther(big.NewInt(0), from, to, *value, 21000)
@@ -98,7 +103,7 @@ func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	var n int64 = 0
+	var n int64
 	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
@@ -219,7 +224,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3)
+		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
 	txm := txmgr.NewTxm(db, ethClient, config, kst.Eth(), nil, lggr, checkerFactory, lp)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
@@ -547,7 +552,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	// It can be overridden in the test that uses it
 	cfg := txmmocks.NewConfig(t)
 	cfg.On("EvmGasBumpTxDepth").Return(uint16(42)).Maybe().Once()
-	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe().Once()
+	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe()
 	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
 	cfg.On("EvmNonceAutoSync").Return(true).Maybe()
 	cfg.On("EvmGasLimitDefault").Return(uint32(42)).Maybe().Once()
@@ -558,7 +563,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
 	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
-	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe().Once()
+	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe()
 	cfg.On("EvmGasBumpWei").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmGasFeeCapDefault").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmGasLimitMultiplier").Return(float32(42)).Maybe().Once()
@@ -595,7 +600,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3)
+		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
 	kst := cltest.NewKeyStore(t, db, cfg)
 	txm := txmgr.NewTxm(db, ethClient, config, kst.Eth(), nil, lggr, &testCheckerFactory{}, lp)
 
@@ -692,7 +697,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	checkerFactory := &testCheckerFactory{}
 
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3)
+		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
 	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory, lp)
 
 	head := cltest.Head(42)
@@ -759,5 +764,181 @@ func TestTxm_SignTx(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
 		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
+	})
+}
+
+type fnMock struct{ called atomic.Bool }
+
+func (fm *fnMock) Fn() {
+	swapped := fm.called.CAS(false, true)
+	if !swapped {
+		panic("func called more than once")
+	}
+}
+
+func (fm *fnMock) AssertNotCalled(t *testing.T) {
+	assert.False(t, fm.called.Load())
+}
+
+func (fm *fnMock) AssertCalled(t *testing.T) {
+	assert.True(t, fm.called.Load())
+}
+
+func TestTxm_Reset(t *testing.T) {
+	t.Parallel()
+
+	// Lots of boilerplate setup since we actually want to test start/stop of EthBroadcaster/EthConfirmer
+	db := pgtest.NewSqlxDB(t)
+	gcfg := configtest.NewTestGeneralConfig(t)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+	kst := cltest.NewKeyStore(t, db, cfg)
+
+	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
+	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	// 4 confirmed tx from addr1
+	for i := int64(0); i < 4; i++ {
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, i, i*42+1, addr)
+	}
+	// 2 confirmed from addr2
+	for i := int64(0); i < 2; i++ {
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, i, i*42+1, addr2)
+	}
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(0), nil)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
+	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
+	sub := pgmocks.NewSubscription(t)
+	sub.On("Events").Return(make(<-chan pg.Event))
+	sub.On("Close")
+	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+
+	lggr := logger.TestLogger(t)
+	txm := txmgr.NewTxm(db, ethClient, cfg, kst.Eth(), eventBroadcaster, lggr, nil, nil)
+
+	// 1 unconfirmed on each addr
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 4, addr)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, addr2)
+
+	t.Run("returns error if not started", func(t *testing.T) {
+		f := new(fnMock)
+
+		err := txm.Reset(f.Fn, addr, false)
+		require.Error(t, err)
+		assert.EqualError(t, err, "not started")
+
+		f.AssertNotCalled(t)
+	})
+
+	require.NoError(t, txm.Start(testutils.Context(t)))
+
+	t.Run("calls function if started", func(t *testing.T) {
+		f := new(fnMock)
+
+		err := txm.Reset(f.Fn, addr, false)
+		require.NoError(t, err)
+
+		f.AssertCalled(t)
+	})
+
+	t.Run("calls function and deletes relevant eth_txes if abandon=true", func(t *testing.T) {
+		f := new(fnMock)
+
+		err := txm.Reset(f.Fn, addr, true)
+		require.NoError(t, err)
+
+		f.AssertCalled(t)
+
+		var s string
+		err = db.Get(&s, `SELECT error FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+		require.NoError(t, err)
+		assert.Equal(t, "abandoned", s)
+
+		// the other address didn't get touched
+		var count int
+		err = db.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr2)
+		require.NoError(t, err)
+		assert.Equal(t, 0, count)
+	})
+}
+
+func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
+	var err error
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+
+	kst := cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)
+	_, dummyAddress := cltest.MustInsertRandomKeyReturningState(t, kst, false)
+
+	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(true)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+	ethNodeNonce := uint64(22)
+
+	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
+	sub := pgmocks.NewSubscription(t)
+	sub.On("Events").Return(make(<-chan pg.Event))
+	sub.On("Close")
+	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+	checkerFactory := &testCheckerFactory{}
+
+	t.Run("when eth node returns error", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
+
+		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
+			return account.Hex() == dummyAddress.Hex()
+		})).Return(uint64(0), nil).Once()
+		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
+			return account.Hex() == fromAddress.Hex()
+		})).Return(ethNodeNonce, errors.New("something exploded")).Once()
+
+		err = txm.Start(testutils.Context(t))
+		require.Error(t, err)
+		defer txm.Close()
+		require.Contains(t, err.Error(), "something exploded")
+
+		// dummy address got updated
+		var n int
+		err := db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, dummyAddress)
+		require.NoError(t, err)
+		require.Equal(t, 0, n)
+
+		// real address did not update (it errored)
+		err = db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, fromAddress)
+		require.NoError(t, err)
+		require.Equal(t, 0, n)
+	})
+
+	t.Run("when eth node returns nonce", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
+
+		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
+			return account.Hex() == dummyAddress.Hex()
+		})).Return(uint64(0), nil).Once()
+		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
+			return account.Hex() == fromAddress.Hex()
+		})).Return(ethNodeNonce, nil).Once()
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
+
+		require.NoError(t, txm.Start(testutils.Context(t)))
+		defer txm.Close()
+
+		// Check keyState to make sure it has correct nonce assigned
+		var nonce int64
+		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		require.NoError(t, err)
+		assert.Equal(t, int64(ethNodeNonce), nonce)
+
+		// The dummy key did not get updated
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, dummyAddress)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), nonce)
 	})
 }

@@ -5,7 +5,8 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
-import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
+import "./KeeperRegistryLogic1_3.sol";
+import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterface1_3.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -14,7 +15,7 @@ import "../interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistryDev is
+contract KeeperRegistry1_3 is
   KeeperRegistryBase,
   Proxy,
   TypeAndVersionInterface,
@@ -43,23 +44,19 @@ contract KeeperRegistryDev is
   string public constant override typeAndVersion = "KeeperRegistry 1.3.0";
 
   /**
-   * @param paymentModel one of Default, Arbitrum, and Optimism
-   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
-   * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
-   * @param fastGasFeed address of the Fast Gas price feed
+   * @param keeperRegistryLogic the address of keeper registry logic
    * @param config registry config settings
    */
-  constructor(
-    PaymentModel paymentModel,
-    uint256 registryGasOverhead,
-    address link,
-    address linkEthFeed,
-    address fastGasFeed,
-    address keeperRegistryLogic,
-    Config memory config
-  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
-    KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
+  constructor(KeeperRegistryLogic1_3 keeperRegistryLogic, Config memory config)
+    KeeperRegistryBase(
+      keeperRegistryLogic.PAYMENT_MODEL(),
+      keeperRegistryLogic.REGISTRY_GAS_OVERHEAD(),
+      address(keeperRegistryLogic.LINK()),
+      address(keeperRegistryLogic.LINK_ETH_FEED()),
+      address(keeperRegistryLogic.FAST_GAS_FEED())
+    )
+  {
+    KEEPER_REGISTRY_LOGIC = address(keeperRegistryLogic);
     setConfig(config);
   }
 

@@ -10,13 +10,51 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
+
+const formattedVRFJob = `
+type = "vrf"
+name = "vrf_v2"
+schemaVersion = 1
+coordinatorAddress = "%s"
+publicKey = "%s"
+minIncomingConfirmations = 3
+evmChainID = "%d"
+fromAddresses = ["%s"]
+pollPeriod = "5s"
+requestTimeout = "24hr"
+observationSource = """decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1.1"
+              data="$(vrf.output)"]
+simulate     [type=ethcall
+              to="%s"
+              gas="$(estimate_gas)"
+              gasPrice="$(jobSpec.maxGasPrice)"
+              extractRevertReason=true
+              contract="%s"
+              data="$(vrf.output)"]
+decode_log->vrf->estimate_gas->simulate
+""" 
+`
 
 func deployUniverse(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
@@ -56,6 +94,24 @@ func deployUniverse(e helpers.Environment) {
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
 		*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 	}
+
+	// Generate compressed public key and key hash
+	pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
+	helpers.PanicErr(err)
+	pk, err := crypto.UnmarshalPubkey(pubBytes)
+	helpers.PanicErr(err)
+	var pkBytes []byte
+	if big.NewInt(0).Mod(pk.Y, big.NewInt(2)).Uint64() != 0 {
+		pkBytes = append(pk.X.Bytes(), 1)
+	} else {
+		pkBytes = append(pk.X.Bytes(), 0)
+	}
+	var newPK secp256k1.PublicKey
+	copy(newPK[:], pkBytes)
+
+	compressedPkHex := hexutil.Encode(pkBytes)
+	keyHash, err := newPK.Hash()
+	helpers.PanicErr(err)
 
 	if len(*linkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
@@ -147,6 +203,17 @@ func deployUniverse(e helpers.Environment) {
 		helpers.FundNodes(e, []string{*registerKeyOracleAddress}, big.NewInt(*oracleFundingAmount))
 	}
 
+	formattedJobSpec := fmt.Sprintf(
+		formattedVRFJob,
+		coordinatorAddress,
+		compressedPkHex,
+		e.ChainID,
+		*registerKeyOracleAddress,
+		coordinatorAddress,
+		coordinatorAddress,
+		coordinatorAddress,
+	)
+
 	fmt.Println(
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
@@ -158,7 +225,10 @@ func deployUniverse(e helpers.Environment) {
 		"\nVRF Consumer Address:", consumerAddress,
 		"\nVRF Subscription Id:", subID,
 		"\nVRF Subscription Balance:", *subscriptionBalanceString,
-		"\nA node can now be configured to run a VRF job with the above configuration.",
+		"\nPossible VRF Request command: ",
+		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, keyHash),
+		"\nA node can now be configured to run a VRF job with the below job spec :\n",
+		formattedJobSpec,
 	)
 }
 

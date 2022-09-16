@@ -29,12 +29,36 @@ import (
 var _ = Describe("Direct request suite @runlog", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Runlog suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(10)),
-			Entry("Runlog suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.1)),
-			Entry("Runlog suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
-			Entry("Runlog suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
-			Entry("Runlog suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
-			Entry("Runlog suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
+			Entry("Runlog suite on Simulated Network @simulated",
+				networks.SimulatedEVM,
+				big.NewFloat(10),
+				defaultRunlogEnv(networks.SimulatedEVM),
+			),
+			Entry("Runlog suite on General EVM @general",
+				networks.GeneralEVM(),
+				big.NewFloat(.1),
+				defaultRunlogEnv(networks.GeneralEVM()),
+			),
+			Entry("Runlog suite on Metis Stardust @metis",
+				networks.MetisStardust,
+				big.NewFloat(.01),
+				defaultRunlogEnv(networks.MetisStardust),
+			),
+			Entry("Runlog suite on Sepolia Testnet @sepolia",
+				networks.SepoliaTestnet,
+				big.NewFloat(.1),
+				defaultRunlogEnv(networks.SepoliaTestnet),
+			),
+			Entry("Runlog suite on on Görli Testnet @goerli",
+				networks.GoerliTestnet,
+				big.NewFloat(.1),
+				defaultRunlogEnv(networks.GoerliTestnet),
+			),
+			Entry("Runlog suite on Klaytn Baobab @klaytn",
+				networks.KlaytnBaobab,
+				big.NewFloat(1),
+				defaultRunlogEnv(networks.KlaytnBaobab),
+			),
 		}
 
 		err              error
@@ -58,25 +82,12 @@ var _ = Describe("Direct request suite @runlog", func() {
 	DescribeTable("Direct request suite on different EVM networks", func(
 		testNetwork *blockchain.EVMNetwork,
 		funding *big.Float,
+		env *environment.Environment,
 	) {
-		evmChart := ethereum.New(nil)
-		if !testNetwork.Simulated {
-			evmChart = ethereum.New(&ethereum.Props{
-				NetworkName: testNetwork.Name,
-				Simulated:   testNetwork.Simulated,
-				WsURLs:      testNetwork.URLs,
-			})
-		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		}).
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart).
-			AddHelm(chainlink.New(0, map[string]interface{}{
-				"env": testNetwork.ChainlinkValuesMap(),
-			}))
+		testEnvironment = env
+		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
+
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -161,3 +172,21 @@ var _ = Describe("Direct request suite @runlog", func() {
 		testScenarios,
 	)
 })
+
+func defaultRunlogEnv(network *blockchain.EVMNetwork) *environment.Environment {
+	evmConfig := ethereum.New(nil)
+	if !network.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	return environment.New(&environment.Config{}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"env": network.ChainlinkValuesMap(),
+		}))
+}

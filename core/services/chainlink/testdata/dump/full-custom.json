@@ -17,6 +17,7 @@
         "EvmGasBumpWei": "159",
         "EvmGasFeeCapDefault": "9876",
         "EvmGasLimitDefault": "99",
+        "EvmGasLimitMax": "100",
         "EvmGasLimitMultiplier": 1.75,
         "EvmGasLimitOCRJobType": "9991",
         "EvmGasLimitDRJobType": "9992",
@@ -101,21 +102,43 @@
       }
     ]
   },
+  "StarknetChains": [
+    {
+      "ID": "foobar",
+      "Enabled": true,
+      "CFG": {
+        "OCR2CachePollPeriod": "6h0m0s",
+        "OCR2CacheTTL": "3m0s",
+        "RequestTimeout": "1m3s",
+        "TxTimeout": "13s",
+        "TxSendFrequency": "42s",
+        "TxMaxBatchSize": 17
+      }
+    }
+  ],
+  "StarknetNodes": {
+    "foobar": [
+      {
+        "Name": "primary",
+        "URL": "http://stark.node"
+      }
+    ]
+  },
   "TerraChains": [
     {
       "ID": "Columbus-5",
       "Enabled": true,
       "CFG": {
-        "BlockRate":             "10m6s",
-        "BlocksUntilTxTimeout":  86,
-        "ConfirmPollPeriod":     "1m4s",
+        "BlockRate": "10m6s",
+        "BlocksUntilTxTimeout": 86,
+        "ConfirmPollPeriod": "1m4s",
         "FallbackGasPriceULuna": "9.5",
-        "FCDURL":                "http://fcd.url",
-        "GasLimitMultiplier":    1.65,
-        "MaxMsgsPerBatch":       9,
-        "OCR2CachePollPeriod":   "4m",
-        "OCR2CacheTTL":          "6h5s",
-        "TxMsgTimeout":          "9m"
+        "FCDURL": "http://fcd.url",
+        "GasLimitMultiplier": 1.65,
+        "MaxMsgsPerBatch": 9,
+        "OCR2CachePollPeriod": "4m",
+        "OCR2CacheTTL": "6h5s",
+        "TxMsgTimeout": "9m"
       }
     }
   ],

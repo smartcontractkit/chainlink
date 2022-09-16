@@ -38,11 +38,14 @@ type NodeSelector interface {
 	// Select() returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
 	Select() Node
+	// Name() returns the strategy name, e.g. "HighestHead" or "RoundRobin"
+	Name() string
 }
 
 // PoolConfig represents settings for the Pool
 type PoolConfig interface {
 	NodeSelectionMode() string
+	NodeNoNewHeadsThreshold() time.Duration
 }
 
 // Pool represents an abstraction over one or more primary nodes
@@ -76,12 +79,19 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 		}
 	}()
 
+	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
+
+	if cfg.NodeNoNewHeadsThreshold() == 0 && cfg.NodeSelectionMode() == NodeSelectionMode_HighestHead {
+		lggr.Warn("NODE_SELECTION_MODE=HighestHead will not work for NODE_NO_NEW_HEADS_THRESHOLD=0, the pool will use RoundRobin mode.")
+		nodeSelector = NewRoundRobinSelector(nodes)
+	}
+
 	p := &Pool{
 		utils.StartStopOnce{},
 		nodes,
 		sendonlys,
 		chainID,
-		logger.Named("Pool").With("evmChainID", chainID.String()),
+		lggr,
 		cfg,
 		nodeSelector,
 		make(chan struct{}),
@@ -232,7 +242,7 @@ func (p *Pool) selectNode() Node {
 	node := p.nodeSelector.Select()
 
 	if node == nil {
-		p.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", p.config.NodeSelectionMode())
+		p.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", p.nodeSelector.Name())
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
 	}
 
