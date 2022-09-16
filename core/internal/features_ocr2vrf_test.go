@@ -186,7 +186,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 	}
 
 	t.Log("starting ticker to commit blocks")
-	tick := time.NewTicker(15 * time.Second)
+	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
 	go func() {
 		for range tick.C {
