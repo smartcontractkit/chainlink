@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/integration-tests
 
-go 1.19
+go 1.18
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
@@ -266,7 +266,7 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220913010951-94dd0368b953 // indirect
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220802183403-8cb2a10769b5 // indirect
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect

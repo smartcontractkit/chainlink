@@ -235,7 +235,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		}
 	}
 
-	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, upkeep, ex.orm.config, ex.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
+	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, upkeep, ex.orm.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
 
 	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
 	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
@@ -309,7 +309,6 @@ func buildJobSpec(
 	jb job.Job,
 	upkeep UpkeepRegistration,
 	ormConfig RegistryGasChecker,
-	exConfig RegistryGasChecker,
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
@@ -323,12 +322,11 @@ func buildJobSpec(
 			"upkeepID":              upkeep.UpkeepID.String(),
 			"prettyID":              upkeep.PrettyID(),
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
-			"checkUpkeepGasLimit": exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
-				exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":   gasPrice,
-			"gasTipCap":  gasTipCap,
-			"gasFeeCap":  gasFeeCap,
-			"evmChainID": chainID,
+			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
+			"gasPrice":              gasPrice,
+			"gasTipCap":             gasTipCap,
+			"gasFeeCap":             gasFeeCap,
+			"evmChainID":            chainID,
 		},
 	}
 }

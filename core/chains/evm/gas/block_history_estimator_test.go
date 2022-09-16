@@ -1504,7 +1504,7 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 
 	gas.SetRollingBlockHistory(bhe, blocks)
 	bhe.Recalculate(cltest.Head(1))
-	gas.SimulateStart(bhe)
+	gas.SimulateStart(t, bhe)
 
 	t.Run("if gas price is lower than global max and user specified max gas price", func(t *testing.T) {
 		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, maxGasPrice)
@@ -1531,7 +1531,7 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 	bhe = newBlockHistoryEstimator(t, nil, cfg)
 	gas.SetRollingBlockHistory(bhe, blocks)
 	bhe.Recalculate(cltest.Head(1))
-	gas.SimulateStart(bhe)
+	gas.SimulateStart(t, bhe)
 
 	t.Run("if gas price is higher than global max", func(t *testing.T) {
 		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, maxGasPrice)
@@ -1574,7 +1574,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	gas.SetRollingBlockHistory(bhe, blocks)
 
 	bhe.Recalculate(cltest.Head(1))
-	gas.SimulateStart(bhe)
+	gas.SimulateStart(t, bhe)
 
 	t.Run("if estimator is missing base fee and gas bumping is enabled", func(t *testing.T) {
 		cfg.On("EvmGasBumpThreshold").Return(uint64(1)).Once()

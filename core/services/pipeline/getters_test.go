@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -64,6 +65,9 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 	errVal, err := vars.Get("err")
 	require.NoError(t, err)
 
+	big, ok := new(big.Int).SetString("314159265358979323846264338327950288419716939937510582097494459", 10)
+	require.True(t, ok)
+
 	tests := []struct {
 		json        string
 		field       string
@@ -80,6 +84,10 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 		{`{}`, "", map[string]interface{}{}, nil, false},
 		{`{ "e": $(err) }`, "e", errVal, nil, true},
 		{`null`, "", nil, nil, false},
+		{`{ "x": 314159265358979323846264338327950288419716939937510582097494459 }`, "x", big, nil, false},
+		{`{ "x": 3141592653589 }`, "x", int64(3141592653589), nil, false},
+		{`{ "x": 18446744073709551615 }`, "x", uint64(18446744073709551615), nil, false},
+		{`{ "x": 3141592653589.567 }`, "x", float64(3141592653589.567), nil, false},
 		// errors
 		{`  `, "", nil, pipeline.ErrParameterEmpty, false},
 		{`{ "x": $(missing) }`, "x", nil, pipeline.ErrKeypathNotFound, false},

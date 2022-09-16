@@ -2,6 +2,9 @@ package fluxmonitorv2
 
 import (
 	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -27,8 +30,9 @@ func (fm *FluxMonitor) ExportedBacklog() *utils.BoundedPriorityQueue[log.Broadca
 	return fm.backlog
 }
 
-func (fm *FluxMonitor) ExportedRoundState() {
-	fm.roundState(0)
+func (fm *FluxMonitor) ExportedRoundState(t *testing.T) {
+	_, err := fm.roundState(0)
+	require.NoError(t, err)
 }
 
 func (fm *FluxMonitor) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound, broadcast log.Broadcast) {
