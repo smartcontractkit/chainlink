@@ -325,7 +325,7 @@ func (c *coordinator) getBlockhashesMapping(
 	blockNumbers []uint64,
 ) (blockhashesMapping map[uint64]common.Hash, err error) {
 
-	heads, err := c.lp.GetBlocks(blockNumbers, pg.WithParentCtx(ctx))
+	heads, err := c.lp.GetBlocks(ctx, blockNumbers, pg.WithParentCtx(ctx))
 	if len(heads) != len(blockNumbers) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
 		return
