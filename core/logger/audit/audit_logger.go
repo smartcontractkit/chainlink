@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
@@ -23,9 +24,9 @@ const webRequestTimeout = 10
 type Data = map[string]any
 
 type AuditLogger interface {
+	services.ServiceCtx
+
 	Audit(eventID EventID, data Data)
-	Start()
-	Stop()
 }
 
 type AuditLoggerConfig struct {
@@ -137,18 +138,14 @@ func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogge
 		chDone:         make(chan struct{}),
 	}
 
-	// Start our go routine that will receive logs and send them out to the
-	// configured service.
-	// /go auditLogger.auditLoggerRoutine()
-
 	return &auditLogger, nil
 }
 
 // Entrypoint for new audit logs. This buffers all logs that come in they will
-// / sent out by the goroutine that was started when the AuditLoggerService was
-// / created. If this service was not enabled, this immeidately returns.
-// /
-// / This function never blocks.
+// sent out by the goroutine that was started when the AuditLoggerService was
+// created. If this service was not enabled, this immeidately returns.
+//
+// This function never blocks.
 func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 	if !l.enabled {
 		return
@@ -170,17 +167,48 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 	}
 }
 
-// Start is a comment which satisfies the linter
-func (l *AuditLoggerService) Start() {
+// Start the audit logger and begin processing logs on the channel
+func (l *AuditLoggerService) Start(context.Context) error {
+	if !l.enabled {
+		return errors.Errorf("The audit logger is not enabled")
+	}
 	l.logger.Debugf("Enabled audit logger service")
 	go l.runLoop()
+
+	return nil
 }
 
-// Stop is a comment which satisfies the linter
-func (l *AuditLoggerService) Stop() {
+// Stops the logger and will close the channel.
+func (l *AuditLoggerService) Close() error {
+	if !l.enabled {
+		return errors.Errorf("The audit logger is not enabled")
+	}
+
 	l.logger.Warnf("Disabled the audit logger service")
 	l.cancel()
 	<-l.chDone
+
+	return nil
+}
+
+func (l *AuditLoggerService) Healthy() error {
+	if !l.enabled {
+		return errors.Errorf("The audit logger is not enabled")
+	}
+
+	if len(l.loggingChannel) == bufferCapacity {
+		return errors.Errorf("The audit log buffer is full")
+	}
+
+	return nil
+}
+
+func (l *AuditLoggerService) Ready() error {
+	if !l.enabled {
+		return errors.Errorf("The audit logger is not enabled")
+	}
+
+	return nil
 }
 
 // Entrypoint for our log handling goroutine. This waits on the channel and sends out

@@ -207,9 +207,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, errors.Errorf("Unable to initialize audit logger: %s", err)
 	}
 
-	if auditLogger != nil {
-		auditLogger.Start()
-	}
+	subservices = append(subservices, auditLogger)
 
 	var profiler *pyroscope.Profiler
 	if cfg.PyroscopeServerAddress() != "" {
