@@ -215,8 +215,6 @@ type Config struct {
 	FileMaxSizeMB  int
 	FileMaxAgeDays int
 	FileMaxBackups int // files
-	Hostname       string
-	ChainlinkDev   bool
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
