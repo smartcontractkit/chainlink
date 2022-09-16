@@ -3,9 +3,10 @@
 package mocks
 
 import (
-	big "math/big"
-
 	assets "github.com/smartcontractkit/chainlink/core/assets"
+	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+
+	big "math/big"
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
@@ -95,6 +96,22 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(uuid.UUID)
+		}
+	}
+
+	return r0
+}
+
+// AuditLogger provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLogger() *audit.AuditLoggerConfig {
+	ret := _m.Called()
+
+	var r0 *audit.AuditLoggerConfig
+	if rf, ok := ret.Get(0).(func() *audit.AuditLoggerConfig); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*audit.AuditLoggerConfig)
 		}
 	}
 
