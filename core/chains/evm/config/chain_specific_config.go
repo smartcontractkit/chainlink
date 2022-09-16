@@ -200,8 +200,10 @@ func setChainSpecificConfigDefaultSets() {
 	simulated.blockEmissionIdleWarningThreshold = 0
 	simulated.nodeDeadAfterNoNewHeadersThreshold = 0 // Assume simulated chain can never die
 	simulated.ethTxResendAfterThreshold = 0
-	simulated.finalityDepth = 1    // Simulated does not have re-orgs
-	simulated.gasBumpThreshold = 0 // Never bump gas
+	simulated.gasFeeCapDefault = *assets.GWei(100000)
+	simulated.maxGasPriceWei = *assets.GWei(100000) // must be the same as gasFeeCapDefault in FixedPrice mode with gas bumping disabled
+	simulated.finalityDepth = 1                     // Simulated does not have re-orgs
+	simulated.gasBumpThreshold = 0                  // Never bump gas
 	simulated.gasEstimatorMode = "FixedPrice"
 	simulated.headTrackerHistoryDepth = 10
 	simulated.headTrackerSamplingInterval = 1 * time.Second

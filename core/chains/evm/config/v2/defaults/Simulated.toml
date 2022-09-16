@@ -12,6 +12,8 @@ BlockDelay = 0
 Mode = 'FixedPrice'
 PriceMin = '0'
 BumpThreshold = 0
+FeeCapDefault = '100 micro'
+PriceMax = '100 micro'
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
