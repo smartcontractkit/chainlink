@@ -158,8 +158,12 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	jbj, _ := json.Marshal(jb)
-	jc.App.GetAuditLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
+	jbj, err := json.Marshal(jb)
+	if err == nil {
+		jc.App.GetAuditLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
+	} else {
+		jc.App.GetLogger().Errorf("Could not send audit log for JobCreation", "err", err)
+	}
 
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }

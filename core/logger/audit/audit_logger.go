@@ -33,7 +33,7 @@ type AuditLoggerConfig struct {
 	ForwardToUrl   *string
 	Environment    *string
 	JsonWrapperKey *string
-	Headers        []serviceHeader
+	Headers        []ServiceHeader
 }
 
 func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string, encodedHeaders string) (AuditLoggerConfig, error) {
@@ -51,7 +51,7 @@ func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string
 	}
 
 	// Split and prepare optional service client headers from env variable
-	headers := []serviceHeader{}
+	headers := []ServiceHeader{}
 	if encodedHeaders != "" {
 		headerLines := strings.Split(encodedHeaders, "\\")
 		for _, header := range headerLines {
@@ -59,9 +59,9 @@ func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string
 			if len(keyValue) != 2 {
 				return AuditLoggerConfig{}, errors.Errorf("Invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
-			headers = append(headers, serviceHeader{
-				header: keyValue[0],
-				value:  keyValue[1],
+			headers = append(headers, ServiceHeader{
+				Header: keyValue[0],
+				Value:  keyValue[1],
 			})
 		}
 	}
@@ -78,25 +78,25 @@ type AuditLoggerService struct {
 	logger          logger.Logger   // The standard logger configured in the node
 	enabled         bool            // Whether the audit logger is enabled or not
 	forwardToUrl    string          // Location we are going to send logs to
-	headers         []serviceHeader // Headers to be sent along with logs for identification/authentication
+	headers         []ServiceHeader // Headers to be sent along with logs for identification/authentication
 	jsonWrapperKey  string          // Wrap audit data as a map under this key if present
 	environmentName string          // Decorate the environment this is coming from
 	hostname        string          // The self-reported hostname of the machine
 	localIP         string          // A non-loopback IP address as reported by the machine
 
-	loggingChannel chan WrappedAuditLog
+	loggingChannel chan wrappedAuditLog
 	ctx            context.Context
 	cancel         context.CancelFunc
 	chDone         chan struct{}
 }
 
 // Configurable headers to include in POST to log service
-type serviceHeader struct {
-	header string
-	value  string
+type ServiceHeader struct {
+	Header string
+	Value  string
 }
 
-type WrappedAuditLog struct {
+type wrappedAuditLog struct {
 	eventID EventID
 	data    Data
 }
@@ -119,7 +119,7 @@ func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogge
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	loggingChannel := make(chan WrappedAuditLog, bufferCapacity)
+	loggingChannel := make(chan wrappedAuditLog, bufferCapacity)
 
 	// Create new AuditLoggerService
 	auditLogger := AuditLoggerService{
@@ -151,7 +151,7 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 		return
 	}
 
-	wrappedLog := WrappedAuditLog{
+	wrappedLog := wrappedAuditLog{
 		eventID: eventID,
 		data:    data,
 	}
@@ -259,9 +259,12 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 
 	// Send to remote service
 	httpClient := &http.Client{Timeout: time.Second * webRequestTimeout}
-	req, _ := http.NewRequest("POST", l.forwardToUrl, bytes.NewReader(serializedLog))
+	req, err := http.NewRequest("POST", l.forwardToUrl, bytes.NewReader(serializedLog))
+	if err != nil {
+		l.logger.Errorf("Failed to create request to remote logging service!")
+	}
 	for _, header := range l.headers {
-		req.Header.Add(header.header, header.value)
+		req.Header.Add(header.Header, header.Value)
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
