@@ -168,7 +168,7 @@ func (g *generalConfig) AllowOrigins() string {
 }
 
 func (g *generalConfig) AuditLoggerConfig() *audit.AuditLoggerConfig {
-	return g.c.AuditLoggerConfig
+	return g.c.AuditLogger
 }
 
 func (g *generalConfig) AuthenticatedRateLimit() int64 {
