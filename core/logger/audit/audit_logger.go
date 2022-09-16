@@ -2,6 +2,7 @@ package audit
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net"
@@ -11,33 +12,41 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 )
 
 const bufferCapacity = 2048
+const webRequestTimeout = 10
 
 type Data = map[string]any
 
 type AuditLogger interface {
 	Audit(eventID EventID, data Data)
+	Start()
+	Stop()
 }
 
 type AuditLoggerConfig struct {
-	forwardToUrl   string
-	environment    string
-	jsonWrapperKey string
-	headers        []serviceHeader
+	ForwardToUrl   *string
+	Environment    *string
+	JsonWrapperKey *string
+	Headers        []serviceHeader
 }
 
 func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string, encodedHeaders string) (AuditLoggerConfig, error) {
+	if forwardToUrl == "" {
+		return AuditLoggerConfig{}, errors.Errorf("No forwardToURL provided")
+	}
+
+	if _, err := models.ParseURL(forwardToUrl); err != nil {
+		return AuditLoggerConfig{}, errors.Errorf("forwardToURL value is not a valid URL")
+	}
+
 	environment := "production"
 	if isDev {
 		environment = "develop"
-	}
-
-	if forwardToUrl == "" {
-		return AuditLoggerConfig{}, errors.Errorf("No forwardToURL provided")
 	}
 
 	// Split and prepare optional service client headers from env variable
@@ -57,23 +66,27 @@ func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string
 	}
 
 	return AuditLoggerConfig{
-		forwardToUrl:   forwardToUrl,
-		environment:    environment,
-		jsonWrapperKey: jsonWrapperKey,
-		headers:        headers,
+		ForwardToUrl:   &forwardToUrl,
+		Environment:    &environment,
+		JsonWrapperKey: &jsonWrapperKey,
+		Headers:        headers,
 	}, nil
 }
 
 type AuditLoggerService struct {
-	logger          logger.Logger
-	enabled         bool
-	serviceURL      string
-	serviceHeaders  []serviceHeader
-	jsonWrapperKey  string
-	environmentName string
-	hostname        string
-	localIP         string
-	loggingChannel  chan WrappedAuditLog
+	logger          logger.Logger   // The standard logger configured in the node
+	enabled         bool            // Whether the audit logger is enabled or not
+	forwardToUrl    string          // Location we are going to send logs to
+	headers         []serviceHeader // Headers to be sent along with logs for identification/authentication
+	jsonWrapperKey  string          // Wrap audit data as a map under this key if present
+	environmentName string          // Decorate the environment this is coming from
+	hostname        string          // The self-reported hostname of the machine
+	localIP         string          // A non-loopback IP address as reported by the machine
+
+	loggingChannel chan WrappedAuditLog
+	ctx            context.Context
+	cancel         context.CancelFunc
+	chDone         chan struct{}
 }
 
 // Configurable headers to include in POST to log service
@@ -103,29 +116,35 @@ func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogge
 		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	loggingChannel := make(chan WrappedAuditLog, bufferCapacity)
 
-	// Finally, create new auditLogger with parameters
+	// Create new AuditLoggerService
 	auditLogger := AuditLoggerService{
 		logger:          logger.Helper(1),
 		enabled:         true,
-		serviceURL:      config.forwardToUrl,
-		serviceHeaders:  config.headers,
-		jsonWrapperKey:  config.jsonWrapperKey,
-		environmentName: config.environment,
+		forwardToUrl:    *config.ForwardToUrl,
+		headers:         config.Headers,
+		jsonWrapperKey:  *config.JsonWrapperKey,
+		environmentName: *config.Environment,
 		hostname:        hostname,
 		localIP:         getLocalIP(),
-		loggingChannel:  loggingChannel,
+
+		loggingChannel: loggingChannel,
+		ctx:            ctx,
+		cancel:         cancel,
+		chDone:         make(chan struct{}),
 	}
 
 	// Start our go routine that will receive logs and send them out to the
 	// configured service.
-	go auditLogger.auditLoggerRoutine()
+	// /go auditLogger.auditLoggerRoutine()
 
 	return &auditLogger, nil
 }
 
-// / Entrypoint for new audit logs. This buffers all logs that come in they will
+// Entrypoint for new audit logs. This buffers all logs that come in they will
 // / sent out by the goroutine that was started when the AuditLoggerService was
 // / created. If this service was not enabled, this immeidately returns.
 // /
@@ -151,24 +170,44 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 	}
 }
 
-// / Entrypoint for our log handling goroutine. This waits on the channel and sends out
-// / logs as they come in.
-// /
-// / This function calls postLogToLogService which blocks.
-func (l *AuditLoggerService) auditLoggerRoutine() {
-	for event := range l.loggingChannel {
-		l.postLogToLogService(event.eventID, event.data)
-	}
-
-	l.logger.Errorw("Audit logger is shut down. Will not send requested audit log")
+// Start is a comment which satisfies the linter
+func (l *AuditLoggerService) Start() {
+	l.logger.Debugf("Enabled audit logger service")
+	go l.runLoop()
 }
 
-// / Takes an EventID and associated data and sends it to the configured logging
-// / endpoint. This function blocks on the send by timesout after a period of
-// / several seconds. This helps us prevent getting stuck on a single log
-// / due to transient network errors.
-// /
-// / This function blocks when called.
+// Stop is a comment which satisfies the linter
+func (l *AuditLoggerService) Stop() {
+	l.logger.Warnf("Disabled the audit logger service")
+	l.cancel()
+	<-l.chDone
+}
+
+// Entrypoint for our log handling goroutine. This waits on the channel and sends out
+// logs as they come in.
+//
+// This function calls postLogToLogService which blocks.
+func (l *AuditLoggerService) runLoop() {
+	defer close(l.chDone)
+
+	for {
+		select {
+		case <-l.ctx.Done():
+			// I've made this an error since we expect it should never happen.
+			l.logger.Errorf("The audit logger has been requested to shut down!")
+			return
+		case event := <-l.loggingChannel:
+			l.postLogToLogService(event.eventID, event.data)
+		}
+	}
+}
+
+// Takes an EventID and associated data and sends it to the configured logging
+// endpoint. This function blocks on the send by timesout after a period of
+// several seconds. This helps us prevent getting stuck on a single log
+// due to transient network errors.
+//
+// This function blocks when called.
 func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	// Audit log JSON data
 	logItem := map[string]interface{}{
@@ -190,10 +229,10 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 		return
 	}
 
-	// Send up to HEC log collector
-	httpClient := &http.Client{Timeout: time.Second * 10}
-	req, _ := http.NewRequest("POST", l.serviceURL, bytes.NewReader(serializedLog))
-	for _, header := range l.serviceHeaders {
+	// Send to remote service
+	httpClient := &http.Client{Timeout: time.Second * webRequestTimeout}
+	req, _ := http.NewRequest("POST", l.forwardToUrl, bytes.NewReader(serializedLog))
+	for _, header := range l.headers {
 		req.Header.Add(header.header, header.value)
 	}
 	resp, err := httpClient.Do(req)

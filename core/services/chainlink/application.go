@@ -207,6 +207,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, errors.Errorf("Unable to initialize audit logger: %s", err)
 	}
 
+	if auditLogger != nil {
+		auditLogger.Start()
+	}
+
 	var profiler *pyroscope.Profiler
 	if cfg.PyroscopeServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
