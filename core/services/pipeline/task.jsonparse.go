@@ -38,7 +38,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
@@ -112,22 +112,9 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	switch val := decoded.(type) {
 	case json.Number:
-		bn, ok := new(big.Int).SetString(val.String(), 10)
-		if ok {
-			if bn.IsInt64() {
-				decoded = bn.Int64()
-			} else if bn.IsUint64() {
-				decoded = bn.Uint64()
-			} else {
-				decoded = bn
-			}
-		} else {
-			f, err := val.Float64()
-			if err == nil {
-				decoded = f
-			} else {
-				return Result{Error: errors.Wrapf(ErrBadInput, `failed to parse float value: %v`, err)}, runInfo
-			}
+		decoded, err = getJsonNumberValue(val)
+		if err != nil {
+			return Result{Error: multierr.Combine(ErrBadInput, err)}, runInfo
 		}
 	}
 
