@@ -942,7 +942,7 @@ func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64
 		})
 	}
 
-	lp.On("GetBlocks", requestedBlocks, mock.Anything).
+	lp.On("GetBlocks", mock.Anything, requestedBlocks, mock.Anything).
 		Return(logPollerBlocks, nil)
 
 	return lp
