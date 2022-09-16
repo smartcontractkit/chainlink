@@ -43,6 +43,19 @@ func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
 	return out, nil
 }
 
+func GenericDecode(types []string, data []byte) ([]interface{}, error) {
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
+	}
+	out, err := args.Unpack(data)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ConcatBytes appends a bunch of byte arrays into a single byte array
 func ConcatBytes(bufs ...[]byte) []byte {
 	return bytes.Join(bufs, []byte{})

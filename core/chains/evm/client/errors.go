@@ -3,13 +3,11 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strings"
-	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -357,7 +355,10 @@ func extractRPCError(baseErr error) (*JsonError, error) {
 // kovan (parity)
 // { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted
 // rinkeby / ropsten (geth)
-// { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
+// { "error":  { "code": 3, "data": "0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
+// The data field represent an ABI-encoded error, depending on the type of error. See examples below.
+// require(1 == 2, "1 should equal 2") -> Error(string)
+// revert MyError(1, "error") -> MyError(uint256, string)
 func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	jErr, eErr := extractRPCError(err)
 	if eErr != nil {
@@ -367,37 +368,54 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	if !ok {
 		return "", errors.New("invalid error type")
 	}
+	// Some clients return a prefix such "Reverted 0x.."
+	// I wonder if this is only deprecated kovan though?
 	matches := hexDataRegex.FindStringSubmatch(dataStr)
 	if len(matches) != 1 {
 		return "", errors.New("unknown data payload format")
 	}
-	hexData := utils.RemoveHexPrefix(matches[0])
-	if len(hexData) < 8 {
-		return "", errors.New("unknown data payload format")
-	}
-	revertReasonBytes, err := hex.DecodeString(hexData[8:])
+	data, err := hexutil.Decode(matches[0])
 	if err != nil {
-		return "", errors.Wrap(err, "unable to decode hex to bytes")
+		return "", err
 	}
-
-	ln := len(revertReasonBytes)
-	breaker := time.After(time.Second * 5)
-cleanup:
-	for {
-		select {
-		case <-breaker:
-			break cleanup
-		default:
-			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
-			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
-			revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
-			if ln == len(revertReasonBytes) {
-				break cleanup
-			}
-			ln = len(revertReasonBytes)
+	// If this matches Error(string), parse directly.
+	requireSelector := utils.Keccak256Fixed([]byte("Error(string)"))
+	if bytes.Equal(data[:4], requireSelector[:4]) {
+		res, err := utils.GenericDecode([]string{"string"}, data[4:])
+		if err != nil {
+			return "", err
 		}
+		return res[0].(string), nil
 	}
+	// TODO: We could add more known chainlink errors here? Searching through every abi seems like overkill.
+	// If not, its a custom error so return bytes.
+	return hexutil.Encode(data), nil
+	// Try to parse as
+	//revertReasonBytes, err := hex.DecodeString(hexData[8:])
+	//if err != nil {
+	//	return "", errors.Wrap(err, "unable to decode hex to bytes")
+	//}
 
-	revertReason := strings.TrimSpace(string(revertReasonBytes))
-	return revertReason, nil
+	/*
+			ln := len(revertReasonBytes)
+			breaker := time.After(time.Second * 5)
+		cleanup:
+			for {
+				select {
+				case <-breaker:
+					break cleanup
+				default:
+					revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
+					revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
+					revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
+					if ln == len(revertReasonBytes) {
+						break cleanup
+					}
+					ln = len(revertReasonBytes)
+				}
+			}
+
+			revertReason := strings.TrimSpace(string(revertReasonBytes))
+		return revertReason, nil
+	*/
 }

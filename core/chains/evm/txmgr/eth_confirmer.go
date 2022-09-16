@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -573,7 +574,23 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		if receipt.Status == 0 {
-			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			_, err := ec.ethClient.CallContract(context.Background(), ethereum.CallMsg{
+				From:       attempt.EthTx.FromAddress,
+				To:         &attempt.EthTx.ToAddress,
+				Gas:        uint64(attempt.EthTx.GasLimit),
+				GasPrice:   attempt.GasPrice.ToInt(),
+				GasFeeCap:  attempt.GasFeeCap.ToInt(),
+				GasTipCap:  attempt.GasTipCap.ToInt(),
+				Value:      nil,
+				Data:       attempt.EthTx.EncodedPayload,
+				AccessList: nil,
+			}, receipt.BlockNumber)
+			revReason, err := evmclient.ExtractRevertReasonFromRPCError(err)
+			if err == nil {
+				l.Warnf("transaction %s reverted on-chain revert reason %s", receipt.TxHash, revReason)
+			} else {
+				l.Warnf("transaction %s reverted on-chain unable to extract revert reason %v", receipt.TxHash, err)
+			}
 			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
 		} else {
