@@ -6,10 +6,11 @@ import (
 	"log"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/cmd"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
 	registry11 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -28,26 +29,6 @@ type Keeper struct {
 	addFundsAmount *big.Int
 }
 
-// canceller describes the behavior to cancel upkeeps
-type canceller interface {
-	CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
-	WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error)
-	RecoverFunds(opts *bind.TransactOpts) (*types.Transaction, error)
-}
-
-// upkeepDeployer contains functions needed to deploy an upkeep
-type upkeepDeployer interface {
-	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte) (*types.Transaction, error)
-	AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error)
-}
-
-// keepersDeployer contains functions needed to deploy keepers
-type keepersDeployer interface {
-	canceller
-	upkeepDeployer
-	SetKeepers(opts *bind.TransactOpts, keepers []common.Address, payees []common.Address) (*types.Transaction, error)
-}
-
 // NewKeeper creates new instance of Keeper
 func NewKeeper(cfg *config.Config) *Keeper {
 	addFundsAmount := big.NewInt(0)
@@ -61,10 +42,14 @@ func NewKeeper(cfg *config.Config) *Keeper {
 
 // DeployKeepers contains a logic to deploy keepers.
 func (k *Keeper) DeployKeepers(ctx context.Context) {
+	lggr, closeLggr := logger.NewLogger()
+	defer closeLggr()
+
 	keepers, owners := k.keepers()
 	upkeepCount, registryAddr, deployer := k.prepareRegistry(ctx)
 
 	// Create Keeper Jobs on Nodes for Registry
+	cls := make([]cmd.HTTPClient, len(k.cfg.Keepers))
 	for i, keeperAddr := range k.cfg.Keepers {
 		url := k.cfg.KeeperURLs[i]
 		email := k.cfg.KeeperEmails[i]
@@ -75,10 +60,15 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 		if len(pwd) == 0 {
 			pwd = defaultChainlinkNodePassword
 		}
-		err := k.createKeeperJobOnExistingNode(url, email, pwd, registryAddr.Hex(), keeperAddr)
+
+		cl, err := authenticate(url, email, pwd, lggr)
 		if err != nil {
-			log.Printf("Keeper Job not created for keeper %d: %s %s\n", i, url, keeperAddr)
-			log.Println("Please create it manually")
+			log.Fatal(err)
+		}
+		cls[i] = cl
+
+		if err = k.createKeeperJob(cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
+			log.Fatal(err)
 		}
 	}
 
@@ -89,7 +79,7 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
 	// Set Keepers on the registry
-	k.setKeepers(ctx, deployer, keepers, owners)
+	k.setKeepers(ctx, cls, deployer, keepers, owners)
 }
 
 func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, keepersDeployer) {
@@ -114,7 +104,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 				log.Fatal(registryAddr.Hex(), ": UpkeepCount failed - ", err)
 			}
 			upkeepCount = count.Int64()
-			deployer = keeperRegistry11
+			deployer = &v11KeeperDeployer{keeperRegistry11}
 		case keeper.RegistryVersion_1_2:
 			registryAddr, keeperRegistry12 = k.getRegistry12(ctx)
 			state, err := keeperRegistry12.GetState(&callOpts)
@@ -122,7 +112,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
-			deployer = keeperRegistry12
+			deployer = &v12KeeperDeployer{keeperRegistry12}
 		case keeper.RegistryVersion_2_0:
 			registryAddr, keeperRegistry20 = k.getRegistry20(ctx)
 			state, err := keeperRegistry20.GetState(&callOpts)
@@ -130,17 +120,20 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
-			deployer = keeperRegistry20
+			deployer = &v20KeeperDeployer{keeperRegistry20}
 		}
 	} else {
 		// Deploy keeper registry
 		switch k.cfg.RegistryVersion {
 		case keeper.RegistryVersion_1_1:
-			registryAddr, deployer = k.deployRegistry11(ctx)
+			registryAddr, keeperRegistry11 = k.deployRegistry11(ctx)
+			deployer = &v11KeeperDeployer{keeperRegistry11}
 		case keeper.RegistryVersion_1_2:
-			registryAddr, deployer = k.deployRegistry12(ctx)
+			registryAddr, keeperRegistry12 = k.deployRegistry12(ctx)
+			deployer = &v12KeeperDeployer{keeperRegistry12}
 		case keeper.RegistryVersion_2_0:
-			registryAddr, deployer = k.deployRegistry20(ctx)
+			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx)
+			deployer = &v20KeeperDeployer{keeperRegistry20}
 		}
 	}
 
@@ -220,12 +213,16 @@ func (k *Keeper) deployRegistry11(ctx context.Context) (common.Address, *registr
 
 // GetRegistry attaches to an existing registry and possibly updates registry config
 func (k *Keeper) GetRegistry(ctx context.Context) {
-	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 	var registryAddr common.Address
-	if isVersion12 {
-		registryAddr, _ = k.getRegistry12(ctx)
-	} else {
+	switch k.cfg.RegistryVersion {
+	case keeper.RegistryVersion_1_1:
 		registryAddr, _ = k.getRegistry11(ctx)
+	case keeper.RegistryVersion_1_2:
+		registryAddr, _ = k.getRegistry12(ctx)
+	case keeper.RegistryVersion_2_0:
+		registryAddr, _ = k.getRegistry20(ctx)
+	default:
+		panic("unexpected registry address")
 	}
 	log.Println("KeeperRegistry at:", registryAddr)
 }
@@ -346,15 +343,29 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		upkeepAddrs = append(upkeepAddrs, upkeepAddr)
 	}
 
-	keeperRegistry12, err := registry12.NewKeeperRegistry(
-		registryAddr,
-		k.client,
-	)
+	var err error
+	var upkeepGetter activeUpkeepGetter
+	switch k.cfg.RegistryVersion {
+	case keeper.RegistryVersion_1_1:
+		panic("not supported 1.1 registry")
+	case keeper.RegistryVersion_1_2:
+		upkeepGetter, err = registry12.NewKeeperRegistry(
+			registryAddr,
+			k.client,
+		)
+	case keeper.RegistryVersion_2_0:
+		upkeepGetter, err = registry20.NewKeeperRegistry(
+			registryAddr,
+			k.client,
+		)
+	default:
+		panic("unexpected registry address")
+	}
 	if err != nil {
 		log.Fatal("Registry failed: ", err)
 	}
 
-	activeUpkeepIds := k.getActiveUpkeepIds(ctx, keeperRegistry12, big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount))
+	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount))
 
 	for index, upkeepAddr := range upkeepAddrs {
 		// Approve
@@ -373,10 +384,10 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 }
 
 // setKeepers set the keeper list for a registry
-func (k *Keeper) setKeepers(ctx context.Context, deployer keepersDeployer, keepers, owners []common.Address) {
+func (k *Keeper) setKeepers(ctx context.Context, cls []cmd.HTTPClient, deployer keepersDeployer, keepers, owners []common.Address) {
 	if len(keepers) > 0 {
 		log.Println("Set keepers...")
-		setKeepersTx, err := deployer.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
+		setKeepersTx, err := deployer.SetKeepers(k.buildTxOpts(ctx), cls, keepers, owners)
 		if err != nil {
 			log.Fatal("SetKeepers failed: ", err)
 		}
@@ -411,11 +422,17 @@ func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registry
 		log.Println("Failed to create keeper job: ", err)
 		return err
 	}
+
 	return nil
 }
 
-// getActiveUpkeepIds retrieves active upkeep ids from registry 1.2
-func (k *Keeper) getActiveUpkeepIds(ctx context.Context, registry *registry12.KeeperRegistry, from, to *big.Int) []*big.Int {
+type activeUpkeepGetter interface {
+	Address() common.Address
+	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
+}
+
+// getActiveUpkeepIds retrieves active upkeep ids from registry
+func (k *Keeper) getActiveUpkeepIds(ctx context.Context, registry activeUpkeepGetter, from, to *big.Int) []*big.Int {
 	activeUpkeepIds, err := registry.GetActiveUpkeepIDs(&bind.CallOpts{
 		Pending: false,
 		From:    k.fromAddr,

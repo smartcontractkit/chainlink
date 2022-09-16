@@ -13,12 +13,14 @@ import (
 	"sync"
 	"syscall"
 
+	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+
 	"github.com/google/uuid"
+	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -86,6 +88,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
 	var owners []common.Address
+	var cls []cmd.HTTPClient
 	for _, startedNode := range startedNodes {
 		if startedNode.err != nil {
 			log.Println("Failed to start node: ", startedNode.err)
@@ -128,12 +131,13 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 			}
 		}
 
+		cls = append(cls, cl)
 		keepers = append(keepers, nodeAddr)
 		owners = append(owners, k.fromAddr)
 	}
 
 	// Set Keepers
-	k.setKeepers(ctx, deployer, keepers, owners)
+	k.setKeepers(ctx, cls, deployer, keepers, owners)
 
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -149,9 +153,13 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 	// Cancel upkeeps and withdraw funds
 	if withdraw {
-		isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 		log.Println("Canceling upkeeps...")
-		if isVersion12 {
+		switch k.cfg.RegistryVersion {
+		case keeper.RegistryVersion_1_1:
+			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
+		case keeper.RegistryVersion_1_2:
 			registry, err := registry12.NewKeeperRegistry(
 				registryAddr,
 				k.client,
@@ -159,15 +167,26 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 			if err != nil {
 				log.Fatal("Registry failed: ", err)
 			}
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
 
-			if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
-		} else {
-			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
+		case keeper.RegistryVersion_2_0:
+			registry, err := registry20.NewKeeperRegistry(
+				registryAddr,
+				k.client,
+			)
+			if err != nil {
+				log.Fatal("Registry failed: ", err)
+			}
+
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
+		default:
+			panic("unexpected registry address")
 		}
 		log.Println("Upkeeps successfully canceled")
 	}
@@ -301,7 +320,7 @@ maxReportLength = 2000`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
 func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
-	ocr2KeyBundleID, err := getNodeOCR2KeyBundleID(client)
+	ocr2KeyConfig, err := getNodeOCR2Config(client)
 	if err != nil {
 		return fmt.Errorf("failed to get node OCR2 key bundle ID: %s", err)
 	}
@@ -310,7 +329,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 		TOML: fmt.Sprintf(ocr2keeperJobTemplate,
 			uuid.New().String(),     // externalJobID
 			contractAddr,            // contractID
-			ocr2KeyBundleID,         // ocrKeyBundleID
+			ocr2KeyConfig.ID,        // ocrKeyBundleID
 			nodeAddr,                // transmitterID - node wallet address
 			k.cfg.BootstrapNodeAddr, // bootstrap node key and address
 			k.cfg.ChainID,           // chainID

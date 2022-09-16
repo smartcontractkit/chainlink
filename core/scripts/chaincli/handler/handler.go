@@ -354,24 +354,24 @@ func getNodeAddress(client cmd.HTTPClient) (string, error) {
 }
 
 // getNodeAddress returns chainlink node's OCR2 bundle key ID
-func getNodeOCR2KeyBundleID(client cmd.HTTPClient) (string, error) {
+func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
 	resp, err := client.Get("/v2/keys/ocr2")
 	if err != nil {
-		return "", fmt.Errorf("failed to get OCR2 keys: %s", err)
+		return nil, fmt.Errorf("failed to get OCR2 keys: %s", err)
 	}
 	defer resp.Body.Close()
 
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %s", err)
+		return nil, fmt.Errorf("failed to read response body: %s", err)
 	}
 
 	var keys cmd.OCR2KeyBundlePresenters
 	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response body: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal response body: %s", err)
 	}
 
-	return keys[0].ID, nil
+	return &keys[0], nil
 }
 
 // getP2PKeyID returns chainlink node's P2P key ID

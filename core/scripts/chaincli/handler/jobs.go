@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"log"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func (k *Keeper) CreateJob(ctx context.Context) {
@@ -10,6 +12,9 @@ func (k *Keeper) CreateJob(ctx context.Context) {
 }
 
 func (k *Keeper) createJobs() {
+	lggr, closeLggr := logger.NewLogger()
+	defer closeLggr()
+
 	// Create Keeper Jobs on Nodes for Registry
 	for i, keeperAddr := range k.cfg.Keepers {
 		url := k.cfg.KeeperURLs[i]
@@ -22,9 +27,13 @@ func (k *Keeper) createJobs() {
 			pwd = defaultChainlinkNodePassword
 		}
 
-		if err := k.createKeeperJobOnExistingNode(url, email, pwd, k.cfg.RegistryAddress, keeperAddr); err != nil {
-			log.Printf("Keeper Job not created for keeper %d: %s %s\n", i, url, keeperAddr)
-			log.Println("Please create it manually")
+		cl, err := authenticate(url, email, pwd, lggr)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if err = k.createKeeperJob(cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
+			log.Fatal(err)
 		}
 	}
 }
