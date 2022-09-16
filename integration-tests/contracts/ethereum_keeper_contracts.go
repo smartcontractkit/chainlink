@@ -194,7 +194,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings) error 
 			return err
 		}
 
-		tx, err := v.registry1_2.SetConfig(txOpts, ethereum.Config{
+		tx, err := v.registry1_2.SetConfig(txOpts, ethereum.Config1_2{
 			PaymentPremiumPPB:    config.PaymentPremiumPPB,
 			FlatFeeMicroLink:     config.FlatFeeMicroLINK,
 			BlockCountPerTurn:    config.BlockCountPerTurn,
@@ -219,7 +219,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings) error 
 			return err
 		}
 
-		tx, err := v.registry1_3.SetConfig(txOpts, ethereum.Config{
+		tx, err := v.registry1_3.SetConfig(txOpts, ethereum.Config1_3{
 			PaymentPremiumPPB:    config.PaymentPremiumPPB,
 			FlatFeeMicroLink:     config.FlatFeeMicroLINK,
 			BlockCountPerTurn:    config.BlockCountPerTurn,
@@ -559,6 +559,11 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 		if err != nil {
 			return err
 		}
+	case ethereum.RegistryVersion_1_3:
+		tx, err = v.registry1_3.CancelUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
 	}
 
 	log.Info().
@@ -580,6 +585,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 	switch v.version {
 	case ethereum.RegistryVersion_1_2:
 		tx, err = v.registry1_2.SetUpkeepGasLimit(opts, id, gas)
+		if err != nil {
+			return err
+		}
+	case ethereum.RegistryVersion_1_3:
+		tx, err = v.registry1_3.SetUpkeepGasLimit(opts, id, gas)
 		if err != nil {
 			return err
 		}

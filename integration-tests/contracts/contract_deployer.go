@@ -477,7 +477,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			address:     address,
 		}, err
 	case ethereum.RegistryVersion_1_2:
-		address, _, instance, err := e.client.DeployContract("KeeperRegistry", func(
+		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_2", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
@@ -487,7 +487,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 				common.HexToAddress(opts.LinkAddr),
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
-				ethereum.Config{
+				ethereum.Config1_2{
 					PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
 					FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
 					BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
@@ -515,15 +515,37 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			address:     address,
 		}, err
 	case ethereum.RegistryVersion_1_3:
-		address, _, instance, err := e.client.DeployContract("KeeperRegistry", func(
+		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic1_3", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistryLogic13(
+				auth,
+				backend,
+				uint8(0),          // Default payment model
+				big.NewInt(80000), // Registry gas overhead
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = e.client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+
+		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_3", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return ethereum.DeployKeeperRegistry13(
 				auth,
 				backend,
-				common.HexToAddress(opts.GasFeedAddr),
-				ethereum.Config{
+				*logicAddress,
+				ethereum.Config1_3{
 					PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
 					FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
 					BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
@@ -544,9 +566,10 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		}
 		return &EthereumKeeperRegistry{
 			client:      e.client,
-			version:     ethereum.RegistryVersion_1_2,
+			version:     ethereum.RegistryVersion_1_3,
 			registry1_1: nil,
-			registry1_2: instance.(*ethereum.KeeperRegistry12),
+			registry1_2: nil,
+			registry1_3: instance.(*ethereum.KeeperRegistry13),
 			address:     address,
 		}, err
 
