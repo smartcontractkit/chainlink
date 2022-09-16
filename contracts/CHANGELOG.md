@@ -9,6 +9,7 @@
 - Ignore status update in `ArbitrumSequencerUptimeFeed` if incoming update has stale timestamp
 - Revert to using current Arbitrum seq status flag in `ArbitrumSequencerUptimeFeed`
 - Moved `VRFV2Wrapper`, `VRFV2WrapperConsumerBase` and `interfaces/VRFV2WrapperInterface` out of `dev` folder.
+- Added EIP-150 bugfix for VRFV2Wrapper.sol (b9d8261eaa05838b9b609ea02005ecca3b6adca3)
 
 ## 0.4.1 - 2022-05-09
 
