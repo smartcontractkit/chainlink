@@ -399,7 +399,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 			existingCnt, err = consumerPerformance.GetUpkeepCount(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when consistently block finished")
+			existingCntInt := existingCnt.Int64()
+			log.Info().Int64("Upkeep counter", existingCntInt).Msg("Upkeep counter when consistently block finished")
 
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := defaultRegistryConfig
@@ -413,8 +414,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			Eventually(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()),
-					"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCntInt),
+					"Expected consumer counter to be greater than %d, but got %d", existingCntInt, cnt.Int64(),
 				)
 			}, "1m", "1s").Should(Succeed())
 		}
