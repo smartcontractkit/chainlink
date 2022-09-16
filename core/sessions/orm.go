@@ -245,8 +245,9 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	uwasj, err := json.Marshal(uwas)
 	if err != nil {
 		lggr.Errorf("error in Marshal credentials: %s", err)
+	} else {
+		o.auditLogger.Audit(audit.AuthLoginSuccessWith2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
 	}
-	o.auditLogger.Audit(audit.AuthLoginSuccessWith2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
 
 	return session.ID, nil
 }
