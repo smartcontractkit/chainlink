@@ -4,9 +4,10 @@ RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
 [AuditLogger]
-forwardToUrl = "http://localhost:9898"
-headers = []
-environment = "develop"
+ForwardToUrl = 'http://localhost:9898'
+Environment = 'develop'
+JsonWrapperKey = ''
+Headers = []
 
 [Feature]
 FeedsManager = true

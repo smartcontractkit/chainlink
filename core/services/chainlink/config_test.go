@@ -31,6 +31,7 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -204,6 +205,14 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full := global
+
+	full.AuditLogger = &audit.AuditLoggerConfig{
+		ForwardToUrl:   ptr("http://localhost:9898"),
+		Environment:    ptr("develop"),
+		Headers:        make([]audit.ServiceHeader, 0),
+		JsonWrapperKey: ptr(""),
+	}
+
 	full.Feature = &config.Feature{
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
