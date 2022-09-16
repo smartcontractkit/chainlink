@@ -146,8 +146,10 @@ func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data Da
 	default:
 		if len(l.loggingChannel) == bufferCapacity {
 			l.logger.Errorw("Audit log buffer is full. Dropping log with eventID: %s", eventID)
+		} else if l.loggingChannel == nil {
+			l.logger.Errorw("Could not send log to audit subsystem because it has gone away!")
 		} else {
-			l.logger.Errorw("Could not send log to audit subsystem even though queue has %d space", bufferCapacity-len(l.loggingChannel))
+			l.logger.Errorw("An unknown error has occured in the audit logging subsystem and the audit log was dropped")
 		}
 	}
 }
