@@ -391,6 +391,9 @@ RegistryPerformGasOverhead = 150_000 # Default
 # RegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
 RegistrySyncInterval = '30m' # Default
 # **ADVANCED**
+# RegistryMaxPerformDataSize is the max size of perform data.
+RegistryMaxPerformDataSize = 5_000 # Default
+# **ADVANCED**
 # RegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
 RegistrySyncUpkeepQueueSize = 10 # Default
 # TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.

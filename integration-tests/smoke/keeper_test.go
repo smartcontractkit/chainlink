@@ -193,16 +193,16 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		if testToRun == BasicSmokeTest {
 			By("watches all the registered upkeeps perform and then cancels them from the registry")
 			Eventually(func(g Gomega) {
-				// Check if the upkeeps are performing by analysing their counters and checking they are greater than 0
+				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index "+strconv.Itoa(i))
-					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(10)),
 						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 
 			// Cancel all the registered upkeeps via the registry
 			for i := 0; i < len(upkeepIDs); i++ {
@@ -399,7 +399,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 			existingCnt, err = consumerPerformance.GetUpkeepCount(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when consistently block finished")
+			existingCntInt := existingCnt.Int64()
+			log.Info().Int64("Upkeep counter", existingCntInt).Msg("Upkeep counter when consistently block finished")
 
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := defaultRegistryConfig
@@ -413,8 +414,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			Eventually(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()),
-					"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCntInt),
+					"Expected consumer counter to be greater than %d, but got %d", existingCntInt, cnt.Int64(),
 				)
 			}, "1m", "1s").Should(Succeed())
 		}
