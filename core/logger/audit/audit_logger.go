@@ -149,7 +149,7 @@ func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data Da
 		} else if l.loggingChannel == nil {
 			l.logger.Errorw("Could not send log to audit subsystem because it has gone away!")
 		} else {
-			l.logger.Errorw("An unknown error has occured in the audit logging subsystem and the audit log was dropped")
+			l.logger.Errorw("An unknown error has occurred in the audit logging subsystem and the audit log was dropped")
 		}
 	}
 }
