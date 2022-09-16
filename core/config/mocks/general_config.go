@@ -102,8 +102,8 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 	return r0
 }
 
-// AuditLogger provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLogger() *audit.AuditLoggerConfig {
+// AuditLoggerConfig provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerConfig() *audit.AuditLoggerConfig {
 	ret := _m.Called()
 
 	var r0 *audit.AuditLoggerConfig

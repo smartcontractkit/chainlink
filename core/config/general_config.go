@@ -75,7 +75,7 @@ type GeneralOnlyConfig interface {
 	AdvisoryLockID() int64
 	AllowOrigins() string
 	AppID() uuid.UUID
-	AuditLogger() *audit.AuditLoggerConfig
+	AuditLoggerConfig() *audit.AuditLoggerConfig
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	AutoPprofBlockProfileRate() int
@@ -487,7 +487,7 @@ func (c *generalConfig) AppID() uuid.UUID {
 
 // Create the audit logger configuration to send events to an
 // external service
-func (c *generalConfig) AuditLogger() *audit.AuditLoggerConfig {
+func (c *generalConfig) AuditLoggerConfig() *audit.AuditLoggerConfig {
 	forwardToUrl := c.viper.GetString(envvar.Name("AuditLoggerForwardToUrl"))
 	// We have this check here to determine if we should enable the audit logger
 	// at all. If this is not set, then we don't need to output the error below
@@ -496,7 +496,7 @@ func (c *generalConfig) AuditLogger() *audit.AuditLoggerConfig {
 		return nil
 	}
 
-	auditLogger, err := audit.NewAuditLoggerConfig(
+	auditLoggerConfig, err := audit.NewAuditLoggerConfig(
 		forwardToUrl,
 		c.viper.GetBool(envvar.Name("Dev")),
 		c.viper.GetString(envvar.Name("AuditLoggerJsonWrapperKey")),
@@ -508,7 +508,7 @@ func (c *generalConfig) AuditLogger() *audit.AuditLoggerConfig {
 		return nil
 	}
 
-	return &auditLogger
+	return &auditLoggerConfig
 }
 
 // AuthenticatedRateLimit defines the threshold to which authenticated requests

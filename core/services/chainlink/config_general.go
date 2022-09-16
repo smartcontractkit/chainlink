@@ -167,7 +167,7 @@ func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
 }
 
-func (g *generalConfig) AuditLogger() *audit.AuditLoggerConfig {
+func (g *generalConfig) AuditLoggerConfig() *audit.AuditLoggerConfig {
 	return g.c.AuditLogger
 }
 
