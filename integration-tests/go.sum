@@ -1645,6 +1645,7 @@ github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220913010951-94d
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220824174951-d1e2bcd51e46 h1:Yb+oJqTniiluQKGnTFvK+QWnfQSur3wL4kqCXQ4cBYQ=
 github.com/smartcontractkit/chainlink-testing-framework v1.6.0 h1:xMDJffvdQEvkPAafL4PTjPmBsjS3D7nQOUa/okP2FcY=
 github.com/smartcontractkit/chainlink-testing-framework v1.6.0/go.mod h1:l999UXI0BmwE/c9bnKGPnhVLOSTY2SDoojfH/XOjXUE=
+github.com/smartcontractkit/chainlink-testing-framework v1.6.1-0.20220914115841-a2da24505886 h1:Gr4y3iY/QMFzGE9zJpOOiCCh8ojeaBR8ukpcITg42h8=
 github.com/smartcontractkit/chainlink-testing-framework v1.6.1-0.20220914115841-a2da24505886/go.mod h1:l999UXI0BmwE/c9bnKGPnhVLOSTY2SDoojfH/XOjXUE=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCKJwt0AY15bAaorscflOcBs/FnmO7NoCh8Tons=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
