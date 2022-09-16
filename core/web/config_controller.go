@@ -19,11 +19,12 @@ type ConfigController struct {
 
 // Show returns the whitelist of config variables
 // Example:
-//  "<application>/config"
+//
+//	"<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
 	cw := config.NewConfigPrinter(cc.App.GetConfig())
 
-	cc.App.GetAuditLogger().Audit(c.Request.Context(), audit.EnvNoncriticalEnvDumped, map[string]interface{}{})
+	cc.App.GetAuditLogger().Audit(audit.EnvNoncriticalEnvDumped, map[string]interface{}{})
 	jsonAPIResponse(c, cw, "config")
 }
 
@@ -110,6 +111,6 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		}, EVMChainID: utils.NewBig(chain.ID()),
 	}
 
-	cc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ConfigUpdated, map[string]interface{}{"configResponse": response})
+	cc.App.GetAuditLogger().Audit(audit.ConfigUpdated, map[string]interface{}{"configResponse": response})
 	jsonAPIResponse(c, response, "config")
 }

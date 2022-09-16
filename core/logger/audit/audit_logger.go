@@ -2,7 +2,6 @@ package audit
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net"
@@ -21,7 +20,7 @@ const bufferCapacity = 2048
 type Data = map[string]any
 
 type AuditLogger interface {
-	Audit(ctx context.Context, eventID EventID, data Data)
+	Audit(eventID EventID, data Data)
 }
 
 type AuditLoggerConfig struct {
@@ -131,7 +130,7 @@ func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogge
 // / created. If this service was not enabled, this immeidately returns.
 // /
 // / This function never blocks.
-func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data Data) {
+func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 	if !l.enabled {
 		return
 	}

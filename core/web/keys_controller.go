@@ -77,12 +77,12 @@ func (kc *keysController[K, R]) Create(c *gin.Context) {
 	// Emit audit log, determine if Terra or Solana key
 	switch unwrappedKey := any(key).(type) {
 	case terrakey.Key:
-		kc.auditLogger.Audit(c.Request.Context(), audit.TerraKeyCreated, map[string]interface{}{
+		kc.auditLogger.Audit(audit.TerraKeyCreated, map[string]interface{}{
 			"publicKey": unwrappedKey.PublicKey(),
 			"id":        unwrappedKey.ID(),
 		})
 	case solkey.Key:
-		kc.auditLogger.Audit(c.Request.Context(), audit.SolanaKeyCreated, map[string]interface{}{
+		kc.auditLogger.Audit(audit.SolanaKeyCreated, map[string]interface{}{
 			"publicKey": unwrappedKey.PublicKey(),
 			"id":        unwrappedKey.ID(),
 		})
@@ -107,9 +107,9 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 	// Emit audit log, determine if Terra or Solana key
 	switch any(key).(type) {
 	case terrakey.Key:
-		kc.auditLogger.Audit(c.Request.Context(), audit.TerraKeyDeleted, map[string]interface{}{"id": keyID})
+		kc.auditLogger.Audit(audit.TerraKeyDeleted, map[string]interface{}{"id": keyID})
 	case solkey.Key:
-		kc.auditLogger.Audit(c.Request.Context(), audit.SolanaKeyDeleted, map[string]interface{}{"id": keyID})
+		kc.auditLogger.Audit(audit.SolanaKeyDeleted, map[string]interface{}{"id": keyID})
 	}
 
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
@@ -133,12 +133,12 @@ func (kc *keysController[K, R]) Import(c *gin.Context) {
 	// Emit audit log, determine if Terra or Solana key
 	switch unwrappedKey := any(key).(type) {
 	case terrakey.Key:
-		kc.auditLogger.Audit(c.Request.Context(), audit.TerraKeyImported, map[string]interface{}{
+		kc.auditLogger.Audit(audit.TerraKeyImported, map[string]interface{}{
 			"publicKey": unwrappedKey.PublicKey(),
 			"id":        unwrappedKey.ID(),
 		})
 	case solkey.Key:
-		kc.auditLogger.Audit(c.Request.Context(), audit.SolanaKeyImported, map[string]interface{}{
+		kc.auditLogger.Audit(audit.SolanaKeyImported, map[string]interface{}{
 			"publicKey": unwrappedKey.PublicKey(),
 			"id":        unwrappedKey.ID(),
 		})
@@ -159,9 +159,9 @@ func (kc *keysController[K, R]) Export(c *gin.Context) {
 	}
 
 	if strings.HasPrefix(c.Request.URL.Path, "/v2/keys/terra") {
-		kc.auditLogger.Audit(c.Request.Context(), audit.TerraKeyExported, map[string]interface{}{"id": keyID})
+		kc.auditLogger.Audit(audit.TerraKeyExported, map[string]interface{}{"id": keyID})
 	} else if strings.HasPrefix(c.Request.URL.Path, "/v2/keys/solana") {
-		kc.auditLogger.Audit(c.Request.Context(), audit.SolanaKeyExported, map[string]interface{}{"id": keyID})
+		kc.auditLogger.Audit(audit.SolanaKeyExported, map[string]interface{}{"id": keyID})
 	}
 
 	c.Data(http.StatusOK, MediaType, bytes)
