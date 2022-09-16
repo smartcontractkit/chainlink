@@ -203,7 +203,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	k.Summary.Metrics.Delay = map[string]interface{}{
 		"mean":   avg,
 		"median": median,
-		"90p":    ninetyNinePct,
+		"90p":    ninetyPct,
 		"99p":    ninetyNinePct,
 		"max":    max,
 	}
