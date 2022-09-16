@@ -13,6 +13,9 @@ func TestConfigSchema(t *testing.T) {
 	items := map[string]string{
 		"AdvisoryLockCheckInterval":                      "ADVISORY_LOCK_CHECK_INTERVAL",
 		"AdvisoryLockID":                                 "ADVISORY_LOCK_ID",
+		"AuditLoggerForwardToUrl":                        "AUDIT_LOGGER_FORWARD_TO_URL",
+		"AuditLoggerHeaders":                             "AUDIT_LOGGER_HEADERS",
+		"AuditLoggerJsonWrapperKey":                      "AUDIT_LOGGER_JSON_WRAPPER_KEY",
 		"AllowOrigins":                                   "ALLOW_ORIGINS",
 		"AuthenticatedRateLimit":                         "AUTHENTICATED_RATE_LIMIT",
 		"AuthenticatedRateLimitPeriod":                   "AUTHENTICATED_RATE_LIMIT_PERIOD",
