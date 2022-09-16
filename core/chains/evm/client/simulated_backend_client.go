@@ -388,12 +388,22 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 
 // BatchCallContext makes a batch rpc call.
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("context canceled")
+	default:
+		//do nothing
+	}
+
 	for i, elem := range b {
-		if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
-			return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
-		}
-		switch v := elem.Result.(type) {
-		case *evmtypes.Receipt:
+		switch elem.Method {
+		case "eth_getTransactionReceipt":
+			if _, ok := elem.Result.(*evmtypes.Receipt); !ok {
+				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", elem.Result)
+			}
+			if len(elem.Args) != 1 {
+				return errors.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getTransactionReceipt", len(elem.Args))
+			}
 			hash, is := elem.Args[0].(common.Hash)
 			if !is {
 				return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
@@ -401,8 +411,39 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			receipt, err := c.b.TransactionReceipt(ctx, hash)
 			b[i].Result = evmtypes.FromGethReceipt(receipt)
 			b[i].Error = err
+		case "eth_getBlockByNumber":
+			if _, ok := elem.Result.(*evmtypes.Head); !ok {
+				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Head for eth_getBlockByNumber, got type %T", elem.Result)
+			}
+			if len(elem.Args) != 2 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
+			}
+			blockNum, is := elem.Args[0].(string)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", elem.Args[0])
+			}
+			isFullTx, is := elem.Args[1].(bool)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", elem.Args[1])
+			}
+			if isFullTx {
+				return errors.New("SimulatedBackendClient doesn't support full transactions for eth_getBlockByNumber")
+			}
+			n, ok := new(big.Int).SetString(blockNum, 0)
+			if !ok {
+				return errors.Errorf("error while converting block number string: %s to big.Int ", blockNum)
+			}
+			header, err := c.b.HeaderByNumber(ctx, n)
+			if err != nil {
+				return err
+			}
+			b[i].Result = &evmtypes.Head{
+				Number: header.Number.Int64(),
+				Hash:   header.Hash(),
+			}
+			b[i].Error = err
 		default:
-			return errors.Errorf("SimulatedBackendClient unsupported elem.Result type %T", v)
+			return errors.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
 	}
 	return nil
