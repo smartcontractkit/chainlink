@@ -20,7 +20,6 @@ import (
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
-	AuditLogger         *audit.AuditLoggerConfig
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string
@@ -32,7 +31,8 @@ type Core struct {
 
 	TelemetryIngress *TelemetryIngress
 
-	Log *Log
+	AuditLogger *audit.AuditLoggerConfig
+	Log         *Log
 
 	WebServer *WebServer
 
