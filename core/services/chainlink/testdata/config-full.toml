@@ -3,7 +3,7 @@ InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
-[AuditLoggerConfig]
+[AuditLogger]
 forwardToUrl = "http://localhost:9898"
 headers = []
 environment = "develop"
