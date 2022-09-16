@@ -883,6 +883,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		MaximumGracePeriod:           envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		RegistryCheckGasOverhead:     envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
 		RegistryPerformGasOverhead:   envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
+		RegistryMaxPerformDataSize:   envvar.NewUint32("KeeperRegistryMaxPerformDataSize").ParsePtr(),
 		RegistrySyncInterval:         envDuration("KeeperRegistrySyncInterval"),
 		RegistrySyncUpkeepQueueSize:  envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
