@@ -108,19 +108,19 @@ func TestLessThanTask_Unhappy(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		right             string
 		left              string
+		right             string
 		inputs            []pipeline.Result
 		vars              pipeline.Vars
 		wantErrorCause    error
 		wantErrorContains string
 	}{
-		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
-		{"map as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": map[string]interface{}{"chain": "link"}}), pipeline.ErrBadInput, "left"},
-		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
-		{"slice as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": []interface{}{"chain", "link"}}), pipeline.ErrBadInput, "left"},
-		{"input as missing var", "100", "$(foo)", nil, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "left"},
-		{"limit as missing var", "$(foo)", "", []pipeline.Result{{Value: "123"}}, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "right"},
+		{"map as input from inputs", "", "100", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
+		{"map as input from var", "$(foo)", "100", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": map[string]interface{}{"chain": "link"}}), pipeline.ErrBadInput, "left"},
+		{"slice as input from inputs", "", "100", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "left"},
+		{"slice as input from var", "$(foo)", "100", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": []interface{}{"chain", "link"}}), pipeline.ErrBadInput, "left"},
+		{"input as missing var", "$(foo)", "100", nil, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "left"},
+		{"limit as missing var", "", "$(foo)", []pipeline.Result{{Value: "123"}}, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "right"},
 	}
 
 	for _, test := range tests {
