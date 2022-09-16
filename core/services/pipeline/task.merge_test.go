@@ -49,7 +49,7 @@ func TestMergeTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"ignored": true}`}},
 			map[string]interface{}{
-				"foo":     float64(42),
+				"foo":     int64(42),
 				"qux":     nil,
 				"flibber": nil,
 			},
@@ -64,7 +64,7 @@ func TestMergeTask(t *testing.T) {
 			[]pipeline.Result{{Value: `{"ignored": true}`}},
 			map[string]interface{}{
 				"foo":     "baz",
-				"qux":     float64(99),
+				"qux":     int64(99),
 				"bar":     nil,
 				"flibber": nil,
 			},
@@ -133,7 +133,7 @@ func TestMergeTask(t *testing.T) {
 			}),
 			[]pipeline.Result{},
 			map[string]interface{}{
-				"foo":     float64(42),
+				"foo":     int64(42),
 				"bar":     nil,
 				"flibber": "this is a string",
 			},
@@ -149,7 +149,7 @@ func TestMergeTask(t *testing.T) {
 			}),
 			[]pipeline.Result{},
 			map[string]interface{}{
-				"foo":     float64(42),
+				"foo":     int64(42),
 				"bar":     nil,
 				"flibber": "this is a string",
 			},

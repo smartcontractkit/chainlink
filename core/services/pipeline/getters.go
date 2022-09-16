@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -107,11 +108,19 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 			keypathStr := strings.TrimSpace(string(expr[2 : len(expr)-1]))
 			return []byte(fmt.Sprintf(`{ "%s": "%s" }`, chainlinkKeyPath, keypathStr))
 		})
+
 		var val interface{}
-		err := json.Unmarshal(replaced, &val)
-		if err != nil {
+		jd := json.NewDecoder(bytes.NewReader(replaced))
+		jd.UseNumber()
+		if err := jd.Decode(&val); err != nil {
 			return nil, errors.Wrapf(ErrBadInput, "while unmarshalling JSON: %v; js: %s", err, string(replaced))
 		}
+		reinterpreted, err := reinterpetJsonNumbers(val)
+		if err != nil {
+			return nil, errors.Wrapf(ErrBadInput, "while processing json.Number: %v; js: %s", err, string(replaced))
+		}
+		val = reinterpreted
+
 		return mapGoValue(val, func(val interface{}) (interface{}, error) {
 			if m, is := val.(map[string]interface{}); is {
 				maybeKeypath, exists := m[chainlinkKeyPath]
