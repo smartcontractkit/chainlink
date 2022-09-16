@@ -369,7 +369,6 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 		return "", errors.New("invalid error type")
 	}
 	// Some clients return a prefix such "Reverted 0x.."
-	// I wonder if this is only deprecated kovan though?
 	matches := hexDataRegex.FindStringSubmatch(dataStr)
 	if len(matches) != 1 {
 		return "", errors.New("unknown data payload format")
@@ -381,7 +380,7 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	// If this matches Error(string), parse directly.
 	requireSelector := utils.Keccak256Fixed([]byte("Error(string)"))
 	if bytes.Equal(data[:4], requireSelector[:4]) {
-		res, err := utils.GenericDecode([]string{"string"}, data[4:])
+		res, err := utils.ABIDecode(`[{"type": "string"}]`, data[4:])
 		if err != nil {
 			return "", err
 		}
@@ -390,32 +389,4 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	// TODO: We could add more known chainlink errors here? Searching through every abi seems like overkill.
 	// If not, its a custom error so return bytes.
 	return hexutil.Encode(data), nil
-	// Try to parse as
-	//revertReasonBytes, err := hex.DecodeString(hexData[8:])
-	//if err != nil {
-	//	return "", errors.Wrap(err, "unable to decode hex to bytes")
-	//}
-
-	/*
-			ln := len(revertReasonBytes)
-			breaker := time.After(time.Second * 5)
-		cleanup:
-			for {
-				select {
-				case <-breaker:
-					break cleanup
-				default:
-					revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
-					revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
-					revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
-					if ln == len(revertReasonBytes) {
-						break cleanup
-					}
-					ln = len(revertReasonBytes)
-				}
-			}
-
-			revertReason := strings.TrimSpace(string(revertReasonBytes))
-		return revertReason, nil
-	*/
 }

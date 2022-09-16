@@ -574,7 +574,8 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		if receipt.Status == 0 {
-			_, err := ec.ethClient.CallContract(context.Background(), ethereum.CallMsg{
+			// Do an eth call to obtain the revert reason.
+			_, err := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
 				From:       attempt.EthTx.FromAddress,
 				To:         &attempt.EthTx.ToAddress,
 				Gas:        uint64(attempt.EthTx.GasLimit),

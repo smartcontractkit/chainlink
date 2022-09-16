@@ -641,3 +641,25 @@ func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
 	}
 }
+
+func TestGenericEncodeDecode(t *testing.T) {
+	res, err := ABIEncode(`[{ "type": "bool" }]`, true)
+	require.NoError(t, err)
+	t.Log(res)
+	res2, err := ABIDecode(`[{ "type": "bool" }]`, res)
+	require.NoError(t, err)
+	t.Log(res2)
+	e, err := ABIEncode(`[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`, struct {
+		Int1, Int2 *big.Int
+	}{big.NewInt(10), big.NewInt(12)})
+	require.NoError(t, err)
+	r, err := ABIDecode(`[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`, e)
+	t.Logf("%T %v", r, r)
+
+	res, err = ABIEncode(`[{ "type": "bool" }, {"type": "uint256"}]`, true, big.NewInt(10))
+	require.NoError(t, err)
+	t.Log(res)
+	res2, err = ABIDecode(`[{ "type": "bool" }, {"type": "uint256"}]`, res)
+	require.NoError(t, err)
+	t.Log(res2)
+}
