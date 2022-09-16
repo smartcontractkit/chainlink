@@ -14,8 +14,8 @@ import (
 //	bool
 type LessThanTask struct {
 	BaseTask `mapstructure:",squash"`
-	Input    string `json:"input"`
-	Limit    string `json:"limit"`
+	Left     string `json:"input"`
+	Right    string `json:"limit"`
 }
 
 var (
@@ -38,8 +38,8 @@ func (t *LessThanTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs
 	)
 
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
-		errors.Wrap(ResolveParam(&b, From(VarExpr(t.Limit, vars), NonemptyString(t.Limit))), "limit"),
+		errors.Wrap(ResolveParam(&a, From(VarExpr(t.Left, vars), NonemptyString(t.Left), Input(inputs, 0))), "left"),
+		errors.Wrap(ResolveParam(&b, From(VarExpr(t.Right, vars), NonemptyString(t.Right))), "right"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
