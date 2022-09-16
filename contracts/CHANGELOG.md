@@ -1,5 +1,13 @@
 # @chainlink/contracts CHANGELOG.md
 
+## 0.4.3 - 2022-09-16
+
+### Changed
+
+- Added a new UpkeepFormat version `V2` in `UpkeepFormat`
+- Renamed `KeeperRegistry` to `KeeperRegistry1_2` and `KeeperRegistryInterface` to `KeeperRegistryInterface1_2`
+- Updated `UpkeepTranscoder` to only do a pass-through for upkeep bytes
+
 ## 0.4.2 - 2022-07-20
 
 ### Changed
