@@ -334,7 +334,7 @@ lookbackBlocks         = %d # This is an integer
 	gomega.NewWithT(t).Eventually(func() bool {
 		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, big.NewInt(0))
 		t.Logf("TestRedeemRandomness err: %+v", err1)
-		return err == nil
+		return err1 == nil
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 
 	// Mine block after redeeming randomness
