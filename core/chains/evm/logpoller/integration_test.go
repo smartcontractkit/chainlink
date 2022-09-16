@@ -30,9 +30,8 @@ var (
 	EmitterABI, _ = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
 )
 
-func logRuntime(t *testing.T) func() {
-	s := time.Now()
-	return func() { t.Log("runtime", time.Since(s)) }
+func logRuntime(t *testing.T, start time.Time) {
+	t.Log("runtime", time.Since(start))
 }
 
 func TestPopulateLoadedDB(t *testing.T) {
@@ -71,12 +70,12 @@ func TestPopulateLoadedDB(t *testing.T) {
 		require.NoError(t, o.InsertLogs(logs))
 	}
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		_, err := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1[:])
 		require.NoError(t, err)
 	}()
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		_, err = o.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{address1}, []common.Hash{event1}, 0)
 		require.NoError(t, err)
 	}()
@@ -84,7 +83,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	// Confirm all the logs.
 	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000))
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectDataWordRange(address1, event1[:], 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err)
 		// 10 since every other log is for address1
@@ -92,14 +91,14 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}()
 
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectIndexedLogs(address2, event1[:], 1, []common.Hash{logpoller.EvmWord(500000), logpoller.EvmWord(500020)}, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 2, len(lgs))
 	}()
 
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectIndexLogsTopicRange(address1, event1[:], 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err)
 		assert.Equal(t, 10, len(lgs))
@@ -128,7 +127,7 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
-		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
+		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3, 2)
 	// Only filter for log1 events.
 	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1}))
 	require.NoError(t, lp.Start(testutils.Context(t)))

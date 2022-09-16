@@ -28,6 +28,7 @@ var (
 	JobPipelineReaperThreshold        = NewDuration("JobPipelineReaperThreshold")
 	KeeperRegistryCheckGasOverhead    = NewUint32("KeeperRegistryCheckGasOverhead")
 	KeeperRegistryPerformGasOverhead  = NewUint32("KeeperRegistryPerformGasOverhead")
+	KeeperRegistryMaxPerformDataSize  = NewUint32("KeeperRegistryMaxPerformDataSize")
 	KeeperRegistrySyncInterval        = NewDuration("KeeperRegistrySyncInterval")
 	KeeperRegistrySyncUpkeepQueueSize = NewUint32("KeeperRegistrySyncUpkeepQueueSize")
 	LogLevel                          = New[zapcore.Level]("LogLevel", parse.LogLevel)

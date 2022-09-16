@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/integration-tests
 
-go 1.19
+go 1.18
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
@@ -242,7 +242,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
+	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -265,8 +265,8 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595 // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220829131014-01054c48dc0a // indirect
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220802183403-8cb2a10769b5 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220913010951-94dd0368b953 // indirect
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect

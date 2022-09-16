@@ -140,6 +140,7 @@ BaseFeeBufferPercent = 7
 MaximumGracePeriod = 42
 RegistryCheckGasOverhead = 6
 RegistryPerformGasOverhead = 900
+RegistryMaxPerformDataSize = 5000
 RegistrySyncInterval = '1m0s'
 RegistrySyncUpkeepQueueSize = 99
 TurnLookBack = 67
@@ -280,6 +281,19 @@ URL = 'http://foo.bar'
 [[Solana.Nodes]]
 Name = 'mainnet-2'
 URL = 'http://fake.url'
+
+[[Starknet]]
+ChainID = 'foobar'
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Columbus-5'

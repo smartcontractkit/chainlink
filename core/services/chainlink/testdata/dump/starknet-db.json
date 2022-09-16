@@ -1,0 +1,24 @@
+{
+  "StarknetChains": [
+    {
+      "ID": "foobar",
+      "Enabled": true,
+      "CFG": {
+        "OCR2CachePollPeriod": "6h0m0s",
+        "OCR2CacheTTL": "3m0s",
+        "RequestTimeout": "1m3s",
+        "TxTimeout": "13s",
+        "TxSendFrequency": "42s",
+        "TxMaxBatchSize": 17
+      }
+    }
+  ],
+  "StarknetNodes": {
+    "foobar": [
+      {
+        "Name": "primary",
+        "URL": "http://stark.node"
+      }
+    ]
+  }
+}

@@ -388,6 +388,13 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 
 // BatchCallContext makes a batch rpc call.
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("context canceled")
+	default:
+		//do nothing
+	}
+
 	for i, elem := range b {
 		switch elem.Method {
 		case "eth_getTransactionReceipt":
@@ -408,6 +415,9 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			if _, ok := elem.Result.(*evmtypes.Head); !ok {
 				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Head for eth_getBlockByNumber, got type %T", elem.Result)
 			}
+			if len(elem.Args) != 2 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
+			}
 			blockNum, is := elem.Args[0].(string)
 			if !is {
 				return errors.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", elem.Args[0])
@@ -424,6 +434,9 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 				return errors.Errorf("error while converting block number string: %s to big.Int ", blockNum)
 			}
 			header, err := c.b.HeaderByNumber(ctx, n)
+			if err != nil {
+				return err
+			}
 			b[i].Result = &evmtypes.Head{
 				Number: header.Number.Int64(),
 				Hash:   header.Hash(),

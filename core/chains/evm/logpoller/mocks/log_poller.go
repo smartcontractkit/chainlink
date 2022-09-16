@@ -33,20 +33,20 @@ func (_m *LogPoller) Close() error {
 	return r0
 }
 
-// GetBlocks provides a mock function with given fields: numbers, qopts
-func (_m *LogPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+// GetBlocks provides a mock function with given fields: ctx, numbers, qopts
+func (_m *LogPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, numbers)
+	_ca = append(_ca, ctx, numbers)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 []logpoller.LogPollerBlock
-	if rf, ok := ret.Get(0).(func([]uint64, ...pg.QOpt) []logpoller.LogPollerBlock); ok {
-		r0 = rf(numbers, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, []uint64, ...pg.QOpt) []logpoller.LogPollerBlock); ok {
+		r0 = rf(ctx, numbers, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]logpoller.LogPollerBlock)
@@ -54,8 +54,8 @@ func (_m *LogPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]logpoller.
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]uint64, ...pg.QOpt) error); ok {
-		r1 = rf(numbers, qopts...)
+	if rf, ok := ret.Get(1).(func(context.Context, []uint64, ...pg.QOpt) error); ok {
+		r1 = rf(ctx, numbers, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

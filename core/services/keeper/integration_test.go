@@ -116,11 +116,6 @@ func deployKeeperRegistry(
 		regAddr, _, _, err := keeper_registry_wrapper1_3.DeployKeeperRegistry(
 			auth,
 			backend,
-			0,
-			big.NewInt(80000),
-			linkAddr,
-			linkFeedAddr,
-			gasFeedAddr,
 			logicAddr,
 			keeper_registry_wrapper1_3.Config{
 				PaymentPremiumPPB:    250_000_000,
@@ -148,7 +143,7 @@ func deployKeeperRegistry(
 }
 
 func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
-	receipt, err := backend.TransactionReceipt(nil, registrationTx.Hash())
+	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	upkeepId, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -324,4 +319,117 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.Nil(t, prr.Outputs[0])
 		})
 	}
+}
+
+func TestMaxPerformDataSize(t *testing.T) {
+	t.Run("max_perform_data_size_test", func(t *testing.T) {
+		maxPerformDataSize := 1000 // Will be set as config override
+		g := gomega.NewWithT(t)
+
+		// setup node key
+		nodeKey := cltest.MustGenerateRandomKey(t)
+		nodeAddress := nodeKey.Address
+		nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
+
+		// setup blockchain
+		sergey := testutils.MustNewSimTransactor(t) // owns all the link
+		steve := testutils.MustNewSimTransactor(t)  // registry owner
+		carrol := testutils.MustNewSimTransactor(t) // client
+		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
+		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
+		genesisData := core.GenesisAlloc{
+			sergey.From: {Balance: assets.Ether(1000)},
+			steve.From:  {Balance: assets.Ether(1000)},
+			carrol.From: {Balance: assets.Ether(1000)},
+			nelly.From:  {Balance: assets.Ether(1000)},
+			nick.From:   {Balance: assets.Ether(1000)},
+			nodeAddress: {Balance: assets.Ether(1000)},
+		}
+
+		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
+		backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+
+		stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+		defer stopMining()
+
+		linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
+		require.NoError(t, err)
+		gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
+		require.NoError(t, err)
+		linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
+		require.NoError(t, err)
+
+		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+
+		upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
+		require.NoError(t, err)
+		_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
+		require.NoError(t, err)
+		_, err = linkToken.Approve(carrol, regAddr, oneHunEth)
+		require.NoError(t, err)
+		_, err = registryWrapper.SetKeepers(steve, []common.Address{nodeAddress, nelly.From}, []common.Address{nodeAddress, nelly.From})
+		require.NoError(t, err)
+		registrationTx, err := registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
+		require.NoError(t, err)
+		backend.Commit()
+		upkeepID := getUpkeepIdFromTx(t, registryWrapper, registrationTx, backend)
+
+		_, err = registryWrapper.AddFunds(carrol, upkeepID, tenEth)
+		require.NoError(t, err)
+		backend.Commit()
+
+		// setup app
+		config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_max_perform_data_test"))
+		korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
+		d := 24 * time.Hour
+		// disable full sync ticker for test
+		config.Overrides.KeeperRegistrySyncInterval = &d
+		// backfill will trigger sync on startup
+		config.Overrides.BlockBackfillDepth = null.IntFrom(0)
+		// disable reorg protection for this test
+		config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+		// avoid waiting to re-submit for upkeeps
+		config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+		// test with gas price feature enabled
+		config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
+		// testing doesn't need to do far look back
+		config.Overrides.KeeperTurnLookBack = null.IntFrom(0)
+		// testing new turn taking
+		config.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
+		// helps prevent missed heads
+		config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+		// set the max perform data size
+		config.Overrides.KeeperRegistryMaxPerformDataSize = null.IntFrom(int64(maxPerformDataSize))
+
+		app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
+		require.NoError(t, app.Start(testutils.Context(t)))
+
+		// create job
+		regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
+		job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
+		err = app.JobSpawner().StartService(testutils.Context(t), job)
+		require.NoError(t, err)
+
+		// keeper job is triggered
+		receivedBytes := func() []byte {
+			received, err2 := upkeepContract.ReceivedBytes(nil)
+			require.NoError(t, err2)
+			return received
+		}
+
+		hugePayload := make([]byte, maxPerformDataSize)
+		_, err = upkeepContract.SetBytesToSend(carrol, hugePayload)
+		require.NoError(t, err)
+		_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
+		require.NoError(t, err)
+
+		// Huge payload should not result in a perform
+		g.Consistently(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal([]byte{}))
+
+		// Set payload to be small and it should get received
+		smallPayload := make([]byte, maxPerformDataSize-1)
+		_, err = upkeepContract.SetBytesToSend(carrol, smallPayload)
+		require.NoError(t, err)
+		g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(smallPayload))
+	})
 }

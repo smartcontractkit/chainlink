@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 	"time"
 
@@ -231,6 +232,9 @@ func TestMarshalJSONSerializable_replaceBytesWithHex(t *testing.T) {
 func TestUnmarshalJSONSerializable(t *testing.T) {
 	t.Parallel()
 
+	big, ok := new(big.Int).SetString("18446744073709551616", 10)
+	assert.True(t, ok)
+
 	tests := []struct {
 		name, input string
 		expected    interface{}
@@ -238,7 +242,11 @@ func TestUnmarshalJSONSerializable(t *testing.T) {
 		{"null json", `null`, nil},
 		{"bool", `true`, true},
 		{"string", `"foo"`, "foo"},
-		{"raw", `{"foo": 42}`, map[string]interface{}{"foo": float64(42)}},
+		{"object with int", `{"foo": 42}`, map[string]interface{}{"foo": int64(42)}},
+		{"object with float", `{"foo": 3.14}`, map[string]interface{}{"foo": float64(3.14)}},
+		{"object with big int", `{"foo": 18446744073709551616}`, map[string]interface{}{"foo": big}},
+		{"slice", `[42, 3.14]`, []interface{}{int64(42), float64(3.14)}},
+		{"nested map", `{"m": {"foo": 42}}`, map[string]interface{}{"m": map[string]interface{}{"foo": int64(42)}}},
 	}
 
 	for _, test := range tests {

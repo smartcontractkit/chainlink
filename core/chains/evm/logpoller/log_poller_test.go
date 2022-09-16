@@ -1,6 +1,7 @@
 package logpoller
 
 import (
+	"context"
 	"database/sql"
 	"math/big"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -60,6 +62,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 		blk, err := orm.SelectBlockByNumber(int64(i))
 		require.NoError(t, err, "block %v", i)
 		chainBlk, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
+		require.NoError(t, err)
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
 }
@@ -116,7 +119,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		}, 10e6)
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
-		lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3)
+		lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3, 2)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
@@ -181,7 +184,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th := setupTH(t)
 
 	// Set up a log poller listening for log emitter logs.
-	lp := NewLogPoller(th.orm, client.NewSimulatedBackendClient(t, th.ec, th.chainID), th.lggr, 15*time.Second, 2, 3)
+	lp := NewLogPoller(th.orm, client.NewSimulatedBackendClient(t, th.ec, th.chainID), th.lggr, 15*time.Second, 2, 3, 2)
 	require.NoError(t, lp.MergeFilter([]common.Hash{
 		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.emitterAddress1, th.emitterAddress2},
 	))
@@ -202,6 +205,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, lpb.BlockHash, b.Hash())
 	assert.Equal(t, lpb.BlockNumber, int64(b.NumberU64()))
 	assert.Equal(t, int64(1), int64(b.NumberU64()))
+
 	// No logs.
 	lgs, err := th.orm.SelectLogsByBlockRange(1, 1)
 	require.NoError(t, err)
@@ -400,7 +404,7 @@ func setupTH(t *testing.T) testHarness {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
 	}, 10e6)
-	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 2, 3)
+	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 2, 3, 2)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
@@ -470,7 +474,7 @@ func TestLogPoller_Logs(t *testing.T) {
 }
 
 func TestLogPoller_MergeFilter(t *testing.T) {
-	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1)
+	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}))
@@ -491,4 +495,86 @@ func TestLogPoller_MergeFilter(t *testing.T) {
 	require.Error(t, lp.assertInFilter([]common.Hash{common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65")}, []common.Address{a1}))
 	_, err := lp.Logs(1, 1, EmitterABI.Events["Log1"].ID, common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbd"))
 	require.Error(t, err)
+}
+
+func TestLogPoller_GetBlocks(t *testing.T) {
+	th := setupTH(t)
+
+	require.NoError(t, th.lp.MergeFilter([]common.Hash{
+		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.emitterAddress1, th.emitterAddress2},
+	))
+
+	// LP retrieves block 1
+	blockNums := []uint64{1}
+	blocks, err := th.lp.GetBlocks(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(blocks))
+	assert.Equal(t, 1, int(blocks[0].BlockNumber))
+
+	// LP fails to retrieve block 2 because it's neither in DB nor returned by RPC
+	blockNums = []uint64{2}
+	_, err = th.lp.GetBlocks(testutils.Context(t), blockNums)
+	require.Error(t, err)
+	assert.Equal(t, "block: 2 was not found in db or RPC call", err.Error())
+
+	// Emit a log and mine block #2
+	_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(1)})
+	require.NoError(t, err)
+	th.ec.Commit()
+
+	// Assert block 2 is not yet in DB
+	_, err = th.orm.SelectBlockByNumber(2)
+	require.Error(t, err)
+
+	// getBlocks is able to retrieve block 2 by calling RPC
+	rpcBlocks, err := th.lp.GetBlocks(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(rpcBlocks))
+	assert.Equal(t, 2, int(rpcBlocks[0].BlockNumber))
+
+	// after calling PollAndSaveLogs, block 2 is persisted in DB
+	th.lp.PollAndSaveLogs(testutils.Context(t), 1)
+	block, err := th.orm.SelectBlockByNumber(2)
+	require.NoError(t, err)
+	assert.Equal(t, 2, int(block.BlockNumber))
+
+	// getBlocks should still be able to return block 2 by fetching from DB
+	lpBlocks, err := th.lp.GetBlocks(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lpBlocks))
+	assert.Equal(t, rpcBlocks[0].BlockNumber, lpBlocks[0].BlockNumber)
+	assert.Equal(t, rpcBlocks[0].BlockHash, lpBlocks[0].BlockHash)
+
+	// getBlocks return multiple blocks
+	blockNums = []uint64{1, 2}
+	blocks, err = th.lp.GetBlocks(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, int(blocks[0].BlockNumber))
+	assert.NotEmpty(t, blocks[0].BlockHash)
+	assert.Equal(t, 2, int(blocks[1].BlockNumber))
+	assert.NotEmpty(t, blocks[1].BlockHash)
+
+	// getBlocks return blocks in requested order
+	blockNums = []uint64{2, 1}
+	reversedBlocks, err := th.lp.GetBlocks(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, blocks[0].BlockNumber, reversedBlocks[1].BlockNumber)
+	assert.Equal(t, blocks[0].BlockHash, reversedBlocks[1].BlockHash)
+	assert.Equal(t, blocks[1].BlockNumber, reversedBlocks[0].BlockNumber)
+	assert.Equal(t, blocks[1].BlockHash, reversedBlocks[0].BlockHash)
+
+	// test RPC context cancellation
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	cancel()
+	_, err = th.lp.GetBlocks(ctx, blockNums)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context canceled")
+
+	// test GetBlocks still works when qopts is cancelled
+	// but context object is not
+	ctx, cancel = context.WithCancel(testutils.Context(t))
+	qopts := pg.WithParentCtx(ctx)
+	cancel()
+	_, err = th.lp.GetBlocks(testutils.Context(t), blockNums, qopts)
+	require.NoError(t, err)
 }

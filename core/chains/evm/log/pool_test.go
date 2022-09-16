@@ -224,7 +224,7 @@ func TestUnit_DeleteOlderLogsWhenEmptyPool(t *testing.T) {
 	t.Parallel()
 	var p iLogPool = newLogPool(logger.TestLogger(t))
 	keptDepth := p.deleteOlderLogs(1)
-	var expectedKeptDepth *int64 = nil
+	var expectedKeptDepth *int64
 	require.Equal(t, expectedKeptDepth, keptDepth)
 }
 

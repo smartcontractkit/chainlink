@@ -22,6 +22,7 @@ import (
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -137,6 +138,17 @@ var (
 				},
 				Nodes: []*solcfg.Node{
 					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
+				},
+			},
+		},
+		Starknet: []*StarknetConfig{
+			{
+				ChainID: ptr("foobar"),
+				Chain: stkcfg.Chain{
+					TxSendFrequency: relayutils.MustNewDuration(time.Hour),
+				},
+				Nodes: []*stkcfg.Node{
+					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
 				},
 			},
 		},
@@ -339,6 +351,7 @@ func TestConfig_Marshal(t *testing.T) {
 		RegistryPerformGasOverhead:   ptr[uint32](math.MaxUint32),
 		RegistrySyncInterval:         models.MustNewDuration(time.Hour),
 		RegistrySyncUpkeepQueueSize:  ptr[uint32](31),
+		RegistryMaxPerformDataSize:   ptr[uint32](5000),
 		TurnLookBack:                 ptr[int64](91),
 		TurnFlagEnabled:              ptr(true),
 		UpkeepCheckGasPriceEnabled:   ptr(true),
@@ -505,6 +518,23 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
+	full.Starknet = []*StarknetConfig{
+		{
+			ChainID: ptr("foobar"),
+			Enabled: ptr(true),
+			Chain: stkcfg.Chain{
+				OCR2CachePollPeriod: relayutils.MustNewDuration(6 * time.Hour),
+				OCR2CacheTTL:        relayutils.MustNewDuration(3 * time.Minute),
+				RequestTimeout:      relayutils.MustNewDuration(time.Minute + 3*time.Second),
+				TxTimeout:           relayutils.MustNewDuration(13 * time.Second),
+				TxSendFrequency:     relayutils.MustNewDuration(42 * time.Second),
+				TxMaxBatchSize:      ptr[int64](17),
+			},
+			Nodes: []*stkcfg.Node{
+				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+			},
+		},
+	}
 	full.Terra = []*TerraConfig{
 		{
 			ChainID: ptr("Bombay-12"),
@@ -540,14 +570,12 @@ InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 `},
-		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `
-[Feature]
+		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 `},
-		{"Database", Config{Core: config.Core{Database: full.Database}}, `
-[Database]
+		{"Database", Config{Core: config.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
 DefaultLockTimeout = '1h0m0s'
 DefaultQueryTimeout = '1s'
@@ -570,8 +598,7 @@ FallbackPollInterval = '2m0s'
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
-		{"TelemetryIngress", Config{Core: config.Core{TelemetryIngress: full.TelemetryIngress}}, `
-[TelemetryIngress]
+		{"TelemetryIngress", Config{Core: config.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
 UniConn = true
 Logging = true
 ServerPubKey = 'test-pub-key'
@@ -582,8 +609,7 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 `},
-		{"Log", Config{Core: config.Core{Log: full.Log}}, `
-[Log]
+		{"Log", Config{Core: config.Core{Log: full.Log}}, `[Log]
 DatabaseQueries = true
 FileDir = 'log/file/dir'
 FileMaxSize = '100.00gb'
@@ -592,8 +618,7 @@ FileMaxBackups = 9
 JSONConsole = true
 UnixTS = true
 `},
-		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `
-[WebServer]
+		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `[WebServer]
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 HTTPWriteTimeout = '1m0s'
@@ -619,13 +644,11 @@ Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 `},
-		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `
-[FluxMonitor]
+		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
 DefaultTransactionQueueDepth = 100
 SimulateTransactions = true
 `},
-		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `
-[JobPipeline]
+		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 DefaultHTTPRequestTimeout = '1m0s'
 ExternalInitiatorsEnabled = true
 HTTPRequestMaxSize = '100.00mb'
@@ -634,8 +657,7 @@ ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
 `},
-		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `
-[OCR]
+		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `[OCR]
 Enabled = true
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
@@ -646,8 +668,7 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 `},
-		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `
-[OCR2]
+		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
 ContractConfirmations = 11
 BlockchainTimeout = '3s'
@@ -657,8 +678,7 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 `},
-		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `
-[P2P]
+		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 TraceLogging = true
@@ -683,8 +703,7 @@ DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
-		{"Keeper", Config{Core: config.Core{Keeper: full.Keeper}}, `
-[Keeper]
+		{"Keeper", Config{Core: config.Core{Keeper: full.Keeper}}, `[Keeper]
 DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
@@ -692,14 +711,14 @@ BaseFeeBufferPercent = 89
 MaximumGracePeriod = 31
 RegistryCheckGasOverhead = 90
 RegistryPerformGasOverhead = 4294967295
+RegistryMaxPerformDataSize = 5000
 RegistrySyncInterval = '1h0m0s'
 RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
 `},
-		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `
-[AutoPprof]
+		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'
 PollInterval = '1m0s'
@@ -713,21 +732,18 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 `},
-		{"Pyroscope", Config{Core: config.Core{Pyroscope: full.Pyroscope}}, `
-[Pyroscope]
+		{"Pyroscope", Config{Core: config.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
 AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 `},
-		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `
-[Sentry]
+		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `[Sentry]
 Debug = true
 DSN = 'sentry-dsn'
 Environment = 'dev'
 Release = 'v1.2.3'
 `},
-		{"EVM", Config{EVM: full.EVM}, `
-[[EVM]]
+		{"EVM", Config{EVM: full.EVM}, `[[EVM]]
 ChainID = '1'
 Enabled = false
 BlockBackfillDepth = 100
@@ -824,8 +840,7 @@ Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
-		{"Solana", Config{Solana: full.Solana}, `
-[[Solana]]
+		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
 ChainID = 'mainnet'
 Enabled = false
 BalancePollPeriod = '1m0s'
@@ -851,8 +866,21 @@ URL = 'http://solana.foo'
 Name = 'bar'
 URL = 'http://solana.bar'
 `},
-		{"Terra", Config{Terra: full.Terra}, `
-[[Terra]]
+		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
+ChainID = 'foobar'
+Enabled = true
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+`},
+		{"Terra", Config{Terra: full.Terra}, `[[Terra]]
 ChainID = 'Bombay-12'
 Enabled = true
 BlockRate = '1m0s'
@@ -918,34 +946,45 @@ func TestConfig_full(t *testing.T) {
 var invalidTOML string
 
 func TestConfig_Validate(t *testing.T) {
-	var invalid Config
-	d := toml.NewDecoder(strings.NewReader(invalidTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&invalid))
-	if err := invalid.Validate(); assert.Error(t, err) {
-		got := err.Error()
-		exp := `3 errors:
-	1) EVM: 3 errors:
-		1) ChainID: invalid value 1: duplicate - must be unique
+	for _, tt := range []struct {
+		name string
+		toml string
+		exp  string
+	}{
+		{name: "invalid", toml: invalidTOML, exp: `5 errors:
+	1) Database: Lock: LeaseRefreshInterval (6s) must be less than or equal to half of LeaseDuration (10s)
+	2) EVM: 3 errors:
+		1) 1: ChainID: invalid value 1: duplicate - must be unique
 		2) 0: Nodes: 3 errors:
-				1) Name: invalid value foo: duplicate - must be unique
+				1) 1: Name: invalid value foo: duplicate - must be unique
 				2) 0: HTTPURL: missing: required for all nodes
 				3) 1: 2 errors:
 					1) WSURL: missing: required for SendOnly nodes
 					2) HTTPURL: missing: required for all nodes
-		3) 1: Chain: KeySpecific: duplicate address: 0xde709f2102306220921060314715629080e2fb77
-	2) Solana: 2 errors:
-		1) ChainID: invalid value mainnet: duplicate - must be unique
+		3) 1: 2 errors:
+			1) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
+			2) KeySpecific: duplicate address: 0xde709f2102306220921060314715629080e2fb77
+	3) Solana: 2 errors:
+		1) 1: ChainID: invalid value mainnet: duplicate - must be unique
 		2) 1: Nodes: 3 errors:
-				1) Name: invalid value bar: duplicate - must be unique
+				1) 1: Name: invalid value bar: duplicate - must be unique
 				2) 0: URL: missing: required for all nodes
 				3) 1: URL: missing: required for all nodes
-	3) Terra: 2 errors:
-		1) ChainID: invalid value Bombay-12: duplicate - must be unique
+	4) Starknet: 0: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: Name: invalid value primary: duplicate - must be unique
+	5) Terra: 2 errors:
+		1) 1: ChainID: invalid value Bombay-12: duplicate - must be unique
 		2) 0: Nodes: 3 errors:
-				1) Name: invalid value test: duplicate - must be unique
+				1) 1: Name: invalid value test: duplicate - must be unique
 				2) 0: TendermintURL: missing: required for all nodes
-				3) 1: TendermintURL: missing: required for all nodes`
-		assert.Equal(t, exp, got, diff.Diff(exp, got))
+				3) 1: TendermintURL: missing: required for all nodes`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var c Config
+			require.NoError(t, decodeTOMLStrict(tt.toml, &c))
+			assertValidationError(t, &c, tt.exp)
+		})
 	}
 }
 
@@ -1050,18 +1089,60 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 
-//go:embed testdata/secrets-partial.toml
-var invalidSecretsTOML string
-
 func TestSecrets_Validate(t *testing.T) {
-	var invalid Secrets
-	d := toml.NewDecoder(strings.NewReader(invalidSecretsTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&invalid))
+	for _, tt := range []struct {
+		name string
+		toml string
+		exp  string
+	}{
+		{name: "partial",
+			toml: `ExplorerAccessKey = "access_key"
+ExplorerSecret = "secret"`,
+			exp: `2 errors:
+	1) DatabaseURL: empty: must be provided and non-empty
+	2) KeystorePassword: empty: must be provided and non-empty`},
+
+		{name: "invalid-urls",
+			toml: `DatabaseURL = "postgresql://user:passlocalhost:5432/asdf"
+DatabaseBackupURL = "foo-bar?password=asdf"`,
+			exp: `3 errors:
+	1) DatabaseURL: invalid value *****: missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+Must have a length of 16-50 characters
+Must not comprise:
+	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
+
+	2) DatabaseBackupURL: invalid value *****: missing or insufficiently complex password: 
+Expected password complexity:
+Must be at least 16 characters long
+Must not comprise:
+	Leading or trailing whitespace
+	A user's API email
+
+Faults:
+	password is less than 16 characters long
+. Database should be secured by a password matching the following complexity requirements: 
+Must have a length of 16-50 characters
+Must not comprise:
+	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
+
+	3) KeystorePassword: empty: must be provided and non-empty`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var s Secrets
+			require.NoError(t, decodeTOMLStrict(tt.toml, &s))
+			assertValidationError(t, &s, tt.exp)
+		})
+	}
+}
+
+func decodeTOMLStrict(s string, v interface{}) error {
+	return toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields().Decode(v)
+}
+
+func assertValidationError(t *testing.T, invalid interface{ Validate() error }, expMsg string) {
+	t.Helper()
 	if err := invalid.Validate(); assert.Error(t, err) {
 		got := err.Error()
-		exp := `2 errors:
-	1) Database URL: empty: must be provided and non-empty
-	2) Keystore Password: empty: must be provided and non-empty`
-		assert.Equal(t, exp, got, diff.Diff(exp, got))
+		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
 	}
 }
