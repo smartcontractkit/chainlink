@@ -3,12 +3,6 @@ InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
-[AuditLogger]
-ForwardToUrl = 'http://localhost:9898'
-Environment = 'develop'
-JsonWrapperKey = ''
-Headers = []
-
 [Feature]
 FeedsManager = true
 LogPoller = true
@@ -47,6 +41,12 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+
+[AuditLogger]
+ForwardToUrl = 'http://localhost:9898'
+Environment = 'develop'
+JsonWrapperKey = ''
+Headers = []
 
 [Log]
 DatabaseQueries = true

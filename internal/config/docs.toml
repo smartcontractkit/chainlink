@@ -8,17 +8,6 @@ RootDir = '~/.chainlink' # Default
 # ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
 ShutdownGracePeriod = '5s' # Default
 
-[AuditLogger]
-# ForwardToUrl is where you want to forward logs to
-ForwardToUrl = 'http://localhost:9898' # Example
-# Environment is an identifier for the host/environment you're on
-Environment = 'develop' # Example
-# JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
-JsonWrapperKey = '' # Default
-# Headers is the set of headers you wish to pass along with each request
-Headers = [] # Default
-
-
 [Feature]
 # FeedsManager enables the experimental feeds manager service.
 FeedsManager = false # Default
@@ -115,6 +104,16 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
+
+[AuditLogger]
+# ForwardToUrl is where you want to forward logs to
+ForwardToUrl = 'http://localhost:9898' # Example
+# Environment is an identifier for the host/environment you're on
+Environment = 'develop' # Example
+# JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+JsonWrapperKey = '' # Default
+# Headers is the set of headers you wish to pass along with each request
+Headers = [] # Default
 
 [Log]
 # DatabaseQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.

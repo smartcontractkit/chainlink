@@ -3,13 +3,13 @@
 ## Table of contents
 
 - [Global](#Global)
-- [AuditLogger](#AuditLogger)
 - [Feature](#Feature)
 - [Database](#Database)
 	- [Backup](#Database-Backup)
 	- [Listener](#Database-Listener)
 	- [Lock](#Database-Lock)
 - [TelemetryIngress](#TelemetryIngress)
+- [AuditLogger](#AuditLogger)
 - [Log](#Log)
 - [WebServer](#WebServer)
 	- [RateLimit](#WebServer-RateLimit)
@@ -75,40 +75,6 @@ RootDir is the Chainlink node's root directory. This is the default directory fo
 ShutdownGracePeriod = '5s' # Default
 ```
 ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
-
-## AuditLogger<a id='AuditLogger'></a>
-```toml
-[AuditLogger]
-ForwardToUrl = 'http://localhost:9898' # Example
-Environment = 'develop' # Example
-JsonWrapperKey = '' # Default
-Headers = [] # Default
-```
-
-
-### ForwardToUrl<a id='AuditLogger-ForwardToUrl'></a>
-```toml
-ForwardToUrl = 'http://localhost:9898' # Example
-```
-ForwardToUrl is where you want to forward logs to
-
-### Environment<a id='AuditLogger-Environment'></a>
-```toml
-Environment = 'develop' # Example
-```
-Environment is an identifier for the host/environment you're on
-
-### JsonWrapperKey<a id='AuditLogger-JsonWrapperKey'></a>
-```toml
-JsonWrapperKey = '' # Default
-```
-JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
-
-### Headers<a id='AuditLogger-Headers'></a>
-```toml
-Headers = [] # Default
-```
-Headers is the set of headers you wish to pass along with each request
 
 ## Feature<a id='Feature'></a>
 ```toml
@@ -362,6 +328,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## AuditLogger<a id='AuditLogger'></a>
+```toml
+[AuditLogger]
+ForwardToUrl = 'http://localhost:9898' # Example
+Environment = 'develop' # Example
+JsonWrapperKey = '' # Default
+Headers = [] # Default
+```
+
+
+### ForwardToUrl<a id='AuditLogger-ForwardToUrl'></a>
+```toml
+ForwardToUrl = 'http://localhost:9898' # Example
+```
+ForwardToUrl is where you want to forward logs to
+
+### Environment<a id='AuditLogger-Environment'></a>
+```toml
+Environment = 'develop' # Example
+```
+Environment is an identifier for the host/environment you're on
+
+### JsonWrapperKey<a id='AuditLogger-JsonWrapperKey'></a>
+```toml
+JsonWrapperKey = '' # Default
+```
+JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+
+### Headers<a id='AuditLogger-Headers'></a>
+```toml
+Headers = [] # Default
+```
+Headers is the set of headers you wish to pass along with each request
 
 ## Log<a id='Log'></a>
 ```toml
