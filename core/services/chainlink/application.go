@@ -204,10 +204,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(globalLogger, cfg.AuditLoggerConfig())
 	if err != nil {
-		return nil, errors.Errorf("Unable to initialize audit logger: %s", err)
-	}
-
-	if auditLogger != nil {
+		globalLogger.Info("Audit logger could not be started. err: ", err)
+	} else {
 		subservices = append(subservices, auditLogger)
 	}
 

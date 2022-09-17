@@ -108,13 +108,12 @@ type wrappedAuditLog struct {
 // is disabled and short circuits execution via enabled flag.
 func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogger, error) {
 	if config == nil {
-		logger.Info("Audit logger configuration is nil. Cannot start audit logger subsystem and audit events will not be captured.")
-		return nil, nil
+		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - no configuration")
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
+		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
