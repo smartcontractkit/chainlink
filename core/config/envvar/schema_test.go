@@ -129,6 +129,7 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperMaximumGracePeriod":                       "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperRegistryCheckGasOverhead":                 "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
 		"KeeperRegistryPerformGasOverhead":               "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
+		"KeeperRegistryMaxPerformDataSize":               "KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE",
 		"KeeperRegistrySyncInterval":                     "KEEPER_REGISTRY_SYNC_INTERVAL",
 		"KeeperRegistrySyncUpkeepQueueSize":              "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
 		"KeeperTurnLookBack":                             "KEEPER_TURN_LOOK_BACK",

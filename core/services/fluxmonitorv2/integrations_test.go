@@ -392,7 +392,7 @@ func assertNoSubmission(t *testing.T,
 
 // assertPipelineRunCreated checks that a pipeline exists for a given round and
 // verifies the answer
-func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result float64) pipeline.Run {
+func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result int64) pipeline.Run {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
 	require.NoError(t, db.Get(&stats, "SELECT * FROM flux_monitor_round_stats_v2 WHERE round_id = $1", roundID))
@@ -556,7 +556,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, float64(100))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, int64(100))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
@@ -585,7 +585,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance-fee,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, float64(103))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, int64(103))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause

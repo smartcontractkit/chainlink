@@ -133,6 +133,7 @@ type GeneralOnlyConfig interface {
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint32
 	KeeperRegistryPerformGasOverhead() uint32
+	KeeperRegistryMaxPerformDataSize() uint32
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
@@ -873,6 +874,12 @@ func (c *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
 // to account for the gas consumed by the keeper registry
 func (c *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
 	return getEnvWithFallback(c, envvar.KeeperRegistryPerformGasOverhead)
+}
+
+// KeeperRegistryMaxPerformDataSize is the max perform data size we allow in our pipeline for an
+// upkeep to be performed with
+func (c *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
+	return getEnvWithFallback(c, envvar.KeeperRegistryMaxPerformDataSize)
 }
 
 // KeeperDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Keeper

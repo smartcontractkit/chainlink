@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `length` and `lessthan` tasks (pipeline).
+- Added `gasUnlimited` parameter to `ethcall` task. 
 - `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
 This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well 
 as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).  

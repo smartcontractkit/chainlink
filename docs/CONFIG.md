@@ -1031,6 +1031,7 @@ MaximumGracePeriod = 100 # Default
 RegistryCheckGasOverhead = 200_000 # Default
 RegistryPerformGasOverhead = 150_000 # Default
 RegistrySyncInterval = '30m' # Default
+RegistryMaxPerformDataSize = 5_000 # Default
 RegistrySyncUpkeepQueueSize = 10 # Default
 TurnLookBack = 1000 # Default
 TurnFlagEnabled = false # Default
@@ -1090,6 +1091,13 @@ RegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep()
 RegistrySyncInterval = '30m' # Default
 ```
 RegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
+
+### RegistryMaxPerformDataSize<a id='Keeper-RegistryMaxPerformDataSize'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+RegistryMaxPerformDataSize = 5_000 # Default
+```
+RegistryMaxPerformDataSize is the max size of perform data.
 
 ### RegistrySyncUpkeepQueueSize<a id='Keeper-RegistrySyncUpkeepQueueSize'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
