@@ -82,7 +82,7 @@ jobs:
       TEST_LOG_LEVEL: debug
       PYROSCOPE_ENVIRONMENT: eth_smoke_tests
       PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
-      PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
+      PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_SERVER_ADDRESS }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -186,7 +186,7 @@ jobs:
       TEST_LOG_LEVEL: debug
       PYROSCOPE_ENVIRONMENT: solana_smoke_tests
       PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
-      PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
+      PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_SERVER_ADDRESS }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
