@@ -121,11 +121,17 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.NonceAutoSync; v != nil {
 		c.NonceAutoSync = v
 	}
+	if v := f.NoNewHeadsThreshold; v != nil {
+		c.NoNewHeadsThreshold = v
+	}
 	if v := f.OperatorFactoryAddress; v != nil {
 		c.OperatorFactoryAddress = v
 	}
 	if v := f.RPCDefaultBatchSize; v != nil {
 		c.RPCDefaultBatchSize = v
+	}
+	if v := f.RPCBlockQueryDelay; v != nil {
+		c.RPCBlockQueryDelay = v
 	}
 	if v := f.TxReaperInterval; v != nil {
 		c.TxReaperInterval = v
@@ -145,9 +151,6 @@ func (c *Chain) SetFrom(f *Chain) {
 		}
 		if v := b.Enabled; v != nil {
 			c.BalanceMonitor.Enabled = v
-		}
-		if v := b.BlockDelay; v != nil {
-			c.BalanceMonitor.BlockDelay = v
 		}
 	}
 	if g := f.GasEstimator; g != nil {
@@ -224,9 +227,6 @@ func (c *Chain) SetFrom(f *Chain) {
 			if v := b.BatchSize; v != nil {
 				c.GasEstimator.BlockHistory.BatchSize = v
 			}
-			if v := b.BlockDelay; v != nil {
-				c.GasEstimator.BlockHistory.BlockDelay = v
-			}
 			if v := b.BlockHistorySize; v != nil {
 				c.GasEstimator.BlockHistory.BlockHistorySize = v
 			}
@@ -253,9 +253,6 @@ func (c *Chain) SetFrom(f *Chain) {
 		if c.HeadTracker == nil {
 			c.HeadTracker = &HeadTracker{}
 		}
-		if v := h.BlockEmissionIdleWarningThreshold; v != nil {
-			c.HeadTracker.BlockEmissionIdleWarningThreshold = v
-		}
 		if v := h.HistoryDepth; v != nil {
 			c.HeadTracker.HistoryDepth = v
 		}
@@ -269,9 +266,6 @@ func (c *Chain) SetFrom(f *Chain) {
 	if n := f.NodePool; n != nil {
 		if c.NodePool == nil {
 			c.NodePool = &NodePool{}
-		}
-		if v := n.NoNewHeadsThreshold; v != nil {
-			c.NodePool.NoNewHeadsThreshold = v
 		}
 		if v := n.PollFailureThreshold; v != nil {
 			c.NodePool.PollFailureThreshold = v
