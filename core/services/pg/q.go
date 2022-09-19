@@ -4,16 +4,25 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "sql_query_timeout_percent",
+	Help:    "SQL query time as a pecentage of timeout.",
+	Buckets: []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
+})
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //
@@ -320,11 +329,19 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	if timeout <= 0 {
 		timeout = DefaultQueryTimeout
 	}
+
+	pct := float64(elapsed) / float64(timeout)
+	pct *= 100
+
+	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
+
 	if elapsed >= timeout {
-		q.logger.Criticalw("SLOW SQL QUERY", "ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "sql", q)
+		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
 	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
-		q.logger.Errorw("SLOW SQL QUERY", "ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "sql", q)
+		q.logger.Errorw("SLOW SQL QUERY", kvs...)
 	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {
-		q.logger.Warnw("SLOW SQL QUERY", "ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "sql", q)
+		q.logger.Warnw("SLOW SQL QUERY", kvs...)
 	}
+
+	promSQLQueryTime.Observe(pct)
 }
