@@ -1,6 +1,6 @@
 # MAKE ALL CHANGES WITHIN THE DEFAULT WORKDIR FOR YARN AND GO DEP CACHE HITS
 
-# Build image: Operator UI 
+# Build image: Operator UI
 FROM node:16-buster as buildui
 WORKDIR /chainlink
 
@@ -27,7 +27,7 @@ RUN mkdir -p core/web
 RUN make contracts-operator-ui-build
 
 # Build image: Chainlink binary
-FROM golang:1.18-buster as buildgo
+FROM golang:1.19-buster as buildgo
 WORKDIR /chainlink
 
 COPY GNUmakefile VERSION ./
