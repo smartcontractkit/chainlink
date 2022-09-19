@@ -17,16 +17,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 var (
@@ -88,7 +89,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 			// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
 			// node must work and reconnect even if network is not working
 			time.Sleep(90 * time.Second)
-			err = e.AddHelm(chainlink.New(0, map[string]interface{}{
+			err = e.AddHelm(testsetups.NewChainlinkWithPyroscope(0, map[string]interface{}{
 				"env": map[string]interface{}{
 					"eth_url":                        "ws://geth-ethereum-geth:8546",
 					"eth_http_url":                   "http://geth-ethereum-geth:8544",

@@ -10,16 +10,17 @@ import (
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,7 +60,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 		testScenarios = []TableEntry{
 			Entry("Must survive minority removal for 1m @chaos-ocr-fail-minority",
 				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
+				testsetups.NewChainlinkWithPyroscope(0, defaultOCRSettings),
 				chaos.NewFailPods,
 				&chaos.Props{
 					LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
@@ -68,7 +69,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 			),
 			Entry("Must recover from majority removal @chaos-ocr-fail-majority",
 				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
+				testsetups.NewChainlinkWithPyroscope(0, defaultOCRSettings),
 				chaos.NewFailPods,
 				&chaos.Props{
 					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -77,7 +78,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 			),
 			Entry("Must recover from majority DB failure @chaos-ocr-fail-majority-db",
 				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
+				testsetups.NewChainlinkWithPyroscope(0, defaultOCRSettings),
 				chaos.NewFailPods,
 				&chaos.Props{
 					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -87,7 +88,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 			),
 			Entry("Must recover from majority network failure @chaos-ocr-fail-majority-network",
 				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
+				testsetups.NewChainlinkWithPyroscope(0, defaultOCRSettings),
 				chaos.NewNetworkPartition,
 				&chaos.Props{
 					FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -97,7 +98,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 			),
 			Entry("Must recover from blockchain node network failure @chaos-ocr-fail-blockchain-node",
 				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
+				testsetups.NewChainlinkWithPyroscope(0, defaultOCRSettings),
 				chaos.NewNetworkPartition,
 				&chaos.Props{
 					FromLabels:  &map[string]*string{"app": a.Str("geth")},

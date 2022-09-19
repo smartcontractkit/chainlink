@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -43,7 +43,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(eth.New(nil)).
-				AddHelm(chainlink.New(0, map[string]interface{}{
+				AddHelm(testsetups.NewChainlinkWithPyroscope(0, map[string]interface{}{
 					"replicas": "5",
 					"env": map[string]interface{}{
 						"MIN_INCOMING_CONFIRMATIONS": "1",

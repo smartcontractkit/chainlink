@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
@@ -37,7 +37,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(ethereum.New(nil)).
-				AddHelm(chainlink.New(0, map[string]interface{}{
+				AddHelm(testsetups.NewChainlinkWithPyroscope(0, map[string]interface{}{
 					"env": map[string]interface{}{
 						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
 					},

@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -37,12 +36,12 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 					Simulated:   soakNetwork.Simulated,
 					WsURLs:      soakNetwork.URLs,
 				})).
-				AddHelm(chainlink.New(0, nil)).
-				AddHelm(chainlink.New(1, nil)).
-				AddHelm(chainlink.New(2, nil)).
-				AddHelm(chainlink.New(3, nil)).
-				AddHelm(chainlink.New(4, nil)).
-				AddHelm(chainlink.New(5, nil)).
+				AddHelm(testsetups.NewChainlinkWithPyroscope(0, nil)).
+				AddHelm(testsetups.NewChainlinkWithPyroscope(1, nil)).
+				AddHelm(testsetups.NewChainlinkWithPyroscope(2, nil)).
+				AddHelm(testsetups.NewChainlinkWithPyroscope(3, nil)).
+				AddHelm(testsetups.NewChainlinkWithPyroscope(4, nil)).
+				AddHelm(testsetups.NewChainlinkWithPyroscope(5, nil)).
 				Run()
 			Expect(err).ShouldNot(HaveOccurred())
 			log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Soak Environment")

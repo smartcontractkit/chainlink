@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -157,7 +157,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
-			AddHelm(chainlink.New(0, map[string]interface{}{
+			AddHelm(testsetups.NewChainlinkWithPyroscope(0, map[string]interface{}{
 				"replicas": "5",
 				"env": map[string]interface{}{
 					"MIN_INCOMING_CONFIRMATIONS": "1",

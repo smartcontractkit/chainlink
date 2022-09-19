@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
@@ -17,7 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 func init() {
@@ -121,7 +122,7 @@ func addSeparateChainlinkDeployments(
 		for key, value := range dynamicValues {
 			envVals[key] = value
 		}
-		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{"env": envVals}))
+		testEnvironment.AddHelm(testsetups.NewChainlinkWithPyroscope(index, map[string]interface{}{"env": envVals}))
 	}
 }
 

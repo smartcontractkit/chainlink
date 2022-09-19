@@ -14,14 +14,15 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 var _ = Describe("VRF suite @vrf", func() {
@@ -191,7 +192,7 @@ func defaultVRFEnv(network *blockchain.EVMNetwork) *environment.Environment {
 	}
 	return environment.New(&environment.Config{}).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(testsetups.NewChainlinkWithPyroscope(0, map[string]interface{}{
 			"env": network.ChainlinkValuesMap(),
 		}))
 }

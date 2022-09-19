@@ -9,15 +9,16 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	ethdeploy "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -217,7 +218,7 @@ func defaultVRFv2Env(network *blockchain.EVMNetwork) *environment.Environment {
 	}
 	return environment.New(&environment.Config{}).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
+		AddHelm(testsetups.NewChainlinkWithPyroscope(0, map[string]interface{}{
 			"env": network.ChainlinkValuesMap(),
 		}))
 }
