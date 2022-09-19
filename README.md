@@ -48,9 +48,7 @@ regarding Chainlink social accounts, news, and networking.
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
-### Mac M1/ARM64 [EXPERIMENTAL]
-
-Chainlink can be experimentally compiled with ARM64 as the target arch.
+### Mac M1/ARM64
 
 To build an ARM64 supported Docker image you'll need to add extra build arguments:
 
