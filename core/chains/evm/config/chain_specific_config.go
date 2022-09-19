@@ -178,14 +178,18 @@ func setChainSpecificConfigDefaultSets() {
 	kovan := mainnet
 	kovan.linkContractAddress = "0xa36085F69e2889c224210F603D836748e7dC0088"
 	kovan.operatorFactoryAddress = "0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3"
-	kovan.eip1559DynamicFees = false // FIXME: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	// WONTFIX: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	// This is a WONTFIX because support for Kovan will soon be dropped
+	kovan.eip1559DynamicFees = false
 	goerli := mainnet
 	goerli.linkContractAddress = "0x326c977e6efc84e512bb9c30f76e30c160ed06fb"
-	goerli.eip1559DynamicFees = false // TODO: EIP1559 on goerli has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	goerli.eip1559DynamicFees = true
 	goerli.operatorFactoryAddress = ""
 	rinkeby := mainnet
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
-	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	// WONTFIX: Rinkeby has not been tested with EIP1559
+	// This is a WONTFIX because support for Rinkeby will soon be dropped
+	rinkeby.eip1559DynamicFees = false
 	rinkeby.operatorFactoryAddress = ""
 	sepolia := mainnet
 	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
