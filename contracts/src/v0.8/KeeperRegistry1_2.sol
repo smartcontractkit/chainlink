@@ -5,13 +5,13 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./KeeperBase.sol";
+import "./AutomationBase.sol";
 import "./ConfirmedOwner.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/KeeperCompatibleInterface.sol";
-import "./interfaces/KeeperRegistryInterface1_2.sol";
+import "./interfaces/AutomationCompatibleInterface.sol";
+import "./interfaces/AutomationRegistryInterface1_2.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";
@@ -23,10 +23,10 @@ import "./interfaces/ERC677ReceiverInterface.sol";
 contract KeeperRegistry1_2 is
   TypeAndVersionInterface,
   ConfirmedOwner,
-  KeeperBase,
+  AutomationBase,
   ReentrancyGuard,
   Pausable,
-  KeeperRegistryExecutableInterface,
+  AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   ERC677ReceiverInterface
 {
@@ -35,8 +35,8 @@ contract KeeperRegistry1_2 is
 
   address private constant ZERO_ADDRESS = address(0);
   address private constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
-  bytes4 private constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
-  bytes4 private constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
+  bytes4 private constant CHECK_SELECTOR = AutomationCompatibleInterface.checkUpkeep.selector;
+  bytes4 private constant PERFORM_SELECTOR = AutomationCompatibleInterface.performUpkeep.selector;
   uint256 private constant PERFORM_GAS_MIN = 2_300;
   uint256 private constant CANCELATION_DELAY = 50;
   uint256 private constant PERFORM_GAS_CUSHION = 5_000;

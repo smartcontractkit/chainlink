@@ -10,7 +10,7 @@ import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterface1_3.sol
 import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/AutomationCompatibleInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
@@ -20,8 +20,8 @@ import "../interfaces/UpkeepTranscoderInterface.sol";
 abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
-  bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
-  bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
+  bytes4 internal constant CHECK_SELECTOR = AutomationCompatibleInterface.checkUpkeep.selector;
+  bytes4 internal constant PERFORM_SELECTOR = AutomationCompatibleInterface.performUpkeep.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;

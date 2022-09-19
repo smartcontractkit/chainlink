@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../KeeperCompatible.sol";
+import "../AutomationCompatible.sol";
 
-contract KeeperCompatibleTestHelper is KeeperCompatible {
+contract KeeperCompatibleTestHelper is AutomationCompatible {
   function checkUpkeep(bytes calldata) external override returns (bool, bytes memory) {}
 
   function performUpkeep(bytes calldata) external override {}
