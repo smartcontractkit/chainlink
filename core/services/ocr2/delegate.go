@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	ocr2keeperschain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -24,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
 	ocr2keeperconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
@@ -364,41 +364,19 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
-		}
-		chainID := int64(chainIDInterface.(float64))
-		chain, err := d.chainSet.Get(big.NewInt(chainID))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get chainset")
-		}
-
+		// TODO: cfg still not used, but it's here to pass config values to the plugin
+		// from the primary config file.
+		// possible to be added:
+		// - cache purge time frame
+		// - persistent store option
+		// - chain type
 		var cfg ocr2keeperconfig.PluginConfig
-		if err := json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
+		if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
 			return nil, errors.Wrap(err, "unmarshal ocr2keeper plugin config")
 		}
 
-		if err := cfg.Validate(); err != nil {
+		if err = cfg.Validate(); err != nil {
 			return nil, errors.Wrap(err, "validate ocr2keeper plugin config")
-		}
-
-		ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(d.db, chain, lggr.Named("OCR2KeeperRelayer"))
-
-		keeperProvider, err2 := ocr2keeperRelayer.NewOCR2KeeperProvider(
-			types.RelayArgs{
-				ExternalJobID: jobSpec.ExternalJobID,
-				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-			},
-			types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
-				PluginConfig:  spec.PluginConfig.Bytes(),
-			},
-		)
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "failed to create new ocr2keeper provider")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
@@ -417,10 +395,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			FromAddress:     ethkey.MustEIP55Address(spec.TransmitterID.String),
 		}
 
-		rgstry, err := ocr2keeperschain.NewEVMRegistryV1_2(ethkey.MustEIP55Address(spec.ContractID).Address(), chain.Client())
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create new evm registry")
+		keeperProvider, rgstry, encoder, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
+
 		conf := ocr2keepers.DelegateConfig{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -434,17 +413,17 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 			Registry:                     rgstry,
-			ReportEncoder:                ocr2keeperschain.NewEVMReportEncoder(),
+			ReportEncoder:                encoder,
 		}
-		del, err := ocr2keepers.NewDelegate(conf)
-		if err != nil {
+		pluginService, err2 := ocr2keepers.NewDelegate(conf)
+		if err2 != nil {
 			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 		}
 
 		return []job.ServiceCtx{
 			runResultSaver,
 			keeperProvider,
-			job.NewServiceAdapter(del),
+			pluginService,
 		}, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
