@@ -56,6 +56,10 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-chainlink
+    env:
+      PYROSCOPE_ENVIRONMENT: eth_smoke_tests
+      PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
+      PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
