@@ -182,12 +182,12 @@ func TestKeeperEthIntegration(t *testing.T) {
 			nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 			nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 			genesisData := core.GenesisAlloc{
-				sergey.From: {Balance: assets.Ether(1500)},
-				steve.From:  {Balance: assets.Ether(1500)},
-				carrol.From: {Balance: assets.Ether(1500)},
-				nelly.From:  {Balance: assets.Ether(1500)},
-				nick.From:   {Balance: assets.Ether(1500)},
-				nodeAddress: {Balance: assets.Ether(1500)},
+				sergey.From: {Balance: assets.Ether(1000)},
+				steve.From:  {Balance: assets.Ether(1000)},
+				carrol.From: {Balance: assets.Ether(1000)},
+				nelly.From:  {Balance: assets.Ether(1000)},
+				nick.From:   {Balance: assets.Ether(1000)},
+				nodeAddress: {Balance: assets.Ether(1000)},
 			}
 
 			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
