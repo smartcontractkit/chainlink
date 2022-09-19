@@ -82,4 +82,4 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           PYROSCOPE_ENVIRONMENT: chaos_tests
           PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
-          PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
+          PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_SERVER_ADDRESS }}
