@@ -113,9 +113,6 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           CGO_ENABLED: "1"
-          PYROSCOPE_ENVIRONMENT: eth_smoke_tests
-          PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
-          PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
 
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
@@ -187,7 +184,7 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-solana
       TEST_LOG_LEVEL: debug
-      PYROSCOPE_ENVIRONMENT: eth_smoke_tests
+      PYROSCOPE_ENVIRONMENT: solana_smoke_tests
       PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
       PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
     steps:
@@ -218,9 +215,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-          PYROSCOPE_ENVIRONMENT: solana_smoke_tests
-          PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
-          PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_SERVER_ADDRESS }}
       - name: cleanup
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@1f3c81b148e53caaa0563f8963f884f0e5a4f82d # v2.0.15

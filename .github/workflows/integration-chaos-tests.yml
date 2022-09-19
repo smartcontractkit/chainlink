@@ -57,7 +57,7 @@ jobs:
     needs:
       - build-chainlink
     env:
-      PYROSCOPE_ENVIRONMENT: eth_smoke_tests
+      PYROSCOPE_ENVIRONMENT: eth_chaos_tests
       PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
       PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
     steps:
@@ -84,6 +84,3 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-          PYROSCOPE_ENVIRONMENT: chaos_tests
-          PYROSCOPE_AUTH_TOKEN: ${{ secrets.PYROSCOPE_OAUTH_TOKEN }}
-          PYROSCOPE_SERVER_ADDRESS: ${{ secrets.PYROSCOPE_SERVER_ADDRESS }}
