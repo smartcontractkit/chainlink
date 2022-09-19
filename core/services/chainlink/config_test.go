@@ -387,8 +387,7 @@ func TestConfig_Marshal(t *testing.T) {
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				BalanceMonitor: &evmcfg.BalanceMonitor{
-					Enabled:    ptr(true),
-					BlockDelay: ptr[uint16](17),
+					Enabled: ptr(true),
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
@@ -421,7 +420,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 					BlockHistory: &evmcfg.BlockHistoryEstimator{
 						BatchSize:                 ptr[uint32](17),
-						BlockDelay:                ptr[uint16](10),
 						BlockHistorySize:          ptr[uint16](12),
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
@@ -446,25 +444,25 @@ func TestConfig_Marshal(t *testing.T) {
 				MinIncomingConfirmations: ptr[uint32](13),
 				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
 
-				NonceAutoSync: ptr(true),
+				NonceAutoSync:       ptr(true),
+				NoNewHeadsThreshold: &minute,
 
 				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
 
 				RPCDefaultBatchSize:    ptr[uint32](17),
+				RPCBlockQueryDelay:     ptr[uint16](10),
 				TxReaperInterval:       &minute,
 				TxReaperThreshold:      &minute,
 				TxResendAfterThreshold: &hour,
 				UseForwarders:          ptr(true),
 
 				HeadTracker: &evmcfg.HeadTracker{
-					BlockEmissionIdleWarningThreshold: &hour,
-					HistoryDepth:                      ptr[uint32](15),
-					MaxBufferSize:                     ptr[uint32](17),
-					SamplingInterval:                  &hour,
+					HistoryDepth:     ptr[uint32](15),
+					MaxBufferSize:    ptr[uint32](17),
+					SamplingInterval: &hour,
 				},
 
 				NodePool: &evmcfg.NodePool{
-					NoNewHeadsThreshold:  &minute,
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
@@ -759,8 +757,10 @@ MaxQueuedTransactions = 99
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
+RPCBlockQueryDelay = 10
 TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
@@ -768,7 +768,6 @@ UseForwarders = true
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 17
 
 [EVM.GasEstimator]
 Mode = 'L2Suggested'
@@ -795,13 +794,11 @@ TipCapMinimum = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
-BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
@@ -813,7 +810,6 @@ Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
