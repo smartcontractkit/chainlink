@@ -307,6 +307,7 @@ type Keeper struct {
 	MaximumGracePeriod           *int64
 	RegistryCheckGasOverhead     *uint32
 	RegistryPerformGasOverhead   *uint32
+	RegistryMaxPerformDataSize   *uint32
 	RegistrySyncInterval         *models.Duration
 	RegistrySyncUpkeepQueueSize  *uint32
 	TurnLookBack                 *int64
