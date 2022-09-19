@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -42,15 +43,15 @@ const (
 	// Both VRF and DKG contracts emit this, it's an OCR event.
 	configSetEvent = "ConfigSet"
 
-	// TODO: unmarshall offchainConfig and use DeltaStageNanoseconds
-	// (https://github.com/smartcontractkit/libocr/blob/master/offchainreporting2/internal/config/public_config.go#L70),
-	// or just use a constant seconds value with the assumption that smaller blocks -> more re-orgs and vice versa.
+	// TODO: Add these to the off-chain config.
 	cacheEvictionWindowSeconds = 30
+	batchGasLimit              = int64(5_000_000)
+	blockGasOverhead           = int64(50_000)
+	callbackGasOverhead        = int64(50_000)
 )
 
 // block is used to key into a set that tracks beacon blocks.
 type block struct {
-	blockHash   common.Hash
 	blockNumber uint64
 	confDelay   uint32
 }
@@ -62,7 +63,6 @@ type blockInReport struct {
 }
 
 type callback struct {
-	blockHash   common.Hash
 	blockNumber uint64
 	requestID   uint64
 }
@@ -90,12 +90,10 @@ type coordinator struct {
 	evmClient evmclient.Client
 
 	// set of blocks that have been scheduled for transmission.
-	toBeTransmittedBlocks *BlockCache[blockInReport]
+	toBeTransmittedBlocks *blockCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
-	toBeTransmittedCallbacks *BlockCache[callbackInReport]
+	toBeTransmittedCallbacks *blockCache[callbackInReport]
 	// set of recent blockhashes for reports.
-	toBeTransmittedReportHashes *BlockCache[common.Hash]
-	// transmittedMu protects the toBeTransmittedBlocks and toBeTransmittedCallbacks
 	transmittedMu sync.Mutex
 }
 
@@ -129,19 +127,18 @@ func New(
 	}
 
 	return &coordinator{
-		coordinatorContract:         coordinatorContract,
-		coordinatorAddress:          coordinatorAddress,
-		dkgAddress:                  dkgAddress,
-		lp:                          logPoller,
-		topics:                      t,
-		lookbackBlocks:              lookbackBlocks,
-		finalityDepth:               finalityDepth,
-		evmClient:                   client,
-		lggr:                        lggr.Named("OCR2VRFCoordinator"),
-		transmittedMu:               sync.Mutex{},
-		toBeTransmittedBlocks:       NewBlockCache[blockInReport](cacheEvictionWindowSeconds),
-		toBeTransmittedCallbacks:    NewBlockCache[callbackInReport](cacheEvictionWindowSeconds),
-		toBeTransmittedReportHashes: NewBlockCache[common.Hash](cacheEvictionWindowSeconds),
+		coordinatorContract:      coordinatorContract,
+		coordinatorAddress:       coordinatorAddress,
+		dkgAddress:               dkgAddress,
+		lp:                       logPoller,
+		topics:                   t,
+		lookbackBlocks:           lookbackBlocks,
+		finalityDepth:            finalityDepth,
+		evmClient:                client,
+		lggr:                     lggr.Named("OCR2VRFCoordinator"),
+		transmittedMu:            sync.Mutex{},
+		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindowSeconds),
+		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindowSeconds),
 	}, nil
 }
 
@@ -201,6 +198,9 @@ func (c *coordinator) ReportBlocks(
 	maxBlocks, // TODO: unused for now
 	maxCallbacks int, // TODO: unused for now
 ) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
+	// Instantiate the gas used by this batch.
+	currentBatchGasLimit := int64(0)
+
 	// TODO: use head broadcaster instead?
 	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
@@ -288,18 +288,23 @@ func (c *coordinator) ReportBlocks(
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
-		blocks = append(blocks, ocr2vrftypes.Block{
-			Hash:              blockhashesMapping[block.blockNumber],
-			Height:            block.blockNumber,
-			ConfirmationDelay: block.confDelay,
-		})
+		if batchGasLimit-currentBatchGasLimit >= blockGasOverhead {
+			blocks = append(blocks, ocr2vrftypes.Block{
+				Hash:              blockhashesMapping[block.blockNumber],
+				Height:            block.blockNumber,
+				ConfirmationDelay: block.confDelay,
+			})
+			currentBatchGasLimit += blockGasOverhead
+		} else {
+			break
+		}
 	}
 
 	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
-	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight)
+	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
 
 	c.lggr.Info(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
@@ -374,7 +379,11 @@ func (c *coordinator) getBlockhashesMapping(
 	ctx context.Context,
 	blockNumbers []uint64,
 ) (blockhashesMapping map[uint64]common.Hash, err error) {
-
+	// GetBlocks doesn't necessarily need a sorted blockNumbers array,
+	// but sorting it is helpful for testing.
+	sort.Slice(blockNumbers, func(a, b int) bool {
+		return blockNumbers[a] < blockNumbers[b]
+	})
 	heads, err := c.lp.GetBlocks(ctx, blockNumbers, pg.WithParentCtx(ctx))
 	if len(heads) != len(blockNumbers) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
@@ -408,9 +417,25 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 	fulfilledRequestIDs map[uint64]struct{},
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
+	currentBatchGasLimit int64,
 ) (callbacks []ocr2vrftypes.AbstractCostedCallbackRequest) {
-	// TODO: check if subscription has enough funds (eventually)
+
+	// Sort callbacksRequested first by time requested (oldest -> newest), then by gas allowance (lowest -> highest).
+	sort.Slice(callbacksRequested, func(a, b int) bool {
+		aHeight := callbacksRequested[a].NextBeaconOutputHeight + callbacksRequested[a].ConfDelay.Uint64()
+		bHeight := callbacksRequested[b].NextBeaconOutputHeight + callbacksRequested[b].ConfDelay.Uint64()
+		if aHeight == bHeight {
+			return callbacksRequested[a].Callback.GasAllowance.Int64() < callbacksRequested[b].Callback.GasAllowance.Int64()
+		}
+		return aHeight < bHeight
+	})
+
 	for _, r := range callbacksRequested {
+		// Check if there is room left in the batch.
+		if batchGasLimit-currentBatchGasLimit < r.Callback.GasAllowance.Int64() {
+			break
+		}
+
 		requestID := r.Callback.RequestID
 		if _, ok := fulfilledRequestIDs[requestID.Uint64()]; !ok {
 			// The on-chain machinery will revert requests that specify an unsupported
@@ -439,6 +464,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					RequestHeight:     r.Raw.BlockNumber,
 					RequestBlockHash:  r.Raw.BlockHash,
 				})
+				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
 			}
 		}
 	}
@@ -669,13 +695,19 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	// Apply blockhashes to blocks and mark them as transmitted.
 	for _, b := range blocksRequested {
 		cacheKey := getBlockCacheKey(int64(b.blockNumber), int64(b.confDelay))
-		c.toBeTransmittedBlocks.AddItem(b, cacheKey, now)
+		err := c.toBeTransmittedBlocks.CacheItem(b, cacheKey, now)
+		if err != nil {
+			return errors.Wrap(err, "adding block to the cache in ReportWillBeTransmitted")
+		}
 	}
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
 		cacheKey := getCallbackCacheKey(int64(cb.requestID))
-		c.toBeTransmittedCallbacks.AddItem(cb, cacheKey, now)
+		err := c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
+		if err != nil {
+			return errors.Wrap(err, "adding callback to the cache in ReportWillBeTransmitted")
+		}
 	}
 
 	return nil
