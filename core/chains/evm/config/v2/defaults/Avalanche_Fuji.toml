@@ -3,7 +3,9 @@ FinalityDepth = 1
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '30s'
 OCR.ContractConfirmations = 1
+RPCBlockQueryDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -13,10 +15,3 @@ PriceMin = '25 gwei'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 24
-BlockDelay = 2
-
-[HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
-
-[NodePool]
-NoNewHeadsThreshold = '30s'
