@@ -67,6 +67,19 @@ var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
+var lowBCPTRegistryConfig = contracts.KeeperRegistrySettings{
+	PaymentPremiumPPB:    uint32(200000000),
+	FlatFeeMicroLINK:     uint32(0),
+	BlockCountPerTurn:    big.NewInt(4),
+	CheckGasLimit:        uint32(2500000),
+	StalenessSeconds:     big.NewInt(90000),
+	GasCeilingMultiplier: uint16(1),
+	MinUpkeepSpend:       big.NewInt(0),
+	MaxPerformGas:        uint32(5000000),
+	FallbackGasPrice:     big.NewInt(2e11),
+	FallbackLinkPrice:    big.NewInt(2e18),
+}
+
 var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
 	FlatFeeMicroLINK:     uint32(0),
@@ -126,9 +139,9 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 			Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 		}
 	)
 
@@ -299,9 +312,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			}, "1m", "1s").Should(Succeed())
 
 			// Now set BCPT to be low, so keepers change turn frequently
-			lowBcpt := defaultRegistryConfig
-			lowBcpt.BlockCountPerTurn = big.NewInt(5)
-			err = registry.SetConfig(lowBcpt)
+			err = registry.SetConfig(lowBCPTRegistryConfig)
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
