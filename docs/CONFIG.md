@@ -1484,7 +1484,7 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
@@ -2559,7 +2559,7 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '100 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 
