@@ -433,14 +433,11 @@ type activeUpkeepGetter interface {
 
 // getActiveUpkeepIds retrieves active upkeep ids from registry
 func (k *Keeper) getActiveUpkeepIds(ctx context.Context, registry activeUpkeepGetter, from, to *big.Int) []*big.Int {
-	activeUpkeepIds, err := registry.GetActiveUpkeepIDs(&bind.CallOpts{
+	activeUpkeepIds, _ := registry.GetActiveUpkeepIDs(&bind.CallOpts{
 		Pending: false,
 		From:    k.fromAddr,
 		Context: ctx,
 	}, from, to)
-	if err != nil {
-		log.Fatal(registry.Address().Hex(), ": failed to get active upkeep Ids - ", err)
-	}
 	return activeUpkeepIds
 }
 
