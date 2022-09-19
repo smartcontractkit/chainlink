@@ -9,24 +9,22 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
-	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
 	ocr2keeperconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
-	keeperreportingplugin "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/reportingplugin"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
@@ -366,16 +364,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
-		}
-		chainID := int64(chainIDInterface.(float64))
-		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "failed to get chainset")
-		}
-
+		// TODO: cfg still not used, but it's here to pass config values to the plugin
+		// from the primary config file.
+		// possible to be added:
+		// - cache purge time frame
+		// - persistent store option
+		// - chain type
 		var cfg ocr2keeperconfig.PluginConfig
 		if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
 			return nil, errors.Wrap(err, "unmarshal ocr2keeper plugin config")
@@ -383,24 +377,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 
 		if err = cfg.Validate(); err != nil {
 			return nil, errors.Wrap(err, "validate ocr2keeper plugin config")
-		}
-
-		ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(d.db, chain, lggr.Named("OCR2KeeperRelayer"))
-
-		keeperProvider, err2 := ocr2keeperRelayer.NewOCR2KeeperProvider(
-			types.RelayArgs{
-				ExternalJobID: jobSpec.ExternalJobID,
-				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-			},
-			types.PluginArgs{
-				TransmitterID: spec.TransmitterID.String,
-				PluginConfig:  spec.PluginConfig.Bytes(),
-			},
-		)
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "failed to create new ocr2keeper provider")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
@@ -413,78 +389,41 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			lggr,
 		)
 
-		// Create ORM layer
-		strategy := txmgr.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
-		orm := keeper.NewORM(d.db, lggr, chain.Config(), strategy)
-
-		registryWrapper, err := keeper.NewRegistryWrapper(ethkey.MustEIP55Address(spec.ContractID), chain.Client())
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to create keeper registry wrapper")
-		}
-
-		minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
-		if cfg.MinIncomingConfirmations > 0 {
-			minIncomingConfirmations = cfg.MinIncomingConfirmations
-		}
-
 		jobSpec.KeeperSpec = &job.KeeperSpec{
 			ID:              spec.ID,
 			ContractAddress: ethkey.MustEIP55Address(spec.ContractID),
 			FromAddress:     ethkey.MustEIP55Address(spec.TransmitterID.String),
 		}
 
-		registrySynchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
-			Job:                      jobSpec,
-			RegistryWrapper:          *registryWrapper,
-			ORM:                      orm,
-			JRM:                      d.jobORM,
-			LogBroadcaster:           chain.LogBroadcaster(),
-			SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
-			MinIncomingConfirmations: minIncomingConfirmations,
-			Logger:                   lggr,
-			SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
-			NewTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
-		})
+		keeperProvider, rgstry, encoder, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
+		}
 
-		oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
+		conf := ocr2keepers.DelegateConfig{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          keeperProvider.ContractTransmitter(),
 			ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
-			Database:                     ocrDB,
+			KeepersDatabase:              ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
-			ReportingPluginFactory: keeperreportingplugin.NewFactory(keeperreportingplugin.FactoryOptions{
-				Logger:          lggr.Named("OCR2Keeper"),
-				JobID:           jobSpec.ID,
-				ChainID:         chainID,
-				Cfg:             chain.Config(),
-				ORM:             orm,
-				EthClient:       chain.Client(),
-				HeadBroadcaster: chain.HeadBroadcaster(),
-				ContractAddress: spec.ContractID,
-				PipelineRunner:  d.pipelineRunner,
-				GasEstimator:    chain.TxManager().GetGasEstimator(),
-				PluginLimits: libocr2types.ReportingPluginLimits{
-					MaxQueryLength:       cfg.MaxQueryLength,
-					MaxObservationLength: cfg.MaxObservationLength,
-					MaxReportLength:      cfg.MaxReportLength,
-				},
-			}),
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "error calling NewOracle")
+			Registry:                     rgstry,
+			ReportEncoder:                encoder,
+		}
+		pluginService, err2 := ocr2keepers.NewDelegate(conf)
+		if err2 != nil {
+			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 		}
 
 		return []job.ServiceCtx{
 			runResultSaver,
 			keeperProvider,
-			registrySynchronizer,
-			job.NewServiceAdapter(oracle),
+			pluginService,
 		}, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
