@@ -121,6 +121,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.NonceAutoSync; v != nil {
 		c.NonceAutoSync = v
 	}
+	if v := f.NoNewHeadsThreshold; v != nil {
+		c.NoNewHeadsThreshold = v
+	}
 	if v := f.OperatorFactoryAddress; v != nil {
 		c.OperatorFactoryAddress = v
 	}
@@ -250,9 +253,6 @@ func (c *Chain) SetFrom(f *Chain) {
 		if c.HeadTracker == nil {
 			c.HeadTracker = &HeadTracker{}
 		}
-		if v := h.BlockEmissionIdleWarningThreshold; v != nil {
-			c.HeadTracker.BlockEmissionIdleWarningThreshold = v
-		}
 		if v := h.HistoryDepth; v != nil {
 			c.HeadTracker.HistoryDepth = v
 		}
@@ -266,9 +266,6 @@ func (c *Chain) SetFrom(f *Chain) {
 	if n := f.NodePool; n != nil {
 		if c.NodePool == nil {
 			c.NodePool = &NodePool{}
-		}
-		if v := n.NoNewHeadsThreshold; v != nil {
-			c.NodePool.NoNewHeadsThreshold = v
 		}
 		if v := n.PollFailureThreshold; v != nil {
 			c.NodePool.PollFailureThreshold = v

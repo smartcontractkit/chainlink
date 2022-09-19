@@ -13,6 +13,7 @@ MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
 MinimumContractPayment = '123456789'
 NonceAutoSync = true
+NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
@@ -53,13 +54,11 @@ EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 7
 MaxBufferSize = 50
 SamplingInterval = '5s'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
@@ -95,6 +94,7 @@ MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
 MinimumContractPayment = '123456789'
 NonceAutoSync = true
+NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
@@ -132,13 +132,11 @@ EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 7
 MaxBufferSize = 50
 SamplingInterval = '5s'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
@@ -160,6 +158,7 @@ MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
 MinimumContractPayment = '123456789'
 NonceAutoSync = true
+NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
@@ -197,13 +196,11 @@ EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 7
 MaxBufferSize = 50
 SamplingInterval = '5s'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
@@ -227,6 +224,7 @@ MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
 MinimumContractPayment = '123456789'
 NonceAutoSync = true
+NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
@@ -264,13 +262,11 @@ EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 7
 MaxBufferSize = 50
 SamplingInterval = '5s'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'

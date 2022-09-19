@@ -7,6 +7,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 3
+NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 2
 TxResendAfterThreshold = '1m'
 
@@ -24,12 +25,8 @@ BumpThreshold = 5
 BlockHistorySize = 24
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 SamplingInterval = '1s'
-
-[NodePool]
-NoNewHeadsThreshold = '30s'
 
 [OCR]
 DatabaseTimeout = '2s'

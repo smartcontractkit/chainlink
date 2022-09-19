@@ -6,6 +6,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h'
@@ -40,13 +41,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'

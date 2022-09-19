@@ -32,6 +32,7 @@ type Chain struct {
 	MinIncomingConfirmations *uint32
 	MinimumContractPayment   *assets.Link
 	NonceAutoSync            *bool
+	NoNewHeadsThreshold      *models.Duration
 	OperatorFactoryAddress   *ethkey.EIP55Address
 	RPCDefaultBatchSize      *uint32
 	RPCBlockQueryDelay       *uint16
@@ -129,14 +130,12 @@ type KeySpecificGasEstimator struct {
 }
 
 type HeadTracker struct {
-	BlockEmissionIdleWarningThreshold *models.Duration
-	HistoryDepth                      *uint32
-	MaxBufferSize                     *uint32
-	SamplingInterval                  *models.Duration
+	HistoryDepth     *uint32
+	MaxBufferSize    *uint32
+	SamplingInterval *models.Duration
 }
 
 type NodePool struct {
-	NoNewHeadsThreshold  *models.Duration
 	PollFailureThreshold *uint32
 	PollInterval         *models.Duration
 	SelectionMode        *string
@@ -381,7 +380,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.OCR = &OCR{ObservationTimeout: cfg.OCRObservationTimeout}
 	}
 	if cfg.NodeNoNewHeadsThreshold != nil {
-		c.NodePool = &NodePool{NoNewHeadsThreshold: cfg.NodeNoNewHeadsThreshold}
+		c.NoNewHeadsThreshold = cfg.NodeNoNewHeadsThreshold
 	}
 	return nil
 }

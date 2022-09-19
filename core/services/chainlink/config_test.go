@@ -444,7 +444,8 @@ func TestConfig_Marshal(t *testing.T) {
 				MinIncomingConfirmations: ptr[uint32](13),
 				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
 
-				NonceAutoSync: ptr(true),
+				NonceAutoSync:       ptr(true),
+				NoNewHeadsThreshold: &minute,
 
 				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
 
@@ -456,14 +457,12 @@ func TestConfig_Marshal(t *testing.T) {
 				UseForwarders:          ptr(true),
 
 				HeadTracker: &evmcfg.HeadTracker{
-					BlockEmissionIdleWarningThreshold: &hour,
-					HistoryDepth:                      ptr[uint32](15),
-					MaxBufferSize:                     ptr[uint32](17),
-					SamplingInterval:                  &hour,
+					HistoryDepth:     ptr[uint32](15),
+					MaxBufferSize:    ptr[uint32](17),
+					SamplingInterval: &hour,
 				},
 
 				NodePool: &evmcfg.NodePool{
-					NoNewHeadsThreshold:  &minute,
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
@@ -758,6 +757,7 @@ MaxQueuedTransactions = 99
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
@@ -799,7 +799,6 @@ EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
@@ -811,7 +810,6 @@ Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'

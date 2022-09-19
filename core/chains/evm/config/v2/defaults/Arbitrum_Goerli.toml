@@ -1,5 +1,6 @@
 ChainID = '421613'
 ChainType = 'arbitrum'
+NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 
 [GasEstimator]
@@ -16,9 +17,3 @@ BumpThreshold = 0
 [GasEstimator.BlockHistory]
 # Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 BlockHistorySize = 0
-
-[HeadTracker]
-BlockEmissionIdleWarningThreshold = '0'
-
-[NodePool]
-NoNewHeadsThreshold = '0'

@@ -1259,6 +1259,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
@@ -1294,13 +1295,11 @@ BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1326,6 +1325,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1360,13 +1360,11 @@ BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1392,6 +1390,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1426,13 +1425,11 @@ BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1458,6 +1455,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1492,13 +1490,11 @@ BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1525,6 +1521,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1559,13 +1556,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 10
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1591,6 +1586,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1625,13 +1621,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1657,6 +1651,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1691,13 +1686,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1723,6 +1716,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
@@ -1758,13 +1752,11 @@ BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1790,6 +1782,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
@@ -1824,13 +1817,11 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1855,6 +1846,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1889,13 +1881,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1920,6 +1910,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -1954,13 +1945,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1987,6 +1976,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2021,13 +2011,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '30m0s'
 HistoryDepth = 10
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2054,6 +2042,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2088,13 +2077,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2120,6 +2107,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
@@ -2154,13 +2142,11 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2186,6 +2172,7 @@ MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 TxReaperInterval = '1h0m0s'
@@ -2220,13 +2207,11 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2252,6 +2237,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
@@ -2286,13 +2272,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2319,6 +2303,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2353,13 +2338,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '30m0s'
 HistoryDepth = 10
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2385,6 +2368,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2419,13 +2403,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2451,6 +2433,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2485,13 +2468,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2516,6 +2497,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '100'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2550,13 +2532,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2582,6 +2562,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
@@ -2616,13 +2597,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2649,6 +2628,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2683,13 +2663,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2715,6 +2693,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
@@ -2749,13 +2728,11 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2781,6 +2758,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
@@ -2815,13 +2793,11 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2847,6 +2823,7 @@ MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 TxReaperInterval = '1h0m0s'
@@ -2881,13 +2858,11 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2914,6 +2889,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -2948,13 +2924,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2980,6 +2954,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -3014,13 +2989,11 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3046,6 +3019,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -3080,13 +3054,11 @@ BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3112,6 +3084,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -3146,13 +3119,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3178,6 +3149,7 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
@@ -3212,13 +3184,11 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3355,6 +3325,15 @@ MinimumContractPayment is the minimum payment in LINK required to execute a dire
 NonceAutoSync = true # Default
 ```
 NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
+
+### NoNewHeadsThreshold<a id='EVM-NoNewHeadsThreshold'></a>
+```toml
+NoNewHeadsThreshold = '3m' # Default
+```
+NoNewHeadsThreshold controls how long to wait after receiving no new heads before `NodePool` marks rpc endpoints as
+out-of-sync, and `HeadTracker` logs warnings.
+
+Set to zero to disable out-of-sync checking.
 
 ### OperatorFactoryAddress<a id='EVM-OperatorFactoryAddress'></a>
 ```toml
@@ -3700,18 +3679,13 @@ Setting it lower will tend to set lower gas prices.
 ## EVM.HeadTracker<a id='EVM-HeadTracker'></a>
 ```toml
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m' # Default
 HistoryDepth = 100 # Default
 MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
 ```
+The head tracker continually listens for new heads from the chain.
 
-
-### BlockEmissionIdleWarningThreshold<a id='EVM-HeadTracker-BlockEmissionIdleWarningThreshold'></a>
-```toml
-BlockEmissionIdleWarningThreshold = '1m' # Default
-```
-BlockEmissionIdleWarningThreshold will cause Chainlink to log warnings if this duration is exceeded without any new blocks being emitted.
+In addition to these settings, it log warnings if `EVM.NoNewHeadsThreshold` is exceeded without any new blocks being emitted.
 
 ### HistoryDepth<a id='EVM-HeadTracker-HistoryDepth'></a>
 ```toml
@@ -3761,20 +3735,13 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 ## EVM.NodePool<a id='EVM-NodePool'></a>
 ```toml
 [EVM.NodePool]
-NoNewHeadsThreshold = '3m' # Default
 PollFailureThreshold = 3 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 ```
+The node pool manages multiple RPC endpoints.
 
-
-### NoNewHeadsThreshold<a id='EVM-NodePool-NoNewHeadsThreshold'></a>
-```toml
-NoNewHeadsThreshold = '3m' # Default
-```
-NoNewHeadsThreshold controls how long to wait after receiving no new heads before marking the node as out-of-sync.
-
-Set to zero to disable out-of-sync checking.
+In addition to these settings, `EVM.NoNewHeadsThreshold` controls how long to wait after receiving no new heads before marking the node as out-of-sync.
 
 ### PollFailureThreshold<a id='EVM-NodePool-PollFailureThreshold'></a>
 ```toml

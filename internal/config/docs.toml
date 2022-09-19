@@ -519,6 +519,11 @@ MinIncomingConfirmations = 3 # Default
 MinimumContractPayment = '10000000000000 juels' # Default
 # NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 NonceAutoSync = true # Default
+# NoNewHeadsThreshold controls how long to wait after receiving no new heads before `NodePool` marks rpc endpoints as
+# out-of-sync, and `HeadTracker` logs warnings.
+#
+# Set to zero to disable out-of-sync checking.
+NoNewHeadsThreshold = '3m' # Default
 # OperatorFactoryAddress is the address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 # RPCDefaultBatchSize is the default batch size for batched RPC calls.
@@ -693,9 +698,10 @@ EIP1559FeeCapBufferBlocks = 13 # Example
 # Setting it lower will tend to set lower gas prices.
 TransactionPercentile = 60 # Default
 
+# The head tracker continually listens for new heads from the chain.
+#
+# In addition to these settings, it log warnings if `EVM.NoNewHeadsThreshold` is exceeded without any new blocks being emitted.
 [EVM.HeadTracker]
-# BlockEmissionIdleWarningThreshold will cause Chainlink to log warnings if this duration is exceeded without any new blocks being emitted.
-BlockEmissionIdleWarningThreshold = '1m' # Default
 # HistoryDepth tracks the top N block numbers to keep in the `heads` database table.
 # Note that this can easily result in MORE than N records since in the case of re-orgs we keep multiple heads for a particular block height.
 # This number should be at least as large as `FinalityDepth`.
@@ -716,11 +722,10 @@ Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 # GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMaxWei.
 GasEstimator.PriceMax = '79 gwei' # Example
 
-[EVM.NodePool]
-# NoNewHeadsThreshold controls how long to wait after receiving no new heads before marking the node as out-of-sync.
+# The node pool manages multiple RPC endpoints.
 #
-# Set to zero to disable out-of-sync checking.
-NoNewHeadsThreshold = '3m' # Default
+# In addition to these settings, `EVM.NoNewHeadsThreshold` controls how long to wait after receiving no new heads before marking the node as out-of-sync.
+[EVM.NodePool]
 # PollFailureThreshold indicates how many consecutive polls must fail in order to mark a node as unreachable.
 #
 # Set to zero to disable poll checking.

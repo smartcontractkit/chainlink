@@ -214,15 +214,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].FinalityDepth = e
 		}
 	}
-	if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
-		d := models.MustNewDuration(*e)
-		for i := range c.EVM {
-			if c.EVM[i].HeadTracker == nil {
-				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
-			}
-			c.EVM[i].HeadTracker.BlockEmissionIdleWarningThreshold = d
-		}
-	}
 	if e := envvar.NewUint32("EvmHeadTrackerHistoryDepth").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].HeadTracker == nil {
@@ -295,10 +286,12 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewDuration("NodeNoNewHeadsThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			if c.EVM[i].NodePool == nil {
-				c.EVM[i].NodePool = &evmcfg.NodePool{}
-			}
-			c.EVM[i].NodePool.NoNewHeadsThreshold = d
+			c.EVM[i].NoNewHeadsThreshold = d
+		}
+	} else if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].NoNewHeadsThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("NodePollFailureThreshold").ParsePtr(); e != nil {

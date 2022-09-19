@@ -4,6 +4,7 @@ MaxQueuedTransactions = 5000
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 5
+NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 10
 TxResendAfterThreshold = '1m'
 
@@ -21,9 +22,5 @@ BumpThreshold = 5
 BlockHistorySize = 24
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 2000
 SamplingInterval = '1s'
-
-[NodePool]
-NoNewHeadsThreshold = '30s'
