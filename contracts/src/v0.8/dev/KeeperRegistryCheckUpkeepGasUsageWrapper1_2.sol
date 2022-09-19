@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import {AutomationRegistryExecutableInterface} from "../interfaces/AutomationRegistryInterface1_2.sol";
+import "../interfaces/KeeperRegistryInterface1_2.sol";
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 
 /**
  * @notice This contract serves as a wrapper around a keeper registry's checkUpkeep function.
  */
 contract KeeperRegistryCheckUpkeepGasUsageWrapper1_2 is ConfirmedOwner {
-  AutomationRegistryExecutableInterface private immutable i_keeperRegistry;
+  KeeperRegistryExecutableInterface private immutable i_keeperRegistry;
 
   /**
    * @param keeperRegistry address of a keeper registry
    */
-  constructor(AutomationRegistryExecutableInterface keeperRegistry) ConfirmedOwner(msg.sender) {
+  constructor(KeeperRegistryExecutableInterface keeperRegistry) ConfirmedOwner(msg.sender) {
     i_keeperRegistry = keeperRegistry;
   }
 
   /**
    * @return the keeper registry
    */
-  function getKeeperRegistry() external view returns (AutomationRegistryExecutableInterface) {
+  function getKeeperRegistry() external view returns (KeeperRegistryExecutableInterface) {
     return i_keeperRegistry;
   }
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../interfaces/AutomationCompatibleInterface.sol";
-import "../interfaces/AutomationRegistryInterface1_2.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/KeeperRegistryInterface1_2.sol";
 import "../ConfirmedOwner.sol";
 
 error NoKeeperNodes();
@@ -12,16 +12,16 @@ error InsufficientInterval();
  * @notice A canary upkeep which requires a different keeper to service its upkeep at an interval. This makes sure that
  * all keepers are in a healthy state.
  */
-contract CanaryUpkeep1_2 is AutomationCompatibleInterface, ConfirmedOwner {
+contract CanaryUpkeep1_2 is KeeperCompatibleInterface, ConfirmedOwner {
   uint256 private s_keeperIndex;
   uint256 private s_interval;
   uint256 private s_timestamp;
-  AutomationRegistryExecutableInterface private immutable i_keeperRegistry;
+  KeeperRegistryExecutableInterface private immutable i_keeperRegistry;
 
   /**
    * @param keeperRegistry address of a keeper registry
    */
-  constructor(AutomationRegistryExecutableInterface keeperRegistry, uint256 interval) ConfirmedOwner(msg.sender) {
+  constructor(KeeperRegistryExecutableInterface keeperRegistry, uint256 interval) ConfirmedOwner(msg.sender) {
     i_keeperRegistry = keeperRegistry;
     s_timestamp = block.timestamp;
     s_interval = interval;
@@ -52,7 +52,7 @@ contract CanaryUpkeep1_2 is AutomationCompatibleInterface, ConfirmedOwner {
   /**
    * @return the keeper registry
    */
-  function getKeeperRegistry() external view returns (AutomationRegistryExecutableInterface) {
+  function getKeeperRegistry() external view returns (KeeperRegistryExecutableInterface) {
     return i_keeperRegistry;
   }
 

@@ -22,19 +22,19 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../ConfirmedOwner.sol";
-import "../AutomationBase.sol";
-import "../interfaces/AutomationCompatibleInterface.sol";
+import "../KeeperBase.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
 import {Cron as CronInternal, Spec} from "../libraries/internal/Cron.sol";
 import {Cron as CronExternal} from "../libraries/external/Cron.sol";
 import {getRevertMsg} from "../utils/utils.sol";
 
 /**
  * @title The CronUpkeep contract
- * @notice A automation-compatible contract that runs various tasks on cron schedules.
+ * @notice A keeper-compatible contract that runs various tasks on cron schedules.
  * Users must use the encodeCronString() function to encode their cron jobs before
  * setting them. This keeps all the string manipulation off chain and reduces gas costs.
  */
-contract CronUpkeep is AutomationCompatibleInterface, AutomationBase, ConfirmedOwner, Pausable, Proxy {
+contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pausable, Proxy {
   using EnumerableSet for EnumerableSet.UintSet;
 
   event CronJobExecuted(uint256 indexed id, uint256 timestamp);

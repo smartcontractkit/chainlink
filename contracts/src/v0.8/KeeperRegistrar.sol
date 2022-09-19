@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/AutomationRegistryInterface1_2.sol";
+import "./interfaces/KeeperRegistryInterface1_2.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 import "./ConfirmedOwner.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";
@@ -47,7 +47,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
     AutoApproveType autoApproveConfigType;
     uint32 autoApproveMaxAllowed;
     uint32 approvedCount;
-    AutomationRegistryBaseInterface keeperRegistry;
+    KeeperRegistryBaseInterface keeperRegistry;
     uint96 minLINKJuels;
   }
 
@@ -232,7 +232,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
       autoApproveMaxAllowed: autoApproveMaxAllowed,
       approvedCount: approvedCount,
       minLINKJuels: minLINKJuels,
-      keeperRegistry: AutomationRegistryBaseInterface(keeperRegistry)
+      keeperRegistry: KeeperRegistryBaseInterface(keeperRegistry)
     });
 
     emit ConfigChanged(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
@@ -332,7 +332,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
     uint96 amount,
     bytes32 hash
   ) private {
-    AutomationRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
+    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
     uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
