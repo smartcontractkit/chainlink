@@ -48,12 +48,16 @@ regarding Chainlink social accounts, news, and networking.
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
-### Mac M1/ARM64
+### Apple Silicon - ARM64
 
-To build an ARM64 supported Docker image you'll need to add extra build arguments:
+Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
+
+Chainlink Docker image currently has an indirect dependency on WebAssemby because of our `terra-money/core` (CosmWasm) dependency via `smartcontractkit/chainlink-terra`. This dependency requires a native `libwasmvm` library, which needs to be sourced depending on the underlying system architecture.
+
+An ARM64 supported Docker image will be built by default on ARM64 systems (Apple Silicon), but there is also an option to add an extra `LIBWASMVM_ARCH` build argument and choose between `aarch64` or `x86_64`:
 
 ```bash
-# CosmWasm (libwasmvm.so) architecture choice, defaults to x86_64
+# LIBWASMVM_ARCH (libwasmvm.so) architecture choice, defaults to output of `uname -m` (arch) if unset
 $ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile --build-arg LIBWASMVM_ARCH=aarch64
 ```
 
