@@ -93,6 +93,13 @@ require (
 )
 
 require (
+	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/umbracle/ethgo v0.1.3 // indirect
+	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
+	github.com/valyala/fastjson v1.4.1 // indirect
+)
+
+require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/99designs/keyring v1.1.6 // indirect

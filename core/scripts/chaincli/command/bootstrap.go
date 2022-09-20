@@ -34,6 +34,6 @@ var BootstrapNodeCmd = &cobra.Command{
 }
 
 func init() {
-	BootstrapNodeCmd.Flags().Int("ui-port", 6688, "Chainlink node UI listen port")
+	BootstrapNodeCmd.Flags().Int("ui-port", 5688, "Chainlink node UI listen port")
 	BootstrapNodeCmd.Flags().Int("p2pv2-port", 8000, "Chainlink node P2P listen port")
 }

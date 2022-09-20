@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/viper"
@@ -22,6 +23,9 @@ type Config struct {
 	GasLimit        uint64   `mapstructure:"GAS_LIMIT"`
 	FundNodeAmount  string   `mapstructure:"FUND_CHAINLINK_NODE"`
 
+	// OCR Config
+	BootstrapNodeAddr string `mapstructure:"BOOTSTRAP_NODE_ADDR"`
+
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
 	FastGasFeedAddr      string `mapstructure:"FAST_GAS_FEED"`
@@ -33,14 +37,18 @@ type Config struct {
 	GasCeilingMultiplier uint16 `mapstructure:"GAS_CEILING_MULTIPLIER"`
 	MinUpkeepSpend       int64  `mapstructure:"MIN_UPKEEP_SPEND"`
 	MaxPerformGas        uint32 `mapstructure:"MAX_PERFORM_GAS"`
+	MaxCheckDataSize     uint32 `mapstructure:"MAX_CHECK_DATA_SIZE"`
+	MaxPerformDataSize   uint32 `mapstructure:"MAX_PERFORM_DATA_SIZE"`
 	FallbackGasPrice     int64  `mapstructure:"FALLBACK_GAS_PRICE"`
 	FallbackLinkPrice    int64  `mapstructure:"FALLBACK_LINK_PRICE"`
 	Transcoder           string `mapstructure:"TRANSCODER"`
 	Registrar            string `mapstructure:"REGISTRAR"`
 
-	// Keepers Config
+	// Upkeep Config
+	OCR2Keepers                     bool                   `mapstructure:"KEEPER_OCR2"`
 	RegistryVersion                 keeper.RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
 	RegistryAddress                 string                 `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
+	KeeperRegistryLogicAddr         string                 `mapstructure:"KEEPER_REGISTRY_LOGIC_ADDRESS"`
 	RegistryConfigUpdate            bool                   `mapstructure:"KEEPER_CONFIG_UPDATE"`
 	KeepersCount                    int                    `mapstructure:"KEEPERS_COUNT"`
 	UpkeepTestRange                 int64                  `mapstructure:"UPKEEP_TEST_RANGE"`
@@ -78,6 +86,16 @@ func New() *Config {
 	}
 
 	return &cfg
+}
+
+// Validate validates the given config
+func (c *Config) Validate() error {
+	// OCR2Keeper job could be ran only with the registry 2.0
+	if c.OCR2Keepers && c.RegistryVersion != keeper.RegistryVersion_2_0 {
+		return fmt.Errorf("ocr2keeper job could be ran only with the registry 2.0, but %s specified", c.RegistryVersion)
+	}
+
+	return nil
 }
 
 func init() {

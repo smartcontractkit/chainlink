@@ -30,12 +30,15 @@ import (
 	link "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 const (
 	defaultChainlinkNodeImage = "smartcontract/chainlink:1.8.0-root"
-	defaultPOSTGRESImage      = "postgres:latest"
+	// defaultChainlinkNodeImage = "chainlink:local"
+	defaultPOSTGRESImage = "postgres:latest"
 
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
 	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs~#"
@@ -155,17 +158,22 @@ func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int
 
 func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transaction) {
 	if _, err := bind.WaitDeployed(ctx, h.client, tx); err != nil {
-		log.Fatal("WaitDeployed failed: ", err)
+		log.Fatal("WaitDeployed failed: ", err, " ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
 	}
 }
 
 func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) {
-	if _, err := bind.WaitMined(ctx, h.client, tx); err != nil {
+	receipt, err := bind.WaitMined(ctx, h.client, tx)
+	if err != nil {
 		log.Fatal("WaitDeployed failed: ", err)
+	}
+
+	if receipt.Status == ethtypes.ReceiptStatusFailed {
+		log.Fatal("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
 	}
 }
 
-func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, extraEnvVars ...string) (string, func(), error) {
+func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraEnvVars ...string) (string, func(), error) {
 	// Create docker client to launch nodes
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -197,7 +205,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, extraEn
 			"POSTGRES_PASSWORD=development_password",
 		},
 		ExposedPorts: nat.PortSet{"5432": struct{}{}},
-	}, nil, &network.NetworkingConfig{}, nil, "")
+	}, nil, &network.NetworkingConfig{}, nil, fmt.Sprintf("%s-postgres", containerName))
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create Postgres container: %s", err)
 	}
@@ -277,7 +285,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, extraEn
 				},
 			},
 		},
-	}, nil, nil, "")
+	}, nil, nil, containerName)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create node container: %s", err)
 	}
@@ -350,6 +358,56 @@ func getNodeAddress(client cmd.HTTPClient) (string, error) {
 	}
 
 	return keys[0].Address, nil
+}
+
+// getNodeAddress returns chainlink node's OCR2 bundle key ID
+func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
+	resp, err := client.Get("/v2/keys/ocr2")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OCR2 keys: %s", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err)
+	}
+
+	var keys cmd.OCR2KeyBundlePresenters
+	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response body: %s", err)
+	}
+
+	var evmKey cmd.OCR2KeyBundlePresenter
+	for _, key := range keys {
+		if key.ChainType == string(chaintype.EVM) {
+			evmKey = key
+			break
+		}
+	}
+
+	return &evmKey, nil
+}
+
+// getP2PKeyID returns chainlink node's P2P key ID
+func getP2PKeyID(client cmd.HTTPClient) (string, error) {
+	resp, err := client.Get("/v2/keys/p2p")
+	if err != nil {
+		return "", fmt.Errorf("failed to get OCR2 keys: %s", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %s", err)
+	}
+
+	var keys cmd.P2PKeyPresenters
+	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response body: %s", err)
+	}
+
+	return keys[0].ID, nil
 }
 
 // createCredsFiles creates two temporary files with node creds: api and password.

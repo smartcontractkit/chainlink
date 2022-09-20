@@ -15,8 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -25,7 +28,6 @@ import (
 
 type startedNodeData struct {
 	url     string
-	err     error
 	cleanup func()
 }
 
@@ -38,6 +40,20 @@ type startedNodeData struct {
 // 6. set keepers in the registry
 // 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
 func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
+	lggr, closeLggr := logger.NewLogger()
+	defer closeLggr()
+
+	var extraEvars []string
+	if k.cfg.OCR2Keepers {
+		extraEvars = []string{
+			"FEATURE_OFFCHAIN_REPORTING2=true",
+			"FEATURE_LOG_POLLER=true",
+			"P2P_NETWORKING_STACK=V2",
+			"CHAINLINK_TLS_PORT=0",
+			fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=127.0.0.1:%d", 8080),
+		}
+	}
+
 	// Run chainlink nodes and create jobs
 	startedNodes := make([]startedNodeData, k.cfg.KeepersCount)
 	var wg sync.WaitGroup
@@ -50,9 +66,8 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 			// Run chainlink node
 			var err error
-			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i); err != nil {
-				startedNodes[i].err = fmt.Errorf("failed to launch chainlink node: %s", err)
-				return
+			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, fmt.Sprintf("keeper-%d", i), extraEvars...); err != nil {
+				log.Fatal("Failed to start node: ", err)
 			}
 		}(i)
 	}
@@ -64,21 +79,11 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Approve keeper registry
 	k.approveFunds(ctx, registryAddr)
 
-	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
-
-	lggr, closeLggr := logger.NewLogger()
-	defer closeLggr()
-
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
 	var owners []common.Address
+	var cls []cmd.HTTPClient
 	for _, startedNode := range startedNodes {
-		if startedNode.err != nil {
-			log.Println("Failed to start node: ", startedNode.err)
-			continue
-		}
-
 		// Create authenticated client
 		var cl cmd.HTTPClient
 		var err error
@@ -115,12 +120,16 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 			}
 		}
 
+		cls = append(cls, cl)
 		keepers = append(keepers, nodeAddr)
 		owners = append(owners, k.fromAddr)
 	}
 
 	// Set Keepers
-	k.setKeepers(ctx, deployer, keepers, owners)
+	k.setKeepers(ctx, cls, deployer, keepers, owners)
+
+	// Deploy Upkeeps
+	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -129,16 +138,20 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 	// Cleanup resources
 	for _, startedNode := range startedNodes {
-		if startedNode.err == nil && startedNode.cleanup != nil {
+		if startedNode.cleanup != nil {
 			startedNode.cleanup()
 		}
 	}
 
 	// Cancel upkeeps and withdraw funds
 	if withdraw {
-		isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 		log.Println("Canceling upkeeps...")
-		if isVersion12 {
+		switch k.cfg.RegistryVersion {
+		case keeper.RegistryVersion_1_1:
+			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
+		case keeper.RegistryVersion_1_2:
 			registry, err := registry12.NewKeeperRegistry(
 				registryAddr,
 				k.client,
@@ -146,15 +159,26 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 			if err != nil {
 				log.Fatal("Registry failed: ", err)
 			}
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
 
-			if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
-		} else {
-			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
+		case keeper.RegistryVersion_2_0:
+			registry, err := registry20.NewKeeperRegistry(
+				registryAddr,
+				k.client,
+			)
+			if err != nil {
+				log.Fatal("Registry failed: ", err)
+			}
+
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
+		default:
+			panic("unexpected registry address")
 		}
 		log.Println("Upkeeps successfully canceled")
 	}
@@ -217,6 +241,23 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 
 // createKeeperJob creates a keeper job in the chainlink node by the given address
 func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
+	var err error
+	if k.cfg.OCR2Keepers {
+		err = k.createOCR2KeeperJob(client, registryAddr, nodeAddr)
+	} else {
+		err = k.createLegacyKeeperJob(client, registryAddr, nodeAddr)
+	}
+	if err != nil {
+		return err
+	}
+
+	log.Println("Keeper job has been successfully created in the Chainlink node with address: ", nodeAddr)
+
+	return nil
+}
+
+// createLegacyKeeperJob creates a legacy keeper job in the chainlink node by the given address
+func (k *Keeper) createLegacyKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
 			Name:            fmt.Sprintf("keeper job - registry %s", registryAddr),
@@ -243,6 +284,67 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 
 		return fmt.Errorf("unable to create keeper job: '%v' [%d]", string(body), resp.StatusCode)
 	}
-	log.Println("Keeper job has been successfully created in the Chainlink node with address: ", nodeAddr)
+
+	return nil
+}
+
+const ocr2keeperJobTemplate = `type = "offchainreporting2"
+pluginType = "ocr2keeper"
+relay = "evm"
+name = "ocr2"
+schemaVersion = 1
+externalJobID = "%s"
+maxTaskDuration = "1s"
+contractID = "%s"
+ocrKeyBundleID = "%s"
+transmitterID = "%s"
+p2pv2Bootstrappers = [
+  "%s"
+]
+
+[relayConfig]
+chainID = %d
+
+[pluginConfig]
+maxQueryLength = 2000
+maxObservationLength = 2000
+maxReportLength = 2000`
+
+// createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
+func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
+	ocr2KeyConfig, err := getNodeOCR2Config(client)
+	if err != nil {
+		return fmt.Errorf("failed to get node OCR2 key bundle ID: %s", err)
+	}
+
+	request, err := json.Marshal(web.CreateJobRequest{
+		TOML: fmt.Sprintf(ocr2keeperJobTemplate,
+			uuid.New().String(),     // externalJobID
+			contractAddr,            // contractID
+			ocr2KeyConfig.ID,        // ocrKeyBundleID
+			nodeAddr,                // transmitterID - node wallet address
+			k.cfg.BootstrapNodeAddr, // bootstrap node key and address
+			k.cfg.ChainID,           // chainID
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %s", err)
+	}
+
+	resp, err := client.Post("/v2/jobs", bytes.NewReader(request))
+	if err != nil {
+		return fmt.Errorf("failed to create ocr2keeper job: %s", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read error response body: %s", err)
+		}
+
+		return fmt.Errorf("unable to create ocr2keeper job: '%v' [%d]", string(body), resp.StatusCode)
+	}
+
 	return nil
 }
