@@ -10,8 +10,10 @@ LogPollInterval = '43s'
 MinIncomingConfirmations = 99
 MinimumContractPayment = '7'
 NonceAutoSync = false
+NoNewHeadsThreshold = '99h0m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 99
+RPCBlockQueryDelay = 99
 TxReaperThreshold = '10m0s'
 TxResendAfterThreshold = '5m10s'
 UseForwarders = false
@@ -36,7 +38,6 @@ TipCapDefault = '4.321 kwei'
 TipCapMinimum = '7 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BlockDelay = 99
 BlockHistorySize = 99
 EIP1559FeeCapBufferBlocks = 99
 
@@ -50,9 +51,6 @@ Key = '0xae4E781a6218A8031764928E88d457937A954fC3'
 
 [EVM.KeySpecific.GasEstimator]
 PriceMax = '42 wei'
-
-[EVM.NodePool]
-NoNewHeadsThreshold = '99h0m0s'
 
 [EVM.OCR]
 ObservationTimeout = '8m0s'
