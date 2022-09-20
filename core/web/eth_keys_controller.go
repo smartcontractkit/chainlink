@@ -226,44 +226,20 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	if !common.IsHexAddress(c.Param("keyID")) {
-		jsonAPIError(c, http.StatusBadRequest, errors.New("hard delete only"))
-		return
-	}
-
-	chain, err := getChain(ekc.App.GetChains().EVM, c.Query("evmChainID"))
-	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	} else if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
 	keyID := c.Param("keyID")
-	state, err := ethKeyStore.GetState(keyID, chain.ID())
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if !common.IsHexAddress(keyID) {
+		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("invalid keyID: %s, must be hex address", keyID))
 		return
 	}
 
-	key, err := ethKeyStore.Delete(keyID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	r, err := presenters.NewETHKeyResource(key, state,
-		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(c.Request.Context(), state),
-	)
+	_, err = ethKeyStore.Delete(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	ekc.App.GetAuditLogger().Audit(audit.ETHKeyDeleted, map[string]interface{}{"id": keyID})
-	jsonAPIResponse(c, r, "account")
+	c.Status(http.StatusNoContent)
 }
 
 // Import imports a key

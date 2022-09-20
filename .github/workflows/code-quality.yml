@@ -21,26 +21,13 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Lint
         continue-on-error: true
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
+      - name: Setup node
+        uses: actions/setup-node@v3
         with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          node-version: "16"
+          cache: yarn
       - name: Run yarn install
         run: yarn install --frozen-lockfile
       - name: Run yarn lint
@@ -57,26 +44,13 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Prettier Formatting
         continue-on-error: true
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
+      - name: Setup node
+        uses: actions/setup-node@v3
         with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          node-version: "16"
+          cache: yarn
       - name: Run yarn install
         run: yarn install --frozen-lockfile
       - name: Run prettier check
