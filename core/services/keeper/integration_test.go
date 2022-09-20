@@ -314,7 +314,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			runs, err := app.PipelineORM().GetAllRuns()
 			require.NoError(t, err)
 			// Since we set grace period to 0, we can have more than 1 pipeline run per perform
-			// This happens in case we start a pipeline run before previous perform tx is commited to chain
+			// This happens in case we start a pipeline run before previous perform tx is committed to chain
 			require.GreaterOrEqual(t, 3, len(runs))
 			prr := webpresenters.NewPipelineRunResource(runs[0], logger.TestLogger(t))
 			require.Equal(t, 1, len(prr.Outputs))
