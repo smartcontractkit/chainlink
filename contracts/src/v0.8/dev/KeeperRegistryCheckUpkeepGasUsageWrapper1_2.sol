@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../interfaces/AutomationRegistryInterface1_2.sol";
+import {AutomationRegistryExecutableInterface} from "../interfaces/AutomationRegistryInterface1_2.sol";
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 
 /**
