@@ -93,7 +93,6 @@ type coordinator struct {
 	toBeTransmittedBlocks *blockCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
 	toBeTransmittedCallbacks *blockCache[callbackInReport]
-	// set of recent blockhashes for reports.
 	transmittedMu sync.Mutex
 }
 
