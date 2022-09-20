@@ -131,7 +131,7 @@ type ChainlinkApplication struct {
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
 	explorerClient           synchronization.ExplorerClient
-	Subservices              []services.ServiceCtx
+	subservices              []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
@@ -191,7 +191,7 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var Subservices []services.ServiceCtx
+	var subservices []services.ServiceCtx
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
 	chains := opts.Chains
@@ -205,7 +205,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
-		Subservices = append(Subservices, auditLogger)
+		subservices = append(subservices, auditLogger)
 	}
 
 	var profiler *pyroscope.Profiler
@@ -261,7 +261,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
-	Subservices = append(Subservices, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
+	subservices = append(subservices, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
@@ -270,15 +270,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
-		Subservices = append(Subservices, databaseBackup)
+		subservices = append(subservices, databaseBackup)
 	} else {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	Subservices = append(Subservices, eventBroadcaster)
-	Subservices = append(Subservices, chains.services()...)
+	subservices = append(subservices, eventBroadcaster)
+	subservices = append(subservices, chains.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
-	Subservices = append(Subservices, promReporter)
+	subservices = append(subservices, promReporter)
 
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
@@ -351,7 +351,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, err
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
-		Subservices = append(Subservices, peerWrapper)
+		subservices = append(subservices, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
 	}
@@ -377,22 +377,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
 			relayers[relay.EVM] = evmRelayer
-			Subservices = append(Subservices, evmRelayer)
+			subservices = append(subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
 			relayers[relay.Solana] = solanaRelayer
-			Subservices = append(Subservices, solanaRelayer)
+			subservices = append(subservices, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
 			relayers[relay.Terra] = terraRelayer
-			Subservices = append(Subservices, terraRelayer)
+			subservices = append(subservices, terraRelayer)
 		}
 		if cfg.StarkNetEnabled() {
 			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
 			relayers[relay.StarkNet] = starknetRelayer
-			Subservices = append(Subservices, starknetRelayer)
+			subservices = append(subservices, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
@@ -425,13 +425,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
-	Subservices = append(Subservices, jobSpawner, pipelineRunner)
+	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
 	if cfg.FeatureLogPoller() {
 		for _, c := range chains.EVM.Chains() {
-			Subservices = append(Subservices, c.LogPoller())
+			subservices = append(subservices, c.LogPoller())
 		}
 	}
 
@@ -478,12 +478,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		sqlxDB: opts.SqlxDB,
 
-		// NOTE: Can keep things clean by putting more things in Subservices
+		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
-		Subservices: Subservices,
+		subservices: subservices,
 	}
 
-	for _, service := range app.Subservices {
+	for _, service := range app.subservices {
 		checkable := service.(services.Checkable)
 		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
 			return nil, err
@@ -516,7 +516,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		}
 	}
 
-	for _, subservice := range app.Subservices {
+	for _, subservice := range app.subservices {
 		if ctx.Err() != nil {
 			return errors.Wrap(ctx.Err(), "aborting start")
 		}
@@ -569,8 +569,8 @@ func (app *ChainlinkApplication) stop() (err error) {
 		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
-		for i := len(app.Subservices) - 1; i >= 0; i-- {
-			service := app.Subservices[i]
+		for i := len(app.subservices) - 1; i >= 0; i-- {
+			service := app.subservices[i]
 			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			err = multierr.Append(err, service.Close())
 		}

@@ -1,6 +1,7 @@
 package audit_test
 
 import (
+	"encoding/json"
 	"flag"
 	"io"
 	"net/http"
@@ -24,6 +25,16 @@ type MockHTTPClient struct {
 	audit.HTTPAuditLoggerInterface
 
 	loggingChannel chan MockedHTTPEvent
+}
+
+type LoginData struct {
+	Email string `json:"email"`
+}
+
+type LoginLogItem struct {
+	EventID string    `json:"eventID"`
+	Env     string    `json:"env"`
+	Data    LoginData `json:"data"`
 }
 
 func (mock *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
@@ -65,26 +76,25 @@ func TestCheckLoginAuditLog(t *testing.T) {
 		loggingChannel: loggingChannel,
 	}
 
-	// Set an environment variable to trick the system into starting the audit logger
-	// and adding it to the subsystems. We are going to swap it out later so it's not
-	// going to matter what we put here
-	// os.Setenv("AUDIT_LOGGER_FORWARD_TO_URL", "http://test.local:9999")
-
+	// Create a test logger because the audit logger relies on this logger
+	// as well
 	logger := logger.TestLogger(t)
 
 	// Create new AuditLoggerService
 	auditLogger, err := audit.NewAuditLogger(logger, getAuditLoggerConfig())
 	assert.NoError(t, err)
 
+	// Cast to concrete type so we can swap out the internals
 	auditLoggerService, ok := auditLogger.(*audit.AuditLoggerService)
 	assert.True(t, ok)
 
+	// Swap the internals with a testing handler
 	auditLoggerService.SetLoggingClient(&mockHTTPClient)
-
 	assert.NoError(t, auditLoggerService.Ready())
 
+	// Create a new chainlink test application passing in our test logger
+	// and audit logger
 	app := cltest.NewApplication(t, logger, auditLogger)
-
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
@@ -96,13 +106,21 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	set.String("admin-credentials-file", "", "")
 	c := cli.NewContext(nil, set, nil)
 
+	// Login
 	err = client.RemoteLogin(c)
 	assert.NoError(t, err)
 
 	select {
-	case _ = <-loggingChannel:
+	case event := <-loggingChannel:
+		deserialized := &LoginLogItem{}
+		assert.NoError(t, json.Unmarshal([]byte(event.body), deserialized))
+
+		assert.Equal(t, deserialized.Data.Email, cltest.APIEmailAdmin)
+		assert.Equal(t, deserialized.Env, "test")
+
+		assert.Equal(t, deserialized.EventID, "AUTH_LOGIN_SUCCESS_NO_2FA")
 		return
-	case <-time.After(15 * time.Second):
+	case <-time.After(5 * time.Second):
 	}
 
 	assert.True(t, false)

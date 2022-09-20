@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -157,9 +156,7 @@ func (l *AuditLoggerService) SetLoggingClient(newClient HTTPAuditLoggerInterface
 //
 // This function never blocks.
 func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
-	fmt.Println("An audit log is being sent!")
 	if !l.enabled {
-		fmt.Println("Audit logger is not enabled?")
 		return
 	}
 
@@ -167,8 +164,6 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 		eventID: eventID,
 		data:    data,
 	}
-
-	l.logger.Errorf("SEnding!!!")
 
 	select {
 	case l.loggingChannel <- wrappedLog:
@@ -187,7 +182,6 @@ func (l *AuditLoggerService) Start(context.Context) error {
 		return errors.Errorf("The audit logger is not enabled")
 	}
 	go l.runLoop()
-	fmt.Println("Started the runloop")
 	return nil
 }
 
