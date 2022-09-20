@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -34,6 +35,10 @@ type AuditLoggerConfig struct {
 	Environment    *string
 	JsonWrapperKey *string
 	Headers        []ServiceHeader
+}
+
+type HTTPAuditLoggerInterface interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string, encodedHeaders string) (AuditLoggerConfig, error) {
@@ -75,14 +80,15 @@ func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string
 }
 
 type AuditLoggerService struct {
-	logger          logger.Logger   // The standard logger configured in the node
-	enabled         bool            // Whether the audit logger is enabled or not
-	forwardToUrl    string          // Location we are going to send logs to
-	headers         []ServiceHeader // Headers to be sent along with logs for identification/authentication
-	jsonWrapperKey  string          // Wrap audit data as a map under this key if present
-	environmentName string          // Decorate the environment this is coming from
-	hostname        string          // The self-reported hostname of the machine
-	localIP         string          // A non-loopback IP address as reported by the machine
+	logger          logger.Logger            // The standard logger configured in the node
+	enabled         bool                     // Whether the audit logger is enabled or not
+	forwardToUrl    string                   // Location we are going to send logs to
+	headers         []ServiceHeader          // Headers to be sent along with logs for identification/authentication
+	jsonWrapperKey  string                   // Wrap audit data as a map under this key if present
+	environmentName string                   // Decorate the environment this is coming from
+	hostname        string                   // The self-reported hostname of the machine
+	localIP         string                   // A non-loopback IP address as reported by the machine
+	loggingClient   HTTPAuditLoggerInterface // Abstract type for sending logs onward
 
 	loggingChannel chan wrappedAuditLog
 	ctx            context.Context
@@ -130,6 +136,7 @@ func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogge
 		environmentName: *config.Environment,
 		hostname:        hostname,
 		localIP:         getLocalIP(),
+		loggingClient:   &http.Client{Timeout: time.Second * webRequestTimeout},
 
 		loggingChannel: loggingChannel,
 		ctx:            ctx,
@@ -140,13 +147,19 @@ func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogge
 	return &auditLogger, nil
 }
 
+func (l *AuditLoggerService) SetLoggingClient(newClient HTTPAuditLoggerInterface) {
+	l.loggingClient = newClient
+}
+
 // Entrypoint for new audit logs. This buffers all logs that come in they will
 // sent out by the goroutine that was started when the AuditLoggerService was
 // created. If this service was not enabled, this immeidately returns.
 //
 // This function never blocks.
 func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
+	fmt.Println("An audit log is being sent!")
 	if !l.enabled {
+		fmt.Println("Audit logger is not enabled?")
 		return
 	}
 
@@ -154,6 +167,8 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 		eventID: eventID,
 		data:    data,
 	}
+
+	l.logger.Errorf("SEnding!!!")
 
 	select {
 	case l.loggingChannel <- wrappedLog:
@@ -171,9 +186,8 @@ func (l *AuditLoggerService) Start(context.Context) error {
 	if !l.enabled {
 		return errors.Errorf("The audit logger is not enabled")
 	}
-	l.logger.Debugf("Enabled audit logger service")
 	go l.runLoop()
-
+	fmt.Println("Started the runloop")
 	return nil
 }
 
@@ -257,7 +271,6 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	}
 
 	// Send to remote service
-	httpClient := &http.Client{Timeout: time.Second * webRequestTimeout}
 	req, err := http.NewRequest("POST", l.forwardToUrl, bytes.NewReader(serializedLog))
 	if err != nil {
 		l.logger.Errorf("Failed to create request to remote logging service!")
@@ -265,12 +278,17 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	for _, header := range l.headers {
 		req.Header.Add(header.Header, header.Value)
 	}
-	resp, err := httpClient.Do(req)
+	resp, err := l.loggingClient.Do(req)
 	if err != nil {
 		l.logger.Errorw("Failed to send audit log to HTTP log service", "err", err, "logItem", logItem)
 		return
 	}
 	if resp.StatusCode != 200 {
+		if resp.Body == nil {
+			l.logger.Errorw("There was no body to read. Possibly an error occured sending", "logItem", logItem)
+			return
+		}
+
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			l.logger.Errorw("Error reading errored HTTP log service webhook response body", "err", err, "logItem", logItem)
@@ -278,6 +296,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 		}
 		l.logger.Errorw("Error sending log to HTTP log service", "statusCode", resp.StatusCode, "bodyString", string(bodyBytes))
 		return
+
 	}
 }
 

@@ -131,11 +131,11 @@ type ChainlinkApplication struct {
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
 	explorerClient           synchronization.ExplorerClient
-	subservices              []services.ServiceCtx
+	Subservices              []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
-	auditLogger              audit.AuditLogger
+	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
@@ -152,6 +152,7 @@ type ApplicationOpts struct {
 	KeyStore                 keystore.Master
 	Chains                   Chains
 	Logger                   logger.Logger
+	AuditLogger              audit.AuditLogger
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
@@ -190,23 +191,21 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []services.ServiceCtx
-	db := opts.SqlxDB
+	var Subservices []services.ServiceCtx
+	auditLogger := opts.AuditLogger
 	cfg := opts.Config
-	keyStore := opts.KeyStore
 	chains := opts.Chains
-	globalLogger := opts.Logger
+	db := opts.SqlxDB
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
+	globalLogger := opts.Logger
+	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	// Configure and optionally start the audit log forwarder service
-	auditLogger, err := audit.NewAuditLogger(globalLogger, cfg.AuditLoggerConfig())
-	if err != nil {
-		globalLogger.Info("Audit logger could not be started. err: ", err)
-	} else {
-		subservices = append(subservices, auditLogger)
+	// If the audit logger is enabled
+	if auditLogger.Ready() == nil {
+		Subservices = append(Subservices, auditLogger)
 	}
 
 	var profiler *pyroscope.Profiler
@@ -262,7 +261,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
-	subservices = append(subservices, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
+	Subservices = append(Subservices, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
@@ -271,15 +270,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
-		subservices = append(subservices, databaseBackup)
+		Subservices = append(Subservices, databaseBackup)
 	} else {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	subservices = append(subservices, eventBroadcaster)
-	subservices = append(subservices, chains.services()...)
+	Subservices = append(Subservices, eventBroadcaster)
+	Subservices = append(Subservices, chains.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
-	subservices = append(subservices, promReporter)
+	Subservices = append(Subservices, promReporter)
 
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
@@ -352,7 +351,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, err
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
-		subservices = append(subservices, peerWrapper)
+		Subservices = append(Subservices, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
 	}
@@ -378,22 +377,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
 			relayers[relay.EVM] = evmRelayer
-			subservices = append(subservices, evmRelayer)
+			Subservices = append(Subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
 			relayers[relay.Solana] = solanaRelayer
-			subservices = append(subservices, solanaRelayer)
+			Subservices = append(Subservices, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
 			relayers[relay.Terra] = terraRelayer
-			subservices = append(subservices, terraRelayer)
+			Subservices = append(Subservices, terraRelayer)
 		}
 		if cfg.StarkNetEnabled() {
 			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
 			relayers[relay.StarkNet] = starknetRelayer
-			subservices = append(subservices, starknetRelayer)
+			Subservices = append(Subservices, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
@@ -426,13 +425,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
-	subservices = append(subservices, jobSpawner, pipelineRunner)
+	Subservices = append(Subservices, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
 	if cfg.FeatureLogPoller() {
 		for _, c := range chains.EVM.Chains() {
-			subservices = append(subservices, c.LogPoller())
+			Subservices = append(Subservices, c.LogPoller())
 		}
 	}
 
@@ -472,19 +471,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
-		auditLogger:              auditLogger,
+		AuditLogger:              auditLogger,
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 
 		sqlxDB: opts.SqlxDB,
 
-		// NOTE: Can keep things clean by putting more things in subservices
+		// NOTE: Can keep things clean by putting more things in Subservices
 		// instead of manually start/closing
-		subservices: subservices,
+		Subservices: Subservices,
 	}
 
-	for _, service := range app.subservices {
+	for _, service := range app.Subservices {
 		checkable := service.(services.Checkable)
 		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
 			return nil, err
@@ -517,7 +516,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		}
 	}
 
-	for _, subservice := range app.subservices {
+	for _, subservice := range app.Subservices {
 		if ctx.Err() != nil {
 			return errors.Wrap(ctx.Err(), "aborting start")
 		}
@@ -570,8 +569,8 @@ func (app *ChainlinkApplication) stop() (err error) {
 		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
-		for i := len(app.subservices) - 1; i >= 0; i-- {
-			service := app.subservices[i]
+		for i := len(app.Subservices) - 1; i >= 0; i-- {
+			service := app.Subservices[i]
 			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			err = multierr.Append(err, service.Close())
 		}
@@ -613,7 +612,7 @@ func (app *ChainlinkApplication) GetLogger() logger.Logger {
 }
 
 func (app *ChainlinkApplication) GetAuditLogger() audit.AuditLogger {
-	return app.auditLogger
+	return app.AuditLogger
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() services.Checker {
