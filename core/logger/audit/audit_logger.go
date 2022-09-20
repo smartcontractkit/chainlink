@@ -279,7 +279,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	}
 	if resp.StatusCode != 200 {
 		if resp.Body == nil {
-			l.logger.Errorw("There was no body to read. Possibly an error occured sending", "logItem", logItem)
+			l.logger.Errorw("There was no body to read. Possibly an error occurred sending", "logItem", logItem)
 			return
 		}
 
