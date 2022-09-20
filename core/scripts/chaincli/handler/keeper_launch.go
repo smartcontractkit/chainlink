@@ -82,9 +82,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Approve keeper registry
 	k.approveFunds(ctx, registryAddr)
 
-	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
-
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
 	var owners []common.Address
@@ -138,6 +135,9 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 	// Set Keepers
 	k.setKeepers(ctx, cls, deployer, keepers, owners)
+
+	// Deploy Upkeeps
+	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

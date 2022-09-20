@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -83,9 +84,9 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 				return
 			}
 
-			offchainPkBytes, err := hex.DecodeString(ocr2Config.OffChainPublicKey)
+			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
 			if err != nil {
-				panic(err)
+				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OffChainPublicKey, err))
 				return
 			}
 
@@ -96,9 +97,9 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 				return
 			}
 
-			configPkBytes, err := hex.DecodeString(ocr2Config.ConfigPublicKey)
+			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
 			if err != nil {
-				panic(err)
+				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.ConfigPublicKey, err))
 				return
 			}
 
@@ -109,9 +110,15 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 				return
 			}
 
+			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_"))
+			if err != nil {
+				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OnchainPublicKey, err))
+				return
+			}
+
 			oracleIdentities[i] = ocr2config.OracleIdentityExtra{
 				OracleIdentity: ocr2config.OracleIdentity{
-					OnchainPublicKey:  common.HexToAddress(ocr2Config.OnchainPublicKey).Bytes()[:],
+					OnchainPublicKey:  onchainPkBytes,
 					OffchainPublicKey: offchainPkBytesFixed,
 					PeerID:            p2pKeyID,
 					TransmitAccount:   ocr2types.Account(keepers[i].String()),
