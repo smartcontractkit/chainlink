@@ -28,7 +28,6 @@ import (
 
 type startedNodeData struct {
 	url     string
-	err     error
 	cleanup func()
 }
 
@@ -68,8 +67,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 			// Run chainlink node
 			var err error
 			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, fmt.Sprintf("keeper-%d", i), extraEvars...); err != nil {
-				startedNodes[i].err = fmt.Errorf("failed to launch chainlink node: %s", err)
-				return
+				log.Fatal("Failed to start node: ", err)
 			}
 		}(i)
 	}
@@ -86,11 +84,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	var owners []common.Address
 	var cls []cmd.HTTPClient
 	for _, startedNode := range startedNodes {
-		if startedNode.err != nil {
-			log.Println("Failed to start node: ", startedNode.err)
-			continue
-		}
-
 		// Create authenticated client
 		var cl cmd.HTTPClient
 		var err error
@@ -145,7 +138,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 	// Cleanup resources
 	for _, startedNode := range startedNodes {
-		if startedNode.err == nil && startedNode.cleanup != nil {
+		if startedNode.cleanup != nil {
 			startedNode.cleanup()
 		}
 	}
