@@ -342,6 +342,10 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 
+	if auditLogger == nil {
+		auditLogger = &audit.AuditLoggerService{}
+	}
+
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
 	url := cfg.DatabaseURL()
