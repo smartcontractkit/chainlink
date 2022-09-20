@@ -57,8 +57,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build Image
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@1f3c81b148e53caaa0563f8963f884f0e5a4f82d # v2.0.15
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@3ec87dc8f53432e209f1fa6d79ee5ef93ff63b09 
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
+          install_operator_ui: true
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
           push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}

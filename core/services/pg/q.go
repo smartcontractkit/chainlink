@@ -4,16 +4,25 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "sql_query_timeout_percent",
+	Help:    "SQL query time as a pecentage of timeout.",
+	Buckets: []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
+})
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //
@@ -34,17 +43,17 @@ import (
 //
 // A sample ORM method looks like this:
 //
-// 	func (o *orm) GetFoo(id int64, qopts ...pg.QOpt) (Foo, error) {
-// 		q := pg.NewQ(q, qopts...)
-// 		return q.Exec(...)
-// 	}
+//	func (o *orm) GetFoo(id int64, qopts ...pg.QOpt) (Foo, error) {
+//		q := pg.NewQ(q, qopts...)
+//		return q.Exec(...)
+//	}
 //
 // Now you can call it like so:
 //
-// 	orm.GetFoo(1) // will automatically have default query timeout context set
-// 	orm.GetFoo(1, pg.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
-// 	orm.GetFoo(1, pg.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
-// 	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
+//	orm.GetFoo(1) // will automatically have default query timeout context set
+//	orm.GetFoo(1, pg.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
+//	orm.GetFoo(1, pg.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
+//	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
 type QOpt func(*Q)
 
 type LogConfig interface {
@@ -171,12 +180,12 @@ func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
 
 // CAUTION: A subtle problem lurks here, because the following code is buggy:
 //
-//     ctx, cancel := context.WithCancel(context.Background())
-//     rows, err := db.QueryContext(ctx, "SELECT foo")
-//     cancel() // canceling here "poisons" the scan below
-//     for rows.Next() {
-//       rows.Scan(...)
-//     }
+//	ctx, cancel := context.WithCancel(context.Background())
+//	rows, err := db.QueryContext(ctx, "SELECT foo")
+//	cancel() // canceling here "poisons" the scan below
+//	for rows.Next() {
+//	  rows.Scan(...)
+//	}
 //
 // We must cancel the context only after we have completely finished using the
 // returned rows or result from the query/exec
@@ -308,6 +317,8 @@ func (q *queryLogger) withLogError(err error) error {
 	return err
 }
 
+// postSqlLog logs about context cancellation and timing after a query returns.
+// Queries which use their full timeout log critical level. More than 50% log error, and 10% warn.
 func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	elapsed := time.Since(begin)
 	if ctx.Err() != nil {
@@ -318,8 +329,19 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	if timeout <= 0 {
 		timeout = DefaultQueryTimeout
 	}
-	slowThreshold := timeout / 10
-	if slowThreshold > 0 && elapsed > slowThreshold {
-		q.logger.Warnw("SLOW SQL QUERY", "ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "sql", q)
+
+	pct := float64(elapsed) / float64(timeout)
+	pct *= 100
+
+	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
+
+	if elapsed >= timeout {
+		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
+	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
+		q.logger.Errorw("SLOW SQL QUERY", kvs...)
+	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {
+		q.logger.Warnw("SLOW SQL QUERY", kvs...)
 	}
+
+	promSQLQueryTime.Observe(pct)
 }

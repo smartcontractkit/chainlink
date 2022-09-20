@@ -29,7 +29,7 @@ type ETHCallTask struct {
 	GasPrice            string `json:"gasPrice"`
 	GasTipCap           string `json:"gasTipCap"`
 	GasFeeCap           string `json:"gasFeeCap"`
-	GasUnlimited        string `json:"unlimitedGas"`
+	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
