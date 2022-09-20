@@ -3,13 +3,15 @@ package reorg
 //revive:disable:dot-imports
 import (
 	"context"
+	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -26,8 +28,9 @@ import (
 var (
 	networkSettingsLoad = &blockchain.EVMNetwork{
 		Name:      "geth",
-		Simulated: false,
-		ChainID:   1337,
+		Simulated: true,
+		//ChainID:   100,
+		ChainID: 1337,
 		PrivateKeys: []string{
 			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 		},
@@ -36,6 +39,20 @@ var (
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
+
+	//networkSettingsLoad = &blockchain.EVMNetwork{
+	//	Name:      "edge",
+	//	Simulated: false,
+	//	ChainID:   100,
+	//	//ChainID:   1337,
+	//	PrivateKeys: []string{
+	//		"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+	//	},
+	//	ChainlinkTransactionLimit: 500000,
+	//	Timeout:                   2 * time.Minute,
+	//	MinimumConfirmations:      1,
+	//	GasEstimationBuffer:       10000,
+	//}
 )
 
 var _ = Describe("LogPoller chaos tests @log-poller", func() {
@@ -48,33 +65,48 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 		e              *environment.Environment
 
 		// Node params
-		reorgBlocks             = 20
+		reorgBlocks             = 15
 		EVMFinalityDepth        = "50"
 		EVMTrackerHistoryDepth  = "100"
 		EthLogPollInterval      = "5s"
 		EthLogBackfillBatchSize = "100"
 
 		//  Generator params
-		RPS       = 20
-		LogsPerTx = 50
+		TPS       = 10
+		LogsPerTx = 70
 	)
 	DescribeTable("LogPoller can sustain chaos and reorgs", func(
-		isReorg bool,
+		testcase string,
 		chaosFunc chaos.ManifestFunc,
 		chaosProps *chaos.Props,
 	) {
 		By("Deploying the environment")
 		e = environment.New(&environment.Config{
-			NamespacePrefix: "logpoller",
-			TTL:             24 * time.Hour,
+			TTL: 24 * time.Hour,
 		})
 		err := e.
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddChart(blockscout.New(&blockscout.Props{
+				//WsURL:   "ws://edge-polygon-edge:8545/ws",
+				//HttpURL: "http://edge-polygon-edge:8545",
 				WsURL:   "ws://geth-ethereum-geth:8546",
 				HttpURL: "http://geth-ethereum-geth:8544",
 			})).
+			//AddHelm(polygon_edge.New(
+			//	&polygon_edge.Props{
+			//		NetworkName: "edge",
+			//		Simulated:   true,
+			//		Values: map[string]interface{}{
+			//			"resources": map[string]interface{}{
+			//				"limits": map[string]interface{}{
+			//					"cpu":    "2000m",
+			//					"memory": "2048Mi",
+			//				},
+			//			},
+			//		},
+			//	},
+			//)).
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: "geth",
 				NetworkType: "geth-reorg",
@@ -90,12 +122,16 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
 		// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
 		// node must work and reconnect even if network is not working
-		time.Sleep(30 * time.Second)
+		time.Sleep(60 * time.Second)
 		err = e.AddHelm(chainlink.New(0, map[string]interface{}{
+			"prometheus": "true",
 			"env": map[string]interface{}{
-				"eth_url":                        "ws://geth-ethereum-geth:8546",
-				"eth_http_url":                   "http://geth-ethereum-geth:8544",
-				"eth_chain_id":                   "1337",
+				//"ETH_URL":      "ws://edge-polygon-edge:8545/ws",
+				//"ETH_HTTP_URL": "http://edge-polygon-edge:8545",
+				//"ETH_CHAIN_ID": "100",
+				"ETH_URL":                        "ws://geth-ethereum-geth:8546",
+				"ETH_HTTP_URL":                   "http://geth-ethereum-geth:8544",
+				"ETH_CHAIN_ID":                   "1337",
 				"FEATURE_LOG_POLLER":             "true",
 				"ETH_LOG_BACKFILL_BATCH_SIZE":    EthLogBackfillBatchSize,
 				"ETH_LOG_POLL_INTERVAL":          EthLogPollInterval,
@@ -116,7 +152,7 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 				"resources": map[string]interface{}{
 					"limits": map[string]interface{}{
 						"cpu":    "2000m",
-						"memory": "1024Mi",
+						"memory": "2048Mi",
 					},
 				},
 			},
@@ -134,24 +170,25 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 		By("Deploying contracts")
 		le, err = cd.DeployLogEmitter()
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying LogEmitter Contract shouldn't fail")
-		c.ParallelTransactions(true)
+		c.ParallelTransactions(false)
 
 		fromBlockNumber, err := c.LatestBlockNumber(context.Background())
 		Expect(err).ShouldNot(HaveOccurred())
-		gen := blockchain.NewChainLoadGenerator(&blockchain.ChainLoadGeneratorConfig{
-			RPS:      RPS,
-			Contract: le,
+		gen, err := ctfClient.NewLoadGenerator(&ctfClient.LoadGeneratorConfig{
+			RPS: TPS,
+			Gun: le,
 			SharedData: &contracts.EthereumLogEmitterSharedData{
 				EventType:           contracts.EventTypeInt,
 				EventsPerRequest:    LogsPerTx,
 				ConfirmTransactions: true,
 			},
 		})
-		err = gen.Run()
 		Expect(err).ShouldNot(HaveOccurred())
+		gen.Run()
 
 		var cid string
-		if isReorg {
+		switch testcase {
+		case "reorg":
 			rc, err := NewReorgController(
 				&ReorgConfig{
 					FromPodLabel:            reorg.TXNodesAppLabel,
@@ -166,36 +203,75 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 			rc.ReOrg(reorgBlocks)
 			err = rc.WaitDepthReached()
 			Expect(err).ShouldNot(HaveOccurred())
-		} else {
+
+			e.Chaos.Stop(cid)
+			gen.Stop()
+
+			db, err := ctfClient.ConnectDB(0, e)
+			Expect(err).ShouldNot(HaveOccurred())
+			txs := make([]*types.Transaction, 0)
+			for _, d := range gen.GetData().OKData {
+				txs = append(txs, d.(*types.Transaction))
+			}
+			v := NewDBVerifier(db, txs, LogsPerTx, fromBlockNumber)
+			v.VerifyAllTransactionsStored()
+		case "chaos":
 			cid, err = e.Chaos.Run(chaosFunc(e.Cfg.Namespace, chaosProps))
 			Expect(err).ShouldNot(HaveOccurred())
-			time.Sleep(60 * time.Second)
+			time.Sleep(2 * time.Minute)
+
+			e.Chaos.Stop(cid)
+			gen.Stop()
+
+			db, err := ctfClient.ConnectDB(0, e)
+			Expect(err).ShouldNot(HaveOccurred())
+			txs := make([]*types.Transaction, 0)
+			for _, d := range gen.GetData().OKData {
+				txs = append(txs, d.(*types.Transaction))
+			}
+			v := NewDBVerifier(db, txs, LogsPerTx, fromBlockNumber)
+			v.VerifyAllTransactionsStored()
+		case "replay":
+			time.Sleep(2 * time.Minute)
+			gen.Stop()
+
+			db, err := ctfClient.ConnectDB(0, e)
+			Expect(err).ShouldNot(HaveOccurred())
+			txs := make([]*types.Transaction, 0)
+			for _, d := range gen.GetData().OKData {
+				txs = append(txs, d.(*types.Transaction))
+			}
+			v := NewDBVerifier(db, txs, LogsPerTx, fromBlockNumber)
+			err = v.TruncateLogs()
+			Expect(err).ShouldNot(HaveOccurred())
+
+			tnow := time.Now()
+			resp, _, _ := chainlinkNodes[0].ReplayFromBlock(strconv.Itoa(int(1)), "1337", "true")
+			//Expect(err).ShouldNot(HaveOccurred())
+			elapsed := time.Since(tnow)
+			log.Warn().Dur("ReplayTime", elapsed).Msg("Replay elapsed time")
+			log.Warn().Interface("ReplayResp", resp).Msg("Replay response")
+
+			v.verifyLogsReceived()
 		}
-
-		e.Chaos.Stop(cid)
-
-		gen.Stop()
-		db, err := ctfClient.ConnectDB(0, e)
-		Expect(err).ShouldNot(HaveOccurred())
-		v := NewDBVerifier(db, gen.GetTransactions(), LogsPerTx, fromBlockNumber)
-		v.VerifyAllTransactionsStored()
 	}, []TableEntry{
-		Entry("must survive reorg", true, nil, nil),
-		Entry("must survive pod fail",
-			false,
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{"app": a.Str("chainlink-0")},
-				DurationStr:    "1m",
-			}),
-		Entry("must survive geth fail",
-			false,
-			chaos.NewNetworkPartition,
-			&chaos.Props{
-				FromLabels:  &map[string]*string{"app": a.Str("chainlink-0")},
-				ToLabels:    &map[string]*string{"app": a.Str("geth-ethereum-geth")},
-				DurationStr: "30s",
-			}),
+		Entry("must run replay", "replay", nil, nil),
+		//Entry("must survive reorg", "reorg", nil, nil),
+		//Entry("must survive pod fail",
+		//	"chaos",
+		//	chaos.NewFailPods,
+		//	&chaos.Props{
+		//		LabelsSelector: &map[string]*string{"app": a.Str("chainlink-0")},
+		//		DurationStr:    "1m",
+		//	}),
+		//Entry("must survive geth fail",
+		//	"chaos",
+		//	chaos.NewNetworkPartition,
+		//	&chaos.Props{
+		//		FromLabels:  &map[string]*string{"app": a.Str("chainlink-0")},
+		//		ToLabels:    &map[string]*string{"app": a.Str("geth-ethereum-geth")},
+		//		DurationStr: "30s",
+		//	}),
 	})
 	AfterEach(func() {
 		By("Tearing down the environment", func() {

@@ -64,6 +64,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 	switch clientImpl := bcClient.Get().(type) {
 	case *blockchain.EthereumClient:
 		return NewEthereumContractDeployer(clientImpl), nil
+	case *blockchain.PolygonEdgeClient:
+		return NewEthereumContractDeployer(clientImpl), nil
 	case *blockchain.KlaytnClient:
 		return &KlaytnContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.MetisClient:
@@ -814,10 +816,9 @@ func (e *EthereumContractDeployer) DeployLogEmitter() (*EthereumLogEmitter, erro
 		return nil, err
 	}
 	return &EthereumLogEmitter{
-		client:       e.client,
-		emitter:      instance.(*log_emitter.LogEmitter),
-		address:      address,
-		mu:           &sync.Mutex{},
-		transactions: make([]*types.Transaction, 0),
+		client:  e.client,
+		emitter: instance.(*log_emitter.LogEmitter),
+		address: address,
+		mu:      &sync.Mutex{},
 	}, err
 }

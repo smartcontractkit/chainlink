@@ -6,7 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/log_emitter"
 )
 
@@ -20,11 +22,10 @@ const (
 
 // EthereumLogEmitter represents LogEmitter contract used for tests
 type EthereumLogEmitter struct {
-	address      *common.Address
-	client       blockchain.EVMClient
-	emitter      *log_emitter.LogEmitter
-	mu           *sync.Mutex
-	transactions []*types.Transaction
+	address *common.Address
+	client  blockchain.EVMClient
+	emitter *log_emitter.LogEmitter
+	mu      *sync.Mutex
 }
 
 // EthereumLogEmitterSharedData shared settings for requests
@@ -34,12 +35,14 @@ type EthereumLogEmitterSharedData struct {
 	ConfirmTransactions bool
 }
 
-func (e *EthereumLogEmitter) EmitLogs(d *EthereumLogEmitterSharedData) error {
+func (e *EthereumLogEmitter) Call(data interface{}) ctfClient.CallResult {
+	d := data.(*EthereumLogEmitterSharedData)
 	var err error
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return ctfClient.CallResult{Error: errors.Wrapf(err, "failed to get tx opts")}
 	}
+	opts.GasLimit = uint64(300000)
 	logs, stringLogs := make([]*big.Int, 0), make([]string, 0)
 	for i := 0; i < d.EventsPerRequest; i++ {
 		logs = append(logs, big.NewInt(20))
@@ -57,22 +60,10 @@ func (e *EthereumLogEmitter) EmitLogs(d *EthereumLogEmitterSharedData) error {
 		tx, err = e.emitter.EmitLog3(opts, stringLogs)
 	}
 	if err != nil {
-		return err
+		return ctfClient.CallResult{Data: tx, Error: errors.Wrapf(err, "failed to perform tx")}
 	}
-	e.mu.Lock()
-	e.transactions = append(e.transactions, tx)
-	e.mu.Unlock()
 	if d.ConfirmTransactions {
-		return e.client.ProcessTransaction(tx)
+		return ctfClient.CallResult{Data: tx, Error: e.client.ProcessTransaction(tx)}
 	}
-	return nil
-}
-
-func (e *EthereumLogEmitter) PerformLoad(data interface{}) error {
-	d := data.(*EthereumLogEmitterSharedData)
-	return e.EmitLogs(d)
-}
-
-func (e *EthereumLogEmitter) GetTransactions() []*types.Transaction {
-	return e.transactions
+	return ctfClient.CallResult{Error: err}
 }

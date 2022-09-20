@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
@@ -835,6 +837,25 @@ func (c *Chainlink) CreateStarkNetNode(node *StarkNetNodeAttributes) (*StarkNetN
 		return nil, nil, err
 	}
 	return &response, resp.RawResponse, err
+}
+
+func (c *Chainlink) ReplayFromBlock(bn string, chainID string, force string) (*web.ReplayResponse, *http.Response, error) {
+	log.Info().Msg("Replaying logs")
+	response := &web.ReplayResponse{}
+	resp, err := c.APIClient.R().
+		SetPathParams(map[string]string{
+			"number": bn,
+		}).
+		SetQueryParams(map[string]string{
+			"evmChainID": chainID,
+			"force":      force,
+		}).
+		SetResult(&response).
+		Post("/v2/replay_from_block/{number}")
+	if err != nil {
+		return nil, nil, err
+	}
+	return response, resp.RawResponse, nil
 }
 
 // RemoteIP retrieves the inter-cluster IP of the Chainlink node, for use with inter-node communications

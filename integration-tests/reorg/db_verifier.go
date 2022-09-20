@@ -110,6 +110,13 @@ func (v *DBVerifier) verifyTransactionsStored(logs []LogData) {
 	Expect(success.Load()).To(BeEquivalentTo(len(v.txns)))
 }
 
+func (v *DBVerifier) TruncateLogs() error {
+	if _, err := v.db.Query("truncate logs;"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (v *DBVerifier) VerifyAllTransactionsStored() {
 	v.verifyLogsReceived()
 }
