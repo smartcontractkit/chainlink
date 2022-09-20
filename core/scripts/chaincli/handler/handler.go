@@ -30,6 +30,8 @@ import (
 	link "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
@@ -161,8 +163,13 @@ func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transacti
 }
 
 func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) {
-	if _, err := bind.WaitMined(ctx, h.client, tx); err != nil {
+	receipt, err := bind.WaitMined(ctx, h.client, tx)
+	if err != nil {
 		log.Fatal("WaitDeployed failed: ", err)
+	}
+
+	if receipt.Status == ethtypes.ReceiptStatusFailed {
+		log.Fatal("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
 	}
 }
 
@@ -371,7 +378,15 @@ func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, erro
 		return nil, fmt.Errorf("failed to unmarshal response body: %s", err)
 	}
 
-	return &keys[0], nil
+	var evmKey cmd.OCR2KeyBundlePresenter
+	for _, key := range keys {
+		if key.ChainType == string(chaintype.EVM) {
+			evmKey = key
+			break
+		}
+	}
+
+	return &evmKey, nil
 }
 
 // getP2PKeyID returns chainlink node's P2P key ID

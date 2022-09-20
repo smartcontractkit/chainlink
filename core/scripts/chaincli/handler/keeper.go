@@ -372,6 +372,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		k.approveFunds(ctx, registryAddr)
 
 		upkeepId := activeUpkeepIds[index]
+
 		// Fund
 		addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), upkeepId, k.addFundsAmount)
 		if err != nil {
@@ -392,7 +393,7 @@ func (k *Keeper) setKeepers(ctx context.Context, cls []cmd.HTTPClient, deployer 
 			log.Fatal("SetKeepers failed: ", err)
 		}
 		k.waitTx(ctx, setKeepersTx)
-		log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+		log.Println("Keepers registered:", helpers.ExplorerLink(k.cfg.ChainID, setKeepersTx.Hash()))
 	} else {
 		log.Println("No Keepers to register")
 	}
