@@ -42,6 +42,7 @@
     "hardhat": "^2.10.1",
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-contract-sizer": "^2.5.1",
+    "moment": "^2.29.4",
     "prettier-plugin-solidity": "1.0.0-beta.18",
     "solhint": "^3.3.6",
     "solhint-plugin-prettier": "^0.0.5",
