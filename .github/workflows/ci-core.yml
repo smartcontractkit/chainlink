@@ -53,7 +53,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           cache-name: yarn-cache
         with:
