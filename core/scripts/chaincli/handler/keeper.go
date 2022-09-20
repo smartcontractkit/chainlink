@@ -155,12 +155,7 @@ func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registr
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry20.DeployKeeperRegistry(
 		k.buildTxOpts(ctx),
 		k.client,
-		0, //paymentModel
-		common.HexToAddress(k.cfg.LinkTokenAddr),
-		common.HexToAddress(k.cfg.LinkETHFeedAddr),
-		common.HexToAddress(k.cfg.FastGasFeedAddr),
 		common.HexToAddress(k.cfg.KeeperRegistryLogicAddr),
-		*k.getConfigForRegistry20(),
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
@@ -238,12 +233,7 @@ func (k *Keeper) getRegistry20(ctx context.Context) (common.Address, *registry20
 		log.Fatal("Registry failed: ", err)
 	}
 	if k.cfg.RegistryConfigUpdate {
-		transaction, err := keeperRegistry20.SetOnChainConfig(k.buildTxOpts(ctx), *k.getConfigForRegistry20())
-		if err != nil {
-			log.Fatal("Registry config update: ", err)
-		}
-		k.waitTx(ctx, transaction)
-		log.Println("KeeperRegistry2.0 config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
+		// TODO: Implement
 	} else {
 		log.Println("KeeperRegistry2.0 config not updated: KEEPER_CONFIG_UPDATE=false")
 	}
@@ -461,8 +451,8 @@ func (k *Keeper) getConfigForRegistry12() *registry12.Config {
 }
 
 // getConfigForRegistry20 returns a config object for registry 2.0
-func (k *Keeper) getConfigForRegistry20() *registry20.OnChainConfig {
-	return &registry20.OnChainConfig{
+func (k *Keeper) getConfigForRegistry20() *registry20.OnchainConfig {
+	return &registry20.OnchainConfig{
 		PaymentPremiumPPB:    k.cfg.PaymentPremiumPBB,
 		FlatFeeMicroLink:     k.cfg.FlatFeeMicroLink,
 		CheckGasLimit:        k.cfg.CheckGasLimit,

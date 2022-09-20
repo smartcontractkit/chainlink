@@ -61,7 +61,7 @@ type v20KeeperDeployer struct {
 }
 
 func (d *v20KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte) (*types.Transaction, error) {
-	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, false, checkData)
+	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData, nil)
 }
 
 func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPClient, keepers []common.Address, _ []common.Address) (*types.Transaction, error) {

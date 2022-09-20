@@ -356,7 +356,7 @@ func (rw *RegistryWrapper) RegisterUpkeep(opts *bind.TransactOpts, target common
 		return rw.contract1_2.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 	case RegistryVersion_2_0:
 		// TODO: Don't skip sig verification
-		return rw.contract2_0.RegisterUpkeep(opts, target, gasLimit, admin, true, checkData)
+		return rw.contract2_0.RegisterUpkeep(opts, target, gasLimit, admin, checkData, nil)
 	default:
 		return nil, newUnsupportedVersionError("RegisterUpkeep", rw.Version)
 	}
