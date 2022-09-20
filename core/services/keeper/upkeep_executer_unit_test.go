@@ -82,7 +82,7 @@ func TestBuildJobSpec(t *testing.T) {
 	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(1)
 	m.On("KeeperRegistryMaxPerformDataSize").Return(uint32(1000)).Times(1)
 
-	spec := buildJobSpec(jb, upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
+	spec := buildJobSpec(jb, jb.KeeperSpec.FromAddress.Address(), upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{
