@@ -158,7 +158,7 @@ func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int
 
 func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transaction) {
 	if _, err := bind.WaitDeployed(ctx, h.client, tx); err != nil {
-		log.Fatal("WaitDeployed failed: ", err)
+		log.Fatal("WaitDeployed failed: ", err, " ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
 	}
 }
 
