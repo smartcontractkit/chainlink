@@ -61,6 +61,7 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220829131014-01054c48dc0a
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220824174951-d1e2bcd51e46
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
+	github.com/smartcontractkit/ocr2keepers v0.0.3
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20220802183403-8cb2a10769b5
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -99,7 +100,7 @@ require (
 	github.com/CosmWasm/wasmvm v0.16.6 // indirect
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
-	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac
+	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
