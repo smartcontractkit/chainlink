@@ -58,7 +58,7 @@ func TestJob(t *testing.T) {
 			job: job.Job{
 				ID:                1,
 				GasLimit:          clnull.Uint32From(specGasLimit),
-				ForwardingAllowed: null.BoolFrom(false),
+				ForwardingAllowed: false,
 				DirectRequestSpec: &job.DirectRequestSpec{
 					ContractAddress: contractAddress,
 					CreatedAt:       timestamp,
@@ -223,7 +223,7 @@ func TestJob(t *testing.T) {
 				SchemaVersion:     1,
 				Name:              null.StringFrom("test"),
 				GasLimit:          clnull.Uint32From(123),
-				ForwardingAllowed: null.BoolFrom(true),
+				ForwardingAllowed: true,
 				MaxTaskDuration:   models.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`

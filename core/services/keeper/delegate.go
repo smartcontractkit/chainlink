@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -77,6 +78,15 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}
 
+	forwarderAddress := common.Address{}
+	if spec.ForwardingAllowed {
+		var fwderr error
+		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
+		if fwderr != nil {
+			svcLogger.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
+		}
+	}
+
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
 		RegistryWrapper:          *registryWrapper,
@@ -88,6 +98,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		Logger:                   svcLogger,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
+		forwardingAllowed:        spec.ForwardingAllowed,
+		forwarderAddress:         forwarderAddress,
 	})
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
@@ -98,6 +110,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		chain.TxManager().GetGasEstimator(),
 		svcLogger,
 		chain.Config(),
+		spec.ForwardingAllowed,
+		forwarderAddress,
 	)
 
 	return []job.ServiceCtx{
