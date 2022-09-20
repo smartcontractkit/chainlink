@@ -116,10 +116,9 @@ func (f *FwdMgr) GetForwarderForEOA(addr common.Address) (forwarder common.Addre
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa != addr {
-				continue
+			if eoa == addr {
+				return fwdr.Address, nil
 			}
-			return fwdr.Address, nil
 		}
 	}
 	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
