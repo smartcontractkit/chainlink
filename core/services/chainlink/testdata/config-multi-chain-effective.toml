@@ -36,8 +36,10 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -45,7 +47,6 @@ UseForwarders = false
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [EVM.GasEstimator]
 Mode = 'BlockHistory'
@@ -67,18 +68,15 @@ TipCapMinimum = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -109,8 +107,10 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -118,7 +118,6 @@ UseForwarders = false
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [EVM.GasEstimator]
 Mode = 'BlockHistory'
@@ -140,18 +139,15 @@ TipCapMinimum = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -177,7 +173,9 @@ MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 10
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -185,7 +183,6 @@ UseForwarders = false
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 13
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
@@ -207,18 +204,15 @@ TipCapMinimum = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
