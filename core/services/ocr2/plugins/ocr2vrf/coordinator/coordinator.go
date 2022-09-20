@@ -433,7 +433,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 	for _, r := range callbacksRequested {
 		// Check if there is room left in the batch.
 		if batchGasLimit-currentBatchGasLimit < r.Callback.GasAllowance.Int64() {
-			break
+			continue
 		}
 
 		requestID := r.Callback.RequestID

@@ -716,6 +716,72 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.Len(t, blocks, 1)
 		assert.Len(t, callbacks, 1)
 	})
+
+	t.Run("happy path, sandwiched callbacks hit batch gas limit", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(200)
+		lookbackBlocks := int64(5)
+		evmClient := evm_mocks.NewClient(t)
+
+		tp := newTopics()
+
+		requestedBlocks := []uint64{195, 196}
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.newTransmissionTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 10_000_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 10_000_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 196, 194, 4, 1000),
+		}, nil)
+
+		c := &coordinator{
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+		}
+
+		blocks, callbacks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+
+		// Should allow the middle callback, with an acceptable gas allowance, to be processed,
+		// then move to the next block and find a suitable callback. Also adds the block 196 for
+		// that callback.
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 2)
+		assert.Len(t, callbacks, 2)
+	})
 }
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
