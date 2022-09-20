@@ -92,13 +92,20 @@ func Array(items Schema) Schema {
 type Union []Schema
 
 type fixed struct {
-	Typ  string `json:"type"`
-	Name string `json:"name"`
-	Size int    `json:"size"`
+	Typ         string `json:"type"`
+	Name        string `json:"name"`
+	Size        int    `json:"size,omitempty"`
+	LogicalType string `json:"logicalType,omitempty"`
+	Precision   int    `json:"precision,omitempty"`
+	Scale       int    `json:"scale,omitempty"`
 }
 
 func Fixed(name string, size int) Schema {
-	return fixed{"fixed", name, size}
+	return fixed{Typ: "fixed", Name: name, Size: size}
+}
+
+func Decimal(name string, size, precision, scale int) Schema {
+	return fixed{Typ: "fixed", Name: name, Size: size, LogicalType: "decimal", Precision: precision, Scale: scale}
 }
 
 // Type checking

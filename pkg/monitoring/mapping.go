@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/pb"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -24,8 +25,8 @@ func MakeTransmissionMapping(
 	}
 	out := map[string]interface{}{
 		"block_number": uint64ToBeBytes(envelope.BlockNumber),
-		"block_number_fixed": map[string]interface{}{
-			"link.chain.ocr2.transmission_block_number": uint64ToBeBytes(envelope.BlockNumber),
+		"block_number_uint64": map[string]interface{}{
+			"link.chain.ocr2.transmission_block_number": uint64ToBigRat(envelope.BlockNumber),
 		},
 		"answer": map[string]interface{}{
 			"data": data,
@@ -88,8 +89,8 @@ func MakeConfigSetSimplifiedMapping(
 	out := map[string]interface{}{
 		"config_digest": base64.StdEncoding.EncodeToString(envelope.ConfigDigest[:]),
 		"block_number":  uint64ToBeBytes(envelope.BlockNumber),
-		"block_number_fixed": map[string]interface{}{
-			"link.chain.ocr2.config_block_number": uint64ToBeBytes(envelope.BlockNumber),
+		"block_number_uint64": map[string]interface{}{
+			"link.chain.ocr2.config_block_number": uint64ToBigRat(envelope.BlockNumber),
 		},
 		"signers":        string(signers),
 		"transmitters":   string(transmitters),
@@ -99,20 +100,20 @@ func MakeConfigSetSimplifiedMapping(
 		"delta_round":    uint64ToBeBytes(offchainConfig.DeltaRoundNanoseconds),
 		"delta_grace":    uint64ToBeBytes(offchainConfig.DeltaGraceNanoseconds),
 		"delta_stage":    uint64ToBeBytes(offchainConfig.DeltaStageNanoseconds),
-		"delta_progress_fixed": map[string]interface{}{
-			"link.chain.ocr2.config_delta_progress": uint64ToBeBytes(offchainConfig.DeltaProgressNanoseconds),
+		"delta_progress_uint64": map[string]interface{}{
+			"link.chain.ocr2.config_delta_progress": uint64ToBigRat(offchainConfig.DeltaProgressNanoseconds),
 		},
-		"delta_resend_fixed": map[string]interface{}{
-			"link.chain.ocr2.config_delta_resend": uint64ToBeBytes(offchainConfig.DeltaResendNanoseconds),
+		"delta_resend_uint64": map[string]interface{}{
+			"link.chain.ocr2.config_delta_resend": uint64ToBigRat(offchainConfig.DeltaResendNanoseconds),
 		},
-		"delta_round_fixed": map[string]interface{}{
-			"link.chain.ocr2.config_delta_round": uint64ToBeBytes(offchainConfig.DeltaRoundNanoseconds),
+		"delta_round_uint64": map[string]interface{}{
+			"link.chain.ocr2.config_delta_round": uint64ToBigRat(offchainConfig.DeltaRoundNanoseconds),
 		},
-		"delta_grace_fixed": map[string]interface{}{
-			"link.chain.ocr2.config_delta_grace": uint64ToBeBytes(offchainConfig.DeltaGraceNanoseconds),
+		"delta_grace_uint64": map[string]interface{}{
+			"link.chain.ocr2.config_delta_grace": uint64ToBigRat(offchainConfig.DeltaGraceNanoseconds),
 		},
-		"delta_stage_fixed": map[string]interface{}{
-			"link.chain.ocr2.config_delta_stage": uint64ToBeBytes(offchainConfig.DeltaStageNanoseconds),
+		"delta_stage_uint64": map[string]interface{}{
+			"link.chain.ocr2.config_delta_stage": uint64ToBigRat(offchainConfig.DeltaStageNanoseconds),
 		},
 		"r_max":              int64(offchainConfig.RMax),
 		"s":                  string(s),
@@ -134,6 +135,10 @@ func uint64ToBeBytes(input uint64) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, input)
 	return buf
+}
+
+func uint64ToBigRat(input uint64) *big.Rat {
+	return new(big.Rat).SetUint64(input)
 }
 
 func parseOffchainConfig(buf []byte) (*pb.OffchainConfigProto, error) {

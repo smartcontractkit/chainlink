@@ -12,7 +12,10 @@ import (
 
 var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "link.chain.ocr2"}, avro.Fields{
 	avro.Field("block_number", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
-	avro.Field("block_number_fixed", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.Fixed("transmission_block_number", 8)}),
+	avro.Field("block_number_uint64", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("transmission_block_number", 32, 78, 0),
+	}),
 	avro.Field("answer", avro.Opts{}, avro.Record("answer", avro.Opts{}, avro.Fields{
 		avro.Field("data", avro.Opts{Doc: "*big.Int"}, avro.Bytes),
 		avro.Field("data_string", avro.Opts{Default: avro.Null, Doc: "string version of data"}, avro.Union{avro.Null, avro.String}),
@@ -60,20 +63,38 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 var configSetSimplifiedAvroSchema = avro.Record("config_set_simplified", avro.Opts{Namespace: "link.chain.ocr2"}, avro.Fields{
 	avro.Field("config_digest", avro.Opts{Doc: "[32]byte encoded as base64"}, avro.String),
 	avro.Field("block_number", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
-	avro.Field("block_number_fixed", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.Fixed("config_block_number", 8)}),
+	avro.Field("block_number_uint64", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_block_number", 32, 78, 0),
+	}),
 	avro.Field("signers", avro.Opts{Doc: "json encoded array of base64-encoded signing keys"}, avro.String),
 	avro.Field("transmitters", avro.Opts{Doc: "json encoded array of base64-encoded transmission keys"}, avro.String),
 	avro.Field("f", avro.Opts{Doc: "uint8"}, avro.Int),
 	avro.Field("delta_progress", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
-	avro.Field("delta_progress_fixed", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.Fixed("config_delta_progress", 8)}),
+	avro.Field("delta_progress_uint64", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_progress", 32, 78, 0),
+	}),
 	avro.Field("delta_resend", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
-	avro.Field("delta_resend_fixed", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.Fixed("config_delta_resend", 8)}),
+	avro.Field("delta_resend_uint64", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_resend", 32, 78, 0),
+	}),
 	avro.Field("delta_round", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
-	avro.Field("delta_round_fixed", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.Fixed("config_delta_round", 8)}),
+	avro.Field("delta_round_uint64", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_round", 32, 78, 0),
+	}),
 	avro.Field("delta_grace", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
-	avro.Field("delta_grace_fixed", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.Fixed("config_delta_grace", 8)}),
+	avro.Field("delta_grace_uint64", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_grace", 32, 78, 0),
+	}),
 	avro.Field("delta_stage", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
-	avro.Field("delta_stage_fixed", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.Fixed("config_delta_stage", 8)}),
+	avro.Field("delta_stage_uint64", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_stage", 32, 78, 0),
+	}),
 	avro.Field("r_max", avro.Opts{Doc: "uint32"}, avro.Long),
 	avro.Field("s", avro.Opts{Doc: "json encoded aray of ints"}, avro.String),
 	avro.Field("oracles", avro.Opts{Doc: "json encoded list of oracles"}, avro.String),
