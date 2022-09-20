@@ -5,13 +5,13 @@ module.exports = {
   env: {
     es6: true,
     node: true,
+    mocha: true,
   },
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/eslint-recommended',
     'plugin:@typescript-eslint/recommended',
     'plugin:prettier/recommended',
-    'prettier/@typescript-eslint',
   ],
   rules: {
     radix: ['error', 'always'],
@@ -23,27 +23,18 @@ module.exports = {
         usePrettierrc: true,
       },
     ],
+    'prefer-const': 'warn',
     '@typescript-eslint/camelcase': 'off',
     '@typescript-eslint/no-empty-function': 'off',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^_' }],
     '@typescript-eslint/no-empty-interface': 'off',
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
-    '@typescript-eslint/ban-ts-ignore': 'warn',
+    '@typescript-eslint/ban-ts-comment': 'warn',
     '@typescript-eslint/no-non-null-assertion': 'error',
     '@typescript-eslint/no-use-before-define': [
       'error',
       { functions: false, typedefs: false },
     ],
   },
-
-  overrides: [
-    // enable jest for tests
-    {
-      files: ['**/*.test.ts', '**/*.test.js', '**/__mocks__/**/*.js'],
-      env: {
-        jest: true,
-      },
-    },
-  ],
 }
