@@ -46,7 +46,6 @@ func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
 		parseChainID:  parseChainID,
 		newResource:   newResource,
 		createNode:    createNode,
-		lggr:          lggr,
 		auditLogger:   auditLogger,
 	}
 }

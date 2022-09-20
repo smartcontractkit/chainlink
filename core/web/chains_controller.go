@@ -171,8 +171,9 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 	chainj, err := json.Marshal(chain)
 	if err != nil {
 		cc.lggr.Errorf("Unable to marshal chain to json", "err", err)
+	} else {
+		cc.auditLogger.Audit(audit.ChainSpecUpdated, map[string]interface{}{"chain": chainj})
 	}
-	cc.auditLogger.Audit(audit.ChainSpecUpdated, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
 }
