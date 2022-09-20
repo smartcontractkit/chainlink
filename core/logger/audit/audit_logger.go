@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -283,7 +283,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 			return
 		}
 
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			l.logger.Errorw("Error reading errored HTTP log service webhook response body", "err", err, "logItem", logItem)
 			return
