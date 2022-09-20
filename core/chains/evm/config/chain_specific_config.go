@@ -23,7 +23,6 @@ type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
 	chainSpecificConfigDefaultSet struct {
 		balanceMonitorEnabled                          bool
-		balanceMonitorBlockDelay                       uint16
 		blockEmissionIdleWarningThreshold              time.Duration
 		blockHistoryEstimatorBatchSize                 uint32
 		blockHistoryEstimatorBlockDelay                uint16
@@ -109,7 +108,6 @@ func setChainSpecificConfigDefaultSets() {
 
 	fallbackDefaultSet = chainSpecificConfigDefaultSet{
 		balanceMonitorEnabled:                      true,
-		balanceMonitorBlockDelay:                   1,
 		blockEmissionIdleWarningThreshold:          1 * time.Minute,
 		blockHistoryEstimatorBatchSize:             4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
 		blockHistoryEstimatorBlockDelay:            1,
@@ -200,7 +198,6 @@ func setChainSpecificConfigDefaultSets() {
 	// see: https://goethereumbook.org/en/client-simulated/
 	// generally speaking, this is only used in tests
 	simulated := fallbackDefaultSet
-	simulated.balanceMonitorBlockDelay = 0
 	simulated.blockEmissionIdleWarningThreshold = 0
 	simulated.nodeDeadAfterNoNewHeadersThreshold = 0 // Assume simulated chain can never die
 	simulated.ethTxResendAfterThreshold = 0
@@ -239,7 +236,6 @@ func setChainSpecificConfigDefaultSets() {
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
 	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 	bscMainnet := fallbackDefaultSet
-	bscMainnet.balanceMonitorBlockDelay = 2
 	bscMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	bscMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	bscMainnet.blockHistoryEstimatorBlockDelay = 2
@@ -264,7 +260,6 @@ func setChainSpecificConfigDefaultSets() {
 	// Polygon has a 1s block time and looser finality guarantees than ethereum.
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
-	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	polygonMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	polygonMainnet.finalityDepth = 500  // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
@@ -310,7 +305,6 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
-	optimismMainnet.balanceMonitorBlockDelay = 0
 	optimismMainnet.blockEmissionIdleWarningThreshold = 0
 	optimismMainnet.nodeDeadAfterNoNewHeadersThreshold = 0    // Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
@@ -333,7 +327,6 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
-	fantomMainnet.balanceMonitorBlockDelay = 2
 	fantomMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	fantomMainnet.blockHistoryEstimatorBlockDelay = 2
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
@@ -398,7 +391,6 @@ func setChainSpecificConfigDefaultSets() {
 	metisMainnet := fallbackDefaultSet
 	metisMainnet.blockEmissionIdleWarningThreshold = 0
 	metisMainnet.nodeDeadAfterNoNewHeadersThreshold = 0
-	metisMainnet.balanceMonitorBlockDelay = 0
 	metisMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on metis
 	metisMainnet.chainType = config.ChainMetis
 	metisMainnet.finalityDepth = 1    // Sequencer offers absolute finality

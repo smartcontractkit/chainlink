@@ -198,12 +198,8 @@ func TestClient_UpdateETHKey(t *testing.T) {
 func TestClient_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient := newEthMock(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
 		withKey(),
-		withMocks(ethClient),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
 			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
