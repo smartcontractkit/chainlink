@@ -27,7 +27,6 @@ type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
 	errNotEnabled error
 	newResource   func(N) R
 	createNode    func(*gin.Context) (N, error)
-	lggr          logger.Logger
 	auditLogger   audit.AuditLogger
 }
 
