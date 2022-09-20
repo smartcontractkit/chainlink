@@ -575,7 +575,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 
 		if receipt.Status == 0 {
 			// Do an eth call to obtain the revert reason.
-			_, err := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
+			_, err = ec.ethClient.CallContract(ctx, ethereum.CallMsg{
 				From:       attempt.EthTx.FromAddress,
 				To:         &attempt.EthTx.ToAddress,
 				Gas:        uint64(attempt.EthTx.GasLimit),
@@ -586,11 +586,11 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 				Data:       attempt.EthTx.EncodedPayload,
 				AccessList: nil,
 			}, receipt.BlockNumber)
-			revReason, err := evmclient.ExtractRevertReasonFromRPCError(err)
+			rpcError, err := evmclient.ExtractRPCError(err)
 			if err == nil {
-				l.Warnf("transaction %s reverted on-chain revert reason %s", receipt.TxHash, revReason)
+				l.Warnw("transaction reverted on-chain", "hash", receipt.TxHash, "rpcError", rpcError)
 			} else {
-				l.Warnf("transaction %s reverted on-chain unable to extract revert reason %v", receipt.TxHash, err)
+				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.TxHash, "err", err)
 			}
 			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)

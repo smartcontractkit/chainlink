@@ -377,9 +377,10 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	//}
 	res, err := c.b.CallContract(ctx, msg, blockNumber)
 	if err != nil {
-		customRevert, isCustomRevert := err.(rpc.DataError)
+		var dataErr rpc.DataError
+		isCustomRevert := errors.As(err, dataErr)
 		if isCustomRevert {
-			return nil, &JsonError{Data: customRevert.ErrorData(), Message: customRevert.Error(), Code: 3}
+			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
 		}
 		// Generic revert, no data
 		return nil, &JsonError{Data: []byte{}, Message: err.Error(), Code: 3}

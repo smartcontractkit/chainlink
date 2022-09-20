@@ -1,16 +1,12 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
@@ -321,15 +317,29 @@ func (err *JsonError) String() string {
 	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
 }
 
-func ExtractRPCError(err error) *JsonError {
-	jErr, eErr := extractRPCError(err)
+func ExtractRPCErrorOrNil(err error) *JsonError {
+	jErr, eErr := ExtractRPCError(err)
 	if eErr != nil {
 		return nil
 	}
 	return jErr
 }
 
-func extractRPCError(baseErr error) (*JsonError, error) {
+// ExtractRPCError attempts to extract a full JsonError (including revert reason details)
+// from an error returned by CallContract. As per https://github.com/ethereum/go-ethereum/blob/c49e065fea78a5d3759f7853a608494913e5824e/internal/ethapi/api.go#L974
+// CallContract for a revert will return an error which contains either:
+// - The error directly from the EVM if there's no data (no revert reason, like an index out of bounds access) which
+// when marshalled will only have a Message.
+// - An error which implements rpc.DataError which when marshalled will have a Data field containing the execution result.
+// If the revert not a custom Error (solidity >= 0.8.0), like require(1 == 2, "revert"), then geth and forks will automatically
+// parse the string and put it in the message. If its a custom error, it's up to the client to decode the Data field which will be
+// the abi encoded data of the custom error, i.e. revert MyCustomError(10) -> keccak(MyCustomError(uint256))[:4] || abi.encode(10).
+// Some examples:
+// kovan (parity)
+// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted from message.
+// rinkeby / ropsten (geth)
+// { "error":  { "code": 3, "data": "0xABC123...", "message": "execution reverted: hello world" } } // revert reason automatically parsed if a simple require and included in message.
+func ExtractRPCError(baseErr error) (*JsonError, error) {
 	if baseErr == nil {
 		return nil, errors.New("no error present")
 	}
@@ -347,46 +357,4 @@ func extractRPCError(baseErr error) (*JsonError, error) {
 		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
 	}
 	return &jErr, nil
-}
-
-// ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
-// an RPC eth_call that reverted by parsing the message from the "data" field
-// ex:
-// kovan (parity)
-// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted
-// rinkeby / ropsten (geth)
-// { "error":  { "code": 3, "data": "0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
-// The data field represent an ABI-encoded error, depending on the type of error. See examples below.
-// require(1 == 2, "1 should equal 2") -> Error(string)
-// revert MyError(1, "error") -> MyError(uint256, string)
-func ExtractRevertReasonFromRPCError(err error) (string, error) {
-	jErr, eErr := extractRPCError(err)
-	if eErr != nil {
-		return "", eErr
-	}
-	dataStr, ok := jErr.Data.(string)
-	if !ok {
-		return "", errors.New("invalid error type")
-	}
-	// Some clients return a prefix such "Reverted 0x.."
-	matches := hexDataRegex.FindStringSubmatch(dataStr)
-	if len(matches) != 1 {
-		return "", errors.New("unknown data payload format")
-	}
-	data, err := hexutil.Decode(matches[0])
-	if err != nil {
-		return "", err
-	}
-	// If this matches Error(string), parse directly.
-	requireSelector := utils.Keccak256Fixed([]byte("Error(string)"))
-	if bytes.Equal(data[:4], requireSelector[:4]) {
-		res, err := utils.ABIDecode(`[{"type": "string"}]`, data[4:])
-		if err != nil {
-			return "", err
-		}
-		return res[0].(string), nil
-	}
-	// TODO: We could add more known chainlink errors here? Searching through every abi seems like overkill.
-	// If not, its a custom error so return bytes.
-	return hexutil.Encode(data), nil
 }

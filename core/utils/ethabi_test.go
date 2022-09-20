@@ -642,24 +642,55 @@ func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 	}
 }
 
-func TestGenericEncodeDecode(t *testing.T) {
-	res, err := ABIEncode(`[{ "type": "bool" }]`, true)
-	require.NoError(t, err)
-	t.Log(res)
-	res2, err := ABIDecode(`[{ "type": "bool" }]`, res)
-	require.NoError(t, err)
-	t.Log(res2)
-	e, err := ABIEncode(`[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`, struct {
-		Int1, Int2 *big.Int
-	}{big.NewInt(10), big.NewInt(12)})
-	require.NoError(t, err)
-	r, err := ABIDecode(`[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`, e)
-	t.Logf("%T %v", r, r)
-
-	res, err = ABIEncode(`[{ "type": "bool" }, {"type": "uint256"}]`, true, big.NewInt(10))
-	require.NoError(t, err)
-	t.Log(res)
-	res2, err = ABIDecode(`[{ "type": "bool" }, {"type": "uint256"}]`, res)
-	require.NoError(t, err)
-	t.Log(res2)
+func TestABIEncodeDecode(t *testing.T) {
+	// Note this is just a sanity check test,
+	// ABIEncode/ABIDecode is a thin wrapper around the geth abi library
+	// which has its own exhaustive test suite.
+	var tt = []struct {
+		abiStr    string
+		vals      []interface{}
+		name      string
+		expectErr bool
+	}{
+		{
+			abiStr: `[{ "type": "bool" }]`,
+			vals:   []interface{}{true},
+			name:   "single value",
+		},
+		{
+			abiStr: `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`,
+			vals: []interface{}{struct {
+				Int1 *big.Int `json:"int1"`
+				Int2 *big.Int `json:"int2"`
+			}{big.NewInt(10), big.NewInt(12)}},
+			name: "struct",
+		},
+		{
+			abiStr: `[{ "type": "bool" }, {"type": "uint256"}]`,
+			vals:   []interface{}{true, big.NewInt(10)},
+			name:   "multiple values",
+		},
+		{
+			abiStr:    `[{ "type": "bool" }, {"type": "uint256"}]`,
+			vals:      []interface{}{big.NewInt(1), big.NewInt(10)},
+			name:      "mismatch",
+			expectErr: true,
+		},
+	}
+	for _, tc := range tt {
+		// Round trip should remain the same.
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			abiBytes, err := ABIEncode(tc.abiStr, tc.vals...)
+			if tc.expectErr {
+				t.Log(err)
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			res, err := ABIDecode(tc.abiStr, abiBytes)
+			require.NoError(t, err)
+			assert.Equal(t, tc.vals, res)
+		})
+	}
 }

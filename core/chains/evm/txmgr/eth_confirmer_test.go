@@ -2883,6 +2883,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		select {
 		case data := <-ch:
 			assert.Error(t, err)
+		
 			assert.EqualError(t, err, fmt.Sprintf("transaction %s reverted on-chain", etx.EthTxAttempts[0].Hash.Hex()))
 
 			assert.Nil(t, data)
