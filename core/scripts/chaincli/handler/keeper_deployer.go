@@ -13,11 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	registry11 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 )
 
 // canceller describes the behavior to cancel upkeeps
@@ -58,6 +60,7 @@ func (d *v12KeeperDeployer) SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClie
 
 type v20KeeperDeployer struct {
 	registry20.KeeperRegistryInterface
+	cfg *config.Config
 }
 
 func (d *v20KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte) (*types.Transaction, error) {
@@ -130,6 +133,26 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	wg.Wait()
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForEthereumIntegrationTest(oracleIdentities, 1, uint64(1000))
+	if err != nil {
+		return nil, err
+	}
+
+	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
+	onchainConfig, err = abi.Encode(map[string]interface{}{
+		"paymentPremiumPPB":    d.cfg.PaymentPremiumPBB,
+		"flatFeeMicroLink":     d.cfg.FlatFeeMicroLink,
+		"checkGasLimit":        d.cfg.CheckGasLimit,
+		"stalenessSeconds":     d.cfg.StalenessSeconds,
+		"gasCeilingMultiplier": d.cfg.GasCeilingMultiplier,
+		"minUpkeepSpend":       d.cfg.MinUpkeepSpend,
+		"maxPerformGas":        d.cfg.MaxPerformGas,
+		"maxCheckDataSize":     d.cfg.MaxCheckDataSize,
+		"maxPerformDataSize":   d.cfg.MaxPerformDataSize,
+		"fallbackGasPrice":     big.NewInt(d.cfg.FallbackGasPrice),
+		"fallbackLinkPrice":    big.NewInt(d.cfg.FallbackLinkPrice),
+		"transcoder":           common.HexToAddress(d.cfg.Transcoder),
+		"registrar":            common.HexToAddress(d.cfg.Registrar),
+	}, configType)
 	if err != nil {
 		return nil, err
 	}

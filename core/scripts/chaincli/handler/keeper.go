@@ -6,11 +6,12 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	registrylogic20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registry11 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -120,7 +121,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
-			deployer = &v20KeeperDeployer{keeperRegistry20}
+			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
 		}
 	} else {
 		// Deploy keeper registry
@@ -133,7 +134,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			deployer = &v12KeeperDeployer{keeperRegistry12}
 		case keeper.RegistryVersion_2_0:
 			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx)
-			deployer = &v20KeeperDeployer{keeperRegistry20}
+			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
 		}
 	}
 
@@ -152,10 +153,27 @@ func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) 
 
 // deployRegistry20 deploys a version 2.0 keeper registry
 func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registry20.KeeperRegistry) {
+	registryLogic := k.cfg.KeeperRegistryLogicAddr
+	if registryLogic == "" {
+		registryLogicAddr, deployKeeperRegistryLogicTx, _, err := registrylogic20.DeployKeeperRegistryLogic(
+			k.buildTxOpts(ctx),
+			k.client,
+			0,
+			common.HexToAddress(k.cfg.LinkTokenAddr),
+			common.HexToAddress(k.cfg.LinkETHFeedAddr),
+			common.HexToAddress(k.cfg.FastGasFeedAddr),
+		)
+		if err != nil {
+			log.Fatal("DeployAbi failed: ", err)
+		}
+		k.waitDeployment(ctx, deployKeeperRegistryLogicTx)
+		registryLogic = registryLogicAddr.Hex()
+	}
+
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry20.DeployKeeperRegistry(
 		k.buildTxOpts(ctx),
 		k.client,
-		common.HexToAddress(k.cfg.KeeperRegistryLogicAddr),
+		common.HexToAddress(registryLogic),
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
@@ -443,25 +461,6 @@ func (k *Keeper) getConfigForRegistry12() *registry12.Config {
 		GasCeilingMultiplier: k.cfg.GasCeilingMultiplier,
 		MinUpkeepSpend:       big.NewInt(k.cfg.MinUpkeepSpend),
 		MaxPerformGas:        k.cfg.MaxPerformGas,
-		FallbackGasPrice:     big.NewInt(k.cfg.FallbackGasPrice),
-		FallbackLinkPrice:    big.NewInt(k.cfg.FallbackLinkPrice),
-		Transcoder:           common.HexToAddress(k.cfg.Transcoder),
-		Registrar:            common.HexToAddress(k.cfg.Registrar),
-	}
-}
-
-// getConfigForRegistry20 returns a config object for registry 2.0
-func (k *Keeper) getConfigForRegistry20() *registry20.OnchainConfig {
-	return &registry20.OnchainConfig{
-		PaymentPremiumPPB:    k.cfg.PaymentPremiumPBB,
-		FlatFeeMicroLink:     k.cfg.FlatFeeMicroLink,
-		CheckGasLimit:        k.cfg.CheckGasLimit,
-		StalenessSeconds:     big.NewInt(k.cfg.StalenessSeconds),
-		GasCeilingMultiplier: k.cfg.GasCeilingMultiplier,
-		MinUpkeepSpend:       big.NewInt(k.cfg.MinUpkeepSpend),
-		MaxPerformGas:        k.cfg.MaxPerformGas,
-		MaxCheckDataSize:     k.cfg.MaxCheckDataSize,
-		MaxPerformDataSize:   k.cfg.MaxPerformDataSize,
 		FallbackGasPrice:     big.NewInt(k.cfg.FallbackGasPrice),
 		FallbackLinkPrice:    big.NewInt(k.cfg.FallbackLinkPrice),
 		Transcoder:           common.HexToAddress(k.cfg.Transcoder),

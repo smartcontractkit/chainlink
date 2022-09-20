@@ -95,11 +95,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("ocr2keeper job could be ran only with the registry 2.0, but %s specified", c.RegistryVersion)
 	}
 
-	// Keeper registry logic address must be provided for ocr2keepers
-	if c.OCR2Keepers && c.KeeperRegistryLogicAddr == "" {
-		return fmt.Errorf("keeper registry logic address must be provided")
-	}
-
 	return nil
 }
 
