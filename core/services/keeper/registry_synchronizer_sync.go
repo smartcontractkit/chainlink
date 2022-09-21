@@ -5,7 +5,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -142,10 +141,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registr
 
 // newRegistryFromChain returns a Registry struct with fields synched from those on chain
 func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
-	fromAddress := rs.job.KeeperSpec.FromAddress
-	if rs.forwardingAllowed && (rs.forwarderAddress != common.Address{}) {
-		fromAddress = ethkey.EIP55AddressFromAddress(rs.forwarderAddress)
-	}
+	fromAddress := rs.effectiveKeeperAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 
 	registryConfig, err := rs.registryWrapper.GetConfig(nil)
@@ -158,7 +154,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	keeperMap := map[ethkey.EIP55Address]int32{}
 	for idx, address := range registryConfig.KeeperAddresses {
 		keeperMap[ethkey.EIP55AddressFromAddress(address)] = int32(idx)
-		if address == fromAddress.Address() {
+		if address == fromAddress {
 			keeperIndex = int32(idx)
 		}
 	}

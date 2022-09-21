@@ -32,7 +32,7 @@ type RegistrySynchronizerOptions struct {
 	SyncUpkeepQueueSize      uint32
 	newTurnEnabled           bool
 	forwardingAllowed        bool
-	forwarderAddress         common.Address
+	effectiveKeeperAddress   common.Address
 }
 
 type RegistrySynchronizer struct {
@@ -46,7 +46,7 @@ type RegistrySynchronizer struct {
 	mbLogs                   *utils.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	forwardingAllowed        bool
-	forwarderAddress         common.Address
+	effectiveKeeperAddress   common.Address
 	orm                      ORM
 	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
@@ -67,7 +67,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
 		forwardingAllowed:        opts.forwardingAllowed,
-		forwarderAddress:         opts.forwarderAddress,
+		effectiveKeeperAddress:   opts.effectiveKeeperAddress,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 		newTurnEnabled:           opts.newTurnEnabled,
@@ -82,16 +82,12 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 
 		var upkeepPerformedFilter [][]log.Topic
 		upkeepPerformedFilter = nil
-		topicHash := rs.job.KeeperSpec.FromAddress.Hash()
-		if rs.forwardingAllowed && (rs.forwarderAddress != common.Address{}) {
-			topicHash = rs.forwarderAddress.Hash()
-		}
 		if !rs.newTurnEnabled {
 			upkeepPerformedFilter = [][]log.Topic{
 				{},
 				{},
 				{
-					log.Topic(topicHash),
+					log.Topic(rs.effectiveKeeperAddress.Hash()),
 				},
 			}
 		}

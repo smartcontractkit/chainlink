@@ -93,12 +93,12 @@ func TestBuildJobSpec(t *testing.T) {
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"jobID":           int32(10),
-			"fromAddress":     from.String(),
-			"senderAddress":   jb.KeeperSpec.FromAddress.String(),
-			"contractAddress": contract.String(),
-			"upkeepID":        "4",
-			"prettyID":        fmt.Sprintf("UPx%064d", 4),
+			"jobID":                  int32(10),
+			"fromAddress":            from.String(),
+			"effectiveKeeperAddress": jb.KeeperSpec.FromAddress.String(),
+			"contractAddress":        contract.String(),
+			"upkeepID":               "4",
+			"prettyID":               fmt.Sprintf("UPx%064d", 4),
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: false,
 			},

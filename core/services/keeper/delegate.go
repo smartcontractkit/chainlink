@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -78,10 +77,12 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}
 
-	forwarderAddress := common.Address{}
+	// effectiveKeeperAddress is the keeper address registered on the registery. This is by default the EOA account on the node.
+	// In the case of forwarding, the keeper address is the forwarder contract deployed onchain between EOA and Registry.
+	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
 	if spec.ForwardingAllowed {
 		var fwderr error
-		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
+		effectiveKeeperAddress, fwderr = chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
 		if fwderr != nil {
 			svcLogger.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
 		}
@@ -99,7 +100,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 		forwardingAllowed:        spec.ForwardingAllowed,
-		forwarderAddress:         forwarderAddress,
+		effectiveKeeperAddress:   effectiveKeeperAddress,
 	})
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
@@ -111,7 +112,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		svcLogger,
 		chain.Config(),
 		spec.ForwardingAllowed,
-		forwarderAddress,
+		effectiveKeeperAddress,
 	)
 
 	return []job.ServiceCtx{
