@@ -27,12 +27,13 @@ pragma solidity ^0.8.4;
  * @dev USAGE
  *
  * @dev Calling contracts must inherit from VRFConsumerBase, and can
- * @dev initialize VRFConsumerBase's attributes in their constructor as
+ * @dev initialize VRFConsumerBase's attributes in their respective initializer as
  * @dev shown:
  *
- * @dev   contract VRFConsumer {
- * @dev     constructor(<other arguments>, address _vrfCoordinator, address _link)
- * @dev       VRFConsumerBase(_vrfCoordinator) public {
+ * @dev   import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+ * @dev   contract VRFConsumer is Initializable, VRFConsumerBaseV2Upgradeable {
+ * @dev     initialize(<other arguments>, address _vrfCoordinator) public {
+ * @dev         __VRFConsumerBaseV2_init(_vrfCoordinator);
  * @dev         <initialization with other arguments goes here>
  * @dev       }
  * @dev   }
