@@ -663,7 +663,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	k1, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, true)
-	k2, dummyAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, false)
+	k2, disabledAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, false)
 	keyStates := []ethkey.State{k1, k2}
 
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(true)
@@ -677,9 +677,6 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates, &testCheckerFactory{})
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == dummyAddress.Hex()
-		})).Return(uint64(0), nil).Once()
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, errors.New("something exploded")).Once()
 
@@ -690,7 +687,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 
 		// dummy address got updated
 		var n int
-		err := db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, dummyAddress)
+		err := db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, disabledAddress)
 		require.NoError(t, err)
 		require.Equal(t, 0, n)
 
@@ -706,9 +703,6 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates, &testCheckerFactory{})
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == dummyAddress.Hex()
-		})).Return(uint64(0), nil).Once()
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, nil).Once()
 
@@ -722,7 +716,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		assert.Equal(t, int64(ethNodeNonce), nonce)
 
 		// The dummy key did not get updated
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, dummyAddress)
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), nonce)
 	})
