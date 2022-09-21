@@ -215,6 +215,7 @@ func (l *AuditLoggerService) Start(context.Context) error {
 	if !l.enabled {
 		return errors.Errorf("The audit logger is not enabled")
 	}
+
 	go l.runLoop()
 	return nil
 }
@@ -298,7 +299,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	}
 
 	// Send to remote service
-	req, err := http.NewRequest("POST", l.forwardToUrl, bytes.NewReader(serializedLog))
+	req, err := http.NewRequestWithContext(l.ctx, "POST", l.forwardToUrl, bytes.NewReader(serializedLog))
 	if err != nil {
 		l.logger.Errorf("Failed to create request to remote logging service!")
 	}
