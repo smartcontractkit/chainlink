@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -16,17 +18,31 @@ type TerminalKeyStoreAuthenticator struct {
 	Prompter Prompter
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keyStore keystore.Master) error {
+func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keyStore keystore.Master, cfg config.GeneralConfig) error {
 	isEmpty, err := keyStore.IsEmpty()
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
-	password, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return errors.Wrap(err, "error reading password from file")
+	var password string
+	passwordFile := c.String("password")
+	if len(passwordFile) != 0 {
+		// TODO: Deprecate when config V2 is live. This is handled while building the config struct
+		// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+		password, err = utils.PasswordFromFile(passwordFile)
+		if err != nil {
+			return errors.Wrap(err, "error reading password from file")
+		}
+	} else {
+		password = cfg.KeystorePassword()
 	}
-	passwordProvided := len(password) != 0
-	if passwordProvided {
+
+	if len(password) != 0 {
+		// Because we changed password requirements to increase complexity, to
+		// not break backward compatibility we enforce this only for empty key
+		// stores.
+		if err = auth.validatePasswordStrength(password); err != nil && isEmpty {
+			return err
+		}
 		return keyStore.Unlock(password)
 	}
 	interactive := auth.Prompter.IsTerminal()
@@ -55,9 +71,11 @@ func (auth TerminalKeyStoreAuthenticator) promptExistingPassword() string {
 func (auth TerminalKeyStoreAuthenticator) promptNewPassword() (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
-		err := auth.validatePasswordStrength(password)
-		if err != nil {
-			return password, err
+		if err := auth.validatePasswordStrength(password); err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(password) != password {
+			return "", utils.ErrPasswordWhitespace
 		}
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")

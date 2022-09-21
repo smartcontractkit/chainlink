@@ -29,6 +29,7 @@ type PeerWrapperConfig interface {
 	config.P2PV2Networking
 	OCRTraceLogging() bool
 	LogSQL() bool
+	FeatureOffchainReporting() bool
 }
 
 type (

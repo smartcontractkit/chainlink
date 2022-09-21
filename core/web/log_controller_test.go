@@ -25,7 +25,6 @@ type testCase struct {
 
 	expectedLogLevel  zapcore.Level
 	expectedLogSQL    bool
-	expectedSvcLevel  map[string]zapcore.Level
 	expectedErrorCode int
 }
 
@@ -44,7 +43,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, err := client.HTTPClient.Get("/v2/log")
 	require.NoError(t, err)
@@ -115,7 +114,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			app := cltest.NewApplicationEVMDisabled(t)
 			require.NoError(t, app.Start(testutils.Context(t)))
-			client := app.NewHTTPClient()
+			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
 

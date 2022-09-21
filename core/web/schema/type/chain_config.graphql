@@ -24,6 +24,11 @@ interface GeneralChainConfig {
     evmGasBumpWei: String
     evmGasLimitDefault: Int
     evmGasLimitMultiplier: Float
+    evmGasLimitOCRJobType: Int
+    evmGasLimitDRJobType: Int
+    evmGasLimitVRFJobType: Int
+    evmGasLimitFMJobType: Int
+    evmGasLimitKeeperJobType: Int
     evmGasPriceDefault: String
     evmGasTipCapDefault: String
     evmGasTipCapMinimum: String
@@ -38,7 +43,6 @@ interface GeneralChainConfig {
     gasEstimatorMode: GasEstimatorMode
     chainType: ChainType
     minIncomingConfirmations: Int
-    minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
     linkContractAddress: String
@@ -56,6 +60,11 @@ type ChainConfig implements GeneralChainConfig {
     evmGasBumpWei: String
     evmGasLimitDefault: Int
     evmGasLimitMultiplier: Float
+    evmGasLimitOCRJobType: Int
+    evmGasLimitDRJobType: Int
+    evmGasLimitVRFJobType: Int
+    evmGasLimitFMJobType: Int
+    evmGasLimitKeeperJobType: Int
     evmGasPriceDefault: String
     evmGasTipCapDefault: String
     evmGasTipCapMinimum: String
@@ -70,7 +79,6 @@ type ChainConfig implements GeneralChainConfig {
     gasEstimatorMode: GasEstimatorMode
     chainType: ChainType
     minIncomingConfirmations: Int
-    minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
     linkContractAddress: String
@@ -94,6 +102,11 @@ input ChainConfigInput {
     evmGasBumpWei: String
     evmGasLimitDefault: Int
     evmGasLimitMultiplier: Float
+    evmGasLimitOCRJobType: Int
+    evmGasLimitDRJobType: Int
+    evmGasLimitVRFJobType: Int
+    evmGasLimitFMJobType: Int
+    evmGasLimitKeeperJobType: Int
     evmGasPriceDefault: String
     evmGasTipCapDefault: String
     evmGasTipCapMinimum: String
@@ -108,7 +121,6 @@ input ChainConfigInput {
     gasEstimatorMode: GasEstimatorMode
     chainType: ChainType
     minIncomingConfirmations: Int
-    minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
     linkContractAddress: String

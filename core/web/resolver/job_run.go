@@ -145,6 +145,9 @@ func (r *JobRunResolver) CreatedAt() graphql.Time {
 }
 
 func (r *JobRunResolver) FinishedAt() *graphql.Time {
+	if r.run.FinishedAt.IsZero() {
+		return nil
+	}
 	return &graphql.Time{Time: r.run.FinishedAt.ValueOrZero()}
 }
 

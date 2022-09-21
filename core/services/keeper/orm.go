@@ -130,7 +130,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 // -- is it my turn AND my keeper was not the last perform for this upkeep OR my keeper was the last before BUT it is past the grace period
 // -- OR is it my buddy's turn AND they were the last keeper to do the perform for this upkeep
 // DEV: note we cast upkeep_id and binaryHash as 32 bits, even though both are 256 bit numbers when performing XOR. This is enough information
-// to disribute the upkeeps over the keepers so long as num keepers < 4294967296
+// to distribute the upkeeps over the keepers so long as num keepers < 4294967296
 func (korm ORM) NewEligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
 	stmt := `
 SELECT upkeep_registrations.*
@@ -255,13 +255,22 @@ WHERE registry_id = $1
 }
 
 //SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
-func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *utils.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) error {
-	_, err := korm.q.WithOpts(qopts...).Exec(`
+func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *utils.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) (int64, error) {
+	res, err := korm.q.WithOpts(qopts...).Exec(`
 	UPDATE upkeep_registrations
 	SET last_run_block_height = $1,
 		last_keeper_index = CAST((SELECT keeper_index_map -> $4 FROM keeper_registries WHERE job_id = $3) as int)
 	WHERE upkeep_id = $2 AND
 	registry_id = (SELECT id FROM keeper_registries WHERE job_id = $3) AND
 	last_run_block_height <= $1`, height, upkeepID, jobID, fromAddress.Hex())
-	return errors.Wrap(err, "SetLastRunInfoForUpkeepOnJob failed")
+
+	if err != nil {
+		return 0, errors.Wrap(err, "SetLastRunInfoForUpkeepOnJob failed")
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "SetLastRunInfoForUpkeepOnJob failed to get RowsAffected")
+	}
+	return rowsAffected, nil
 }

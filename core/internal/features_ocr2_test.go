@@ -2,7 +2,6 @@ package internal_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -21,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -32,12 +30,14 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -48,10 +48,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+type ocr2Node struct {
+	app         *cltest.TestApplication
+	peerID      string
+	transmitter common.Address
+	keybundle   ocr2key.KeyBundle
+	config      *configtest.TestGeneralConfig
+}
+
 func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *ocr2aggregator.OCR2Aggregator) {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	owner := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
+	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
 	genesisData := core.GenesisAlloc{owner.From: {Balance: sb}}
@@ -89,7 +95,13 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 	return owner, b, ocrContractAddress, ocrContract
 }
 
-func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocr2key.KeyBundle, *configtest.TestGeneralConfig) {
+func setupNodeOCR2(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	port uint16,
+	dbName string,
+	b *backends.SimulatedBackend,
+) *ocr2Node {
 	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
@@ -119,25 +131,37 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 
 	config.Overrides.P2PPeerID = peerID
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
-	transmitter := sendingKeys[0].Address.Address()
+	transmitter := sendingKeys[0].Address
 
 	// Fund the transmitter address with some ETH
-	n, err := b.NonceAt(context.Background(), owner.From, nil)
+	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(
+		n, transmitter,
+		assets.Ether(1),
+		21000,
+		assets.GWei(1),
+		nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
+	err = b.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
 	kb, err := app.GetKeyStore().OCR2().Create("evm")
 	require.NoError(t, err)
-	return app, peerID.Raw(), transmitter, kb, config
+
+	return &ocr2Node{
+		app:         app,
+		peerID:      peerID.Raw(),
+		transmitter: transmitter,
+		keybundle:   kb,
+		config:      config,
+	}
 }
 
 func TestIntegration_OCR2(t *testing.T) {
@@ -147,7 +171,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
 	bootstrapNodePort := uint16(29999)
-	appBootstrap, bootstrapPeerID, _, _, _ := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", b)
+	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", b)
 
 	var (
 		oracles      []confighelper2.OracleIdentityExtra
@@ -156,26 +180,26 @@ func TestIntegration_OCR2(t *testing.T) {
 		apps         []*cltest.TestApplication
 	)
 	for i := uint16(0); i < 4; i++ {
-		app, peerID, transmitter, kb, cfg := setupNodeOCR2(t, owner, bootstrapNodePort+1+i, fmt.Sprintf("oracle%d", i), b)
+		node := setupNodeOCR2(t, owner, bootstrapNodePort+1+i, fmt.Sprintf("oracle%d", i), b)
 		// Supply the bootstrap IP and port as a V2 peer address
-		cfg.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
-			{PeerID: bootstrapPeerID, Addrs: []string{
+		node.config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
+			{PeerID: bootstrapNode.peerID, Addrs: []string{
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
 
-		kbs = append(kbs, kb)
-		apps = append(apps, app)
-		transmitters = append(transmitters, transmitter)
+		kbs = append(kbs, node.keybundle)
+		apps = append(apps, node.app)
+		transmitters = append(transmitters, node.transmitter)
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  kb.PublicKey(),
-				TransmitAccount:   ocrtypes2.Account(transmitter.String()),
-				OffchainPublicKey: kb.OffchainPublicKey(),
-				PeerID:            peerID,
+				OnchainPublicKey:  node.keybundle.PublicKey(),
+				TransmitAccount:   ocrtypes2.Account(node.transmitter.String()),
+				OffchainPublicKey: node.keybundle.OffchainPublicKey(),
+				PeerID:            node.peerID,
 			},
-			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+			ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
 		})
 	}
 
@@ -193,6 +217,8 @@ func TestIntegration_OCR2(t *testing.T) {
 		transmitters,
 		transmitters,
 	)
+	require.NoError(t, err)
+	blockBeforeConfig, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
@@ -219,11 +245,11 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	b.Commit()
 
-	err = appBootstrap.Start(testutils.Context(t))
+	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer appBootstrap.Stop()
+	defer bootstrapNode.app.Stop()
 
-	chainSet := appBootstrap.GetChains().EVM
+	chainSet := bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(`
 type				= "bootstrap"
@@ -235,7 +261,7 @@ contractID			= "%s"
 chainID 			= 1337
 `, ocrContractAddress))
 	require.NoError(t, err)
-	err = appBootstrap.AddJobV2(context.Background(), &ocrJob)
+	err = bootstrapNode.app.AddJobV2(testutils.Context(t), &ocrJob)
 	require.NoError(t, err)
 
 	var jids []int32
@@ -330,10 +356,16 @@ juelsPerFeeCoinSource = """
 """
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
-		err = apps[i].AddJobV2(context.Background(), &ocrJob)
+		err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
 		require.NoError(t, err)
 		jids = append(jids, ocrJob.ID)
 	}
+
+	// Once all the jobs are added, replay to ensure we have the configSet logs.
+	for _, app := range apps {
+		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
+	}
+	require.NoError(t, bootstrapNode.app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
 	var wg sync.WaitGroup
@@ -374,14 +406,18 @@ juelsPerFeeCoinSource = """
 			require.Len(t, j.JobSpecErrors, ignore)
 		}
 	}
-	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+	em := map[string]struct{}{}
+	metaLock.Lock()
+	maps.Copy(em, expectedMeta)
+	metaLock.Unlock()
+	assert.Len(t, em, 0, "expected metadata %v", em)
 
 	// Assert we can read the latest config digest and epoch after a report has been submitted.
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	require.NoError(t, err)
 	ct, err := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].Chains.EVM.Chains()[0].Client(), contractABI, nil, apps[0].Chains.EVM.Chains()[0].LogPoller(), lggr)
 	require.NoError(t, err)
-	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(context.Background())
+	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
 	details, err := ocrContract.LatestConfigDetails(nil)
 	require.NoError(t, err)

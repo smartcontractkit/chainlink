@@ -4,18 +4,18 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 // The Median struct holds parameters needed to run a Median plugin.
@@ -71,6 +71,7 @@ func (m *Median) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
 			m.runResults,
 		),
 		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(m.pipelineRunner, m.jb, juelsPerFeeCoinPipelineSpec, m.lggr),
+		OnchainConfigCodec:        m.ocr2Provider.OnchainConfigCodec(),
 		ReportCodec:               m.ocr2Provider.ReportCodec(),
 		Logger:                    m.ocrLogger,
 	}, nil

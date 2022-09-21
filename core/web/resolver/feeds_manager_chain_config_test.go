@@ -66,7 +66,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("CreateChainConfig", feeds.ChainConfig{
+				f.Mocks.feedsSvc.On("CreateChainConfig", mock.Anything, feeds.ChainConfig{
 					FeedsManagerID: mgrID,
 					ChainType:      feeds.ChainTypeEVM,
 					ChainID:        chainID,
@@ -113,7 +113,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("CreateChainConfig", mock.IsType(feeds.ChainConfig{})).Return(int64(0), sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("CreateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(int64(0), sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -130,7 +130,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("CreateChainConfig", mock.IsType(feeds.ChainConfig{})).Return(cfgID, nil)
+				f.Mocks.feedsSvc.On("CreateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(cfgID, nil)
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
@@ -181,7 +181,7 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
 					ID: cfgID,
 				}, nil)
-				f.Mocks.feedsSvc.On("DeleteChainConfig", cfgID).Return(cfgID, nil)
+				f.Mocks.feedsSvc.On("DeleteChainConfig", mock.Anything, cfgID).Return(cfgID, nil)
 			},
 			query:     mutation,
 			variables: variables,
@@ -219,7 +219,7 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
 					ID: cfgID,
 				}, nil)
-				f.Mocks.feedsSvc.On("DeleteChainConfig", cfgID).Return(int64(0), sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("DeleteChainConfig", mock.Anything, cfgID).Return(int64(0), sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -283,7 +283,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateChainConfig", feeds.ChainConfig{
+				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.Anything, feeds.ChainConfig{
 					ID:             cfgID,
 					AccountAddress: "0x0000001",
 					AdminAddress:   "0x0000001",
@@ -326,7 +326,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.IsType(feeds.ChainConfig{})).Return(int64(0), sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(int64(0), sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -343,7 +343,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.IsType(feeds.ChainConfig{})).Return(cfgID, nil)
+				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(cfgID, nil)
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,

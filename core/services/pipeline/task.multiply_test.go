@@ -1,7 +1,7 @@
 package pipeline_test
 
 import (
-	"context"
+	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -108,35 +109,39 @@ func TestMultiplyTask_Happy(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
+		assertOK := func(result pipeline.Result, runInfo pipeline.RunInfo) {
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
+		}
 		t.Run(test.name, func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(nil)
-			task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Times: test.times}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			require.NoError(t, result.Error)
-			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
-		})
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name+" (with pipeline.Vars)", func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(map[string]interface{}{
-				"foo":   map[string]interface{}{"bar": test.input},
-				"chain": map[string]interface{}{"link": test.times},
+			t.Run("without vars through job DAG", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Times: test.times}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
-			task := pipeline.MultiplyTask{
-				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Input:    "$(foo.bar)",
-				Times:    "$(chain.link)",
-			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{})
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			require.NoError(t, result.Error)
-			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
+			t.Run("without vars through input param", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.MultiplyTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:    fmt.Sprintf("%v", test.input),
+					Times:    test.times,
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+			})
+			t.Run("with vars", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(map[string]interface{}{
+					"foo":   map[string]interface{}{"bar": test.input},
+					"chain": map[string]interface{}{"link": test.times},
+				})
+				task := pipeline.MultiplyTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:    "$(foo.bar)",
+					Times:    "$(chain.link)",
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+			})
 		})
 	}
 }
@@ -161,17 +166,14 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 		{"times as missing var", "$(foo)", "", []pipeline.Result{{Value: "123"}}, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "times"},
 	}
 
-	for _, tt := range tests {
-		test := tt
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			task := pipeline.MultiplyTask{
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    test.input,
 				Times:    test.times,
 			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))
@@ -180,4 +182,29 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMultiplyTask_Overflow(t *testing.T) {
+	t.Parallel()
+
+	d1, err := decimal.NewFromString("6.34e-1147483647")
+	assert.NoError(t, err)
+	d2, err := decimal.NewFromString("6.34e-1147483647")
+	assert.NoError(t, err)
+
+	task := pipeline.MultiplyTask{
+		BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+		Input:    "$(a)",
+		Times:    "$(b)",
+	}
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"a": d1,
+		"b": d2,
+	})
+
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
+	require.Equal(t, pipeline.ErrMultiplyOverlow, errors.Cause(result.Error))
 }

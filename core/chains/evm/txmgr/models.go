@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
@@ -25,12 +26,16 @@ import (
 )
 
 // EthTxMeta contains fields of the transaction metadata
+// Not all fields are guaranteed to be present
 type EthTxMeta struct {
-	JobID int32 `json:"JobID"`
+	JobID *int32 `json:"JobID,omitempty"`
+
+	// Pipeline fields
+	FailOnRevert null.Bool `json:"FailOnRevert,omitempty"`
 
 	// VRF-only fields
-	RequestID     common.Hash `json:"RequestID,omitempty"`
-	RequestTxHash common.Hash `json:"RequestTxHash,omitempty"`
+	RequestID     *common.Hash `json:"RequestID,omitempty"`
+	RequestTxHash *common.Hash `json:"RequestTxHash,omitempty"`
 	// Batch variants of the above
 	RequestIDs      []common.Hash `json:"RequestIDs,omitempty"`
 	RequestTxHashes []common.Hash `json:"RequestTxHashes,omitempty"`
@@ -43,6 +48,10 @@ type EthTxMeta struct {
 
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
+
+	// Used only for forwarded txs, tracks the original destination address.
+	// When this is set, it indicates tx is forwarded through To address.
+	FwdrDestAddress *common.Address `json:"ForwarderDestAddress,omitempty"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -53,7 +62,7 @@ type TransmitCheckerSpec struct {
 
 	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
 	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
-	VRFCoordinatorAddress common.Address `json:",omitempty"`
+	VRFCoordinatorAddress *common.Address `json:",omitempty"`
 
 	// VRFRequestBlockNumber is the block number in which the provided VRF request has been made.
 	// This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
@@ -156,7 +165,7 @@ type EthTx struct {
 	Value          assets.Eth
 	// GasLimit on the EthTx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
-	GasLimit uint64
+	GasLimit uint32
 	Error    null.String
 	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
@@ -224,11 +233,11 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 	if meta != nil {
 		lgr = lgr.With("jobID", meta.JobID)
 
-		if meta.RequestTxHash != utils.EmptyHash {
-			lgr = lgr.With("requestTxHash", meta.RequestTxHash)
+		if meta.RequestTxHash != nil {
+			lgr = lgr.With("requestTxHash", *meta.RequestTxHash)
 		}
 
-		if meta.RequestID != utils.EmptyHash {
+		if meta.RequestID != nil {
 			lgr = lgr.With("requestID", new(big.Int).SetBytes(meta.RequestID[:]).String())
 		}
 
@@ -250,6 +259,10 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 
 		if meta.MaxLink != nil {
 			lgr = lgr.With("maxLink", *meta.MaxLink)
+		}
+
+		if meta.FwdrDestAddress != nil {
+			lgr = lgr.With("FwdrDestAddress", *meta.FwdrDestAddress)
 		}
 	}
 
@@ -276,7 +289,7 @@ type EthTxAttempt struct {
 	GasTipCap *utils.Big
 	GasFeeCap *utils.Big
 	// ChainSpecificGasLimit on the EthTxAttempt is always the same as the on-chain encoded value for gas limit
-	ChainSpecificGasLimit   uint64
+	ChainSpecificGasLimit   uint32
 	SignedRawTx             []byte
 	Hash                    common.Hash
 	CreatedAt               time.Time
@@ -309,6 +322,6 @@ type EthReceipt struct {
 	BlockHash        common.Hash
 	BlockNumber      int64
 	TransactionIndex uint
-	Receipt          []byte
+	Receipt          evmtypes.Receipt
 	CreatedAt        time.Time
 }

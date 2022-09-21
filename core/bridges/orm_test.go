@@ -114,6 +114,18 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	foundbridge, err := orm.FindBridge("UniqueName")
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
+
+	bs, count, err := orm.BridgeTypes(0, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.Len(t, bs, 1)
+
+	require.NoError(t, orm.DeleteBridgeType(&foundbridge))
+
+	bs, count, err = orm.BridgeTypes(0, 10)
+	require.NoError(t, err)
+	require.Equal(t, 0, count)
+	require.Len(t, bs, 0)
 }
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
@@ -145,11 +157,15 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 
 	_, err = orm.FindExternalInitiator(token)
 	require.NoError(t, err)
+	_, err = orm.FindExternalInitiatorByName(exi.Name)
+	require.NoError(t, err)
 
 	err = orm.DeleteExternalInitiator(exi.Name)
 	require.NoError(t, err)
 
 	_, err = orm.FindExternalInitiator(token)
+	require.Error(t, err)
+	_, err = orm.FindExternalInitiatorByName(exi.Name)
 	require.Error(t, err)
 
 	require.NoError(t, orm.CreateExternalInitiator(exi))

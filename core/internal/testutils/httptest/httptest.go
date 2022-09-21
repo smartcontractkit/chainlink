@@ -14,6 +14,7 @@ import (
 func NewTestLocalOnlyHTTPClient() *http.Client {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.DialContext = testDialContext
+	tr.DisableCompression = true
 	return &http.Client{Transport: tr}
 }
 

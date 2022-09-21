@@ -133,9 +133,9 @@ func (cll *chainSet) Index(offset, limit int) ([]types.DBChain, int, error) {
 
 func (cll *chainSet) Default() (Chain, error) {
 	cll.chainsMu.RLock()
-	len := len(cll.chains)
+	length := len(cll.chains)
 	cll.chainsMu.RUnlock()
-	if len == 0 {
+	if length == 0 {
 		return nil, errors.Wrap(ErrNoChains, "cannot get default EVM chain; no EVM chains are available")
 	}
 	if cll.defaultID == nil {
@@ -156,7 +156,7 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.DBChain
 	}
 
 	cid := dbchain.ID.String()
-	chain, err := newChain(*dbchain, nodes, cll.opts)
+	chain, err := newChain(ctx, *dbchain, nodes, cll.opts)
 	if err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID.String())
 	}
@@ -377,7 +377,7 @@ type ChainSetOpts struct {
 	GenTxManager      func(types.DBChain) txmgr.TxManager
 }
 
-func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
+func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
@@ -394,10 +394,10 @@ func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 		id := n.EVMChainID.String()
 		nodes[id] = append(nodes[id], n)
 	}
-	return NewChainSet(opts, chains, nodes)
+	return NewChainSet(ctx, opts, chains, nodes)
 }
 
-func NewChainSet(opts ChainSetOpts, dbchains []types.DBChain, nodes map[string][]types.Node) (ChainSet, error) {
+func NewChainSet(ctx context.Context, opts ChainSetOpts, dbchains []types.DBChain, nodes map[string][]types.Node) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
@@ -414,7 +414,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.DBChain, nodes map[string][
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := newChain(dbchains[i], nodes[cid], opts)
+		chain, err2 := newChain(ctx, dbchains[i], nodes[cid], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
 			continue

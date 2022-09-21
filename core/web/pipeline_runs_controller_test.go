@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -56,7 +55,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		err = app.AddJobV2(context.Background(), &jb)
+		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		uuid = jb.ExternalJobID
@@ -68,7 +67,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	// Make the request
 	{
-		client := app.NewHTTPClient()
+		client := app.NewHTTPClient(cltest.APIEmailAdmin)
 		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
 		defer cleanup()
@@ -118,7 +117,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		err = app.AddJobV2(context.Background(), &jb)
+		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		uuid = jb.ExternalJobID
@@ -130,7 +129,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	// Make the request (authorized as user)
 	{
-		client := app.NewHTTPClient()
+		client := app.NewHTTPClient(cltest.APIEmailAdmin)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
@@ -162,7 +161,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
-	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
+	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[1])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
@@ -184,7 +183,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
-	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
+	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[1])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
@@ -236,7 +235,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
 	defer cleanup()
@@ -253,7 +252,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, app.Start(testutils.Context(t)))
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
@@ -265,6 +264,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	p2pBootstrapPeers  = [
 		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 	]
+	p2pv2Bootstrappers = []
 	keyBundleID        = "%s"
 	transmitterAddress = "%s"
 	observationSource = """
@@ -294,12 +294,12 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	jb.OCROracleSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
-	firstRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
+	firstRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
 	require.NoError(t, err)
-	secondRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
+	secondRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
 	require.NoError(t, err)
 
 	return client, jb.ID, []int64{firstRunID, secondRunID}

@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -12,10 +13,11 @@ import (
 )
 
 type DirectRequestToml struct {
-	ContractAddress    ethkey.EIP55Address      `toml:"contractAddress"`
-	Requesters         models.AddressCollection `toml:"requesters"`
-	MinContractPayment *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID         *utils.Big               `toml:"evmChainID"`
+	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
+	Requesters               models.AddressCollection `toml:"requesters"`
+	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
+	EVMChainID               *utils.Big               `toml:"evmChainID"`
+	MinIncomingConfirmations null.Uint32              `toml:"minIncomingConfirmations"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
@@ -34,10 +36,11 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 		return jb, err
 	}
 	jb.DirectRequestSpec = &job.DirectRequestSpec{
-		ContractAddress:    spec.ContractAddress,
-		Requesters:         spec.Requesters,
-		MinContractPayment: spec.MinContractPayment,
-		EVMChainID:         spec.EVMChainID,
+		ContractAddress:          spec.ContractAddress,
+		Requesters:               spec.Requesters,
+		MinContractPayment:       spec.MinContractPayment,
+		EVMChainID:               spec.EVMChainID,
+		MinIncomingConfirmations: spec.MinIncomingConfirmations,
 	}
 
 	if jb.Type != job.DirectRequest {

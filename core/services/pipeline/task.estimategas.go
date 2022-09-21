@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"math"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum"
@@ -28,7 +29,9 @@ type EstimateGasLimitTask struct {
 	Data       string `json:"data"`
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	chainSet evm.ChainSet
+	specGasLimit *uint32
+	chainSet     evm.ChainSet
+	jobType      string
 }
 
 type GasEstimator interface {
@@ -36,14 +39,15 @@ type GasEstimator interface {
 }
 
 var (
-	_ Task = (*EstimateGasLimitTask)(nil)
+	_                    Task = (*EstimateGasLimitTask)(nil)
+	ErrInvalidMultiplier      = errors.New("Invalid multiplier")
 )
 
 func (t *EstimateGasLimitTask) Type() TaskType {
 	return TaskTypeEstimateGasLimit
 }
 
-func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		fromAddr   AddressParam
 		toAddr     AddressParam
@@ -65,9 +69,9 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	maximumGasLimit := chain.Config().EvmGasLimitDefault()
+	maximumGasLimit := SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
-	gasLimit, err := chain.Client().EstimateGas(context.Background(), ethereum.CallMsg{
+	gasLimit, err := chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From: common.Address(fromAddr),
 		To:   &to,
 		Data: data,
@@ -82,11 +86,15 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
+	newExp := int64(gasLimitDecimal.Exponent()) + int64(multiplier.Decimal().Exponent())
+	if newExp > math.MaxInt32 || newExp < math.MinInt32 {
+		return Result{Error: ErrMultiplyOverlow}, retryableRunInfo()
+	}
 	gasLimitWithMultiplier := gasLimitDecimal.Mul(multiplier.Decimal()).Truncate(0).BigInt()
 	if !gasLimitWithMultiplier.IsUint64() {
-		return Result{Error: errors.New("Invalid multiplier")}, retryableRunInfo()
+		return Result{Error: ErrInvalidMultiplier}, retryableRunInfo()
 	}
-	gasLimitFinal := gasLimitWithMultiplier.Uint64()
+	gasLimitFinal := uint32(gasLimitWithMultiplier.Uint64())
 	if gasLimitFinal > maximumGasLimit {
 		lggr.Warnw("EstimateGas: estimated amount is greater than configured limit, fallback to configured limit",
 			"estimate", gasLimitFinal,

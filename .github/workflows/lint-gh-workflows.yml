@@ -6,6 +6,14 @@ jobs:
     name: Validate Github Action Workflows
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Validate Github Action Workflows
+        continue-on-error: true
       - name: Check out Code
         uses: actions/checkout@v3
       - name: Run actionlint

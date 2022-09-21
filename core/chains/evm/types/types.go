@@ -67,7 +67,13 @@ type ChainCfg struct {
 	EvmGasBumpWei                                  *utils.Big
 	EvmGasFeeCapDefault                            *utils.Big
 	EvmGasLimitDefault                             null.Int
+	EvmGasLimitMax                                 null.Int
 	EvmGasLimitMultiplier                          null.Float
+	EvmGasLimitOCRJobType                          null.Int
+	EvmGasLimitDRJobType                           null.Int
+	EvmGasLimitVRFJobType                          null.Int
+	EvmGasLimitFMJobType                           null.Int
+	EvmGasLimitKeeperJobType                       null.Int
 	EvmGasPriceDefault                             *utils.Big
 	EvmGasTipCapDefault                            *utils.Big
 	EvmGasTipCapMinimum                            *utils.Big
@@ -84,8 +90,8 @@ type ChainCfg struct {
 	GasEstimatorMode                               null.String
 	KeySpecific                                    map[string]ChainCfg
 	LinkContractAddress                            null.String
+	OperatorFactoryAddress                         null.String
 	MinIncomingConfirmations                       null.Int
-	MinRequiredOutgoingConfirmations               null.Int
 	MinimumContractPayment                         *assets.Link
 	OCRObservationTimeout                          *models.Duration
 	NodeNoNewHeadsThreshold                        *models.Duration
@@ -262,6 +268,19 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 		r.TransactionIndex = uint(*dec.TransactionIndex)
 	}
 	return nil
+}
+
+func (r *Receipt) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, r)
+}
+
+func (r *Receipt) Value() (driver.Value, error) {
+	return json.Marshal(r)
 }
 
 // Log represents a contract log event.

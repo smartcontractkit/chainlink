@@ -2,10 +2,11 @@ package vrf
 
 import (
 	"bytes"
-	"context"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
@@ -16,7 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -28,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -56,12 +57,10 @@ type vrfUniverse struct {
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
 	// Mock all chain interactions
-	lb := new(log_mocks.Broadcaster)
-	lb.Test(t)
+	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
-	ec := new(eth_mocks.Client)
-	ec.Test(t)
-	ec.On("ChainID").Return(big.NewInt(0))
+	ec := eth_mocks.NewClient(t)
+	ec.On("ChainID").Return(testutils.FixtureChainID)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
@@ -73,10 +72,10 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	jrm := job.NewORM(db, cc, prm, ks, lggr, cfg)
 	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
-	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
-	_, err := ks.Eth().Create(big.NewInt(0))
+	require.NoError(t, ks.Unlock(testutils.Password))
+	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
-	submitter, err := ks.Eth().GetRoundRobinAddress(nil)
+	submitter := k.Address
 	require.NoError(t, err)
 	vrfkey, err := ks.VRF().Create()
 	require.NoError(t, err)
@@ -95,11 +94,6 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 		cc:        cc,
 		cid:       *ec.ChainID(),
 	}
-}
-
-func (v vrfUniverse) Assert(t *testing.T) {
-	v.lb.AssertExpectations(t)
-	v.ec.AssertExpectations(t)
 }
 
 func generateCallbackReturnValues(t *testing.T, fulfilled bool) []byte {
@@ -166,7 +160,6 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	t.Cleanup(func() {
 		listener.chStop <- struct{}{}
 		waitForChannel(t, listener.waitOnStop, time.Second, "did not clean up properly")
-		vuni.txm.AssertExpectations(t)
 	})
 	return vuni, listener, jb
 }
@@ -254,10 +247,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	}
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
 	txHash := utils.NewHash()
-	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-	}).Return(nil).Once()
-	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
+	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
+	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
+	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil).Maybe()
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
@@ -370,8 +362,9 @@ func TestDelegate_ValidLog(t *testing.T) {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.GasLimit == uint64(500000) &&
-					(meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash)
+					newTx.GasLimit == uint32(500000) &&
+					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
+					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
 		).Once().Return(txmgr.EthTx{}, nil)
 
@@ -379,7 +372,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
 		// Feed it a head which confirms it.
-		listener.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 16})
+		listener.OnNewLongestChain(testutils.Context(t), &evmtypes.Head{Number: 16})
 		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
 
 		// Ensure we created a successful run.
@@ -413,7 +406,6 @@ func TestDelegate_ValidLog(t *testing.T) {
 		waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
 		// Should record that we've responded to this request
 		assert.Equal(t, uint64(1), listener.respCount[tc.reqID])
-		vuni.Assert(t)
 	}
 }
 
@@ -455,7 +447,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}, vuni.cid, nil))
 	waitForChannel(t, added, time.Second, "request not queued")
 	// Feed it a head which confirms it.
-	listener.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 16})
+	listener.OnNewLongestChain(testutils.Context(t), &evmtypes.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should create a run that errors in the vrf task
@@ -517,7 +509,7 @@ func TestFulfilledCheck(t *testing.T) {
 
 	// Should queue the request, even though its already fulfilled
 	waitForChannel(t, added, time.Second, "request not queued")
-	listener.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 16})
+	listener.OnNewLongestChain(testutils.Context(t), &evmtypes.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should consume the log with no run

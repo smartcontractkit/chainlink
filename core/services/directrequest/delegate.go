@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -330,13 +330,16 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"name":          l.job.Name.ValueOrZero(),
 		},
 		"jobRun": map[string]interface{}{
-			"meta":           meta,
-			"logBlockHash":   request.Raw.BlockHash,
-			"logBlockNumber": request.Raw.BlockNumber,
-			"logTxHash":      request.Raw.TxHash,
-			"logAddress":     request.Raw.Address,
-			"logTopics":      request.Raw.Topics,
-			"logData":        request.Raw.Data,
+			"meta":                  meta,
+			"logBlockHash":          request.Raw.BlockHash,
+			"logBlockNumber":        request.Raw.BlockNumber,
+			"logTxHash":             request.Raw.TxHash,
+			"logAddress":            request.Raw.Address,
+			"logTopics":             request.Raw.Topics,
+			"logData":               request.Raw.Data,
+			"blockReceiptsRoot":     lb.ReceiptsRoot(),
+			"blockTransactionsRoot": lb.TransactionsRoot(),
+			"blockStateRoot":        lb.StateRoot(),
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)

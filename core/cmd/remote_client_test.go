@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -115,7 +114,7 @@ func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmmocks.Client
 }
 
 func keyNameForTest(t *testing.T) string {
-	return fmt.Sprintf("%s_test_key.json", t.Name())
+	return fmt.Sprintf("%s/%s_test_key.json", t.TempDir(), t.Name())
 }
 
 func deleteKeyExportFile(t *testing.T) {
@@ -249,7 +248,6 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 }
 
 func TestClient_RemoteLogin(t *testing.T) {
-	t.Parallel()
 
 	app := startNewApplication(t)
 
@@ -258,11 +256,11 @@ func TestClient_RemoteLogin(t *testing.T) {
 		email, pwd string
 		wantError  bool
 	}{
-		{"success prompt", "", cltest.APIEmail, cltest.Password, false},
+		{"success prompt", "", cltest.APIEmailAdmin, cltest.Password, false},
 		{"success file", "../internal/fixtures/apicredentials", "", "", false},
 		{"failure prompt", "", "wrong@email.com", "wrongpwd", true},
 		{"failure file", "/tmp/doesntexist", "", "", true},
-		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmail, cltest.Password, true},
+		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmailAdmin, cltest.Password, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -290,7 +288,7 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: append(enteredStrings, enteredStrings...)}
 	client := app.NewAuthenticatingClient(prompter)
 
@@ -338,7 +336,7 @@ func TestClient_CheckRemoteBuildCompatibility(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			enteredStrings := []string{cltest.APIEmail, cltest.Password}
+			enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingClient(prompter)
 
@@ -400,7 +398,7 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	app := startNewApplication(t)
 
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
@@ -418,8 +416,8 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		UpdatePasswordRequest: web.UpdatePasswordRequest{
-			OldPassword: cltest.Password,
-			NewPassword: "_p4SsW0rD1!@#",
+			OldPassword: testutils.Password,
+			NewPassword: testutils.Password + "foo",
 		},
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
@@ -435,7 +433,7 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
@@ -451,15 +449,14 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout.")
-
+	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout")
 }
 
 func TestClient_Profile(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
@@ -477,6 +474,7 @@ func TestClient_Profile(t *testing.T) {
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
 }
+
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
@@ -568,6 +566,21 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
 }
 
+func TestClient_ConfigDump(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	dumpedConfig, err := client.ConfigDumpStr()
+	require.NoError(t, err)
+
+	appConfig, err := app.ConfigDump(testutils.Context(t))
+	require.NoError(t, err)
+
+	assert.Equal(t, appConfig, dumpedConfig)
+}
+
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 
@@ -589,13 +602,13 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec
-	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
-	jb.OCROracleSpec.TransmitterAddress = &key.Address
+	jb.OCROracleSpec.TransmitterAddress = &key.EIP55Address
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)

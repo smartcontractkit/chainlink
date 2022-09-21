@@ -27,6 +27,7 @@ import (
 )
 
 func TestClient_SendTerraCoins(t *testing.T) {
+	t.Skip("requires terrad")
 	chainID := terratest.RandomChainID()
 	accounts, _, tendermintURL := terraclient.SetupLocalTerraNode(t, chainID)
 	require.Greater(t, len(accounts), 1)
