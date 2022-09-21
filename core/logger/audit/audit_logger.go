@@ -29,39 +29,66 @@ type AuditLogger interface {
 	Audit(eventID EventID, data Data)
 }
 
+type validatedAuditLoggerConfig struct {
+	forwardToUrl   string
+	environment    string
+	jsonWrapperKey string
+	headers        []ServiceHeader
+}
+
 type AuditLoggerConfig struct {
 	ForwardToUrl   *string
 	Environment    *string
 	JsonWrapperKey *string
-	Headers        []ServiceHeader
+	Headers        *string
 }
 
 type HTTPAuditLoggerInterface interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string, encodedHeaders string) (AuditLoggerConfig, error) {
-	if forwardToUrl == "" {
-		return AuditLoggerConfig{}, errors.Errorf("No forwardToURL provided")
-	}
-
-	if _, err := models.ParseURL(forwardToUrl); err != nil {
-		return AuditLoggerConfig{}, errors.Errorf("forwardToURL value is not a valid URL")
-	}
-
+// / Wrap all the items into a struct to easily pass them around. This does not
+// / do any validation on the values given
+func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string, headers string) AuditLoggerConfig {
 	environment := "production"
 	if isDev {
 		environment = "develop"
 	}
 
+	return AuditLoggerConfig{
+		ForwardToUrl:   &forwardToUrl,
+		Environment:    &environment,
+		JsonWrapperKey: &jsonWrapperKey,
+		Headers:        &headers,
+	}
+}
+
+// / Internal function to validate the values sent in to the AuditLogger
+// /
+// / Checks all sorts of things to eliminate nil pointers and invalid endpoints
+// / as well as parsing out the headers into format that's easier to use later.
+func validateConfig(alc AuditLoggerConfig) (validatedAuditLoggerConfig, error) {
+	if alc.ForwardToUrl == nil || alc.Environment == nil || alc.JsonWrapperKey == nil || alc.Headers == nil {
+		return validatedAuditLoggerConfig{}, errors.New("Audit configuration error: fields were nil and shouldn't have been.")
+	}
+	// We treat this as the audit logger not being configured so it is not an
+	// error
+	if *alc.ForwardToUrl == "" {
+		return validatedAuditLoggerConfig{}, nil
+	}
+
+	if _, err := models.ParseURL(*alc.ForwardToUrl); err != nil {
+		return validatedAuditLoggerConfig{}, errors.New("forwardToURL value is not a valid URL")
+	}
+
 	// Split and prepare optional service client headers from env variable
 	headers := []ServiceHeader{}
-	if encodedHeaders != "" {
-		headerLines := strings.Split(encodedHeaders, "\\")
+	if *alc.Headers != "" {
+		headerLines := strings.Split(*alc.Headers, "\\")
 		for _, header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return AuditLoggerConfig{}, errors.Errorf("Invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+				return validatedAuditLoggerConfig{}, errors.Errorf("Invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
 			headers = append(headers, ServiceHeader{
 				Header: keyValue[0],
@@ -69,12 +96,11 @@ func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string
 			})
 		}
 	}
-
-	return AuditLoggerConfig{
-		ForwardToUrl:   &forwardToUrl,
-		Environment:    &environment,
-		JsonWrapperKey: &jsonWrapperKey,
-		Headers:        headers,
+	return validatedAuditLoggerConfig{
+		forwardToUrl:   *alc.ForwardToUrl,
+		environment:    *alc.Environment,
+		jsonWrapperKey: *alc.JsonWrapperKey,
+		headers:        headers,
 	}, nil
 }
 
@@ -111,14 +137,22 @@ type wrappedAuditLog struct {
 // Parses and validates the AUDIT_LOGS_* environment values and returns an enabled
 // AuditLogger instance. If the environment variables are not set, the logger
 // is disabled and short circuits execution via enabled flag.
-func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogger, error) {
-	if config == nil {
-		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - no configuration")
+func NewAuditLogger(logger logger.Logger, unverifiedConfig AuditLoggerConfig) (AuditLogger, error) {
+	config, err := validateConfig(unverifiedConfig)
+
+	if err != nil {
+		return &AuditLoggerService{}, err
+	}
+
+	// If there was no error and this is empty string then the logger
+	// is not configured
+	if config.forwardToUrl == "" {
+		return &AuditLoggerService{}, nil
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
+		return nil, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -129,10 +163,10 @@ func NewAuditLogger(logger logger.Logger, config *AuditLoggerConfig) (AuditLogge
 	auditLogger := AuditLoggerService{
 		logger:          logger.Helper(1),
 		enabled:         true,
-		forwardToUrl:    *config.ForwardToUrl,
-		headers:         config.Headers,
-		jsonWrapperKey:  *config.JsonWrapperKey,
-		environmentName: *config.Environment,
+		forwardToUrl:    config.forwardToUrl,
+		headers:         config.headers,
+		jsonWrapperKey:  config.jsonWrapperKey,
+		environmentName: config.environment,
 		hostname:        hostname,
 		localIP:         getLocalIP(),
 		loggingClient:   &http.Client{Timeout: time.Second * webRequestTimeout},
@@ -228,8 +262,7 @@ func (l *AuditLoggerService) runLoop() {
 	for {
 		select {
 		case <-l.ctx.Done():
-			// I've made this an error since we expect it should never happen.
-			l.logger.Errorf("The audit logger has been requested to shut down!")
+			l.logger.Warn("The audit logger is shutting down")
 			return
 		case event := <-l.loggingChannel:
 			l.postLogToLogService(event.eventID, event.data)

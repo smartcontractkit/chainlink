@@ -53,12 +53,12 @@ func (mock *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return &http.Response{}, nil
 }
 
-func getAuditLoggerConfig() *audit.AuditLoggerConfig {
+func getAuditLoggerConfig() audit.AuditLoggerConfig {
 	forwardToUrl := "empty"
 	environment := "test"
 	jsonWrapperKey := ""
 
-	return &audit.AuditLoggerConfig{
+	return audit.AuditLoggerConfig{
 		ForwardToUrl:   &forwardToUrl,
 		Environment:    &environment,
 		JsonWrapperKey: &jsonWrapperKey,

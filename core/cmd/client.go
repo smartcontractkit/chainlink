@@ -221,7 +221,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLoggerConfig())
 	if err != nil {
-		appLggr.Info("Audit logger could not be started. err: ", err)
+		return nil, err
 	}
 
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg, appLggr)

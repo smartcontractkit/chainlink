@@ -26,7 +26,7 @@ as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` defau
 
     - Default: _none_
 
-    When set, this environment variable configures and enables an optional HTTP logger which is used specifcally to send audit log events. Audit logs events are emitted when specific actions are performed by any of the users through the node's API. The value of this variable should be a full URL. Log items will be sent via POST
+    When set, this environment variable configures and enables an optional HTTP logger which is used specifically to send audit log events. Audit logs events are emitted when specific actions are performed by any of the users through the node's API. The value of this variable should be a full URL. Log items will be sent via POST
 
     There are audit log implemented for the following events:
       - Auth & Sessions (new session, login success, login failed, 2FA enrolled, 2FA failed, password reset, password reset failed, etc.)
