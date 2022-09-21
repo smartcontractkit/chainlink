@@ -20,6 +20,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -534,6 +535,53 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		// Check receipts
 		require.Len(t, attempt4_1.EthReceipts, 0)
 		require.Len(t, attempt4_2.EthReceipts, 1)
+	})
+
+	etx5 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, nonce, fromAddress)
+	attempt5_1 := etx5.EthTxAttempts[0]
+	nonce++
+
+	t.Run("simulate on revert", func(t *testing.T) {
+		txmReceipt := evmtypes.Receipt{
+			TxHash:           attempt5_1.Hash,
+			BlockHash:        utils.NewHash(),
+			BlockNumber:      big.NewInt(42),
+			TransactionIndex: uint(1),
+			Status:           uint64(0),
+		}
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
+		// First attempt is confirmed and reverted
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 &&
+				cltest.BatchElemMatchesParams(b[0], attempt5_1.Hash, "eth_getTransactionReceipt")
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// First attempt still unconfirmed
+			elems[0].Result = &txmReceipt
+		}).Once()
+		data, err := utils.ABIEncode(`[{"type":"uint256"}]`, big.NewInt(10))
+		require.NoError(t, err)
+		sig := utils.Keccak256Fixed([]byte(`MyError(uint256)`))
+		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, &evmclient.JsonError{
+			Code:    1,
+			Message: "reverted",
+			Data:    utils.ConcatBytes(sig[:4], data),
+		}).Once()
+
+		// Do the thing
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+
+		// Check that the state was updated
+		etx5, err = borm.FindEthTxWithAttempts(etx5.ID)
+		require.NoError(t, err)
+
+		attempt5_1 = etx5.EthTxAttempts[0]
+
+		// And the attempts
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, attempt5_1.State)
+		require.NotNil(t, attempt5_1.BroadcastBeforeBlockNum)
+		// Check receipts
+		require.Len(t, attempt5_1.EthReceipts, 1)
 	})
 }
 

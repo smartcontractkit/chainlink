@@ -588,7 +588,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			}, receipt.BlockNumber)
 			rpcError, errExtract := evmclient.ExtractRPCError(errCall)
 			if errExtract == nil {
-				l.Warnw("transaction reverted on-chain", "hash", receipt.TxHash, "rpcError", rpcError)
+				l.Warnw("transaction reverted on-chain", "hash", receipt.TxHash, "rpcError", rpcError.String())
 			} else {
 				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.TxHash, "err", err)
 			}
