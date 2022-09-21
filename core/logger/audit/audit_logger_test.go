@@ -57,11 +57,13 @@ func getAuditLoggerConfig() audit.AuditLoggerConfig {
 	forwardToUrl := "empty"
 	environment := "test"
 	jsonWrapperKey := ""
+	headers := ""
 
 	return audit.AuditLoggerConfig{
 		ForwardToUrl:   &forwardToUrl,
 		Environment:    &environment,
 		JsonWrapperKey: &jsonWrapperKey,
+		Headers:        &headers,
 	}
 }
 
