@@ -94,7 +94,7 @@ func newChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, op
 		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()))
 	if opts.GenLogPoller != nil {
 		logPoller = opts.GenLogPoller(dbchain)
 	}
