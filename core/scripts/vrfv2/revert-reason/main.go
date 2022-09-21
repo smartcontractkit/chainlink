@@ -37,8 +37,6 @@ func main() {
 	}
 	r, err := ec.CallContract(context.Background(), call, re.BlockNumber)
 	fmt.Println("call contract", "r", r, "err", err)
-	if err == nil {
-		rpcError, err := evmclient.ExtractRPCError(err)
-		fmt.Println("extracting rpc error", rpcError.String(), err)
-	}
+	rpcError, err := evmclient.ExtractRPCError(err)
+	fmt.Println("extracting rpc error", rpcError.String(), err)
 }

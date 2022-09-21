@@ -68,6 +68,7 @@ func newTxReceipt(hash gethCommon.Hash, blockNumber int, txIndex uint) evmtypes.
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(int64(blockNumber)),
 		TransactionIndex: txIndex,
+		Status:           uint64(1),
 	}
 }
 
@@ -296,6 +297,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
+			Status:           uint64(1),
 		}
 
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
@@ -355,6 +357,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
+			Status:           uint64(1),
 		}
 
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
@@ -393,6 +396,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		receipt := evmtypes.Receipt{
 			TxHash: attempt3_1.Hash,
+			Status: uint64(1),
 		}
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
@@ -419,6 +423,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		receipt := evmtypes.Receipt{
 			TxHash:    attempt3_1.Hash,
 			BlockHash: utils.NewHash(),
+			Status:    uint64(1),
 		}
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
@@ -448,6 +453,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			BlockHash:        ethReceipt.BlockHash,
 			BlockNumber:      big.NewInt(ethReceipt.BlockNumber),
 			TransactionIndex: ethReceipt.TransactionIndex,
+			Status:           uint64(1),
 		}
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -492,6 +498,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
+			Status:           uint64(1),
 		}
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		// Second attempt is confirmed
@@ -618,6 +625,7 @@ func TestEthConfirmer_CheckForReceipts_HandlesNilMetaWithForwardingEnabled(t *te
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(42),
 		TransactionIndex: uint(1),
+		Status:           uint64(1),
 	}
 
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
@@ -844,12 +852,14 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
+			Status:           uint64(1),
 		}
 		txmReceipt3 := evmtypes.Receipt{
 			TxHash:           attempt3_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
+			Status:           uint64(1),
 		}
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(4), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -917,6 +927,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(43),
 			TransactionIndex: uint(1),
+			Status:           uint64(1),
 		}
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -2883,7 +2894,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		select {
 		case data := <-ch:
 			assert.Error(t, err)
-		
+
 			assert.EqualError(t, err, fmt.Sprintf("transaction %s reverted on-chain", etx.EthTxAttempts[0].Hash.Hex()))
 
 			assert.Nil(t, data)

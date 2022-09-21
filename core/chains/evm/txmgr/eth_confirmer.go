@@ -575,7 +575,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 
 		if receipt.Status == 0 {
 			// Do an eth call to obtain the revert reason.
-			_, err = ec.ethClient.CallContract(ctx, ethereum.CallMsg{
+			_, errCall := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
 				From:       attempt.EthTx.FromAddress,
 				To:         &attempt.EthTx.ToAddress,
 				Gas:        uint64(attempt.EthTx.GasLimit),
@@ -586,8 +586,8 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 				Data:       attempt.EthTx.EncodedPayload,
 				AccessList: nil,
 			}, receipt.BlockNumber)
-			rpcError, err := evmclient.ExtractRPCError(err)
-			if err == nil {
+			rpcError, errExtract := evmclient.ExtractRPCError(errCall)
+			if errExtract == nil {
 				l.Warnw("transaction reverted on-chain", "hash", receipt.TxHash, "rpcError", rpcError)
 			} else {
 				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.TxHash, "err", err)

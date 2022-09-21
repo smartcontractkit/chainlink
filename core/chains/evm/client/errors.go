@@ -326,14 +326,17 @@ func ExtractRPCErrorOrNil(err error) *JsonError {
 }
 
 // ExtractRPCError attempts to extract a full JsonError (including revert reason details)
-// from an error returned by CallContract. As per https://github.com/ethereum/go-ethereum/blob/c49e065fea78a5d3759f7853a608494913e5824e/internal/ethapi/api.go#L974
-// CallContract for a revert will return an error which contains either:
-// - The error directly from the EVM if there's no data (no revert reason, like an index out of bounds access) which
-// when marshalled will only have a Message.
-// - An error which implements rpc.DataError which when marshalled will have a Data field containing the execution result.
-// If the revert not a custom Error (solidity >= 0.8.0), like require(1 == 2, "revert"), then geth and forks will automatically
-// parse the string and put it in the message. If its a custom error, it's up to the client to decode the Data field which will be
-// the abi encoded data of the custom error, i.e. revert MyCustomError(10) -> keccak(MyCustomError(uint256))[:4] || abi.encode(10).
+// from an error returned by a CallContract to an external RPC. As per https://github.com/ethereum/go-ethereum/blob/c49e065fea78a5d3759f7853a608494913e5824e/internal/ethapi/api.go#L974
+// CallContract server side for a revert will return an error which contains either:
+//	 - The error directly from the EVM if there's no data (no revert reason, like an index out of bounds access) which
+//	 when marshalled will only have a Message.
+//	 - An error which implements rpc.DataError which when marshalled will have a Data field containing the execution result.
+//	 If the revert not a custom Error (solidity >= 0.8.0), like require(1 == 2, "revert"), then geth and forks will automatically
+//	 parse the string and put it in the message. If its a custom error, it's up to the client to decode the Data field which will be
+//	 the abi encoded data of the custom error, i.e. revert MyCustomError(10) -> keccak(MyCustomError(uint256))[:4] || abi.encode(10).
+// However, it appears that RPCs marshal this in different ways into a JsonError object received client side,
+// some adding "Reverted" prefixes, removing the method signature etc. To avoid RPC specific parsing and support custom errors
+// we return the full object returned from the RPC with a String() method that stringifies all fields for logging so no information is lost.
 // Some examples:
 // kovan (parity)
 // { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted from message.
