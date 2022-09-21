@@ -871,7 +871,7 @@ func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
 
 	kst := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)
-	_, dummyAddress := cltest.MustInsertRandomKeyReturningState(t, kst, false)
+	_, disabledAddress := cltest.MustInsertRandomKeyReturningState(t, kst, false)
 
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(true)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
@@ -891,9 +891,6 @@ func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
 		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == dummyAddress.Hex()
-		})).Return(uint64(0), nil).Once()
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, errors.New("something exploded")).Once()
 
@@ -902,9 +899,9 @@ func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
 		defer txm.Close()
 		require.Contains(t, err.Error(), "something exploded")
 
-		// dummy address got updated
+		// disabled address did not get updated
 		var n int
-		err := db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, dummyAddress)
+		err := db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, disabledAddress)
 		require.NoError(t, err)
 		require.Equal(t, 0, n)
 
@@ -920,9 +917,6 @@ func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
 		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == dummyAddress.Hex()
-		})).Return(uint64(0), nil).Once()
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, nil).Once()
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
@@ -936,8 +930,8 @@ func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int64(ethNodeNonce), nonce)
 
-		// The dummy key did not get updated
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, dummyAddress)
+		// The disabled key did not get updated
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), nonce)
 	})
