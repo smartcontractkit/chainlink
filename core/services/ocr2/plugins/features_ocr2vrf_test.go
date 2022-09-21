@@ -1,4 +1,4 @@
-package internal_test
+package plugins
 
 import (
 	"context"
