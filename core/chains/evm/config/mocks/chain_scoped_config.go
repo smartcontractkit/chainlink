@@ -107,16 +107,14 @@ func (_m *ChainScopedConfig) AppID() uuid.UUID {
 }
 
 // AuditLoggerConfig provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLoggerConfig() *audit.AuditLoggerConfig {
+func (_m *ChainScopedConfig) AuditLoggerConfig() audit.AuditLoggerConfig {
 	ret := _m.Called()
 
-	var r0 *audit.AuditLoggerConfig
-	if rf, ok := ret.Get(0).(func() *audit.AuditLoggerConfig); ok {
+	var r0 audit.AuditLoggerConfig
+	if rf, ok := ret.Get(0).(func() audit.AuditLoggerConfig); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*audit.AuditLoggerConfig)
-		}
+		r0 = ret.Get(0).(audit.AuditLoggerConfig)
 	}
 
 	return r0
