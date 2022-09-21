@@ -2,10 +2,11 @@ ChainID = '588'
 ChainType = 'metis'
 FinalityDepth = 1
 MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 
 [BalanceMonitor]
-BlockDelay = 0
+Enabled = true
 
 [GasEstimator]
 Mode = 'L2Suggested'
@@ -14,9 +15,3 @@ BumpThreshold = 0
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 0
-
-[HeadTracker]
-BlockEmissionIdleWarningThreshold = '0'
-
-[NodePool]
-NoNewHeadsThreshold = '0'

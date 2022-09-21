@@ -37,7 +37,6 @@ func (r *TaskRunResolver) Output() string {
 	if err != nil {
 		return "error: unable to retrieve output"
 	}
-
 	return string(val)
 }
 

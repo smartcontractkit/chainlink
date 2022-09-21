@@ -461,14 +461,16 @@ func requestRandomnessForWrapper(
 	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(nil, nil)
 	require.NoError(t, err, "could not filter WrapperRequestMade events")
 
+	wrapperConsumerEvents := []*vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExampleWrapperRequestMade{}
 	for wrapperIter.Next() {
+		wrapperConsumerEvents = append(wrapperConsumerEvents, wrapperIter.Event)
 	}
 
 	event := events[len(events)-1]
-	wrapperConsumerEvent := events[len(events)-1]
+	wrapperConsumerEvent := wrapperConsumerEvents[len(wrapperConsumerEvents)-1]
 	require.Equal(t, event.RequestId, wrapperConsumerEvent.RequestId, "request ID in consumer log does not match request ID in coordinator log")
 	require.Equal(t, keyHash.Bytes(), event.KeyHash[:], "key hash of event (%s) and of request not equal (%s)", hex.EncodeToString(event.KeyHash[:]), keyHash.String())
-	require.Equal(t, cbGasLimit+wrapperOverhead, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
+	require.Equal(t, cbGasLimit+(cbGasLimit/63+1)+wrapperOverhead, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
 	require.Equal(t, minRequestConfirmations, event.MinimumRequestConfirmations, "min request confirmations of event and of request not equal")
 	require.Equal(t, numWords, event.NumWords, "num words of event and of request not equal")
 
@@ -1050,7 +1052,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_Wrapper_High_Gas_Revert(t *testing.T) {
+func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 
 	wrapperOverhead := uint32(30_000)
 	coordinatorOverhead := uint32(90_000)
@@ -1114,7 +1116,7 @@ func TestVRFV2Integration_Wrapper_High_Gas_Revert(t *testing.T) {
 	mine(t, requestID, wrapperSubID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, false, uni)
+	assertRandomWordsFulfilled(t, requestID, true, uni)
 
 	t.Log("Done!")
 }

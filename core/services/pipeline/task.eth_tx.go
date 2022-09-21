@@ -229,11 +229,11 @@ func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EthTxMeta) {
 	if err != nil {
 		return
 	}
-	jobIDF, is := jobID.(float64) // JSON decoder default numeric type
-	if is {
-		jobIDInt := int32(jobIDF)
-		meta.JobID = &jobIDInt
-	} else {
+	switch v := jobID.(type) {
+	case int64:
+		vv := int32(v)
+		meta.JobID = &vv
+	default:
 		logger.Sugared(lggr).AssumptionViolationf("expected type int32 for vars.jobSpec.databaseID; got: %T (value: %v)", jobID, jobID)
 	}
 }
