@@ -138,7 +138,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 
 	t.Log("Creating bootstrap node")
 
-	bootstrapNodePort := randomPort(t)
+	bootstrapNodePort := uint16(30100)
 	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend)
 	numNodes := 5
 
@@ -402,8 +402,8 @@ func setDKGConfig(
 		oracleIdentities,
 		offchainConfig,
 		50*time.Millisecond,
-		20*time.Second,
-		20*time.Second,
+		10*time.Second,
+		10*time.Second,
 		100*time.Millisecond,
 		1*time.Second,
 		int(f),
@@ -451,8 +451,8 @@ func setVRFConfig(
 		oracleIdentities,
 		offchainConfig,
 		50*time.Millisecond,
-		20*time.Second,
-		20*time.Second,
+		10*time.Second,
+		10*time.Second,
 		100*time.Millisecond,
 		1*time.Second,
 		int(f),
