@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -439,10 +438,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 				FromAddress:     nodeAddressEIP55,
 				ContractAddress: regAddrEIP55,
 			},
-			SchemaVersion: 1,
-			PipelineSpec: &pipeline.Spec{
-				ForwardingAllowed: true,
-			},
+			SchemaVersion:     1,
 			ForwardingAllowed: true,
 		}
 		err = app.JobORM().CreateJob(&jb)

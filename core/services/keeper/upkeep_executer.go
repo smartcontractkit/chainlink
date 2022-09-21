@@ -57,7 +57,6 @@ type UpkeepExecuter struct {
 	pr                     pipeline.Runner
 	logger                 logger.Logger
 	wgDone                 sync.WaitGroup
-	forwardingAllowed      bool
 	effectiveKeeperAddress common.Address
 	utils.StartStopOnce
 }
@@ -72,7 +71,6 @@ func NewUpkeepExecuter(
 	gasEstimator gas.Estimator,
 	logger logger.Logger,
 	config Config,
-	forwardingAllowed bool,
 	effectiveKeeperAddress common.Address,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
@@ -86,7 +84,6 @@ func NewUpkeepExecuter(
 		config:                 config,
 		orm:                    orm,
 		pr:                     pr,
-		forwardingAllowed:      forwardingAllowed,
 		effectiveKeeperAddress: effectiveKeeperAddress,
 		logger:                 logger.Named("UpkeepExecuter"),
 	}

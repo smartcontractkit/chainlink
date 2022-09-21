@@ -99,7 +99,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
-		ForwardingAllowed:        spec.ForwardingAllowed,
 		EffectiveKeeperAddress:   effectiveKeeperAddress,
 		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 	})
@@ -112,7 +111,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		chain.TxManager().GetGasEstimator(),
 		svcLogger,
 		chain.Config(),
-		spec.ForwardingAllowed,
 		effectiveKeeperAddress,
 	)
 
