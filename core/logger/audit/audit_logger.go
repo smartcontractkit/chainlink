@@ -69,7 +69,7 @@ func NewAuditLoggerConfig(forwardToUrl string, isDev bool, jsonWrapperKey string
 // / as well as parsing out the headers into format that's easier to use later.
 func validateConfig(alc AuditLoggerConfig) (validatedAuditLoggerConfig, error) {
 	if alc.ForwardToUrl == nil || alc.Environment == nil || alc.JsonWrapperKey == nil || alc.Headers == nil {
-		return validatedAuditLoggerConfig{}, errors.New("Audit configuration error: fields were nil and shouldn't have been.")
+		return validatedAuditLoggerConfig{}, errors.New("configuration error: fields were nil and shouldn't have been")
 	}
 	// We treat this as the audit logger not being configured so it is not an
 	// error
@@ -88,7 +88,7 @@ func validateConfig(alc AuditLoggerConfig) (validatedAuditLoggerConfig, error) {
 		for _, header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return validatedAuditLoggerConfig{}, errors.Errorf("Invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+				return validatedAuditLoggerConfig{}, errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
 			headers = append(headers, ServiceHeader{
 				Header: keyValue[0],
@@ -152,7 +152,7 @@ func NewAuditLogger(logger logger.Logger, unverifiedConfig AuditLoggerConfig) (A
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
+		return nil, errors.Errorf("initialization error - unable to get hostname: %s", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -203,9 +203,9 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 	case l.loggingChannel <- wrappedLog:
 	default:
 		if l.loggingChannel == nil {
-			l.logger.Errorw("Could not send log to audit subsystem because it has gone away!")
+			l.logger.Errorw("could not send log to audit subsystem because it has gone away!")
 		} else {
-			l.logger.Errorw("Audit log buffer is full. Dropping log with eventID: %s", eventID)
+			l.logger.Errorf("buffer is full. Dropping log with eventID: %s", eventID)
 		}
 	}
 }
@@ -213,7 +213,7 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 // Start the audit logger and begin processing logs on the channel
 func (l *AuditLoggerService) Start(context.Context) error {
 	if !l.enabled {
-		return errors.Errorf("The audit logger is not enabled")
+		return errors.New("The audit logger is not enabled")
 	}
 
 	go l.runLoop()
@@ -223,7 +223,7 @@ func (l *AuditLoggerService) Start(context.Context) error {
 // Stops the logger and will close the channel.
 func (l *AuditLoggerService) Close() error {
 	if !l.enabled {
-		return errors.Errorf("The audit logger is not enabled")
+		return errors.New("The audit logger is not enabled")
 	}
 
 	l.logger.Warnf("Disabled the audit logger service")
@@ -235,11 +235,11 @@ func (l *AuditLoggerService) Close() error {
 
 func (l *AuditLoggerService) Healthy() error {
 	if !l.enabled {
-		return errors.Errorf("The audit logger is not enabled")
+		return errors.New("the audit logger is not enabled")
 	}
 
 	if len(l.loggingChannel) == bufferCapacity {
-		return errors.Errorf("The audit log buffer is full")
+		return errors.New("buffer is full")
 	}
 
 	return nil
@@ -247,7 +247,7 @@ func (l *AuditLoggerService) Healthy() error {
 
 func (l *AuditLoggerService) Ready() error {
 	if !l.enabled {
-		return errors.Errorf("The audit logger is not enabled")
+		return errors.New("the audit logger is not enabled")
 	}
 
 	return nil
@@ -294,35 +294,35 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 
 	serializedLog, err := json.Marshal(logItem)
 	if err != nil {
-		l.logger.Errorw("Unable to serialize wrapped audit log item to JSON", "err", err, "logItem", logItem)
+		l.logger.Errorw("unable to serialize wrapped audit log item to JSON", "err", err, "logItem", logItem)
 		return
 	}
 
 	// Send to remote service
 	req, err := http.NewRequestWithContext(l.ctx, "POST", l.forwardToUrl, bytes.NewReader(serializedLog))
 	if err != nil {
-		l.logger.Errorf("Failed to create request to remote logging service!")
+		l.logger.Error("failed to create request to remote logging service!")
 	}
 	for _, header := range l.headers {
 		req.Header.Add(header.Header, header.Value)
 	}
 	resp, err := l.loggingClient.Do(req)
 	if err != nil {
-		l.logger.Errorw("Failed to send audit log to HTTP log service", "err", err, "logItem", logItem)
+		l.logger.Errorw("failed to send audit log to HTTP log service", "err", err, "logItem", logItem)
 		return
 	}
 	if resp.StatusCode != 200 {
 		if resp.Body == nil {
-			l.logger.Errorw("There was no body to read. Possibly an error occurred sending", "logItem", logItem)
+			l.logger.Errorw("no body to read. Possibly an error occurred sending", "logItem", logItem)
 			return
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			l.logger.Errorw("Error reading errored HTTP log service webhook response body", "err", err, "logItem", logItem)
+			l.logger.Errorw("error reading errored HTTP log service webhook response body", "err", err, "logItem", logItem)
 			return
 		}
-		l.logger.Errorw("Error sending log to HTTP log service", "statusCode", resp.StatusCode, "bodyString", string(bodyBytes))
+		l.logger.Errorw("error sending log to HTTP log service", "statusCode", resp.StatusCode, "bodyString", string(bodyBytes))
 		return
 
 	}
