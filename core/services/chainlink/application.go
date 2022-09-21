@@ -513,7 +513,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(service))
 
 		if err := service.Start(ctx); err != nil {
-			return err
+			return err //TODO stop the started ones?
 		}
 	}
 
