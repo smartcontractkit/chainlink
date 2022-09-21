@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/linkedin/goavro"
+	"github.com/linkedin/goavro/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"

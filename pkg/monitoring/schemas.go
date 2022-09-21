@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/linkedin/goavro"
+	"github.com/linkedin/goavro/v2"
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/avro"
 )
 
@@ -18,7 +18,10 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 	}),
 	avro.Field("answer", avro.Opts{}, avro.Record("answer", avro.Opts{}, avro.Fields{
 		avro.Field("data", avro.Opts{Doc: "*big.Int"}, avro.Bytes),
-		avro.Field("data_string", avro.Opts{Default: avro.Null, Doc: "string version of data"}, avro.Union{avro.Null, avro.String}),
+		avro.Field("data_uint256", avro.Opts{Default: avro.Null, Doc: "string version of data"}, avro.Union{
+			avro.Null,
+			avro.Decimal("transmission_data", 32, 78, 0),
+		}),
 		avro.Field("timestamp", avro.Opts{Doc: "uint32"}, avro.Long),
 		// These fields are made "optional" for FULL_TRANSITIVE compatibility, but they should be set in all cases.
 		avro.Field("config_digest", avro.Opts{Doc: "[32]byte encoded as base64", Default: avro.Null}, avro.Union{avro.Null, avro.String}),
@@ -57,7 +60,10 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 		avro.Null,
 		avro.Bytes,
 	}),
-	avro.Field("link_balance_string", avro.Opts{Default: avro.Null}, avro.Union{avro.Null, avro.String}),
+	avro.Field("link_balance_uint256", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Decimal("transmission_link_balance", 32, 78, 0),
+	}),
 })
 
 var configSetSimplifiedAvroSchema = avro.Record("config_set_simplified", avro.Opts{Namespace: "link.chain.ocr2"}, avro.Fields{

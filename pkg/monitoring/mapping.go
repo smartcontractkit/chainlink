@@ -30,8 +30,8 @@ func MakeTransmissionMapping(
 		},
 		"answer": map[string]interface{}{
 			"data": data,
-			"data_string": map[string]interface{}{
-				"string": envelope.LatestAnswer.String(),
+			"data_uint256": map[string]interface{}{
+				"link.chain.ocr2.transmission_data": bigIntToBigRat(envelope.LatestAnswer),
 			},
 			"timestamp": envelope.LatestTimestamp.Unix(),
 			"config_digest": map[string]interface{}{
@@ -56,6 +56,9 @@ func MakeTransmissionMapping(
 		"feed_config": feedConfig.ToMapping(),
 		"link_balance": map[string]interface{}{
 			"bytes": envelope.LinkBalance.Bytes(),
+		},
+		"link_balance_uint256": map[string]interface{}{
+			"link.chain.ocr2.transmission_link_balance": bigIntToBigRat(envelope.LinkBalance),
 		},
 	}
 	return out, nil
@@ -139,6 +142,10 @@ func uint64ToBeBytes(input uint64) []byte {
 
 func uint64ToBigRat(input uint64) *big.Rat {
 	return new(big.Rat).SetUint64(input)
+}
+
+func bigIntToBigRat(input *big.Int) *big.Rat {
+	return new(big.Rat).SetInt(input)
 }
 
 func parseOffchainConfig(buf []byte) (*pb.OffchainConfigProto, error) {
