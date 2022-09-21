@@ -29,7 +29,7 @@ jobs:
         id: update
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./operator_ui/update.sh
+        run: ./operator_ui/check.sh
 
       - name: Open PR
         uses: peter-evans/create-pull-request@18f90432bedd2afd6a825469ffd38aa24712a91d # v4.1.1
