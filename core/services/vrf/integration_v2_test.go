@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -35,11 +36,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2_upgradeable"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_proxy_admin"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -89,6 +93,9 @@ type coordinatorV2Universe struct {
 	maliciousConsumerContractAddress common.Address
 	revertingConsumerContract        *vrfv2_reverting_example.VRFV2RevertingExample
 	revertingConsumerContractAddress common.Address
+	// This is a VRFConsumerV2Upgradeable wrapper that points to the proxy address.
+	consumerProxyContract        *vrf_consumer_v2_upgradeable.VRFConsumerV2Upgradeable
+	consumerProxyContractAddress common.Address
 
 	// Abstract representation of the ethereum blockchain
 	backend        *backends.SimulatedBackend
@@ -206,6 +213,50 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
 
+	// Deploy upgradeable consumer, proxy, and proxy admin
+	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_upgradeable.DeployVRFConsumerV2Upgradeable(neil, backend)
+	require.NoError(t, err, "failed to deploy upgradeable consumer to simulated ethereum blockchain")
+	backend.Commit()
+
+	proxyAdminAddress, _, proxyAdmin, err := vrfv2_proxy_admin.DeployVRFV2ProxyAdmin(neil, backend)
+	require.NoError(t, err)
+	backend.Commit()
+
+	// provide abi-encoded initialize function call on the implementation contract
+	// so that it's called upon the proxy construction, to initialize it.
+	upgradeableAbi, err := vrf_consumer_v2_upgradeable.VRFConsumerV2UpgradeableMetaData.GetAbi()
+	require.NoError(t, err)
+	initializeCalldata, err := upgradeableAbi.Pack("initialize", coordinatorAddress, linkAddress)
+	hexified := hexutil.Encode(initializeCalldata)
+	t.Log("initialize calldata:", hexified, "coordinator:", coordinatorAddress.String(), "link:", linkAddress)
+	require.NoError(t, err)
+	proxyAddress, _, _, err := vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
+		neil, backend, upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata)
+	require.NoError(t, err)
+
+	_, err = linkContract.Transfer(sergey, proxyAddress, assets.Ether(500)) // Actually, LINK
+	require.NoError(t, err)
+	backend.Commit()
+
+	implAddress, err := proxyAdmin.GetProxyImplementation(nil, proxyAddress)
+	require.NoError(t, err)
+	t.Log("impl address:", implAddress.String())
+	require.Equal(t, upgradeableConsumerAddress, implAddress)
+
+	proxiedConsumer, err := vrf_consumer_v2_upgradeable.NewVRFConsumerV2Upgradeable(
+		proxyAddress, backend)
+	require.NoError(t, err)
+
+	cAddress, err := proxiedConsumer.COORDINATOR(nil)
+	require.NoError(t, err)
+	t.Log("coordinator address in proxy to upgradeable consumer:", cAddress.String())
+	require.Equal(t, coordinatorAddress, cAddress)
+
+	lAddress, err := proxiedConsumer.LINKTOKEN(nil)
+	require.NoError(t, err)
+	t.Log("link address in proxy to upgradeable consumer:", lAddress.String())
+	require.Equal(t, linkAddress, lAddress)
+
 	// Deploy always reverting consumer
 	revertingConsumerContractAddress, _, revertingConsumerContract, err := vrfv2_reverting_example.DeployVRFV2RevertingExample(
 		reverter, backend, coordinatorAddress, linkAddress,
@@ -247,6 +298,9 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 
 		revertingConsumerContract:        revertingConsumerContract,
 		revertingConsumerContractAddress: revertingConsumerContractAddress,
+
+		consumerProxyContract:        proxiedConsumer,
+		consumerProxyContractAddress: proxiedConsumer.Address(),
 
 		rootContract:                     coordinatorContract,
 		rootContractAddress:              coordinatorAddress,
@@ -1461,6 +1515,89 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, false, uni)
+	t.Log("Done!")
+}
+
+func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
+	config, db := heavyweight.FullTestDB(t, "vrfv2_consumerproxy_happypath")
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	consumerOwner := uni.neil
+	consumerContract := uni.consumerProxyContract
+	consumerContractAddress := uni.consumerProxyContractAddress
+
+	// Create a subscription and fund with 5 LINK.
+	subID := subscribeAndAssertSubscriptionCreatedEvent(
+		t, consumerContract, consumerOwner, consumerContractAddress, assets.Ether(5), uni)
+
+	// Create gas lane.
+	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	key2, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
+	configureSimChain(t, app, map[string]evmtypes.ChainCfg{
+		key1.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
+		},
+		key2.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
+		},
+	}, assets.GWei(10))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job using key1 and key2 on the same gas lane.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1, key2}}, []int{10, 10}, app, uni, false)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Make the first randomness request.
+	numWords := uint32(20)
+	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(
+		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni)
+
+	// Wait for fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	mine(t, requestID1, subID, uni, db)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	assertRandomWordsFulfilled(t, requestID1, true, uni)
+
+	// Make the second randomness request and assert fulfillment is successful
+	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumerOwner, keyHash, subID, numWords, 500_000, uni)
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 2
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	mine(t, requestID2, subID, uni, db)
+	assertRandomWordsFulfilled(t, requestID2, true, uni)
+
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
+
+	// Assert that both send addresses were used to fulfill the requests
+	n, err := uni.backend.PendingNonceAt(testutils.Context(t), key1.Address)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+
+	n, err = uni.backend.PendingNonceAt(testutils.Context(t), key2.Address)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+
 	t.Log("Done!")
 }
 
