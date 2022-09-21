@@ -420,6 +420,15 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
+		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config)
+		chainID := utils.Big(*backend.Blockchain().Config().ChainID)
+		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
+		require.NoError(t, err)
+
+		addr, err := app.Chains.EVM.Chains()[0].TxManager().GetForwarderForEOA(nodeAddress)
+		require.NoError(t, err)
+		require.Equal(t, addr, fwdrAddress)
+
 		// create job
 		regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
 
@@ -446,16 +455,13 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			FromAddress:       nodeAddressEIP55,
 			JobID:             jb.ID,
 			KeeperIndex:       0,
-			NumKeepers:        1,
+			NumKeepers:        2,
 			KeeperIndexMap: map[ethkey.EIP55Address]int32{
 				nodeAddressEIP55: 0,
+				ethkey.EIP55AddressFromAddress(nelly.From): 1,
 			},
 		}
 		err = korm.UpsertRegistry(&registry)
-		require.NoError(t, err)
-
-		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config)
-		_, err = forwarderORM.CreateForwarder(fwdrAddress, utils.Big(*backend.Blockchain().Config().ChainID))
 		require.NoError(t, err)
 
 		callOpts := bind.CallOpts{From: nodeAddress}
