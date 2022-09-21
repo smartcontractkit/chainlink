@@ -209,7 +209,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.AuditLogger = audit.AuditLoggerConfig{
 		ForwardToUrl:   ptr("http://localhost:9898"),
 		Environment:    ptr("develop"),
-		Headers:        make([]audit.ServiceHeader, 0),
+		Headers:        ptr(""),
 		JsonWrapperKey: ptr(""),
 	}
 
