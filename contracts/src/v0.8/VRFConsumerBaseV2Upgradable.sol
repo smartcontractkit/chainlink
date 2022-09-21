@@ -111,7 +111,7 @@ abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
    * @param _vrfCoordinator the VRFCoordinatorV2 address.
    * @dev See https://docs.chain.link/docs/vrf/v2/supported-networks/ for coordinator
    * @dev addresses on your preferred network.
-  */
+   */
   function __VRFConsumerBaseV2_init(address _vrfCoordinator) public initializer {
     vrfCoordinator = _vrfCoordinator;
   }
