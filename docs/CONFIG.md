@@ -1259,8 +1259,10 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1268,7 +1270,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1290,18 +1291,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1327,7 +1325,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1335,7 +1335,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1357,18 +1356,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1394,7 +1390,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1402,7 +1400,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1424,18 +1421,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1461,7 +1455,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1469,7 +1465,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1484,25 +1479,22 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1529,7 +1521,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '15s'
@@ -1537,7 +1531,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
@@ -1559,18 +1552,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 10
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1596,7 +1586,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1604,7 +1596,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1626,18 +1617,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1663,7 +1651,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1671,7 +1661,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1693,18 +1682,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1730,8 +1716,10 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1739,7 +1727,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1761,18 +1748,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1798,7 +1782,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1806,7 +1792,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1828,18 +1813,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1864,7 +1846,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1872,7 +1856,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1894,18 +1877,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1930,7 +1910,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -1938,7 +1920,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -1960,18 +1941,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -1998,7 +1976,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '15s'
@@ -2006,7 +1986,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
@@ -2028,18 +2007,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '30m0s'
 HistoryDepth = 10
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2066,7 +2042,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2074,7 +2052,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2096,18 +2073,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2133,7 +2107,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2141,7 +2117,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2163,18 +2138,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2200,7 +2172,9 @@ MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 10
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2208,7 +2182,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 13
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2230,18 +2203,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2267,7 +2237,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2275,7 +2247,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2297,18 +2268,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2335,7 +2303,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '15s'
@@ -2343,7 +2313,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
@@ -2365,18 +2334,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '30m0s'
 HistoryDepth = 10
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2402,7 +2368,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2410,7 +2378,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
@@ -2432,18 +2399,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2469,7 +2433,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2477,7 +2443,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
@@ -2499,18 +2464,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2535,7 +2497,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '100'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '0s'
 TxResendAfterThreshold = '0s'
@@ -2543,7 +2507,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 0
 
 [GasEstimator]
 Mode = 'FixedPrice'
@@ -2559,24 +2522,21 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '100 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2602,7 +2562,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2610,7 +2572,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2632,18 +2593,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2670,7 +2628,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2678,7 +2638,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'Arbitrum'
@@ -2700,18 +2659,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2737,7 +2693,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2745,7 +2703,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2767,18 +2724,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2804,7 +2758,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 2
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2812,7 +2768,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2834,18 +2789,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2871,7 +2823,9 @@ MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 10
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2879,7 +2833,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 13
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2901,18 +2854,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -2939,7 +2889,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -2947,7 +2899,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'Arbitrum'
@@ -2969,18 +2920,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3006,7 +2954,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -3014,7 +2964,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'Arbitrum'
@@ -3036,18 +2985,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3073,7 +3019,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -3081,7 +3029,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -3103,18 +3050,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3140,7 +3084,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -3148,7 +3094,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -3170,18 +3115,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3207,7 +3149,9 @@ MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
@@ -3215,7 +3159,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -3237,18 +3180,15 @@ TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
@@ -3386,6 +3326,15 @@ NonceAutoSync = true # Default
 ```
 NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 
+### NoNewHeadsThreshold<a id='EVM-NoNewHeadsThreshold'></a>
+```toml
+NoNewHeadsThreshold = '3m' # Default
+```
+NoNewHeadsThreshold controls how long to wait after receiving no new heads before `NodePool` marks rpc endpoints as
+out-of-sync, and `HeadTracker` logs warnings.
+
+Set to zero to disable out-of-sync checking.
+
 ### OperatorFactoryAddress<a id='EVM-OperatorFactoryAddress'></a>
 ```toml
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
@@ -3397,6 +3346,19 @@ OperatorFactoryAddress is the address of the canonical operator forwarder contra
 RPCDefaultBatchSize = 100 # Default
 ```
 RPCDefaultBatchSize is the default batch size for batched RPC calls.
+
+### RPCBlockQueryDelay<a id='EVM-RPCBlockQueryDelay'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+RPCBlockQueryDelay = 1 # Default
+```
+RPCBlockQueryDelay controls the number of blocks to trail behind head in the block history estimator and balance monitor.
+For example, if this is set to 3, and we receive block 10, block history estimator will fetch block 7.
+
+CAUTION: You might be tempted to set this to 0 to use the latest possible
+block, but it is possible to receive a head BEFORE that block is actually
+available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
+"zero" blocks that are missing transactions.
 
 ### TxReaperInterval<a id='EVM-TxReaperInterval'></a>
 ```toml
@@ -3426,7 +3388,6 @@ UseForwarders enables or disables sending transactions through forwarder contrac
 ```toml
 [EVM.BalanceMonitor]
 Enabled = true # Default
-BlockDelay = 1 # Default
 ```
 
 
@@ -3435,14 +3396,6 @@ BlockDelay = 1 # Default
 Enabled = true # Default
 ```
 Enabled balance monitoring for all keys.
-
-### BlockDelay<a id='EVM-BalanceMonitor-BlockDelay'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-BlockDelay = 1 # Default
-```
-BlockDelay is the number of blocks that the balance monitor trails behind head. This is required when load balancing
-across multiple nodes announce a new head, then route a request to a different node which does not have this head yet.
 
 ## EVM.GasEstimator<a id='EVM-GasEstimator'></a>
 ```toml
@@ -3678,7 +3631,6 @@ Only applies to EIP-1559 transactions)
 ```toml
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4 # Default
-BlockDelay = 1 # Default
 BlockHistorySize = 8 # Default
 EIP1559FeeCapBufferBlocks = 13 # Example
 TransactionPercentile = 60 # Default
@@ -3692,18 +3644,6 @@ BatchSize = 4 # Default
 ```
 BatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator.
 If the `BatchSize` variable is set to 0, it defaults to `EVM.RPCDefaultBatchSize`.
-
-### BlockDelay<a id='EVM-GasEstimator-BlockHistory-BlockDelay'></a>
-```toml
-BlockDelay = 1 # Default
-```
-BlockDelay controls the number of blocks that the block history estimator trails behind head.
-For example, if this is set to 3, and we receive block 10, block history estimator will fetch block 7.
-
-CAUTION: You might be tempted to set this to 0 to use the latest possible
-block, but it is possible to receive a head BEFORE that block is actually
-available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
-"zero" blocks that are missing transactions.
 
 ### BlockHistorySize<a id='EVM-GasEstimator-BlockHistory-BlockHistorySize'></a>
 ```toml
@@ -3739,18 +3679,13 @@ Setting it lower will tend to set lower gas prices.
 ## EVM.HeadTracker<a id='EVM-HeadTracker'></a>
 ```toml
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m' # Default
 HistoryDepth = 100 # Default
 MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
 ```
+The head tracker continually listens for new heads from the chain.
 
-
-### BlockEmissionIdleWarningThreshold<a id='EVM-HeadTracker-BlockEmissionIdleWarningThreshold'></a>
-```toml
-BlockEmissionIdleWarningThreshold = '1m' # Default
-```
-BlockEmissionIdleWarningThreshold will cause Chainlink to log warnings if this duration is exceeded without any new blocks being emitted.
+In addition to these settings, it log warnings if `EVM.NoNewHeadsThreshold` is exceeded without any new blocks being emitted.
 
 ### HistoryDepth<a id='EVM-HeadTracker-HistoryDepth'></a>
 ```toml
@@ -3800,20 +3735,13 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 ## EVM.NodePool<a id='EVM-NodePool'></a>
 ```toml
 [EVM.NodePool]
-NoNewHeadsThreshold = '3m' # Default
 PollFailureThreshold = 3 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 ```
+The node pool manages multiple RPC endpoints.
 
-
-### NoNewHeadsThreshold<a id='EVM-NodePool-NoNewHeadsThreshold'></a>
-```toml
-NoNewHeadsThreshold = '3m' # Default
-```
-NoNewHeadsThreshold controls how long to wait after receiving no new heads before marking the node as out-of-sync.
-
-Set to zero to disable out-of-sync checking.
+In addition to these settings, `EVM.NoNewHeadsThreshold` controls how long to wait after receiving no new heads before marking the node as out-of-sync.
 
 ### PollFailureThreshold<a id='EVM-NodePool-PollFailureThreshold'></a>
 ```toml

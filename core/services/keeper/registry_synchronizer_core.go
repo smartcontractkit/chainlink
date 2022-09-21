@@ -124,7 +124,6 @@ func (rs *RegistrySynchronizer) run() {
 			syncTicker.Reset(rs.interval)
 		case <-rs.mbLogs.Notify():
 			rs.processLogs()
-			syncTicker.Reset(rs.interval)
 		}
 	}
 }
