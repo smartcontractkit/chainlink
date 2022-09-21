@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"net"
 	"testing"
 	"time"
 
@@ -137,11 +138,15 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 	uni := setupOCR2VRFContracts(t, 5, keyID, false)
 
 	t.Log("Creating bootstrap node")
+	bootstrapNodePort := getFreePort(t)
+	bootstrapNode := setupNodeOCR2(t, uni.owner, uint16(bootstrapNodePort), "bootstrap", uni.backend)
 
-	bootstrapNodePort := randomPort(t)
-	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend)
+	t.Log("Starting bootstrap node")
+	err := bootstrapNode.app.Start(testutils.Context(t))
+	require.NoError(t, err)
+	defer bootstrapNode.app.Stop()
+
 	numNodes := 5
-
 	t.Log("Creating OCR2 nodes")
 	var (
 		oracles        []confighelper2.OracleIdentityExtra
@@ -153,7 +158,9 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 		dkgSigners     []dkgsignkey.Key
 	)
 	for i := 0; i < numNodes; i++ {
-		node := setupNodeOCR2(t, uni.owner, bootstrapNodePort+uint16(i+1), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend)
+		port := getFreePort(t)
+		node := setupNodeOCR2(t, uni.owner, port, fmt.Sprintf("ocr2vrforacle%d", i), uni.backend)
+
 		// Supply the bootstrap IP and port as a V2 peer address
 		node.config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.peerID, Addrs: []string{
@@ -182,6 +189,11 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 			},
 			ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
 		})
+
+		t.Log("Starting OCR node #", i)
+		err = apps[i].Start(testutils.Context(t))
+		require.NoError(t, err)
+		defer apps[i].Stop()
 	}
 
 	t.Log("starting ticker to commit blocks")
@@ -212,10 +224,6 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 	)
 
 	t.Log("Adding bootstrap node job")
-	err = bootstrapNode.app.Start(testutils.Context(t))
-	require.NoError(t, err)
-	defer bootstrapNode.app.Stop()
-
 	chainSet := bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
 	bootstrapJobSpec := fmt.Sprintf(`
@@ -236,10 +244,6 @@ chainID 			= 1337
 	t.Log("Creating OCR2VRF jobs")
 	var jobIDs []int32
 	for i := 0; i < numNodes; i++ {
-		err = apps[i].Start(testutils.Context(t))
-		require.NoError(t, err)
-		defer apps[i].Stop()
-
 		jobSpec := fmt.Sprintf(`
 type                 = "offchainreporting2"
 schemaVersion        = 1
@@ -476,4 +480,15 @@ func randomPort(t *testing.T) uint16 {
 	p, err := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
 	require.NoError(t, err)
 	return uint16(p.Uint64())
+}
+
+func getFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	l, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	defer l.Close()
+
+	return uint16(l.Addr().(*net.TCPAddr).Port)
 }
