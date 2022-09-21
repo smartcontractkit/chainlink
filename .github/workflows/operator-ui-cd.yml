@@ -1,4 +1,4 @@
-name: Operator UI
+name: Operator UI CD
 
 on:
   push:

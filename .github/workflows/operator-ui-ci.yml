@@ -1,0 +1,25 @@
+name: Operator UI CI
+on:
+  pull_request:
+
+jobs:
+  check-gql:
+    name: Breaking Changes GQL Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Breaking Changes GQL Check
+        continue-on-error: true
+
+      - uses: convictional/trigger-workflow-and-wait@a382075b8ce6e15d85477232d501eb047e21f7aa #v1.6.3
+        with:
+          owner: smartcontractkit
+          repo: operator-ui
+          github_token: ${{ secrets.OPERATOR_UI_CI_PAT }}
+          workflow_file_name: chainlink-ci.yml 
+          client_payload: '{"ref": "${{ github.event.pull_request.head.sha }}"}'
