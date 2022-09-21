@@ -30,9 +30,9 @@ type RegistrySynchronizerOptions struct {
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
+	ForwardingAllowed        bool
+	EffectiveKeeperAddress   common.Address
 	newTurnEnabled           bool
-	forwardingAllowed        bool
-	effectiveKeeperAddress   common.Address
 }
 
 type RegistrySynchronizer struct {
@@ -66,8 +66,8 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		mbLogs:                   utils.NewMailbox[log.Broadcast](5000), // Arbitrary limit, better to have excess capacity
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
-		forwardingAllowed:        opts.forwardingAllowed,
-		effectiveKeeperAddress:   opts.effectiveKeeperAddress,
+		forwardingAllowed:        opts.ForwardingAllowed,
+		effectiveKeeperAddress:   opts.EffectiveKeeperAddress,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 		newTurnEnabled:           opts.newTurnEnabled,
