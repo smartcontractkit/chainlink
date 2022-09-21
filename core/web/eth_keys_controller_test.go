@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -29,33 +31,32 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	app.KeyStore.Unlock(cltest.Password)
 
-	k1, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
-	k2, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
-	expectedKeys := []ethkey.KeyV2{k1, k2}
+	// disabled key
+	k0, addr0 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	// enabled keys
+	k1, addr1 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
+	k2, addr2 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
+	expectedKeys := []ethkey.KeyV2{k0, k1, k2}
 
-	kstKeys, err := app.KeyStore.Eth().GetAll()
-	require.NoError(t, err)
-
-	// Order can be undefined since created_at may be equal
-	assert.ElementsMatch(t, expectedKeys, kstKeys)
-
-	ethClient.On("BalanceAt", mock.Anything, expectedKeys[0].Address.Address(), mock.Anything).Return(big.NewInt(256), nil).Twice() // funding address is checked once for application startup and once again for request
-	ethClient.On("BalanceAt", mock.Anything, expectedKeys[1].Address.Address(), mock.Anything).Return(big.NewInt(1), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, expectedKeys[0].Address.Address()).Return(assets.NewLinkFromJuels(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, expectedKeys[1].Address.Address()).Return(assets.NewLinkFromJuels(1), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, addr0, mock.Anything).Return(big.NewInt(256), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, addr1, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, addr2, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, addr0).Return(assets.NewLinkFromJuels(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, addr1).Return(assets.NewLinkFromJuels(1), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, addr2).Return(assets.NewLinkFromJuels(1), nil).Once()
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var actualBalances []webpresenters.ETHKeyResource
-	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
+	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 	assert.NoError(t, err)
 
-	require.Len(t, actualBalances, 2)
+	require.Len(t, actualBalances, 3)
 
 	for _, balance := range actualBalances {
 		if balance.Address == expectedKeys[0].Address.Hex() {
@@ -81,12 +82,12 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	cfg.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
 
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -111,7 +112,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
@@ -129,18 +130,18 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
-	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
-	defer verify()
+	sub := evmMocks.NewSubscription(t)
+	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
 
 	ethBalanceInt := big.NewInt(100)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
 	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -148,8 +149,6 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
-
-	ethClient.AssertExpectations(t)
 }
 
 func TestETHKeysController_UpdateSuccess(t *testing.T) {
@@ -157,18 +156,18 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
-	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
-	defer verify()
+	sub := evmMocks.NewSubscription(t)
+	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
 
 	ethBalanceInt := big.NewInt(100)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
 	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -176,7 +175,6 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
-	ethClient.AssertExpectations(t)
 
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
@@ -191,5 +189,5 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	chain, err := app.Chains.EVM.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
-	require.Equal(t, assets.GWei(777), chain.Config().KeySpecificMaxGasPriceWei(key.Address.Address()))
+	require.Equal(t, assets.GWei(777), chain.Config().KeySpecificMaxGasPriceWei(key.Address))
 }

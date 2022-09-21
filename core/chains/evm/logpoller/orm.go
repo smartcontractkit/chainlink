@@ -1,6 +1,7 @@
 package logpoller
 
 import (
+	"database/sql"
 	"fmt"
 	"math/big"
 
@@ -98,10 +99,24 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 		}
 	}
 	q := o.q.WithOpts(qopts...)
-	_, err := q.NamedExec(`INSERT INTO logs 
+
+	batchInsertSize := 4000
+	for i := 0; i < len(logs); i += batchInsertSize {
+		start, end := i, i+batchInsertSize
+		if end > len(logs) {
+			end = len(logs)
+		}
+
+		_, err := q.NamedExec(`INSERT INTO logs 
 (evm_chain_id, log_index, block_hash, block_number, address, event_sig, topics, tx_hash, data, created_at) VALUES 
-(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs)
-	return err
+(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs[start:end])
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (o *ORM) selectLogsByBlockRange(start, end int64) ([]Log, error) {
@@ -131,8 +146,78 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 	return logs, nil
 }
 
-// LatestLogEventSigsAddrs finds the latest log by (address, event) combination that matches a list of addresses and list of events
-func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+// SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
+// emitted from the given address.
+func (o *ORM) SelectLogsWithSigsByBlockRangeFilter(start, end int64, address common.Address, eventSigs [][]byte, qopts ...pg.QOpt) (logs []Log, err error) {
+	q := o.q.WithOpts(qopts...)
+	a := map[string]any{
+		"start":     start,
+		"end":       end,
+		"chainid":   utils.NewBig(o.chainID),
+		"address":   address,
+		"eventSigs": eventSigs,
+	}
+	query, args, err := sqlx.Named(
+		`
+SELECT
+	*
+FROM logs
+WHERE logs.block_number BETWEEN :start AND :end
+	AND logs.evm_chain_id = :chainid
+	AND logs.address = :address
+	AND logs.event_sig IN (:eventSigs)
+ORDER BY (logs.block_number, logs.log_index)`, a)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx Named")
+	}
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx In")
+	}
+	query = q.Rebind(query)
+	err = q.Select(&logs, query, args...)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return logs, err
+}
+
+func (o *ORM) GetBlocks(blockNumbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	if len(blockNumbers) == 0 {
+		return nil, nil
+	}
+
+	var blocks []LogPollerBlock
+	q := o.q.WithOpts(qopts...)
+	a := map[string]any{
+		"blockNumbers": blockNumbers,
+		"chainid":      utils.NewBig(o.chainID),
+	}
+	query, args, err := sqlx.Named(
+		`
+SELECT
+	*
+FROM log_poller_blocks 
+WHERE evm_chain_id = :chainid
+	AND block_number IN (:blockNumbers)
+`, a)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx Named")
+	}
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx In")
+	}
+	query = q.Rebind(query)
+	err = q.Select(&blocks, query, args...)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return blocks, err
+}
+
+// SelectLatestLogEventSigsAddrsWithConfs finds the latest log by (address, event) combination that matches a list of addresses and list of events
+func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 
 	sigs := [][]byte{}
@@ -151,11 +236,12 @@ func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Addres
 				WHERE evm_chain_id = $1 AND
 				    event_sig = ANY($2) AND
 					address = ANY($3) AND
-		   			block_number > $4
+		   			block_number > $4 AND
+					(block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
 			GROUP BY event_sig, address
 		)
 		ORDER BY block_number ASC
-	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock)
+	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock, confs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
 	}
@@ -235,7 +321,7 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig []byte, topicIn
 	for _, topicValue := range topicValues[1:] {
 		topicValuesList += fmt.Sprintf(",'%s'", topicValue.String()[2:])
 	}
-	// Add 1 since arrays are 1-indexed.
+	// Add 1 since postgresql arrays are 1-indexed.
 	err := q.Select(&logs, fmt.Sprintf(`
 		SELECT * FROM logs 
 			WHERE logs.evm_chain_id = $1

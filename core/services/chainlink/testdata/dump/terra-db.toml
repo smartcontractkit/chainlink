@@ -1,0 +1,29 @@
+[[Terra]]
+ChainID = 'Columbus-5'
+BlockRate = '10m6s'
+BlocksUntilTxTimeout = 86
+ConfirmPollPeriod = '1m4s'
+FallbackGasPriceULuna = '9.5'
+FCDURL = 'http://fcd.url'
+GasLimitMultiplier = '1.65'
+MaxMsgsPerBatch = 9
+OCR2CachePollPeriod = '4m0s'
+OCR2CacheTTL = '6h0m5s'
+TxMsgTimeout = '9m0s'
+
+[[Terra.Nodes]]
+Name = 'mainnet'
+TendermintURL = 'http://terra.com'
+
+[[Terra.Nodes]]
+Name = 'mainnet-2'
+TendermintURL = 'http://terra.org'
+
+[[Terra]]
+ChainID = 'Bombay-12'
+Enabled = false
+BlockRate = '6m0s'
+
+[[Terra.Nodes]]
+Name = 'testnet'
+TendermintURL = 'https://terra.bombay'

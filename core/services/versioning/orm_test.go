@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
@@ -67,7 +68,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	// invalid app version semver returns error
-	_, _, err = CheckVersion(db, lggr, "unset")
+	_, _, err = CheckVersion(db, lggr, static.Unset)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `Application version "unset" is not valid semver`)
 	_, _, err = CheckVersion(db, lggr, "some old bollocks")

@@ -175,6 +175,15 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		}
 	}
 
+	if head.Number%10 == 0 {
+		// Log this once every 10 blocks
+		fetchedUpkeepIDs := make([]string, len(activeUpkeeps))
+		for i, activeUpkeep := range activeUpkeeps {
+			fetchedUpkeepIDs[i] = NewUpkeepIdentifier(activeUpkeep.UpkeepID).String()
+		}
+		ex.logger.Debugw("Fetched list of active upkeeps", "blockNum", head.Number, "active upkeeps list", fetchedUpkeepIDs)
+	}
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
 	done := func() {
@@ -187,6 +196,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 
 	wg.Wait()
+	ex.logger.Debugw("Finished checking upkeeps", "blockNum", head.Number)
 }
 
 // execute triggers the pipeline run
@@ -225,24 +235,12 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		}
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"jobID":                 ex.job.ID,
-			"fromAddress":           upkeep.Registry.FromAddress.String(),
-			"contractAddress":       upkeep.Registry.ContractAddress.String(),
-			"upkeepID":              upkeep.UpkeepID,
-			"prettyID":              upkeep.PrettyID(),
-			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
-			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
-				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":   gasPrice,
-			"gasTipCap":  gasTipCap,
-			"gasFeeCap":  gasFeeCap,
-			"evmChainID": evmChainID,
-		},
-	})
+	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, upkeep, ex.orm.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
 
+	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
+	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
+
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
 		svcLogger.Error(errors.Wrap(err, "failed executing run"))
 		return
@@ -250,11 +248,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
+		rowsAffected, err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
 		if err != nil {
 			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
 		}
-		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
+		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress, "rowsAffected", rowsAffected)
 
 		elapsed := time.Since(start)
 		promCheckUpkeepExecutionTime.
@@ -274,11 +272,12 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
 
+	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
 	if ex.config.EvmEIP1559DynamicFees() {
-		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
+		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas, keySpecificGasPriceWei)
 		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasTipCapBufferPercent())
 	} else {
-		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
+		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
 		gasPrice = addBuffer(gasPrice, ex.config.KeeperGasPriceBufferPercent())
 	}
 	if err != nil {
@@ -297,11 +296,37 @@ func addBuffer(val *big.Int, prct uint32) *big.Int {
 
 func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
-	block, err := ex.ethClient.BlockByNumber(context.Background(), big.NewInt(turnBlock))
+	block, err := ex.ethClient.HeaderByNumber(context.Background(), big.NewInt(turnBlock))
 	if err != nil {
 		return "", err
 	}
 	hashAtHeight := block.Hash()
 	binaryString := fmt.Sprintf("%b", hashAtHeight.Big())
 	return binaryString, nil
+}
+
+func buildJobSpec(
+	jb job.Job,
+	upkeep UpkeepRegistration,
+	ormConfig RegistryGasChecker,
+	gasPrice *big.Int,
+	gasTipCap *big.Int,
+	gasFeeCap *big.Int,
+	chainID string,
+) map[string]interface{} {
+	return map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"jobID":                 jb.ID,
+			"fromAddress":           upkeep.Registry.FromAddress.String(),
+			"contractAddress":       upkeep.Registry.ContractAddress.String(),
+			"upkeepID":              upkeep.UpkeepID.String(),
+			"prettyID":              upkeep.PrettyID(),
+			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
+			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
+			"gasPrice":              gasPrice,
+			"gasTipCap":             gasTipCap,
+			"gasFeeCap":             gasFeeCap,
+			"evmChainID":            chainID,
+		},
+	}
 }

@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/big"
-	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -22,27 +20,24 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeperRegV1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 const (
-	defaultChainlinkNodeImage = "smartcontract/chainlink:latest"
-	defaultPOSTGRESImage      = "postgres:13"
+	defaultChainlinkNodeImage = "smartcontract/chainlink:1.5.1-root"
+	defaultPOSTGRESImage      = "postgres:latest"
 
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
-	defaultChainlinkNodePassword = "twochains"
+	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs"
 )
 
 type startedNodeData struct {
@@ -81,38 +76,13 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	wg.Wait()
 
 	// Deploy keeper registry or get an existing one
-	var registry *keeperRegV1.KeeperRegistry
-	var registryAddr common.Address
-	var upkeepCount int64
-	if k.cfg.RegistryAddress != "" {
-		// Get existing keeper registry
-		registryAddr, registry = k.GetRegistry(ctx)
-		callOpts := bind.CallOpts{
-			Pending: false,
-			From:    k.fromAddr,
-			Context: ctx,
-		}
-		count, err := registry.GetUpkeepCount(&callOpts)
-		if err != nil {
-			log.Fatal(registryAddr.Hex(), ": UpkeepCount failed - ", err)
-		}
-		upkeepCount = count.Int64()
-	} else {
-		// Deploy keeper registry
-		registryAddr, registry = k.deployRegistry(ctx)
-		upkeepCount = 0
-	}
+	upkeepCount, registryAddr, deployer := k.prepareRegistry(ctx)
 
 	// Approve keeper registry
-	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
-	if err != nil {
-		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
-	}
-	k.waitTx(ctx, approveRegistryTx)
-	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
+	k.approveFunds(ctx, registryAddr)
 
 	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
+	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
 	lggr, closeLggr := logger.NewLogger()
 	defer closeLggr()
@@ -122,24 +92,17 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	var owners []common.Address
 	for _, startedNode := range startedNodes {
 		if startedNode.err != nil {
-			log.Println("Failed to start node: ", err)
+			log.Println("Failed to start node: ", startedNode.err)
 			continue
 		}
 
 		// Create authenticated client
-		remoteNodeURL, err := url.Parse(startedNode.url)
+		var cl cmd.HTTPClient
+		var err error
+		cl, err = k.authenticate(startedNode.url, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Authentication failed, ", err)
 		}
-		c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
-		sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
-		store := &cmd.MemoryCookieStore{}
-		tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
-		if _, err = tca.Authenticate(sr); err != nil {
-			log.Println("failed to authenticate: ", err)
-			continue
-		}
-		cl := cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr)
 
 		// Get node's wallet address
 		var nodeAddrHex string
@@ -174,13 +137,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	}
 
 	// Set Keepers
-	log.Println("Set keepers...")
-	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
-	if err != nil {
-		log.Fatal("SetKeepers failed: ", err)
-	}
-	k.waitTx(ctx, setKeepersTx)
-	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+	k.setKeepers(ctx, deployer, keepers, owners)
 
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -196,29 +153,69 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 	// Cancel upkeeps and withdraw funds
 	if withdraw {
+		isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 		log.Println("Canceling upkeeps...")
-		if err = k.cancelAndWithdrawUpkeeps(ctx, registry); err != nil {
-			log.Fatal("Failed to cancel upkeeps: ", err)
+		if isVersion12 {
+			registry, err := registry12.NewKeeperRegistry(
+				registryAddr,
+				k.client,
+			)
+			if err != nil {
+				log.Fatal("Registry failed: ", err)
+			}
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
+
+			if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
+		} else {
+			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
 		}
 		log.Println("Upkeeps successfully canceled")
 	}
 }
 
-// cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
-func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeperRegV1.KeeperRegistry) error {
-	count, err := registryInstance.GetUpkeepCount(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get upkeeps count: %s", err)
+// cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds for registry 1.2
+func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIds []*big.Int, canceller canceller) error {
+	var err error
+	for i := 0; i < len(activeUpkeepIds); i++ {
+		var tx *ethtypes.Transaction
+		upkeepId := activeUpkeepIds[i]
+		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId); err != nil {
+			return fmt.Errorf("failed to cancel upkeep %s: %s", upkeepId.String(), err)
+		}
+		k.waitTx(ctx, tx)
+
+		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr); err != nil {
+			return fmt.Errorf("failed to withdraw upkeep %s: %s", upkeepId.String(), err)
+		}
+		k.waitTx(ctx, tx)
+
+		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepId.String())
 	}
 
-	for i := int64(0); i < count.Int64(); i++ {
+	var tx *ethtypes.Transaction
+	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
+		return fmt.Errorf("failed to recover funds: %s", err)
+	}
+	k.waitTx(ctx, tx)
+
+	return nil
+}
+
+// cancelAndWithdrawUpkeeps cancels all upkeeps for 1.1 registry and withdraws funds
+func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.Int, canceller canceller) error {
+	var err error
+	for i := int64(0); i < upkeepCount.Int64(); i++ {
 		var tx *ethtypes.Transaction
-		if tx, err = registryInstance.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
+		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
 			return fmt.Errorf("failed to cancel upkeep %d: %s", i, err)
 		}
 		k.waitTx(ctx, tx)
 
-		if tx, err = registryInstance.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
+		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
 			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
 		}
 		k.waitTx(ctx, tx)
@@ -227,7 +224,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance 
 	}
 
 	var tx *ethtypes.Transaction
-	if tx, err = registryInstance.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
+	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
 	k.waitTx(ctx, tx)
@@ -243,7 +240,7 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %s", err)
 	}
@@ -260,12 +257,10 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-			Name:                     fmt.Sprintf("keeper job - registry %s", registryAddr),
-			ContractAddress:          registryAddr,
-			FromAddress:              nodeAddr,
-			EvmChainID:               int(k.cfg.ChainID),
-			MinIncomingConfirmations: 1,
-			ObservationSource:        keeper.ExpectedObservationSource,
+			Name:            fmt.Sprintf("keeper job - registry %s", registryAddr),
+			ContractAddress: registryAddr,
+			FromAddress:     nodeAddr,
+			EvmChainID:      int(k.cfg.ChainID),
 		}).Toml(),
 	})
 	if err != nil {
@@ -279,7 +274,7 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read error response body: %s", err)
 		}
@@ -438,7 +433,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 // createCredsFiles creates two temporary files with node creds: api and password.
 func (k *Keeper) createCredsFiles() (string, string, func(), error) {
 	// Create temporary file with chainlink node login creds
-	apiFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-api")
+	apiFile, err := os.CreateTemp("", "chainlink-node-api")
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create api file: %s", err)
 	}
@@ -447,7 +442,7 @@ func (k *Keeper) createCredsFiles() (string, string, func(), error) {
 	_, _ = apiFile.WriteString(defaultChainlinkNodePassword)
 
 	// Create temporary file with chainlink node password
-	passwordFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-password")
+	passwordFile, err := os.CreateTemp("", "chainlink-node-password")
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create password file: %s", err)
 	}

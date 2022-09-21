@@ -6,8 +6,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
+
+	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )

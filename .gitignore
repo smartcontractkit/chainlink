@@ -8,10 +8,6 @@ tools/bin/abigen
 /chainlink
 core/chainlink
 
-# GUI
-operator_ui/dist
-operator_ui/artifacts
-
 # SQLite
 tools/clroot/db.sqlite3-shm
 tools/clroot/db.sqlite3-wal
@@ -30,6 +26,7 @@ tools/clroot/db.sqlite3-wal
 .direnv
 .idea
 .vscode/
+*.iml
 
 # codeship
 *.aes
@@ -58,6 +55,7 @@ core/cmd/vrfkey1
 core/web/assets
 
 # Integration Tests
-integration-tests/logs/
+integration-tests/**/logs/
 tests-*.xml
 *.test
+tmp-manifest-*.yaml

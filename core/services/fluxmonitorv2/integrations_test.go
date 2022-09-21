@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -31,11 +30,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flags_wrapper"
+	faw "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
-	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -79,14 +78,6 @@ type fluxAggregatorUniverse struct {
 	nallory *bind.TransactOpts // Node operator Flux Monitor Oracle running this node
 }
 
-// newIdentity returns a go-ethereum abstraction of an ethereum account for
-// interacting with contract golang wrappers
-func newIdentity(t *testing.T) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
-}
-
 type fluxAggregatorUniverseConfig struct {
 	MinSubmission *big.Int
 	MaxSubmission *big.Int
@@ -113,15 +104,17 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		optFn(cfg)
 	}
 
-	key := cltest.MustGenerateRandomKey(t)
-	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
+	key, err := ethkey.NewV2()
+	require.NoError(t, err)
+	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 
 	var f fluxAggregatorUniverse
-	f.evmChainID = *big.NewInt(cltest.SimulatedBackendEVMChainID)
+	f.evmChainID = *testutils.SimulatedChainID
 	f.key = key
-	f.sergey = newIdentity(t)
-	f.neil = newIdentity(t)
-	f.ned = newIdentity(t)
+	f.sergey = testutils.MustNewSimTransactor(t)
+	f.neil = testutils.MustNewSimTransactor(t)
+	f.ned = testutils.MustNewSimTransactor(t)
 	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
 		f.sergey.From:  {Balance: assets.Ether(1000)},
@@ -129,10 +122,9 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		f.ned.From:     {Balance: assets.Ether(1000)},
 		f.nallory.From: {Balance: assets.Ether(1000)},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
-	var err error
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
 	require.NoError(t, err, "could not parse FluxAggregator ABI")
 
@@ -152,7 +144,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	waitTimeMs := int64(faTimeout * 5000)
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
 	oldGasLimit := f.sergey.GasLimit
-	f.sergey.GasLimit = gasLimit
+	f.sergey.GasLimit = uint64(gasLimit)
 	f.aggregatorContractAddress, _, f.aggregatorContract, err = faw.DeployFluxAggregator(
 		f.sergey,
 		f.backend,
@@ -400,7 +392,7 @@ func assertNoSubmission(t *testing.T,
 
 // assertPipelineRunCreated checks that a pipeline exists for a given round and
 // verifies the answer
-func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result float64) pipeline.Run {
+func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result int64) pipeline.Run {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
 	require.NoError(t, db.Get(&stats, "SELECT * FROM flux_monitor_round_stats_v2 WHERE round_id = $1", roundID))
@@ -429,7 +421,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, p
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -507,6 +499,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	contractAddress   = "%s"
 	threshold = 2.0
 	absoluteThreshold = 0.0
+	evmChainID        = 1337
 
 	idleTimerPeriod = "10s"
 	idleTimerDisabled = false
@@ -540,7 +533,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			g.Eventually(func() uint32 {
 				lb := evmtest.MustGetDefaultChain(t, app.GetChains().EVM).LogBroadcaster()
 				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-			}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
+			}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 			// Initial Poll
 			receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
@@ -563,7 +556,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, float64(100))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, int64(100))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
@@ -592,7 +585,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance-fee,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, float64(103))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, int64(103))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
@@ -687,7 +680,7 @@ ds1 -> ds1_parse
 	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChains().EVM).LogBroadcaster()
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-	}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -818,7 +811,7 @@ ds1 -> ds1_parse
 		require.NoError(t, err)
 		logs := cltest.GetLogs(t, nil, ilogs)
 		return len(logs)
-	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
+	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
 
 	// change in price should not trigger run
 	reportPrice.Store(8)
@@ -841,8 +834,6 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
 		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
-		cfg.Overrides.GlobalMinRequiredOutgoingConfirmations = null.IntFrom(2)
-		cfg.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	})
 
 	// Report a price that is above the maximum allowed value,

@@ -20,16 +20,19 @@ import (
 
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
-	ID            uint64
-	Hash          common.Hash
-	Number        int64
-	L1BlockNumber null.Int64
-	ParentHash    common.Hash
-	Parent        *Head
-	EVMChainID    *utils.Big
-	Timestamp     time.Time
-	CreatedAt     time.Time
-	BaseFeePerGas *utils.Big
+	ID               uint64
+	Hash             common.Hash
+	Number           int64
+	L1BlockNumber    null.Int64
+	ParentHash       common.Hash
+	Parent           *Head
+	EVMChainID       *utils.Big
+	Timestamp        time.Time
+	CreatedAt        time.Time
+	BaseFeePerGas    *utils.Big
+	ReceiptsRoot     common.Hash
+	TransactionsRoot common.Hash
+	StateRoot        common.Hash
 }
 
 // NewHead returns a Head instance.
@@ -41,14 +44,6 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 		Timestamp:  time.Unix(int64(timestamp), 0),
 		EVMChainID: chainID,
 	}
-}
-
-func AsHead(i interface{}) *Head {
-	head, ok := i.(*Head)
-	if !ok {
-		panic(fmt.Sprintf("invariant violation: expected `*evmtypes.Head`, got %T", i))
-	}
-	return head
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
@@ -183,12 +178,15 @@ func (h *Head) NextInt() *big.Int {
 
 func (h *Head) UnmarshalJSON(bs []byte) error {
 	type head struct {
-		Hash          common.Hash    `json:"hash"`
-		Number        *hexutil.Big   `json:"number"`
-		ParentHash    common.Hash    `json:"parentHash"`
-		Timestamp     hexutil.Uint64 `json:"timestamp"`
-		L1BlockNumber *hexutil.Big   `json:"l1BlockNumber"`
-		BaseFeePerGas *hexutil.Big   `json:"baseFeePerGas"`
+		Hash             common.Hash    `json:"hash"`
+		Number           *hexutil.Big   `json:"number"`
+		ParentHash       common.Hash    `json:"parentHash"`
+		Timestamp        hexutil.Uint64 `json:"timestamp"`
+		L1BlockNumber    *hexutil.Big   `json:"l1BlockNumber"`
+		BaseFeePerGas    *hexutil.Big   `json:"baseFeePerGas"`
+		ReceiptsRoot     common.Hash    `json:"receiptsRoot"`
+		TransactionsRoot common.Hash    `json:"transactionsRoot"`
+		StateRoot        common.Hash    `json:"stateRoot"`
 	}
 
 	var jsonHead head
@@ -210,20 +208,35 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	if jsonHead.L1BlockNumber != nil {
 		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
 	}
+	h.ReceiptsRoot = jsonHead.ReceiptsRoot
+	h.TransactionsRoot = jsonHead.TransactionsRoot
+	h.StateRoot = jsonHead.StateRoot
 	return nil
 }
 
 func (h *Head) MarshalJSON() ([]byte, error) {
 	type head struct {
-		Hash       *common.Hash    `json:"hash,omitempty"`
-		Number     *hexutil.Big    `json:"number,omitempty"`
-		ParentHash *common.Hash    `json:"parentHash,omitempty"`
-		Timestamp  *hexutil.Uint64 `json:"timestamp,omitempty"`
+		Hash             *common.Hash    `json:"hash,omitempty"`
+		Number           *hexutil.Big    `json:"number,omitempty"`
+		ParentHash       *common.Hash    `json:"parentHash,omitempty"`
+		Timestamp        *hexutil.Uint64 `json:"timestamp,omitempty"`
+		ReceiptsRoot     *common.Hash    `json:"receiptsRoot,omitempty"`
+		TransactionsRoot *common.Hash    `json:"transactionsRoot,omitempty"`
+		StateRoot        *common.Hash    `json:"stateRoot,omitempty"`
 	}
 
 	var jsonHead head
 	if h.Hash != (common.Hash{}) {
 		jsonHead.Hash = &h.Hash
+	}
+	if h.ReceiptsRoot != (common.Hash{}) {
+		jsonHead.ReceiptsRoot = &h.ReceiptsRoot
+	}
+	if h.TransactionsRoot != (common.Hash{}) {
+		jsonHead.TransactionsRoot = &h.TransactionsRoot
+	}
+	if h.StateRoot != (common.Hash{}) {
+		jsonHead.StateRoot = &h.StateRoot
 	}
 	jsonHead.Number = (*hexutil.Big)(big.NewInt(int64(h.Number)))
 	if h.ParentHash != (common.Hash{}) {

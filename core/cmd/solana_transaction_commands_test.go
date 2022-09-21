@@ -97,11 +97,25 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			assert.Equal(t, to.PublicKey().String(), renderedMsg.To)
 			assert.Equal(t, tt.amount, strconv.FormatUint(renderedMsg.Amount, 10))
 
-			time.Sleep(time.Second) // wait for tx execution
+			// wait for updated balance
+			updated := false
+			endBal := uint64(0)
+			for i := 0; i < 5; i++ {
+				time.Sleep(time.Second) // wait for tx execution
+
+				// Check balance
+				endBal, err = reader.Balance(from.PublicKey())
+				require.NoError(t, err)
+
+				// exit if difference found
+				if endBal != startBal {
+					updated = true
+					break
+				}
+			}
+			require.True(t, updated, "end bal == start bal, transaction likely not succeeded")
 
 			// Check balance
-			endBal, err := reader.Balance(from.PublicKey())
-			require.NoError(t, err)
 			if assert.NotEqual(t, 0, startBal) && assert.NotEqual(t, 0, endBal) {
 				diff := startBal - endBal
 				receiveBal, err := reader.Balance(to.PublicKey())

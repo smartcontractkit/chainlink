@@ -11,19 +11,24 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/pyroscope-io/client/pyroscope"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -44,8 +49,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -64,6 +69,8 @@ type Application interface {
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
+	// ConfigDump returns a TOML configuration from the current environment and database configuration.
+	ConfigDump(context.Context) (string, error)
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
@@ -97,6 +104,8 @@ type Application interface {
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
+
+	SecretGenerator() SecretGenerator
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -126,6 +135,8 @@ type ChainlinkApplication struct {
 	logger                   logger.Logger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
+	secretGenerator          SecretGenerator
+	profiler                 *pyroscope.Profiler
 
 	started     bool
 	startStopMu sync.Mutex
@@ -143,13 +154,15 @@ type ApplicationOpts struct {
 	Version                  string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
+	SecretGenerator          SecretGenerator
 }
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM    evm.ChainSet
-	Solana solana.ChainSet // nil if disabled
-	Terra  terra.ChainSet  // nil if disabled
+	EVM      evm.ChainSet
+	Solana   solana.ChainSet   // nil if disabled
+	Terra    terra.ChainSet    // nil if disabled
+	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -161,6 +174,9 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	}
 	if c.Terra != nil {
 		s = append(s, c.Terra)
+	}
+	if c.StarkNet != nil {
+		s = append(s, c.StarkNet)
 	}
 	return
 }
@@ -181,6 +197,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	externalInitiatorManager := opts.ExternalInitiatorManager
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+
+	var profiler *pyroscope.Profiler
+	if cfg.PyroscopeServerAddress() != "" {
+		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
+		var err error
+		profiler, err = logger.StartPyroscope(cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
+		}
+	} else {
+		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
+	}
 
 	var nurse *services.Nurse
 	if cfg.AutoPprofEnabled() {
@@ -245,7 +273,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
@@ -335,21 +363,26 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relaytypes.Network]relaytypes.Relayer)
+		relayers := make(map[relay.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
-			relayers[relaytypes.EVM] = evmRelayer
+			relayers[relay.EVM] = evmRelayer
 			subservices = append(subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana, keyStore.Solana())
-			relayers[relaytypes.Solana] = solanaRelayer
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
+			relayers[relay.Solana] = solanaRelayer
 			subservices = append(subservices, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			relayers[relaytypes.Terra] = terraRelayer
+			relayers[relay.Terra] = terraRelayer
 			subservices = append(subservices, terraRelayer)
+		}
+		if cfg.StarkNetEnabled() {
+			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
+			relayers[relay.StarkNet] = starknetRelayer
+			subservices = append(subservices, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
@@ -361,6 +394,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
+			keyStore.DKGSign(),
+			keyStore.DKGEncrypt(),
 			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
@@ -427,6 +462,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Nurse:                    nurse,
 		logger:                   globalLogger,
 		closeLogger:              opts.CloseLogger,
+		secretGenerator:          opts.SecretGenerator,
+		profiler:                 profiler,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -463,7 +500,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	}
 
 	if app.FeedsService != nil {
-		if err := app.FeedsService.Start(); err != nil {
+		if err := app.FeedsService.Start(ctx); err != nil {
 			app.logger.Infof("[Feeds Service] %v", err)
 		}
 	}
@@ -540,6 +577,10 @@ func (app *ChainlinkApplication) stop() (err error) {
 			err = multierr.Append(err, app.Nurse.Close())
 		}
 
+		if app.profiler != nil {
+			err = multierr.Append(err, app.profiler.Stop())
+		}
+
 		app.logger.Info("Exited all services")
 
 		app.started = false
@@ -593,6 +634,10 @@ func (app *ChainlinkApplication) TxmORM() txmgr.ORM {
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
+}
+
+func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {
+	return app.secretGenerator
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.
@@ -705,6 +750,11 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 		return err
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
+	if app.Config.FeatureLogPoller() {
+		if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

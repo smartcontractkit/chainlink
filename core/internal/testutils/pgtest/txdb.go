@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"flag"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
+	"testing"
 
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
@@ -32,6 +34,14 @@ import (
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
 func init() {
+	testing.Init()
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+	if testing.Short() {
+		// -short tests don't need a DB
+		return
+	}
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		panic("you must provide a DATABASE_URL environment variable")

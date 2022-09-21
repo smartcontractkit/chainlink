@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 var privateIPBlocks []*net.IPNet
-var dbURL string
 
 func init() {
 	for _, cidr := range []string{
@@ -32,7 +31,6 @@ func init() {
 		}
 		privateIPBlocks = append(privateIPBlocks, block)
 	}
-	dbURL = os.Getenv("DATABASE_URL")
 }
 
 func isRestrictedIP(ip net.IP, cfg httpClientConfig, lggr logger.Logger) bool {
@@ -72,7 +70,7 @@ func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 	}
 	ips, err := net.LookupIP(dbURL.String())
 	if err != nil {
-		return true, errors.Wrapf(err, "failed to lookup IP for DB URL: %v", dbURL.Redacted())
+		return true, errors.Wrapf(err, "failed to lookup IP for DB URL")
 	}
 	for _, dbIP := range ips {
 		if dbIP.Equal(ip) {

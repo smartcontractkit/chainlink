@@ -17,12 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/solanatest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -34,17 +35,14 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 
 	newChainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
-	second := models.MustMakeDuration(time.Second)
-	minute := models.MustMakeDuration(time.Minute)
-	hour := models.MustMakeDuration(time.Hour)
 	body, err := json.Marshal(web.NewCreateChainRequest(
 		newChainId,
 		&db.ChainCfg{
-			BalancePollPeriod:   &second,
-			ConfirmPollPeriod:   &minute,
-			OCR2CachePollPeriod: &minute,
-			OCR2CacheTTL:        &second,
-			TxTimeout:           &hour,
+			BalancePollPeriod:   utils.MustNewDuration(time.Second),
+			ConfirmPollPeriod:   utils.MustNewDuration(time.Minute),
+			OCR2CachePollPeriod: utils.MustNewDuration(time.Minute),
+			OCR2CacheTTL:        utils.MustNewDuration(time.Second),
+			TxTimeout:           utils.MustNewDuration(time.Hour),
 			SkipPreflight:       null.BoolFrom(false),
 			Commitment:          null.StringFrom(string(rpc.CommitmentRecent)),
 		}))
@@ -78,7 +76,6 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 
 	const validId = "Chainlink-12"
 
-	hour := models.MustMakeDuration(time.Hour)
 	testCases := []struct {
 		name           string
 		inputId        string
@@ -91,7 +88,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				newChainConfig := db.ChainCfg{
 					SkipPreflight: null.BoolFrom(false),
-					TxTimeout:     &hour,
+					TxTimeout:     utils.MustNewDuration(time.Hour),
 				}
 
 				chain := db.Chain{
@@ -148,12 +145,11 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 
 	controller := setupSolanaChainsControllerTest(t)
 
-	hour := models.MustMakeDuration(time.Hour)
 	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
 			Config: &db.ChainCfg{
-				TxTimeout: &hour,
+				TxTimeout: utils.MustNewDuration(time.Hour),
 			},
 		},
 		{
@@ -219,12 +215,11 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 func Test_SolanaChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	hour := models.MustMakeDuration(time.Hour)
 	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
 		Config: &db.ChainCfg{
 			SkipPreflight: null.BoolFrom(false),
-			TxTimeout:     &hour,
+			TxTimeout:     utils.MustNewDuration(time.Hour),
 		},
 	}
 
@@ -242,7 +237,7 @@ func Test_SolanaChainsController_Update(t *testing.T) {
 			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				newChainConfig := db.ChainCfg{
 					SkipPreflight: null.BoolFrom(false),
-					TxTimeout:     &hour,
+					TxTimeout:     utils.MustNewDuration(time.Hour),
 				}
 
 				chain := db.Chain{
@@ -305,10 +300,9 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 
 	controller := setupSolanaChainsControllerTest(t)
 
-	hour := models.MustMakeDuration(time.Hour)
 	newChainConfig := db.ChainCfg{
 		SkipPreflight: null.BoolFrom(false),
-		TxTimeout:     &hour,
+		TxTimeout:     utils.MustNewDuration(time.Hour),
 	}
 
 	chainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
@@ -364,7 +358,7 @@ func setupSolanaChainsControllerTest(t *testing.T) *TestSolanaChainsController {
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestSolanaChainsController{
 		app:    app,

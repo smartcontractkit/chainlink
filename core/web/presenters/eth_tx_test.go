@@ -24,7 +24,7 @@ func TestEthTxResource(t *testing.T) {
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
 		FromAddress:    from,
 		ToAddress:      to,
-		GasLimit:       uint64(5000),
+		GasLimit:       uint32(5000),
 		State:          txmgr.EthTxConfirmed,
 		Value:          assets.NewEthValue(1),
 	}

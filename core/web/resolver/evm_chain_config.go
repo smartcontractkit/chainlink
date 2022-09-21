@@ -17,6 +17,7 @@ type ChainType string
 
 const (
 	ChainTypeArbitrum ChainType = "ARBITRUM"
+	ChainTypeMetis    ChainType = "METIS"
 	ChainTypeOptimism ChainType = "OPTIMISM"
 	ChainTypeXDAI     ChainType = "XDAI"
 )
@@ -25,6 +26,8 @@ func ToChainType(s string) (ChainType, error) {
 	switch s {
 	case "arbitrum":
 		return ChainTypeArbitrum, nil
+	case "metis":
+		return ChainTypeMetis, nil
 	case "optimism":
 		return ChainTypeOptimism, nil
 	case "xdai":
@@ -38,6 +41,8 @@ func FromChainType(ct ChainType) string {
 	switch ct {
 	case ChainTypeArbitrum:
 		return "arbitrum"
+	case ChainTypeMetis:
+		return "metis"
 	case ChainTypeOptimism:
 		return "optimism"
 	case ChainTypeXDAI:
@@ -52,8 +57,8 @@ type GasEstimatorMode string
 const (
 	GasEstimatorModeBlockHistory GasEstimatorMode = "BLOCK_HISTORY"
 	GasEstimatorModeFixedPrice   GasEstimatorMode = "FIXED_PRICE"
-	GasEstimatorModeOptimism     GasEstimatorMode = "OPTIMISM"
 	GasEstimatorModeOptimism2    GasEstimatorMode = "OPTIMISM2"
+	GasEstimatorModeL2Suggested  GasEstimatorMode = "L2_SUGGESTED"
 )
 
 func ToGasEstimatorMode(s string) (GasEstimatorMode, error) {
@@ -62,10 +67,10 @@ func ToGasEstimatorMode(s string) (GasEstimatorMode, error) {
 		return GasEstimatorModeBlockHistory, nil
 	case "FixedPrice":
 		return GasEstimatorModeFixedPrice, nil
-	case "Optimism":
-		return GasEstimatorModeOptimism, nil
 	case "Optimism2":
 		return GasEstimatorModeOptimism2, nil
+	case "L2Suggested":
+		return GasEstimatorModeL2Suggested, nil
 	default:
 		return "", errors.New("invalid gas estimator mode")
 	}
@@ -77,10 +82,10 @@ func FromGasEstimatorMode(gsm GasEstimatorMode) string {
 		return "BlockHistory"
 	case GasEstimatorModeFixedPrice:
 		return "FixedPrice"
-	case GasEstimatorModeOptimism:
-		return "Optimism"
 	case GasEstimatorModeOptimism2:
 		return "Optimism2"
+	case GasEstimatorModeL2Suggested:
+		return "L2Suggested"
 	default:
 		return strings.ToLower(string(gsm))
 	}
@@ -202,6 +207,72 @@ func (r *ChainConfigResolver) EvmGasBumpWei() *string {
 func (r *ChainConfigResolver) EvmGasLimitDefault() *int32 {
 	if r.cfg.EvmGasLimitDefault.Valid {
 		val := r.cfg.EvmGasLimitDefault.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) EvmGasLimitMax() *int32 {
+	if r.cfg.EvmGasLimitMax.Valid {
+		val := r.cfg.EvmGasLimitMax.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) EvmGasLimitOCRJobType() *int32 {
+	if r.cfg.EvmGasLimitOCRJobType.Valid {
+		val := r.cfg.EvmGasLimitOCRJobType.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) EvmGasLimitDRJobType() *int32 {
+	if r.cfg.EvmGasLimitDRJobType.Valid {
+		val := r.cfg.EvmGasLimitDRJobType.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) EvmGasLimitVRFJobType() *int32 {
+	if r.cfg.EvmGasLimitVRFJobType.Valid {
+		val := r.cfg.EvmGasLimitVRFJobType.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) EvmGasLimitFMJobType() *int32 {
+	if r.cfg.EvmGasLimitFMJobType.Valid {
+		val := r.cfg.EvmGasLimitFMJobType.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) EvmGasLimitKeeperJobType() *int32 {
+	if r.cfg.EvmGasLimitKeeperJobType.Valid {
+		val := r.cfg.EvmGasLimitKeeperJobType.Int64
 		intVal := int32(val)
 
 		return &intVal
@@ -367,17 +438,6 @@ func (r *ChainConfigResolver) MinIncomingConfirmations() *int32 {
 	return nil
 }
 
-func (r *ChainConfigResolver) MinRequiredOutgoingConfirmations() *int32 {
-	if r.cfg.MinRequiredOutgoingConfirmations.Valid {
-		val := r.cfg.MinRequiredOutgoingConfirmations.Int64
-		intVal := int32(val)
-
-		return &intVal
-	}
-
-	return nil
-}
-
 func (r *ChainConfigResolver) MinimumContractPayment() *string {
 	if r.cfg.MinimumContractPayment != nil {
 		value := r.cfg.MinimumContractPayment.String()
@@ -438,7 +498,13 @@ type ChainConfigInput struct {
 	EvmGasBumpTxDepth                     *int32
 	EvmGasBumpWei                         *string
 	EvmGasLimitDefault                    *int32
+	EvmGasLimitMax                        *int32
 	EvmGasLimitMultiplier                 *float64
+	EvmGasLimitOCRJobType                 *int32
+	EvmGasLimitDRJobType                  *int32
+	EvmGasLimitVRFJobType                 *int32
+	EvmGasLimitFMJobType                  *int32
+	EvmGasLimitKeeperJobType              *int32
 	EvmGasPriceDefault                    *string
 	EvmGasTipCapDefault                   *string
 	EvmGasTipCapMinimum                   *string
@@ -453,7 +519,6 @@ type ChainConfigInput struct {
 	GasEstimatorMode                      *GasEstimatorMode
 	ChainType                             *ChainType
 	MinIncomingConfirmations              *int32
-	MinRequiredOutgoingConfirmations      *int32
 	MinimumContractPayment                *string
 	OCRObservationTimeout                 *string
 	LinkContractAddress                   *string
@@ -477,7 +542,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.EthTxReaperThreshold != nil {
-		d, err := models.MakeDurationFromString(*input.EthTxReaperThreshold)
+		d, err := models.ParseDuration(*input.EthTxReaperThreshold)
 		if err != nil {
 			inputErrs["EthTxReaperThreshold"] = "invalid value"
 		} else {
@@ -486,7 +551,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.EthTxResendAfterThreshold != nil {
-		d, err := models.MakeDurationFromString(*input.EthTxResendAfterThreshold)
+		d, err := models.ParseDuration(*input.EthTxResendAfterThreshold)
 		if err != nil {
 			inputErrs["EthTxResendAfterThreshold"] = "invalid value"
 		} else {
@@ -523,8 +588,32 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		cfg.EvmGasLimitDefault = null.IntFrom(int64(*input.EvmGasLimitDefault))
 	}
 
+	if input.EvmGasLimitMax != nil {
+		cfg.EvmGasLimitMax = null.IntFrom(int64(*input.EvmGasLimitMax))
+	}
+
 	if input.EvmGasLimitMultiplier != nil {
 		cfg.EvmGasLimitMultiplier = null.FloatFrom(*input.EvmGasLimitMultiplier)
+	}
+
+	if input.EvmGasLimitOCRJobType != nil {
+		cfg.EvmGasLimitOCRJobType = null.IntFrom(int64(*input.EvmGasLimitOCRJobType))
+	}
+
+	if input.EvmGasLimitDRJobType != nil {
+		cfg.EvmGasLimitDRJobType = null.IntFrom(int64(*input.EvmGasLimitDRJobType))
+	}
+
+	if input.EvmGasLimitVRFJobType != nil {
+		cfg.EvmGasLimitVRFJobType = null.IntFrom(int64(*input.EvmGasLimitVRFJobType))
+	}
+
+	if input.EvmGasLimitFMJobType != nil {
+		cfg.EvmGasLimitFMJobType = null.IntFrom(int64(*input.EvmGasLimitFMJobType))
+	}
+
+	if input.EvmGasLimitKeeperJobType != nil {
+		cfg.EvmGasLimitKeeperJobType = null.IntFrom(int64(*input.EvmGasLimitKeeperJobType))
 	}
 
 	if input.EvmGasPriceDefault != nil {
@@ -563,7 +652,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.EvmHeadTrackerSamplingInterval != nil {
-		d, err := models.MakeDurationFromString(*input.EvmHeadTrackerSamplingInterval)
+		d, err := models.ParseDuration(*input.EvmHeadTrackerSamplingInterval)
 		if err != nil {
 			inputErrs["EvmHeadTrackerSamplingInterval"] = "invalid value"
 		} else {
@@ -608,10 +697,6 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		cfg.MinIncomingConfirmations = null.IntFrom(int64(*input.MinIncomingConfirmations))
 	}
 
-	if input.MinRequiredOutgoingConfirmations != nil {
-		cfg.MinRequiredOutgoingConfirmations = null.IntFrom(int64(*input.MinRequiredOutgoingConfirmations))
-	}
-
 	if input.MinimumContractPayment != nil {
 		val, err := stringutils.ToInt64(*input.MinimumContractPayment)
 		if err != nil {
@@ -622,7 +707,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.OCRObservationTimeout != nil {
-		d, err := models.MakeDurationFromString(*input.OCRObservationTimeout)
+		d, err := models.ParseDuration(*input.OCRObservationTimeout)
 		if err != nil {
 			inputErrs["MinimumContractPayment"] = "invalid value"
 		} else {

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -19,7 +20,6 @@ import (
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -111,10 +111,13 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configPoller := NewConfigPoller(lggr,
+	configPoller, err := NewConfigPoller(lggr,
 		chain.LogPoller(),
 		contractAddress,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         chain.Config().ChainID().Uint64(),
@@ -129,25 +132,33 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	}, nil
 }
 
-func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
-	if err != nil {
-		return nil, err
-	}
-	transmitterAddress := common.HexToAddress(pargs.TransmitterID)
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
+	transmitterAddress := common.HexToAddress(transmitterID)
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
-	contractTransmitter, err := NewOCRContractTransmitter(
+	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
+	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
+		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	}
+	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, configWatcher.chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
+		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, rargs.ForwardingAllowed, strategy, txm.TransmitCheckerSpec{}),
 		configWatcher.chain.LogPoller(),
-		r.lggr,
+		lggr,
 	)
+}
+
+func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	if err != nil {
+		return nil, err
+	}
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
 	if err != nil {
 		return nil, err
 	}
@@ -186,4 +197,8 @@ func (p *medianProvider) ReportCodec() median.ReportCodec {
 
 func (p *medianProvider) MedianContract() median.MedianContract {
 	return p.medianContract
+}
+
+func (p *medianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
+	return median.StandardOnchainConfigCodec{}
 }

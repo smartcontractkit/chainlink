@@ -37,6 +37,10 @@ func (p *PeerID) UnmarshalString(s string) error {
 	return p.UnmarshalText([]byte(s))
 }
 
+func (p *PeerID) MarshalText() ([]byte, error) {
+	return []byte(p.Raw()), nil
+}
+
 func (p *PeerID) UnmarshalText(bs []byte) error {
 	input := string(bs)
 	if strings.HasPrefix(input, peerIDPrefix) {

@@ -39,7 +39,6 @@ type EthResender struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	chStop chan struct{}
 	chDone chan struct{}
 }
 
@@ -59,7 +58,6 @@ func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client,
 		ctx,
 		cancel,
 		make(chan struct{}),
-		make(chan struct{}),
 	}
 }
 
@@ -72,7 +70,6 @@ func (er *EthResender) Start() {
 // Stop is a comment which satisfies the linter
 func (er *EthResender) Stop() {
 	er.cancel()
-	close(er.chStop)
 	<-er.chDone
 }
 
@@ -87,7 +84,7 @@ func (er *EthResender) runLoop() {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-er.chStop:
+		case <-er.ctx.Done():
 			return
 		case <-ticker.C:
 			if err := er.resendUnconfirmed(); err != nil {
@@ -114,7 +111,9 @@ func (er *EthResender) resendUnconfirmed() error {
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(attempts))
 
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
-	reqs, err := batchSendTransactions(er.ctx, er.db, attempts, batchSize, er.logger, er.ethClient)
+	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
+	defer cancel()
+	reqs, err := batchSendTransactions(ctx, er.db, attempts, batchSize, er.logger, er.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}

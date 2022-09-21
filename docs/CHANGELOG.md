@@ -5,7 +5,115 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
+
+### Added
+
+- Added `length` and `lessthan` tasks (pipeline).
+- Added `gasUnlimited` parameter to `ethcall` task. 
+- `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
+This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well 
+as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).  
+- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+- `/keys` page in Operator UI now exposes several admin commands, namely:
+  - "abandon" to abandon all current txes
+  - enable/disable a key for a given chain
+  - manually set the nonce for a key
+  See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
+
+## 1.8.0 - 2022-09-01
+
+### Added
+
+- Added `hexencode` and `base64encode` tasks (pipeline).
+- `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
+- Keypath now supports paths with any depth, instead of limiting it to 2
+- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+- Updated `Arbitrum Rinkeby & Mainnet & Mainnet` configurationss for Nitro
+- Add `Arbitrum Goerli` configuration
+- It is now possible to use the same key across multiple chains.
+- `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
+  - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
+  - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
+  For chains having `NODE_NO_NEW_HEADS_THRESHOLD=0` (such as Arbitrum, Optimism), the implementation will fall back to `RoundRobin` mode.
+- New `keys eth chain` command
+  - This can also be accessed at `/v2/keys/evm/chain`.
+  - Usage examples:
+    - Manually (re)set a nonce:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+    - Enable a key for a particular chain:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --enable`
+    - Disable a key for a particular chain:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --disable`
+    - Abandon all currently pending transactions (use with caution!):
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --abandon`
+  - Commands can be combined e.g.
+    - Reset nonce and abandon all currently pending transaction:
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42 --abandon`
+
+### Changed
+
+- The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
+- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
+
+## 1.7.1 - 2022-08-22
+
+### Added
+
+- `Arbitrum Nitro` client error support
+
+## 1.7.0 - 2022-08-08
+
+### Added
+
+- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
+- Added official support for Sepolia chain
+- Added `hexdecode` and `base64decode` tasks (pipeline).
+- Added support for Besu execution client (note that while Chainlink supports Besu, Besu itself [has](https://github.com/hyperledger/besu/issues/4212) [multiple](https://github.com/hyperledger/besu/issues/4192) [bugs](https://github.com/hyperledger/besu/issues/4114) that make it unreliable).
+- Added the functionality to allow the root admin CLI user (and any additional admin users created) to create and assign tiers of role based access to new users. These new API users will be able to log in to the Operator UI independently, and can each have specific roles tied to their account. There are four roles: `admin`, `edit`, `run`, and `view`.
+  - User management can be configured through the use of the new admin CLI command `chainlink admin users`. Be sure to run `chainlink adamin login`. For example, a readonly user can be created with: `chainlink admin users create --email=operator-ui-read-only@test.com --role=view`.
+  - Updated documentation repo with a break down of actions to required role level
+- Added per job spec and per job type gas limit control. The following rule of precedence is applied:
+
+1. task-specific parameter `gasLimit` overrides anything else when specified (e.g. `ethtx` task has such a parameter).
+2. job-spec attribute `gasLimit` has the scope of the current job spec only.
+3. job-type limits `ETH_GAS_LIMIT_*_JOB_TYPE` affect any jobs of the corresponding type:
+
+```
+ETH_GAS_LIMIT_OCR_JOB_TYPE    # EVM.GasEstimator.LimitOCRJobType
+ETH_GAS_LIMIT_DR_JOB_TYPE     # EVM.GasEstimator.LimitDRJobType
+ETH_GAS_LIMIT_VRF_JOB_TYPE    # EVM.GasEstimator.LimitVRFJobType
+ETH_GAS_LIMIT_FM_JOB_TYPE     # EVM.GasEstimator.LimitFMJobType
+ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
+```
+
+4. global `ETH_GAS_LIMIT_DEFAULT` (`EVM.GasEstimator.LimitDefault`) value is the last resort.
+
+### Fixed
+
+- Addressed a very rare bug where using multiple nodes with differently configured RPC tx fee caps could cause missed transaction. Reminder to everyone to ensure that your RPC nodes have no caps (for more information see the [performance and tuning guide](https://docs.chain.link/docs/evm-performance-configuration/)).
+- Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
+
+## [1.6.0] - 2022-07-20
+
+### Changed
+
+- After feedback from users, password complexity requirements have been simplified. These are the new, simplified requirements for any kind of password used with Chainlink:
+1. Must be 16 characters or more
+2. Must not contain leading or trailing whitespace
+3. User passwords must not contain the user's API email
+
+- Simplified the Keepers job spec by removing the observation source from the required parameters.
+
+## [1.5.1] - 2022-06-27
+
+### Fixed
+
+- Fix rare out-of-sync to invalid-chain-id transaction
+- Fix key-specific max gas limits for gas estimator and ensure we do not bump gas beyond key-specific limits
+- Fix EVM_FINALITY_DEPTH => ETH_FINALITY_DEPTH
+
+## [1.5.0] - 2022-06-21
 
 ### Changed
 
@@ -18,17 +126,48 @@ Must comprise at least 3 of:
 	numbers
 	symbols
 Must not comprise:
-	A user's API email
 	More than three identical consecutive characters
+	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 ```
-This will prevent application boot in a future version of Chainlink.
-- The following ENV variables have been removed: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
+For backward compatibility all insecure passwords will continue to work, however in a future version of Chainlink insecure passwords will prevent application boot. To bypass this check at your own risk, you may set `SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true`.
+
+- `MIN_OUTGOING_CONFIRMATIONS` has been removed and no longer has any effect. `ETH_FINALITY_DEPTH` is now used as the default for `ethtx` confirmations instead. You may override this on a per-task basis by setting `minConfirmations` in the task definition e.g. `foo [type=ethtx minConfirmations=42 ...]`. NOTE: This may have a minor impact on performance on very high throughput chains. If you don't care about reporting task status in the UI, it is recommended to set `minConfirmations=0` in your job specs. For more details, see the [relevant section of the performance tuning guide](https://www.notion.so/chainlink/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c#e9998c2f722540b597301a640f53cfd4).
+
+- The following ENV variables have been deprecated, and will be removed in a future release: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
+
+- The `Optimism2` `GAS_ESTIMATOR_MODE` has been renamed to `L2Suggested`. The old name is still supported for now.
+
+- The `p2pBootstrapPeers` property on OCR2 job specs has been renamed to `p2pv2Bootstrappers`.
 
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+- In job pipeline (direct request) the three new block variables are exposed:
+  - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
+  - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
+  - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
+- `ethtx` tasks can now be configured to error if the transaction reverts on-chain. You must set `failOnRevert=true` on the task to enable this behavior, like so:
+
+`foo [type=ethtx failOnRevert=true ...]`
+
+So the `ethtx` task now works as follows:
+
+If minConfirmations == 0, task always succeeds and nil is passed as output
+If minConfirmations > 0, the receipt is passed through as output
+If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on revert
+
+If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
+
+- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
+
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
+- Correctly handle the case where bumped gas would exceed the RPC node's configured maximum on Fantom (note that node operators should check their Fantom RPC node configuration and remove the fee cap if there is one)
+- Fixed handling of Metis internal fee change
+
+### Removed
+
+- The `Optimism` OVM 1.0 `GAS_ESTIMATOR_MODE` has been removed.
 
 ## [1.4.1] - 2022-05-11
 
@@ -1466,10 +1605,12 @@ for OCR jobs.
 
 - Brings `/runs` tab back to the operator UI.
 - Signs out a user from operator UI on authentication error.
+- OCR jobs no longer require defining v1 bootstrap peers unless `P2P_NETWORKING_STACK=V1`
 
 #### BREAKING CHANGES
 
 - Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accommodate additional types of jobs using the new pipeline.
+- If `P2P_NETWORKING_STACK=V1V2`, then `P2PV2_BOOTSTRAPPERS` must also be set
 
 #### V1 jobs
 

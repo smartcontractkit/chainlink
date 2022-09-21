@@ -20,16 +20,16 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -46,7 +46,7 @@ var (
 )
 
 const (
-	// Gas used after computing the payment
+	// GasAfterPaymentCalculation is the gas used after computing the payment
 	GasAfterPaymentCalculation = 21000 + // base cost of the transaction
 		100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
 		2*2100 + 20000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
@@ -73,11 +73,17 @@ func (errBlockhashNotInStore) Error() string {
 	return "Blockhash not in store"
 }
 
+// keyConfigUpdater can update key-specific max gas prices for a given chain.
+type keyConfigUpdater interface {
+	UpdateConfig(id *big.Int, updaters ...evm.ChainConfigUpdater) error
+}
+
 func newListenerV2(
 	cfg Config,
 	l logger.Logger,
 	ethClient evmclient.Client,
 	chainID *big.Int,
+	keyUpdater keyConfigUpdater,
 	logBroadcaster log.Broadcaster,
 	q pg.Q,
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
@@ -116,6 +122,7 @@ func newListenerV2(
 		wg:                 &sync.WaitGroup{},
 		aggregator:         aggregator,
 		deduper:            deduper,
+		keyUpdater:         keyUpdater,
 	}
 }
 
@@ -136,7 +143,7 @@ type vrfPipelineResult struct {
 	juelsNeeded   *big.Int
 	run           pipeline.Run
 	payload       string
-	gasLimit      uint64
+	gasLimit      uint32
 	req           pendingRequest
 	proof         vrf_coordinator_v2.VRFProof
 	reqCommitment vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
@@ -150,6 +157,9 @@ type listenerV2 struct {
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
 	txm            txmgr.TxManager
+
+	// to update key-specific max gas prices if job spec field is set.
+	keyUpdater keyConfigUpdater
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
@@ -198,11 +208,15 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		confCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
+		gasLimit := lsn.cfg.EvmGasLimitDefault()
+		if lsn.cfg.EvmGasLimitVRFJobType() != nil {
+			gasLimit = *lsn.cfg.EvmGasLimitVRFJobType()
+		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
-		} else if conf.MaxGasLimit+(GasProofVerification*2) > uint32(lsn.cfg.EvmGasLimitDefault()) {
+		} else if conf.MaxGasLimit+(GasProofVerification*2) > uint32(gasLimit) {
 			lsn.l.Criticalw("Node gas limit setting may not be high enough to fulfill all requests; it should be increased. Starting anyway.",
-				"currentGasLimit", lsn.cfg.EvmGasLimitDefault(),
+				"currentGasLimit", gasLimit,
 				"neededGasLimit", conf.MaxGasLimit+(GasProofVerification*2),
 				"callbackGasLimit", conf.MaxGasLimit,
 				"proofVerificationGas", GasProofVerification)
@@ -416,15 +430,14 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			continue
 		}
 
-		// Sort requests in ascending order by CallbackGasLimit.
+		// Sort requests in ascending order by CallbackGasLimit
+		// so that we process the "cheapest" requests for each subscription
+		// first. This allows us to break out of the processing loop as early as possible
+		// in the event that a subscription is too underfunded to have it's
+		// requests processed.
 		slices.SortFunc(reqs, func(a, b pendingRequest) bool {
 			return a.req.CallbackGasLimit < b.req.CallbackGasLimit
 		})
-
-		if !lsn.shouldProcessSub(subID, sub, reqs) {
-			lsn.l.Infow("Not processing sub", "subID", subID, "balance", sub.Balance)
-			continue
-		}
 
 		startBalance := sub.Balance
 		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
@@ -433,49 +446,6 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		}
 	}
 	lsn.pruneConfirmedRequestCounts()
-}
-
-func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
-	// This really shouldn't happen, but sanity check.
-	// No point in processing a sub if there are no requests to service.
-	if len(reqs) == 0 {
-		return false
-	}
-
-	vrfRequest := reqs[0].req
-	l := lsn.l.With(
-		"subID", subID,
-		"balance", sub.Balance,
-		"requestID", vrfRequest.RequestId.String(),
-	)
-
-	fromAddresses := lsn.fromAddresses()
-	if len(fromAddresses) == 0 {
-		l.Warn("Couldn't get next from address, processing sub anyway")
-		return true
-	}
-
-	// NOTE: we are assuming that all keys have an identical max gas price.
-	// Otherwise, this is a misconfiguration of the node and/or job.
-	fromAddress := fromAddresses[0]
-
-	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
-
-	estimatedFee, err := lsn.estimateFeeJuels(vrfRequest, gasPriceWei)
-	if err != nil {
-		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
-		return true
-	}
-
-	if sub.Balance.Cmp(estimatedFee) < 0 {
-		l.Infow("Subscription is underfunded, not processing it's requests",
-			"estimatedFeeJuels", estimatedFee,
-		)
-		return false
-	}
-
-	// balance is sufficient for at least one request, good to process
-	return true
 }
 
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
@@ -553,7 +523,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	}
 
 	// Add very conservative upper bound estimate on verification costs.
-	batchMaxGas := uint64(config.MaxGasLimit + 400_000)
+	batchMaxGas := uint32(config.MaxGasLimit + 400_000)
 
 	l := lsn.l.With(
 		"subID", reqs[0].req.SubId,
@@ -605,15 +575,31 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			}
 		}
 
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
+		fromAddresses := lsn.fromAddresses()
+		err = setMaxGasPriceGWei(fromAddresses, lsn.job.VRFSpec.MaxGasPriceGWei, lsn.keyUpdater, lsn.chainID)
+		if err != nil {
+			l.Warnw("Couldn't set max gas price gwei on configured from addresses, processing anyway",
+				"err", err, "fromAddresses", fromAddresses)
+		}
+
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
 		if err != nil {
 			l.Errorw("Couldn't get next from address", "err", err)
 			continue
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
+		// Cases:
+		// 1. Never simulated: in this case, we want to observe the time until simulated
+		// on the utcTimestamp field of the pending request.
+		// 2. Simulated before: in this case, lastTry will be set to a non-zero time value,
+		// in which case we'd want to use that as a relative point from when we last tried
+		// the request.
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
+
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas)
+		outOfBalance := false
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
@@ -622,12 +608,17 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
-				"attempts", p.req.attempts)
+				"attempts", p.req.attempts,
+				"remainingBalance", startBalanceNoReserveLink.String(),
+			)
 
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
-					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
-					return processed
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
+					outOfBalance = true
+
+					// break out of this inner loop to process the currently constructed batch
+					break
 				}
 
 				if errors.Is(p.err, errBlockhashNotInStore{}) {
@@ -662,6 +653,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 		for _, reqID := range processedRequestIDs {
 			processed[reqID] = struct{}{}
+		}
+
+		// outOfBalance is set to true if the current sub we are processing
+		// has ran out of funds to process any remaining requests. After enqueueing
+		// this constructed batch, we break out of this outer loop in order to
+		// avoid unnecessarily processing the remaining requests.
+		if outOfBalance {
+			break
 		}
 	}
 
@@ -734,12 +733,21 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 		}
 
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
+		fromAddresses := lsn.fromAddresses()
+		err = setMaxGasPriceGWei(fromAddresses, lsn.job.VRFSpec.MaxGasPriceGWei, lsn.keyUpdater, lsn.chainID)
+		if err != nil {
+			l.Warnw("Couldn't set max gas price gwei on configured from addresses, processing anyway",
+				"err", err, "fromAddresses", fromAddresses)
+		}
+
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
 		if err != nil {
 			l.Errorw("Couldn't get next from address", "err", err)
 			continue
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
@@ -750,7 +758,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
-				"attempts", p.req.attempts)
+				"attempts", p.req.attempts,
+				"remainingBalance", startBalanceNoReserveLink.String(),
+			)
 
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
@@ -785,21 +795,23 @@ func (lsn *listenerV2) processRequestsPerSub(
 				}
 
 				maxLinkString := p.maxLink.String()
+				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
+				coordinatorAddress := lsn.coordinator.Address()
 				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
-						RequestID: common.BytesToHash(p.req.req.RequestId.Bytes()),
-						MaxLink:   &maxLinkString,
-						SubID:     &p.req.req.SubId,
+						RequestID:     &requestID,
+						MaxLink:       &maxLinkString,
+						SubID:         &p.req.req.SubId,
+						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
-					MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-					Strategy:         txmgr.NewSendEveryStrategy(),
+					Strategy: txmgr.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-						VRFCoordinatorAddress: lsn.coordinator.Address(),
+						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
 					},
 				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
@@ -930,11 +942,12 @@ func (lsn *listenerV2) runPipelines(
 }
 
 func (lsn *listenerV2) estimateFeeJuels(
+	ctx context.Context,
 	req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested,
 	maxGasPriceWei *big.Int,
 ) (*big.Int, error) {
 	// Don't use up too much time to get this info, it's not critical for operating vrf.
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -965,7 +978,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		err error
 	)
 	// estimate how much juels are needed so that we can log it if the simulation fails.
-	res.juelsNeeded, err = lsn.estimateFeeJuels(req.req, maxGasPriceWei)
+	res.juelsNeeded, err = lsn.estimateFeeJuels(ctx, req.req, maxGasPriceWei)
 	if err != nil {
 		// not critical, just log and continue
 		lg.Warnw("unable to estimate juels needed for request, continuing anyway",
@@ -1029,7 +1042,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		}
 
 		if trr.Task.Type() == pipeline.TaskTypeEstimateGasLimit {
-			res.gasLimit = trr.Result.Value.(uint64)
+			res.gasLimit = trr.Result.Value.(uint32)
 		}
 	}
 	return res

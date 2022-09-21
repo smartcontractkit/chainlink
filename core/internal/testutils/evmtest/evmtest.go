@@ -99,7 +99,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}},
 	}
 
-	cc, err := evm.NewChainSet(opts, chains, nodes)
+	cc, err := evm.NewChainSet(testutils.Context(t), opts, chains, nodes)
 	require.NoError(t, err)
 	return cc
 }
@@ -278,13 +278,11 @@ func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
 		logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 }
 
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
-	mockEth := new(evmMocks.Client)
-	mockEth.Test(t)
-	return mockEth
+func NewEthClientMock(t *testing.T) *evmMocks.Client {
+	return evmMocks.NewClient(t)
 }
 
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
+func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ChainID").Return(testutils.FixtureChainID).Maybe()
 	return c
@@ -294,17 +292,11 @@ type MockEth struct {
 	EthClient       *evmMocks.Client
 	CheckFilterLogs func(int64, int64)
 
+	subsMu           sync.RWMutex
 	subs             []*evmMocks.Subscription
 	errChs           []chan error
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
-}
-
-func (m *MockEth) AssertExpectations(t *testing.T) {
-	m.EthClient.AssertExpectations(t)
-	for _, sub := range m.subs {
-		sub.AssertExpectations(t)
-	}
 }
 
 func (m *MockEth) SubscribeCallCount() int32 {
@@ -317,22 +309,25 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	m.subscribeCalls.Inc()
-	sub := new(evmMocks.Subscription)
-	sub.Test(t)
+	sub := evmMocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
-		Return(func() <-chan error { return errCh })
+		Return(func() <-chan error { return errCh }).Maybe()
 	sub.On("Unsubscribe").
 		Run(func(mock.Arguments) {
 			m.unsubscribeCalls.Inc()
 			close(errCh)
 		}).Return().Maybe()
+	m.subsMu.Lock()
 	m.subs = append(m.subs, sub)
 	m.errChs = append(m.errChs, errCh)
+	m.subsMu.Unlock()
 	return sub
 }
 
 func (m *MockEth) SubsErr(err error) {
+	m.subsMu.Lock()
+	defer m.subsMu.Unlock()
 	for _, errCh := range m.errChs {
 		errCh <- err
 	}
