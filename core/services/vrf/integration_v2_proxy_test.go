@@ -57,7 +57,7 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	// Make the first randomness request.
 	numWords := uint32(20)
 	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(
-		t, consumerContract, consumerOwner, keyHash, subID, numWords, 500_000, uni)
+		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -72,7 +72,7 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	mine(t, requestID1, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID1, false, uni) // TODO: figure out why success is false
+	assertRandomWordsFulfilled(t, requestID1, true, uni)
 
 	// Make the second randomness request and assert fulfillment is successful
 	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumerOwner, keyHash, subID, numWords, 500_000, uni)
@@ -84,11 +84,10 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 	mine(t, requestID2, subID, uni, db)
-	assertRandomWordsFulfilled(t, requestID2, false, uni) // TODO: figure out why success is false
+	assertRandomWordsFulfilled(t, requestID2, true, uni)
 
 	// Assert correct number of random words sent by coordinator.
-	// TODO: figure out why success is false
-	//assertNumRandomWords(t, consumerContract, numWords)
+	assertNumRandomWords(t, consumerContract, numWords)
 
 	// Assert that both send addresses were used to fulfill the requests
 	n, err := uni.backend.PendingNonceAt(testutils.Context(t), key1.Address)
