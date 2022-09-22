@@ -412,10 +412,10 @@ func requestRandomnessForWrapper(
 	}
 
 	event := events[len(events)-1]
-	wrapperConsumerEvent := events[len(events)-1]
+	wrapperConsumerEvent := wrapperConsumerEvents[len(wrapperConsumerEvents)-1]
 	require.Equal(t, event.RequestId, wrapperConsumerEvent.RequestId, "request ID in consumer log does not match request ID in coordinator log")
 	require.Equal(t, keyHash.Bytes(), event.KeyHash[:], "key hash of event (%s) and of request not equal (%s)", hex.EncodeToString(event.KeyHash[:]), keyHash.String())
-	require.Equal(t, cbGasLimit+wrapperOverhead, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
+	require.Equal(t, cbGasLimit+(cbGasLimit/63+1)+wrapperOverhead, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
 	require.Equal(t, minRequestConfirmations, event.MinimumRequestConfirmations, "min request confirmations of event and of request not equal")
 	require.Equal(t, numWords, event.NumWords, "num words of event and of request not equal")
 
@@ -997,7 +997,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_Wrapper_High_Gas_Revert(t *testing.T) {
+func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 
 	wrapperOverhead := uint32(30_000)
 	coordinatorOverhead := uint32(90_000)
@@ -1061,7 +1061,7 @@ func TestVRFV2Integration_Wrapper_High_Gas_Revert(t *testing.T) {
 	mine(t, requestID, wrapperSubID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, false, uni)
+	assertRandomWordsFulfilled(t, requestID, true, uni)
 
 	t.Log("Done!")
 }
@@ -1270,6 +1270,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 
 	// Assert that we've completed 0 runs before adding 3 new requests.
 	runs, err := app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
 	assert.Equal(t, 0, len(runs))
 	assert.Equal(t, 3, len(reqIDs))
 
@@ -1299,14 +1300,13 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 
 	// Assert that we've still only completed 1 run before adding new requests.
 	runs, err = app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
 	assert.Equal(t, 1, len(runs))
 
 	// Make some randomness requests, each one block apart, this time without a low-gas request present in the callbackGasLimit slice.
-	reqIDs = []*big.Int{}
 	callbackGasLimits = []uint32{2_500_000, 2_500_000, 2_500_000}
 	for _, limit := range callbackGasLimits {
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
-		reqIDs = append(reqIDs, requestID)
+		_, _ = requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
 		uni.backend.Commit()
 	}
 

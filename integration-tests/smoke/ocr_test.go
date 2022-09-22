@@ -30,94 +30,32 @@ var _ = Describe("OCR Feed @ocr", func() {
 			Entry("OCR suite on Simulated Network @simulated",
 				networks.SimulatedEVM,
 				big.NewFloat(50),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(nil)).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env":      networks.SimulatedEVM.ChainlinkValuesMap(),
-						"replicas": 6,
-					})),
+				defaultOCREnv(networks.SimulatedEVM),
 			),
 			Entry("OCR suite on General EVM @general",
 				networks.GeneralEVM(),
 				big.NewFloat(1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.GeneralEVM().Name,
-						Simulated:   networks.GeneralEVM().Simulated,
-						WsURLs:      networks.GeneralEVM().URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env":      networks.GeneralEVM().ChainlinkValuesMap(),
-						"replicas": 6,
-					})),
+				defaultOCREnv(networks.GeneralEVM()),
 			),
 			Entry("OCR suite on Metis Stardust @metis",
 				networks.MetisStardust,
 				big.NewFloat(.01),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.MetisStardust.Name,
-						Simulated:   networks.MetisStardust.Simulated,
-						WsURLs:      networks.MetisStardust.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env":      networks.MetisStardust.ChainlinkValuesMap(),
-						"replicas": 6,
-					})),
+				defaultOCREnv(networks.MetisStardust),
 			),
 			Entry("OCR suite on Sepolia Testnet @sepolia",
 				networks.SepoliaTestnet,
 				big.NewFloat(.1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.SepoliaTestnet.Name,
-						Simulated:   networks.SepoliaTestnet.Simulated,
-						WsURLs:      networks.SepoliaTestnet.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env":      networks.SepoliaTestnet.ChainlinkValuesMap(),
-						"replicas": 6,
-					})),
+				defaultOCREnv(networks.SepoliaTestnet),
 			),
 			Entry("OCR suite on Görli Testnet @goerli",
 				networks.GoerliTestnet,
 				big.NewFloat(.1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.GoerliTestnet.Name,
-						Simulated:   networks.GoerliTestnet.Simulated,
-						WsURLs:      networks.GoerliTestnet.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env":      networks.GoerliTestnet.ChainlinkValuesMap(),
-						"replicas": 6,
-					})),
+				defaultOCREnv(networks.GoerliTestnet),
 			),
 			Entry("OCR suite on Klaytn Baobab @klaytn",
 				networks.KlaytnBaobab,
 				big.NewFloat(1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.KlaytnBaobab.Name,
-						Simulated:   networks.KlaytnBaobab.Simulated,
-						WsURLs:      networks.KlaytnBaobab.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env":      networks.KlaytnBaobab.ChainlinkValuesMap(),
-						"replicas": 6,
-					})),
+				defaultOCREnv(networks.KlaytnBaobab),
 			),
 		}
 
@@ -195,3 +133,22 @@ var _ = Describe("OCR Feed @ocr", func() {
 		testScenarios,
 	)
 })
+
+func defaultOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
+	evmConfig := ethereum.New(nil)
+	if !network.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	return environment.New(&environment.Config{}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"env":      network.ChainlinkValuesMap(),
+			"replicas": 6,
+		}))
+}

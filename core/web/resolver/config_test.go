@@ -57,6 +57,7 @@ func TestResolver_Config(t *testing.T) {
 					GlobalEvmGasBumpTxDepth:              null.IntFrom(1),
 					GlobalEvmGasBumpWei:                  nil,
 					GlobalEvmGasLimitDefault:             null.IntFrom(1),
+					GlobalEvmGasLimitMax:                 null.IntFrom(10),
 					GlobalEvmGasLimitMultiplier:          null.FloatFrom(1),
 					GlobalEvmGasPriceDefault:             nil,
 					GlobalEvmGasTipCapDefault:            nil,
@@ -258,7 +259,11 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
-        "value": "150000"
+        "value": "300000"
+      },
+      {
+        "key": "KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE",
+        "value": "5000"
       },
 	  {
 		"key":"KEEPER_REGISTRY_SYNC_INTERVAL",

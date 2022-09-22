@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 )
 
 type EVMForwarderPresenter struct {
@@ -123,7 +124,7 @@ func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode >= 400 {
-		body, rerr := ioutil.ReadAll(resp.Body)
+		body, rerr := io.ReadAll(resp.Body)
 		if err != nil {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)

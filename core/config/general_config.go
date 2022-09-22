@@ -131,6 +131,7 @@ type GeneralOnlyConfig interface {
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint32
 	KeeperRegistryPerformGasOverhead() uint32
+	KeeperRegistryMaxPerformDataSize() uint32
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
@@ -207,6 +208,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpWei() (*big.Int, bool)
 	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint32, bool)
+	GlobalEvmGasLimitMax() (uint32, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint32, bool)
 	GlobalEvmGasLimitOCRJobType() (uint32, bool)
@@ -423,7 +425,7 @@ EVM_ENABLED=false
 			}
 		}
 		if !(c.Dev() || skipDatabasePasswordComplexityCheck) {
-			if err := validateDBURL(c.DatabaseURL()); err != nil {
+			if err := ValidateDBURL(c.DatabaseURL()); err != nil {
 				// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
 				c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s.\nDatabase should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink. To bypass this check at your own risk, you may set SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true\n\n", err, utils.PasswordComplexityRequirements)
 			}
@@ -437,7 +439,7 @@ EVM_ENABLED=false
 	return nil
 }
 
-func validateDBURL(dbURI url.URL) error {
+func ValidateDBURL(dbURI url.URL) error {
 	if strings.Contains(dbURI.Redacted(), "_test") {
 		return nil
 	}
@@ -846,6 +848,12 @@ func (c *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
 	return getEnvWithFallback(c, envvar.KeeperRegistryPerformGasOverhead)
 }
 
+// KeeperRegistryMaxPerformDataSize is the max perform data size we allow in our pipeline for an
+// upkeep to be performed with
+func (c *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
+	return getEnvWithFallback(c, envvar.KeeperRegistryMaxPerformDataSize)
+}
+
 // KeeperDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Keeper
 // Set to 0 to use SendEvery strategy instead
 func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
@@ -871,7 +879,8 @@ func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
-// sync of the keeper registry contract it is tracking
+// sync of the keeper registry contract it is tracking *after* the most recent update triggered
+// by an on-chain log.
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return getEnvWithFallback(c, envvar.KeeperRegistrySyncInterval)
 }
@@ -1278,6 +1287,9 @@ func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint32)
+}
+func (c *generalConfig) GlobalEvmGasLimitMax() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitMax"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitMultiplier"), parse.F32)

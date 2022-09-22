@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -31,8 +32,10 @@ type Chain struct {
 	MinIncomingConfirmations *uint32
 	MinimumContractPayment   *assets.Link
 	NonceAutoSync            *bool
+	NoNewHeadsThreshold      *models.Duration
 	OperatorFactoryAddress   *ethkey.EIP55Address
 	RPCDefaultBatchSize      *uint32
+	RPCBlockQueryDelay       *uint16
 	TxReaperInterval         *models.Duration
 	TxReaperThreshold        *models.Duration
 	TxResendAfterThreshold   *models.Duration
@@ -52,9 +55,15 @@ type Chain struct {
 	OCR *OCR
 }
 
+func (c Chain) ValidateConfig() (err error) {
+	if c.ChainType != nil && !config.ChainType(*c.ChainType).IsValid() {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType, Msg: config.ErrInvalidChainType.Error()})
+	}
+	return
+}
+
 type BalanceMonitor struct {
-	Enabled    *bool
-	BlockDelay *uint16
+	Enabled *bool
 }
 
 type GasEstimator struct {
@@ -65,6 +74,7 @@ type GasEstimator struct {
 	PriceMin     *utils.Wei
 
 	LimitDefault    *uint32
+	LimitMax        *uint32
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
 
@@ -90,7 +100,6 @@ type GasEstimator struct {
 
 type BlockHistoryEstimator struct {
 	BatchSize                 *uint32
-	BlockDelay                *uint16
 	BlockHistorySize          *uint16
 	EIP1559FeeCapBufferBlocks *uint16
 	TransactionPercentile     *uint16
@@ -121,14 +130,12 @@ type KeySpecificGasEstimator struct {
 }
 
 type HeadTracker struct {
-	BlockEmissionIdleWarningThreshold *models.Duration
-	HistoryDepth                      *uint32
-	MaxBufferSize                     *uint32
-	SamplingInterval                  *models.Duration
+	HistoryDepth     *uint32
+	MaxBufferSize    *uint32
+	SamplingInterval *models.Duration
 }
 
 type NodePool struct {
-	NoNewHeadsThreshold  *models.Duration
 	PollFailureThreshold *uint32
 	PollInterval         *models.Duration
 	SelectionMode        *string
@@ -189,6 +196,10 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg.EvmRPCDefaultBatchSize.Valid {
 		v := uint32(cfg.EvmRPCDefaultBatchSize.Int64)
 		c.RPCDefaultBatchSize = &v
+	}
+	if cfg.BlockHistoryEstimatorBlockDelay.Valid {
+		v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
+		c.RPCBlockQueryDelay = &v
 	}
 	if cfg.FlagsContractAddress.Valid {
 		s := cfg.FlagsContractAddress.String
@@ -272,6 +283,13 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		v := uint32(cfg.EvmGasLimitDefault.Int64)
 		c.GasEstimator.LimitDefault = &v
 	}
+	if cfg.EvmGasLimitMax.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.EvmGasLimitMax.Int64)
+		c.GasEstimator.LimitMax = &v
+	}
 	if cfg.EvmGasLimitOCRJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
@@ -308,15 +326,11 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.GasEstimator.LimitKeeperJobType = &v
 	}
 
-	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
+	if cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
 		c.GasEstimator.BlockHistory = &BlockHistoryEstimator{}
-		if cfg.BlockHistoryEstimatorBlockDelay.Valid {
-			v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
-			c.GasEstimator.BlockHistory.BlockDelay = &v
-		}
 		if cfg.BlockHistoryEstimatorBlockHistorySize.Valid {
 			v := uint16(cfg.BlockHistoryEstimatorBlockHistorySize.Int64)
 			c.GasEstimator.BlockHistory.BlockHistorySize = &v
@@ -366,7 +380,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.OCR = &OCR{ObservationTimeout: cfg.OCRObservationTimeout}
 	}
 	if cfg.NodeNoNewHeadsThreshold != nil {
-		c.NodePool = &NodePool{NoNewHeadsThreshold: cfg.NodeNoNewHeadsThreshold}
+		c.NoNewHeadsThreshold = cfg.NodeNoNewHeadsThreshold
 	}
 	return nil
 }

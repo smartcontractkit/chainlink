@@ -23,7 +23,7 @@ import (
 
 // HINT: if you are coming here because of this error:
 // `web/middleware.go:28:12: pattern assets: no matching files found`
-// then you must first run `make operator-ui` in the root dir to compile the frontend
+// then you must first run `make operator-ui` in the root dir to fetch the frontend
 //nolint
 //go:embed "assets"
 var uiEmbedFs embed.FS

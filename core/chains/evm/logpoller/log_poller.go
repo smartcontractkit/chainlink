@@ -12,10 +12,12 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -29,7 +31,7 @@ type LogPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 	MergeFilter(eventSigs []common.Hash, addresses []common.Address) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
-	GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
+	GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
@@ -59,6 +61,7 @@ type logPoller struct {
 	pollPeriod        time.Duration // poll period set by block production rate
 	finalityDepth     int64         // finality depth is taken to mean that block (head - finality) is finalized
 	backfillBatchSize int64         // batch size to use when backfilling finalized logs
+	rpcBatchSize      int64         // batch size to use for fallback RPC calls made in GetBlocks
 
 	filterMu  sync.RWMutex
 	addresses map[common.Address]struct{}
@@ -84,7 +87,7 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize int64) *logPoller {
+func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize, rpcBatchSize int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -95,6 +98,7 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
+		rpcBatchSize:      rpcBatchSize,
 		addresses:         make(map[common.Address]struct{}),
 		eventSigs:         make(map[common.Hash]struct{}),
 	}
@@ -349,7 +353,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	// We will not have the previous currentBlock on initial poll.
 	havePreviousBlock := err1 == nil
 	if !havePreviousBlock {
-		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill")
+		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill", "currentBlockNumber", currentBlockNumber)
 		return currentBlock, nil
 	}
 	// Check for reorg.
@@ -588,6 +592,7 @@ func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return b.BlockNumber, nil
 }
 
@@ -612,12 +617,83 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 
 // GetBlocks tries to get the specified block numbers from the log pollers
 // blocks table. Returns the blocks it was able to find, empty slice if none.
-// It is not guaranteed to find the blocks specified, since
-// the log poller does not save blocks when backfilling.
-// It can be used as a cache of recent blocks (falling back to an RPC on cache miss),
-// to speed up querying and avoid loading an EVM node.
-func (lp *logPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
-	return lp.orm.GetBlocks(numbers, qopts...)
+// When the log poller does not have requested blocks, it falls back
+// to RPC to fetch the missing blocks.
+// response contains blocks in the same order as "numbers" in request parameters
+// the first context parameter takes precedence over contexts passed through qopts
+func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	blocksFound := make(map[uint64]LogPollerBlock)
+	qopts = append(qopts, pg.WithParentCtx(ctx))
+	lpBlocks, err := lp.orm.GetBlocks(numbers, qopts...)
+	if err != nil {
+		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
+	}
+	for _, b := range lpBlocks {
+		blocksFound[uint64(b.BlockNumber)] = b
+	}
+
+	// Fallback to RPC for blocks not found in log poller blocks table
+	var reqs []rpc.BatchElem
+	for _, num := range numbers {
+		if _, ok := blocksFound[num]; !ok {
+			req := rpc.BatchElem{
+				Method: "eth_getBlockByNumber",
+				Args:   []interface{}{hexutil.EncodeBig(big.NewInt(0).SetUint64(num)), false},
+				Result: &evmtypes.Head{},
+			}
+			reqs = append(reqs, req)
+		}
+	}
+
+	for i := 0; i < len(reqs); i += int(lp.rpcBatchSize) {
+		j := i + int(lp.rpcBatchSize)
+		if j > len(reqs) {
+			j = len(reqs)
+		}
+
+		err := lp.ec.BatchCallContext(ctx, reqs[i:j])
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, r := range reqs {
+		if r.Error != nil {
+			return nil, r.Error
+		}
+		block, is := r.Result.(*evmtypes.Head)
+
+		if !is {
+			return nil, errors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
+		}
+		if block == nil {
+			return nil, errors.New("invariant violation: got nil block")
+		}
+		if block.Hash == (common.Hash{}) {
+			return nil, errors.Errorf("missing block hash for block number: %d", block.Number)
+		}
+		if block.Number < 0 {
+			return nil, errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
+		}
+		blocksFound[uint64(block.Number)] = LogPollerBlock{
+			EvmChainId:  block.EVMChainID,
+			BlockHash:   block.Hash,
+			BlockNumber: block.Number,
+			CreatedAt:   block.Timestamp,
+		}
+	}
+
+	var blocks []LogPollerBlock
+	for _, num := range numbers {
+		b, ok := blocksFound[num]
+		if !ok {
+			return nil, errors.Errorf("block: %d was not found in db or RPC call", num)
+		}
+		blocks = append(blocks, b)
+	}
+
+	return blocks, nil
 }
 
 func EvmWord(i uint64) common.Hash {

@@ -473,6 +473,20 @@ func (c *Chainlink) PrimaryEthAddress() (string, error) {
 	return c.primaryEthAddress, nil
 }
 
+// PrimaryEthAddressForChain returns the primary ETH address for the Chainlink node for mentioned chain
+func (c *Chainlink) PrimaryEthAddressForChain(chainId string) (string, error) {
+	ethKeys, err := c.MustReadETHKeys()
+	if err != nil {
+		return "", err
+	}
+	for _, ethKey := range ethKeys.Data {
+		if ethKey.Attributes.ChainID == chainId {
+			return ethKey.Attributes.Address, nil
+		}
+	}
+	return "", nil
+}
+
 // CreateTxKey creates a tx key on the Chainlink node
 func (c *Chainlink) CreateTxKey(chain string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
@@ -900,32 +914,39 @@ func VerifyStatusCode(actStatusCd, expStatusCd int) error {
 	return nil
 }
 
-func (c *Chainlink) CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) ([]NodeKeysBundle, error) {
+func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) ([]NodeKeysBundle, []*CLNodesWithKeys, error) {
 	nkb := make([]NodeKeysBundle, 0)
+	var clNodes []*CLNodesWithKeys
 	for _, n := range nodes {
 		p2pkeys, err := n.MustReadP2PKeys()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		peerID := p2pkeys.Data[0].Attributes.PeerID
 		txKey, _, err := n.CreateTxKey(chainId)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		ocrKey, _, err := n.CreateOCR2Key(chainName)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		nkb = append(nkb, NodeKeysBundle{
-			PeerID:  peerID,
-			OCR2Key: *ocrKey,
-			TXKey:   *txKey,
-			P2PKeys: *p2pkeys,
-		})
-
+		ethAddress, err := n.PrimaryEthAddressForChain(chainId)
+		if err != nil {
+			return nil, nil, err
+		}
+		bundle := NodeKeysBundle{
+			PeerID:     peerID,
+			OCR2Key:    *ocrKey,
+			TXKey:      *txKey,
+			P2PKeys:    *p2pkeys,
+			EthAddress: ethAddress,
+		}
+		nkb = append(nkb, bundle)
+		clNodes = append(clNodes, &CLNodesWithKeys{Node: n, KeysBundle: bundle})
 	}
 
-	return nkb, nil
+	return nkb, clNodes, nil
 }

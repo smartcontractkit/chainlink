@@ -44,6 +44,19 @@ func (_m *registryGasCheckMock) KeeperRegistryPerformGasOverhead() uint32 {
 	return r0
 }
 
+func (_m *registryGasCheckMock) KeeperRegistryMaxPerformDataSize() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 func TestBuildJobSpec(t *testing.T) {
 	jb := job.Job{ID: 10}
 	from := ethkey.EIP55Address(testutils.NewAddress().Hex())
@@ -66,10 +79,10 @@ func TestBuildJobSpec(t *testing.T) {
 	m := &registryGasCheckMock{}
 	m.Mock.Test(t)
 
-	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(2)
-	m.On("KeeperRegistryCheckGasOverhead").Return(uint32(6)).Times(1)
+	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(1)
+	m.On("KeeperRegistryMaxPerformDataSize").Return(uint32(1000)).Times(1)
 
-	spec := buildJobSpec(jb, upkeep, m, m, gasPrice, gasTipCap, gasFeeCap, chainID)
+	spec := buildJobSpec(jb, upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -79,7 +92,7 @@ func TestBuildJobSpec(t *testing.T) {
 			"upkeepID":              "4",
 			"prettyID":              fmt.Sprintf("UPx%064d", 4),
 			"performUpkeepGasLimit": uint32(21),
-			"checkUpkeepGasLimit":   uint32(38),
+			"maxPerformDataSize":    uint32(1000),
 			"gasPrice":              gasPrice,
 			"gasTipCap":             gasTipCap,
 			"gasFeeCap":             gasFeeCap,

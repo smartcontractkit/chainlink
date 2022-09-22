@@ -140,6 +140,7 @@ BaseFeeBufferPercent = 7
 MaximumGracePeriod = 42
 RegistryCheckGasOverhead = 6
 RegistryPerformGasOverhead = 900
+RegistryMaxPerformDataSize = 5000
 RegistrySyncInterval = '1m0s'
 RegistrySyncUpkeepQueueSize = 99
 TurnLookBack = 67
@@ -186,8 +187,10 @@ MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
 MinimumContractPayment = '123456789'
 NonceAutoSync = true
+NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
+RPCBlockQueryDelay = 6
 TxReaperInterval = '10h0m0s'
 TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '5m0s'
@@ -200,7 +203,8 @@ Enabled = true
 Mode = 'FixedPrice'
 PriceDefault = '100.2 kwei'
 PriceMax = '9 mwei'
-LimitDefault = 1020304050
+LimitDefault = 102030405
+LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
 LimitOCRJobType = 9901
@@ -219,13 +223,11 @@ TipCapMinimum = '7 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
-BlockDelay = 6
 BlockHistorySize = 56
 EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 7
 MaxBufferSize = 50
 SamplingInterval = '5s'
@@ -237,7 +239,6 @@ Key = '0xae4E781a6218A8031764928E88d457937A954fC3'
 PriceMax = '42 wei'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
@@ -279,6 +280,19 @@ URL = 'http://foo.bar'
 [[Solana.Nodes]]
 Name = 'mainnet-2'
 URL = 'http://fake.url'
+
+[[Starknet]]
+ChainID = 'foobar'
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Columbus-5'

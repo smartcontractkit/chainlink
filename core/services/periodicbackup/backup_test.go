@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func mustNewDatabaseBackup(t *testing.T, config Config) *databaseBackup {
@@ -69,7 +70,7 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	periodicBackup := mustNewDatabaseBackup(t, backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
-	result, err := periodicBackup.runBackup("unset")
+	result, err := periodicBackup.runBackup(static.Unset)
 	require.NoError(t, err, "error not nil for backup")
 
 	defer os.Remove(result.path)
