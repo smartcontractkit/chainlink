@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"math/big"
+	"net"
 	"testing"
 	"time"
 
@@ -15,10 +15,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -27,6 +29,7 @@ import (
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
@@ -35,7 +38,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
@@ -61,6 +66,14 @@ type ocr2vrfUniverse struct {
 
 	feedAddress common.Address
 	feed        *mock_v3_aggregator_contract.MockV3AggregatorContract
+}
+
+type ocr2Node struct {
+	app         *cltest.TestApplication
+	peerID      string
+	transmitter common.Address
+	keybundle   ocr2key.KeyBundle
+	config      *configtest.TestGeneralConfig
 }
 
 func setupOCR2VRFContracts(
@@ -132,14 +145,82 @@ func setupOCR2VRFContracts(
 	}
 }
 
+func setupNodeOCR2(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	port uint16,
+	dbName string,
+	b *backends.SimulatedBackend,
+) *ocr2Node {
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
+	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
+	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
+	config.Overrides.FeatureLogPoller = null.BoolFrom(true)
+	poll := 500 * time.Millisecond
+	config.Overrides.GlobalEvmLogPollInterval = &poll
+	config.Overrides.P2PEnabled = null.BoolFrom(true)
+	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
+	config.Overrides.P2PListenPort = null.NewInt(0, true)
+	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
+	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
+	p2paddresses := []string{
+		fmt.Sprintf("127.0.0.1:%d", port),
+	}
+	config.Overrides.P2PV2ListenAddresses = p2paddresses
+	// Disables ocr spec validation so we can have fast polling for the test.
+	config.Overrides.Dev = null.BoolFrom(true)
+
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+	_, err := app.GetKeyStore().P2P().Create()
+	require.NoError(t, err)
+
+	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
+	require.NoError(t, err)
+	require.Len(t, p2pIDs, 1)
+	peerID := p2pIDs[0].PeerID()
+
+	config.Overrides.P2PPeerID = peerID
+
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	require.NoError(t, err)
+	require.Len(t, sendingKeys, 1)
+	transmitter := sendingKeys[0].Address
+
+	// Fund the transmitter address with some ETH
+	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
+	require.NoError(t, err)
+
+	tx := types.NewTransaction(
+		n, transmitter,
+		assets.Ether(1),
+		21000,
+		assets.GWei(1),
+		nil)
+	signedTx, err := owner.Signer(owner.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(testutils.Context(t), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+	kb, err := app.GetKeyStore().OCR2().Create("evm")
+	require.NoError(t, err)
+
+	return &ocr2Node{
+		app:         app,
+		peerID:      peerID.Raw(),
+		transmitter: transmitter,
+		keybundle:   kb,
+		config:      config,
+	}
+}
+
 func TestIntegration_OCR2VRF(t *testing.T) {
-	t.Parallel()
 	keyID := randomKeyID(t)
 	uni := setupOCR2VRFContracts(t, 5, keyID, false)
 
 	t.Log("Creating bootstrap node")
 
-	bootstrapNodePort := randomPort(t)
+	bootstrapNodePort := getFreePort(t)
 	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend)
 	numNodes := 5
 
@@ -186,7 +267,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 	}
 
 	t.Log("starting ticker to commit blocks")
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
 	go func() {
 		for range tick.C {
@@ -473,8 +554,13 @@ func randomKeyID(t *testing.T) (r [32]byte) {
 	return
 }
 
-func randomPort(t *testing.T) uint16 {
-	p, err := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
+func getFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	require.NoError(t, err)
-	return uint16(p.Uint64())
+
+	l, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	defer l.Close()
+
+	return uint16(l.Addr().(*net.TCPAddr).Port)
 }
