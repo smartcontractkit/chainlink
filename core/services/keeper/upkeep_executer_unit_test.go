@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -58,9 +59,16 @@ func (_m *registryGasCheckMock) KeeperRegistryMaxPerformDataSize() uint32 {
 }
 
 func TestBuildJobSpec(t *testing.T) {
-	jb := job.Job{ID: 10}
 	from := ethkey.EIP55Address(testutils.NewAddress().Hex())
 	contract := ethkey.EIP55Address(testutils.NewAddress().Hex())
+	chainID := "250"
+	jb := job.Job{
+		ID: 10,
+		KeeperSpec: &job.KeeperSpec{
+			FromAddress:     from,
+			ContractAddress: contract,
+		}}
+
 	upkeepID := utils.NewBigI(4)
 	upkeep := UpkeepRegistration{
 		Registry: Registry{
@@ -74,7 +82,6 @@ func TestBuildJobSpec(t *testing.T) {
 	gasPrice := big.NewInt(24)
 	gasTipCap := big.NewInt(48)
 	gasFeeCap := big.NewInt(72)
-	chainID := "250"
 
 	m := &registryGasCheckMock{}
 	m.Mock.Test(t)
@@ -82,15 +89,19 @@ func TestBuildJobSpec(t *testing.T) {
 	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(1)
 	m.On("KeeperRegistryMaxPerformDataSize").Return(uint32(1000)).Times(1)
 
-	spec := buildJobSpec(jb, upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
+	spec := buildJobSpec(jb, jb.KeeperSpec.FromAddress.Address(), upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"jobID":                 int32(10),
-			"fromAddress":           from.String(),
-			"contractAddress":       contract.String(),
-			"upkeepID":              "4",
-			"prettyID":              fmt.Sprintf("UPx%064d", 4),
+			"jobID":                  int32(10),
+			"fromAddress":            from.String(),
+			"effectiveKeeperAddress": jb.KeeperSpec.FromAddress.String(),
+			"contractAddress":        contract.String(),
+			"upkeepID":               "4",
+			"prettyID":               fmt.Sprintf("UPx%064d", 4),
+			"pipelineSpec": &pipeline.Spec{
+				ForwardingAllowed: false,
+			},
 			"performUpkeepGasLimit": uint32(21),
 			"maxPerformDataSize":    uint32(1000),
 			"gasPrice":              gasPrice,
