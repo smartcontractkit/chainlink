@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"math/big"
+	"net"
 	"testing"
 	"time"
 
@@ -220,7 +220,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 
 	t.Log("Creating bootstrap node")
 
-	bootstrapNodePort := randomPort(t)
+	bootstrapNodePort := getFreePort(t)
 	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend)
 	numNodes := 5
 
@@ -554,8 +554,13 @@ func randomKeyID(t *testing.T) (r [32]byte) {
 	return
 }
 
-func randomPort(t *testing.T) uint16 {
-	p, err := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
+func getFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	require.NoError(t, err)
-	return uint16(p.Uint64())
+
+	l, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	defer l.Close()
+
+	return uint16(l.Addr().(*net.TCPAddr).Port)
 }
