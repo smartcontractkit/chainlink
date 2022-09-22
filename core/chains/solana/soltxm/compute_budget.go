@@ -30,20 +30,20 @@ const (
 )
 
 // https://docs.solana.com/developing/programming-model/runtime
-type SetComputeUnitPrice uint64
+type ComputeUnitPrice uint64
 
 // returns the compute budget program
-func (val SetComputeUnitPrice) ProgramID() solana.PublicKey {
+func (val ComputeUnitPrice) ProgramID() solana.PublicKey {
 	return solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111") //TODO: temporary to avoid upgrading solana-go
 }
 
 // No accoutns needed
-func (val SetComputeUnitPrice) Accounts() (accounts []*solana.AccountMeta) {
+func (val ComputeUnitPrice) Accounts() (accounts []*solana.AccountMeta) {
 	return accounts
 }
 
 // simple encoding into program expected format
-func (val SetComputeUnitPrice) Data() ([]byte, error) {
+func (val ComputeUnitPrice) Data() ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	// encode method identifier

@@ -21,7 +21,7 @@ type pendingTx struct {
 // add fee as the last instruction
 // add fee program as last account key
 // recreates some of the logic from: https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L313
-func (tx *pendingTx) SetComputeUnitPrice(price SetComputeUnitPrice) error {
+func (tx *pendingTx) SetComputeUnitPrice(price ComputeUnitPrice) error {
 	// find ComputeBudget program to accounts if it exists
 	// reimplements HasAccount to retrieve index: https://github.com/gagliardetto/solana-go/blob/main/message.go#L228
 	var exists bool
