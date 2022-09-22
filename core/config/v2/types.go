@@ -31,7 +31,7 @@ type Core struct {
 
 	TelemetryIngress *TelemetryIngress
 
-	AuditLogger audit.AuditLoggerConfig
+	AuditLogger *audit.AuditLoggerConfig
 	Log         *Log
 
 	WebServer *WebServer

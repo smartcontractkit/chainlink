@@ -70,12 +70,12 @@ type GeneralOnlyConfig interface {
 	SetLogSQL(logSQL bool)
 
 	FeatureFlags
+	audit.Config
 
 	AdvisoryLockCheckInterval() time.Duration
 	AdvisoryLockID() int64
 	AllowOrigins() string
 	AppID() uuid.UUID
-	AuditLoggerConfig() audit.AuditLoggerConfig
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	AutoPprofBlockProfileRate() int
@@ -486,15 +486,35 @@ func (c *generalConfig) AppID() uuid.UUID {
 	return c.appID
 }
 
-// Create the audit logger configuration to send events to an
-// external service
-func (c *generalConfig) AuditLoggerConfig() audit.AuditLoggerConfig {
-	return audit.NewAuditLoggerConfig(
-		c.viper.GetString(envvar.Name("AuditLoggerForwardToUrl")),
-		c.viper.GetBool(envvar.Name("Dev")),
-		c.viper.GetString(envvar.Name("AuditLoggerJsonWrapperKey")),
-		c.viper.GetString(envvar.Name("AuditLoggerHeaders")),
-	)
+func (c *generalConfig) AuditLoggerEnabled() bool {
+	return c.viper.GetBool(envvar.Name("AuditLoggerEnabled"))
+}
+
+func (c *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	url, err := models.ParseURL(c.viper.GetString(envvar.Name("AuditLoggerForwardToUrl")))
+	if err != nil {
+		return models.URL{}, err
+	}
+	return *url, nil
+}
+
+func (c *generalConfig) AuditLoggerEnvironment() string {
+	if c.viper.GetBool(envvar.Name("Dev")) {
+		return "develop"
+	}
+	return "production"
+}
+
+func (c *generalConfig) AuditLoggerJsonWrapperKey() string {
+	return c.viper.GetString(envvar.Name("AuditLoggerJsonWrapperKey"))
+}
+
+func (c *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	headers := c.viper.GetString(envvar.Name("AuditLoggerHeaders"))
+	serviceHeaders := audit.ServiceHeaders{}
+	err := serviceHeaders.UnmarshalText([]byte(headers))
+
+	return serviceHeaders, err
 }
 
 // AuthenticatedRateLimit defines the threshold to which authenticated requests

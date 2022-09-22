@@ -332,12 +332,19 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 ## AuditLogger<a id='AuditLogger'></a>
 ```toml
 [AuditLogger]
+Enabled = false # Default
 ForwardToUrl = 'http://localhost:9898' # Example
 Environment = 'develop' # Example
 JsonWrapperKey = '' # Default
 Headers = '' # Default
 ```
 
+
+### Enabled<a id='AuditLogger-Enabled'></a>
+```toml
+Enabled = false # Default
+```
+Enabled determines if this logger should be configured at all
 
 ### ForwardToUrl<a id='AuditLogger-ForwardToUrl'></a>
 ```toml
@@ -361,7 +368,7 @@ JsonWrapperKey if set wraps the map of data under another single key to make par
 ```toml
 Headers = '' # Default
 ```
-Headers is the set of headers you wish to pass along with each request formatted as specified in the documentation
+Headers is the set of headers you wish to pass along with each request
 
 ## Log<a id='Log'></a>
 ```toml

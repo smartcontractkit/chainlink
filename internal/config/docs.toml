@@ -106,13 +106,15 @@ SendTimeout = '10s' # Default
 UseBatchSend = true # Default
 
 [AuditLogger]
+# Enabled determines if this logger should be configured at all
+Enabled = false # Default
 # ForwardToUrl is where you want to forward logs to
 ForwardToUrl = 'http://localhost:9898' # Example
 # Environment is an identifier for the host/environment you're on
 Environment = 'develop' # Example
 # JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
 JsonWrapperKey = '' # Default
-# Headers is the set of headers you wish to pass along with each request formatted as specified in the documentation
+# Headers is the set of headers you wish to pass along with each request
 Headers = '' # Default
 
 [Log]

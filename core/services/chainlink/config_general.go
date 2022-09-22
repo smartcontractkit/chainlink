@@ -167,8 +167,24 @@ func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
 }
 
-func (g *generalConfig) AuditLoggerConfig() audit.AuditLoggerConfig {
-	return g.c.AuditLogger
+func (g *generalConfig) AuditLoggerEnabled() bool {
+	return *g.c.AuditLogger.Enabled
+}
+
+func (g *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	return *g.c.AuditLogger.ForwardToUrl, nil
+}
+
+func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	return *g.c.AuditLogger.Headers, nil
+}
+
+func (g *generalConfig) AuditLoggerEnvironment() string {
+	return *g.c.AuditLogger.Environment
+}
+
+func (g *generalConfig) AuditLoggerJsonWrapperKey() string {
+	return *g.c.AuditLogger.JsonWrapperKey
 }
 
 func (g *generalConfig) AuthenticatedRateLimit() int64 {

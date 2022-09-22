@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -53,18 +54,30 @@ func (mock *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return &http.Response{}, nil
 }
 
-func getAuditLoggerConfig() audit.AuditLoggerConfig {
-	forwardToUrl := "empty"
-	environment := "test"
-	jsonWrapperKey := ""
-	headers := ""
+type Config struct{}
 
-	return audit.AuditLoggerConfig{
-		ForwardToUrl:   &forwardToUrl,
-		Environment:    &environment,
-		JsonWrapperKey: &jsonWrapperKey,
-		Headers:        &headers,
+func (c Config) AuditLoggerEnabled() bool {
+	return true
+}
+
+func (c Config) AuditLoggerEnvironment() string {
+	return "develop"
+}
+
+func (c Config) AuditLoggerForwardToUrl() (models.URL, error) {
+	url, err := models.ParseURL("http://localhost:9898")
+	if err != nil {
+		return models.URL{}, err
 	}
+	return *url, nil
+}
+
+func (c Config) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	return make(audit.ServiceHeaders, 0), nil
+}
+
+func (c Config) AuditLoggerJsonWrapperKey() string {
+	return ""
 }
 
 func TestCheckLoginAuditLog(t *testing.T) {
@@ -82,8 +95,10 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	// as well
 	logger := logger.TestLogger(t)
 
+	auditLoggerTestConfig := Config{}
+
 	// Create new AuditLoggerService
-	auditLogger, err := audit.NewAuditLogger(logger, getAuditLoggerConfig())
+	auditLogger, err := audit.NewAuditLogger(logger, &auditLoggerTestConfig)
 	assert.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals

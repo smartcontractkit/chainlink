@@ -206,10 +206,12 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 
-	full.AuditLogger = audit.AuditLoggerConfig{
-		ForwardToUrl:   ptr("http://localhost:9898"),
+	serviceHeaders := make(audit.ServiceHeaders, 0)
+	full.AuditLogger = &audit.AuditLoggerConfig{
+		Enabled:        ptr(false),
+		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Environment:    ptr("develop"),
-		Headers:        ptr(""),
+		Headers:        ptr(serviceHeaders),
 		JsonWrapperKey: ptr(""),
 	}
 
@@ -576,6 +578,13 @@ func TestConfig_Marshal(t *testing.T) {
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
+`},
+		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
+Enabled = false
+ForwardToUrl = 'http://localhost:9898'
+Environment = 'develop'
+JsonWrapperKey = ''
+Headers = ''
 `},
 		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
