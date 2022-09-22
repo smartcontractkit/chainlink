@@ -179,10 +179,12 @@ func getRlpHeaders(env helpers.Environment, blockNumbers []*big.Int) (headers []
 				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
 			}
 
-			bh := crypto.Keccak256Hash(rlpHeader)
-			fmt.Println("Calculated BH:", bh.String(),
-				"fetched BH:", h.Hash(),
-				"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
+			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
+			// blockhash.
+			//bh := crypto.Keccak256Hash(rlpHeader)
+			//fmt.Println("Calculated BH:", bh.String(),
+			//	"fetched BH:", h.Hash(),
+			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
 
 			headers = append(headers, rlpHeader)
 		} else {
