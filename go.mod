@@ -94,6 +94,7 @@ require (
 )
 
 require (
+	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
@@ -311,11 +312,10 @@ require (
 	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
-	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
 	github.com/tendermint/btcd v0.1.1 // indirect
 	github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/tendermint/tm-db v0.6.6 // indirect
+	github.com/tendermint/tm-db v0.6.7 // indirect
 	github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -356,7 +356,10 @@ replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+in
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 // needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
-replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
+replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
+
+// updating CosmWasm to v1.0.0 which brings ARM support
+replace github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
@@ -365,3 +368,8 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
+
+exclude (
+	github.com/influxdata/influxdb v1.8.3
+	github.com/labstack/echo/v4 v4.5.0
+)
