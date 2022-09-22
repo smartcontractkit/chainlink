@@ -10,6 +10,55 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+type pendingTx struct {
+	tx        *solana.Transaction
+	timeout   time.Duration
+	signature solana.Signature
+	feeAdded  bool // track if fee instruction has been added or not
+}
+
+// SetComputeUnitPrice sets the compute unit price in micro-lamports
+// add fee as the last instruction
+// add fee program as last account key
+// recreates some of the logic from: https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L313
+func (tx *pendingTx) SetComputeUnitPrice(price SetComputeUnitPrice) error {
+	// find ComputeBudget program to accounts if it exists
+	// reimplements HasAccount to retrieve index: https://github.com/gagliardetto/solana-go/blob/main/message.go#L228
+	var exists bool
+	var programIdx uint16
+	for i, a := range tx.tx.Message.AccountKeys {
+		if a.Equals(price.ProgramID()) {
+			exists = true
+			programIdx = uint16(i)
+		}
+	}
+	// if it doesn't exist, add to account keys
+	if !exists {
+		tx.tx.Message.AccountKeys = append(tx.tx.Message.AccountKeys, price.ProgramID())
+		programIdx = uint16(len(tx.tx.Message.AccountKeys) - 1) // last index of account keys
+
+		// https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L291
+		tx.tx.Message.Header.NumReadonlyUnsignedAccounts++
+	}
+
+	// get instruction data
+	data, err := price.Data()
+	if err != nil {
+		return err
+	}
+
+	// if this is the first time adding a fee, add prepend space for the instruction
+	if !tx.feeAdded {
+		tx.tx.Message.Instructions = append([]solana.CompiledInstruction{{}}, tx.tx.Message.Instructions...)
+	}
+	tx.tx.Message.Instructions[0] = solana.CompiledInstruction{
+		ProgramIDIndex: programIdx,
+		Data:           data,
+	}
+	tx.feeAdded = true
+	return nil
+}
+
 type PendingTxContext interface {
 	Add(sig solana.Signature, cancel context.CancelFunc) error
 	Remove(sig solana.Signature)

@@ -47,12 +47,6 @@ type Txm struct {
 	client  *utils.LazyLoad[solanaClient.ReaderWriter]
 }
 
-type pendingTx struct {
-	tx        *solanaGo.Transaction
-	timeout   time.Duration
-	signature solanaGo.Signature
-}
-
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg config.Config, ks keystore.Solana, lggr logger.Logger) *Txm {
 	lggr = lggr.Named("Txm")
@@ -364,14 +358,26 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 		return errors.New("error in soltxm.Enqueue: not enough account keys in tx")
 	}
 
+	msg := pendingTx{
+		tx:      tx,
+		timeout: txm.cfg.TxRetryTimeout(),
+	}
+
+	// Set compute unit price
+	// TODO: build compute unit price estimator
+	// TODO: move gas estimation & signing to accomodate tx retries
+	if err := msg.SetComputeUnitPrice(1); err != nil {
+		return errors.Wrapf(err, "err in Enqueue.SetComputeUnitPrice")
+	}
+
 	// get key
 	// fee payer account is index 0 account
 	// https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L252
-	key, err := txm.ks.Get(tx.Message.AccountKeys[0].String())
+	key, err := txm.ks.Get(msg.tx.Message.AccountKeys[0].String())
 	if err != nil {
 		return errors.Wrap(err, "error in soltxm.Enqueue.GetKey")
 	}
-	txMsg, err := tx.Message.MarshalBinary()
+	txMsg, err := msg.tx.Message.MarshalBinary()
 	if err != nil {
 		return errors.Wrap(err, "error in soltxm.Enqueue.MarshalBinary")
 	}
@@ -382,12 +388,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	}
 	var finalSig [64]byte
 	copy(finalSig[:], sigBytes)
-	tx.Signatures = append(tx.Signatures, finalSig)
-
-	msg := pendingTx{
-		tx:      tx,
-		timeout: txm.cfg.TxRetryTimeout(),
-	}
+	msg.tx.Signatures = append(tx.Signatures, finalSig)
 
 	select {
 	case txm.chSend <- msg:
