@@ -361,9 +361,41 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	return err
 }
 
+type revertError struct {
+	error
+	reason string
+}
+
+func (e *revertError) ErrorCode() int {
+	return 3
+}
+
+// ErrorData returns the hex encoded revert reason.
+func (e *revertError) ErrorData() interface{} {
+	return e.reason
+}
+
+var _ rpc.DataError = &revertError{}
+
 // CallContract calls a contract.
 func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return c.b.CallContract(ctx, msg, blockNumber)
+	// Expected error is
+	// type JsonError struct {
+	//	Code    int         `json:"code"`
+	//	Message string      `json:"message"`
+	//	Data    interface{} `json:"data,omitempty"`
+	//}
+	res, err := c.b.CallContract(ctx, msg, blockNumber)
+	if err != nil {
+		dataErr := revertError{}
+		isCustomRevert := errors.As(err, &dataErr)
+		if isCustomRevert {
+			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
+		}
+		// Generic revert, no data
+		return nil, &JsonError{Data: []byte{}, Message: err.Error(), Code: 3}
+	}
+	return res, nil
 }
 
 // CodeAt gets the code associated with an account as of a specified block.
