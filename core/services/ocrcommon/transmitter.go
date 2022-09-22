@@ -46,7 +46,6 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
 		GasLimit:       t.gasLimit,
-		Forwardable:    t.forwardingAllowed,
 		Strategy:       t.strategy,
 		Checker:        t.checker,
 	}, pg.WithParentCtx(ctx))

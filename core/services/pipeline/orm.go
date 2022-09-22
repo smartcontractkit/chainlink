@@ -19,7 +19,7 @@ import (
 const KeepersObservationSource = `
     encode_check_upkeep_tx      [type=ethabiencode
                                  abi="checkUpkeep(uint256 id, address from)"
-                                 data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
+                                 data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.effectiveKeeperAddress)}"]
     check_upkeep_tx             [type=ethcall
                                  failEarly=true
                                  extractRevertReason=true
@@ -47,7 +47,7 @@ const KeepersObservationSource = `
                                  extractRevertReason=true
                                  evmChainID="$(jobSpec.evmChainID)"
                                  contract="$(jobSpec.contractAddress)"
-                                 from="$(jobSpec.fromAddress)"
+                                 from="$(jobSpec.effectiveKeeperAddress)"
                                  gasUnlimited=true
                                  data="$(encode_perform_upkeep_tx)"]
     decode_check_perform_tx     [type=ethabidecode
