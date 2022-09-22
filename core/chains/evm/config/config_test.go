@@ -301,7 +301,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 				ChainType:        null.StringFrom(string(config.ChainOptimism)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
@@ -309,7 +309,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(10), evmtypes.ChainCfg{
 				GasEstimatorMode: null.StringFrom("FixedPrice"),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
@@ -317,7 +317,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(69), evmtypes.ChainCfg{
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 	})
 }

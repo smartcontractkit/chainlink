@@ -218,7 +218,7 @@ func (c *chainScopedConfig) validate() (err error) {
 		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
 	} else {
 		switch chainType {
-		case config.ChainOptimism, config.ChainMetis:
+		case config.ChainMetis:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
 			case "Optimism2", "L2Suggested":
