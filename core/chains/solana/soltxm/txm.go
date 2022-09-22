@@ -45,6 +45,10 @@ type Txm struct {
 	txs     PendingTxContext
 	ks      keystore.Solana
 	client  *utils.LazyLoad[solanaClient.ReaderWriter]
+
+	// compute budget unit price parameters
+	fee     uint64
+	feeLock sync.RWMutex
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
@@ -366,7 +370,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	// Set compute unit price
 	// TODO: build compute unit price estimator
 	// TODO: move gas estimation & signing to accomodate tx retries
-	if err := msg.SetComputeUnitPrice(1); err != nil {
+	if err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee())); err != nil {
 		return errors.Wrapf(err, "err in Enqueue.SetComputeUnitPrice")
 	}
 
@@ -401,6 +405,18 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 
 func (txm *Txm) InflightTxs() int {
 	return len(txm.txs.ListAll())
+}
+
+func (txm *Txm) SetFee(v uint64) {
+	txm.feeLock.Lock()
+	defer txm.feeLock.Unlock()
+	txm.fee = v
+}
+
+func (txm *Txm) GetFee() uint64 {
+	txm.feeLock.RLock()
+	defer txm.feeLock.RUnlock()
+	return txm.fee
 }
 
 // Close close service

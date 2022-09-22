@@ -100,11 +100,23 @@ func TestTxm_Integration(t *testing.T) {
 
 	// enqueue txs (must pass to move on to load test)
 	require.NoError(t, txm.Enqueue("test_success_0", createTx(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL)))
+	time.Sleep(500 * time.Millisecond) // wait for balance to change
+	balance0, err := client.Balance(pubKey)
+	require.NoError(t, err)
+	fee0 := initBal - balance0 - solana.LAMPORTS_PER_SOL // fee used for first tx
+	txm.SetFee(10)                                       // change fee
+
 	require.Error(t, txm.Enqueue("test_invalidSigner", createTx(pubKeyReceiver, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL))) // cannot sign tx before enqueuing
 	require.NoError(t, txm.Enqueue("test_invalidReceiver", createTx(pubKey, pubKey, solana.PublicKey{}, solana.LAMPORTS_PER_SOL)))
 	time.Sleep(500 * time.Millisecond) // pause 0.5s for new blockhash
+
 	require.NoError(t, txm.Enqueue("test_success_1", createTx(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL)))
 	require.NoError(t, txm.Enqueue("test_txFail", createTx(pubKey, pubKey, pubKeyReceiver, 1000*solana.LAMPORTS_PER_SOL)))
+	time.Sleep(500 * time.Millisecond) // wait for balance to change
+	balance1, err := client.Balance(pubKey)
+	require.NoError(t, err)
+	fee1 := balance0 - balance1 - solana.LAMPORTS_PER_SOL // fee used for second tx
+	require.Greater(t, fee1, fee0)                        // second tx should have higher fee
 
 	// load test: try to overload txs, confirm, or simulation
 	for i := 0; i < 1000; i++ {
