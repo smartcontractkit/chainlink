@@ -13,17 +13,13 @@ type blockCache[T any] struct {
 	blockEvictionWindow int64
 	cacheMu             sync.RWMutex
 	cache               map[common.Hash]*cacheItem[T]
-	oldestItem          *cacheItem[T]
-	newestItem          *cacheItem[T]
 	cleaner             *intervalCacheCleaner[T]
 }
 
 type cacheItem[T any] struct {
-	item         T
-	itemKey      common.Hash
-	blockStored  int64
-	nextItem     *cacheItem[T]
-	previousItem *cacheItem[T]
+	item        T
+	itemKey     common.Hash
+	blockStored int64
 }
 
 // NewBlockCache constructs a new cache.
@@ -40,8 +36,6 @@ func NewBlockCache[T any](blockEvictionWindow int64) *blockCache[T] {
 		cacheMu:             sync.RWMutex{},
 		cache:               make(map[common.Hash]*cacheItem[T]),
 		blockEvictionWindow: blockEvictionWindow,
-		oldestItem:          nil,
-		newestItem:          nil,
 		cleaner:             cleaner,
 	}
 
@@ -56,53 +50,14 @@ func (l *blockCache[T]) CacheItem(item T, itemKey common.Hash, blockStored int64
 
 	// Construct new item to be stored.
 	newItem := &cacheItem[T]{
-		item:         item,
-		itemKey:      itemKey,
-		blockStored:  blockStored,
-		nextItem:     nil,
-		previousItem: nil,
+		item:        item,
+		itemKey:     itemKey,
+		blockStored: blockStored,
 	}
 
 	// Lock, and defer unlock.
 	l.cacheMu.Lock()
 	defer l.cacheMu.Unlock()
-
-	// Items cannot be added that are older than the most recent item.
-	if (l.newestItem != nil) && (blockStored < l.newestItem.blockStored) {
-		return errors.New("cannot add item that is older than the most recent in the cache")
-	}
-
-	// If an item "I" associated with this key has already been cached,
-	// remove it from the current linked list, and increment the
-	// last item / decrement the most recent item if they point to "I".
-	if item, ok := l.cache[itemKey]; ok {
-		if item.previousItem != nil {
-			item.previousItem.nextItem = item.nextItem
-		}
-
-		if item.nextItem != nil {
-			item.nextItem.previousItem = item.previousItem
-		}
-
-		if l.oldestItem != nil && item.itemKey == l.oldestItem.itemKey {
-			l.oldestItem = l.oldestItem.nextItem
-		}
-
-		if l.newestItem != nil && item.itemKey == l.newestItem.itemKey {
-			l.newestItem = l.newestItem.previousItem
-		}
-	}
-
-	// Set last item and most recent item to the new item if nil.
-	// Otherwise, add new most recent item.
-	if l.oldestItem == nil {
-		l.oldestItem = newItem
-		l.newestItem = newItem
-	} else {
-		newItem.previousItem = l.newestItem
-		l.newestItem.nextItem = newItem
-		l.newestItem = l.newestItem.nextItem
-	}
 
 	// Assign item to key.
 	l.cache[itemKey] = newItem
@@ -137,17 +92,11 @@ func (l *blockCache[T]) EvictExpiredItems(newestBlock int64) {
 	l.cacheMu.Lock()
 	defer l.cacheMu.Unlock()
 
-	// Iteratively delete items starting at the last item,
-	// until all items have been deleted or a non-expired item is found.
-	for l.oldestItem != nil && (newestBlock-l.oldestItem.blockStored > l.blockEvictionWindow) {
-		oldestItem := l.oldestItem
-		l.oldestItem = oldestItem.nextItem
-		delete(l.cache, oldestItem.itemKey)
-	}
-
-	// If we have evicted the entire list, update the newest item to be nil.
-	if l.oldestItem == nil {
-		l.newestItem = nil
+	// Iteratively check all item ages, and delete an item if it is expired.
+	for key, item := range l.cache {
+		if newestBlock-item.blockStored > l.blockEvictionWindow {
+			delete(l.cache, key)
+		}
 	}
 }
 

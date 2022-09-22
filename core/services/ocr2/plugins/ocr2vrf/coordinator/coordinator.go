@@ -43,11 +43,13 @@ const (
 	// Both VRF and DKG contracts emit this, it's an OCR event.
 	configSetEvent = "ConfigSet"
 
-	// TODO: Add these to the off-chain config.
-	cacheEvictionWindowSeconds = 30
+	// TODO: Add these defaults to the off-chain config, and get better gas estimates
+	// (these current values are very conservative).
+	cacheEvictionWindowSeconds = 60
 	batchGasLimit              = int64(5_000_000)
 	blockGasOverhead           = int64(50_000)
 	callbackGasOverhead        = int64(50_000)
+	coordinatorOverhead        = int64(50_000)
 )
 
 // block is used to key into a set that tracks beacon blocks.
@@ -93,7 +95,7 @@ type coordinator struct {
 	toBeTransmittedBlocks *blockCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
 	toBeTransmittedCallbacks *blockCache[callbackInReport]
-	transmittedMu sync.Mutex
+	transmittedMu            sync.Mutex
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -198,7 +200,7 @@ func (c *coordinator) ReportBlocks(
 	maxCallbacks int, // TODO: unused for now
 ) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
 	// Instantiate the gas used by this batch.
-	currentBatchGasLimit := int64(0)
+	currentBatchGasLimit := coordinatorOverhead
 
 	// TODO: use head broadcaster instead?
 	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))

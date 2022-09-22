@@ -585,12 +585,14 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			100, // maxCallbacks: unused
 		)
 
+		// Coordinator should allow 99 blocks, i.e 100 blocks - 1 block's worth of gas
+		// for the coordinator overhead.
 		assert.NoError(t, err)
-		assert.Len(t, blocks, 100)
+		assert.Len(t, blocks, 99)
 		assert.Len(t, callbacks, 0)
 	})
 
-	t.Run("happy path, sandwiched last callback hits batch gas limit", func(t *testing.T) {
+	t.Run("happy path, last callback hits batch gas limit", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
 		// we only need the contract for unmarshaling raw log data,
@@ -622,7 +624,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		).Return([]logpoller.Log{
 			newRandomnessRequestedLog(t, 3, 195, 191),
 			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 2_000_000),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 2_950_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 2_900_000),
 			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1),
 		}, nil)
 
@@ -717,7 +719,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.Len(t, callbacks, 1)
 	})
 
-	t.Run("happy path, sandwiched callbacks hit batch gas limit", func(t *testing.T) {
+	t.Run("happy path, sandwiched callbacks with valid callback in next block hit batch gas limit", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
 		// we only need the contract for unmarshaling raw log data,
