@@ -82,63 +82,6 @@ cldev core # import our testing key and api credentials, then start the node
 # ...
 # ...
 ```
-
-`cldo` allows the user to perform the same actions above, but also applied to the operator-ui codebase and the core codebase. The operator-ui will be hosted in hot-reload/development mode at `http://localhost//3000`. To see the build progress of operator-ui, we can open another terminal to watch its output while we can mess around with the core node in the original terminal.
-
-In the first terminal:
-
-```sh
-./compose cldo
-#
-# Now you are inside the container
-cldev # cldev without the "core" postfix simply calls the core node cli
-#
-# NAME:
-#    main - CLI for Chainlink
-#
-# USAGE:
-#    main [global options] command [command options] [arguments...]
-#
-# VERSION:
-#    unset@unset
-#
-# COMMANDS:
-#    admin              Commands for remotely taking admin related actions
-#    bridges            Commands for Bridges communicating with External Adapters
-#    config             Commands for the node's configuration
-#    jobs               Commands for managing Jobs
-#    node, local        Commands for admin actions that must be run locally
-#    runs               Commands for managing Runs
-#    txs                Commands for handling Ethereum transactions
-#    agreements, agree  Commands for handling service agreements
-#    attempts, txas     Commands for managing Ethereum Transaction Attempts
-#    createextrakey     Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
-#    initiators         Commands for managing External Initiators
-#    help, h            Shows a list of commands or help for one command
-#
-# GLOBAL OPTIONS:
-#    --json, -j     json output as opposed to table
-#    --help, -h     show help
-#    --version, -v  print the version
-cldev core # import our testing key and api credentials, then start the node
-#
-# ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
-# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #
-# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149
-# ** Running node
-# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27
-# ...
-# ...
-```
-
-In a new terminal:
-
-```sh
-docker logs operator-ui -f
-```
-
-You'll now have two terminals, one with the core node, one with operator-ui, with both being able to react to code changes without rebuilding their respective images.
-
 ### Cleaning up
 
 To remove any containers, volumes, and networks related to our docker-compose setup, we can run the `clean` command:
@@ -302,10 +245,8 @@ $ make install
 $ go run ./core/main.go local db preparetest
 $ go test ./...
 
-# run evm/explorer/operatorUI tests
+# run evm tests
 $ yarn workspace @chainlink/contracts test
-$ yarn workspace @chainlink/explorer test
-$ yarn workspace @chainlink/operator-ui test
 
 # start geth
 $ geth --dev --datadir ./tools/gethnet/datadir --mine --ipcdisable --dev.period 2 --unlock 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f --password ./tools/clroot/password.txt --config ./tools/gethnet/config.toml
