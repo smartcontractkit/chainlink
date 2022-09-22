@@ -33,8 +33,7 @@ func TestCache(t *testing.T) {
 		for i, test := range tests {
 			err := c.CacheItem(test.Value, test.Key, int64(i))
 			assert.NoError(t, err)
-			item, err := c.GetItem(test.Key)
-			assert.NoError(t, err)
+			item := c.GetItem(test.Key)
 			assert.Equal(t, test.Value, *item)
 		}
 
@@ -48,8 +47,7 @@ func TestCache(t *testing.T) {
 		// Cache a new item.
 		err := c.CacheItem(tests[0].Value, tests[0].Key, 10)
 		assert.NoError(t, err)
-		item, err := c.GetItem(tests[0].Key)
-		assert.NoError(t, err)
+		item := c.GetItem(tests[0].Key)
 		assert.Equal(t, tests[0].Value, *item)
 
 		// Ensure cache has 1 item, with the newest and oldest pointers correct.
@@ -74,8 +72,7 @@ func TestCache(t *testing.T) {
 		for i, test := range tests {
 			err := c.CacheItem(test.Value, test.Key, int64(i))
 			assert.NoError(t, err)
-			item, err := c.GetItem(test.Key)
-			assert.NoError(t, err)
+			item := c.GetItem(test.Key)
 			assert.Equal(t, test.Value, *item)
 		}
 
@@ -113,8 +110,7 @@ func TestCache(t *testing.T) {
 		for i, test := range tests {
 			err := c.CacheItem(test.Value, test.Key, int64(i))
 			assert.NoError(t, err)
-			item, err := c.GetItem(test.Key)
-			assert.NoError(t, err)
+			item := c.GetItem(test.Key)
 			assert.Equal(t, test.Value, *item)
 		}
 
@@ -128,8 +124,7 @@ func TestCache(t *testing.T) {
 		// Cache a new item.
 		err := c.CacheItem(tests[1].Value, tests[1].Key, 10)
 		assert.NoError(t, err)
-		item, err := c.GetItem(tests[1].Key)
-		assert.NoError(t, err)
+		item := c.GetItem(tests[1].Key)
 		assert.Equal(t, tests[1].Value, *item)
 
 		// Assert correct length.
@@ -138,8 +133,7 @@ func TestCache(t *testing.T) {
 		// Replace the oldest item.
 		err = c.CacheItem(tests[0].Value, tests[0].Key, 11)
 		assert.NoError(t, err)
-		item, err = c.GetItem(tests[0].Key)
-		assert.NoError(t, err)
+		item = c.GetItem(tests[0].Key)
 		assert.Equal(t, tests[0].Value, *item)
 
 		// Assert correct length.
@@ -148,8 +142,7 @@ func TestCache(t *testing.T) {
 		// Replace the newest item.
 		err = c.CacheItem(tests[0].Value, tests[0].Key, 12)
 		assert.NoError(t, err)
-		item, err = c.GetItem(tests[0].Key)
-		assert.NoError(t, err)
+		item = c.GetItem(tests[0].Key)
 		assert.Equal(t, tests[0].Value, *item)
 
 		// Assert correct length.

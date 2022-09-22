@@ -1,7 +1,6 @@
 package coordinator
 
 import (
-	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -9,9 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// blockCache is a caching strucuture that allows items to be stored and then evicted
+// based on an eviction window. In this package, it is being used to track in-flight
+// items the coordinator includes in OCR reports, such that the items can be checked against
+// the cache to avoid double-transmissions.
 type blockCache[T any] struct {
 	blockEvictionWindow int64
-	cacheMu             sync.RWMutex
+	cacheMu             sync.Mutex
 	cache               map[common.Hash]*cacheItem[T]
 	cleaner             *intervalCacheCleaner[T]
 }
@@ -33,7 +36,7 @@ func NewBlockCache[T any](blockEvictionWindow int64) *blockCache[T] {
 
 	// Instantiate the cache for type T.
 	cache := &blockCache[T]{
-		cacheMu:             sync.RWMutex{},
+		cacheMu:             sync.Mutex{},
 		cache:               make(map[common.Hash]*cacheItem[T]),
 		blockEvictionWindow: blockEvictionWindow,
 		cleaner:             cleaner,
@@ -66,7 +69,7 @@ func (l *blockCache[T]) CacheItem(item T, itemKey common.Hash, blockStored int64
 }
 
 // AddItem adds an item to the cache.
-func (l *blockCache[T]) GetItem(itemKey common.Hash) (item *T, err error) {
+func (l *blockCache[T]) GetItem(itemKey common.Hash) (item *T) {
 
 	// Lock, and defer unlock.
 	l.cacheMu.Lock()
@@ -75,14 +78,12 @@ func (l *blockCache[T]) GetItem(itemKey common.Hash) (item *T, err error) {
 	// Construct new item to be stored.
 	cacheItem := l.cache[itemKey]
 
-	// Return error if item is not found, otherwise return item.
+	// Return nil if the item is not found, otherwise return item.
 	if cacheItem == nil {
-		err = errors.New("requested item not found")
-	} else {
-		item = &cacheItem.item
+		return
 	}
 
-	return
+	return &cacheItem.item
 }
 
 // EvictExpiredItems removes all expired items stored in the cache.

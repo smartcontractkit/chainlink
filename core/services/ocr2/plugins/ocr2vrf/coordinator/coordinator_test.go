@@ -964,6 +964,19 @@ func TestCoordinator_ConfirmationDelays(t *testing.T) {
 	})
 }
 
+func TestCoordinator_getBlockCacheKey(t *testing.T) {
+	t.Parallel()
+
+	t.Run("calculates key correctly", func(t *testing.T) {
+		hash := getBlockCacheKey(1, 11)
+		assert.Equal(
+			t,
+			common.HexToHash("0x000000000000000000000000000000000000000000000001000000000000000b"),
+			hash,
+		)
+	})
+}
+
 func TestCoordinator_KeyID(t *testing.T) {
 	t.Parallel()
 
