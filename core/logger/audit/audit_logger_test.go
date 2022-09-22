@@ -61,7 +61,7 @@ func (c Config) AuditLoggerEnabled() bool {
 }
 
 func (c Config) AuditLoggerEnvironment() string {
-	return "develop"
+	return "test"
 }
 
 func (c Config) AuditLoggerForwardToUrl() (models.URL, error) {
