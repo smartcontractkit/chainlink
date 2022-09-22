@@ -45,18 +45,19 @@ var (
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
-	chStop          chan struct{}
-	ethClient       evmclient.Client
-	config          Config
-	executionQueue  chan struct{}
-	headBroadcaster httypes.HeadBroadcasterRegistry
-	gasEstimator    gas.Estimator
-	job             job.Job
-	mailbox         *utils.Mailbox[*evmtypes.Head]
-	orm             ORM
-	pr              pipeline.Runner
-	logger          logger.Logger
-	wgDone          sync.WaitGroup
+	chStop                 chan struct{}
+	ethClient              evmclient.Client
+	config                 Config
+	executionQueue         chan struct{}
+	headBroadcaster        httypes.HeadBroadcasterRegistry
+	gasEstimator           gas.Estimator
+	job                    job.Job
+	mailbox                *utils.Mailbox[*evmtypes.Head]
+	orm                    ORM
+	pr                     pipeline.Runner
+	logger                 logger.Logger
+	wgDone                 sync.WaitGroup
+	effectiveKeeperAddress common.Address
 	utils.StartStopOnce
 }
 
@@ -70,19 +71,21 @@ func NewUpkeepExecuter(
 	gasEstimator gas.Estimator,
 	logger logger.Logger,
 	config Config,
+	effectiveKeeperAddress common.Address,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:          make(chan struct{}),
-		ethClient:       ethClient,
-		executionQueue:  make(chan struct{}, executionQueueSize),
-		headBroadcaster: headBroadcaster,
-		gasEstimator:    gasEstimator,
-		job:             job,
-		mailbox:         utils.NewMailbox[*evmtypes.Head](1),
-		config:          config,
-		orm:             orm,
-		pr:              pr,
-		logger:          logger.Named("UpkeepExecuter"),
+		chStop:                 make(chan struct{}),
+		ethClient:              ethClient,
+		executionQueue:         make(chan struct{}, executionQueueSize),
+		headBroadcaster:        headBroadcaster,
+		gasEstimator:           gasEstimator,
+		job:                    job,
+		mailbox:                utils.NewMailbox[*evmtypes.Head](1),
+		config:                 config,
+		orm:                    orm,
+		pr:                     pr,
+		effectiveKeeperAddress: effectiveKeeperAddress,
+		logger:                 logger.Named("UpkeepExecuter"),
 	}
 }
 
@@ -235,7 +238,9 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		}
 	}
 
-	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, upkeep, ex.orm.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
+	// effectiveKeeperAddress is always fromAddress when forwarding is not enabled.
+	// when forwarding is enabled, effectiveKeeperAddress is on-chain forwarder.
+	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, ex.effectiveKeeperAddress, upkeep, ex.orm.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
 
 	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
 	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
@@ -307,6 +312,7 @@ func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.
 
 func buildJobSpec(
 	jb job.Job,
+	effectiveKeeperAddress common.Address,
 	upkeep UpkeepRegistration,
 	ormConfig RegistryGasChecker,
 	gasPrice *big.Int,
@@ -316,11 +322,15 @@ func buildJobSpec(
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"jobID":                 jb.ID,
-			"fromAddress":           upkeep.Registry.FromAddress.String(),
-			"contractAddress":       upkeep.Registry.ContractAddress.String(),
-			"upkeepID":              upkeep.UpkeepID.String(),
-			"prettyID":              upkeep.PrettyID(),
+			"jobID":                  jb.ID,
+			"fromAddress":            upkeep.Registry.FromAddress.String(),
+			"effectiveKeeperAddress": effectiveKeeperAddress.String(),
+			"contractAddress":        upkeep.Registry.ContractAddress.String(),
+			"upkeepID":               upkeep.UpkeepID.String(),
+			"prettyID":               upkeep.PrettyID(),
+			"pipelineSpec": &pipeline.Spec{
+				ForwardingAllowed: jb.ForwardingAllowed,
+			},
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
 			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
 			"gasPrice":              gasPrice,
