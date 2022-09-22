@@ -2,8 +2,7 @@
 .DS_Store
 .envrc
 *.log
-operator_ui/**/*.test.*
-
+operator_ui/
 node_modules/
 **/node_modules/
 vendor/
@@ -22,9 +21,6 @@ tools/clroot/*.log
 tools/clroot/tempkeys
 
 core/sgx/target/
-
-operator_ui/dist/
-operator_ui/artifacts/
 
 core/*.Dockerfile
 chainlink
