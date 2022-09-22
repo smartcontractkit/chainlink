@@ -689,9 +689,10 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.P2PKeyCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+		"type":         "p2p",
+		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
-		"p2pID":        key.ID(),
 		"p2pPeerID":    key.PeerID(),
 		"p2pType":      key.Type(),
 	})
@@ -719,7 +720,11 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.P2PKeyDeleted, map[string]interface{}{"id": args.ID})
+	r.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": "p2p",
+		"id":   args.ID,
+	})
+
 	return NewDeleteP2PKeyPayload(key, nil), nil
 }
 
@@ -733,9 +738,10 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.VRFKeyCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+		"type":                "vrf",
+		"id":                  key.ID(),
 		"vrfPublicKey":        key.PublicKey,
-		"vrfID":               key.ID(),
 		"vrfPublicKeyAddress": key.PublicKey.Address(),
 	})
 
@@ -757,7 +763,11 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.VRFKeyDeleted, map[string]interface{}{"id": args.ID})
+	r.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": "vrf",
+		"id":   args.ID,
+	})
+
 	return NewDeleteVRFKeyPayloadResolver(key, nil), nil
 }
 

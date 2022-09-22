@@ -132,9 +132,9 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetAuditLogger().Audit(audit.ETHKeyCreated, map[string]interface{}{
-		"ethPublicKey": key.Address,
-		"ethID":        key.ID(),
+	ekc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+		"type": "ethereum",
+		"id":   key.ID(),
 	})
 
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusCreated)
@@ -196,9 +196,9 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetAuditLogger().Audit(audit.ETHKeyUpdated, map[string]interface{}{
-		"ethPublicKey": key.Address,
-		"ethID":        key.ID(),
+	ekc.App.GetAuditLogger().Audit(audit.KeyUpdated, map[string]interface{}{
+		"type": "ethereum",
+		"id":   keyID,
 	})
 
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusOK)
@@ -238,7 +238,10 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetAuditLogger().Audit(audit.ETHKeyDeleted, map[string]interface{}{"id": keyID})
+	ekc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": "ethereum",
+		"id":   keyID,
+	})
 	c.Status(http.StatusNoContent)
 }
 
@@ -286,9 +289,9 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetAuditLogger().Audit(audit.ETHKeyImported, map[string]interface{}{
-		"ethPublicKey": key.Address,
-		"ethID":        key.ID(),
+	ekc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]interface{}{
+		"type": "ethereum",
+		"id":   key.ID(),
 	})
 
 	jsonAPIResponse(c, r, "account")
@@ -306,7 +309,12 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetAuditLogger().Audit(audit.ETHKeyExported, map[string]interface{}{"address": address})
+	ekc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
+		"type":    "ethereum",
+		"id":      "", // TODO: Figure out what the best way to fetch this is for consistency
+		"address": address,
+	})
+
 	c.Data(http.StatusOK, MediaType, bytes)
 }
 

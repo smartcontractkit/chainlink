@@ -38,11 +38,13 @@ func (vrfkc *VRFKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.VRFKeyCreated, map[string]interface{}{
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+		"type":                "vrf",
+		"id":                  pk.ID(),
 		"vrfPublicKey":        pk.PublicKey,
-		"vrfID":               pk.ID(),
 		"vrfPublicKeyAddress": pk.PublicKey.Address(),
 	})
+
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(pk, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -63,7 +65,11 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.VRFKeyDeleted, map[string]interface{}{"id": keyID})
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": "vrf",
+		"id":   keyID,
+	})
+
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -85,10 +91,13 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.VRFKeyImported, map[string]interface{}{
-		"vrfID":        key.ID(),
-		"vrfPublicKey": key.PublicKey,
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]interface{}{
+		"type":                "vrf",
+		"id":                  key.ID(),
+		"vrfPublicKey":        key.PublicKey,
+		"vrfPublicKeyAddress": key.PublicKey.Address(),
 	})
+
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -107,6 +116,10 @@ func (vrfkc *VRFKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	vrfkc.App.GetAuditLogger().Audit(audit.VRFKeyExported, map[string]interface{}{"keyID": keyID})
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
+		"type": "vrf",
+		"id":   keyID,
+	})
+
 	c.Data(http.StatusOK, MediaType, bytes)
 }

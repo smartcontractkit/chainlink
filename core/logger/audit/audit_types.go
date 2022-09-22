@@ -42,31 +42,11 @@ const (
 	OCR2KeyBundleExported EventID = "OCR2_KEY_BUNDLE_EXPORTED"
 	OCR2KeyBundleDeleted  EventID = "OCR2_KEY_BUNDLE_DELETED"
 
-	ETHKeyCreated  EventID = "ETH_KEY_CREATED"
-	ETHKeyUpdated  EventID = "ETH_KEY_UPDATED"
-	ETHKeyImported EventID = "ETH_KEY_IMPORTED"
-	ETHKeyExported EventID = "ETH_KEY_EXPORTED"
-	ETHKeyDeleted  EventID = "ETH_KEY_DELETED"
-
-	P2PKeyCreated  EventID = "P2P_KEY_CREATED"
-	P2PKeyImported EventID = "P2P_KEY_IMPORTED"
-	P2PKeyExported EventID = "P2P_KEY_EXPORTED"
-	P2PKeyDeleted  EventID = "P2P_KEY_DELETED"
-
-	VRFKeyCreated  EventID = "VRF_KEY_CREATED"
-	VRFKeyImported EventID = "VRF_KEY_IMPORTED"
-	VRFKeyExported EventID = "VRF_KEY_EXPORTED"
-	VRFKeyDeleted  EventID = "VRF_KEY_DELETED"
-
-	TerraKeyCreated  EventID = "TERRA_KEY_CREATED"
-	TerraKeyImported EventID = "TERRA_KEY_IMPORTED"
-	TerraKeyExported EventID = "TERRA_KEY_EXPORTED"
-	TerraKeyDeleted  EventID = "TERRA_KEY_DELETED"
-
-	SolanaKeyCreated  EventID = "SOLANA_KEY_CREATED"
-	SolanaKeyImported EventID = "SOLANA_KEY_IMPORTED"
-	SolanaKeyExported EventID = "SOLANA_KEY_EXPORTED"
-	SolanaKeyDeleted  EventID = "SOLANA_KEY_DELETED"
+	KeyCreated  EventID = "KEY_CREATED"
+	KeyUpdated  EventID = "KEY_UPDATED"
+	KeyImported EventID = "KEY_IMPORTED"
+	KeyExported EventID = "KEY_EXPORTED"
+	KeyDeleted  EventID = "KEY_DELETED"
 
 	EthTransactionCreated    EventID = "ETH_TRANSACTION_CREATED"
 	TerraTransactionCreated  EventID = "TERRA_TRANSACTION_CREATED"

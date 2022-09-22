@@ -3,7 +3,6 @@ package web
 import (
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -11,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 )
 
 type Keystore[K keystore.Key] interface {
@@ -74,17 +71,17 @@ func (kc *keysController[K, R]) Create(c *gin.Context) {
 		return
 	}
 
-	// Emit audit log, determine if Terra or Solana key
-	switch unwrappedKey := any(key).(type) {
-	case terrakey.Key:
-		kc.auditLogger.Audit(audit.TerraKeyCreated, map[string]interface{}{
-			"publicKey": unwrappedKey.PublicKey(),
-			"id":        unwrappedKey.ID(),
+	type_, err := keystore.GetFieldNameForKey(key)
+
+	if err != nil {
+		kc.auditLogger.Audit(audit.KeyCreated, map[string]interface{}{
+			"type": "unknown",
+			"id":   key.ID(),
 		})
-	case solkey.Key:
-		kc.auditLogger.Audit(audit.SolanaKeyCreated, map[string]interface{}{
-			"publicKey": unwrappedKey.PublicKey(),
-			"id":        unwrappedKey.ID(),
+	} else {
+		kc.auditLogger.Audit(audit.KeyCreated, map[string]interface{}{
+			"type": type_,
+			"id":   key.ID(),
 		})
 	}
 
@@ -104,12 +101,18 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	// Emit audit log, determine if Terra or Solana key
-	switch any(key).(type) {
-	case terrakey.Key:
-		kc.auditLogger.Audit(audit.TerraKeyDeleted, map[string]interface{}{"id": keyID})
-	case solkey.Key:
-		kc.auditLogger.Audit(audit.SolanaKeyDeleted, map[string]interface{}{"id": keyID})
+	type_, err := keystore.GetFieldNameForKey(key)
+
+	if err != nil {
+		kc.auditLogger.Audit(audit.KeyDeleted, map[string]interface{}{
+			"type": "unknown",
+			"id":   key.ID(),
+		})
+	} else {
+		kc.auditLogger.Audit(audit.KeyDeleted, map[string]interface{}{
+			"type": type_,
+			"id":   key.ID(),
+		})
 	}
 
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
@@ -130,17 +133,17 @@ func (kc *keysController[K, R]) Import(c *gin.Context) {
 		return
 	}
 
-	// Emit audit log, determine if Terra or Solana key
-	switch unwrappedKey := any(key).(type) {
-	case terrakey.Key:
-		kc.auditLogger.Audit(audit.TerraKeyImported, map[string]interface{}{
-			"publicKey": unwrappedKey.PublicKey(),
-			"id":        unwrappedKey.ID(),
+	type_, err := keystore.GetFieldNameForKey(key)
+
+	if err != nil {
+		kc.auditLogger.Audit(audit.KeyImported, map[string]interface{}{
+			"type": "unknown",
+			"id":   key.ID(),
 		})
-	case solkey.Key:
-		kc.auditLogger.Audit(audit.SolanaKeyImported, map[string]interface{}{
-			"publicKey": unwrappedKey.PublicKey(),
-			"id":        unwrappedKey.ID(),
+	} else {
+		kc.auditLogger.Audit(audit.KeyImported, map[string]interface{}{
+			"type": type_,
+			"id":   key.ID(),
 		})
 	}
 
@@ -158,10 +161,27 @@ func (kc *keysController[K, R]) Export(c *gin.Context) {
 		return
 	}
 
-	if strings.HasPrefix(c.Request.URL.Path, "/v2/keys/terra") {
-		kc.auditLogger.Audit(audit.TerraKeyExported, map[string]interface{}{"id": keyID})
-	} else if strings.HasPrefix(c.Request.URL.Path, "/v2/keys/solana") {
-		kc.auditLogger.Audit(audit.SolanaKeyExported, map[string]interface{}{"id": keyID})
+	key, err := kc.ks.Get(keyID)
+	if err != nil {
+		kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
+			"type": "unknown",
+			"id":   key.ID(),
+		})
+	} else {
+
+		type_, err := keystore.GetFieldNameForKey(key)
+
+		if err != nil {
+			kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
+				"type": "unknown",
+				"id":   key.ID(),
+			})
+		} else {
+			kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
+				"type": type_,
+				"id":   key.ID(),
+			})
+		}
 	}
 
 	c.Data(http.StatusOK, MediaType, bytes)
