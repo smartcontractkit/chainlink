@@ -276,6 +276,7 @@ describe('KeeperRegistry2_0', () => {
     const premium = gasWei
       .mul(gasMultiplier)
       .mul(upkeepGasSpent)
+      .add(l1CostWei.mul(gasMultiplier).div(numUpkeepsBatch))
       .mul(linkDivisibility)
       .div(linkEth)
       .mul(premiumPPB)
