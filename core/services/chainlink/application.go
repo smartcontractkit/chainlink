@@ -505,15 +505,17 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		}
 	}
 
+	var ms services.MultiStart
 	for _, service := range app.srvcs {
 		if ctx.Err() != nil {
-			return errors.Wrap(ctx.Err(), "aborting start")
+			err := errors.Wrap(ctx.Err(), "aborting start")
+			return multierr.Combine(err, ms.Close())
 		}
 
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(service))
 
-		if err := service.Start(ctx); err != nil {
-			return err //TODO stop the started ones?
+		if err := ms.Start(ctx, service); err != nil {
+			return err
 		}
 	}
 
