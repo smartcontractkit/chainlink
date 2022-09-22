@@ -25,11 +25,10 @@ type PluginArgs struct {
 }
 
 type RelayArgs struct {
-	ExternalJobID     uuid.UUID
-	JobID             int32
-	ContractID        string
-	ForwardingAllowed bool
-	RelayConfig       []byte
+	ExternalJobID uuid.UUID
+	JobID         int32
+	ContractID    string
+	RelayConfig   []byte
 }
 
 type Relayer interface {
