@@ -230,8 +230,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -289,8 +289,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -354,8 +354,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -422,8 +422,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -481,8 +481,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		report := ocr2vrftypes.AbstractReport{
@@ -572,8 +572,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -636,8 +636,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -700,8 +700,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -764,8 +764,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -795,8 +795,8 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 			lp:                       lp,
 			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 		assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
 			RecentBlockHeight: 199,
@@ -811,8 +811,8 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 			lp:                       lp,
 			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
-			toBeTransmittedBlocks:    NewBlockCache[blockInReport](lookbackBlocks),
-			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](lookbackBlocks),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 		assert.Error(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
 			RecentBlockHeight: 199,

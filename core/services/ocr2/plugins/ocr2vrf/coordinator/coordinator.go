@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -46,11 +45,10 @@ const (
 
 	// TODO: Add these defaults to the off-chain config, and get better gas estimates
 	// (these current values are very conservative).
-	cacheEvictionWindowSeconds = 60
-	batchGasLimit              = int64(5_000_000)
-	blockGasOverhead           = int64(50_000)
-	callbackGasOverhead        = int64(50_000)
-	coordinatorOverhead        = int64(50_000)
+	cacheEvictionWindowSeconds = 60               // the maximum duration (in seconds) that an item stays in the cache
+	batchGasLimit              = int64(5_000_000) // maximum gas limit of a report
+	blockGasOverhead           = int64(50_000)    // cost of posting a randomness seed for a block on-chain
+	coordinatorOverhead        = int64(50_000)    // overhead costs of running the transmit transaction
 )
 
 // block is used to key into a set that tracks beacon blocks.
@@ -93,10 +91,9 @@ type coordinator struct {
 	evmClient evmclient.Client
 
 	// set of blocks that have been scheduled for transmission.
-	toBeTransmittedBlocks *blockCache[blockInReport]
+	toBeTransmittedBlocks *ocrCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
-	toBeTransmittedCallbacks *blockCache[callbackInReport]
-	transmittedMu            sync.Mutex
+	toBeTransmittedCallbacks *ocrCache[callbackInReport]
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -128,6 +125,8 @@ func New(
 		return nil, err
 	}
 
+	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * time.Second)
+
 	return &coordinator{
 		coordinatorContract:      coordinatorContract,
 		coordinatorAddress:       coordinatorAddress,
@@ -138,9 +137,8 @@ func New(
 		finalityDepth:            finalityDepth,
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
-		transmittedMu:            sync.Mutex{},
-		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindowSeconds),
-		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindowSeconds),
+		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindow),
+		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindow),
 	}, nil
 }
 
@@ -211,7 +209,7 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	// Evict expired items from the cache.
-	now := time.Now().Unix()
+	now := time.Duration(time.Now().Unix() * int64(time.Second))
 	c.toBeTransmittedBlocks.EvictExpiredItems(now)
 	c.toBeTransmittedCallbacks.EvictExpiredItems(now)
 
@@ -497,8 +495,6 @@ func (c *coordinator) filterEligibleCallbacks(
 	currentHeight int64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (callbacks []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block, err error) {
-	c.transmittedMu.Lock()
-	defer c.transmittedMu.Unlock()
 
 	for _, r := range randomnessFulfillmentRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
@@ -511,13 +507,16 @@ func (c *coordinator) filterEligibleCallbacks(
 			continue
 		}
 
-		// Check that the callback is elligible, and that it hasn't been scheduled for a valid transmission.
-		// A re-orged transmission can be ignored.
+		// Check that the callback is elligible.
 		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			cacheKey := getCallbackCacheKey(r.Callback.RequestID.Int64())
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
-			validTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
-			if validTransmission {
+			// If the callback is found in the cache and the recentBlockHash from the report containing the callback
+			// is correct, then the callback is in-flight and should not be included in the current observation. If that
+			// report gets re-orged, then the recentBlockHash of the report will become invalid, in which case
+			// the cached callback is ignored, and the callback is added to the current observation.
+			inflightTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
+			if inflightTransmission {
 				continue
 			}
 
@@ -542,8 +541,6 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 	currentHeight int64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (unfulfilled []block, err error) {
-	c.transmittedMu.Lock()
-	defer c.transmittedMu.Unlock()
 
 	for _, r := range randomnessRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
@@ -556,11 +553,14 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 			continue
 		}
 
-		// Check that the block is elligible, and that it hasn't been scheduled for a valid transmission.
-		// A re-orged transmission can be ignored.
+		// Check that the block is elligible.
 		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			cacheKey := getBlockCacheKey(r.NextBeaconOutputHeight, r.ConfDelay.Uint64())
 			t := c.toBeTransmittedBlocks.GetItem(cacheKey)
+			// If the block is found in the cache and the recentBlockHash from the report containing the block
+			// is correct, then the block is in-flight and should not be included in the current observation. If that
+			// report gets re-orged, then the recentBlockHash of the report will become invalid, in which case
+			// the cached block is ignored and the block is added to the current observation.
 			validTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
 			if validTransmission {
 				continue
@@ -656,10 +656,8 @@ func (c *coordinator) unmarshalLogs(
 // local node has accepted the AbstractReport for transmission, so that its
 // blocks and callbacks can be tracked for possible later retransmission
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
-	c.transmittedMu.Lock()
-	defer c.transmittedMu.Unlock()
 
-	now := time.Now().Unix()
+	now := time.Duration(time.Now().Unix() * int64(time.Second))
 
 	// Evict expired items from the cache.
 	c.toBeTransmittedBlocks.EvictExpiredItems(now)
@@ -713,19 +711,13 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	// Apply blockhashes to blocks and mark them as transmitted.
 	for _, b := range blocksRequested {
 		cacheKey := getBlockCacheKey(b.blockNumber, uint64(b.confDelay))
-		err := c.toBeTransmittedBlocks.CacheItem(b, cacheKey, now)
-		if err != nil {
-			return errors.Wrap(err, "adding block to the cache in ReportWillBeTransmitted")
-		}
+		c.toBeTransmittedBlocks.CacheItem(b, cacheKey, now)
 	}
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
 		cacheKey := getCallbackCacheKey(int64(cb.requestID))
-		err := c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
-		if err != nil {
-			return errors.Wrap(err, "adding callback to the cache in ReportWillBeTransmitted")
-		}
+		c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
 	}
 
 	return nil
@@ -870,6 +862,9 @@ func toGethLog(lg logpoller.Log) types.Log {
 }
 
 // getBlockCacheKey returns a cache key for a requested block
+// The blockhash of the block does not need to be included in the key. Instead,
+// the block cached at a given key contains a blockhash that is checked for validity
+// against the log poller's current state.
 func getBlockCacheKey(blockNumber uint64, confDelay uint64) common.Hash {
 	var blockNumberBytes [8]byte
 	var confDelayBytes [8]byte
@@ -881,6 +876,9 @@ func getBlockCacheKey(blockNumber uint64, confDelay uint64) common.Hash {
 }
 
 // getBlockCacheKey returns a cache key for a requested callback
+// The blockhash of the callback does not need to be included in the key. Instead,
+// the callback cached at a given key contains a blockhash that is checked for validity
+// against the log poller's current state.
 func getCallbackCacheKey(requestID int64) common.Hash {
 	return common.BigToHash(big.NewInt(requestID))
 }
