@@ -60,6 +60,9 @@ type KeeperRegistry interface {
 	Pause() error
 	Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error
 	SetMigrationPermissions(peerAddress common.Address, permission uint8) error
+	PauseUpkeep(id *big.Int) error
+	UnpauseUpkeep(id *big.Int) error
+	UpdateCheckData(id *big.Int, newCheckData []byte) error
 }
 
 type KeeperConsumer interface {
@@ -633,6 +636,57 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 		addrs = append(addrs, ca.Hex())
 	}
 	return addrs, nil
+}
+
+// UpdateCheckData updates the check data of an upkeep
+func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byte) error {
+	if v.version == ethereum.RegistryVersion_1_3 {
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry1_3.UpdateCheckData(opts, id, newCheckData)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	}
+	return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
+}
+
+// PauseUpkeep stops an upkeep from an upkeep
+func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
+	if v.version == ethereum.RegistryVersion_1_3 {
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry1_3.PauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	}
+	return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
+}
+
+// UnpauseUpkeep get list of all registered keeper addresses
+func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
+	if v.version == ethereum.RegistryVersion_1_3 {
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry1_3.UnpauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	}
+	return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
 }
 
 // Parses the upkeep ID from an 'UpkeepRegistered' log, returns error on any other log
