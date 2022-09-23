@@ -284,7 +284,7 @@ func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
 }
 
 // Stop cancels all outgoings calls and stops internal ticker loop.
-func (f *FwdMgr) Stop() error {
+func (f *FwdMgr) Close() error {
 	return f.StopOnce("EVMForwarderManager", func() (err error) {
 		f.cancel()
 		f.wg.Wait()
