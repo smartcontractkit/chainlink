@@ -499,7 +499,7 @@ func (c *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
 }
 
 func (c *generalConfig) AuditLoggerEnvironment() string {
-	if c.viper.GetBool(envvar.Name("Dev")) {
+	if c.Dev() {
 		return "develop"
 	}
 	return "production"
