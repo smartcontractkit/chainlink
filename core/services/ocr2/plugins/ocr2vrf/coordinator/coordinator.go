@@ -20,7 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -28,8 +29,8 @@ import (
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
 
 var (
-	dkgABI = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
-	vrfABI = evmtypes.MustGetABI(vrf_wrapper.VRFBeaconCoordinatorMetaData.ABI)
+	dkgABI       = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
+	vrfBeaconABI = evmtypes.MustGetABI(vrf_beacon.VRFBeaconMetaData.ABI)
 )
 
 const (
@@ -66,6 +67,7 @@ type coordinator struct {
 
 	coordinatorContract VRFBeaconCoordinator
 	coordinatorAddress  common.Address
+	beaconAddress       common.Address
 
 	// We need to keep track of DKG ConfigSet events as well.
 	dkgAddress common.Address
@@ -83,6 +85,7 @@ type coordinator struct {
 // New creates a new CoordinatorInterface implementor.
 func New(
 	lggr logger.Logger,
+	beaconAddress common.Address,
 	coordinatorAddress common.Address,
 	dkgAddress common.Address,
 	client evmclient.Client,
@@ -90,7 +93,7 @@ func New(
 	logPoller logpoller.LogPoller,
 	finalityDepth uint32,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
-	coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, client)
+	coordinatorContract, err := NewProxy(lggr, beaconAddress, coordinatorAddress, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "coordinator wrapper creation")
 	}
@@ -104,13 +107,14 @@ func New(
 		t.randomnessFulfillmentRequestedTopic,
 		t.randomWordsFulfilledTopic,
 		t.configSetTopic,
-		t.newTransmissionTopic}, []common.Address{coordinatorAddress, dkgAddress})
+		t.newTransmissionTopic}, []common.Address{beaconAddress, coordinatorAddress, dkgAddress})
 	if err != nil {
 		return nil, err
 	}
 	return &coordinator{
 		coordinatorContract:      coordinatorContract,
 		coordinatorAddress:       coordinatorAddress,
+		beaconAddress:            beaconAddress,
 		dkgAddress:               dkgAddress,
 		lp:                       logPoller,
 		topics:                   t,
@@ -141,7 +145,7 @@ func (c *coordinator) ReportIsOnchain(ctx context.Context, epoch uint32, round u
 	c.lggr.Info(fmt.Sprintf("epoch and round: %s %s", epochAndRound.String(), enrTopic.String()))
 	logs, err := c.lp.IndexedLogs(
 		c.topics.newTransmissionTopic,
-		c.coordinatorAddress,
+		c.beaconAddress,
 		2,
 		[]common.Hash{
 			enrTopic,
@@ -196,15 +200,28 @@ func (c *coordinator) ReportBlocks(
 			c.randomnessRequestedTopic,
 			c.randomnessFulfillmentRequestedTopic,
 			c.randomWordsFulfilledTopic,
-			c.newTransmissionTopic,
 		},
 		c.coordinatorAddress,
 		pg.WithParentCtx(ctx))
 	if err != nil {
-		err = errors.Wrap(err, "logs with topics")
+		err = errors.Wrapf(err, "logs with topics. address: %s", c.coordinatorAddress)
 		return
 	}
 
+	beaconLogs, err := c.lp.LogsWithSigs(
+		currentHeight-c.lookbackBlocks,
+		currentHeight,
+		[]common.Hash{
+			c.newTransmissionTopic,
+		},
+		c.beaconAddress,
+		pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrapf(err, "logs with topics. address: %s", c.beaconAddress)
+		return
+	}
+
+	logs = append(logs, beaconLogs...)
 	c.lggr.Info(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
@@ -275,8 +292,8 @@ func (c *coordinator) ReportBlocks(
 // getBlockhashesMappingFromRequests returns the blockhashes for enqueued request blocks.
 func (c *coordinator) getBlockhashesMappingFromRequests(
 	ctx context.Context,
-	randomnessRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
-	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
+	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	currentHeight int64,
 ) (blockhashesMapping map[uint64]common.Hash, err error) {
 
@@ -307,7 +324,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	return
 }
 
-func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []*vrf_wrapper.VRFBeaconCoordinatorNewTransmission) (fulfilled []block) {
+func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []*vrf_beacon.VRFBeaconNewTransmission) (fulfilled []block) {
 	for _, r := range newTransmissionLogs {
 		for _, o := range r.OutputsServed {
 			fulfilled = append(fulfilled, block{
@@ -339,7 +356,7 @@ func (c *coordinator) getBlockhashesMapping(
 }
 
 // getFulfilledRequestIDs returns the request IDs referenced by the given RandomWordsFulfilled logs slice.
-func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled) map[uint64]struct{} {
+func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled) map[uint64]struct{} {
 	fulfilledRequestIDs := make(map[uint64]struct{})
 	for _, r := range randomWordsFulfilledLogs {
 		for i, requestID := range r.RequestIDs {
@@ -354,7 +371,7 @@ func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []*vrf_wra
 // filterUnfulfilledCallbacks returns unfulfilled callback requests given the
 // callback request logs and the already fulfilled callback request IDs.
 func (c *coordinator) filterUnfulfilledCallbacks(
-	callbacksRequested []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	callbacksRequested []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	fulfilledRequestIDs map[uint64]struct{},
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
@@ -399,11 +416,11 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 // based on their readiness to be fulfilled. It also returns any unfulfilled blocks
 // associated with those callbacks.
 func (c *coordinator) filterEligibleCallbacks(
-	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
 	blockhashesMapping map[uint64]common.Hash,
-) (callbacks []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
+) (callbacks []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
 
@@ -442,7 +459,7 @@ func (c *coordinator) filterEligibleCallbacks(
 // filterEligibleRandomnessRequests extracts valid randomness requests from the given logs,
 // based on their readiness to be fulfilled.
 func (c *coordinator) filterEligibleRandomnessRequests(
-	randomnessRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
+	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
 	blockhashesMapping map[uint64]common.Hash,
@@ -481,10 +498,10 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 func (c *coordinator) unmarshalLogs(
 	logs []logpoller.Log,
 ) (
-	randomnessRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
-	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
-	randomWordsFulfilledLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled,
-	newTransmissionLogs []*vrf_wrapper.VRFBeaconCoordinatorNewTransmission,
+	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
+	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
+	randomWordsFulfilledLogs []*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled,
+	newTransmissionLogs []*vrf_beacon.VRFBeaconNewTransmission,
 	err error,
 ) {
 	for _, lg := range logs {
@@ -497,10 +514,10 @@ func (c *coordinator) unmarshalLogs(
 				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
 				return
 			}
-			rr, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested)
+			rr, ok := unpacked.(*vrf_wrapper.VRFCoordinatorRandomnessRequested)
 			if !ok {
 				// should never happen
-				err = errors.New("cast to *VRFBeaconCoordinatorRandomnessRequested")
+				err = errors.New("cast to *VRFCoordinatorRandomnessRequested")
 				return
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
@@ -511,10 +528,10 @@ func (c *coordinator) unmarshalLogs(
 				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
 				return
 			}
-			rfr, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested)
+			rfr, ok := unpacked.(*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested)
 			if !ok {
 				// should never happen
-				err = errors.New("cast to *VRFBeaconCoordinatorRandomnessFulfillmentRequested")
+				err = errors.New("cast to *VRFCoordinatorRandomnessFulfillmentRequested")
 				return
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, rfr)
@@ -525,10 +542,10 @@ func (c *coordinator) unmarshalLogs(
 				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
 				return
 			}
-			rwf, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled)
+			rwf, ok := unpacked.(*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled)
 			if !ok {
 				// should never happen
-				err = errors.New("cast to *VRFBeaconCoordinatorRandomWordsFulfilled")
+				err = errors.New("cast to *VRFCoordinatorRandomWordsFulfilled")
 				return
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
@@ -539,10 +556,10 @@ func (c *coordinator) unmarshalLogs(
 				err = errors.Wrap(err2, "unmarshal NewTransmission log")
 				return
 			}
-			nt, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorNewTransmission)
+			nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
 			if !ok {
 				// should never happen
-				err = errors.New("cast to *vrf_wrapper.VRFBeaconCoordinatorNewTransmission")
+				err = errors.New("cast to *vrf_beacon.VRFBeaconNewTransmission")
 			}
 			newTransmissionLogs = append(newTransmissionLogs, nt)
 		default:
@@ -608,7 +625,7 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCommittee ocr2vrftypes.OCRCommittee, err error) {
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
-		c.coordinatorAddress,
+		c.beaconAddress,
 		int(c.finalityDepth),
 	)
 	if err != nil {
@@ -626,8 +643,8 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		return
 	}
 
-	var vrfConfigSetLog vrf_wrapper.VRFBeaconCoordinatorConfigSet
-	err = vrfABI.UnpackIntoInterface(&vrfConfigSetLog, configSetEvent, latestVRF.Data)
+	var vrfConfigSetLog vrf_beacon.VRFBeaconConfigSet
+	err = vrfBeaconABI.UnpackIntoInterface(&vrfConfigSetLog, configSetEvent, latestVRF.Data)
 	if err != nil {
 		err = errors.Wrap(err, "unpack vrf ConfigSet into interface")
 		return
