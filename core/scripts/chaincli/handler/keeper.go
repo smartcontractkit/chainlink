@@ -83,6 +83,20 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 	k.setKeepers(ctx, cls, deployer, keepers, owners)
 }
 
+// DeployRegistry deploys a new keeper registry.
+func (k *Keeper) DeployRegistry(ctx context.Context) {
+	switch k.cfg.RegistryVersion {
+	case keeper.RegistryVersion_1_1:
+		k.deployRegistry11(ctx)
+	case keeper.RegistryVersion_1_2:
+		k.deployRegistry12(ctx)
+	case keeper.RegistryVersion_2_0:
+		k.deployRegistry20(ctx)
+	default:
+		panic("unsupported registry version")
+	}
+}
+
 func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, keepersDeployer) {
 	var upkeepCount int64
 	var registryAddr common.Address

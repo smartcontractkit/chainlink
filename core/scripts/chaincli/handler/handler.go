@@ -196,7 +196,29 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		log.Println("Postgres docker image successfully pulled!")
 	}
 
+	// Create network config
+	const networkName = "chaincli-local"
+	existingNetworks, err := dockerClient.NetworkList(ctx, types.NetworkListOptions{})
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to list networks: %s", err)
+	}
+
+	var found bool
+	for _, ntwrk := range existingNetworks {
+		if ntwrk.Name == networkName {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		if _, err = dockerClient.NetworkCreate(ctx, networkName, types.NetworkCreate{}); err != nil {
+			return "", nil, fmt.Errorf("failed to create network: %s", err)
+		}
+	}
+
 	// Create DB container
+	postgresContainerName := fmt.Sprintf("%s-postgres", containerName)
 	dbContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: defaultPOSTGRESImage,
 		Cmd:   []string{"postgres", "-c", `max_connections=1000`},
@@ -205,7 +227,11 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			"POSTGRES_PASSWORD=development_password",
 		},
 		ExposedPorts: nat.PortSet{"5432": struct{}{}},
-	}, nil, &network.NetworkingConfig{}, nil, fmt.Sprintf("%s-postgres", containerName))
+	}, nil, &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			networkName: {Aliases: []string{postgresContainerName}},
+		},
+	}, nil, postgresContainerName)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create Postgres container: %s", err)
 	}
@@ -215,11 +241,6 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		return "", nil, fmt.Errorf("failed to start DB container: %s", err)
 	}
 	log.Println("Postgres docker container successfully created and started: ", dbContainerResp.ID)
-
-	dbContainerInspect, err := dockerClient.ContainerInspect(ctx, dbContainerResp.ID)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to inspect Postgres container: %s", err)
-	}
 
 	time.Sleep(time.Second * 10)
 
@@ -245,7 +266,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		Image: defaultChainlinkNodeImage,
 		Cmd:   []string{"local", "n", "-p", "/run/secrets/chainlink-node-password", "-a", "/run/secrets/chainlink-node-api"},
 		Env: append([]string{
-			"DATABASE_URL=postgresql://postgres:development_password@" + dbContainerInspect.NetworkSettings.IPAddress + ":5432/postgres?sslmode=disable",
+			"DATABASE_URL=postgresql://postgres:development_password@" + postgresContainerName + ":5432/postgres?sslmode=disable",
 			"ETH_URL=" + h.cfg.NodeURL,
 			fmt.Sprintf("ETH_CHAIN_ID=%d", h.cfg.ChainID),
 			"LINK_CONTRACT_ADDRESS=" + h.cfg.LinkTokenAddr,
@@ -285,7 +306,11 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 				},
 			},
 		},
-	}, nil, nil, containerName)
+	}, &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			networkName: {Aliases: []string{containerName}},
+		},
+	}, nil, containerName)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create node container: %s", err)
 	}

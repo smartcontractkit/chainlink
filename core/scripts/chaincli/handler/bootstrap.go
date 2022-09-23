@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/url"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -31,10 +30,11 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 	lggr, closeLggr := logger.NewLogger()
 	defer closeLggr()
 
+	const containerName = "bootstrap"
 	urlRaw, _, err := h.launchChainlinkNode(
 		ctx,
 		uiPort,
-		"bootstrap",
+		containerName,
 		"FEATURE_OFFCHAIN_REPORTING2=true",
 		"FEATURE_LOG_POLLER=true",
 		"P2P_NETWORKING_STACK=V2",
@@ -50,11 +50,6 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		lggr.Fatal("Authentication failed, ", err)
 	}
 
-	nodeURL, err := url.Parse(urlRaw)
-	if err != nil {
-		lggr.Fatal("Failed to parse URL, ", err)
-	}
-
 	p2pKeyID, err := getP2PKeyID(cl)
 	if err != nil {
 		lggr.Fatal("Failed to get P2P key ID, ", err)
@@ -64,7 +59,7 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		lggr.Fatal("Failed to create keeper job: ", err)
 	}
 
-	tcpAddr := fmt.Sprintf("%s@%s", p2pKeyID, nodeURL.Host)
+	tcpAddr := fmt.Sprintf("%s@%s:%d", p2pKeyID, containerName, uiPort)
 	lggr.Info("Bootstrap job has been successfully created in the Chainlink node with address ", urlRaw, ", tcp: ", tcpAddr)
 }
 
