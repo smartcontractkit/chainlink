@@ -126,7 +126,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 	effectiveTransmitterAddress := spec.TransmitterID
 	if jobSpec.ForwardingAllowed {
-		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(jobSpec.OCR2OracleSpec.TransmitterID.String))
+		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
 		if fwderr == nil {
 			effectiveTransmitterAddress = null.StringFrom(fwdrAddress.String())
 		} else {
