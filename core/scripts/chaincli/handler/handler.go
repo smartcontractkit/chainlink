@@ -323,7 +323,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	addr := fmt.Sprintf("http://localhost:%s", portStr)
 	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
-	time.Sleep(time.Second * 20)
+	time.Sleep(time.Second * 40)
 
 	return addr, func() {
 		fileCleanup()

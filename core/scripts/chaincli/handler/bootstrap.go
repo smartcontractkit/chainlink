@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -66,7 +68,7 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 // createBootstrapJob creates a bootstrap job in the chainlink node by the given address
 func (h *baseHandler) createBootstrapJob(client cmd.HTTPClient, contractAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
-		TOML: fmt.Sprintf(bootstrapJobSpec, "123e4567-e89b-12d3-a456-426655440002", contractAddr, h.cfg.ChainID),
+		TOML: fmt.Sprintf(bootstrapJobSpec, uuid.New().String(), contractAddr, h.cfg.ChainID),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %s", err)
