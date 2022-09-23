@@ -54,7 +54,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 }
 
 func (t *transmitter) FromAddress() common.Address {
-	return t.fromAddress
+	return t.effectiveTransmitterAddress
 }
 
 func (t *transmitter) forwarderAddress() common.Address {
