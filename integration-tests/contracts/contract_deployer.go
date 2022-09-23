@@ -474,6 +474,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			version:     ethereum.RegistryVersion_1_1,
 			registry1_1: instance.(*ethereum.KeeperRegistry11),
 			registry1_2: nil,
+			registry1_3: nil,
 			address:     address,
 		}, err
 	case ethereum.RegistryVersion_1_2:

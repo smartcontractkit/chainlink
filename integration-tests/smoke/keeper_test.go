@@ -40,6 +40,8 @@ const (
 	PauseRegistryTest
 	MigrateUpkeepTest
 	HandleKeeperNodesGoingDown
+	PauseUnpauseUpkeepTest
+	UpdateCheckDataTest
 )
 
 type KeeperConsumerContracts int32
@@ -142,6 +144,10 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 			Entry("v1.3 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+
+			Entry("v1.3 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds)),
+
+			Entry("v1.3 Update check data @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, UpdateCheckDataTest, big.NewInt(defaultLinkFunds)),
 		}
 	)
 
@@ -220,6 +226,89 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		actions.CreateKeeperJobs(chainlinkNodes, registry)
 		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
+
+		if testToRun == UpdateCheckDataTest {
+			By("tests that check data will be updated")
+
+			var newCheckData = []byte("abcde")
+			for i := 0; i < len(upkeepIDs); i++ {
+				err = registry.UpdateCheckData(upkeepIDs[i], newCheckData)
+				Expect(err).ShouldNot(HaveOccurred(), "Could not set check data for upkeep at index "+strconv.Itoa(i))
+			}
+
+			// retrieve old check data for all upkeeps
+			for i := 0; i < len(upkeepIDs); i++ {
+				upkeep, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[i])
+				Expect(err).ShouldNot(HaveOccurred(), "Failed to get upkeep info at index "+strconv.Itoa(i))
+				Expect(upkeep.CheckData).Should(Equal(newCheckData), "Expect the check data to be %s, but got %s", string(newCheckData), string(upkeep.CheckData))
+			}
+		}
+
+		if testToRun == PauseUnpauseUpkeepTest {
+			By("watches all the registered upkeeps perform, pause and then unpause them from the registry")
+
+			Eventually(func(g Gomega) {
+				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(5)),
+						"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
+					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				}
+			}, "3m", "1s").Should(Succeed())
+
+			// pause all the registered upkeeps via the registry
+			for i := 0; i < len(upkeepIDs); i++ {
+				err := registry.PauseUpkeep(upkeepIDs[i])
+				Expect(err).ShouldNot(HaveOccurred(), "Could not pause upkeep at index "+strconv.Itoa(i))
+			}
+
+			err := chainClient.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for upkeeps to be paused")
+
+			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+			for i := 0; i < len(upkeepIDs); i++ {
+				// Obtain the amount of times the upkeep has been executed so far
+				countersAfterPause[i], err = consumers[i].Counter(context.Background())
+				Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+				log.Info().Msg("Paused upkeep at index " + strconv.Itoa(i) + " which performed " +
+					strconv.Itoa(int(countersAfterPause[i].Int64())) + " times")
+			}
+
+			Consistently(func(g Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					// Expect the counter to remain constant because the upkeep was paused, so it shouldn't increase anymore
+					latestCounter, err := consumers[i].Counter(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+					g.Expect(latestCounter.Int64()).Should(Equal(countersAfterPause[i].Int64()),
+						"Expected consumer counter to remain constant at %d, but got %d",
+						countersAfterPause[i].Int64(), latestCounter.Int64())
+				}
+			}, "1m", "1s").Should(Succeed())
+
+			// unpause all the registered upkeeps via the registry
+			for i := 0; i < len(upkeepIDs); i++ {
+				err := registry.UnpauseUpkeep(upkeepIDs[i])
+				Expect(err).ShouldNot(HaveOccurred(), "Could not unpause upkeep at index "+strconv.Itoa(i))
+			}
+
+			err = chainClient.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for upkeeps to be unpaused")
+
+			Eventually(func(g Gomega) {
+				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5 + numbers of performing before pause
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(5)+countersAfterPause[i].Int64()),
+						"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
+					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				}
+			}, "3m", "1s").Should(Succeed())
+		}
 
 		if testToRun == BasicSmokeTest {
 			By("watches all the registered upkeeps perform and then cancels them from the registry")
