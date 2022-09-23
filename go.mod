@@ -43,7 +43,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/gomega v1.19.0
+	github.com/onsi/gomega v1.20.2
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pelletier/go-toml/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
@@ -90,6 +90,8 @@ require (
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/guregu/null.v4 v4.0.0
 )
+
+require github.com/google/go-cmp v0.5.8 // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -275,7 +277,6 @@ require (
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-multistream v0.2.0 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
-	github.com/onsi/ginkgo/v2 v2.1.4 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
