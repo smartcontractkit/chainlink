@@ -964,7 +964,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fund Subscription.
-	b, err := utils.GenericEncode([]string{"uint64"}, wrapperSubID)
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, wrapperSubID)
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(uni.sergey, uni.rootContractAddress, assets.Ether(100), b)
 	require.NoError(t, err)
@@ -1033,7 +1033,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fund Subscription.
-	b, err := utils.GenericEncode([]string{"uint64"}, wrapperSubID)
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, wrapperSubID)
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(uni.sergey, uni.rootContractAddress, assets.Ether(100), b)
 	require.NoError(t, err)
@@ -1538,7 +1538,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	_, err = coordinator.CreateSubscription(owner)
 	require.NoError(t, err)
 	backend.Commit()
-	b, err := utils.GenericEncode([]string{"uint64"}, uint64(1))
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, uint64(1))
 	require.NoError(t, err)
 	_, err = linkContract.TransferAndCall(owner, coordinatorAddress, big.NewInt(0), b)
 	require.NoError(t, err)

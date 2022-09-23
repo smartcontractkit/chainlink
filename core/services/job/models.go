@@ -127,7 +127,7 @@ type Job struct {
 	Type                 Type
 	SchemaVersion        uint32
 	GasLimit             clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed    null.Bool     `toml:"forwardingAllowed"`
+	ForwardingAllowed    bool          `toml:"forwardingAllowed"`
 	Name                 null.String
 	MaxTaskDuration      models.Interval
 	Pipeline             pipeline.Pipeline `toml:"observationSource"`
