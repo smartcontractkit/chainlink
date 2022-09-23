@@ -9,7 +9,7 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - name: "Checking ${{ github.sha }} by ${{ github.actor }}"
+      - name: "SigScanner checking ${{ github.sha }} by ${{ github.actor }}"
         env:
           API_TOKEN: ${{ secrets.SIGSCANNER_API_TOKEN }}
           API_URL: ${{ secrets.SIGSCANNER_API_URL }}
