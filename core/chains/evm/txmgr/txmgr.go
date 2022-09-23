@@ -193,17 +193,17 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 				return errors.Wrap(err, "Txm: failed to sync with on-chain nonce")
 			}
 		}
-
+		var ms services.MultiStart
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-		if err = eb.Start(ctx); err != nil {
+		if err = ms.Start(ctx, eb); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err = ec.Start(); err != nil {
+		if err = ms.Start(ctx, ec); err != nil {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err = b.gasEstimator.Start(ctx); err != nil {
+		if err = ms.Start(ctx, b.gasEstimator); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
@@ -220,7 +220,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		if b.fwdMgr != nil {
-			if err = b.fwdMgr.Start(ctx); err != nil {
+			if err = ms.Start(ctx, b.fwdMgr); err != nil {
 				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}
@@ -269,7 +269,7 @@ func (b *Txm) Close() (merr error) {
 			b.ethResender.Stop()
 		}
 		if b.fwdMgr != nil {
-			if err := b.fwdMgr.Stop(); err != nil {
+			if err := b.fwdMgr.Close(); err != nil {
 				return errors.Wrap(err, "Txm: failed to stop EVMForwarderManager")
 			}
 		}
@@ -354,7 +354,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := ec.Start(); err != nil {
+					if err := ec.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
 						continue
 					}

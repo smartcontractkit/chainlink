@@ -170,7 +170,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 }
 
 // Start is a comment to appease the linter
-func (ec *EthConfirmer) Start() error {
+func (ec *EthConfirmer) Start(_ context.Context) error {
 	return ec.StartOnce("EthConfirmer", func() error {
 		if ec.config.EvmGasBumpThreshold() == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
