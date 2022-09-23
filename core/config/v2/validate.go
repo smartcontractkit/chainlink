@@ -23,7 +23,8 @@ type Validated interface {
 
 // Validate returns any errors from calling Validated.ValidateConfig on cfg and any nested types that implement Validated.
 func Validate(cfg interface{}) (err error) {
-	return utils.MultiErrorList(validate(cfg))
+	_, err = utils.MultiErrorList(validate(cfg))
+	return
 }
 
 func validate(s interface{}) (err error) {
@@ -59,7 +60,7 @@ func validate(s interface{}) (err error) {
 			if fv.Kind() == reflect.Ptr && fv.IsNil() {
 				continue
 			}
-			if fe := Validate(fv.Interface()); fe != nil {
+			if fe := validate(fv.Interface()); fe != nil {
 				if ft.Anonymous {
 					err = multierr.Append(err, fe)
 				} else {
@@ -79,7 +80,7 @@ func validate(s interface{}) (err error) {
 			if mv.Kind() == reflect.Ptr && mv.IsNil() {
 				continue
 			}
-			if me := Validate(mv.Interface()); me != nil {
+			if me := validate(mv.Interface()); me != nil {
 				err = multierr.Append(err, namedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
 			}
 		}
@@ -93,7 +94,7 @@ func validate(s interface{}) (err error) {
 			if iv.Kind() == reflect.Ptr && iv.IsNil() {
 				continue
 			}
-			if me := Validate(iv.Interface()); me != nil {
+			if me := validate(iv.Interface()); me != nil {
 				err = multierr.Append(err, namedMultiErrorList(me, strconv.Itoa(i)))
 			}
 		}
@@ -104,8 +105,14 @@ func validate(s interface{}) (err error) {
 }
 
 func namedMultiErrorList(err error, name string) error {
-	err = utils.MultiErrorList(err)
-	msg := strings.ReplaceAll(err.Error(), "\n", "\n\t")
+	l, merr := utils.MultiErrorList(err)
+	if l == 0 {
+		return nil
+	}
+	msg := strings.ReplaceAll(merr.Error(), "\n", "\n\t")
+	if l == 1 {
+		return fmt.Errorf("%s.%s", name, msg)
+	}
 	return fmt.Errorf("%s: %s", name, msg)
 }
 

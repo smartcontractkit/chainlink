@@ -90,12 +90,17 @@ type ChainScopedOnlyConfig interface {
 
 //go:generate mockery --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.GeneralConfig
+	config.BasicConfig
 	ChainScopedOnlyConfig
 	Validate() error
 	// Both Configure() and PersistedConfig() should be accessed through ChainSet methods only.
 	Configure(config evmtypes.ChainCfg)
 	PersistedConfig() evmtypes.ChainCfg
+}
+
+type LegacyChainScopedConfig interface {
+	ChainScopedConfig
+	config.GeneralConfig
 }
 
 var _ ChainScopedConfig = &chainScopedConfig{}
@@ -116,7 +121,7 @@ type chainScopedConfig struct {
 	onceMapMu sync.RWMutex
 }
 
-func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) ChainScopedConfig {
+func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) LegacyChainScopedConfig {
 	csorm := &chainScopedConfigORM{*utils.NewBig(chainID), orm}
 	defaultSet, exists := chainSpecificConfigDefaultSets[chainID.Int64()]
 	if !exists {
@@ -732,9 +737,6 @@ func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uin
 	if p.Valid {
 		c.logPersistedOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", p.Int64)
 		return uint16(p.Int64)
-	}
-	if c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks != nil {
-		return *c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks
 	}
 	// Default is the gas bump threshold + 1 block
 	return uint16(c.EvmGasBumpThreshold() + 1)

@@ -69,7 +69,21 @@ func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (terra.Chain, error) {
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
-	return NewChain(o.DB, o.KeyStore, o.Config, o.EventBroadcaster, dbchain, o.ORM, o.Logger)
+	id := dbchain.ID
+	cfg := terra.NewConfig(*dbchain.Cfg, o.Logger)
+	return newChain(id, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
+}
+
+func (o *ChainSetOpts) NewTOMLChain(cfg *TerraConfig) (terra.Chain, error) {
+	if !*cfg.Enabled {
+		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
+	if err != nil {
+		return nil, err
+	}
+	c.cfgImmutable = true
+	return c, nil
 }
 
 //go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
@@ -92,4 +106,21 @@ type ChainSet interface {
 // NewChainSet returns a new chain set for opts.
 func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
 	return chains.NewChainSet[string, *db.ChainCfg, db.Node, terra.Chain](&opts, func(s string) string { return s })
+}
+
+func NewChainSetImmut(opts ChainSetOpts, cfgs TerraConfigs) (ChainSet, error) {
+	solChains := map[string]terra.Chain{}
+	var err error
+	for _, chain := range cfgs {
+		var err2 error
+		solChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
+		if err2 != nil {
+			err = multierr.Combine(err, err2)
+			continue
+		}
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load some Solana chains")
+	}
+	return chains.NewChainSetImmut[string, *db.ChainCfg, db.Node, terra.Chain](solChains, &opts, func(s string) string { return s })
 }

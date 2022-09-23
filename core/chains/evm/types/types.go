@@ -44,7 +44,7 @@ type ORM interface {
 	CreateNode(data Node, qopts ...pg.QOpt) (Node, error)
 	DeleteNode(id int32, qopts ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
-	Node(id int32, qopts ...pg.QOpt) (Node, error)
+	NodeNamed(string, ...pg.QOpt) (Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 

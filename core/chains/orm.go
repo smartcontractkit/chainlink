@@ -26,7 +26,6 @@ type NodesORM[I ID, N Node] interface {
 	CreateNode(N, ...pg.QOpt) (N, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []I, qopts ...pg.QOpt) (nodes []N, err error)
-	Node(int32, ...pg.QOpt) (N, error)
 	NodeNamed(string, ...pg.QOpt) (N, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
 	NodesForChain(chainID I, offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
@@ -79,7 +78,8 @@ func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 // DBChain is a generic DB chain for an ID and Config.
 //
 // A DBChain type alias can be used for convenience:
-// 	type DBChain = chains.DBChain[string, pkg.ChainCfg]
+//
+//	type DBChain = chains.DBChain[string, pkg.ChainCfg]
 type DBChain[I ID, C Config] struct {
 	ID        I
 	Cfg       C
@@ -285,13 +285,6 @@ func (o *nodesORM[I, N]) truncateNodes(qopts ...pg.QOpt) error {
 		return errors.Wrapf(err, "failed to truncate %s_nodes table", o.prefix)
 	}
 	return nil
-}
-
-func (o *nodesORM[I, N]) Node(id int32, qopts ...pg.QOpt) (node N, err error) {
-	q := o.q.WithOpts(qopts...)
-	err = q.Get(&node, fmt.Sprintf("SELECT * FROM %s_nodes WHERE id = $1;", o.prefix), id)
-
-	return
 }
 
 func (o *nodesORM[I, N]) NodeNamed(name string, qopts ...pg.QOpt) (node N, err error) {

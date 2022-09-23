@@ -145,98 +145,17 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.UseForwarders; v != nil {
 		c.UseForwarders = v
 	}
-	if b := f.BalanceMonitor; b != nil {
+	if f.BalanceMonitor != nil {
 		if c.BalanceMonitor == nil {
 			c.BalanceMonitor = &BalanceMonitor{}
 		}
-		if v := b.Enabled; v != nil {
-			c.BalanceMonitor.Enabled = v
-		}
+		c.BalanceMonitor.setFrom(f.BalanceMonitor)
 	}
 	if g := f.GasEstimator; g != nil {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		if v := g.Mode; v != nil {
-			c.GasEstimator.Mode = v
-		}
-		if v := g.EIP1559DynamicFees; v != nil {
-			c.GasEstimator.EIP1559DynamicFees = v
-		}
-		if v := g.BumpPercent; v != nil {
-			c.GasEstimator.BumpPercent = v
-		}
-		if v := g.BumpThreshold; v != nil {
-			c.GasEstimator.BumpThreshold = v
-		}
-		if v := g.BumpTxDepth; v != nil {
-			c.GasEstimator.BumpTxDepth = v
-		}
-		if v := g.BumpMin; v != nil {
-			c.GasEstimator.BumpMin = v
-		}
-		if v := g.FeeCapDefault; v != nil {
-			c.GasEstimator.FeeCapDefault = v
-		}
-		if v := g.LimitDefault; v != nil {
-			c.GasEstimator.LimitDefault = v
-		}
-		if v := g.LimitMax; v != nil {
-			c.GasEstimator.LimitMax = v
-		}
-		if v := g.LimitMultiplier; v != nil {
-			c.GasEstimator.LimitMultiplier = v
-		}
-		if v := g.LimitTransfer; v != nil {
-			c.GasEstimator.LimitTransfer = v
-		}
-		if v := g.LimitOCRJobType; v != nil {
-			c.GasEstimator.LimitOCRJobType = v
-		}
-		if v := g.LimitDRJobType; v != nil {
-			c.GasEstimator.LimitDRJobType = v
-		}
-		if v := g.LimitVRFJobType; v != nil {
-			c.GasEstimator.LimitVRFJobType = v
-		}
-		if v := g.LimitFMJobType; v != nil {
-			c.GasEstimator.LimitFMJobType = v
-		}
-		if v := g.LimitKeeperJobType; v != nil {
-			c.GasEstimator.LimitKeeperJobType = v
-		}
-		if v := g.PriceDefault; v != nil {
-			c.GasEstimator.PriceDefault = v
-		}
-		if v := g.TipCapDefault; v != nil {
-			c.GasEstimator.TipCapDefault = v
-		}
-		if v := g.TipCapMinimum; v != nil {
-			c.GasEstimator.TipCapMinimum = v
-		}
-		if v := g.PriceMax; v != nil {
-			c.GasEstimator.PriceMax = v
-		}
-		if v := g.PriceMin; v != nil {
-			c.GasEstimator.PriceMin = v
-		}
-		if b := g.BlockHistory; b != nil {
-			if c.GasEstimator.BlockHistory == nil {
-				c.GasEstimator.BlockHistory = &BlockHistoryEstimator{}
-			}
-			if v := b.BatchSize; v != nil {
-				c.GasEstimator.BlockHistory.BatchSize = v
-			}
-			if v := b.BlockHistorySize; v != nil {
-				c.GasEstimator.BlockHistory.BlockHistorySize = v
-			}
-			if v := b.EIP1559FeeCapBufferBlocks; v != nil {
-				c.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks = v
-			}
-			if v := b.TransactionPercentile; v != nil {
-				c.GasEstimator.BlockHistory.TransactionPercentile = v
-			}
-		}
+		c.GasEstimator.setFrom(f.GasEstimator)
 	}
 	if ks := f.KeySpecific; ks != nil {
 		for _, v := range ks {
@@ -249,52 +168,22 @@ func (c *Chain) SetFrom(f *Chain) {
 			}
 		}
 	}
-	if h := f.HeadTracker; h != nil {
+	if f.HeadTracker != nil {
 		if c.HeadTracker == nil {
 			c.HeadTracker = &HeadTracker{}
 		}
-		if v := h.HistoryDepth; v != nil {
-			c.HeadTracker.HistoryDepth = v
-		}
-		if v := h.MaxBufferSize; v != nil {
-			c.HeadTracker.MaxBufferSize = v
-		}
-		if v := h.SamplingInterval; v != nil {
-			c.HeadTracker.SamplingInterval = v
-		}
+		c.HeadTracker.setFrom(f.HeadTracker)
 	}
-	if n := f.NodePool; n != nil {
+	if f.NodePool != nil {
 		if c.NodePool == nil {
 			c.NodePool = &NodePool{}
 		}
-		if v := n.PollFailureThreshold; v != nil {
-			c.NodePool.PollFailureThreshold = v
-		}
-		if v := n.PollInterval; v != nil {
-			c.NodePool.PollInterval = v
-		}
-		if v := n.SelectionMode; v != nil {
-			c.NodePool.SelectionMode = v
-		}
+		c.NodePool.setFrom(f.NodePool)
 	}
-	if o := f.OCR; o != nil {
+	if f.OCR != nil {
 		if c.OCR == nil {
 			c.OCR = &OCR{}
 		}
-		if v := o.ContractConfirmations; v != nil {
-			c.OCR.ContractConfirmations = v
-		}
-		if v := o.ContractTransmitterTransmitTimeout; v != nil {
-			c.OCR.ContractTransmitterTransmitTimeout = v
-		}
-		if v := o.DatabaseTimeout; v != nil {
-			c.OCR.DatabaseTimeout = v
-		}
-		if v := o.ObservationTimeout; v != nil {
-			c.OCR.ObservationTimeout = v
-		}
-		if v := o.ObservationGracePeriod; v != nil {
-			c.OCR.ObservationGracePeriod = v
-		}
+		c.OCR.setFrom(f.OCR)
 	}
 }

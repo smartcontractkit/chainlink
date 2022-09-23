@@ -519,8 +519,12 @@ func ParseURL(s string) (*URL, error) {
 	return (*URL)(u), nil
 }
 
+func (u *URL) String() string {
+	return (*url.URL)(u).String()
+}
+
 func (u *URL) MarshalText() ([]byte, error) {
-	return []byte((*url.URL)(u).String()), nil
+	return []byte(u.String()), nil
 }
 
 func (u *URL) UnmarshalText(input []byte) error {

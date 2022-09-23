@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	cfgv2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -73,6 +74,8 @@ type chainSet[I ID, C Config, N Node, S ChainService[C]] struct {
 
 	chainsMu sync.RWMutex
 	chains   map[string]S
+
+	immutable bool // toml config is immutable
 }
 
 // NewChainSet returns a new ChainSet for the given ChainSetOpts.
@@ -101,6 +104,26 @@ func NewChainSet[I ID, C Config, N Node, S ChainService[C]](
 			err = multierr.Combine(err, err2)
 			continue
 		}
+	}
+
+	return &cs, err
+}
+
+// NewChainSetImmut returns a new immutable ChainSet for the given ChainSetOpts.
+func NewChainSetImmut[I ID, C Config, N Node, S ChainService[C]](chains map[string]S,
+	opts ChainSetOpts[I, C, N, S], formatID func(I) string,
+) (ChainSet[I, C, N, S], error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+	orm, lggr := opts.ORMAndLogger()
+	cs := chainSet[I, C, N, S]{
+		opts:      opts,
+		formatID:  formatID,
+		orm:       orm,
+		lggr:      lggr.Named("ChainSet"),
+		chains:    chains,
+		immutable: true,
 	}
 
 	return &cs, nil
@@ -170,6 +193,9 @@ func (c *chainSet[I, C, N, S]) initializeChain(ctx context.Context, dbchain DBCh
 }
 
 func (c *chainSet[I, C, N, S]) Add(ctx context.Context, id I, config C) (DBChain[I, C], error) {
+	if c.immutable {
+		return DBChain[I, C]{}, cfgv2.ErrUnsupported
+	}
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -190,6 +216,9 @@ func (c *chainSet[I, C, N, S]) Show(id I) (DBChain[I, C], error) {
 }
 
 func (c *chainSet[I, C, N, S]) Configure(ctx context.Context, id I, enabled bool, config C) (DBChain[I, C], error) {
+	if c.immutable {
+		return DBChain[I, C]{}, cfgv2.ErrUnsupported
+	}
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -219,6 +248,9 @@ func (c *chainSet[I, C, N, S]) Configure(ctx context.Context, id I, enabled bool
 }
 
 func (c *chainSet[I, C, N, S]) Remove(id I) error {
+	if c.immutable {
+		return cfgv2.ErrUnsupported
+	}
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -253,6 +285,9 @@ func (c *chainSet[I, C, N, S]) CreateNode(ctx context.Context, n N) (N, error) {
 }
 
 func (c *chainSet[I, C, N, S]) DeleteNode(ctx context.Context, id int32) error {
+	if c.immutable {
+		return cfgv2.ErrUnsupported
+	}
 	return c.orm.DeleteNode(id, pg.WithParentCtx(ctx))
 }
 

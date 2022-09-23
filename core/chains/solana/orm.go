@@ -25,7 +25,6 @@ type ORM interface {
 	CreateNode(soldb.Node, ...pg.QOpt) (soldb.Node, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes []soldb.Node, err error)
-	Node(int32, ...pg.QOpt) (soldb.Node, error)
 	NodeNamed(string, ...pg.QOpt) (soldb.Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
@@ -42,4 +41,8 @@ var _ chains.ORM[string, *soldb.ChainCfg, soldb.Node] = (ORM)(nil)
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
 	return chains.NewORM[string, *soldb.ChainCfg, soldb.Node](q, "solana", "solana_url")
+}
+
+func NewORMImmut(cfgs chains.ChainConfig[string, *soldb.ChainCfg, soldb.Node]) ORM {
+	return chains.NewORMImmut(cfgs)
 }
