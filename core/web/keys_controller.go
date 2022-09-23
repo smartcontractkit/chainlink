@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -38,6 +39,7 @@ type keysController[K keystore.Key, R jsonapi.EntityNamer] struct {
 	ks           Keystore[K]
 	lggr         logger.Logger
 	auditLogger  audit.AuditLogger
+	typ          string
 	resourceName string
 	newResource  func(K) *R
 	newResources func([]K) []R
@@ -45,10 +47,16 @@ type keysController[K keystore.Key, R jsonapi.EntityNamer] struct {
 
 func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lggr logger.Logger, auditLogger audit.AuditLogger, resourceName string,
 	newResource func(K) *R, newResources func([]K) []R) KeysController {
+	var k K
+	typ, err := keystore.GetFieldNameForKey(k)
+	if err != nil {
+		panic(fmt.Errorf("unable to create keys controller: %v", err))
+	}
 	return &keysController[K, R]{
 		ks:           ks,
 		lggr:         lggr,
 		auditLogger:  auditLogger,
+		typ:          typ,
 		resourceName: resourceName,
 		newResource:  newResource,
 		newResources: newResources,
@@ -71,19 +79,10 @@ func (kc *keysController[K, R]) Create(c *gin.Context) {
 		return
 	}
 
-	type_, err := keystore.GetFieldNameForKey(key)
-
-	if err != nil {
-		kc.auditLogger.Audit(audit.KeyCreated, map[string]interface{}{
-			"type": "unknown",
-			"id":   key.ID(),
-		})
-	} else {
-		kc.auditLogger.Audit(audit.KeyCreated, map[string]interface{}{
-			"type": type_,
-			"id":   key.ID(),
-		})
-	}
+	kc.auditLogger.Audit(audit.KeyCreated, map[string]interface{}{
+		"type": kc.typ,
+		"id":   key.ID(),
+	})
 
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
 }
@@ -101,19 +100,10 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	type_, err := keystore.GetFieldNameForKey(key)
-
-	if err != nil {
-		kc.auditLogger.Audit(audit.KeyDeleted, map[string]interface{}{
-			"type": "unknown",
-			"id":   key.ID(),
-		})
-	} else {
-		kc.auditLogger.Audit(audit.KeyDeleted, map[string]interface{}{
-			"type": type_,
-			"id":   key.ID(),
-		})
-	}
+	kc.auditLogger.Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": kc.typ,
+		"id":   key.ID(),
+	})
 
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
 }
@@ -133,19 +123,10 @@ func (kc *keysController[K, R]) Import(c *gin.Context) {
 		return
 	}
 
-	type_, err := keystore.GetFieldNameForKey(key)
-
-	if err != nil {
-		kc.auditLogger.Audit(audit.KeyImported, map[string]interface{}{
-			"type": "unknown",
-			"id":   key.ID(),
-		})
-	} else {
-		kc.auditLogger.Audit(audit.KeyImported, map[string]interface{}{
-			"type": type_,
-			"id":   key.ID(),
-		})
-	}
+	kc.auditLogger.Audit(audit.KeyImported, map[string]interface{}{
+		"type": kc.typ,
+		"id":   key.ID(),
+	})
 
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
 }
@@ -161,28 +142,10 @@ func (kc *keysController[K, R]) Export(c *gin.Context) {
 		return
 	}
 
-	key, err := kc.ks.Get(keyID)
-	if err != nil {
-		kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
-			"type": "unknown",
-			"id":   key.ID(),
-		})
-	} else {
-
-		type_, err := keystore.GetFieldNameForKey(key)
-
-		if err != nil {
-			kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
-				"type": "unknown",
-				"id":   key.ID(),
-			})
-		} else {
-			kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
-				"type": type_,
-				"id":   key.ID(),
-			})
-		}
-	}
+	kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
+		"type": kc.typ,
+		"id":   keyID,
+	})
 
 	c.Data(http.StatusOK, MediaType, bytes)
 }
