@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
@@ -366,10 +365,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	case job.OCR2Keeper:
 		// TODO: cfg still not used, but it's here to pass config values to the plugin
 		// from the primary config file.
-		// possible to be added:
-		// - cache purge time frame
-		// - persistent store option
-		// - chain type
 		var cfg ocr2keeperconfig.PluginConfig
 		if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
 			return nil, errors.Wrap(err, "unmarshal ocr2keeper plugin config")
@@ -377,22 +372,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 
 		if err = cfg.Validate(); err != nil {
 			return nil, errors.Wrap(err, "validate ocr2keeper plugin config")
-		}
-
-		// RunResultSaver needs to be started first, so it's available
-		// to read odb writes. It is stopped last after the OraclePlugin is shut down
-		// so no further runs are enqueued, and we can drain the queue.
-		runResultSaver := ocrcommon.NewResultRunSaver(
-			runResults,
-			d.pipelineRunner,
-			make(chan struct{}),
-			lggr,
-		)
-
-		jobSpec.KeeperSpec = &job.KeeperSpec{
-			ID:              spec.ID,
-			ContractAddress: ethkey.MustEIP55Address(spec.ContractID),
-			FromAddress:     ethkey.MustEIP55Address(spec.TransmitterID.String),
 		}
 
 		keeperProvider, rgstry, encoder, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet)
@@ -421,7 +400,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		return []job.ServiceCtx{
-			runResultSaver,
 			keeperProvider,
 			pluginService,
 		}, nil

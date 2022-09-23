@@ -32,7 +32,6 @@ type ETHCallTask struct {
 	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
-	BlockNumber         string `json:"blockNumber" `
 
 	specGasLimit *uint32
 	chainSet     evm.ChainSet
@@ -71,7 +70,6 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasFeeCap    MaybeBigIntParam
 		gasUnlimited BoolParam
 		chainID      StringParam
-		blockNumber  MaybeBigIntParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
@@ -83,7 +81,6 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
 		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID"),
 		errors.Wrap(ResolveParam(&gasUnlimited, From(VarExpr(t.GasUnlimited, vars), NonemptyString(t.GasUnlimited), false)), "gasUnlimited"),
-		errors.Wrap(ResolveParam(&blockNumber, From(VarExpr(t.BlockNumber, vars), t.BlockNumber)), "blockNumber"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -121,11 +118,10 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	lggr = lggr.With("gas", call.Gas).
 		With("gasPrice", call.GasPrice).
 		With("gasTipCap", call.GasTipCap).
-		With("gasFeeCap", call.GasFeeCap).
-		With("blockNumber", blockNumber.BigInt())
+		With("gasFeeCap", call.GasFeeCap)
 
 	start := time.Now()
-	resp, err := chain.Client().CallContract(ctx, call, blockNumber.BigInt())
+	resp, err := chain.Client().CallContract(ctx, call, nil)
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
