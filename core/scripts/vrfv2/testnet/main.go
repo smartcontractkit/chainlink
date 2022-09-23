@@ -711,7 +711,7 @@ func main() {
 		bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 		helpers.PanicErr(err)
 		fmt.Println("OWNER BALANCE", bal, e.Owner.From.String(), amount.String())
-		b, err := utils.GenericEncode([]string{"uint64"}, created.SubId)
+		b, err := utils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
 		helpers.PanicErr(err)
 		e.Owner.GasLimit = 500000
 		tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
