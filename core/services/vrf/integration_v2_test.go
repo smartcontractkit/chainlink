@@ -2029,9 +2029,6 @@ func TestMaliciousConsumer(t *testing.T) {
 func TestRequestCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
-	carol := uni.vrfConsumers[0]
-	carolContract := uni.consumerContracts[0]
-	carolContractAddress := uni.consumerContractAddresses[0]
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
@@ -2045,28 +2042,71 @@ func TestRequestCost(t *testing.T) {
 		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
-	_, err = carolContract.TestCreateSubscriptionAndFund(carol,
-		big.NewInt(1000000000000000000)) // 0.1 LINK
-	require.NoError(t, err)
-	uni.backend.Commit()
-	subId, err := carolContract.SSubId(nil)
-	require.NoError(t, err)
-	// Ensure even with large number of consumers its still cheap
-	var addrs []common.Address
-	for i := 0; i < 99; i++ {
-		addrs = append(addrs, testutils.NewAddress())
-	}
-	_, err = carolContract.UpdateSubscription(carol,
-		addrs) // 0.1 LINK
-	require.NoError(t, err)
-	estimate := estimateGas(t, uni.backend, common.Address{},
-		carolContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
-	t.Log(estimate)
-	// V2 should be at least (87000-134000)/134000 = 35% cheaper
-	// Note that a second call drops further to 68998 gas, but would also drop in V1.
-	assert.Less(t, estimate, uint64(90_000),
-		"requestRandomness tx gas cost more than expected")
+
+	t.Run("non-proxied consumer", func(tt *testing.T) {
+		carol := uni.vrfConsumers[0]
+		carolContract := uni.consumerContracts[0]
+		carolContractAddress := uni.consumerContractAddresses[0]
+
+		_, err = carolContract.TestCreateSubscriptionAndFund(carol,
+			big.NewInt(1000000000000000000)) // 0.1 LINK
+		require.NoError(tt, err)
+		uni.backend.Commit()
+		subId, err := carolContract.SSubId(nil)
+		require.NoError(tt, err)
+		// Ensure even with large number of consumers its still cheap
+		var addrs []common.Address
+		for i := 0; i < 99; i++ {
+			addrs = append(addrs, testutils.NewAddress())
+		}
+		_, err = carolContract.UpdateSubscription(carol, addrs)
+		require.NoError(tt, err)
+		estimate := estimateGas(tt, uni.backend, common.Address{},
+			carolContractAddress, uni.consumerABI,
+			"testRequestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+		tt.Log("gas estimate of non-proxied testRequestRandomness:", estimate)
+		// V2 should be at least (87000-134000)/134000 = 35% cheaper
+		// Note that a second call drops further to 68998 gas, but would also drop in V1.
+		assert.Less(tt, estimate, uint64(90_000),
+			"requestRandomness tx gas cost more than expected")
+	})
+
+	t.Run("proxied consumer", func(tt *testing.T) {
+		consumerOwner := uni.neil
+		consumerContract := uni.consumerProxyContract
+		consumerContractAddress := uni.consumerProxyContractAddress
+
+		// Create a subscription and fund with 5 LINK.
+		tx, err := consumerContract.TestCreateSubscriptionAndFund(consumerOwner, assets.Ether(5))
+		require.NoError(tt, err)
+		uni.backend.Commit()
+		r, err := uni.backend.TransactionReceipt(testutils.Context(t), tx.Hash())
+		require.NoError(tt, err)
+		t.Log("gas used by proxied TestCreateSubscriptionAndFund:", r.GasUsed)
+
+		subId, err := consumerContract.SSubId(nil)
+		require.NoError(tt, err)
+		_, err = uni.rootContract.GetSubscription(nil, subId)
+		require.NoError(tt, err)
+
+		// Ensure even with large number of consumers it's still cheap
+		var addrs []common.Address
+		for i := 0; i < 99; i++ {
+			addrs = append(addrs, testutils.NewAddress())
+		}
+		_, err = consumerContract.UpdateSubscription(consumerOwner, addrs)
+
+		theAbi := evmtypes.MustGetABI(vrf_consumer_v2_upgradeable.VRFConsumerV2UpgradeableMetaData.ABI)
+		estimate := estimateGas(tt, uni.backend, common.Address{},
+			consumerContractAddress, &theAbi,
+			"testRequestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+		tt.Log("gas estimate of proxied testRequestRandomness:", estimate)
+		// There is some gas overhead of the delegatecall that is made by the proxy
+		// to the logic contract. See https://www.evm.codes/#f4?fork=grayGlacier for a detailed
+		// breakdown of the gas costs of a delegatecall.
+		assert.Less(tt, estimate, uint64(96_000),
+			"proxied testRequestRandomness tx gas cost more than expected")
+	})
 }
 
 func TestMaxConsumersCost(t *testing.T) {
@@ -2107,9 +2147,6 @@ func TestMaxConsumersCost(t *testing.T) {
 func TestFulfillmentCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
-	carol := uni.vrfConsumers[0]
-	carolContract := uni.consumerContracts[0]
-	carolContractAddress := uni.consumerContractAddresses[0]
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
@@ -2123,42 +2160,95 @@ func TestFulfillmentCost(t *testing.T) {
 		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
-	_, err = carolContract.TestCreateSubscriptionAndFund(carol,
-		big.NewInt(1000000000000000000)) // 0.1 LINK
-	require.NoError(t, err)
-	uni.backend.Commit()
-	subId, err := carolContract.SSubId(nil)
-	require.NoError(t, err)
 
-	gasRequested := 50000
-	nw := 1
-	requestedIncomingConfs := 3
-	_, err = carolContract.TestRequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
-	require.NoError(t, err)
-	for i := 0; i < requestedIncomingConfs; i++ {
+	var (
+		nonProxiedConsumerGasEstimate uint64
+		proxiedConsumerGasEstimate    uint64
+	)
+	t.Run("non-proxied consumer", func(tt *testing.T) {
+		carol := uni.vrfConsumers[0]
+		carolContract := uni.consumerContracts[0]
+		carolContractAddress := uni.consumerContractAddresses[0]
+
+		_, err = carolContract.TestCreateSubscriptionAndFund(carol,
+			big.NewInt(1000000000000000000)) // 0.1 LINK
+		require.NoError(tt, err)
 		uni.backend.Commit()
-	}
+		subId, err := carolContract.SSubId(nil)
+		require.NoError(tt, err)
 
-	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash())
-	s, err := proof.BigToSeed(requestLog.PreSeed)
-	require.NoError(t, err)
-	proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
-		PreSeed:          s,
-		BlockHash:        requestLog.Raw.BlockHash,
-		BlockNum:         requestLog.Raw.BlockNumber,
-		SubId:            subId,
-		CallbackGasLimit: uint32(gasRequested),
-		NumWords:         uint32(nw),
-		Sender:           carolContractAddress,
+		gasRequested := 50_000
+		nw := 1
+		requestedIncomingConfs := 3
+		_, err = carolContract.TestRequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+		require.NoError(t, err)
+		for i := 0; i < requestedIncomingConfs; i++ {
+			uni.backend.Commit()
+		}
+
+		requestLog := FindLatestRandomnessRequestedLog(tt, uni.rootContract, vrfkey.PublicKey.MustHash())
+		s, err := proof.BigToSeed(requestLog.PreSeed)
+		require.NoError(t, err)
+		proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
+			PreSeed:          s,
+			BlockHash:        requestLog.Raw.BlockHash,
+			BlockNum:         requestLog.Raw.BlockNumber,
+			SubId:            subId,
+			CallbackGasLimit: uint32(gasRequested),
+			NumWords:         uint32(nw),
+			Sender:           carolContractAddress,
+		})
+		require.NoError(tt, err)
+		nonProxiedConsumerGasEstimate = estimateGas(tt, uni.backend, common.Address{},
+			uni.rootContractAddress, uni.coordinatorABI,
+			"fulfillRandomWords", proof, rc)
+		t.Log("non-proxied consumer fulfillment gas estimate:", nonProxiedConsumerGasEstimate)
+		// Establish very rough bounds on fulfillment cost
+		assert.Greater(tt, nonProxiedConsumerGasEstimate, uint64(120_000))
+		assert.Less(tt, nonProxiedConsumerGasEstimate, uint64(500_000))
 	})
-	require.NoError(t, err)
-	estimate := estimateGas(t, uni.backend, common.Address{},
-		uni.rootContractAddress, uni.coordinatorABI,
-		"fulfillRandomWords", proof, rc)
-	t.Log("estimate", estimate)
-	// Establish very rough bounds on fulfillment cost
-	assert.Greater(t, estimate, uint64(120000))
-	assert.Less(t, estimate, uint64(500000))
+
+	t.Run("proxied consumer", func(tt *testing.T) {
+		consumerOwner := uni.neil
+		consumerContract := uni.consumerProxyContract
+		consumerContractAddress := uni.consumerProxyContractAddress
+
+		_, err = consumerContract.TestCreateSubscriptionAndFund(consumerOwner, assets.Ether(5))
+		require.NoError(t, err)
+		uni.backend.Commit()
+		subId, err := consumerContract.SSubId(nil)
+		require.NoError(t, err)
+		gasRequested := 50_000
+		nw := 1
+		requestedIncomingConfs := 3
+		_, err = consumerContract.TestRequestRandomness(consumerOwner, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+		require.NoError(t, err)
+		for i := 0; i < requestedIncomingConfs; i++ {
+			uni.backend.Commit()
+		}
+
+		requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash())
+		require.Equal(tt, subId, requestLog.SubId)
+		s, err := proof.BigToSeed(requestLog.PreSeed)
+		require.NoError(t, err)
+		proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
+			PreSeed:          s,
+			BlockHash:        requestLog.Raw.BlockHash,
+			BlockNum:         requestLog.Raw.BlockNumber,
+			SubId:            subId,
+			CallbackGasLimit: uint32(gasRequested),
+			NumWords:         uint32(nw),
+			Sender:           consumerContractAddress,
+		})
+		require.NoError(t, err)
+		proxiedConsumerGasEstimate = estimateGas(t, uni.backend, common.Address{},
+			uni.rootContractAddress, uni.coordinatorABI,
+			"fulfillRandomWords", proof, rc)
+		t.Log("proxied consumer fulfillment gas estimate", proxiedConsumerGasEstimate)
+		// Establish very rough bounds on fulfillment cost
+		assert.Greater(t, proxiedConsumerGasEstimate, uint64(120_000))
+		assert.Less(t, proxiedConsumerGasEstimate, uint64(500_000))
+	})
 }
 
 func TestStartingCountsV1(t *testing.T) {
