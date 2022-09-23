@@ -1,0 +1,164 @@
+import { ethers } from 'hardhat'
+import { publicAbi, decodeDietCBOR, hexToBuf } from '../../test-helpers/helpers'
+import { assert } from 'chai'
+import { Contract, ContractFactory, providers, Signer } from 'ethers'
+import { Roles, getUsers } from '../../test-helpers/setup'
+import { makeDebug } from '../../test-helpers/debug'
+
+const debug = makeDebug('OCR2DRTestHelper')
+let concreteOCR2DRTestHelperFactory: ContractFactory
+
+let roles: Roles
+
+before(async () => {
+  roles = (await getUsers()).roles
+  concreteOCR2DRTestHelperFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/OCR2DRTestHelper.sol:OCR2DRTestHelper',
+    roles.defaultAccount,
+  )
+})
+
+describe('OCR2DRTestHelper', () => {
+  let ctr: Contract
+  let defaultAccount: Signer
+
+  beforeEach(async () => {
+    defaultAccount = roles.defaultAccount
+    ctr = await concreteOCR2DRTestHelperFactory.connect(defaultAccount).deploy()
+  })
+
+  it('has a limited public interface [ @skip-coverage ]', () => {
+    publicAbi(ctr, [
+      'closeEvent',
+      'initializeRequestForInlineJavaScript',
+      'addSecrets',
+      'addTwoArgs',
+      'addQuery',
+      'addQueryWithTwoHeaders',
+    ])
+  })
+
+  async function parseRequestDataEvent(tx: providers.TransactionResponse) {
+    const receipt = await tx.wait()
+    const data = receipt.logs?.[0].data
+    const d = debug.extend('parseRequestDataEvent')
+    d('data %s', data)
+    return ethers.utils.defaultAbiCoder.decode(['bytes'], data ?? '')
+  }
+
+  describe('#closeEvent', () => {
+    it('handles empty request', async () => {
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {
+        "language": 0,
+        "location": 0,
+        "source": ""
+      })
+    })
+  })
+
+  describe('#initializeRequestForInlineJavaScript', () => {
+    it('emits simple CBOR encoded request for js', async () => {
+      const js = 'function run(args, responses) {}';
+      await ctr.initializeRequestForInlineJavaScript(js)
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {
+        "language": 0,
+        "location": 0,
+        "source": js
+      })
+    })
+  })
+
+  describe('#addSecrets', () => {
+    it('emits CBOR encoded request with js and secrets', async () => {
+      const js = 'function run(args, responses) {}';
+      const secrets = '0xA161616162';
+      await ctr.initializeRequestForInlineJavaScript(js)
+      await ctr.addSecrets(secrets)
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {
+        "language": 0,
+        "location": 0,
+        "source": js,
+        "secrets": hexToBuf(secrets),
+      })
+    })
+  })
+
+  describe('#addArgs', () => {
+    it('emits CBOR encoded request with js and args', async () => {
+      const js = 'function run(args, responses) {}';
+      await ctr.initializeRequestForInlineJavaScript(js)
+      await ctr.addTwoArgs("arg1", "arg2");
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {
+        "language": 0,
+        "location": 0,
+        "source": js,
+        "args": [
+          "arg1",
+          "arg2",
+        ]
+      })
+    })
+  })
+
+  describe('#addQuery', () => {
+    it('emits CBOR encoded request with js and query', async () => {
+      const js = 'function run(args, responses) {}';
+      const url = 'https://data.source';
+      await ctr.initializeRequestForInlineJavaScript(js)
+      await ctr.addQuery(url);
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {
+        "language": 0,
+        "location": 0,
+        "source": js,
+        "queries": [
+          {
+            "verb": 0,
+            "url": url,
+          }
+        ]
+      })
+    })
+  })
+
+  describe('#addQueryWithTwoHeaders', () => {
+    it('emits CBOR encoded request for a query with two headers', async () => {
+      const js = 'function run(args, responses) {}';
+      const url = 'https://data.source';
+      await ctr.initializeRequestForInlineJavaScript(js)
+      await ctr.addQueryWithTwoHeaders(url, "k1", "v1", "k2", "v2");
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {
+        "language": 0,
+        "location": 0,
+        "source": js,
+        "queries": [
+          {
+            "verb": 0,
+            "url": url,
+            "headers": {
+              "k1": "v1",
+              "k2": "v2",
+            }
+          }
+        ]
+      })
+    })
+  })
+})
