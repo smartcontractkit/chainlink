@@ -18,7 +18,7 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Sync
         continue-on-error: true
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: develop
         if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'

@@ -35,7 +35,7 @@ jobs:
           this-job-name: Solidity Coverage
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup node
         uses: actions/setup-node@v3
         with:
@@ -60,7 +60,7 @@ jobs:
           this-job-name: Solidity
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup node
         uses: actions/setup-node@v3
         with:
