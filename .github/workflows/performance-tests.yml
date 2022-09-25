@@ -25,7 +25,7 @@ jobs:
           this-job-name: Build Chainlink Image
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -66,7 +66,7 @@ jobs:
           this-job-name: run core evm ${{ github.event.inputs.focus }} performance tests
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Run Tests
         uses: smartcontractkit/ctf-ci-e2e-action@41848377703354a32d355d3f2f7cb3b9e3049b8c
         with:

@@ -38,7 +38,7 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: lint
         continue-on-error: true
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v3
