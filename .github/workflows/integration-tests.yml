@@ -208,7 +208,7 @@ jobs:
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           download_contract_artifacts_path: contracts/target/deploy
-          artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/tests/e2e/logs
+          artifacts_location: /home/runner/work/chainlink/chainlink/tests/e2e/logs
           publish_check_name: Solana Smoke Test Results
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
           go_mod_path: ./tests/go.mod
@@ -219,9 +219,7 @@ jobs:
         if: always()
         run: |
           pwd
-          ls
-          ls /
-          ls /home/runner/work/
+          ls /home/runner/work/chainlink/chainlink/tests
       - name: cleanup
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@02c9ae5ec7f88250088bab88f14b4b043162b46d # v2.0.18
