@@ -38,7 +38,7 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		"FEATURE_LOG_POLLER=true",
 		"P2P_NETWORKING_STACK=V2",
 		"CHAINLINK_TLS_PORT=0",
-		fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=127.0.0.1:%d", p2pv2Port),
+		fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=0.0.0.0:%d", p2pv2Port),
 	)
 	if err != nil {
 		lggr.Fatal("Failed to launch chainlink node, ", err)
@@ -58,7 +58,7 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		lggr.Fatal("Failed to create keeper job: ", err)
 	}
 
-	tcpAddr := fmt.Sprintf("%s@%s:%d", p2pKeyID, containerName, uiPort)
+	tcpAddr := fmt.Sprintf("%s@%s:%d", p2pKeyID, containerName, p2pv2Port)
 	lggr.Info("Bootstrap job has been successfully created in the Chainlink node with address ", urlRaw, ", tcp: ", tcpAddr)
 }
 

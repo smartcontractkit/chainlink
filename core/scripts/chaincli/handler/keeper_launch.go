@@ -48,7 +48,8 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 			"FEATURE_LOG_POLLER=true",
 			"P2P_NETWORKING_STACK=V2",
 			"CHAINLINK_TLS_PORT=0",
-			fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=127.0.0.1:%d", 8080),
+			"P2PV2_LISTEN_ADDRESSES=0.0.0.0:8000",
+			"ETH_GAS_LIMIT_OCR_JOB_TYPE=5000000",
 		}
 	}
 
