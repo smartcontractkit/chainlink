@@ -1,6 +1,6 @@
 # @chainlink/contracts CHANGELOG.md
 
-## 0.5.0 - ..........
+## 0.5.0 - 2022-09-26
 
 ### Changed
 
