@@ -70,7 +70,7 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 // Start subscribes to queuing channel and processes them.
 func (txm *Txm) Start(context.Context) error {
 	return txm.starter.StartOnce("solana_txm", func() error {
-		txm.done.Add(3) // waitgroup: tx retry, confirmer, simulator
+		txm.done.Add(4) // waitgroup: tx retry, confirmer, simulator, feeGovernor
 		go txm.run()
 		return nil
 	})
@@ -81,9 +81,10 @@ func (txm *Txm) run() {
 	ctx, cancel := utils.ContextFromChan(txm.chStop)
 	defer cancel()
 
-	// start confirmer + simulator
+	// start confirmer + simulator + feeGovernor
 	go txm.confirm(ctx)
 	go txm.simulate(ctx)
+	go txm.feeGovernor(ctx)
 
 	for {
 		select {
@@ -110,7 +111,7 @@ func (txm *Txm) run() {
 			msg.tx.Signatures = append(msg.tx.Signatures, finalSig) // TODO: how to handle signing tx is being retried (if only 1 sig, clear it and resign)
 
 			// process tx
-			sig, err := txm.sendWithRetry(ctx, msg.tx, msg.timeout)
+			sig, err := txm.sendWithExpBackoff(ctx, msg.tx, msg.timeout)
 			if err != nil {
 				txm.lggr.Errorw("failed to send transaction", "error", err)
 				txm.client.Reset() // clear client if tx fails immediately (potentially bad RPC)
@@ -132,11 +133,12 @@ func (txm *Txm) run() {
 	}
 }
 
-func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction, timeout time.Duration) (solanaGo.Signature, error) {
+// sendWithExpBackoff broadcasts a transaction at an exponential backoff rate to increase chances of inclusion by the next validator by rebroadcasting more tx packets
+func (txm *Txm) sendWithExpBackoff(chanCtx context.Context, tx *solanaGo.Transaction, timeout time.Duration) (solanaGo.Signature, error) {
 	// fetch client
 	client, err := txm.client.Get()
 	if err != nil {
-		return solanaGo.Signature{}, errors.Wrap(err, "failed to get client in soltxm.sendWithRetry")
+		return solanaGo.Signature{}, errors.Wrap(err, "failed to get client in soltxm.sendWithExpBackoff")
 	}
 
 	// create timeout context
@@ -332,7 +334,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 			res, err := client.SimulateTx(ctx, msg.tx, nil) // use default options
 			if err != nil {
-				// this error can occur if endpoint goes down or if invalid signature (invalid signature should occur further upstream in sendWithRetry)
+				// this error can occur if endpoint goes down or if invalid signature (invalid signature should occur further upstream in sendWithExpBackoff)
 				// allow retry to continue in case temporary endpoint failure (if still invalid, confirm or timeout will cleanup)
 				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
 				continue
