@@ -219,7 +219,7 @@ jobs:
         if: always()
         run: |
           pwd
-          ls /home/runner/work/chainlink/chainlink/tests/e2e
+          ls /home/runner/work/chainlink/chainlink/tests/e2e/smoke
       - name: cleanup
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@02c9ae5ec7f88250088bab88f14b4b043162b46d # v2.0.18
