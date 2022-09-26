@@ -208,8 +208,9 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	now := time.Now().UTC()
+
 	// Evict expired items from the cache.
-	now := time.Duration(time.Now().Unix() * int64(time.Second))
 	c.toBeTransmittedBlocks.EvictExpiredItems(now)
 	c.toBeTransmittedCallbacks.EvictExpiredItems(now)
 
@@ -657,7 +658,7 @@ func (c *coordinator) unmarshalLogs(
 // blocks and callbacks can be tracked for possible later retransmission
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
 
-	now := time.Duration(time.Now().Unix() * int64(time.Second))
+	now := time.Now().UTC()
 
 	// Evict expired items from the cache.
 	c.toBeTransmittedBlocks.EvictExpiredItems(now)

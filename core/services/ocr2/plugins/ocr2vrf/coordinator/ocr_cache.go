@@ -20,9 +20,9 @@ type ocrCache[T any] struct {
 }
 
 type cacheItem[T any] struct {
-	item      T
-	itemKey   common.Hash
-	timestamp time.Duration
+	item       T
+	itemKey    common.Hash
+	timeStored time.Time
 }
 
 // NewBlockCache constructs a new cache.
@@ -49,13 +49,13 @@ func NewBlockCache[T any](evictionWindow time.Duration) *ocrCache[T] {
 }
 
 // AddItem adds an item to the cache.
-func (l *ocrCache[T]) CacheItem(item T, itemKey common.Hash, timestamp time.Duration) {
+func (l *ocrCache[T]) CacheItem(item T, itemKey common.Hash, timeStored time.Time) {
 
 	// Construct new item to be stored.
 	newItem := &cacheItem[T]{
-		item:      item,
-		itemKey:   itemKey,
-		timestamp: timestamp,
+		item:       item,
+		itemKey:    itemKey,
+		timeStored: timeStored,
 	}
 
 	// Lock, and defer unlock.
@@ -85,7 +85,7 @@ func (l *ocrCache[T]) GetItem(itemKey common.Hash) (item *T) {
 }
 
 // EvictExpiredItems removes all expired items stored in the cache.
-func (l *ocrCache[T]) EvictExpiredItems(latestTimestamp time.Duration) {
+func (l *ocrCache[T]) EvictExpiredItems(currentTime time.Time) {
 
 	// Lock, and defer unlock.
 	l.cacheMu.Lock()
@@ -93,7 +93,8 @@ func (l *ocrCache[T]) EvictExpiredItems(latestTimestamp time.Duration) {
 
 	// Iteratively check all item ages, and delete an item if it is expired.
 	for key, item := range l.cache {
-		if latestTimestamp-item.timestamp > l.evictionWindow {
+		diff := currentTime.Sub(item.timeStored)
+		if diff > l.evictionWindow {
 			delete(l.cache, key)
 		}
 	}
@@ -111,7 +112,7 @@ func (ic *intervalCacheCleaner[T]) Run(c *ocrCache[T]) {
 	for {
 		select {
 		case <-ticker.C:
-			c.EvictExpiredItems(time.Duration(time.Now().Unix() * int64(time.Second)))
+			c.EvictExpiredItems(time.Now().UTC())
 		case <-ic.stop:
 			ticker.Stop()
 			return
