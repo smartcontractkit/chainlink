@@ -300,7 +300,9 @@ p2pv2Bootstrappers = [
 ]
 
 [relayConfig]
-chainID = %d`
+chainID = %d
+
+[pluginConfig]`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
 func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
