@@ -7,14 +7,16 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"golang.org/x/exp/maps"
 )
 
 type pendingTx struct {
 	tx        *solana.Transaction
 	timeout   time.Duration
-	signature solana.Signature
-	feeAdded  bool // track if fee instruction has been added or not
+	key       solkey.Key
+	signature solana.Signature // tx signature
+	feeAdded  bool             // track if fee instruction has been added or not
 }
 
 // SetComputeUnitPrice sets the compute unit price in micro-lamports
