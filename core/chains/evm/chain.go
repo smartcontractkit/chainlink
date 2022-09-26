@@ -156,7 +156,7 @@ func newChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, op
 }
 
 func (c *chain) Start(ctx context.Context) error {
-	return c.StartOnce("Chain", func() (merr error) {
+	return c.StartOnce("Chain", func() error {
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
@@ -165,17 +165,17 @@ func (c *chain) Start(ctx context.Context) error {
 		}
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
-		merr = multierr.Combine(
-			c.txm.Start(ctx),
-			c.headBroadcaster.Start(ctx),
-			c.headTracker.Start(ctx),
-			c.logBroadcaster.Start(ctx),
-		)
+		var ms services.MultiStart
+		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
+			return err
+		}
 		if c.balanceMonitor != nil {
-			merr = multierr.Combine(merr, c.balanceMonitor.Start(ctx))
+			if err := ms.Start(ctx, c.balanceMonitor); err != nil {
+				return err
+			}
 		}
 
-		return merr
+		return nil
 	})
 }
 

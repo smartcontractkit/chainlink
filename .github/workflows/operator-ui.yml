@@ -6,7 +6,7 @@ on:
       - develop
   workflow_dispatch:
   schedule:
-    - cron: '* */1 * * *' # Run every hour
+    - cron: '0 */1 * * *' # Run every hour
 
 jobs:
   update-version:

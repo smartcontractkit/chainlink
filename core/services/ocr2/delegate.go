@@ -150,10 +150,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	var forwardingAllowed bool
-	if jobSpec.ForwardingAllowed.Valid {
-		forwardingAllowed = jobSpec.ForwardingAllowed.Bool
-	}
 
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
@@ -167,7 +163,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				JobID:             spec.ID,
 				ContractID:        spec.ContractID,
 				RelayConfig:       spec.RelayConfig.Bytes(),
-				ForwardingAllowed: forwardingAllowed,
+				ForwardingAllowed: jobSpec.ForwardingAllowed,
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
@@ -194,7 +190,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				JobID:             spec.ID,
 				ContractID:        spec.ContractID,
 				RelayConfig:       spec.RelayConfig.Bytes(),
-				ForwardingAllowed: forwardingAllowed,
+				ForwardingAllowed: jobSpec.ForwardingAllowed,
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
@@ -244,7 +240,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				JobID:             spec.ID,
 				ContractID:        spec.ContractID,
 				RelayConfig:       spec.RelayConfig.Bytes(),
-				ForwardingAllowed: forwardingAllowed,
+				ForwardingAllowed: jobSpec.ForwardingAllowed,
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
@@ -259,7 +255,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				JobID:             spec.ID,
 				ContractID:        cfg.DKGContractAddress,
 				RelayConfig:       spec.RelayConfig.Bytes(),
-				ForwardingAllowed: forwardingAllowed,
+				ForwardingAllowed: jobSpec.ForwardingAllowed,
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),

@@ -288,9 +288,8 @@ func (c *chain) Start(ctx context.Context) error {
 		c.lggr.Debug("Starting")
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
-		return multierr.Combine(
-			c.txm.Start(ctx),
-			c.balanceMonitor.Start(ctx))
+		var ms services.MultiStart
+		return ms.Start(ctx, c.txm, c.balanceMonitor)
 	})
 }
 
