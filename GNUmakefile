@@ -130,12 +130,12 @@ test_perf: ## Run core node performance tests.
 	--progress $(args) ./integration-tests/performance
 
 .PHONY: test_chaos
-test_chaos: # run core node chaos tests.
-	ginkgo -r --focus @chaos --nodes 3 ./integration-tests/chaos
+test_chaos: ## Run core node chaos tests.
+	ginkgo -r --focus @chaos --nodes 5 ./integration-tests/chaos
 
 .PHONY: config-docs
-config-docs: # Generate core node configuration documentation
-	go run ./internal/config/docs/main.go > ./docs/CONFIG.md
+config-docs: ## Generate core node configuration documentation
+	go run ./core/config/v2/docs/cmd/generate/main.go > ./docs/CONFIG.md
 
 help:
 	@echo ""

@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -86,7 +86,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-			b, err := ioutil.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 			assert.Contains(t, string(b), tc.expectedErr.Error())
 		})
@@ -386,7 +386,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 
-	b, err := ioutil.ReadAll(response.Body)
+	b, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.Contains(t, string(b), "syntax is not supported. Please use \\\"{}\\\" instead")
 }

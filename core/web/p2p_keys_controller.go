@@ -1,7 +1,7 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -84,7 +84,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import ")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

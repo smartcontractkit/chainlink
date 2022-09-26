@@ -611,12 +611,8 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	id, err := stringutils.ToInt32(string(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	node, err := r.App.GetChains().EVM.GetNode(ctx, id)
+	name := string(args.ID)
+	node, err := r.App.EVMORM().NodeNamed(name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteNodePayloadResolver(nil, err), nil
@@ -625,7 +621,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	err = r.App.EVMORM().DeleteNode(id)
+	err = r.App.EVMORM().DeleteNode(node.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// Sending the SQL error as the expected error to happen

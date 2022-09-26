@@ -1,4 +1,4 @@
-[//]: # (Documentation generated from docs.toml - DO NOT EDIT.)
+[//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
 ## Table of contents
 
@@ -11,11 +11,13 @@
 - [TelemetryIngress](#TelemetryIngress)
 - [AuditLogger](#AuditLogger)
 - [Log](#Log)
+	- [File](#Log-File)
 - [WebServer](#WebServer)
 	- [RateLimit](#WebServer-RateLimit)
 	- [MFA](#WebServer-MFA)
 	- [TLS](#WebServer-TLS)
 - [JobPipeline](#JobPipeline)
+	- [HTTPRequest](#JobPipeline-HTTPRequest)
 - [FluxMonitor](#FluxMonitor)
 - [OCR2](#OCR2)
 - [OCR](#OCR)
@@ -23,12 +25,15 @@
 	- [V1](#P2P-V1)
 	- [V2](#P2P-V2)
 - [Keeper](#Keeper)
+	- [Registry](#Keeper-Registry)
 - [AutoPprof](#AutoPprof)
 - [Pyroscope](#Pyroscope)
 - [Sentry](#Sentry)
 - [EVM](#EVM)
+	- [Transactions](#EVM-Transactions)
 	- [BalanceMonitor](#EVM-BalanceMonitor)
 	- [GasEstimator](#EVM-GasEstimator)
+		- [LimitJobType](#EVM-GasEstimator-LimitJobType)
 		- [BlockHistory](#EVM-GasEstimator-BlockHistory)
 	- [HeadTracker](#EVM-HeadTracker)
 	- [KeySpecific](#EVM-KeySpecific)
@@ -109,9 +114,9 @@ UICSAKeys enables CSA Keys in the UI.
 DefaultIdleInTxSessionTimeout = '1h' # Default
 DefaultLockTimeout = '15s' # Default
 DefaultQueryTimeout = '10s' # Default
+MaxIdleConns = 10 # Default
+MaxOpenConns = 20 # Default
 MigrateOnStartup = true # Default
-ORMMaxIdleConns = 10 # Default
-ORMMaxOpenConns = 20 # Default
 ```
 
 
@@ -133,27 +138,27 @@ DefaultQueryTimeout = '10s' # Default
 ```
 DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
 
+### MaxIdleConns<a id='Database-MaxIdleConns'></a>
+```toml
+MaxIdleConns = 10 # Default
+```
+MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
+
+Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+
+### MaxOpenConns<a id='Database-MaxOpenConns'></a>
+```toml
+MaxOpenConns = 20 # Default
+```
+MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
+
+Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+
 ### MigrateOnStartup<a id='Database-MigrateOnStartup'></a>
 ```toml
 MigrateOnStartup = true # Default
 ```
 MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
-
-### ORMMaxIdleConns<a id='Database-ORMMaxIdleConns'></a>
-```toml
-ORMMaxIdleConns = 10 # Default
-```
-ORMMaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
-
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
-
-### ORMMaxOpenConns<a id='Database-ORMMaxOpenConns'></a>
-```toml
-ORMMaxOpenConns = 20 # Default
-```
-ORMMaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
-
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 
 ## Database.Backup<a id='Database-Backup'></a>
 ```toml
@@ -265,7 +270,7 @@ This setting applies only if Mode is set to enable lease locking.
 [TelemetryIngress]
 UniConn = true # Default
 Logging = false # Default
-ServerPubKey = 'test-pub-key' # Default
+ServerPubKey = 'test-pub-key' # Example
 URL = 'https://prom.test' # Example
 BufferSize = 100 # Default
 MaxBatchSize = 50 # Default
@@ -289,7 +294,7 @@ Logging toggles verbose logging of the raw telemetry messages being sent.
 
 ### ServerPubKey<a id='TelemetryIngress-ServerPubKey'></a>
 ```toml
-ServerPubKey = 'test-pub-key' # Default
+ServerPubKey = 'test-pub-key' # Example
 ```
 ServerPubKey is the public key of the telemetry server.
 
@@ -375,10 +380,6 @@ Headers is the set of headers you wish to pass along with each request
 [Log]
 DatabaseQueries = false # Default
 JSONConsole = false # Default
-FileDir = '/my/log/directory' # Example
-FileMaxSize = '5120mb' # Default
-FileMaxAgeDays = 0 # Default
-FileMaxBackups = 1 # Default
 UnixTS = false # Default
 ```
 
@@ -395,17 +396,35 @@ JSONConsole = false # Default
 ```
 JSONConsole enables JSON logging. Otherwise, the log is saved in a human-friendly console format.
 
-### FileDir<a id='Log-FileDir'></a>
+### UnixTS<a id='Log-UnixTS'></a>
 ```toml
-FileDir = '/my/log/directory' # Example
+UnixTS = false # Default
 ```
-FileDir sets the log directory. By default, Chainlink nodes write log data to `$ROOT/log.jsonl`.
+UnixTS enables legacy unix timestamps.
 
-### FileMaxSize<a id='Log-FileMaxSize'></a>
+Previous versions of Chainlink nodes wrote JSON logs with a unix timestamp. As of v1.1.0 and up, the default has changed to use ISO8601 timestamps for better readability.
+
+## Log.File<a id='Log-File'></a>
 ```toml
-FileMaxSize = '5120mb' # Default
+[Log.File]
+Dir = '/my/log/directory' # Example
+MaxSize = '5120mb' # Default
+MaxAgeDays = 0 # Default
+MaxBackups = 1 # Default
 ```
-FileMaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
+
+
+### Dir<a id='Log-File-Dir'></a>
+```toml
+Dir = '/my/log/directory' # Example
+```
+Dir sets the log directory. By default, Chainlink nodes write log data to `$ROOT/log.jsonl`.
+
+### MaxSize<a id='Log-File-MaxSize'></a>
+```toml
+MaxSize = '5120mb' # Default
+```
+MaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
 
 Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
 
@@ -415,25 +434,17 @@ Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no un
 - gb (gigabytes)
 - tb (terabytes)
 
-### FileMaxAgeDays<a id='Log-FileMaxAgeDays'></a>
+### MaxAgeDays<a id='Log-File-MaxAgeDays'></a>
 ```toml
-FileMaxAgeDays = 0 # Default
+MaxAgeDays = 0 # Default
 ```
-FileMaxAgeDays determines the log file's max age in days before file rotation. Keeping this config with the default value will not remove log files based on age.
+MaxAgeDays determines the log file's max age in days before file rotation. Keeping this config with the default value will not remove log files based on age.
 
-### FileMaxBackups<a id='Log-FileMaxBackups'></a>
+### MaxBackups<a id='Log-File-MaxBackups'></a>
 ```toml
-FileMaxBackups = 1 # Default
+MaxBackups = 1 # Default
 ```
-FileMaxBackups determines the maximum number of old log files to retain. Keeping this config with the default value retains all old log files. The `FileMaxAgeDays` variable can still cause them to get deleted.
-
-### UnixTS<a id='Log-UnixTS'></a>
-```toml
-UnixTS = false # Default
-```
-UnixTS enables legacy unix timestamps.
-
-Previous versions of Chainlink nodes wrote JSON logs with a unix timestamp. As of v1.1.0 and up, the default has changed to use ISO8601 timestamps for better readability.
+MaxBackups determines the maximum number of old log files to retain. Keeping this config with the default value retains all old log files. The `MaxAgeDays` variable can still cause them to get deleted.
 
 ## WebServer<a id='WebServer'></a>
 ```toml
@@ -500,7 +511,7 @@ SessionReaperExpiration represents how long an API session lasts before expiring
 ## WebServer.RateLimit<a id='WebServer-RateLimit'></a>
 ```toml
 [WebServer.RateLimit]
-Authenticated = 42 # Default
+Authenticated = 1000 # Default
 AuthenticatedPeriod = '1m' # Default
 Unauthenticated = 5 # Default
 UnauthenticatedPeriod = '20s' # Default
@@ -509,7 +520,7 @@ UnauthenticatedPeriod = '20s' # Default
 
 ### Authenticated<a id='WebServer-RateLimit-Authenticated'></a>
 ```toml
-Authenticated = 42 # Default
+Authenticated = 1000 # Default
 ```
 Authenticated defines the threshold to which authenticated requests get limited. More than this many authenticated requests per `AuthenticatedRateLimitPeriod` will be rejected.
 
@@ -554,7 +565,7 @@ RPOrigin is the origin URL where WebAuthn requests initiate, including scheme an
 ## WebServer.TLS<a id='WebServer-TLS'></a>
 ```toml
 [WebServer.TLS]
-CertPath = '/home/$USER/.chainlink/tls/server.crt' # Example
+CertPath = '~/.cl/certs' # Example
 Host = 'tls-host' # Example
 KeyPath = '/home/$USER/.chainlink/tls/server.key' # Example
 HTTPSPort = 6689 # Default
@@ -564,7 +575,7 @@ The TLS settings apply only if you want to enable TLS security on your Chainlink
 
 ### CertPath<a id='WebServer-TLS-CertPath'></a>
 ```toml
-CertPath = '/home/$USER/.chainlink/tls/server.crt' # Example
+CertPath = '~/.cl/certs' # Example
 ```
 CertPath is the location of the TLS certificate file.
 
@@ -595,8 +606,6 @@ ForceRedirect forces TLS redirect for unencrypted connections.
 ## JobPipeline<a id='JobPipeline'></a>
 ```toml
 [JobPipeline]
-HTTPRequestMaxSize = '32768' # Default
-DefaultHTTPRequestTimeout = '15s' # Default
 ExternalInitiatorsEnabled = false # Default
 MaxRunDuration = '10m' # Default
 ReaperInterval = '1h' # Default
@@ -604,18 +613,6 @@ ReaperThreshold = '24h' # Default
 ResultWriteQueueDepth = 100 # Default
 ```
 
-
-### HTTPRequestMaxSize<a id='JobPipeline-HTTPRequestMaxSize'></a>
-```toml
-HTTPRequestMaxSize = '32768' # Default
-```
-HTTPRequestMaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
-
-### DefaultHTTPRequestTimeout<a id='JobPipeline-DefaultHTTPRequestTimeout'></a>
-```toml
-DefaultHTTPRequestTimeout = '15s' # Default
-```
-DefaultHTTPRequestTimeout defines the default timeout for HTTP requests made by `http` and `bridge` adapters.
 
 ### ExternalInitiatorsEnabled<a id='JobPipeline-ExternalInitiatorsEnabled'></a>
 ```toml
@@ -650,6 +647,26 @@ ResultWriteQueueDepth = 100 # Default
 ```
 ResultWriteQueueDepth controls how many writes will be buffered before subsequent writes are dropped, for jobs that write results asynchronously for performance reasons, such as OCR.
 
+## JobPipeline.HTTPRequest<a id='JobPipeline-HTTPRequest'></a>
+```toml
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '15s' # Default
+MaxSize = '32768' # Default
+```
+
+
+### DefaultTimeout<a id='JobPipeline-HTTPRequest-DefaultTimeout'></a>
+```toml
+DefaultTimeout = '15s' # Default
+```
+DefaultTimeout defines the default timeout for HTTP requests made by `http` and `bridge` adapters.
+
+### MaxSize<a id='JobPipeline-HTTPRequest-MaxSize'></a>
+```toml
+MaxSize = '32768' # Default
+```
+MaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
+
 ## FluxMonitor<a id='FluxMonitor'></a>
 ```toml
 [FluxMonitor]
@@ -674,7 +691,7 @@ SimulateTransactions enables transaction simulation for Flux Monitor.
 ## OCR2<a id='OCR2'></a>
 ```toml
 [OCR2]
-Enabled = true # Default
+Enabled = false # Default
 ContractConfirmations = 3 # Default
 BlockchainTimeout = '20s' # Default
 ContractPollInterval = '1m' # Default
@@ -687,7 +704,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 
 ### Enabled<a id='OCR2-Enabled'></a>
 ```toml
-Enabled = true # Default
+Enabled = false # Default
 ```
 Enabled enables OCR2 jobs.
 
@@ -770,7 +787,7 @@ KeyBundleID is a sha256 hexadecimal hash identifier.
 ## OCR<a id='OCR'></a>
 ```toml
 [OCR]
-Enabled = true # Default
+Enabled = false # Default
 ObservationTimeout = '5s' # Default
 BlockchainTimeout = '20s' # Default
 ContractPollInterval = '1m' # Default
@@ -784,7 +801,7 @@ This section applies only if you are running off-chain reporting jobs.
 
 ### Enabled<a id='OCR-Enabled'></a>
 ```toml
-Enabled = true # Default
+Enabled = false # Default
 ```
 Enabled enables OCR jobs.
 
@@ -887,6 +904,7 @@ TraceLogging enables trace level logging.
 ## P2P.V1<a id='P2P-V1'></a>
 ```toml
 [P2P.V1]
+Enabled = false # Default
 AnnounceIP = '1.2.3.4' # Example
 AnnouncePort = 1337 # Example
 BootstrapCheckInterval = '20s' # Default
@@ -900,6 +918,12 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 PeerstoreWriteInterval = '5m' # Default
 ```
 
+
+### Enabled<a id='P2P-V1-Enabled'></a>
+```toml
+Enabled = false # Default
+```
+Enabled enables P2P V1.
 
 ### AnnounceIP<a id='P2P-V1-AnnounceIP'></a>
 ```toml
@@ -989,6 +1013,7 @@ PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networkin
 ## P2P.V2<a id='P2P-V2'></a>
 ```toml
 [P2P.V2]
+Enabled = false # Default
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 DeltaDial = '15s' # Default
@@ -996,6 +1021,12 @@ DeltaReconcile = '1m' # Default
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
 
+
+### Enabled<a id='P2P-V2-Enabled'></a>
+```toml
+Enabled = false # Default
+```
+Enabled enables P2P V2.
 
 ### AnnounceAddresses<a id='P2P-V2-AnnounceAddresses'></a>
 ```toml
@@ -1034,13 +1065,8 @@ DefaultTransactionQueueDepth = 1 # Default
 GasPriceBufferPercent = 20 # Default
 GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
-MaximumGracePeriod = 100 # Default
-RegistryCheckGasOverhead = 200_000 # Default
-RegistryPerformGasOverhead = 150_000 # Default
-RegistrySyncInterval = '30m' # Default
-RegistryMaxPerformDataSize = 5_000 # Default
-RegistrySyncUpkeepQueueSize = 10 # Default
-TurnLookBack = 1000 # Default
+MaxGracePeriod = 100 # Default
+TurnLookBack = 1_000 # Default
 TurnFlagEnabled = false # Default
 UpkeepCheckGasPriceEnabled = false # Default
 ```
@@ -1071,51 +1097,16 @@ BaseFeeBufferPercent = 20 # Default
 ```
 BaseFeeBufferPercent specifies the percentage to add to the base fee used for checking whether to perform an upkeep. Applies only in EIP-1559 mode.
 
-### MaximumGracePeriod<a id='Keeper-MaximumGracePeriod'></a>
+### MaxGracePeriod<a id='Keeper-MaxGracePeriod'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-MaximumGracePeriod = 100 # Default
+MaxGracePeriod = 100 # Default
 ```
-MaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing an upkeep before it resumes checking that upkeep
-
-### RegistryCheckGasOverhead<a id='Keeper-RegistryCheckGasOverhead'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-RegistryCheckGasOverhead = 200_000 # Default
-```
-RegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
-
-### RegistryPerformGasOverhead<a id='Keeper-RegistryPerformGasOverhead'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-RegistryPerformGasOverhead = 150_000 # Default
-```
-RegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
-
-### RegistrySyncInterval<a id='Keeper-RegistrySyncInterval'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-RegistrySyncInterval = '30m' # Default
-```
-RegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
-
-### RegistryMaxPerformDataSize<a id='Keeper-RegistryMaxPerformDataSize'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-RegistryMaxPerformDataSize = 5_000 # Default
-```
-RegistryMaxPerformDataSize is the max size of perform data.
-
-### RegistrySyncUpkeepQueueSize<a id='Keeper-RegistrySyncUpkeepQueueSize'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-RegistrySyncUpkeepQueueSize = 10 # Default
-```
-RegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
+MaxGracePeriod is the maximum number of blocks that a keeper will wait after performing an upkeep before it resumes checking that upkeep
 
 ### TurnLookBack<a id='Keeper-TurnLookBack'></a>
 ```toml
-TurnLookBack = 1000 # Default
+TurnLookBack = 1_000 # Default
 ```
 TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
 
@@ -1131,6 +1122,52 @@ TurnFlagEnabled enables a new algorithm for how keepers take turns.
 UpkeepCheckGasPriceEnabled = false # Default
 ```
 UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
+
+## Keeper.Registry<a id='Keeper-Registry'></a>
+```toml
+[Keeper.Registry]
+CheckGasOverhead = 200_000 # Default
+PerformGasOverhead = 300_000 # Default
+SyncInterval = '30m' # Default
+MaxPerformDataSize = 5_000 # Default
+SyncUpkeepQueueSize = 10 # Default
+```
+
+
+### CheckGasOverhead<a id='Keeper-Registry-CheckGasOverhead'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+CheckGasOverhead = 200_000 # Default
+```
+CheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
+
+### PerformGasOverhead<a id='Keeper-Registry-PerformGasOverhead'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+PerformGasOverhead = 300_000 # Default
+```
+PerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
+
+### SyncInterval<a id='Keeper-Registry-SyncInterval'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+SyncInterval = '30m' # Default
+```
+SyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
+
+### MaxPerformDataSize<a id='Keeper-Registry-MaxPerformDataSize'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+MaxPerformDataSize = 5_000 # Default
+```
+MaxPerformDataSize is the max size of perform data.
+
+### SyncUpkeepQueueSize<a id='Keeper-Registry-SyncUpkeepQueueSize'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+SyncUpkeepQueueSize = 10 # Default
+```
+SyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
 
 ## AutoPprof<a id='AutoPprof'></a>
 ```toml
@@ -1292,23 +1329,27 @@ EVM defaults depend on ChainID:
 <details><summary>Ethereum Mainnet (1)<a id='EVM-1'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1329,7 +1370,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1358,22 +1399,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Ropsten (3)<a id='EVM-3'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1394,7 +1439,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1423,22 +1468,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Rinkeby (4)<a id='EVM-4'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1459,7 +1508,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1488,22 +1537,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Goerli (5)<a id='EVM-5'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1524,7 +1577,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1553,23 +1606,27 @@ ObservationGracePeriod = '1s'
 <details><summary>Optimism Mainnet (10)<a id='EVM-10'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'optimism'
 FinalityDepth = 1
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '15s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '15s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1590,7 +1647,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1619,22 +1676,26 @@ ObservationGracePeriod = '1s'
 <details><summary>RSK Mainnet (30)<a id='EVM-30'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.001 link'
+MinContractPayment = '0.001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1655,7 +1716,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1684,22 +1745,26 @@ ObservationGracePeriod = '1s'
 <details><summary>RSK Testnet (31)<a id='EVM-31'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.001 link'
+MinContractPayment = '0.001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1720,7 +1785,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1749,23 +1814,27 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Kovan (42)<a id='EVM-42'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1786,7 +1855,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1815,22 +1884,26 @@ ObservationGracePeriod = '1s'
 <details><summary>BSC Mainnet (56)<a id='EVM-56'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1851,7 +1924,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1880,21 +1953,25 @@ ObservationGracePeriod = '500ms'
 <details><summary>OKX Testnet (65)<a id='EVM-65'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1915,7 +1992,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -1944,21 +2021,25 @@ ObservationGracePeriod = '1s'
 <details><summary>OKX Mainnet (66)<a id='EVM-66'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1979,7 +2060,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2008,23 +2089,27 @@ ObservationGracePeriod = '1s'
 <details><summary>Optimism Kovan (69)<a id='EVM-69'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'optimism'
 FinalityDepth = 1
 LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '15s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '15s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2045,7 +2130,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2074,23 +2159,27 @@ ObservationGracePeriod = '1s'
 <details><summary>xDai Mainnet (100)<a id='EVM-100'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'xdai'
 FinalityDepth = 50
 LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogBackfillBatchSize = 100
 LogPollInterval = '5s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2111,7 +2200,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2140,22 +2229,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Heco Mainnet (128)<a id='EVM-128'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2176,7 +2269,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2205,22 +2298,26 @@ ObservationGracePeriod = '500ms'
 <details><summary>Polygon Mainnet (137)<a id='EVM-137'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 5000
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2241,7 +2338,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2270,22 +2367,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Fantom Mainnet (250)<a id='EVM-250'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2306,7 +2407,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2335,23 +2436,27 @@ ObservationGracePeriod = '1s'
 <details><summary>Optimism Goerli (420)<a id='EVM-420'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'optimism'
 FinalityDepth = 1
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '15s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '15s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2372,7 +2477,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2401,22 +2506,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Metis Rinkeby (588)<a id='EVM-588'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'metis'
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2437,7 +2546,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2466,22 +2575,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Metis Mainnet (1088)<a id='EVM-1088'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'metis'
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2502,7 +2615,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2531,21 +2644,25 @@ ObservationGracePeriod = '1s'
 <details><summary>Simulated (1337)<a id='EVM-1337'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '100'
+MinContractPayment = '100'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '0s'
-TxResendAfterThreshold = '0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '0s'
+ResendAfterThreshold = '0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2566,7 +2683,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 micro'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2595,22 +2712,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Fantom Testnet (4002)<a id='EVM-4002'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2631,7 +2752,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2660,23 +2781,27 @@ ObservationGracePeriod = '1s'
 <details><summary>Arbitrum Mainnet (42161)<a id='EVM-42161'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2697,7 +2822,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2726,22 +2851,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Avalanche Fuji (43113)<a id='EVM-43113'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 1
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2762,7 +2891,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2791,22 +2920,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Avalanche Mainnet (43114)<a id='EVM-43114'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 1
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 2
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2827,7 +2960,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2856,22 +2989,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Polygon Mumbai (80001)<a id='EVM-80001'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 500
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 5000
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2892,7 +3029,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2921,23 +3058,27 @@ ObservationGracePeriod = '1s'
 <details><summary>Arbitrum Rinkeby (421611)<a id='EVM-421611'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
 LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2958,7 +3099,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -2987,22 +3128,27 @@ ObservationGracePeriod = '1s'
 <details><summary>Arbitrum Goerli (421613)<a id='EVM-421613'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
+LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3023,7 +3169,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -3052,22 +3198,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Sepolia (11155111)<a id='EVM-11155111'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3088,7 +3238,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -3117,22 +3267,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Harmony Mainnet (1666600000)<a id='EVM-1666600000'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x218532a12a389a4a92fC0C5Fb22901D1c19198aA'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3153,7 +3307,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -3182,22 +3336,26 @@ ObservationGracePeriod = '1s'
 <details><summary>Harmony Testnet (1666700000)<a id='EVM-1666700000'></a></summary><p>
 
 ```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 1
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3218,7 +3376,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
@@ -3328,39 +3486,17 @@ LogPollInterval = '15s' # Default
 ```
 LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 
-### MaxInFlightTransactions<a id='EVM-MaxInFlightTransactions'></a>
+### MinContractPayment<a id='EVM-MinContractPayment'></a>
 ```toml
-MaxInFlightTransactions = 16 # Default
+MinContractPayment = '10000000000000 juels' # Default
 ```
-MaxInFlightTransactions controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
-
-The default is set conservatively at 16 because this is a pessimistic minimum that both geth and parity will hold without evicting local transactions. If your node is falling behind and you need higher throughput, you can increase this setting, but you MUST make sure that your ETH node is configured properly otherwise you can get nonce gapped and your node will get stuck.
-
-0 value disables the limit. Use with caution.
-
-### MaxQueuedTransactions<a id='EVM-MaxQueuedTransactions'></a>
-```toml
-MaxQueuedTransactions = 250 # Default
-```
-MaxQueuedTransactions is the maximum number of unbroadcast transactions per key that are allowed to be enqueued before jobs will start failing and rejecting send of any further transactions. This represents a sanity limit and generally indicates a problem with your ETH node (transactions are not getting mined).
-
-Do NOT blindly increase this value thinking it will fix things if you start hitting this limit because transactions are not getting mined, you will instead only make things worse.
-
-In deployments with very high burst rates, or on chains with large re-orgs, you _may_ consider increasing this.
-
-0 value disables any limit on queue size. Use with caution.
+MinContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 
 ### MinIncomingConfirmations<a id='EVM-MinIncomingConfirmations'></a>
 ```toml
 MinIncomingConfirmations = 3 # Default
 ```
 MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.
-
-### MinimumContractPayment<a id='EVM-MinimumContractPayment'></a>
-```toml
-MinimumContractPayment = '10000000000000 juels' # Default
-```
-MinimumContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 
 ### NonceAutoSync<a id='EVM-NonceAutoSync'></a>
 ```toml
@@ -3402,29 +3538,63 @@ block, but it is possible to receive a head BEFORE that block is actually
 available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
 "zero" blocks that are missing transactions.
 
-### TxReaperInterval<a id='EVM-TxReaperInterval'></a>
+## EVM.Transactions<a id='EVM-Transactions'></a>
 ```toml
-TxReaperInterval = '1h' # Default
+[EVM.Transactions]
+ForwardersEnabled = false # Default
+MaxInFlight = 16 # Default
+MaxQueued = 250 # Default
+ReaperInterval = '1h' # Default
+ReaperThreshold = '168h' # Default
+ResendAfterThreshold = '1m' # Default
 ```
-TxReaperInterval controls how often the EthTx reaper will run.
 
-### TxReaperThreshold<a id='EVM-TxReaperThreshold'></a>
-```toml
-TxReaperThreshold = '168h' # Default
-```
-TxReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
 
-### TxResendAfterThreshold<a id='EVM-TxResendAfterThreshold'></a>
+### ForwardersEnabled<a id='EVM-Transactions-ForwardersEnabled'></a>
 ```toml
-TxResendAfterThreshold = '1m' # Default
+ForwardersEnabled = false # Default
 ```
-TxResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
+ForwardersEnabled enables or disables sending transactions through forwarder contracts.
 
-### UseForwarders<a id='EVM-UseForwarders'></a>
+### MaxInFlight<a id='EVM-Transactions-MaxInFlight'></a>
 ```toml
-UseForwarders = false # Default
+MaxInFlight = 16 # Default
 ```
-UseForwarders enables or disables sending transactions through forwarder contracts.
+MaxInFlight controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
+
+The default is set conservatively at 16 because this is a pessimistic minimum that both geth and parity will hold without evicting local transactions. If your node is falling behind and you need higher throughput, you can increase this setting, but you MUST make sure that your ETH node is configured properly otherwise you can get nonce gapped and your node will get stuck.
+
+0 value disables the limit. Use with caution.
+
+### MaxQueued<a id='EVM-Transactions-MaxQueued'></a>
+```toml
+MaxQueued = 250 # Default
+```
+MaxQueued is the maximum number of unbroadcast transactions per key that are allowed to be enqueued before jobs will start failing and rejecting send of any further transactions. This represents a sanity limit and generally indicates a problem with your ETH node (transactions are not getting mined).
+
+Do NOT blindly increase this value thinking it will fix things if you start hitting this limit because transactions are not getting mined, you will instead only make things worse.
+
+In deployments with very high burst rates, or on chains with large re-orgs, you _may_ consider increasing this.
+
+0 value disables any limit on queue size. Use with caution.
+
+### ReaperInterval<a id='EVM-Transactions-ReaperInterval'></a>
+```toml
+ReaperInterval = '1h' # Default
+```
+ReaperInterval controls how often the EthTx reaper will run.
+
+### ReaperThreshold<a id='EVM-Transactions-ReaperThreshold'></a>
+```toml
+ReaperThreshold = '168h' # Default
+```
+ReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
+
+### ResendAfterThreshold<a id='EVM-Transactions-ResendAfterThreshold'></a>
+```toml
+ResendAfterThreshold = '1m' # Default
+```
+ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 
 ## EVM.BalanceMonitor<a id='EVM-BalanceMonitor'></a>
 ```toml
@@ -3448,11 +3618,6 @@ PriceMax = '100 micro' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
 LimitMax = 500_000 # Default
-LimitOCRJobType = 100_000 # Example
-LimitDRJobType = 100_000 # Example
-LimitVRFJobType = 100_000 # Example
-LimitFMJobType = 100_000 # Example
-LimitKeeperJobType = 100_000 # Example
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 BumpMin = '5 gwei' # Default
@@ -3462,7 +3627,7 @@ BumpTxDepth = 10 # Default
 EIP1559DynamicFees = false # Default
 FeeCapDefault = '100 gwei' # Default
 TipCapDefault = '1 wei' # Default
-TipCapMinimum = '1 wei' # Default
+TipCapMin = '1 wei' # Default
 ```
 
 
@@ -3529,36 +3694,6 @@ Some job types, such as Keeper jobs, might set their own gas limit unrelated to 
 LimitMax = 500_000 # Default
 ```
 LimitMax sets a maximum for _estimated_ gas limits. This currently only applies to `Arbitrum` `GasEstimatorMode`.
-
-### LimitOCRJobType<a id='EVM-GasEstimator-LimitOCRJobType'></a>
-```toml
-LimitOCRJobType = 100_000 # Example
-```
-LimitOCRJobType overrides LimitDefault for OCR jobs.
-
-### LimitDRJobType<a id='EVM-GasEstimator-LimitDRJobType'></a>
-```toml
-LimitDRJobType = 100_000 # Example
-```
-LimitDRJobType overrides LimitDefault for Direct Request jobs.
-
-### LimitVRFJobType<a id='EVM-GasEstimator-LimitVRFJobType'></a>
-```toml
-LimitVRFJobType = 100_000 # Example
-```
-LimitVRFJobType overrides LimitDefault for VRF jobs.
-
-### LimitFMJobType<a id='EVM-GasEstimator-LimitFMJobType'></a>
-```toml
-LimitFMJobType = 100_000 # Example
-```
-LimitFMJobType overrides LimitDefault for Flux Monitor jobs.
-
-### LimitKeeperJobType<a id='EVM-GasEstimator-LimitKeeperJobType'></a>
-```toml
-LimitKeeperJobType = 100_000 # Example
-```
-LimitKeeperJobType overrides LimitDefault for Keeper jobs.
 
 ### LimitMultiplier<a id='EVM-GasEstimator-LimitMultiplier'></a>
 ```toml
@@ -3661,13 +3796,54 @@ TipCapDefault is the default gas tip to use when submitting transactions to the 
 
 (Only applies to EIP-1559 transactions)
 
-### TipCapMinimum<a id='EVM-GasEstimator-TipCapMinimum'></a>
+### TipCapMin<a id='EVM-GasEstimator-TipCapMin'></a>
 ```toml
-TipCapMinimum = '1 wei' # Default
+TipCapMin = '1 wei' # Default
 ```
 TipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
 
 Only applies to EIP-1559 transactions)
+
+## EVM.GasEstimator.LimitJobType<a id='EVM-GasEstimator-LimitJobType'></a>
+```toml
+[EVM.GasEstimator.LimitJobType]
+OCR = 100_000 # Example
+DR = 100_000 # Example
+VRF = 100_000 # Example
+FM = 100_000 # Example
+Keeper = 100_000 # Example
+```
+
+
+### OCR<a id='EVM-GasEstimator-LimitJobType-OCR'></a>
+```toml
+OCR = 100_000 # Example
+```
+OCR overrides LimitDefault for OCR jobs.
+
+### DR<a id='EVM-GasEstimator-LimitJobType-DR'></a>
+```toml
+DR = 100_000 # Example
+```
+DR overrides LimitDefault for Direct Request jobs.
+
+### VRF<a id='EVM-GasEstimator-LimitJobType-VRF'></a>
+```toml
+VRF = 100_000 # Example
+```
+VRF overrides LimitDefault for VRF jobs.
+
+### FM<a id='EVM-GasEstimator-LimitJobType-FM'></a>
+```toml
+FM = 100_000 # Example
+```
+FM overrides LimitDefault for Flux Monitor jobs.
+
+### Keeper<a id='EVM-GasEstimator-LimitJobType-Keeper'></a>
+```toml
+Keeper = 100_000 # Example
+```
+Keeper overrides LimitDefault for Keeper jobs.
 
 ## EVM.GasEstimator.BlockHistory<a id='EVM-GasEstimator-BlockHistory'></a>
 ```toml
@@ -3777,7 +3953,7 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 ## EVM.NodePool<a id='EVM-NodePool'></a>
 ```toml
 [EVM.NodePool]
-PollFailureThreshold = 3 # Default
+PollFailureThreshold = 5 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 ```
@@ -3787,7 +3963,7 @@ In addition to these settings, `EVM.NoNewHeadsThreshold` controls how long to wa
 
 ### PollFailureThreshold<a id='EVM-NodePool-PollFailureThreshold'></a>
 ```toml
-PollFailureThreshold = 3 # Default
+PollFailureThreshold = 5 # Default
 ```
 PollFailureThreshold indicates how many consecutive polls must fail in order to mark a node as unreachable.
 
@@ -3814,7 +3990,6 @@ ContractConfirmations = 4 # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 ObservationGracePeriod = '1s' # Default
-ObservationTimeout = '1m' # Example
 ```
 
 
@@ -3841,12 +4016,6 @@ DatabaseTimeout sets `OCR.DatabaseTimeout` for this EVM chain.
 ObservationGracePeriod = '1s' # Default
 ```
 ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
-
-### ObservationTimeout<a id='EVM-OCR-ObservationTimeout'></a>
-```toml
-ObservationTimeout = '1m' # Example
-```
-ObservationTimeout sets `OCR.ObservationTimeout` for this EVM chain.
 
 ## EVM.Nodes<a id='EVM-Nodes'></a>
 ```toml
@@ -3891,7 +4060,7 @@ BalancePollPeriod = '5s' # Default
 ConfirmPollPeriod = '500ms' # Default
 OCR2CachePollPeriod = '1s' # Default
 OCR2CacheTTL = '1m' # Default
-TxTimeout = '1h' # Default
+TxTimeout = '1m' # Default
 TxRetryTimeout = '10s' # Default
 TxConfirmTimeout = '30s' # Default
 SkipPreflight = true # Default
@@ -3938,7 +4107,7 @@ OCR2CacheTTL is the stale OCR2 cache deadline.
 
 ### TxTimeout<a id='Solana-TxTimeout'></a>
 ```toml
-TxTimeout = '1h' # Default
+TxTimeout = '1m' # Default
 ```
 TxTimeout is the timeout for sending txes to an RPC endpoint.
 

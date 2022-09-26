@@ -61,7 +61,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          install_operator_ui: true
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
           push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
@@ -208,7 +207,7 @@ jobs:
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           download_contract_artifacts_path: contracts/target/deploy
-          artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/tests/e2e/logs
+          artifacts_location: /home/runner/work/chainlink/chainlink/tests/e2e/smoke/logs
           publish_check_name: Solana Smoke Test Results
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
           go_mod_path: ./tests/go.mod

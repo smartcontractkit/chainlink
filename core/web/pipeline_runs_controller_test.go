@@ -3,7 +3,7 @@ package web_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,7 +41,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	// Setup the bridge
 	mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 		defer r.Body.Close()
-		bs, err := ioutil.ReadAll(r.Body)
+		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})
@@ -103,7 +103,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 		defer r.Body.Close()
-		bs, err := ioutil.ReadAll(r.Body)
+		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})

@@ -1,7 +1,7 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -79,7 +79,7 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
