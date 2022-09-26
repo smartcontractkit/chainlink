@@ -62,14 +62,14 @@ func deployUniverse(e helpers.Environment) {
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
-	subscriptionBalanceString := deployCmd.String("subscription-balance", assets.Ether(10).String(), "amount to fund subscription")
+	subscriptionBalanceString := deployCmd.String("subscription-balance", assets.ItoEther(10).String(), "amount to fund subscription")
 
 	// optional flags
-	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", assets.GWei(60_000_000).String(), "fallback wei/link ratio")
+	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", assets.ItoGWei(60_000_000).String(), "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
 	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle sender address")
 	minConfs := deployCmd.Int("min-confs", 3, "min confs")
-	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.GWei(100_000_000).Int64(), "amount to fund sending oracle")
+	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.ItoGWei(100_000_000).Int64(), "amount to fund sending oracle")
 	maxGasLimit := deployCmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
 	stalenessSeconds := deployCmd.Int64("staleness-seconds", 86400, "staleness in seconds")
 	gasAfterPayment := deployCmd.Int64("gas-after-payment", 33285, "gas after payment calculation")

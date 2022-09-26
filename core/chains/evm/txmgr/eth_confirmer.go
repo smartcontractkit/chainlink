@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
@@ -1049,6 +1050,7 @@ func loadEthTxesAttempts(q pg.Queryer, etxs []*EthTx) error {
 	ethTxIDs := make([]int64, len(etxs))
 	ethTxesM := make(map[int64]*EthTx, len(etxs))
 	for i, etx := range etxs {
+		etx.EthTxAttempts = nil // this will overwrite any previous preload
 		ethTxIDs[i] = etx.ID
 		ethTxesM[etx.ID] = etxs[i]
 	}
@@ -1092,8 +1094,8 @@ ORDER BY nonce ASC
 
 func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx EthTx) (attempt EthTxAttempt, err error) {
 	if len(etx.EthTxAttempts) > 0 {
+		etx.EthTxAttempts[0].EthTx = etx
 		previousAttempt := etx.EthTxAttempts[0]
-		previousAttempt.EthTx = etx
 		logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 		if previousAttempt.State == EthTxAttemptInsufficientEth {
 			// Do not create a new attempt if we ran out of eth last time since bumping gas is pointless
@@ -1102,7 +1104,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.L
 			previousAttempt.State = EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
-		attempt, err = ec.bumpGas(previousAttempt)
+		attempt, err = ec.bumpGas(etx, etx.EthTxAttempts)
 
 		if gas.IsBumpErr(err) {
 			lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
@@ -1131,28 +1133,35 @@ func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interfa
 	}
 }
 
-func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
+func (ec *EthConfirmer) bumpGas(etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
+	priorAttempts := make([]gas.PriorAttempt, len(previousAttempts))
+	// This feels a bit useless but until we get iterators there is no other
+	// way to cast an array of structs to an array of interfaces
+	for i, attempt := range previousAttempts {
+		priorAttempts[i] = attempt
+	}
+	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(previousAttempt.EthTx.FromAddress)
+	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 	switch previousAttempt.TxType {
 	case 0x0: // Legacy
-		var bumpedGasPrice *big.Int
+		var bumpedGasPrice *assets.Wei
 		var bumpedGasLimit uint32
-		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
+		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
-			return ec.NewLegacyAttempt(previousAttempt.EthTx, bumpedGasPrice, bumpedGasLimit)
+			return ec.NewLegacyAttempt(etx, bumpedGasPrice, bumpedGasLimit)
 		}
 	case 0x2: // EIP1559
 		var bumpedFee gas.DynamicFee
 		var bumpedGasLimit uint32
 		original := previousAttempt.DynamicFee()
-		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
+		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.TipCap.String(), "bumpedFeeCap", bumpedFee.FeeCap.String())...)
-			return ec.NewDynamicFeeAttempt(previousAttempt.EthTx, bumpedFee, bumpedGasLimit)
+			return ec.NewDynamicFeeAttempt(etx, bumpedFee, bumpedGasLimit)
 		}
 	default:
 		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
@@ -1206,7 +1215,22 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in ethBroadcaster.
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
-		replacementAttempt, err := ec.bumpGas(attempt)
+		// "Lazily" load attempts here since the overwhelmingly common case is
+		// that we don't need them unless we enter this path
+		if err := loadEthTxesAttempts(ec.q.WithOpts(pg.WithParentCtx(ctx)), []*EthTx{&etx}); err != nil {
+			return errors.Wrap(err, "failed to load EthTxAttempts while bumping on terminally underpriced error")
+		}
+		if len(etx.EthTxAttempts) == 0 {
+			err := errors.New("expected to find at least 1 attempt")
+			logger.Sugared(ec.lggr).AssumptionViolationw(err.Error(), "err", err, "attempt", attempt)
+			return err
+		}
+		if attempt.ID != etx.EthTxAttempts[0].ID {
+			err := errors.New("expected highest priced attempt to be the current in_progress attempt")
+			logger.Sugared(ec.lggr).AssumptionViolationw(err.Error(), "err", err, "attempt", attempt, "ethTxAttempts", etx.EthTxAttempts)
+			return err
+		}
+		replacementAttempt, err := ec.bumpGas(etx, etx.EthTxAttempts)
 		if err != nil {
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
@@ -1562,7 +1586,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := ec.NewLegacyAttempt(*etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
+			attempt, err := ec.NewLegacyAttempt(*etx, assets.NewWeiI(int64(gasPriceWei)), etx.GasLimit)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue

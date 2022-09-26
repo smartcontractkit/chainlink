@@ -291,7 +291,7 @@ type OperatorContracts struct {
 func setupOperatorContracts(t *testing.T) OperatorContracts {
 	user := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
-		user.From: {Balance: assets.Ether(1000)},
+		user.From: {Balance: assets.ItoEther(1000).ToInt()},
 	}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
@@ -371,7 +371,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Fund node account with ETH.
 			n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
-			tx = types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+			tx = types.NewTransaction(n, sendingKeys[0].Address, assets.ItoEther(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
 			err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -473,7 +473,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	// Fund node account with ETH.
 	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
-	tx := types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, sendingKeys[0].Address, assets.ItoEther(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -711,7 +711,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, transmitter, assets.ItoEther(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -783,7 +783,7 @@ func setupForwarderEnabledNode(
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, transmitter, assets.ItoEther(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -1283,9 +1283,10 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	t.Parallel()
 
 	var initialDefaultGasPrice int64 = 5000000000
-	maxGasPrice := big.NewInt(50000000000)
+	maxGasPrice := assets.NewWeiI(50000000000)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	cfg.Overrides.GlobalBlockHistoryEstimatorCheckInclusionBlocks = null.IntFrom(0)
 
 	ethClient := cltest.NewEthMocksWithDefaultChain(t)
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
@@ -1295,7 +1296,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	require.NoError(t, kst.Unlock(cltest.Password))
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg, ChainCfg: evmtypes.ChainCfg{
-		EvmGasPriceDefault:                    utils.NewBigI(initialDefaultGasPrice),
+		EvmGasPriceDefault:                    assets.NewWeiI(initialDefaultGasPrice),
 		GasEstimatorMode:                      null.StringFrom("BlockHistory"),
 		BlockHistoryEstimatorBlockDelay:       null.IntFrom(0),
 		BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
@@ -1365,7 +1366,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(500000), gasLimit)
-	assert.Equal(t, "41500000000", gasPrice.String())
+	assert.Equal(t, "41.5 gwei", gasPrice.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
 
 	// BlockHistoryEstimator new blocks
@@ -1387,7 +1388,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 		require.NoError(t, err)
 		return gasPrice.String()
-	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45 gwei"))
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {

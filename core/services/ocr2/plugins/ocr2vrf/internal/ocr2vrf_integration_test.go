@@ -93,7 +93,7 @@ func setupOCR2VRFContracts(
 	owner := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
 		owner.From: {
-			Balance: assets.Ether(100),
+			Balance: assets.ItoEther(100).ToInt(),
 		},
 	}
 	b := backends.NewSimulatedBackend(genesisData, ethconfig.Defaults.Miner.GasCeil*2)
@@ -111,7 +111,7 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	feedAddress, _, feed, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-		owner, b, 18, assets.GWei(1e7)) // 0.01 eth per link
+		owner, b, 18, assets.ItoGWei(int(1e7)).ToInt()) // 0.01 eth per link
 	require.NoError(t, err)
 
 	b.Commit()
@@ -260,9 +260,9 @@ func setupNodeOCR2(
 
 		tx := types.NewTransaction(
 			n, k.Address,
-			assets.Ether(1),
+			assets.ItoEther(1).ToInt(),
 			21000,
-			assets.GWei(1),
+			assets.ItoGWei(1).ToInt(),
 			nil)
 		signedTx, err := owner.Signer(owner.From, tx)
 		require.NoError(t, err)

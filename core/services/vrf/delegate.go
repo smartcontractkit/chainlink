@@ -46,7 +46,7 @@ type Config interface {
 	EvmFinalityDepth() uint32
 	EvmGasLimitDefault() uint32
 	EvmGasLimitVRFJobType() *uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
 }
 
@@ -293,7 +293,7 @@ func setMaxGasPriceGWei(fromAddresses []common.Address, maxGasPriceGWei *uint32,
 	}
 
 	for _, addr := range fromAddresses {
-		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.GWei(int64(*maxGasPriceGWei)))
+		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.ItoGWei(uint64(*maxGasPriceGWei)))
 		err := keyUpdater.UpdateConfig(chainID, updater)
 		if err != nil {
 			return errors.Wrap(err, "update key specific max gas price")

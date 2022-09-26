@@ -187,15 +187,15 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	steve := testutils.MustNewSimTransactor(t)  // registry owner
 	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
 	genesisData := core.GenesisAlloc{
-		sergey.From: {Balance: assets.Ether(1000)},
-		steve.From:  {Balance: assets.Ether(1000)},
-		carrol.From: {Balance: assets.Ether(1000)},
+		sergey.From: {Balance: assets.ItoEther(1000).ToInt()},
+		steve.From:  {Balance: assets.ItoEther(1000).ToInt()},
+		carrol.From: {Balance: assets.ItoEther(1000).ToInt()},
 	}
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
 	for i := int64(0); i < 5; i++ {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
-		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.Ether(1000)}
+		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.ItoEther(1000).ToInt()}
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
