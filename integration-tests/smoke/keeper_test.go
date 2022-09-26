@@ -236,6 +236,9 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				Expect(err).ShouldNot(HaveOccurred(), "Could not set check data for upkeep at index "+strconv.Itoa(i))
 			}
 
+			err = chainClient.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for check data update")
+
 			// retrieve old check data for all upkeeps
 			for i := 0; i < len(upkeepIDs); i++ {
 				upkeep, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[i])
