@@ -454,6 +454,8 @@ juelsPerFeeCoinSource = """
 }
 
 func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
+	t.Parallel()
+
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
