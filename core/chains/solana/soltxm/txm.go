@@ -88,6 +88,27 @@ func (txm *Txm) run() {
 	for {
 		select {
 		case msg := <-txm.chSend:
+			// Set compute unit price for transaction
+			// TODO: build compute unit price estimator
+			if err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee())); err != nil {
+				txm.lggr.Errorw("failed to set compute unit price in tx", "error", err)
+				continue
+			}
+			// marshal + sign transaction
+			txMsg, err := msg.tx.Message.MarshalBinary()
+			if err != nil {
+				txm.lggr.Errorw("failed to marshal transaction message", "error", err)
+				continue
+			}
+			sigBytes, err := msg.key.Sign(txMsg)
+			if err != nil {
+				txm.lggr.Errorw("failed to sign transaction", "error", err)
+				continue
+			}
+			var finalSig [64]byte
+			copy(finalSig[:], sigBytes)
+			msg.tx.Signatures = append(msg.tx.Signatures, finalSig) // TODO: how to handle signing tx is being retried (if only 1 sig, clear it and resign)
+
 			// process tx
 			sig, err := txm.sendWithRetry(ctx, msg.tx, msg.timeout)
 			if err != nil {
@@ -362,37 +383,19 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 		return errors.New("error in soltxm.Enqueue: not enough account keys in tx")
 	}
 
-	msg := pendingTx{
-		tx:      tx,
-		timeout: txm.cfg.TxRetryTimeout(),
-	}
-
-	// Set compute unit price
-	// TODO: build compute unit price estimator
-	// TODO: move gas estimation & signing to accomodate tx retries
-	if err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee())); err != nil {
-		return errors.Wrapf(err, "err in Enqueue.SetComputeUnitPrice")
-	}
-
-	// get key
+	// get signer key
 	// fee payer account is index 0 account
 	// https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L252
-	key, err := txm.ks.Get(msg.tx.Message.AccountKeys[0].String())
+	key, err := txm.ks.Get(tx.Message.AccountKeys[0].String())
 	if err != nil {
 		return errors.Wrap(err, "error in soltxm.Enqueue.GetKey")
 	}
-	txMsg, err := msg.tx.Message.MarshalBinary()
-	if err != nil {
-		return errors.Wrap(err, "error in soltxm.Enqueue.MarshalBinary")
+
+	msg := pendingTx{
+		tx:      tx,
+		timeout: txm.cfg.TxRetryTimeout(),
+		key:     key,
 	}
-	// sign tx
-	sigBytes, err := key.Sign(txMsg)
-	if err != nil {
-		return errors.Wrap(err, "error in soltxm.Enqueue.Sign")
-	}
-	var finalSig [64]byte
-	copy(finalSig[:], sigBytes)
-	msg.tx.Signatures = append(tx.Signatures, finalSig)
 
 	select {
 	case txm.chSend <- msg:
