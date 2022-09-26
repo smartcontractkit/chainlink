@@ -78,45 +78,38 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 			ocr2Config, err := getNodeOCR2Config(cl)
 			if err != nil {
 				panic(err)
-				return
 			}
 
 			p2pKeyID, err := getP2PKeyID(cl)
 			if err != nil {
 				panic(err)
-				return
 			}
 
 			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
 			if err != nil {
 				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OffChainPublicKey, err))
-				return
 			}
 
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
 				panic(fmt.Errorf("wrong num elements copied"))
-				return
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
 			if err != nil {
 				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.ConfigPublicKey, err))
-				return
 			}
 
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
 				panic(fmt.Errorf("wrong num elements copied"))
-				return
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_"))
 			if err != nil {
 				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OnchainPublicKey, err))
-				return
 			}
 
 			oracleIdentities[i] = ocr2config.OracleIdentityExtra{

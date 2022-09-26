@@ -136,6 +136,8 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
+		default:
+			panic(fmt.Errorf("version %s is not supported", k.cfg.RegistryVersion))
 		}
 	} else {
 		// Deploy keeper registry
@@ -149,6 +151,8 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 		case keeper.RegistryVersion_2_0:
 			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx)
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
+		default:
+			panic(fmt.Errorf("version %s is not supported", k.cfg.RegistryVersion))
 		}
 	}
 
@@ -238,8 +242,8 @@ func (k *Keeper) deployRegistry11(ctx context.Context) (common.Address, *registr
 	return registryAddr, registryInstance
 }
 
-// GetRegistry attaches to an existing registry and possibly updates registry config
-func (k *Keeper) GetRegistry(ctx context.Context) {
+// UpdateRegistry attaches to an existing registry and possibly updates registry config
+func (k *Keeper) UpdateRegistry(ctx context.Context) {
 	var registryAddr common.Address
 	switch k.cfg.RegistryVersion {
 	case keeper.RegistryVersion_1_1:
@@ -265,7 +269,7 @@ func (k *Keeper) getRegistry20(ctx context.Context) (common.Address, *registry20
 		log.Fatal("Registry failed: ", err)
 	}
 	if k.cfg.RegistryConfigUpdate {
-		// TODO: Implement
+		panic("KeeperRegistry2.0 could not be updated")
 	} else {
 		log.Println("KeeperRegistry2.0 config not updated: KEEPER_CONFIG_UPDATE=false")
 	}

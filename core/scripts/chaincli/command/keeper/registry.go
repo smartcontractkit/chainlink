@@ -33,7 +33,7 @@ var updateRegistryCmd = &cobra.Command{
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
 
-		hdlr.GetRegistry(cmd.Context())
+		hdlr.UpdateRegistry(cmd.Context())
 	},
 }
 
