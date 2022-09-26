@@ -106,7 +106,7 @@ func setupNodeOCR2(
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
 	config.Overrides.FeatureLogPoller = null.BoolFrom(true)
-	poll := 500 * time.Millisecond
+	poll := 5000 * time.Millisecond
 	config.Overrides.GlobalEvmLogPollInterval = &poll
 	config.Overrides.P2PEnabled = null.BoolFrom(true)
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
