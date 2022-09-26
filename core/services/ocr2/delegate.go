@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
-	ocr2keeperconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
@@ -359,17 +358,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		// TODO: cfg still not used, but it's here to pass config values to the plugin
-		// from the primary config file.
-		var cfg ocr2keeperconfig.PluginConfig
-		if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
-			return nil, errors.Wrap(err, "unmarshal ocr2keeper plugin config")
-		}
-
-		if err = cfg.Validate(); err != nil {
-			return nil, errors.Wrap(err, "validate ocr2keeper plugin config")
-		}
-
 		keeperProvider, rgstry, encoder, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")

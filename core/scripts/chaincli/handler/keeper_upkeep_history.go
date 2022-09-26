@@ -35,7 +35,6 @@ var (
 	checkUpkeepArguments2 abi.Arguments
 	registry11ABI         = keeper.Registry1_1ABI
 	registry12ABI         = keeper.Registry1_2ABI
-	registry20ABI         = keeper.Registry2_0ABI
 )
 
 type result struct {

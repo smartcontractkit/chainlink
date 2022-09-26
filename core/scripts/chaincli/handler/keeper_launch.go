@@ -15,8 +15,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -293,7 +291,6 @@ pluginType = "ocr2keeper"
 relay = "evm"
 name = "ocr2"
 schemaVersion = 1
-externalJobID = "%s"
 maxTaskDuration = "1s"
 contractID = "%s"
 ocrKeyBundleID = "%s"
@@ -303,12 +300,7 @@ p2pv2Bootstrappers = [
 ]
 
 [relayConfig]
-chainID = %d
-
-[pluginConfig]
-maxQueryLength = 2000
-maxObservationLength = 2000
-maxReportLength = 2000`
+chainID = %d`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
 func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
@@ -319,7 +311,6 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: fmt.Sprintf(ocr2keeperJobTemplate,
-			uuid.New().String(),     // externalJobID
 			contractAddr,            // contractID
 			ocr2KeyConfig.ID,        // ocrKeyBundleID
 			nodeAddr,                // transmitterID - node wallet address

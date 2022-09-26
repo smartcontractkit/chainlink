@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -16,7 +15,6 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
 )
 
 var (
@@ -68,11 +66,6 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		return nil, err
 	}
 
-	var pluginConfig config.PluginConfig
-	if err = json.Unmarshal(pargs.PluginConfig, &pluginConfig); err != nil {
-		return nil, err
-	}
-
 	return &ocr2keeperProvider{
 		configWatcher:       cfgWatcher,
 		contractTransmitter: contractTransmitter,
@@ -82,7 +75,6 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 type ocr2keeperProvider struct {
 	*configWatcher
 	contractTransmitter *ContractTransmitter
-	pluginConfig        config.PluginConfig
 }
 
 func (c *ocr2keeperProvider) ContractTransmitter() types.ContractTransmitter {

@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
-	ocr2keeperconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
@@ -178,18 +177,5 @@ func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
 }
 
 func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
-	if jsonConfig == nil {
-		return errors.New("pluginConfig is empty")
-	}
-
-	var cfg ocr2keeperconfig.PluginConfig
-	if err := json.Unmarshal(jsonConfig.Bytes(), &cfg); err != nil {
-		return errors.Wrap(err, "json unmarshal plugin config")
-	}
-
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-
 	return nil
 }

@@ -25,6 +25,7 @@ type Config struct {
 
 	// OCR Config
 	BootstrapNodeAddr string `mapstructure:"BOOTSTRAP_NODE_ADDR"`
+	OCR2Keepers       bool   `mapstructure:"KEEPER_OCR2"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
@@ -45,7 +46,6 @@ type Config struct {
 	Registrar            string `mapstructure:"REGISTRAR"`
 
 	// Upkeep Config
-	OCR2Keepers                     bool                   `mapstructure:"KEEPER_OCR2"`
 	RegistryVersion                 keeper.RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
 	RegistryAddress                 string                 `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
 	KeeperRegistryLogicAddr         string                 `mapstructure:"KEEPER_REGISTRY_LOGIC_ADDRESS"`

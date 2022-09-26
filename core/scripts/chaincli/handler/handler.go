@@ -385,7 +385,7 @@ func getNodeAddress(client cmd.HTTPClient) (string, error) {
 	return keys[0].Address, nil
 }
 
-// getNodeAddress returns chainlink node's OCR2 bundle key ID
+// getNodeOCR2Config returns chainlink node's OCR2 bundle key ID
 func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
 	resp, err := client.Get("/v2/keys/ocr2")
 	if err != nil {
