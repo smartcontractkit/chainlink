@@ -1,5 +1,12 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+- Rename `KeeperBase` -> `AutomationBase` and add alias for backwards compatibility
+- Rename `KeeperCompatible` -> `AutomationCompatible` and add alias for backwards compatibility
+- Rename `KeeperCompatibleInterface` -> `AutomationCompatibleInterface` and add alias for backwards compatibility
+- Rename `KeeperRegistryInterface1_2` -> `AutomationRegistryInterface1_2` and add alias for backwards compatibility
+
 ## 0.5.0 - 2022-09-26
 
 ### Changed

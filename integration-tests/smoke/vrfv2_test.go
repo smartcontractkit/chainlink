@@ -58,6 +58,11 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 				big.NewFloat(.5),
 				defaultVRFv2Env(networks.KlaytnBaobab),
 			),
+			Entry("VRFv2 suite on Optimism Goerli @optimism",
+				networks.KlaytnBaobab,
+				big.NewFloat(.05),
+				defaultVRFv2Env(networks.KlaytnBaobab),
+			),
 		}
 
 		testEnvironment *environment.Environment

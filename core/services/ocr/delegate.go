@@ -222,19 +222,27 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
 
-		var forwardingAllowed bool
-		if jb.ForwardingAllowed.Valid {
-			forwardingAllowed = jb.ForwardingAllowed.Bool
+		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
+		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
+		effectiveTransmitterAddress := concreteSpec.TransmitterAddress.Address()
+		if jb.ForwardingAllowed {
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(concreteSpec.TransmitterAddress.Address())
+			if fwderr == nil {
+				effectiveTransmitterAddress = fwdrAddress
+			} else {
+				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
+			}
 		}
 
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, forwardingAllowed, strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, effectiveTransmitterAddress, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
+			effectiveTransmitterAddress,
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
