@@ -106,34 +106,36 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
 
-	chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
-	if !ok {
-		return nil, errors.New("chainID must be provided in relay config")
-	}
-	chainID := int64(chainIDInterface.(float64))
-	chain, err2 := d.chainSet.Get(big.NewInt(chainID))
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "get chainset")
-	}
-
 	lggr := d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
 
-	// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
-	// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
-	effectiveTransmitterAddress := spec.TransmitterID
-	if jobSpec.ForwardingAllowed {
-		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
-		if fwderr == nil {
-			effectiveTransmitterAddress = null.StringFrom(fwdrAddress.String())
-		} else {
-			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jobSpec.Name, "err", fwderr)
+	if spec.Relay == relay.EVM {
+		chainIDInterface, ok := spec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
 		}
+		chainID := int64(chainIDInterface.(float64))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get chainset")
+		}
+
+		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
+		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
+		effectiveTransmitterAddress := spec.TransmitterID
+		if jobSpec.ForwardingAllowed {
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
+			if fwderr == nil {
+				effectiveTransmitterAddress = null.StringFrom(fwdrAddress.String())
+			} else {
+				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jobSpec.Name, "err", fwderr)
+			}
+		}
+		spec.RelayConfig["effectiveTransmitterAddress"] = effectiveTransmitterAddress
 	}
-	spec.RelayConfig["effectiveTransmitterAddress"] = effectiveTransmitterAddress
 
 	ocrDB := NewDB(d.db, spec.ID, d.lggr, d.cfg)
 	peerWrapper := d.peerWrapper
@@ -198,6 +200,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		ocr2Provider = medianProvider
 		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
 	case job.DKG:
+		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
+		}
+		chainID := int64(chainIDInterface.(float64))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get chainset")
+		}
 		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"))
 		dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
 			types.RelayArgs{
@@ -225,6 +236,16 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "error while instantiating DKG")
 		}
 	case job.OCR2VRF:
+		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
+		}
+		chainID := int64(chainIDInterface.(float64))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get chainset")
+		}
+
 		var cfg ocr2vrfconfig.PluginConfig
 		err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
 		if err2 != nil {

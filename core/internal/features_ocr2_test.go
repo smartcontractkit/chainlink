@@ -206,6 +206,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		apps         []*cltest.TestApplication
 	)
 	for i := uint16(0); i < 4; i++ {
+
 		node := setupNodeOCR2(t, owner, bootstrapNodePort+1+i, fmt.Sprintf("oracle%d", i), false /* useForwarders */, b)
 		// Supply the bootstrap IP and port as a V2 peer address
 		node.config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
@@ -459,7 +460,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
-	bootstrapNodePort := uint16(29999)
+	bootstrapNodePort := uint16(29898)
 	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", true /* useForwarders */, b)
 
 	var (
