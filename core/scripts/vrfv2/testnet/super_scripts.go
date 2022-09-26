@@ -31,7 +31,7 @@ minIncomingConfirmations = 3
 evmChainID = "%d"
 fromAddresses = ["%s"]
 pollPeriod = "5s"
-requestTimeout = "24hr"
+requestTimeout = "24h"
 observationSource = """decode_log   [type=ethabidecodelog
               abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
