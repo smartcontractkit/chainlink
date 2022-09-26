@@ -228,37 +228,27 @@ func setupKeystore(cli *Client, c *clipkg.Context, app chainlink.Application, ke
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
-	evmChainSet := app.GetChains().EVM
 	if cli.Config.EVMEnabled() {
-		if err != nil {
-			return errors.Wrap(err, "error migrating keystore")
-		}
-
-		for _, ch := range evmChainSet.Chains() {
-			err = keyStore.Eth().EnsureKeys(ch.ID())
-			if err != nil {
+		for _, ch := range app.GetChains().EVM.Chains() {
+			if err = keyStore.Eth().EnsureKeys(ch.ID()); err != nil {
 				return errors.Wrap(err, "failed to ensure keystore keys")
 			}
 		}
 	}
 
-	err = keyStore.OCR2().EnsureKeys()
-	if err != nil {
+	if err = keyStore.OCR2().EnsureKeys(); err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 
-	err = keyStore.DKGSign().EnsureKey()
-	if err != nil {
-		return errors.Wrap(err, "failed to ensure ocr key")
+	if err = keyStore.DKGSign().EnsureKey(); err != nil {
+		return errors.Wrap(err, "failed to ensure dkgsign key")
 	}
 
-	err = keyStore.DKGEncrypt().EnsureKey()
-	if err != nil {
-		return errors.Wrap(err, "failed to ensure ocr key")
+	if err = keyStore.DKGEncrypt().EnsureKey(); err != nil {
+		return errors.Wrap(err, "failed to ensure dkgencrypt key")
 	}
 
-	err = keyStore.P2P().EnsureKey()
-	if err != nil {
+	if err = keyStore.P2P().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 
