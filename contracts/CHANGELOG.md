@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+...
+
+## 0.5.1 - ..........
+
 - Rename `KeeperBase` -> `AutomationBase` and add alias for backwards compatibility
 - Rename `KeeperCompatible` -> `AutomationCompatible` and add alias for backwards compatibility
 - Rename `KeeperCompatibleInterface` -> `AutomationCompatibleInterface` and add alias for backwards compatibility
