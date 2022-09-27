@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"math/big"
 
+	kchain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
+	ktypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	kchain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
-	ktypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
