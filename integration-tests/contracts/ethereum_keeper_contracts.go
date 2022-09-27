@@ -1095,9 +1095,9 @@ func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(ctx context.Cont
 
 // EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
 type EthereumKeeperPerformDataCheckerConsumer struct {
-	client   blockchain.EVMClient
+	client             blockchain.EVMClient
 	performDataChecker *ethereum.PerformDataChecker
-	address  *common.Address
+	address            *common.Address
 }
 
 func (v *EthereumKeeperPerformDataCheckerConsumer) Address() string {

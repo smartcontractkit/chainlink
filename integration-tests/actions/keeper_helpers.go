@@ -160,8 +160,8 @@ func DeployPerformanceKeeperContracts(
 	return registry, registrar, upkeeps, upkeepIds
 }
 
-// DeployPerformDataCheckContracts deploys a set amount of keeper perform data checker contracts registered to a single registry
-func DeployPerformDataCheckContracts(
+// DeployPerformDataCheckerContracts deploys a set amount of keeper perform data checker contracts registered to a single registry
+func DeployPerformDataCheckerContracts(
 	registryVersion ethereum.KeeperRegistryVersion,
 	numberOfContracts int,
 	upkeepGasLimit uint32,

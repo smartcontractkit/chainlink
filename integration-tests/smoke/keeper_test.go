@@ -55,7 +55,6 @@ const (
 	defaultLinkFunds                  = int64(9e18)
 	defaultUpkeepsToDeploy            = 10
 	numUpkeepsAllowedForStragglingTxs = 6
-	initialCheckData                  = "zzz"
 	expectedData                      = "abcdef"
 )
 
@@ -151,7 +150,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 			Entry("v1.3 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.3 Update check data @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, UpdateCheckDataTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Update check data @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds)),
 		}
 	)
 
@@ -225,7 +224,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 			)
 		case PerformDataChecker:
-			registry, registrar, performDataChecker, upkeepIDs = actions.DeployPerformDataCheckContracts(
+			registry, registrar, performDataChecker, upkeepIDs = actions.DeployPerformDataCheckerContracts(
 				registryVersion,
 				defaultUpkeepsToDeploy,
 				defaultUpkeepGasLimit,
@@ -234,7 +233,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				chainClient,
 				&registryConfig,
 				linkFundsForEachUpkeep,
-				[]byte(initialCheckData),
+				[]byte(expectedData),
 			)
 		}
 
@@ -260,17 +259,17 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 			for i := 0; i < len(upkeepIDs); i++ {
 				err = registry.UpdateCheckData(upkeepIDs[i], []byte(expectedData))
-				Expect(err).ShouldNot(HaveOccurred(), "Could not set check data for upkeep at index "+strconv.Itoa(i))
+				Expect(err).ShouldNot(HaveOccurred(), "Could not update check data for upkeep at index "+strconv.Itoa(i))
 			}
 
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for check data update")
 
-			// retrieve old check data for all upkeeps
+			// retrieve new check data for all upkeeps
 			for i := 0; i < len(upkeepIDs); i++ {
 				upkeep, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[i])
 				Expect(err).ShouldNot(HaveOccurred(), "Failed to get upkeep info at index "+strconv.Itoa(i))
-				Expect(upkeep.CheckData).Should(Equal(expectedData), "Expect the check data to be %s, but got %s", expectedData, string(upkeep.CheckData))
+				Expect(upkeep.CheckData).Should(Equal([]byte(expectedData)), "Expect the check data to be %s, but got %s", expectedData, string(upkeep.CheckData))
 			}
 
 			Eventually(func(g Gomega) {

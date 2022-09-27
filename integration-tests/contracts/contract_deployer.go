@@ -675,9 +675,9 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 		return nil, err
 	}
 	return &EthereumKeeperPerformDataCheckerConsumer{
-		client:   e.client,
+		client:             e.client,
 		performDataChecker: instance.(*ethereum.PerformDataChecker),
-		address:  address,
+		address:            address,
 	}, err
 }
 
