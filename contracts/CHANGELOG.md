@@ -4,7 +4,7 @@
 
 ...
 
-## 0.5.1 - ..........
+## 0.5.1 - 2022-09-27
 
 - Rename `KeeperBase` -> `AutomationBase` and add alias for backwards compatibility
 - Rename `KeeperCompatible` -> `AutomationCompatible` and add alias for backwards compatibility
