@@ -3,9 +3,10 @@ package coordinator
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"math/big"
-	"sync"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -41,19 +42,36 @@ const (
 
 	// Both VRF and DKG contracts emit this, it's an OCR event.
 	configSetEvent = "ConfigSet"
+
+	// TODO: Add these defaults to the off-chain config, and get better gas estimates
+	// (these current values are very conservative).
+	cacheEvictionWindowSeconds = 60               // the maximum duration (in seconds) that an item stays in the cache
+	batchGasLimit              = int64(5_000_000) // maximum gas limit of a report
+	blockGasOverhead           = int64(50_000)    // cost of posting a randomness seed for a block on-chain
+	coordinatorOverhead        = int64(50_000)    // overhead costs of running the transmit transaction
 )
 
 // block is used to key into a set that tracks beacon blocks.
 type block struct {
-	blockHash   common.Hash
 	blockNumber uint64
 	confDelay   uint32
 }
 
+type blockInReport struct {
+	block
+	recentBlockHeight uint64
+	recentBlockHash   common.Hash
+}
+
 type callback struct {
-	blockHash   common.Hash
 	blockNumber uint64
 	requestID   uint64
+}
+
+type callbackInReport struct {
+	callback
+	recentBlockHeight uint64
+	recentBlockHash   common.Hash
 }
 
 type coordinator struct {
@@ -73,11 +91,9 @@ type coordinator struct {
 	evmClient evmclient.Client
 
 	// set of blocks that have been scheduled for transmission.
-	toBeTransmittedBlocks map[block]struct{}
+	toBeTransmittedBlocks *ocrCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
-	toBeTransmittedCallbacks map[callback]struct{}
-	// transmittedMu protects the toBeTransmittedBlocks and toBeTransmittedCallbacks
-	transmittedMu sync.Mutex
+	toBeTransmittedCallbacks *ocrCache[callbackInReport]
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -108,6 +124,9 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+
+	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * time.Second)
+
 	return &coordinator{
 		coordinatorContract:      coordinatorContract,
 		coordinatorAddress:       coordinatorAddress,
@@ -118,9 +137,8 @@ func New(
 		finalityDepth:            finalityDepth,
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
-		toBeTransmittedBlocks:    make(map[block]struct{}),
-		toBeTransmittedCallbacks: make(map[callback]struct{}),
-		transmittedMu:            sync.Mutex{},
+		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindow),
+		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindow),
 	}, nil
 }
 
@@ -180,12 +198,21 @@ func (c *coordinator) ReportBlocks(
 	maxBlocks, // TODO: unused for now
 	maxCallbacks int, // TODO: unused for now
 ) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
+	// Instantiate the gas used by this batch.
+	currentBatchGasLimit := coordinatorOverhead
+
 	// TODO: use head broadcaster instead?
 	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		err = errors.Wrap(err, "header by number")
 		return
 	}
+
+	now := time.Now().UTC()
+
+	// Evict expired items from the cache.
+	c.toBeTransmittedBlocks.EvictExpiredItems(now)
+	c.toBeTransmittedCallbacks.EvictExpiredItems(now)
 
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
@@ -228,14 +255,22 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	blocksRequested := make(map[block]struct{})
-	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
+	unfulfilled, err := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
+	if err != nil {
+		err = errors.Wrap(err, "filter requests in ReportBlocks")
+		return
+	}
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
 
 	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
 
-	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
+	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
+	if err != nil {
+		err = errors.Wrap(err, "filter callbacks in ReportBlocks")
+		return
+	}
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
@@ -254,18 +289,23 @@ func (c *coordinator) ReportBlocks(
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
-		blocks = append(blocks, ocr2vrftypes.Block{
-			Hash:              blockhashesMapping[block.blockNumber],
-			Height:            block.blockNumber,
-			ConfirmationDelay: block.confDelay,
-		})
+		if batchGasLimit-currentBatchGasLimit >= blockGasOverhead {
+			blocks = append(blocks, ocr2vrftypes.Block{
+				Hash:              blockhashesMapping[block.blockNumber],
+				Height:            block.blockNumber,
+				ConfirmationDelay: block.confDelay,
+			})
+			currentBatchGasLimit += blockGasOverhead
+		} else {
+			break
+		}
 	}
 
 	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
-	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight)
+	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
 
 	c.lggr.Info(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
@@ -285,11 +325,27 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	for _, l := range randomnessRequestedLogs {
 		if isBlockEligible(l.NextBeaconOutputHeight, l.ConfDelay, currentHeight) {
 			rawBlocksRequested[l.NextBeaconOutputHeight] = struct{}{}
+
+			// Also get the blockhash for the most recent cached report on this block,
+			// if one exists.
+			cacheKey := getBlockCacheKey(l.NextBeaconOutputHeight, l.ConfDelay.Uint64())
+			t := c.toBeTransmittedBlocks.GetItem(cacheKey)
+			if t != nil {
+				rawBlocksRequested[t.recentBlockHeight] = struct{}{}
+			}
 		}
 	}
 	for _, l := range randomnessFulfillmentRequestedLogs {
 		if isBlockEligible(l.NextBeaconOutputHeight, l.ConfDelay, currentHeight) {
 			rawBlocksRequested[l.NextBeaconOutputHeight] = struct{}{}
+
+			// Also get the blockhash for the most recent cached report on this callback,
+			// if one exists.
+			cacheKey := getCallbackCacheKey(l.Callback.RequestID.Int64())
+			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
+			if t != nil {
+				rawBlocksRequested[t.recentBlockHeight] = struct{}{}
+			}
 		}
 	}
 
@@ -324,7 +380,11 @@ func (c *coordinator) getBlockhashesMapping(
 	ctx context.Context,
 	blockNumbers []uint64,
 ) (blockhashesMapping map[uint64]common.Hash, err error) {
-
+	// GetBlocks doesn't necessarily need a sorted blockNumbers array,
+	// but sorting it is helpful for testing.
+	sort.Slice(blockNumbers, func(a, b int) bool {
+		return blockNumbers[a] < blockNumbers[b]
+	})
 	heads, err := c.lp.GetBlocks(ctx, blockNumbers, pg.WithParentCtx(ctx))
 	if len(heads) != len(blockNumbers) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
@@ -358,9 +418,40 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 	fulfilledRequestIDs map[uint64]struct{},
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
+	currentBatchGasLimit int64,
 ) (callbacks []ocr2vrftypes.AbstractCostedCallbackRequest) {
-	// TODO: check if subscription has enough funds (eventually)
+
+	/**
+	 * Callback batch ordering:
+	 * - Callbacks are first ordered by beacon output + confirmation delay (ascending), in other words
+	 *   the fulfillments at the oldest block are first in line.
+	 * - Within the same block, fulfillments are ordered by gasAllowance (ascending), i.e the callbacks with
+	 *   the lowest gasAllowance are first in line.
+	 * - This ordering ensures that the oldest callbacks can be picked up first, and that as many callbacks as
+	 *   possible can be fit into a batch.
+	 *
+	 * Example:
+	 * Unsorted: (outputHeight: 1, gasAllowance: 200k), (outputHeight: 3, gasAllowance: 100k), (outputHeight: 1, gasAllowance: 100k)
+	 * Sorted: (outputHeight: 1, gasAllowance: 100k), (outputHeight: 1, gasAllowance: 200k), (outputHeight: 3, gasAllowance: 100k)
+	 *
+	 */
+	sort.Slice(callbacksRequested, func(a, b int) bool {
+		aHeight := callbacksRequested[a].NextBeaconOutputHeight + callbacksRequested[a].ConfDelay.Uint64()
+		bHeight := callbacksRequested[b].NextBeaconOutputHeight + callbacksRequested[b].ConfDelay.Uint64()
+		if aHeight == bHeight {
+			return callbacksRequested[a].Callback.GasAllowance.Int64() < callbacksRequested[b].Callback.GasAllowance.Int64()
+		}
+		return aHeight < bHeight
+	})
+
 	for _, r := range callbacksRequested {
+		// Check if there is room left in the batch. If there is no room left, the coordinator
+		// will keep iterating, until it either finds a callback in a subsequent output height that
+		// can fit into the current batch or reaches the end of the sorted callbacks slice.
+		if batchGasLimit-currentBatchGasLimit < r.Callback.GasAllowance.Int64() {
+			continue
+		}
+
 		requestID := r.Callback.RequestID
 		if _, ok := fulfilledRequestIDs[requestID.Uint64()]; !ok {
 			// The on-chain machinery will revert requests that specify an unsupported
@@ -389,6 +480,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					RequestHeight:     r.Raw.BlockNumber,
 					RequestBlockHash:  r.Raw.BlockHash,
 				})
+				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
 			}
 		}
 	}
@@ -403,9 +495,7 @@ func (c *coordinator) filterEligibleCallbacks(
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
 	blockhashesMapping map[uint64]common.Hash,
-) (callbacks []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
-	c.transmittedMu.Lock()
-	defer c.transmittedMu.Unlock()
+) (callbacks []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block, err error) {
 
 	for _, r := range randomnessFulfillmentRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
@@ -418,14 +508,19 @@ func (c *coordinator) filterEligibleCallbacks(
 			continue
 		}
 
-		// check that the callback hasn't been scheduled for transmission
-		// so we don't fulfill the callback twice.
-		_, transmitted := c.toBeTransmittedCallbacks[callback{
-			blockNumber: r.NextBeaconOutputHeight,
-			requestID:   r.Callback.RequestID.Uint64(),
-			blockHash:   blockhashesMapping[r.NextBeaconOutputHeight],
-		}]
-		if !transmitted && isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+		// Check that the callback is elligible.
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+			cacheKey := getCallbackCacheKey(r.Callback.RequestID.Int64())
+			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
+			// If the callback is found in the cache and the recentBlockHash from the report containing the callback
+			// is correct, then the callback is in-flight and should not be included in the current observation. If that
+			// report gets re-orged, then the recentBlockHash of the report will become invalid, in which case
+			// the cached callback is ignored, and the callback is added to the current observation.
+			inflightTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
+			if inflightTransmission {
+				continue
+			}
+
 			callbacks = append(callbacks, r)
 
 			// We could have a callback request that was made in a different block than what we
@@ -446,9 +541,7 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
 	blockhashesMapping map[uint64]common.Hash,
-) (unfulfilled []block) {
-	c.transmittedMu.Lock()
-	defer c.transmittedMu.Unlock()
+) (unfulfilled []block, err error) {
 
 	for _, r := range randomnessRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
@@ -461,14 +554,19 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 			continue
 		}
 
-		// check if the block has been scheduled for transmission so that we don't
-		// retransmit for the same block.
-		_, transmitted := c.toBeTransmittedBlocks[block{
-			blockNumber: r.NextBeaconOutputHeight,
-			confDelay:   uint32(r.ConfDelay.Uint64()),
-			blockHash:   blockhashesMapping[r.NextBeaconOutputHeight],
-		}]
-		if !transmitted && isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+		// Check that the block is elligible.
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+			cacheKey := getBlockCacheKey(r.NextBeaconOutputHeight, r.ConfDelay.Uint64())
+			t := c.toBeTransmittedBlocks.GetItem(cacheKey)
+			// If the block is found in the cache and the recentBlockHash from the report containing the block
+			// is correct, then the block is in-flight and should not be included in the current observation. If that
+			// report gets re-orged, then the recentBlockHash of the report will become invalid, in which case
+			// the cached block is ignored and the block is added to the current observation.
+			validTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
+			if validTransmission {
+				continue
+			}
+
 			unfulfilled = append(unfulfilled, block{
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
@@ -559,44 +657,68 @@ func (c *coordinator) unmarshalLogs(
 // local node has accepted the AbstractReport for transmission, so that its
 // blocks and callbacks can be tracked for possible later retransmission
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
-	c.transmittedMu.Lock()
-	defer c.transmittedMu.Unlock()
 
-	blocksRequested := make(map[block]struct{})
-	blockNumbersRequested := []uint64{}
-	callbacksRequested := []callback{}
+	now := time.Now().UTC()
+
+	// Evict expired items from the cache.
+	c.toBeTransmittedBlocks.EvictExpiredItems(now)
+	c.toBeTransmittedCallbacks.EvictExpiredItems(now)
+
+	// Check for a re-org, and return an error if one is present.
+	blockhashesMapping, err := c.getBlockhashesMapping(ctx, []uint64{report.RecentBlockHeight})
+	if err != nil {
+		return errors.Wrap(err, "getting blockhash mapping in ReportWillBeTransmitted")
+	}
+	if blockhashesMapping[report.RecentBlockHeight] != report.RecentBlockHash {
+		return errors.Errorf("blockhash of report does not match most recent blockhash in ReportWillBeTransmitted")
+	}
+
+	blocksRequested := []blockInReport{}
+	callbacksRequested := []callbackInReport{}
 
 	// Get all requested blocks and callbacks.
 	for _, output := range report.Outputs {
-		blockNumbersRequested = append(blockNumbersRequested, output.BlockHeight)
-		blocksRequested[block{
-			blockNumber: output.BlockHeight,
-			confDelay:   output.ConfirmationDelay,
-		}] = struct{}{}
+		// If the VRF proof size is 0, the block is not included in this output. We still
+		// check for callbacks in the ouptut.
+		if len(output.VRFProof) > 0 {
+			bR := blockInReport{
+				block: block{
+					blockNumber: output.BlockHeight,
+					confDelay:   output.ConfirmationDelay,
+				},
+				recentBlockHeight: report.RecentBlockHeight,
+				recentBlockHash:   report.RecentBlockHash,
+			}
+			// Store block in blocksRequested.br
+			blocksRequested = append(blocksRequested, bR)
+		}
+
+		// Iterate through callbacks for output.
 		for _, cb := range output.Callbacks {
-			callbacksRequested = append(callbacksRequested, callback{
-				blockNumber: cb.BeaconHeight,
-				requestID:   cb.RequestID,
-			})
+			cbR := callbackInReport{
+				callback: callback{
+					blockNumber: cb.BeaconHeight,
+					requestID:   cb.RequestID,
+				},
+				recentBlockHeight: report.RecentBlockHeight,
+				recentBlockHash:   report.RecentBlockHash,
+			}
+
+			// Add callback to callbacksRequested.
+			callbacksRequested = append(callbacksRequested, cbR)
 		}
 	}
 
-	// Get latest blockhashes from log poller.
-	blockhashesMapping, err := c.getBlockhashesMapping(ctx, blockNumbersRequested)
-	if err != nil {
-		return errors.Wrap(err, "Getting blockhashes in ReportWillBeTransmitted")
-	}
-
 	// Apply blockhashes to blocks and mark them as transmitted.
-	for b := range blocksRequested {
-		b.blockHash = blockhashesMapping[b.blockNumber]
-		c.toBeTransmittedBlocks[b] = struct{}{}
+	for _, b := range blocksRequested {
+		cacheKey := getBlockCacheKey(b.blockNumber, uint64(b.confDelay))
+		c.toBeTransmittedBlocks.CacheItem(b, cacheKey, now)
 	}
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
-		cb.blockHash = blockhashesMapping[cb.blockNumber]
-		c.toBeTransmittedCallbacks[cb] = struct{}{}
+		cacheKey := getCallbackCacheKey(int64(cb.requestID))
+		c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
 	}
 
 	return nil
@@ -738,4 +860,26 @@ func toGethLog(lg logpoller.Log) types.Log {
 		TxHash:      lg.TxHash,
 		Index:       uint(lg.LogIndex),
 	}
+}
+
+// getBlockCacheKey returns a cache key for a requested block
+// The blockhash of the block does not need to be included in the key. Instead,
+// the block cached at a given key contains a blockhash that is checked for validity
+// against the log poller's current state.
+func getBlockCacheKey(blockNumber uint64, confDelay uint64) common.Hash {
+	var blockNumberBytes [8]byte
+	var confDelayBytes [8]byte
+
+	binary.BigEndian.PutUint64(blockNumberBytes[:], blockNumber)
+	binary.BigEndian.PutUint64(confDelayBytes[:], confDelay)
+
+	return common.BytesToHash(bytes.Join([][]byte{blockNumberBytes[:], confDelayBytes[:]}, nil))
+}
+
+// getBlockCacheKey returns a cache key for a requested callback
+// The blockhash of the callback does not need to be included in the key. Instead,
+// the callback cached at a given key contains a blockhash that is checked for validity
+// against the log poller's current state.
+func getCallbackCacheKey(requestID int64) common.Hash {
+	return common.BigToHash(big.NewInt(requestID))
 }

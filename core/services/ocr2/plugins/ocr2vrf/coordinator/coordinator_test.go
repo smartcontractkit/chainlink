@@ -223,13 +223,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -274,19 +276,21 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000),
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -343,13 +347,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -394,9 +400,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000),
 			// Both RandomWordsFulfilled and NewTransmission events are emitted
 			// when a VRF fulfillment happens on chain.
 			newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1}),
@@ -409,13 +415,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -460,9 +468,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
-			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000),
 		}, nil)
 
 		c := &coordinator{
@@ -473,11 +481,13 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    make(map[block]struct{}),
-			toBeTransmittedCallbacks: make(map[callback]struct{}),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 		}
 
 		report := ocr2vrftypes.AbstractReport{
+			RecentBlockHeight: 195,
+			RecentBlockHash:   common.HexToHash("0x001"),
 			Outputs: []ocr2vrftypes.AbstractVRFOutput{
 				{
 					BlockHeight:       195,
@@ -516,18 +526,299 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.Len(t, callbacks, 0)
 	})
 
+	t.Run("happy path, blocks requested hits batch gas limit", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(400)
+		lookbackBlocks := int64(400)
+		evmClient := evm_mocks.NewClient(t)
+
+		tp := newTopics()
+
+		logs := []logpoller.Log{}
+		requestedBlocks := []uint64{}
+
+		// Populate 200 request blocks.
+		for i := 0; i < 400; i += 2 {
+			logs = append(logs, newRandomnessRequestedLog(t, 1, uint64(i), 0))
+			requestedBlocks = append(requestedBlocks, uint64(i))
+		}
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.newTransmissionTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return(logs, nil)
+
+		c := &coordinator{
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+		}
+
+		blocks, callbacks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{1: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+
+		// Coordinator should allow 99 blocks, i.e 100 blocks - 1 block's worth of gas
+		// for the coordinator overhead.
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 99)
+		assert.Len(t, callbacks, 0)
+	})
+
+	t.Run("happy path, last callback hits batch gas limit", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(200)
+		lookbackBlocks := int64(5)
+		evmClient := evm_mocks.NewClient(t)
+
+		tp := newTopics()
+
+		requestedBlocks := []uint64{195}
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.newTransmissionTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 2_000_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 2_900_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1),
+		}, nil)
+
+		c := &coordinator{
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+		}
+
+		blocks, callbacks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+
+		// Should allow the first two callbacks, which add up to 4_950_000 + 50_000 (1 block) = 5_000_000,
+		// then reject the last callback for being out of gas.
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 1)
+		assert.Len(t, callbacks, 2)
+	})
+
+	t.Run("happy path, sandwiched callbacks hit batch gas limit", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(200)
+		lookbackBlocks := int64(5)
+		evmClient := evm_mocks.NewClient(t)
+
+		tp := newTopics()
+
+		requestedBlocks := []uint64{195}
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.newTransmissionTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 10_000_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 10_000_000),
+		}, nil)
+
+		c := &coordinator{
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+		}
+
+		blocks, callbacks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+
+		// Should allow the middle callback, with an acceptable gas allowance, to be processed.
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 1)
+		assert.Len(t, callbacks, 1)
+	})
+
+	t.Run("happy path, sandwiched callbacks with valid callback in next block hit batch gas limit", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(200)
+		lookbackBlocks := int64(5)
+		evmClient := evm_mocks.NewClient(t)
+
+		tp := newTopics()
+
+		requestedBlocks := []uint64{195, 196}
+		lp := getLogPoller(t, requestedBlocks, latestHeadNumber, true)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.newTransmissionTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 10_000_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 10_000_000),
+			newRandomnessFulfillmentRequestedLog(t, 3, 196, 194, 4, 1000),
+		}, nil)
+
+		c := &coordinator{
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+		}
+
+		blocks, callbacks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+
+		// Should allow the middle callback, with an acceptable gas allowance, to be processed,
+		// then move to the next block and find a suitable callback. Also adds the block 196 for
+		// that callback.
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 2)
+		assert.Len(t, callbacks, 2)
+	})
 }
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
-	lookbackBlocks := int64(0)
-	lp := getLogPoller(t, []uint64{}, 200, false)
-	c := &coordinator{
-		lp:             lp,
-		lookbackBlocks: lookbackBlocks,
-		lggr:           logger.TestLogger(t),
-	}
-	assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{}))
+	t.Run("happy path", func(t *testing.T) {
+		lookbackBlocks := int64(0)
+		lp := getLogPoller(t, []uint64{199}, 200, false)
+		c := &coordinator{
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+		}
+		assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
+			RecentBlockHeight: 199,
+			RecentBlockHash:   common.HexToHash("0x001"),
+		}))
+	})
+
+	t.Run("re-org", func(t *testing.T) {
+		lookbackBlocks := int64(0)
+		lp := getLogPoller(t, []uint64{199}, 200, false)
+		c := &coordinator{
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
+		}
+		assert.Error(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
+			RecentBlockHeight: 199,
+			RecentBlockHash:   common.HexToHash("0x009"),
+		}))
+	})
 }
 
 func TestCoordinator_MarshalUnmarshal(t *testing.T) {
@@ -545,7 +836,7 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, uint64(1500), rr.NextBeaconOutputHeight)
 	assert.Equal(t, int64(3), rr.ConfDelay.Int64())
 
-	lg = newRandomnessFulfillmentRequestedLog(t, 3, 1500, 1450, 1)
+	lg = newRandomnessFulfillmentRequestedLog(t, 3, 1500, 1450, 1, 1000)
 	rfrIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
 	require.NoError(t, err)
 	rfr, ok := rfrIface.(*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested)
@@ -673,6 +964,19 @@ func TestCoordinator_ConfirmationDelays(t *testing.T) {
 	})
 }
 
+func TestCoordinator_getBlockCacheKey(t *testing.T) {
+	t.Parallel()
+
+	t.Run("calculates key correctly", func(t *testing.T) {
+		hash := getBlockCacheKey(1, 11)
+		assert.Equal(
+			t,
+			common.HexToHash("0x000000000000000000000000000000000000000000000001000000000000000b"),
+			hash,
+		)
+	})
+}
+
 func TestCoordinator_KeyID(t *testing.T) {
 	t.Parallel()
 
@@ -760,6 +1064,7 @@ func newRandomnessFulfillmentRequestedLog(
 	nextBeaconOutputHeight uint64,
 	requestBlock uint64,
 	requestID int64,
+	gasAllowance int64,
 ) logpoller.Log {
 	//event RandomnessFulfillmentRequested(
 	//  uint64 nextBeaconOutputHeight,
@@ -773,7 +1078,7 @@ func newRandomnessFulfillmentRequestedLog(
 		Callback: vrf_wrapper.VRFBeaconTypesCallback{
 			RequestID:    big.NewInt(requestID),
 			NumWords:     1,
-			GasAllowance: big.NewInt(1000),
+			GasAllowance: big.NewInt(gasAllowance),
 		},
 		SubID: 1,
 		Raw: types.Log{
@@ -898,7 +1203,6 @@ func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64
 		lp.On("LatestBlock", mock.Anything).
 			Return(latestHeadNumber, nil)
 	}
-
 	logPollerBlocks := []logpoller.LogPollerBlock{}
 
 	// Fill range of blocks based on requestedBlocks

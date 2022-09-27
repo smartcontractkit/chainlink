@@ -131,7 +131,7 @@ test_perf: ## Run core node performance tests.
 
 .PHONY: test_chaos
 test_chaos: # run core node chaos tests.
-	ginkgo -r --focus @chaos --nodes 3 ./integration-tests/chaos
+	ginkgo -r --focus @chaos --nodes 5 ./integration-tests/chaos
 
 .PHONY: config-docs
 config-docs: # Generate core node configuration documentation
