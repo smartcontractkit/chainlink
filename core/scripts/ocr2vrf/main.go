@@ -237,13 +237,13 @@ func main() {
 
 	case "beacon-info":
 		cmd := flag.NewFlagSet("coordinator-info", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
-		coordinator := newVRFBeacon(common.HexToAddress(*coordinatorAddress), e.Ec)
-		keyID, err := coordinator.SKeyID(nil)
+		beaconAddress := cmd.String("beacon-address", "", "VRF coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address")
+		beacon := newVRFBeacon(common.HexToAddress(*beaconAddress), e.Ec)
+		keyID, err := beacon.SKeyID(nil)
 		helpers.PanicErr(err)
 		fmt.Println("coordinator key id:", hexutil.Encode(keyID[:]))
-		keyHash, err := coordinator.SProvingKeyHash(nil)
+		keyHash, err := beacon.SProvingKeyHash(nil)
 		helpers.PanicErr(err)
 		fmt.Println("coordinator proving key hash:", hexutil.Encode(keyHash[:]))
 
@@ -257,7 +257,7 @@ func main() {
 
 	case "consumer-request-randomness":
 		cmd := flag.NewFlagSet("consumer-request-randomness", flag.ExitOnError)
-		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
 		subID := cmd.Uint64("sub-id", 0, "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
@@ -266,7 +266,7 @@ func main() {
 
 	case "consumer-redeem-randomness":
 		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
-		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		requestID := cmd.Int64("request-id", 0, "request ID")
 		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
@@ -274,7 +274,7 @@ func main() {
 
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
-		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
 		subID := cmd.Uint64("sub-id", 0, "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")

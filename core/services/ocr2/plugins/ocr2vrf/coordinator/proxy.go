@@ -15,19 +15,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-var _ VRFBeaconCoordinator = &VRFProxy{}
+var _ VRFBeaconCoordinator = &vrfRouter{}
 
 //go:generate mockery --name VRFBeaconCoordinator --output ./mocks/ --case=underscore
 
 // VRFProxy routes requests to VRFBeacon and VRFCoordinator go wrappers and implements VRFBeaconCoordinator interface
-type VRFProxy struct {
+type vrfRouter struct {
 	lggr        logger.Logger
-	beacon      vrf_beacon.VRFBeacon
-	coordinator vrf_coordinator.VRFCoordinator
+	beacon      vrf_beacon.VRFBeaconInterface
+	coordinator vrf_coordinator.VRFCoordinatorInterface
 	evmClient   evmclient.Client
 }
 
-func NewProxy(
+func newRouter(
 	lggr logger.Logger,
 	beaconAddress common.Address,
 	coordinatorAddress common.Address,
@@ -41,32 +41,36 @@ func NewProxy(
 	if err != nil {
 		return nil, errors.Wrap(err, "coordinator wrapper creation")
 	}
-	return &VRFProxy{
+	return &vrfRouter{
 		lggr:        lggr,
-		beacon:      *beacon,
-		coordinator: *coordinator,
+		beacon:      beacon,
+		coordinator: coordinator,
 		evmClient:   client,
 	}, nil
 }
 
 // SProvingKeyHash retrieves the proving key hash from the on-chain contract.
-func (v *VRFProxy) SProvingKeyHash(opts *bind.CallOpts) ([32]byte, error) {
+// Calls VRF beacon wrapper to retrieve proving key hash
+func (v *vrfRouter) SProvingKeyHash(opts *bind.CallOpts) ([32]byte, error) {
 	return v.beacon.SProvingKeyHash(opts)
 }
 
 // SKeyID retrieves the keyID from the on-chain contract.
-func (v *VRFProxy) SKeyID(opts *bind.CallOpts) ([32]byte, error) {
+// Calls VRF beacon wrapper to retrieve key ID
+func (v *vrfRouter) SKeyID(opts *bind.CallOpts) ([32]byte, error) {
 	return v.beacon.SKeyID(opts)
 }
 
 // IBeaconPeriodBlocks retrieves the beacon period in blocks from the on-chain contract.
-func (v *VRFProxy) IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error) {
+// Calls VRF coordinator wrapper to beacon period blocks
+func (v *vrfRouter) IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error) {
 	return v.coordinator.IBeaconPeriodBlocks(opts)
 }
 
 // ParseLog parses the raw log data and topics into a go object.
 // The returned object must be casted to the expected type.
-func (v *VRFProxy) ParseLog(log types.Log) (generated.AbigenLog, error) {
+// Calls either VRF beacon wrapper or VRF coordinator wrapper depending on the addresses of the log
+func (v *vrfRouter) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	if log.Address == v.beacon.Address() {
 		return v.beacon.ParseLog(log)
 	} else if log.Address == v.coordinator.Address() {
@@ -77,6 +81,7 @@ func (v *VRFProxy) ParseLog(log types.Log) (generated.AbigenLog, error) {
 }
 
 // GetConfirmationDelays retrieves confirmation delays from the on-chain contract.
-func (v *VRFProxy) GetConfirmationDelays(opts *bind.CallOpts) ([8]*big.Int, error) {
+// Calls VRF coordinator to retrieve confirmation delays
+func (v *vrfRouter) GetConfirmationDelays(opts *bind.CallOpts) ([8]*big.Int, error) {
 	return v.coordinator.GetConfirmationDelays(opts)
 }
