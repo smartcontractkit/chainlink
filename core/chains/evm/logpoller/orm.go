@@ -20,7 +20,7 @@ type ORM struct {
 	q       pg.Q
 }
 
-// NewORM creates an ORM scoped to ChainID.
+// NewORM creates an ORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
 	namedLogger := lggr.Named("ORM")
 	q := pg.NewQ(db, namedLogger, cfg)
@@ -95,7 +95,7 @@ func (o *ORM) DeleteLogs(start, end int64, qopts ...pg.QOpt) error {
 func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	for _, log := range logs {
 		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
-			return errors.Errorf("invalid ChainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
+			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
 		}
 	}
 	q := o.q.WithOpts(qopts...)

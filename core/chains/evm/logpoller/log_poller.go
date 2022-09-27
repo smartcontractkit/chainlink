@@ -241,7 +241,7 @@ func (lp *logPoller) run() {
 			fromBlock, err := lp.getReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
 			if err == nil {
 				// Serially process replay requests.
-				lp.lggr.Warnw("Executing replay", "fromBlock", replayReq.fromBlock)
+				lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
 				lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
