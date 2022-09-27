@@ -454,7 +454,7 @@ func createCredsFiles() (string, string, func(), error) {
 	_, _ = passwordFile.WriteString(defaultChainlinkNodePassword)
 
 	return apiFile.Name(), passwordFile.Name(), func() {
-		os.Remove(apiFile.Name())
-		os.Remove(passwordFile.Name())
+		os.RemoveAll(apiFile.Name())
+		os.RemoveAll(passwordFile.Name())
 	}, nil
 }

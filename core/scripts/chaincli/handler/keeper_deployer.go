@@ -7,11 +7,13 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/umbracle/ethgo/abi"
 
@@ -68,7 +70,9 @@ func (d *v20KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target commo
 }
 
 func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPClient, keepers []common.Address, _ []common.Address) (*types.Transaction, error) {
+	S := make([]int, len(cls))
 	oracleIdentities := make([]ocr2config.OracleIdentityExtra, len(cls))
+	sharedSecretEncryptionPublicKeys := make([]ocr2types.ConfigEncryptionPublicKey, len(cls))
 	var wg sync.WaitGroup
 	for i, cl := range cls {
 		wg.Add(1)
@@ -112,6 +116,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OnchainPublicKey, err))
 			}
 
+			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
 			oracleIdentities[i] = ocr2config.OracleIdentityExtra{
 				OracleIdentity: ocr2config.OracleIdentity{
 					OnchainPublicKey:  onchainPkBytes,
@@ -121,13 +126,54 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 				},
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
+			S[i] = 1
 		}(i, cl)
 	}
 	wg.Wait()
 
-	signers, transmitters, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForEthereumIntegrationTest(oracleIdentities, 1, uint64(1000))
+	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
+		5*time.Second,        // deltaProgress time.Duration,
+		1*time.Second,        // deltaResend time.Duration,
+		1*time.Second,        // deltaRound time.Duration,
+		500*time.Millisecond, // deltaGrace time.Duration,
+		2*time.Second,        // deltaStage time.Duration,
+		3,                    // rMax uint8,
+		S,                    // s []int,
+		oracleIdentities,     // oracles []OracleIdentityExtra,
+		median.OffchainConfig{
+			false,
+			uint64(1000),
+			false,
+			uint64(1000),
+			0,
+		}.Encode(), // reportingPluginConfig []byte,
+		50*time.Millisecond, // maxDurationQuery time.Duration,
+		time.Second,         // maxDurationObservation time.Duration,
+		time.Second,         // maxDurationReport time.Duration,
+		time.Second,         // maxDurationShouldAcceptFinalizedReport time.Duration,
+		time.Second,         // maxDurationShouldTransmitAcceptedReport time.Duration,
+
+		1,   // f int,
+		nil, // onchainConfig []byte,
+	)
 	if err != nil {
 		return nil, err
+	}
+
+	var signers []common.Address
+	for _, signer := range signerOnchainPublicKeys {
+		if len(signer) != 20 {
+			return nil, fmt.Errorf("OnChainPublicKey has wrong length for address")
+		}
+		signers = append(signers, common.BytesToAddress(signer))
+	}
+
+	var transmitters []common.Address
+	for _, transmitter := range transmitterAccounts {
+		if !common.IsHexAddress(string(transmitter)) {
+			return nil, fmt.Errorf("TransmitAccount is not a valid Ethereum address")
+		}
+		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
 	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
