@@ -7,16 +7,22 @@ import "./OptionMarketInterface.sol";
 
 contract LyraAutomator is AutomationCompatibleInterface, ConfirmedOwner {
   OptionMarketInterface public s_optionMarket;
+  uint256 public s_maxExpiryNum;
 
   event BoardExpired(uint256 indexed boardId, uint256 blocknumber);
   event SettlementFailed(uint256 indexed boardId, bytes lowLevelData);
 
-  constructor(OptionMarketInterface optionMarket) ConfirmedOwner(msg.sender) {
+  constructor(OptionMarketInterface optionMarket, uint8 maxExpiryNum) ConfirmedOwner(msg.sender) {
     s_optionMarket = optionMarket;
+    s_maxExpiryNum = maxExpiryNum;
   }
 
   function setOptionMarket(OptionMarketInterface optionMarket) external onlyOwner {
     s_optionMarket = optionMarket;
+  }
+
+  function setMaxExpiryNum(uint256 maxExpiryNum) external onlyOwner {
+    s_maxExpiryNum = maxExpiryNum;
   }
 
   function checkUpkeep(bytes calldata checkData)
@@ -32,6 +38,9 @@ contract LyraAutomator is AutomationCompatibleInterface, ConfirmedOwner {
       OptionBoard memory board = s_optionMarket.getOptionBoard(boardId);
       if (board.expiry < block.timestamp) {
         liveBoards[index++] = boardId;
+        if (index == s_maxExpiryNum) {
+          break;
+        }
       }
     }
 
