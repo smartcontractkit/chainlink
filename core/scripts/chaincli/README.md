@@ -39,7 +39,7 @@ PRIVATE_KEY=<wallet-private-key>
 LINK_TOKEN_ADDR=0x326C977E6efc84E512bB9C30f76E30c160eD06FB
 LINK_ETH_FEED=0xb4c4a493AB6356497713A78FFA6c60FB53517c63
 FAST_GAS_FEED=0x22134617ae0f6ca8d89451e5ae091c94f7d743dc
-FUND_CHAINLINK_NODE=10
+FUND_CHAINLINK_NODE=500000000000000000000 # 5 ETH
 
 # Keepers config
 PAYMENT_PREMIUM_PBB=200000000
@@ -84,5 +84,5 @@ This address should be defined within `BOOTSTRAP_NODE_ADDR` evar which gonna be 
 
 3. Once we have a bootstrap node up and running, ocr2keeper nodes are ready to be created.
 ```shell
-$ chaincli launch-and-test
+$ chaincli keeper launch-and-test
 ```
