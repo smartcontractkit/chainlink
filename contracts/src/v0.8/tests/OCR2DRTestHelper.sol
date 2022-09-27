@@ -24,7 +24,7 @@ contract OCR2DRTestHelper {
 
   function addSecrets(bytes memory secrets) public {
     OCR2DR.Request memory r = req;
-    r.addSecrets(OCR2DR.Location.Inline, secrets);
+    r.addInlineSecrets(secrets);
     storeRequest(r);
   }
 

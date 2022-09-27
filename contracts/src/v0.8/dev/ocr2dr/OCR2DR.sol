@@ -229,14 +229,10 @@ library OCR2DR {
    * @param self The initialized request
    * @param secrets The user encrypted secrets
    */
-  function addSecrets(
-    Request memory self,
-    Location location,
-    bytes memory secrets
-  ) internal pure {
+  function addInlineSecrets(Request memory self, bytes memory secrets) internal pure {
     require(secrets.length > 0);
 
-    self.secretsLocation = location;
+    self.secretsLocation = Location.Inline;
     self.secrets = secrets;
   }
 
