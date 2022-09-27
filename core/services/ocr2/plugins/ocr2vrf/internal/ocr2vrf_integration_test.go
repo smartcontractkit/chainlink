@@ -35,8 +35,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -55,8 +56,10 @@ type ocr2vrfUniverse struct {
 	dkgAddress common.Address
 	dkg        *dkg_wrapper.DKG
 
+	beaconAddress      common.Address
 	coordinatorAddress common.Address
-	coordinator        *vrf_wrapper.VRFBeaconCoordinator
+	beacon             *vrf_beacon.VRFBeacon
+	coordinator        *vrf_wrapper.VRFCoordinator
 
 	linkAddress common.Address
 	link        *link_token_interface.LinkToken
@@ -109,8 +112,14 @@ func setupOCR2VRFContracts(
 
 	b.Commit()
 
-	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFBeaconCoordinator(
-		owner, b, linkAddress, big.NewInt(beaconPeriod), dkgAddress, keyID)
+	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
+		owner, b, big.NewInt(beaconPeriod), linkAddress)
+	require.NoError(t, err)
+
+	b.Commit()
+
+	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
+		owner, b, linkAddress, coordinatorAddress, dkgAddress, keyID)
 	require.NoError(t, err)
 
 	b.Commit()
@@ -121,7 +130,12 @@ func setupOCR2VRFContracts(
 
 	b.Commit()
 
-	_, err = dkg.AddClient(owner, keyID, coordinatorAddress)
+	_, err = dkg.AddClient(owner, keyID, beaconAddress)
+	require.NoError(t, err)
+
+	b.Commit()
+
+	_, err = coordinator.SetProducer(owner, beaconAddress)
 	require.NoError(t, err)
 
 	// Achieve finality depth so the CL node can work properly.
@@ -134,7 +148,9 @@ func setupOCR2VRFContracts(
 		backend:            b,
 		dkgAddress:         dkgAddress,
 		dkg:                dkg,
+		beaconAddress:      beaconAddress,
 		coordinatorAddress: coordinatorAddress,
+		beacon:             beacon,
 		coordinator:        coordinator,
 		linkAddress:        linkAddress,
 		link:               link,
@@ -235,7 +251,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 		dkgSigners     []dkgsignkey.Key
 	)
 	for i := 0; i < numNodes; i++ {
-		node := setupNodeOCR2(t, uni.owner, bootstrapNodePort+uint16(i+1), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend)
+		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend)
 		// Supply the bootstrap IP and port as a V2 peer address
 		node.config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.peerID, Addrs: []string{
@@ -323,35 +339,37 @@ chainID 			= 1337
 		defer apps[i].Stop()
 
 		jobSpec := fmt.Sprintf(`
-type                 = "offchainreporting2"
-schemaVersion        = 1
-name                 = "ocr2 vrf integration test"
-maxTaskDuration      = "30s"
-contractID           = "%s"
-ocrKeyBundleID       = "%s"
-relay                = "evm"
-pluginType           = "ocr2vrf"
-transmitterID        = "%s"
+type                 	= "offchainreporting2"
+schemaVersion        	= 1
+name                 	= "ocr2 vrf integration test"
+maxTaskDuration      	= "30s"
+contractID           	= "%s"
+ocrKeyBundleID       	= "%s"
+relay                	= "evm"
+pluginType           	= "ocr2vrf"
+transmitterID        	= "%s"
 
 [relayConfig]
-chainID              = 1337
+chainID              	= 1337
 
 [pluginConfig]
-dkgEncryptionPublicKey = "%s"
-dkgSigningPublicKey    = "%s"
-dkgKeyID               = "%s"
-dkgContractAddress     = "%s"
+dkgEncryptionPublicKey 	= "%s"
+dkgSigningPublicKey    	= "%s"
+dkgKeyID               	= "%s"
+dkgContractAddress     	= "%s"
 
-linkEthFeedAddress     = "%s"
-confirmationDelays     = %s # This is an array
-lookbackBlocks         = %d # This is an integer
-`, uni.coordinatorAddress.String(),
+vrfCoordinatorAddress   = "%s"
+linkEthFeedAddress     	= "%s"
+confirmationDelays     	= %s # This is an array
+lookbackBlocks         	= %d # This is an integer
+`, uni.beaconAddress.String(),
 			kbs[i].ID(),
 			transmitters[i],
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
 			hex.EncodeToString(keyID[:]),
 			uni.dkgAddress.String(),
+			uni.coordinatorAddress.String(),
 			uni.feedAddress.String(),
 			"[1, 2, 3, 4, 5, 6, 7, 8]", // conf delays
 			1000,                       // lookback blocks
@@ -378,7 +396,7 @@ lookbackBlocks         = %d # This is an integer
 	var emptyKH [32]byte
 	emptyHash := crypto.Keccak256Hash(emptyKH[:])
 	gomega.NewWithT(t).Eventually(func() bool {
-		kh, err := uni.coordinator.SProvingKeyHash(&bind.CallOpts{
+		kh, err := uni.beacon.SProvingKeyHash(&bind.CallOpts{
 			Context: testutils.Context(t),
 		})
 		require.NoError(t, err)
@@ -541,7 +559,7 @@ func setVRFConfig(
 		onchainConfig)
 	require.NoError(t, err)
 
-	_, err = uni.coordinator.SetConfig(
+	_, err = uni.beacon.SetConfig(
 		uni.owner, onchainPubKeys, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err)
 

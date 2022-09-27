@@ -310,6 +310,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		coordinator, err2 := ocr2coordinator.New(
 			lggr.Named("OCR2VRFCoordinator"),
 			common.HexToAddress(spec.ContractID),
+			common.HexToAddress(cfg.VRFCoordinatorAddress),
 			common.HexToAddress(cfg.DKGContractAddress),
 			chain.Client(),
 			cfg.LookbackBlocks,
