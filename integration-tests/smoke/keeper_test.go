@@ -49,11 +49,14 @@ type KeeperConsumerContracts int32
 const (
 	BasicCounter KeeperConsumerContracts = iota
 	PerformanceCounter
+	PerformDataChecker
 
 	defaultUpkeepGasLimit             = uint32(2500000)
 	defaultLinkFunds                  = int64(9e18)
 	defaultUpkeepsToDeploy            = 10
 	numUpkeepsAllowedForStragglingTxs = 6
+	initialCheckData                  = "zzz"
+	expectedData                      = "abcdef"
 )
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
@@ -104,6 +107,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		registrar            contracts.KeeperRegistrar
 		consumers            []contracts.KeeperConsumer
 		consumersPerformance []contracts.KeeperConsumerPerformance
+		performDataChecker   []contracts.KeeperPerformDataChecker
 		upkeepIDs            []*big.Int
 		linkToken            contracts.LinkToken
 		chainlinkNodes       []*client.Chainlink
@@ -220,6 +224,18 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 			)
+		case PerformDataChecker:
+			registry, registrar, performDataChecker, upkeepIDs = actions.DeployPerformDataCheckContracts(
+				registryVersion,
+				defaultUpkeepsToDeploy,
+				defaultUpkeepGasLimit,
+				linkToken,
+				contractDeployer,
+				chainClient,
+				&registryConfig,
+				linkFundsForEachUpkeep,
+				[]byte(initialCheckData),
+			)
 		}
 
 		By("Register Keeper Jobs")
@@ -228,11 +244,22 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
 		if testToRun == UpdateCheckDataTest {
-			By("tests that check data will be updated")
+			By("tests that counters will be updated after their check data is updated")
 
-			var newCheckData = []byte("abcde")
+			Eventually(func(g Gomega) {
+				// expect the counter to remain 0 because perform data does not match
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := performDataChecker[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve perform data checker"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(counter.Int64()).Should(Equal(int64(0)),
+						"Expected perform data checker counter to be 0, but got %d", counter.Int64())
+					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
+				}
+			}, "2m", "1s").Should(Succeed())
+
 			for i := 0; i < len(upkeepIDs); i++ {
-				err = registry.UpdateCheckData(upkeepIDs[i], newCheckData)
+				err = registry.UpdateCheckData(upkeepIDs[i], []byte(expectedData))
 				Expect(err).ShouldNot(HaveOccurred(), "Could not set check data for upkeep at index "+strconv.Itoa(i))
 			}
 
@@ -243,8 +270,20 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			for i := 0; i < len(upkeepIDs); i++ {
 				upkeep, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[i])
 				Expect(err).ShouldNot(HaveOccurred(), "Failed to get upkeep info at index "+strconv.Itoa(i))
-				Expect(upkeep.CheckData).Should(Equal(newCheckData), "Expect the check data to be %s, but got %s", string(newCheckData), string(upkeep.CheckData))
+				Expect(upkeep.CheckData).Should(Equal(expectedData), "Expect the check data to be %s, but got %s", expectedData, string(upkeep.CheckData))
 			}
+
+			Eventually(func(g Gomega) {
+				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := performDataChecker[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve perform data checker counter"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(5)),
+						"Expected perform data checker counter to be greater than 5, but got %d", counter.Int64())
+					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
+				}
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		if testToRun == PauseUnpauseUpkeepTest {
@@ -285,9 +324,9 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					// Expect the counter to remain constant because the upkeep was paused, so it shouldn't increase anymore
 					latestCounter, err := consumers[i].Counter(context.Background())
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-					g.Expect(latestCounter.Int64()).Should(Equal(countersAfterPause[i].Int64()),
-						"Expected consumer counter to remain constant at %d, but got %d",
-						countersAfterPause[i].Int64(), latestCounter.Int64())
+					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterPause[i].Int64()+numUpkeepsAllowedForStragglingTxs),
+						"Expected consumer counter not have increased more than %d, but got %d",
+						countersAfterPause[i].Int64()+numUpkeepsAllowedForStragglingTxs, latestCounter.Int64())
 				}
 			}, "1m", "1s").Should(Succeed())
 

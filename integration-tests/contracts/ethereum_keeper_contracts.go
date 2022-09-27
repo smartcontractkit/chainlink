@@ -96,6 +96,12 @@ type KeeperConsumerPerformance interface {
 	SetPerformGasToBurn(ctx context.Context, gas *big.Int) error
 }
 
+type KeeperPerformDataChecker interface {
+	Address() string
+	Counter(ctx context.Context) (*big.Int, error)
+	SetExpectedData(ctx context.Context, expectedData []byte) error
+}
+
 // KeeperRegistryOpts opts to deploy keeper registry version
 type KeeperRegistryOpts struct {
 	RegistryVersion ethereum.KeeperRegistryVersion
@@ -1081,6 +1087,41 @@ func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(ctx context.Cont
 		return err
 	}
 	tx, err := v.consumer.SetPerformGasToBurn(opts, gas)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+// EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
+type EthereumKeeperPerformDataCheckerConsumer struct {
+	client   blockchain.EVMClient
+	performDataChecker *ethereum.PerformDataChecker
+	address  *common.Address
+}
+
+func (v *EthereumKeeperPerformDataCheckerConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumKeeperPerformDataCheckerConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	cnt, err := v.performDataChecker.Counter(opts)
+	if err != nil {
+		return nil, err
+	}
+	return cnt, nil
+}
+
+func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(ctx context.Context, expectedData []byte) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.performDataChecker.SetExpectedData(opts, expectedData)
 	if err != nil {
 		return err
 	}
