@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -51,6 +52,7 @@ type ContractDeployer interface {
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployBlockhashStore() (BlockHashStore, error)
+	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -726,10 +728,7 @@ func (e *EthereumContractDeployer) DeployVRFCoordinatorV2(linkAddr string, bhsAd
 
 // DeployVRFCoordinator deploys VRF coordinator contract
 func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, interface{}, error) {
 		return ethereum.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
 	})
 	if err != nil {
@@ -775,5 +774,23 @@ func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordina
 		client:   e.client,
 		consumer: instance.(*ethereum.VRFConsumerV2),
 		address:  address,
+	}, err
+}
+
+// DeployOperatorFactory deploys operator factory contract
+func (e *EthereumContractDeployer) DeployOperatorFactory(linkAddr string) (OperatorFactory, error) {
+	addr, _, instance, err := e.client.DeployContract("OperatorFactory", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return operator_factory.DeployOperatorFactory(auth, backend, common.HexToAddress(linkAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOperatorFactory{
+		address:         addr,
+		client:          e.client,
+		operatorFactory: instance.(*operator_factory.OperatorFactory),
 	}, err
 }

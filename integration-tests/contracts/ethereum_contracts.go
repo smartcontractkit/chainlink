@@ -11,6 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -1379,6 +1382,96 @@ type EthereumDeviationFlaggingValidator struct {
 }
 
 func (e *EthereumDeviationFlaggingValidator) Address() string {
+	return e.address.Hex()
+}
+
+// EthereumOperatorFactory represents operator factory contract
+type EthereumOperatorFactory struct {
+	address         *common.Address
+	client          blockchain.EVMClient
+	operatorFactory *operator_factory.OperatorFactory
+}
+
+func (e *EthereumOperatorFactory) ParseAuthorizedForwarderCreated(eventLog types.Log) (*operator_factory.OperatorFactoryAuthorizedForwarderCreated, error) {
+	return e.operatorFactory.ParseAuthorizedForwarderCreated(eventLog)
+}
+
+func (e *EthereumOperatorFactory) ParseOperatorCreated(eventLog types.Log) (*operator_factory.OperatorFactoryOperatorCreated, error) {
+	return e.operatorFactory.ParseOperatorCreated(eventLog)
+}
+
+func (e *EthereumOperatorFactory) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	tx, err := e.operatorFactory.DeployNewOperatorAndForwarder(opts)
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
+// EthereumOperator represents operator contract
+type EthereumOperator struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	operator *operator_wrapper.Operator
+}
+
+func (e *EthereumOperator) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address, eoa []common.Address) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	log.Info().
+		Str("Forwarders addresses", fmt.Sprint(forwarders)).
+		Str("Eoa addresses", fmt.Sprint(eoa)).
+		Msg("Accepting Authorized Receivers")
+	tx, err := e.operator.AcceptAuthorizedReceivers(opts, forwarders, eoa)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+// EthereumAuthorizedForwarder represents authorized forwarder contract
+type EthereumAuthorizedForwarder struct {
+	address             common.Address
+	client              blockchain.EVMClient
+	authorizedForwarder *authorized_forwarder.AuthorizedForwarder
+}
+
+// Owner return authorized forwarder owner address
+func (e *EthereumAuthorizedForwarder) Owner(ctx context.Context) (string, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	owner, err := e.authorizedForwarder.Owner(opts)
+
+	return owner.Hex(), err
+}
+
+func (e *EthereumAuthorizedForwarder) GetAuthorizedSenders(ctx context.Context) ([]string, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	authorizedSenders, err := e.authorizedForwarder.GetAuthorizedSenders(opts)
+	if err != nil {
+		return nil, err
+	}
+	var sendersAddrs []string
+	for _, o := range authorizedSenders {
+		sendersAddrs = append(sendersAddrs, o.Hex())
+	}
+	return sendersAddrs, nil
+}
+
+func (e *EthereumAuthorizedForwarder) Address() string {
 	return e.address.Hex()
 }
 
