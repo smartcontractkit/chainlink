@@ -492,7 +492,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	}
 
 	// L2-specific cases
-	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
+	if sendError.L2FeeTooLow() || sendError.IsL2Full() {
 		if eb.ChainKeyStore.config.ChainType().IsL2() {
 			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 		}

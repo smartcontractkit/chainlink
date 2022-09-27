@@ -305,25 +305,21 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
-	optimismMainnet.blockEmissionIdleWarningThreshold = 0
-	optimismMainnet.nodeDeadAfterNoNewHeadersThreshold = 0    // Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
-	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
+	optimismMainnet.eip1559DynamicFees = true
+	optimismMainnet.blockEmissionIdleWarningThreshold = 30 * time.Second
+	optimismMainnet.nodeDeadAfterNoNewHeadersThreshold = 60 * time.Second // Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
+	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 24            // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
 	optimismMainnet.chainType = config.ChainOptimism
-	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
-	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
-	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
-	optimismMainnet.gasEstimatorMode = "L2Suggested"
-	optimismMainnet.headTrackerHistoryDepth = 10
-	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
+	optimismMainnet.ethTxResendAfterThreshold = 30 * time.Second
+	optimismMainnet.finalityDepth = 200 // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
+	optimismMainnet.headTrackerHistoryDepth = 300
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
-	optimismMainnet.minIncomingConfirmations = 1
-	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
-	optimismMainnet.ocrContractConfirmations = 1
 	optimismKovan := optimismMainnet
-	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
 	optimismGoerli := optimismKovan
 	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
+	optimismAlpha := optimismGoerli
+	optimismAlpha.linkContractAddress = ""
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet

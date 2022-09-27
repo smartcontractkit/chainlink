@@ -30,13 +30,13 @@ func Test_Eth_Errors(t *testing.T) {
 
 		tests := []errorCase{
 			{"nonce too low", true, "Geth"},
+			{"nonce too low", true, "Optimism"},
 			{"nonce too low: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 			{"Nonce too low", true, "Besu"},
 			{"nonce too low", true, "Erigon"},
 			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
 			{"transaction rejected: nonce too low", true, "Arbitrum"},
 			{"invalid transaction nonce", true, "Arbitrum"},
-			{"invalid transaction: nonce too low", true, "Optimism"},
 			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true, "Avalanche"},
 			{"call failed: OldNonce", true, "Nethermind"},
 		}
@@ -72,6 +72,7 @@ func Test_Eth_Errors(t *testing.T) {
 
 		tests := []errorCase{
 			{"replacement transaction underpriced", true, "geth"},
+			{"replacement transaction underpriced", true, "Optimism"},
 			{"Replacement transaction underpriced", true, "Besu"},
 			{"replacement transaction underpriced", true, "Erigon"},
 			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true, "Parity"},
@@ -93,10 +94,13 @@ func Test_Eth_Errors(t *testing.T) {
 		tests := []errorCase{
 			// I have seen this in log output
 			{"known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960", true, "Geth"},
+			{"known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960", true, "Optimism"},
 			// This comes from the geth source - https://github.com/ethereum/go-ethereum/blob/eb9d7d15ecf08cd5104e01a8af64489f01f700b0/core/tx_pool.go#L57
 			{"already known", true, "Geth"},
+			{"already known", true, "Optimism"},
 			// This one is present in the light client (?!)
 			{"Known transaction (7f65)", true, "Geth"},
+			{"Known transaction (7f65)", true, "Optimism"},
 			{"Known transaction", true, "Besu"},
 			{"already known", true, "Erigon"},
 			{"block already known", true, "Erigon"},
@@ -118,6 +122,8 @@ func Test_Eth_Errors(t *testing.T) {
 		tests := []errorCase{
 			{"transaction underpriced", true, "geth"},
 			{"replacement transaction underpriced", false, "geth"},
+			{"transaction underpriced", true, "Optimism"},
+			{"replacement transaction underpriced", false, "Optimism"},
 			{"Gas price below configured minimum gas price", true, "Besu"},
 			{"transaction underpriced", true, "Erigon"},
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
@@ -154,6 +160,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for transfer", true, "Geth"},
 			{"insufficient funds for gas * price + value", true, "Geth"},
 			{"insufficient balance for transfer", true, "Geth"},
+			{"insufficient funds for transfer", true, "Optimism"},
+			{"insufficient funds for gas * price + value", true, "Optimism"},
+			{"insufficient balance for transfer", true, "Optimism"},
 			{"Upfront cost exceeds account balance", true, "Besu"},
 			{"insufficient funds for transfer", true, "Erigon"},
 			{"insufficient funds for gas * price + value", true, "Erigon"},
@@ -163,7 +172,6 @@ func Test_Eth_Errors(t *testing.T) {
 			{"transaction rejected: insufficient funds for gas * price + value", true, "Arbitrum"},
 			{"not enough funds for gas", true, "Arbitrum"},
 			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
-			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
 		}
 		for _, test := range tests {
@@ -179,6 +187,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "geth"},
 			{"tx fee (1.10 FTM) exceeds the configured cap (1.00 FTM)", true, "geth"},
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
+			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "Optimism"},
+			{"tx fee (1.10 FTM) exceeds the configured cap (1.00 FTM)", true, "Optimism"},
+			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "Optimism"},
 			{"Transaction fee cap exceeded", true, "Besu"},
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "Erigon"},
 		}
@@ -196,18 +207,9 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("L2 Fees errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsL2FeeTooHigh())
-		assert.False(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsL2FeeTooHigh())
-		assert.False(t, err.L2FeeTooLow())
-
-		err = evmclient.NewSendErrorS("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
-		assert.False(t, err.IsL2FeeTooHigh())
+		err = evmclient.NewSendErrorS("max fee per gas less than block base fee: address 0x174DD7cEB3aa110e729ad4992E36d197dfcE0A4c, maxFeePerGas: 100000000 baseFee: 102420000")
 		assert.True(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
-		assert.False(t, err.IsL2FeeTooHigh())
+		err = newSendErrorWrapped("max fee per gas less than block base fee: address 0x174DD7cEB3aa110e729ad4992E36d197dfcE0A4c, maxFeePerGas: 100000000 baseFee: 102420000")
 		assert.True(t, err.L2FeeTooLow())
 
 		err = evmclient.NewSendErrorS("queue full")
@@ -215,11 +217,9 @@ func Test_Eth_Errors(t *testing.T) {
 		err = evmclient.NewSendErrorS("sequencer pending tx pool full, please try again")
 		assert.True(t, err.IsL2Full())
 
-		assert.False(t, randomError.IsL2FeeTooHigh())
 		assert.False(t, randomError.L2FeeTooLow())
 		// Nil
 		err = evmclient.NewSendError(nil)
-		assert.False(t, err.IsL2FeeTooHigh())
 		assert.False(t, err.L2FeeTooLow())
 	})
 
@@ -261,6 +261,15 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"gas uint64 overflow", true, "Geth"},
 		{"intrinsic gas too low", true, "Geth"},
 		{"nonce too high", true, "Geth"},
+
+		{"insufficient funds for transfer", false, "Optimism"},
+		{"exceeds block gas limit", true, "Optimism"},
+		{"invalid sender", true, "Optimism"},
+		{"negative value", true, "Optimism"},
+		{"oversized data", true, "Optimism"},
+		{"gas uint64 overflow", true, "Optimism"},
+		{"intrinsic gas too low", true, "Optimism"},
+		{"nonce too high", true, "Optimism"},
 
 		{"Intrinsic gas exceeds gas limit", true, "Besu"},
 		{"Transaction gas limit exceeds block gas limit", true, "Besu"},
