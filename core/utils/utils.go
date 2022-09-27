@@ -1113,13 +1113,3 @@ func MinKey[U any, T constraints.Ordered](elems []U, key func(U) T) T {
 
 	return min
 }
-
-func Min[T constraints.Ordered](firstElem T, elems ...T) T {
-	min := firstElem
-	for _, elem := range elems {
-		if elem < min {
-			min = elem
-		}
-	}
-	return min
-}

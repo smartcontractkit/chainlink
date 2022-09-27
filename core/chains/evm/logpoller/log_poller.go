@@ -227,7 +227,7 @@ func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (i
 	// We have lastProcessed, take min(requested, lastProcessed).
 	// This is to avoid replaying from a block later than what we have in the DB
 	// and skipping blocks.
-	return utils.Min(requested, lastProcessed.BlockNumber), nil
+	return mathutil.Min(requested, lastProcessed.BlockNumber), nil
 }
 
 func (lp *logPoller) run() {
