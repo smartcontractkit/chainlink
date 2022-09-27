@@ -108,6 +108,17 @@ func Decimal(name string, size, precision, scale int) Schema {
 	return fixed{Typ: "fixed", Name: name, Size: size, LogicalType: "decimal", Precision: precision, Scale: scale}
 }
 
+// Values
+
+type nullValueType struct{}
+
+func (n nullValueType) MarshalJSON() ([]byte, error) {
+	return []byte{'n', 'u', 'l', 'l'}, nil
+}
+
+// NullValue is useful for setting Defaults in case of optional fields.
+var NullValue nullValueType
+
 // Type checking
 
 func (p primitive) IsSchema() {}
