@@ -44,10 +44,11 @@ type dkgTemplateArgs struct {
 
 type ocr2vrfTemplateArgs struct {
 	dkgTemplateArgs
-	vrfContractAddress string
-	linkEthFeedAddress string
-	confirmationDelays string
-	lookbackBlocks     int64
+	vrfBeaconAddress      string
+	vrfCoordinatorAddress string
+	linkEthFeedAddress    string
+	confirmationDelays    string
+	lookbackBlocks        int64
 }
 
 const dkgTemplate = `
@@ -93,6 +94,7 @@ dkgSigningPublicKey    = "%s"
 dkgKeyID               = "%s"
 dkgContractAddress     = "%s"
 
+vrfCoordinatorAddress  = "%s"
 linkEthFeedAddress     = "%s"
 confirmationDelays     = %s # This is an array
 lookbackBlocks         = %d # This is an integer
@@ -199,10 +201,11 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 				keyID:                   keyID,
 				signingPublicKey:        dkgSignKey,
 			},
-			vrfContractAddress: c.String("vrf-address"),
-			linkEthFeedAddress: c.String("link-eth-feed-address"),
-			lookbackBlocks:     c.Int64("lookback-blocks"),
-			confirmationDelays: c.String("confirmation-delays"),
+			vrfBeaconAddress:      c.String("vrf-beacon-address"),
+			vrfCoordinatorAddress: c.String("vrf-coordinator-address"),
+			linkEthFeedAddress:    c.String("link-eth-feed-address"),
+			lookbackBlocks:        c.Int64("lookback-blocks"),
+			confirmationDelays:    c.String("confirmation-delays"),
 		})
 	} else {
 		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
@@ -320,7 +323,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
 	sp := fmt.Sprintf(ocr2vrfTemplate,
-		args.vrfContractAddress,
+		args.vrfBeaconAddress,
 		args.ocrKeyBundleID,
 		args.p2pv2BootstrapperPeerID,
 		args.p2pv2BootstrapperPort,
@@ -330,6 +333,7 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.signingPublicKey,
 		args.keyID,
 		args.contractID,
+		args.vrfCoordinatorAddress,
 		args.linkEthFeedAddress,
 		fmt.Sprintf("[%s]", args.confirmationDelays), // conf delays should be comma separated
 		args.lookbackBlocks,
