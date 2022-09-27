@@ -320,7 +320,9 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 			Consistently(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					// Expect the counter to remain constant because the upkeep was paused, so it shouldn't increase anymore
+					// In most cases counters should remain constant, but there might be a straggling perform tx which
+					// gets committed later. Since every keeper node cannot have more than 1 straggling tx, it
+					// is sufficient to check that the upkeep count does not increase by more than 6.
 					latestCounter, err := consumers[i].Counter(context.Background())
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
 					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterPause[i].Int64()+numUpkeepsAllowedForStragglingTxs),
