@@ -12,16 +12,19 @@ library OCR2DR {
 
   using CBORChainlink for BufferChainlink.buffer;
 
-  enum CodeLocation {
+  enum Location {
     Inline
+    // In future version we will add Remote location
   }
 
   enum CodeLanguage {
     JavaScript
+    // In future version we may add other languages
   }
 
   enum HttpVerb {
     Get
+    // In future version we may add other verbs
   }
 
   struct HttpHeader {
@@ -36,11 +39,12 @@ library OCR2DR {
   }
 
   struct Request {
-    CodeLocation location;
+    Location codeLocation;
+    Location secretsLocation;
     CodeLanguage language;
-    string source;
+    string source; // Source code for Location.Inline or url for Location.Remote
+    bytes secrets; // Encrypted secrets blob for Location.Inline or url for Location.Remote
     string[] args;
-    bytes secrets;
     HttpQuery[] queries;
   }
 
@@ -53,8 +57,8 @@ library OCR2DR {
     BufferChainlink.buffer memory buf;
     BufferChainlink.init(buf, defaultBufferSize);
 
-    buf.encodeString("location");
-    buf.encodeUInt(uint256(self.location));
+    buf.encodeString("codeLocation");
+    buf.encodeUInt(uint256(self.codeLocation));
 
     buf.encodeString("language");
     buf.encodeUInt(uint256(self.language));
@@ -72,6 +76,8 @@ library OCR2DR {
     }
 
     if (self.secrets.length > 0) {
+      buf.encodeString("secretsLocation");
+      buf.encodeUInt(uint256(self.secretsLocation));
       buf.encodeString("secrets");
       buf.encodeBytes(self.secrets);
     }
@@ -86,13 +92,13 @@ library OCR2DR {
         buf.encodeString("url");
         buf.encodeString(self.queries[i].url);
         if (self.queries[i].headers.length > 0) {
-            buf.encodeString("headers");
-            buf.startMap();
-            for (uint256 j = 0; j < self.queries[i].headers.length; j++) {
-                buf.encodeString(self.queries[i].headers[j].key);
-                buf.encodeString(self.queries[i].headers[j].value);
-            }
-            buf.endSequence();
+          buf.encodeString("headers");
+          buf.startMap();
+          for (uint256 j = 0; j < self.queries[i].headers.length; j++) {
+            buf.encodeString(self.queries[i].headers[j].key);
+            buf.encodeString(self.queries[i].headers[j].value);
+          }
+          buf.endSequence();
         }
         buf.endSequence();
       }
@@ -113,13 +119,13 @@ library OCR2DR {
    */
   function initializeRequest(
     Request memory self,
-    CodeLocation location,
+    Location location,
     CodeLanguage language,
     string memory source
   ) internal pure returns (OCR2DR.Request memory) {
     require(bytes(source).length > 0);
 
-    self.location = location;
+    self.codeLocation = location;
     self.language = language;
     self.source = source;
     return self;
@@ -137,7 +143,7 @@ library OCR2DR {
     pure
     returns (OCR2DR.Request memory)
   {
-    return initializeRequest(self, CodeLocation.Inline, CodeLanguage.JavaScript, javaScriptSource);
+    return initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
   }
 
   /**
@@ -183,6 +189,17 @@ library OCR2DR {
   }
 
   /**
+   * @notice Set an array of HttpHeader to HttpQuery
+   * @param self The initialized HttpQuery
+   * @param headers The array of headers to be set
+   */
+  function setHttpHeaders(HttpQuery memory self, HttpHeader[] memory headers) internal pure {
+    require(headers.length > 0);
+
+    self.headers = headers;
+  }
+
+  /**
    * @notice Adds new HttpQuery to a Request
    * @param self The initialized request
    * @param query The initialized query to be added
@@ -197,13 +214,29 @@ library OCR2DR {
   }
 
   /**
+   * @notice Set an array of HttpQuery to a Request
+   * @param self The initialized request
+   * @param queries The array of queries to be set
+   */
+  function setHttpQueries(Request memory self, HttpQuery[] memory queries) internal pure {
+    require(queries.length > 0);
+
+    self.queries = queries;
+  }
+
+  /**
    * @notice Adds user encrypted secrets to a Request
    * @param self The initialized request
    * @param secrets The user encrypted secrets
    */
-  function addSecrets(Request memory self, bytes memory secrets) internal pure {
+  function addSecrets(
+    Request memory self,
+    Location location,
+    bytes memory secrets
+  ) internal pure {
     require(secrets.length > 0);
 
+    self.secretsLocation = location;
     self.secrets = secrets;
   }
 

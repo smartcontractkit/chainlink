@@ -24,7 +24,7 @@ contract OCR2DRTestHelper {
 
   function addSecrets(bytes memory secrets) public {
     OCR2DR.Request memory r = req;
-    r.addSecrets(secrets);
+    r.addSecrets(OCR2DR.Location.Inline, secrets);
     storeRequest(r);
   }
 
@@ -45,6 +45,17 @@ contract OCR2DRTestHelper {
     storeRequest(r);
   }
 
+  function setTwoQueries(string memory url1, string memory url2) public {
+    OCR2DR.Request memory r = req;
+    OCR2DR.HttpQuery memory q1;
+    OCR2DR.HttpQuery memory q2;
+    q1.initializeHttpQuery(OCR2DR.HttpVerb.Get, url1);
+    q2.initializeHttpQuery(OCR2DR.HttpVerb.Get, url2);
+    r.addHttpQuery(q1);
+    r.addHttpQuery(q2);
+    storeRequest(r);
+  }
+
   function addQueryWithTwoHeaders(
     string memory url,
     string memory h1k,
@@ -54,7 +65,10 @@ contract OCR2DRTestHelper {
   ) public {
     OCR2DR.HttpQuery memory q;
     q.initializeHttpQuery(OCR2DR.HttpVerb.Get, url);
-    q.addHttpHeader(h1k, h1v);
+    OCR2DR.HttpHeader[] memory headers = new OCR2DR.HttpHeader[](1);
+    headers[0].key = h1k;
+    headers[0].value = h1v;
+    q.setHttpHeaders(headers);
     q.addHttpHeader(h2k, h2v);
     OCR2DR.Request memory r = req;
     r.addHttpQuery(q);
@@ -62,10 +76,11 @@ contract OCR2DRTestHelper {
   }
 
   function storeRequest(OCR2DR.Request memory r) private {
-    req.location = r.location;
+    req.codeLocation = r.codeLocation;
     req.language = r.language;
     req.source = r.source;
     req.args = r.args;
+    req.secretsLocation = r.secretsLocation;
     req.secrets = r.secrets;
     delete req.queries;
     for (uint256 i = 0; i < r.queries.length; i++) {

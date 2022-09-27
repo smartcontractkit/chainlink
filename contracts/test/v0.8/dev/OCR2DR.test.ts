@@ -18,7 +18,7 @@ before(async () => {
   )
 })
 
-describe('OCR2DRTestHelper', () => {
+describe.only('OCR2DRTestHelper', () => {
   let ctr: Contract
   let defaultAccount: Signer
 
@@ -34,6 +34,7 @@ describe('OCR2DRTestHelper', () => {
       'addSecrets',
       'addTwoArgs',
       'addQuery',
+      'setTwoQueries',
       'addQueryWithTwoHeaders',
     ])
   })
@@ -52,112 +53,138 @@ describe('OCR2DRTestHelper', () => {
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {
-        "language": 0,
-        "location": 0,
-        "source": ""
+        language: 0,
+        codeLocation: 0,
+        source: '',
       })
     })
   })
 
   describe('#initializeRequestForInlineJavaScript', () => {
     it('emits simple CBOR encoded request for js', async () => {
-      const js = 'function run(args, responses) {}';
+      const js = 'function run(args, responses) {}'
       await ctr.initializeRequestForInlineJavaScript(js)
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {
-        "language": 0,
-        "location": 0,
-        "source": js
+        language: 0,
+        codeLocation: 0,
+        source: js,
       })
     })
   })
 
   describe('#addSecrets', () => {
     it('emits CBOR encoded request with js and secrets', async () => {
-      const js = 'function run(args, responses) {}';
-      const secrets = '0xA161616162';
+      const js = 'function run(args, responses) {}'
+      const secrets = '0xA161616162'
       await ctr.initializeRequestForInlineJavaScript(js)
       await ctr.addSecrets(secrets)
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {
-        "language": 0,
-        "location": 0,
-        "source": js,
-        "secrets": hexToBuf(secrets),
+        language: 0,
+        codeLocation: 0,
+        source: js,
+        secretsLocation: 0,
+        secrets: hexToBuf(secrets),
       })
     })
   })
 
   describe('#addArgs', () => {
     it('emits CBOR encoded request with js and args', async () => {
-      const js = 'function run(args, responses) {}';
+      const js = 'function run(args, responses) {}'
       await ctr.initializeRequestForInlineJavaScript(js)
-      await ctr.addTwoArgs("arg1", "arg2");
+      await ctr.addTwoArgs('arg1', 'arg2')
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {
-        "language": 0,
-        "location": 0,
-        "source": js,
-        "args": [
-          "arg1",
-          "arg2",
-        ]
+        language: 0,
+        codeLocation: 0,
+        source: js,
+        args: ['arg1', 'arg2'],
       })
     })
   })
 
   describe('#addQuery', () => {
     it('emits CBOR encoded request with js and query', async () => {
-      const js = 'function run(args, responses) {}';
-      const url = 'https://data.source';
+      const js = 'function run(args, responses) {}'
+      const url = 'https://data.source'
       await ctr.initializeRequestForInlineJavaScript(js)
-      await ctr.addQuery(url);
+      await ctr.addQuery(url)
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {
-        "language": 0,
-        "location": 0,
-        "source": js,
-        "queries": [
+        language: 0,
+        codeLocation: 0,
+        source: js,
+        queries: [
           {
-            "verb": 0,
-            "url": url,
-          }
-        ]
+            verb: 0,
+            url: url,
+          },
+        ],
+      })
+    })
+  })
+
+  describe('#setTwoQueries', () => {
+    it('emits CBOR encoded request with two queries', async () => {
+      const js = 'function run(args, responses) {}'
+      const url1 = 'https://data.source1'
+      const url2 = 'https://data.source1'
+      await ctr.initializeRequestForInlineJavaScript(js)
+      await ctr.setTwoQueries(url1, url2)
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {
+        language: 0,
+        codeLocation: 0,
+        source: js,
+        queries: [
+          {
+            verb: 0,
+            url: url1,
+          },
+          {
+            verb: 0,
+            url: url2,
+          },
+        ],
       })
     })
   })
 
   describe('#addQueryWithTwoHeaders', () => {
     it('emits CBOR encoded request for a query with two headers', async () => {
-      const js = 'function run(args, responses) {}';
-      const url = 'https://data.source';
+      const js = 'function run(args, responses) {}'
+      const url = 'https://data.source'
       await ctr.initializeRequestForInlineJavaScript(js)
-      await ctr.addQueryWithTwoHeaders(url, "k1", "v1", "k2", "v2");
+      await ctr.addQueryWithTwoHeaders(url, 'k1', 'v1', 'k2', 'v2')
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {
-        "language": 0,
-        "location": 0,
-        "source": js,
-        "queries": [
+        language: 0,
+        codeLocation: 0,
+        source: js,
+        queries: [
           {
-            "verb": 0,
-            "url": url,
-            "headers": {
-              "k1": "v1",
-              "k2": "v2",
-            }
-          }
-        ]
+            verb: 0,
+            url: url,
+            headers: {
+              k1: 'v1',
+              k2: 'v2',
+            },
+          },
+        ],
       })
     })
   })
