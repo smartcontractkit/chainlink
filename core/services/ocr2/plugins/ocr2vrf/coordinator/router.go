@@ -24,7 +24,6 @@ type vrfRouter struct {
 	lggr        logger.Logger
 	beacon      vrf_beacon.VRFBeaconInterface
 	coordinator vrf_coordinator.VRFCoordinatorInterface
-	evmClient   evmclient.Client
 }
 
 func newRouter(
@@ -45,7 +44,6 @@ func newRouter(
 		lggr:        lggr,
 		beacon:      beacon,
 		coordinator: coordinator,
-		evmClient:   client,
 	}, nil
 }
 

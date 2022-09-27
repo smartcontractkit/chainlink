@@ -36,12 +36,12 @@ func TestCoordinator_BeaconPeriod(t *testing.T) {
 	t.Parallel()
 
 	t.Run("valid output", func(t *testing.T) {
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("IBeaconPeriodBlocks", mock.Anything).
 			Return(big.NewInt(10), nil)
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		period, err := c.BeaconPeriod(testutils.Context(t))
 		assert.NoError(t, err)
@@ -49,12 +49,12 @@ func TestCoordinator_BeaconPeriod(t *testing.T) {
 	})
 
 	t.Run("invalid output", func(t *testing.T) {
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("IBeaconPeriodBlocks", mock.Anything).
 			Return(nil, errors.New("rpc error"))
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		_, err := c.BeaconPeriod(testutils.Context(t))
 		assert.Error(t, err)
@@ -168,12 +168,12 @@ func TestCoordinator_ProvingKeyHash(t *testing.T) {
 		h := crypto.Keccak256Hash([]byte("hello world"))
 		var expected [32]byte
 		copy(expected[:], h.Bytes())
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("SProvingKeyHash", mock.Anything).
 			Return(expected, nil)
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		provingKeyHash, err := c.ProvingKeyHash(testutils.Context(t))
 		assert.NoError(t, err)
@@ -181,12 +181,12 @@ func TestCoordinator_ProvingKeyHash(t *testing.T) {
 	})
 
 	t.Run("invalid output", func(t *testing.T) {
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("SProvingKeyHash", mock.Anything).
 			Return([32]byte{}, errors.New("rpc error"))
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		_, err := c.ProvingKeyHash(testutils.Context(t))
 		assert.Error(t, err)
@@ -201,7 +201,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		onchainProxy, err := NewProxy(lggr, beaconAddress, coordinatorAddress, evmClient)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
@@ -237,7 +237,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		).Return(nil, nil).Once()
 
 		c := &coordinator{
-			onchainProxy:       onchainProxy,
+			onchainRouter:      onchainRouter,
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
@@ -266,7 +266,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		onchainProxy, err := NewProxy(lggr, beaconAddress, coordinatorAddress, evmClient)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
@@ -302,7 +302,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		).Return(nil, nil).Once()
 
 		c := &coordinator{
-			onchainProxy:       onchainProxy,
+			onchainRouter:      onchainRouter,
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
@@ -331,7 +331,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		onchainProxy, err := NewProxy(lggr, beaconAddress, coordinatorAddress, evmClient)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
@@ -372,7 +372,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, beaconAddress)}, nil).Once()
 
 		c := &coordinator{
-			onchainProxy:       onchainProxy,
+			onchainRouter:      onchainRouter,
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
@@ -401,7 +401,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		onchainProxy, err := NewProxy(lggr, beaconAddress, coordinatorAddress, evmClient)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
@@ -443,7 +443,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, beaconAddress)}, nil).Once()
 
 		c := &coordinator{
-			onchainProxy:       onchainProxy,
+			onchainRouter:      onchainRouter,
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
@@ -472,7 +472,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		onchainProxy, err := NewProxy(lggr, beaconAddress, coordinatorAddress, evmClient)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
@@ -509,7 +509,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, beaconAddress)}, nil).Once()
 
 		c := &coordinator{
-			onchainProxy:       onchainProxy,
+			onchainRouter:      onchainRouter,
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
@@ -538,7 +538,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		onchainProxy, err := NewProxy(lggr, beaconAddress, coordinatorAddress, evmClient)
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
 		tp := newTopics()
@@ -579,7 +579,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, beaconAddress)}, nil).Once()
 
 		c := &coordinator{
-			onchainProxy:             onchainProxy,
+			onchainRouter:            onchainRouter,
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
@@ -651,7 +651,7 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 
 	coordinatorAddress := newAddress(t)
 	beaconAddress := newAddress(t)
-	vrfBeaconCoordinator, err := NewProxy(lggr, beaconAddress, coordinatorAddress, evmClient)
+	vrfBeaconCoordinator, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 	require.NoError(t, err)
 
 	lg := newRandomnessRequestedLog(t, 3, 1500, 1450, coordinatorAddress)
@@ -765,12 +765,12 @@ func TestCoordinator_ConfirmationDelays(t *testing.T) {
 		for i, delay := range expected {
 			ret[i] = big.NewInt(int64(delay))
 		}
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("GetConfirmationDelays", mock.Anything).
 			Return(ret, nil)
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		confDelays, err := c.ConfirmationDelays(testutils.Context(t))
 		assert.NoError(t, err)
@@ -778,12 +778,12 @@ func TestCoordinator_ConfirmationDelays(t *testing.T) {
 	})
 
 	t.Run("invalid output", func(t *testing.T) {
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("GetConfirmationDelays", mock.Anything).
 			Return([8]*big.Int{}, errors.New("rpc error"))
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		_, err := c.ConfirmationDelays(testutils.Context(t))
 		assert.Error(t, err)
@@ -797,12 +797,12 @@ func TestCoordinator_KeyID(t *testing.T) {
 		var keyIDBytes [32]byte
 		keyIDBytes[0] = 1
 		expected := dkg.KeyID(keyIDBytes)
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("SKeyID", mock.Anything).
 			Return(keyIDBytes, nil)
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		keyID, err := c.KeyID(testutils.Context(t))
 		assert.NoError(t, err)
@@ -811,12 +811,12 @@ func TestCoordinator_KeyID(t *testing.T) {
 
 	t.Run("invalid output", func(t *testing.T) {
 		var emptyBytes [32]byte
-		onchainProxy := mocks.NewVRFBeaconCoordinator(t)
-		onchainProxy.
+		onchainRouter := mocks.NewVRFBeaconCoordinator(t)
+		onchainRouter.
 			On("SKeyID", mock.Anything).
 			Return(emptyBytes, errors.New("rpc error"))
 		c := &coordinator{
-			onchainProxy: onchainProxy,
+			onchainRouter: onchainRouter,
 		}
 		_, err := c.KeyID(testutils.Context(t))
 		assert.Error(t, err)
