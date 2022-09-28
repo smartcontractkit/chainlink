@@ -28,6 +28,12 @@ contract OCR2DRTestHelper {
     storeRequest(r);
   }
 
+  function addEmptyArgs() public pure {
+    OCR2DR.Request memory r;
+    string[] memory args;
+    r.addArgs(args);
+  }
+
   function addTwoArgs(string memory arg1, string memory arg2) public {
     string[] memory args = new string[](2);
     args[0] = arg1;
@@ -43,6 +49,18 @@ contract OCR2DRTestHelper {
     OCR2DR.Request memory r = req;
     r.addHttpQuery(q);
     storeRequest(r);
+  }
+
+  function setEmptyQueries() public pure {
+    OCR2DR.Request memory r;
+    OCR2DR.HttpQuery[] memory q;
+    r.setHttpQueries(q);
+  }
+
+  function setEmptyHeaders() public pure {
+    OCR2DR.HttpQuery memory q;
+    OCR2DR.HttpHeader[] memory h;
+    q.setHttpHeaders(h);
   }
 
   function setTwoQueries(string memory url1, string memory url2) public {

@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { publicAbi, decodeDietCBOR, hexToBuf } from '../../test-helpers/helpers'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { Contract, ContractFactory, providers, Signer } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 import { makeDebug } from '../../test-helpers/debug'
@@ -18,7 +18,7 @@ before(async () => {
   )
 })
 
-describe('OCR2DRTestHelper', () => {
+describe.only('OCR2DRTestHelper', () => {
   let ctr: Contract
   let defaultAccount: Signer
 
@@ -33,8 +33,11 @@ describe('OCR2DRTestHelper', () => {
       'initializeRequestForInlineJavaScript',
       'addSecrets',
       'addTwoArgs',
+      'addEmptyArgs',
       'addQuery',
       'setTwoQueries',
+      'setEmptyQueries',
+      'setEmptyHeaders',
       'addQueryWithTwoHeaders',
     ])
   })
@@ -75,6 +78,14 @@ describe('OCR2DRTestHelper', () => {
     })
   })
 
+  describe('#initializeRequestForInlineJavaScript to revert', () => {
+    it('reverts with EmptySource() if source param is empty', async () => {
+      await expect(
+        ctr.initializeRequestForInlineJavaScript(''),
+      ).to.be.revertedWith('EmptySource()')
+    })
+  })
+
   describe('#addSecrets', () => {
     it('emits CBOR encoded request with js and secrets', async () => {
       const js = 'function run(args, responses) {}'
@@ -94,6 +105,14 @@ describe('OCR2DRTestHelper', () => {
     })
   })
 
+  describe('#addSecrets to revert', () => {
+    it('reverts with EmptySecrets() if secrets param is empty', async () => {
+      const js = 'function run(args, responses) {}'
+      await ctr.initializeRequestForInlineJavaScript(js)
+      await expect(ctr.addSecrets('0x')).to.be.revertedWith('EmptySecrets()')
+    })
+  })
+
   describe('#addArgs', () => {
     it('emits CBOR encoded request with js and args', async () => {
       const js = 'function run(args, responses) {}'
@@ -108,6 +127,12 @@ describe('OCR2DRTestHelper', () => {
         source: js,
         args: ['arg1', 'arg2'],
       })
+    })
+  })
+
+  describe('#addEmptyArgs to revert', () => {
+    it('reverts with EmptyArgs() if args param is empty', async () => {
+      await expect(ctr.addEmptyArgs()).to.be.revertedWith('EmptyArgs()')
     })
   })
 
@@ -131,6 +156,12 @@ describe('OCR2DRTestHelper', () => {
           },
         ],
       })
+    })
+  })
+
+  describe('#addQuery to revert', () => {
+    it('reverts with EmptyUrl() if url param is empty', async () => {
+      await expect(ctr.addQuery('')).to.be.revertedWith('EmptyUrl()')
     })
   })
 
@@ -186,6 +217,33 @@ describe('OCR2DRTestHelper', () => {
           },
         ],
       })
+    })
+  })
+
+  describe('#addQueryWithTwoHeaders to revert', () => {
+    it('reverts with EmptyKey() if key param is empty', async () => {
+      const url = 'https://data.source'
+      await expect(
+        ctr.addQueryWithTwoHeaders(url, 'k1', 'v1', '', 'v2'),
+      ).to.be.revertedWith('EmptyKey()')
+    })
+    it('reverts with EmptyValue() if value param is empty', async () => {
+      const url = 'https://data.source'
+      await expect(
+        ctr.addQueryWithTwoHeaders(url, 'k1', 'v1', 'k2', ''),
+      ).to.be.revertedWith('EmptyValue()')
+    })
+  })
+
+  describe('#setEmptyQueries to revert', () => {
+    it('reverts with EmptyQueries() if queries param is empty', async () => {
+      await expect(ctr.setEmptyQueries()).to.be.revertedWith('EmptyQueries()')
+    })
+  })
+
+  describe('#setEmptyHeaders to revert', () => {
+    it('reverts with EmptyHeaders() if headers param is empty', async () => {
+      await expect(ctr.setEmptyHeaders()).to.be.revertedWith('EmptyHeaders()')
     })
   })
 })
