@@ -1,6 +1,5 @@
 import moment from 'moment'
 import { ethers } from 'hardhat'
-import { Contract } from 'ethers'
 import { assert, expect } from 'chai'
 import { CronUpkeepTestHelper } from '../../typechain/CronUpkeepTestHelper'
 import { CronUpkeepDelegate } from '../../typechain/CronUpkeepDelegate'
@@ -119,7 +118,7 @@ describe('CronUpkeep', () => {
     // Casting cron is necessary due to a tricky yarn version mismatch issue, likely between ethers
     // and typechain. Remove once the version issue is resolved.
     // https://app.shortcut.com/chainlinklabs/story/21905/remove-contract-cast-in-cronupkeep-test-ts
-    h.publicAbi(cron as unknown as Contract, [
+    h.publicAbi(cron, [
       's_maxJobs',
       'performUpkeep',
       'createCronJobFromEncodedSpec',

@@ -1,5 +1,5 @@
 ##
-# This workflow needs to be ran because `Solidity` is a required check and we 
+# This workflow needs to be ran because `Solidity` is a required check and we
 # conditionally only run the `Solidity` workflow when certain paths change.
 # If the workflow does not run, the required check will never pass. This is
 # GitHub's workaround:
@@ -15,14 +15,12 @@ on:
       - trying
       - rollup
     paths-ignore:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
+      - "contracts/**"
+      - "tools/ci/**"
   pull_request:
     paths-ignore:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
+      - "contracts/**"
+      - "tools/ci/**"
 
 jobs:
   solidity-coverage:
@@ -35,4 +33,3 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: 'echo "No job required" '
-

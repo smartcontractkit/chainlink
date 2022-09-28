@@ -1,6 +1,6 @@
 name: CI Core
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -14,9 +14,9 @@ jobs:
     name: Shard Go Tests
     runs-on: ubuntu-latest
     outputs:
-      shards: ${{ steps.shard.outputs.shards }} 
+      shards: ${{ steps.shard.outputs.shards }}
     env:
-      SHARDS: 10 
+      SHARDS: 10
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -24,7 +24,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Shard Go Tests 
+          this-job-name: Shard Go Tests
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests"]
-        shard: ${{ fromJson(needs.shard-packages.outputs.shards) }}  
+        shard: ${{ fromJson(needs.shard-packages.outputs.shards) }}
     name: Core Tests (${{ matrix.cmd }}) ${{ matrix.shard.id }}
     runs-on: ubuntu-latest
     env:
@@ -83,9 +83,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "16"
-          cache: yarn
+          cache: pnpm
       - name: Install contract dependencies
-        run: yarn install --prod --frozen-lockfile
+        run: pnpm i --prod
       - name: Setup Go
         uses: ./.github/actions/setup-go
       - name: Setup Solana
@@ -126,6 +126,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: ['go_core_tests', 'go_core_race_tests']
+        cmd: ["go_core_tests", "go_core_race_tests"]
     steps:
       - run: echo "${{ matrix.cmd }} have finished"

@@ -12,14 +12,14 @@ on:
       - trying
       - rollup
     paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
+      - "contracts/**"
+      - pnpm.lock
+      - "tools/ci/**"
   pull_request:
     paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
+      - "contracts/**"
+      - pnpm.lock
+      - "tools/ci/**"
 
 jobs:
   solidity-coverage:
@@ -40,8 +40,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "16"
-          cache: yarn
-      - run: yarn install --frozen-lockfile
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Run coverage
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
@@ -65,8 +65,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "16"
-          cache: 'yarn'
-      - run: yarn install --frozen-lockfile
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
       - name: Compile all contracts
         run: ./contracts/scripts/native_solc_compile_all
       - name: Verify local solc binaries
@@ -77,3 +77,51 @@ jobs:
         run: ./tools/ci/solidity_test_hardhat
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Lint
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          cache: pnpm
+      - name: Run pnpm install
+        run: pnpm i --frozen-lockfile
+      - name: Run pnpm lint
+        run: pnpm lint
+
+  prettier:
+    name: Prettier Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Prettier Formatting
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          cache: pnpm
+      - name: Run pnpm install
+        run: pnpm install --frozen-lockfile
+      - name: Run prettier check
+        run: pnpm prettier:check

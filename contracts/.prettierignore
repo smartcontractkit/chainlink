@@ -9,7 +9,6 @@ truffle-config.js
 truffle.js
 gethload.js
 
-.yarn
 coverage
 abi
 artifacts

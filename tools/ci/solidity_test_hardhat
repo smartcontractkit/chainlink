@@ -2,5 +2,7 @@
 
 set -e
 
-yarn workspace @chainlink/contracts compile
-yarn workspace @chainlink/contracts test
+pushd contracts
+pnpm compile
+pnpm test
+popd

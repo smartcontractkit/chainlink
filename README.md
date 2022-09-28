@@ -157,7 +157,7 @@ Using the `make` command will install the correct version.
 ```bash
 pushd contracts
 yarn
-yarn setup
+yarn build
 popd
 ```
 

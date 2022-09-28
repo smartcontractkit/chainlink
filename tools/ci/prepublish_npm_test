@@ -2,5 +2,7 @@
 
 set -e
 
-yarn setup:contracts
-yarn workspace @chainlink/contracts prepublishOnly
+pushd contracts
+pnpm build
+pnpm prepublishOnly
+popd
