@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-import {CBORChainlink} from "../../../v0.7/vendor/CBORChainlink.sol";
-import {BufferChainlink} from "../../../v0.7/vendor/BufferChainlink.sol";
+import {CBORChainlink} from "../../vendor/CBORChainlink.sol";
+import {BufferChainlink} from "../../vendor/BufferChainlink.sol";
 
 /**
  * @title Library for OCR2 Direct Request functions
