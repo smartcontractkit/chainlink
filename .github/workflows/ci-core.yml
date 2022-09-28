@@ -97,6 +97,8 @@ jobs:
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
+      - name: Install solana cli
+        run: ./tools/ci/install_solana
       - name: Build binary
         run: go build -o chainlink.test ./core
       - name: Setup DB
