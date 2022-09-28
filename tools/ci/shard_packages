@@ -1,0 +1,44 @@
+#!/usr/bin/env zx
+
+await runAtGitRoot()
+
+$.verbose = false
+const numOfShards = Number(process.env.SHARDS) || 5
+const testType = process.env.TEST_TYPE
+// parallel array mapping
+const validTestTypes = ['go_core_tests', 'go_core_race_tests']
+const testTypeToList = ['./...', './core/...']
+if (!validTestTypes.includes(testType)) {
+  throw Error(`A valid test type must be supplied as $TEST_TYPE, valid test types are: ${JSON.stringify(validTestTypes)}`)
+}
+
+const list = testTypeToList[validTestTypes.findIndex(t => t === testType)]
+console.log(`Generating package list of ${numOfShards} shards via "go list ${list}"`);
+const packages = await $`go list ${list}`
+const parsedPackages = packages.stdout.trimEnd().split('\n')
+console.log(`${parsedPackages.length} packages to shard...`)
+const maxPackagesPerShard = Math.max(parsedPackages.length / numOfShards)
+const shardedPackages = new Array(numOfShards).fill(null).map(() => [])
+
+parsedPackages.forEach((pkg, i) => {
+  const shardIndex = Math.floor(i / maxPackagesPerShard)
+  shardedPackages[shardIndex].push(pkg)
+})
+
+const serializedShardedPackages = JSON.stringify(shardedPackages
+  .map((gp, i) => ({ id: `${i+1}/${numOfShards}`, pkgs: gp.join(' ') }))
+)
+setOutput('shards', serializedShardedPackages)
+
+function setOutput(name, body) {
+  if (process.env.CI) {
+    console.log(`::set-output name=${name}::${body}`)
+  } else {
+    console.log(body)
+  }
+}
+
+async function runAtGitRoot() {
+  const gitRoot = await $`git rev-parse --show-toplevel`
+  cd(gitRoot.stdout.trimEnd())
+}
