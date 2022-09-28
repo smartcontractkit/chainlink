@@ -67,7 +67,6 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create type and interface wrapper")
 	}
-
 	version, err := getRegistryVersion(interface_wrapper)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
@@ -80,7 +79,6 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry 1_1 contract wrapper")
 	}
-
 	contract1_2, err := registry1_2.NewKeeperRegistry(
 		address.Address(),
 		backend,
@@ -117,7 +115,6 @@ func getRegistryVersion(contract *type_and_version.TypeAndVersionInterface) (*Re
 		}
 		return nil, errors.Wrap(err, "unable to fetch version of registry")
 	}
-
 	switch {
 	case strings.HasPrefix(typeAndVersion, "KeeperRegistry 1.1"):
 		version := RegistryVersion_1_1
@@ -287,12 +284,10 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 			// using pkg/errors produces a stack trace in the logs and this behavior is too valuable to let go
 			return nil, errors.Errorf("%s [%s]: getConfig %s", ErrContractCallFailure, err, rw.Version)
 		}
-
 		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
 		if err != nil {
 			return nil, errors.Errorf("%s [%s]: getKeeperList %s", ErrContractCallFailure, err, rw.Version)
 		}
-
 		return &RegistryConfig{
 			BlockCountPerTurn: int32(config.BlockCountPerTurn.Int64()),
 			CheckGas:          config.CheckGasLimit,

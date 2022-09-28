@@ -144,12 +144,10 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 
 	transmitterAddress := common.HexToAddress(transmitterID)
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
-
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
-
 	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
 	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
