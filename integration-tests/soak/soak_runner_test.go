@@ -132,22 +132,18 @@ func soakTestHelper(
 	testEnvironment *environment.Environment,
 	activeEVMNetwork *blockchain.EVMNetwork,
 ) {
-	exeFile, exeFileSize, err := actions.BuildGoTests("./", "./tests", "../")
-	require.NoError(t, err, "Error building go tests")
-
-	remoteRunnerValues := map[string]interface{}{
-		"test_name":      testTag,
-		"env_namespace":  testEnvironment.Cfg.Namespace,
-		"test_file_size": fmt.Sprint(exeFileSize),
-		"test_log_level": "debug",
-	}
+	remoteRunnerValues := actions.BasicRunnerValuesSetup(
+		testTag,
+		testEnvironment.Cfg.Namespace,
+		"./integration-tests/soak",
+	)
 	// Set evm network connection for remote runner
 	for key, value := range activeEVMNetwork.ToMap() {
 		remoteRunnerValues[key] = value
 	}
 	remoteRunnerWrapper := map[string]interface{}{"remote_test_runner": remoteRunnerValues}
 
-	err = testEnvironment.
+	err := testEnvironment.
 		AddHelm(remotetestrunner.New(remoteRunnerWrapper)).
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: activeEVMNetwork.Name,
@@ -156,6 +152,6 @@ func soakTestHelper(
 		})).
 		Run()
 	require.NoError(t, err, "Error launching test environment")
-	err = actions.TriggerRemoteTest(exeFile, testEnvironment)
+	err = actions.TriggerRemoteTest("../", testEnvironment)
 	require.NoError(t, err, "Error activating remote test")
 }
