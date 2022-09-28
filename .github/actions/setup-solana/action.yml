@@ -1,0 +1,14 @@
+name: Setup Solana CLI
+description: Setup solana CLI
+runs:
+  using: composite
+  steps:
+      - uses: actions/cache@v3
+        name: Cache solana CLI
+        with:
+          path: |
+            ~/.local/share/solana/install/active_release/bin
+          key: ${{ runner.os }}-solana-cli-${{ hashFiles('./tools/ci/install_solana') }}
+      - name: Install solana cli
+        shell: bash
+        run: ./tools/ci/install_solana

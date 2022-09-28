@@ -24,11 +24,10 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v3
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
         with:
-          go-version-file: "go.mod"
-          cache: false
+          only-modules: "true"
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Install zx shell
@@ -86,57 +85,14 @@ jobs:
           cache: yarn
       - name: Install contract dependencies
         run: yarn install --prod --frozen-lockfile
-      - name: Set up Go
-        uses: actions/setup-go@v3
-        with:
-          go-version-file: "go.mod"
-          cache: false
-      - name: Get branch name
-        id: branch-name
-        uses: tj-actions/branch-names@09ab61130975078eb7cde103fe8d2ae1649a1853 #v6.1
-      - name: Set go cache keys
-        id: go-cache-dir
-        run: |
-          echo "::set-output name=gomodcache::$(go env GOMODCACHE)" 
-          echo "::set-output name=gocache::$(go env GOCACHE)" 
-      - uses: actions/cache@v3
-        name: Cache Go Modules
-        env: 
-          # Increase this to cache-bust
-          CACHE_VERSION: 1
-        with:
-          path: |
-            ${{ steps.go-cache-dir.outputs.gomodcache }}
-          # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
-          # here by not having the primary key contain the branch name
-          key: ${{ runner.os }}-gomod-${{ env.CACHE_VERSION }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-gomod-${{ env.CACHE_VERSION }}-
-      - uses: actions/cache@v3
-        name: Cache Go Build Outputs
-        env: 
-          # Increase this to cache-bust
-          CACHE_VERSION: 1
-        with:
-          path: |
-            ${{ steps.go-cache-dir.outputs.gomodcache }}
-          # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
-          key: ${{ runner.os }}-gobuild-${{ env.CACHE_VERSION }}-${{ hashFiles('**/go.sum') }}-${{ steps.branch-name.outputs.current_branch }}
-          restore-keys: |
-            ${{ runner.os }}-gobuild-${{ env.CACHE_VERSION }}-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-gobuild-${{ env.CACHE_VERSION }}-
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
-      - uses: actions/cache@v3
-        name: Cache solana CLI
-        with:
-          path: |
-            ~/.local/share/solana/install/active_release/bin
-          key: ${{ runner.os }}-solana-cli-${{ hashFiles('./tools/ci/install_solana') }}
-      - name: Install solana cli
-        run: ./tools/ci/install_solana
       - name: Build binary
         run: go build -o chainlink.test ./core
       - name: Setup DB
