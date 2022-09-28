@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -euo pipefail
+VERSION=v1.9.12
 
-sh -c "$(curl -sSfL https://release.solana.com/v1.9.12/install)"
-echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV
+if ! command -v solana &>/dev/null; then
+  echo "Installing solana@$VERSION"
+  sh -c "$(curl -sSfL https://release.solana.com/$VERSION/install)"
+else
+  echo "Solana CLI already installed, skipping..."
+fi
+
+echo "Adding CLI to github env path"
+echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >>$GITHUB_ENV
