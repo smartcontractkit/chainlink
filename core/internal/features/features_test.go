@@ -1,4 +1,4 @@
-package internal_test
+package features_test
 
 import (
 	"bytes"
@@ -381,7 +381,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			mockServerEUR := cltest.NewHTTPMockServer(t, 200, "GET", `{"EUR": 507.07}`)
 			mockServerJPY := cltest.NewHTTPMockServer(t, 200, "GET", `{"JPY": 63818.86}`)
 
-			spec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/multiword-response-spec.toml"))
+			spec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/multiword-response-spec.toml"))
 			spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
 			spec = strings.ReplaceAll(spec, "example", "example 1") // make the name unique
 			j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
@@ -414,13 +414,13 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			})
 			defer stopBlocks()
 
-			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), testutils.WaitTimeout(t)/2, 100*time.Millisecond)
+			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), testutils.WaitTimeout(t)/2, time.Second)
 			pipelineRun := pipelineRuns[0]
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
 
 			// Do a single word request
-			singleWordSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec-cbor.toml"))
+			singleWordSpec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/direct-request-spec-cbor.toml"))
 			singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
 			singleWordSpec = strings.ReplaceAll(singleWordSpec, "example", "example 2") // make the name unique
 			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
@@ -441,7 +441,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			b.Commit()
 			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
-			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 			pipelineRun = pipelineRuns[0]
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
@@ -515,7 +515,7 @@ observationSource   = """
 		b.Commit() // Needs at least two confirmations
 		testutils.WaitForLogMessage(t, o, "Resume run success")
 
-		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 
 		// The run should have succeeded but with the receipt detailing the reverted transaction
 		pipelineRun := pipelineRuns[0]
@@ -560,7 +560,7 @@ observationSource   = """
 		b.Commit() // Needs at least two confirmations
 		testutils.WaitForLogMessage(t, o, "Resume run success")
 
-		pipelineRuns := cltest.WaitForPipelineError(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+		pipelineRuns := cltest.WaitForPipelineError(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 
 		// The run should have failed as a revert
 		pipelineRun := pipelineRuns[0]
@@ -597,7 +597,7 @@ observationSource   = """
 		b.Commit() // Needs at least two confirmations
 		testutils.WaitForLogMessage(t, o, "Resume run success")
 
-		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 
 		// The run should have succeeded but with the receipt detailing the reverted transaction
 		pipelineRun := pipelineRuns[0]
