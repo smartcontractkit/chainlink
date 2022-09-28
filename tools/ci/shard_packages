@@ -4,15 +4,7 @@ await runAtGitRoot()
 
 $.verbose = false
 const numOfShards = Number(process.env.SHARDS) || 5
-const testType = process.env.TEST_TYPE
-// parallel array mapping
-const validTestTypes = ['go_core_tests', 'go_core_race_tests']
-const testTypeToList = ['./...', './core/...']
-if (!validTestTypes.includes(testType)) {
-  throw Error(`A valid test type must be supplied as $TEST_TYPE, valid test types are: ${JSON.stringify(validTestTypes)}`)
-}
-
-const list = testTypeToList[validTestTypes.findIndex(t => t === testType)]
+const list = './...'
 console.log(`Generating package list of ${numOfShards} shards via "go list ${list}"`);
 const packages = await $`go list ${list}`
 const parsedPackages = packages.stdout.trimEnd().split('\n')
@@ -26,7 +18,7 @@ parsedPackages.forEach((pkg, i) => {
 })
 
 const serializedShardedPackages = JSON.stringify(shardedPackages
-  .map((gp, i) => ({ id: `${i+1}/${numOfShards}`, pkgs: gp.join(' ') }))
+  .map((gp, i) => ({ idx: `${i+1}`, id: `${i+1}/${numOfShards}`, pkgs: gp.join(' ') }))
 )
 setOutput('shards', serializedShardedPackages)
 

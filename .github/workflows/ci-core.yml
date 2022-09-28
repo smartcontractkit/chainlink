@@ -38,9 +38,6 @@ jobs:
         run: npm i -g zx
       - name: Shard list of go packages
         id: shard
-        # FIXME: handle different types of lists for race tests and non-race tests
-        env:
-          TEST_TYPE: "go_core_tests"
         run: ./tools/ci/shard_packages
 
   core:
@@ -110,7 +107,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v2.3.0
         with:
-          name: ${{ matrix.cmd }}_${{ matrix.shard.id }}_logs
+          name: ${{ matrix.cmd }}_${{ matrix.shard.idx }}_logs
           path: |
             ./output.txt
             ./race.*
