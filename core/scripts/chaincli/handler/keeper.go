@@ -171,27 +171,23 @@ func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) 
 
 // deployRegistry20 deploys a version 2.0 keeper registry
 func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registry20.KeeperRegistry) {
-	registryLogic := k.cfg.KeeperRegistryLogicAddr
-	if registryLogic == "" {
-		registryLogicAddr, deployKeeperRegistryLogicTx, _, err := registrylogic20.DeployKeeperRegistryLogic(
-			k.buildTxOpts(ctx),
-			k.client,
-			0,
-			common.HexToAddress(k.cfg.LinkTokenAddr),
-			common.HexToAddress(k.cfg.LinkETHFeedAddr),
-			common.HexToAddress(k.cfg.FastGasFeedAddr),
-		)
-		if err != nil {
-			log.Fatal("DeployAbi failed: ", err)
-		}
-		k.waitDeployment(ctx, deployKeeperRegistryLogicTx)
-		registryLogic = registryLogicAddr.Hex()
+	registryLogicAddr, deployKeeperRegistryLogicTx, _, err := registrylogic20.DeployKeeperRegistryLogic(
+		k.buildTxOpts(ctx),
+		k.client,
+		0,
+		common.HexToAddress(k.cfg.LinkTokenAddr),
+		common.HexToAddress(k.cfg.LinkETHFeedAddr),
+		common.HexToAddress(k.cfg.FastGasFeedAddr),
+	)
+	if err != nil {
+		log.Fatal("DeployAbi failed: ", err)
 	}
+	k.waitDeployment(ctx, deployKeeperRegistryLogicTx)
 
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry20.DeployKeeperRegistry(
 		k.buildTxOpts(ctx),
 		k.client,
-		common.HexToAddress(registryLogic),
+		registryLogicAddr,
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
