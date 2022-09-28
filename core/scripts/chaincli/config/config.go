@@ -48,7 +48,6 @@ type Config struct {
 	// Upkeep Config
 	RegistryVersion                 keeper.RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
 	RegistryAddress                 string                 `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
-	KeeperRegistryLogicAddr         string                 `mapstructure:"KEEPER_REGISTRY_LOGIC_ADDRESS"`
 	RegistryConfigUpdate            bool                   `mapstructure:"KEEPER_CONFIG_UPDATE"`
 	KeepersCount                    int                    `mapstructure:"KEEPERS_COUNT"`
 	UpkeepTestRange                 int64                  `mapstructure:"UPKEEP_TEST_RANGE"`
