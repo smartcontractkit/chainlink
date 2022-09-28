@@ -6,15 +6,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 )
 
-var Registry1_1ABI = evmtypes.MustGetABI(keeper_registry_wrapper1_1.KeeperRegistryABI)
-var Registry1_2ABI = evmtypes.MustGetABI(keeper_registry_wrapper1_2.KeeperRegistryABI)
-var Registry1_3ABI = evmtypes.MustGetABI(keeper_registry_wrapper1_3.KeeperRegistryABI)
+var Registry1_1ABI = types.MustGetABI(keeper_registry_wrapper1_1.KeeperRegistryABI)
+var Registry1_2ABI = types.MustGetABI(keeper_registry_wrapper1_2.KeeperRegistryABI)
+var Registry1_3ABI = types.MustGetABI(keeper_registry_wrapper1_3.KeeperRegistryABI)
 
 type Config interface {
 	EvmEIP1559DynamicFees() bool

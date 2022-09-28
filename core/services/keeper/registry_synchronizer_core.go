@@ -30,8 +30,8 @@ type RegistrySynchronizerOptions struct {
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
-	NewTurnEnabled           bool
 	EffectiveKeeperAddress   common.Address
+	newTurnEnabled           bool
 }
 
 type RegistrySynchronizer struct {
@@ -67,7 +67,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		effectiveKeeperAddress:   opts.EffectiveKeeperAddress,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
-		newTurnEnabled:           opts.NewTurnEnabled,
+		newTurnEnabled:           opts.newTurnEnabled,
 	}
 }
 

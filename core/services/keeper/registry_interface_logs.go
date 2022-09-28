@@ -157,7 +157,7 @@ func (rw *RegistryWrapper) ParseUpkeepPerformedLog(broadcast log.Broadcast) (*Up
 }
 
 func (rw *RegistryWrapper) GetIDFromGasLimitSetLog(broadcast log.Broadcast) (*big.Int, error) {
-	// Only supported on 1.2, 1.3, and 2.0
+	// Only supported on 1.2 and 1.3
 	switch rw.Version {
 	case RegistryVersion_1_2:
 		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepGasLimitSet)
@@ -177,7 +177,7 @@ func (rw *RegistryWrapper) GetIDFromGasLimitSetLog(broadcast log.Broadcast) (*bi
 }
 
 func (rw *RegistryWrapper) GetUpkeepIdFromReceivedLog(broadcast log.Broadcast) (*big.Int, error) {
-	// Only supported on 1.2, 1.3, and 2.0
+	// Only supported on 1.2 and 1.3
 	switch rw.Version {
 	case RegistryVersion_1_2:
 		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepReceived)
@@ -197,7 +197,7 @@ func (rw *RegistryWrapper) GetUpkeepIdFromReceivedLog(broadcast log.Broadcast) (
 }
 
 func (rw *RegistryWrapper) GetUpkeepIdFromMigratedLog(broadcast log.Broadcast) (*big.Int, error) {
-	// Only supported on 1.2, 1.3, and 2.0
+	// Only supported on 1.2 and 1.3
 	switch rw.Version {
 	case RegistryVersion_1_2:
 		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepMigrated)
