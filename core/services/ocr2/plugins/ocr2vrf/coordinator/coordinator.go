@@ -111,9 +111,9 @@ func New(
 	logPoller logpoller.LogPoller,
 	finalityDepth uint32,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
-	coordinatorContract, err := newRouter(lggr, beaconAddress, coordinatorAddress, client)
+	onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, client)
 	if err != nil {
-		return nil, errors.Wrap(err, "coordinator wrapper creation")
+		return nil, errors.Wrap(err, "onchain router creation")
 	}
 
 	t := newTopics()
@@ -133,7 +133,7 @@ func New(
 	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * time.Second)
 
 	return &coordinator{
-		onchainRouter:            coordinatorContract,
+		onchainRouter:            onchainRouter,
 		coordinatorAddress:       coordinatorAddress,
 		beaconAddress:            beaconAddress,
 		dkgAddress:               dkgAddress,
