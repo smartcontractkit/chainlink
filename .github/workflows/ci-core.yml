@@ -91,6 +91,8 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache: true
+      - name: Clean cache
+        run: go clean -cache
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
