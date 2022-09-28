@@ -43,6 +43,7 @@ type ContractDeployer interface {
 		checkGasToBurn,
 		performGasToBurn *big.Int,
 	) (KeeperConsumerPerformance, error)
+	DeployKeeperPerformDataChecker(expectedData []byte) (KeeperPerformDataChecker, error)
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
@@ -481,6 +482,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			version:     ethereum.RegistryVersion_1_1,
 			registry1_1: instance.(*ethereum.KeeperRegistry11),
 			registry1_2: nil,
+			registry1_3: nil,
 			address:     address,
 		}, err
 	case ethereum.RegistryVersion_1_2:
@@ -662,6 +664,27 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 		client:   e.client,
 		consumer: instance.(*ethereum.KeeperConsumerPerformance),
 		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData []byte) (KeeperPerformDataChecker, error) {
+	address, _, instance, err := e.client.DeployContract("PerformDataChecker", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployPerformDataChecker(
+			auth,
+			backend,
+			expectedData,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperPerformDataCheckerConsumer{
+		client:             e.client,
+		performDataChecker: instance.(*ethereum.PerformDataChecker),
+		address:            address,
 	}, err
 }
 
