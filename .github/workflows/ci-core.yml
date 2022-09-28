@@ -109,7 +109,7 @@ jobs:
         if: github.event.schedule != ''
         run: echo "TIMEOUT=5m" >> $GITHUB_ENV
       - name: Run tests
-        run: ./tools/bin/${{ matrix.cmd }} ${{ matrix.shard.pkgs }}
+        run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.shard.pkgs }}"
       - name: Store logs artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v2.3.0
