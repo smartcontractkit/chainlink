@@ -36,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2_upgradeable"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_malicious_consumer_v2"
@@ -94,7 +94,7 @@ type coordinatorV2Universe struct {
 	revertingConsumerContract        *vrfv2_reverting_example.VRFV2RevertingExample
 	revertingConsumerContractAddress common.Address
 	// This is a VRFConsumerV2Upgradeable wrapper that points to the proxy address.
-	consumerProxyContract        *vrf_consumer_v2_upgradeable.VRFConsumerV2Upgradeable
+	consumerProxyContract        *vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExample
 	consumerProxyContractAddress common.Address
 
 	// Abstract representation of the ethereum blockchain
@@ -214,7 +214,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	backend.Commit()
 
 	// Deploy upgradeable consumer, proxy, and proxy admin
-	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_upgradeable.DeployVRFConsumerV2Upgradeable(neil, backend)
+	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_upgradeable_example.DeployVRFConsumerV2UpgradeableExample(neil, backend)
 	require.NoError(t, err, "failed to deploy upgradeable consumer to simulated ethereum blockchain")
 	backend.Commit()
 
@@ -224,7 +224,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 
 	// provide abi-encoded initialize function call on the implementation contract
 	// so that it's called upon the proxy construction, to initialize it.
-	upgradeableAbi, err := vrf_consumer_v2_upgradeable.VRFConsumerV2UpgradeableMetaData.GetAbi()
+	upgradeableAbi, err := vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExampleMetaData.GetAbi()
 	require.NoError(t, err)
 	initializeCalldata, err := upgradeableAbi.Pack("initialize", coordinatorAddress, linkAddress)
 	hexified := hexutil.Encode(initializeCalldata)
@@ -243,7 +243,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	t.Log("impl address:", implAddress.String())
 	require.Equal(t, upgradeableConsumerAddress, implAddress)
 
-	proxiedConsumer, err := vrf_consumer_v2_upgradeable.NewVRFConsumerV2Upgradeable(
+	proxiedConsumer, err := vrf_consumer_v2_upgradeable_example.NewVRFConsumerV2UpgradeableExample(
 		proxyAddress, backend)
 	require.NoError(t, err)
 
@@ -832,6 +832,11 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID1, true, uni)
+
+	// Will be around 495,440 gas, which means only 500,000 - 495,440 = 4,560 gas was used.
+	gasAvailable, err := consumerContract.SGasAvailable(nil)
+	require.NoError(t, err)
+	t.Log("gas available after callback:", gasAvailable)
 
 	// Make the second randomness request and assert fulfillment is successful
 	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
@@ -1574,8 +1579,15 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID1, true, uni)
 
+	// Gas available will be around 724,385, which means that 750,000 - 724,385 = 25,615 gas was used.
+	// This is ~20k more than what the non-proxied consumer uses.
+	// So to be safe, users should probably over-estimate their fulfillment gas by ~25k.
+	gasAvailable, err := consumerContract.SGasAvailable(nil)
+	require.NoError(t, err)
+	t.Log("gas available after proxied callback:", gasAvailable)
+
 	// Make the second randomness request and assert fulfillment is successful
-	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumerOwner, keyHash, subID, numWords, 500_000, uni)
+	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns()
@@ -2096,7 +2108,7 @@ func TestRequestCost(t *testing.T) {
 		}
 		_, err = consumerContract.UpdateSubscription(consumerOwner, addrs)
 
-		theAbi := evmtypes.MustGetABI(vrf_consumer_v2_upgradeable.VRFConsumerV2UpgradeableMetaData.ABI)
+		theAbi := evmtypes.MustGetABI(vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExampleMetaData.ABI)
 		estimate := estimateGas(tt, uni.backend, common.Address{},
 			consumerContractAddress, &theAbi,
 			"testRequestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))

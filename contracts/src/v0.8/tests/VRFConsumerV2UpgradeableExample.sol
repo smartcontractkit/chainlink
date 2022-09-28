@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../VRFConsumerBaseV2Upgradeable.sol";
+import "../dev/VRFConsumerBaseV2Upgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract VRFConsumerV2Upgradeable is Initializable, VRFConsumerBaseV2Upgradeable {
+contract VRFConsumerV2UpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   VRFCoordinatorV2Interface public COORDINATOR;
