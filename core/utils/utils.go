@@ -619,11 +619,11 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 // WrapIfError decorates an error with the given message.  It is intended to
 // be used with `defer` statements, like so:
 //
-// func SomeFunction() (err error) {
-//     defer WrapIfError(&err, "error in SomeFunction:")
+//	func SomeFunction() (err error) {
+//	    defer WrapIfError(&err, "error in SomeFunction:")
 //
-//     ...
-// }
+//	    ...
+//	}
 func WrapIfError(err *error, msg string) {
 	if *err != nil {
 		*err = errors.Wrap(*err, msg)
@@ -824,7 +824,7 @@ type StartStopOnce struct {
 // StartStopOnceState holds the state for StartStopOnce
 type StartStopOnceState int32
 
-//nolint
+// nolint
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
