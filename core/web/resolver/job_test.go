@@ -105,7 +105,7 @@ func TestResolver_Jobs(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"externalJobID": "00000000-0000-0000-0000-000000000001",
 							"gasLimit": null,
-							"forwardingAllowed": null,
+							"forwardingAllowed": false,
 							"maxTaskDuration": "1s",
 							"name": "job1",
 							"schemaVersion": 1,

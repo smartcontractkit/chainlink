@@ -24,8 +24,8 @@ else
   base_files="$base_files -f docker-compose.explorer.yaml"
 fi
 
-base="docker-compose $base_files"                                       # base config, used standalone for acceptance
-dev="$base -f docker-compose.dev.yaml"                                  # config for cldev
+base="docker-compose $base_files"      # base config, used standalone for acceptance
+dev="$base -f docker-compose.dev.yaml" # config for cldev
 
 clean_docker() {
   $base down -v --remove-orphans
@@ -41,11 +41,10 @@ Commands:
     logs                  Display the logs of any service(s) by name
 
     cld                   Runs the chainlink node container in dev mode
-    cldo                  cld in addition to operator-ui in dev mode
 
     acceptance            Run the services required to perform an acceptance test
 
-    dev                   Run docker-compose with dev config for the core node and operator-ui
+    dev                   Run docker-compose with dev config for the core node 
 
     eth:restart             Reset blockchain data to genesis state
     cl:restart              Reset chainlink database
@@ -66,12 +65,6 @@ logs)
 cld)
   $dev build
   $dev up -d node
-  docker exec -it chainlink-node bash
-  $dev down -v --remove-orphans
-  ;;
-cldo)
-  $dev build
-  $dev up -d operator-ui
   docker exec -it chainlink-node bash
   $dev down -v --remove-orphans
   ;;
