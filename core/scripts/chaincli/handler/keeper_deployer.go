@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/umbracle/ethgo/abi"
 
@@ -140,18 +139,12 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		3,                    // rMax uint8,
 		S,                    // s []int,
 		oracleIdentities,     // oracles []OracleIdentityExtra,
-		median.OffchainConfig{
-			false,
-			uint64(1000),
-			false,
-			uint64(1000),
-			0,
-		}.Encode(), // reportingPluginConfig []byte,
-		50*time.Millisecond, // maxDurationQuery time.Duration,
-		time.Second,         // maxDurationObservation time.Duration,
-		time.Second,         // maxDurationReport time.Duration,
-		time.Second,         // maxDurationShouldAcceptFinalizedReport time.Duration,
-		time.Second,         // maxDurationShouldTransmitAcceptedReport time.Duration,
+		nil,                  // reportingPluginConfig []byte,
+		50*time.Millisecond,  // maxDurationQuery time.Duration,
+		time.Second,          // maxDurationObservation time.Duration,
+		time.Second,          // maxDurationReport time.Duration,
+		time.Second,          // maxDurationShouldAcceptFinalizedReport time.Duration,
+		time.Second,          // maxDurationShouldTransmitAcceptedReport time.Duration,
 
 		1,   // f int,
 		nil, // onchainConfig []byte,
