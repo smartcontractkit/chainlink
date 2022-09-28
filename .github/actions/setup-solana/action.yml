@@ -18,4 +18,4 @@ runs:
       
       - name: Export solana path to env
         shell: bash 
-        run: echo $PATH=$HOME/.local/share/solana/install/active_release/bin >> $GITHUB_ENV
+        run: echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV
