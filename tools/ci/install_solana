@@ -3,13 +3,5 @@
 set -euo pipefail
 VERSION=v1.9.12
 
-INSTALL_PATH=$HOME/.local/share/solana/install/active_release/bin
-mkdir -p "$INSTALL_PATH"
-echo "PATH=$INSTALL_PATH:$PATH" >>$GITHUB_ENV
-
-if ! command -v solana &>/dev/null; then
-  echo "Installing solana@$VERSION"
-  sh -c "$(curl -sSfL https://release.solana.com/$VERSION/install)"
-else
-  echo "Solana CLI already installed, skipping..."
-fi
+echo "Installing solana@$VERSION"
+sh -c "$(curl -sSfL https://release.solana.com/$VERSION/install)"

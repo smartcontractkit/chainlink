@@ -4,11 +4,18 @@ runs:
   using: composite
   steps:
       - uses: actions/cache@v3
+        id: cache
         name: Cache solana CLI
         with:
           path: |
             ~/.local/share/solana/install/active_release/bin
           key: ${{ runner.os }}-solana-cli-${{ hashFiles('./tools/ci/install_solana') }}
-      - name: Install solana cli
+        
+      - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        name: Install solana cli
         shell: bash
         run: ./tools/ci/install_solana
+      
+      - name: Export solana path to env
+        shell: bash 
+        run: echo $PATH=$HOME/.local/share/solana/install/active_release/bin >> $GITHUB_ENV
