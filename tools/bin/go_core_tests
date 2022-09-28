@@ -2,7 +2,8 @@
 set -o pipefail
 set +e
 
-SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
+SCRIPT_PATH=$(dirname "$0")
+SCRIPT_PATH=$(eval "cd \"$SCRIPT_PATH\" && pwd")
 OUTPUT_FILE="./output.txt"
 
 echo "Failed tests and panics: ---------------------"
@@ -30,6 +31,8 @@ $SCRIPT_PATH/scrub_logs $OUTPUT_FILE
 if [[ $? != 0 ]]; then
   exit 1
 fi
+
+cat $OUTPUT_FILE
 
 echo "Exit code: $EXITCODE"
 if [[ $EXITCODE != 0 ]]; then
