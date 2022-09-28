@@ -245,7 +245,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		if testToRun == UpdateCheckDataTest {
 			By("tests that counters will be updated after their check data is updated")
 
-			Eventually(func(g Gomega) {
+			Consistently(func(g Gomega) {
 				// expect the counter to remain 0 because perform data does not match
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := performDataChecker[i].Counter(context.Background())
