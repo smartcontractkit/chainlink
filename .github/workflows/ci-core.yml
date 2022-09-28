@@ -24,19 +24,12 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
         with:
-          node-version: "16"
-      - name: Set up Go
-        uses: actions/setup-go@v3
-        with:
-          go-version-file: "go.mod"
-          cache: true
+          only-modules: "true"
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Download Go vendor packages
-        run: go mod download
       - name: Install zx shell
         run: npm i -g zx
       - name: Shard list of go packages
@@ -89,19 +82,18 @@ jobs:
           cache: yarn
       - name: Install contract dependencies
         run: yarn install --prod --frozen-lockfile
-      - name: Set up Go
-        uses: actions/setup-go@v3
-        with:
-          go-version-file: "go.mod"
-          cache: true
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
-      - name: Install solana cli
-        run: ./tools/ci/install_solana
+      - name: Build binary
+        run: go build -o chainlink.test ./core
       - name: Setup DB
-        run: go run ./core local db preparetest
+        run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout
         if: github.event.schedule != ''
         run: echo "TIMEOUT=5m" >> $GITHUB_ENV

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -euo pipefail
+VERSION=v1.9.12
 
-sh -c "$(curl -sSfL https://release.solana.com/v1.9.12/install)"
-echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV
+echo "Installing solana@$VERSION"
+sh -c "$(curl -sSfL https://release.solana.com/$VERSION/install)"
