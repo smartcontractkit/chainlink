@@ -129,7 +129,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
 	} else if !peerWrapper.IsStarted() {
-		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running p2p peer")
 	}
 
 	var v1BootstrapPeers []string
