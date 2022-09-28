@@ -1512,51 +1512,51 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'optimism'
-FinalityDepth = 1
+FinalityDepth = 200
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '15s'
+TxResendAfterThreshold = '30s'
 UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '100 micro'
-PriceMin = '0'
+PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 0
+BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockHistorySize = 0
+BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -1566,7 +1566,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 
 [OCR]
-ContractConfirmations = 1
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -1967,51 +1967,51 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'optimism'
-FinalityDepth = 1
+FinalityDepth = 200
 LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '15s'
+TxResendAfterThreshold = '30s'
 UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '100 micro'
-PriceMin = '0'
+PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 0
+BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockHistorySize = 0
+BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -2021,7 +2021,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 
 [OCR]
-ContractConfirmations = 1
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -2294,51 +2294,51 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'optimism'
-FinalityDepth = 1
+FinalityDepth = 200
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '15s'
+TxResendAfterThreshold = '30s'
 UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '100 micro'
-PriceMin = '0'
+PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 0
+BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockHistorySize = 0
+BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -2348,7 +2348,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 
 [OCR]
-ContractConfirmations = 1
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
