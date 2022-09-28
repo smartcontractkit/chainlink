@@ -100,15 +100,31 @@ jobs:
           echo "::set-output name=gomodcache::$(go env GOMODCACHE)" 
           echo "::set-output name=gocache::$(go env GOCACHE)" 
       - uses: actions/cache@v3
-        name: Cache Go deps and build outputs
+        name: Cache Go Modules
+        env: 
+          # Increase this to cache-bust
+          CACHE_VERSION: 1
         with:
           path: |
             ${{ steps.go-cache-dir.outputs.gomodcache }}
-            ${{ steps.go-cache-dir.outputs.gocache }}
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ steps.branch-name.outputs.current_branch }}
+          # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
+          # here by not having the primary key contain the branch name
+          key: ${{ runner.os }}-gomod-${{ env.CACHE_VERSION }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-gomod-${{ env.CACHE_VERSION }}-
+      - uses: actions/cache@v3
+        name: Cache Go Build Outputs
+        env: 
+          # Increase this to cache-bust
+          CACHE_VERSION: 1
+        with:
+          path: |
+            ${{ steps.go-cache-dir.outputs.gomodcache }}
+          # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
+          key: ${{ runner.os }}-gobuild-${{ env.CACHE_VERSION }}-${{ hashFiles('**/go.sum') }}-${{ steps.branch-name.outputs.current_branch }}
+          restore-keys: |
+            ${{ runner.os }}-gobuild-${{ env.CACHE_VERSION }}-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-gobuild-${{ env.CACHE_VERSION }}-
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
