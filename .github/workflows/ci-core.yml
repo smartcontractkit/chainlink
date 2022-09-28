@@ -100,6 +100,7 @@ jobs:
           echo "::set-output name=gomodcache::$(go env GOMODCACHE)" 
           echo "::set-output name=gocache::$(go env GOCACHE)" 
       - uses: actions/cache@v3
+        name: Cache Go deps and build outputs
         with:
           path: |
             ${{ steps.go-cache-dir.outputs.gomodcache }}
@@ -113,10 +114,11 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - uses: actions/cache@v3
+        name: Cache solana CLI
         with:
           path: |
             ~/.local/share/solana/install/active_release/bin
-          key: ${{ runner.os }}-${{ hashFiles('./tools/ci/install_solana') }}
+          key: ${{ runner.os }}-solana-cli-${{ hashFiles('./tools/ci/install_solana') }}
       - name: Install solana cli
         run: ./tools/ci/install_solana
       - name: Build binary
