@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.4;
 
 import {CBORChainlink} from "../../vendor/CBORChainlink.sol";
 import {BufferChainlink} from "../../vendor/BufferChainlink.sol";
