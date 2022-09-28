@@ -13,12 +13,12 @@ let roles: Roles
 before(async () => {
   roles = (await getUsers()).roles
   concreteOCR2DRTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DRTestHelper.sol:OCR2DRTestHelper',
+    'src/v0.7/tests/OCR2DRTestHelper.sol:OCR2DRTestHelper',
     roles.defaultAccount,
   )
 })
 
-describe.only('OCR2DRTestHelper', () => {
+describe('OCR2DRTestHelper', () => {
   let ctr: Contract
   let defaultAccount: Signer
 
