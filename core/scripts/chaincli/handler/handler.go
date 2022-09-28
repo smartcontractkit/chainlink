@@ -273,13 +273,9 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			"DATABASE_BACKUP_MODE=lite",
 			"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true",
 			"LOG_LEVEL=debug",
-			"MIN_OUTGOING_CONFIRMATIONS=2",
 			"CHAINLINK_TLS_PORT=0",
 			"SECURE_COOKIES=false",
-			"GAS_ESTIMATOR_MODE=BlockHistory",
 			"ALLOW_ORIGINS=*",
-			"DATABASE_TIMEOUT=0",
-			"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED=true",
 		}, extraEnvVars...),
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
