@@ -8,7 +8,7 @@ import {BufferChainlink} from "../../vendor/BufferChainlink.sol";
  * @title Library for OCR2 Direct Request functions
  */
 library OCR2DR {
-  uint256 internal constant defaultBufferSize = 256; // solhint-disable-line const-name-snakecase
+  uint256 internal constant DEFAULT_BUFFER_SIZE = 256;
 
   using CBORChainlink for BufferChainlink.buffer;
 
@@ -48,6 +48,15 @@ library OCR2DR {
     HttpQuery[] queries;
   }
 
+  error EmptySource();
+  error EmptyUrl();
+  error EmptyKey();
+  error EmptyValue();
+  error EmptyHeaders();
+  error EmptyQueries();
+  error EmptySecrets();
+  error EmptyArgs();
+
   /**
    * @notice Encodes a Request to CBOR encoded bytes
    * @param self The request to encode
@@ -55,7 +64,7 @@ library OCR2DR {
    */
   function encodeCBOR(Request memory self) internal pure returns (bytes memory) {
     BufferChainlink.buffer memory buf;
-    BufferChainlink.init(buf, defaultBufferSize);
+    BufferChainlink.init(buf, DEFAULT_BUFFER_SIZE);
 
     buf.encodeString("codeLocation");
     buf.encodeUInt(uint256(self.codeLocation));
@@ -115,35 +124,28 @@ library OCR2DR {
    * @param location The user provided source code location
    * @param language The programming language of the user code
    * @param source The user provided source code or a url
-   * @return The initialized request
    */
   function initializeRequest(
     Request memory self,
     Location location,
     CodeLanguage language,
     string memory source
-  ) internal pure returns (OCR2DR.Request memory) {
-    require(bytes(source).length > 0);
+  ) internal pure {
+    if (bytes(source).length == 0) revert EmptySource();
 
     self.codeLocation = location;
     self.language = language;
     self.source = source;
-    return self;
   }
 
   /**
    * @notice Initializes a OCR2DR Request
    * @dev Simplified version of initializeRequest for PoC
    * @param self The uninitialized request
-   * @param javaScriptSource The user provided JS code
-   * @return The initialized request
+   * @param javaScriptSource The user provided JS code (must not be empty)
    */
-  function initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource)
-    internal
-    pure
-    returns (OCR2DR.Request memory)
-  {
-    return initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
+  function initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource) internal pure {
+    initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
   }
 
   /**
@@ -151,34 +153,32 @@ library OCR2DR {
    * @dev Sets the verb and url on the query
    * @param self The uninitialized query
    * @param verb The user provided HTTP verb
-   * @param url The user provided HTTP/s url
-   * @return The initialized HttpQuery
+   * @param url The user provided HTTP/s url (must not be empty)
    */
   function initializeHttpQuery(
     HttpQuery memory self,
     HttpVerb verb,
     string memory url
-  ) internal pure returns (OCR2DR.HttpQuery memory) {
-    require(bytes(url).length > 0);
+  ) internal pure {
+    if (bytes(url).length == 0) revert EmptyUrl();
 
     self.verb = verb;
     self.url = url;
-    return self;
   }
 
   /**
    * @notice Adds new HttpHeader to HttpQuery
    * @param self The initialized query
-   * @param key HTTP header's key
-   * @param value HTTP header's value
+   * @param key HTTP header's key (must not be empty)
+   * @param value HTTP header's value (must not be empty)
    */
   function addHttpHeader(
     HttpQuery memory self,
     string memory key,
     string memory value
   ) internal pure {
-    require(bytes(key).length > 0);
-    require(bytes(value).length > 0);
+    if (bytes(key).length == 0) revert EmptyKey();
+    if (bytes(value).length == 0) revert EmptyValue();
 
     HttpHeader[] memory headers = new HttpHeader[](self.headers.length + 1);
     for (uint256 i = 0; i < self.headers.length; i++) {
@@ -191,10 +191,10 @@ library OCR2DR {
   /**
    * @notice Set an array of HttpHeader to HttpQuery
    * @param self The initialized HttpQuery
-   * @param headers The array of headers to be set
+   * @param headers The array of headers to be set (must not be empty)
    */
   function setHttpHeaders(HttpQuery memory self, HttpHeader[] memory headers) internal pure {
-    require(headers.length > 0);
+    if (headers.length == 0) revert EmptyHeaders();
 
     self.headers = headers;
   }
@@ -216,10 +216,10 @@ library OCR2DR {
   /**
    * @notice Set an array of HttpQuery to a Request
    * @param self The initialized request
-   * @param queries The array of queries to be set
+   * @param queries The array of queries to be set (must not be empty)
    */
   function setHttpQueries(Request memory self, HttpQuery[] memory queries) internal pure {
-    require(queries.length > 0);
+    if (queries.length == 0) revert EmptyQueries();
 
     self.queries = queries;
   }
@@ -227,10 +227,10 @@ library OCR2DR {
   /**
    * @notice Adds user encrypted secrets to a Request
    * @param self The initialized request
-   * @param secrets The user encrypted secrets
+   * @param secrets The user encrypted secrets (must not be empty)
    */
   function addInlineSecrets(Request memory self, bytes memory secrets) internal pure {
-    require(secrets.length > 0);
+    if (secrets.length == 0) revert EmptySecrets();
 
     self.secretsLocation = Location.Inline;
     self.secrets = secrets;
@@ -239,10 +239,10 @@ library OCR2DR {
   /**
    * @notice Adds args for the user run function
    * @param self The initialized request
-   * @param args The array of args
+   * @param args The array of args (must not be empty)
    */
   function addArgs(Request memory self, string[] memory args) internal pure {
-    require(args.length > 0);
+    if (args.length == 0) revert EmptyArgs();
 
     self.args = args;
   }
