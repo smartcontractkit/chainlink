@@ -171,12 +171,9 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
 	jb.PipelineSpec.JobID = jb.ID
 	jb.PipelineSpec.JobType = string(jb.Type)
+	jb.PipelineSpec.ForwardingAllowed = jb.ForwardingAllowed
 	if jb.GasLimit.Valid {
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
-	}
-
-	if jb.ForwardingAllowed.Valid {
-		jb.PipelineSpec.ForwardingAllowed = jb.ForwardingAllowed.Bool
 	}
 
 	services, err := delegate.ServicesForSpec(jb)
