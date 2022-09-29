@@ -69,10 +69,10 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
-	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
+	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
 	require.NoError(t, err)
 	require.Equal(t, addr, forwarderAddr)
-	err = fwdMgr.Stop()
+	err = fwdMgr.Close()
 	require.NoError(t, err)
 }
 
@@ -111,18 +111,9 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 
 	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
-	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
-	require.ErrorContains(t, err, "Skipping forwarding transaction")
-	require.Equal(t, addr, operatorAddr)
-	err = fwdMgr.Stop()
+	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
+	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
+	require.Equal(t, addr, common.Address{})
+	err = fwdMgr.Close()
 	require.NoError(t, err)
-}
-
-func getSimpleOperatorCall(t *testing.T) []byte {
-	args, err := SimpleOracleCallABI.Inputs.Pack()
-	require.NoError(t, err)
-
-	dataBytes := append(SimpleOracleCallABI.ID, args...)
-	require.NotEmpty(t, dataBytes)
-	return args
 }
