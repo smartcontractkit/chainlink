@@ -36,7 +36,7 @@ runs:
             ${{ steps.go-cache-dir.outputs.gomodcache }}
           # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
           # here by not having the primary key contain the branch name
-          key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}
           restore-keys: |
             ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
@@ -47,7 +47,7 @@ runs:
           path: |
             ${{ steps.go-cache-dir.outputs.gobuildcache }}
           # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
-          key: ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles('**/go.sum') }}-${{ steps.branch-name.outputs.current_branch }}
+          key: ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}-${{ steps.branch-name.outputs.current_branch }}
           restore-keys: |
-            ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}-
             ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
