@@ -1,4 +1,4 @@
-package internal_test
+package ocr2_test
 
 import (
 	"bytes"
