@@ -116,3 +116,16 @@ jobs:
         uses: docker://docker:latest
         with:
           args: logs ${{ job.services.postgres.id }}
+
+  # Satisfy required check for core tests
+  # while still allowing for adjustable sharding
+  core-complete:
+    needs: [core]
+    name: Core Tests (${{ matrix.cmd }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cmd: ['go_core_tests', 'go_core_race_tests']
+    steps:
+      - run: echo "${{ matrix.cmd }} have finished"
