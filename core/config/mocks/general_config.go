@@ -2215,6 +2215,20 @@ func (_m *GeneralConfig) KeeperRegistryCheckGasOverhead() uint32 {
 	return r0
 }
 
+// KeeperRegistryMaxPerformDataSize provides a mock function with given fields:
+func (_m *GeneralConfig) KeeperRegistryMaxPerformDataSize() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // KeeperRegistryPerformGasOverhead provides a mock function with given fields:
 func (_m *GeneralConfig) KeeperRegistryPerformGasOverhead() uint32 {
 	ret := _m.Called()
@@ -2245,20 +2259,6 @@ func (_m *GeneralConfig) KeeperRegistrySyncInterval() time.Duration {
 
 // KeeperRegistrySyncUpkeepQueueSize provides a mock function with given fields:
 func (_m *GeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistryMaxPerformDataSize provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperRegistryMaxPerformDataSize() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32
