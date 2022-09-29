@@ -34,7 +34,7 @@ type TestHarness struct {
 	EmitterAddress1, EmitterAddress2 common.Address
 }
 
-func SetupTH(t *testing.T) TestHarness {
+func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64) TestHarness {
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
@@ -47,7 +47,8 @@ func SetupTH(t *testing.T) TestHarness {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
 	}, 10e6)
-	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 2, 3, 2)
+	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
+	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, finalityDepth, backfillBatchSize, rpcBatchSize)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)

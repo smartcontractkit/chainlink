@@ -103,7 +103,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 }
 
 func TestLogPoller_Integration(t *testing.T) {
-	th := logpoller.SetupTH(t)
+	th := logpoller.SetupTH(t, 2, 3, 2)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 
 	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}))
