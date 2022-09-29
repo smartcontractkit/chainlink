@@ -21,6 +21,10 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
@@ -84,6 +88,22 @@ func NewTOMLGeneralConfig(lggr logger.Logger, configToml string, secretsToml str
 	}
 
 	return &generalConfig{lggr: lggr, c: &c, inputTOML: input, effectiveTOML: effective, secrets: &s}, nil
+}
+
+func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
+	return g.c.EVM
+}
+
+func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
+	return g.c.Solana
+}
+
+func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
+	return g.c.Starknet
+}
+
+func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
+	return g.c.Terra
 }
 
 func (g *generalConfig) Validate() error {
@@ -474,7 +494,6 @@ func (g *generalConfig) OCROutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-// TODO per-chain override
 func (g *generalConfig) OCRObservationTimeout() time.Duration {
 	return g.c.OCR.ObservationTimeout.Duration()
 }
@@ -499,12 +518,10 @@ func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return *g.c.OCR.DefaultTransactionQueueDepth
 }
 
-// TODO per-chain override
 func (g *generalConfig) OCR2ContractConfirmations() uint16 {
 	return uint16(*g.c.OCR2.ContractConfirmations)
 }
 
-// TODO per-chain override
 func (g *generalConfig) OCR2ContractTransmitterTransmitTimeout() time.Duration {
 	return g.c.OCR2.ContractTransmitterTransmitTimeout.Duration()
 }
@@ -513,7 +530,6 @@ func (g *generalConfig) OCR2BlockchainTimeout() time.Duration {
 	return g.c.OCR2.BlockchainTimeout.Duration()
 }
 
-// TODO per-chain override
 func (g *generalConfig) OCR2DatabaseTimeout() time.Duration {
 	return g.c.OCR2.DatabaseTimeout.Duration()
 }

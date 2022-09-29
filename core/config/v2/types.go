@@ -579,7 +579,7 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 }
 
 type JobPipeline struct {
-	DefaultHTTPRequestTimeout *models.Duration
+	DefaultHTTPRequestTimeout *models.Duration //TODO HTTPRequestTimeout/HTTPRequest.Timeout https://app.shortcut.com/chainlinklabs/story/54384/standardize-toml-field-names
 	ExternalInitiatorsEnabled *bool
 	HTTPRequestMaxSize        *utils.FileSize
 	MaxRunDuration            *models.Duration
@@ -961,7 +961,7 @@ func (p *AutoPprof) setFrom(f *AutoPprof) {
 
 type Pyroscope struct {
 	//TODO enabled?
-	AuthToken     *string //TODO move to secrets?
+	AuthToken     *string //TODO move to secrets? https://app.shortcut.com/chainlinklabs/story/54383/document-secrets-toml
 	ServerAddress *string
 	Environment   *string
 }

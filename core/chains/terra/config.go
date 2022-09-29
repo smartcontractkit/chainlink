@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
@@ -216,8 +217,7 @@ func (c *TerraConfig) ConfirmPollPeriod() time.Duration {
 }
 
 func (c *TerraConfig) FallbackGasPriceULuna() sdk.Dec {
-	i := c.Chain.FallbackGasPriceULuna.Shift(sdk.Precision)
-	return sdk.NewDecFromBigInt(i.BigInt())
+	return sdkDecFromDecimal(c.Chain.FallbackGasPriceULuna)
 }
 
 func (c *TerraConfig) FCDURL() url.URL {
@@ -246,4 +246,9 @@ func (c *TerraConfig) TxMsgTimeout() time.Duration {
 
 func (c *TerraConfig) Update(cfg db.ChainCfg) {
 	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
+}
+
+func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
+	i := d.Shift(sdk.Precision)
+	return sdk.NewDecFromBigIntWithPrec(i.BigInt(), sdk.Precision)
 }

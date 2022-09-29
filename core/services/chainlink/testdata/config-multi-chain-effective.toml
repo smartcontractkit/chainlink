@@ -388,6 +388,15 @@ WSURL = 'wss://web.socket/test'
 
 [[Solana]]
 ChainID = 'mainnet'
+BalancePollPeriod = '5s'
+ConfirmPollPeriod = '500ms'
+OCR2CachePollPeriod = '1s'
+OCR2CacheTTL = '1m0s'
+TxTimeout = '1m0s'
+TxRetryTimeout = '10s'
+TxConfirmTimeout = '30s'
+SkipPreflight = true
+Commitment = 'confirmed'
 MaxRetries = 12
 
 [[Solana.Nodes]]
@@ -396,7 +405,16 @@ URL = 'http://mainnet.solana.com'
 
 [[Solana]]
 ChainID = 'testnet'
+BalancePollPeriod = '5s'
+ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1m0s'
+TxTimeout = '1m0s'
+TxRetryTimeout = '10s'
+TxConfirmTimeout = '30s'
+SkipPreflight = true
+Commitment = 'confirmed'
+MaxRetries = 0
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -404,7 +422,12 @@ URL = 'http://testnet.solana.com'
 
 [[Starknet]]
 ChainID = 'foobar'
+OCR2CachePollPeriod = '5s'
+OCR2CacheTTL = '1m0s'
+RequestTimeout = '10s'
+TxTimeout = '1m0s'
 TxSendFrequency = '1h0m0s'
+TxMaxBatchSize = 100
 
 [[Starknet.Nodes]]
 Name = 'primary'
@@ -412,7 +435,16 @@ URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Columbus-5'
+BlockRate = '6s'
+BlocksUntilTxTimeout = 30
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 13
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
 
 [[Terra.Nodes]]
 Name = 'primary'
@@ -420,7 +452,16 @@ TendermintURL = 'http://columbus.terra.com'
 
 [[Terra]]
 ChainID = 'Bombay-12'
+BlockRate = '6s'
 BlocksUntilTxTimeout = 20
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
+MaxMsgsPerBatch = 100
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
 
 [[Terra.Nodes]]
 Name = 'primary'

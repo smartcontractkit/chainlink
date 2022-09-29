@@ -5,6 +5,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/multierr"
+
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	gencfg "github.com/smartcontractkit/chainlink/core/config"
@@ -23,8 +27,6 @@ type ChainScoped struct {
 	cfg *EVMConfig
 }
 
-//TODO do we also need to override some basic config methods?
-
 func (c *ChainScoped) ChainID() *big.Int {
 	return c.cfg.ChainID.ToInt()
 }
@@ -36,9 +38,22 @@ func (c *ChainScoped) ChainType() gencfg.ChainType {
 	return gencfg.ChainType(*c.cfg.ChainType)
 }
 
-func (c *ChainScoped) Validate() error {
-	// Per-chain validation is already done on startup, so this would be redundant.
-	return nil
+func (c *ChainScoped) Validate() (err error) {
+	// Most per-chain validation is done on startup, but this combines globals as well.
+	lc := ocrtypes.LocalConfig{
+		BlockchainTimeout:                      c.OCRBlockchainTimeout(),
+		ContractConfigConfirmations:            c.OCRContractConfirmations(),
+		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(),
+		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(),
+		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      c.OCRObservationTimeout(),
+		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
+	}
+	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
+		err = multierr.Append(err, ocrerr)
+	}
+	return
 }
 
 func (c *ChainScoped) BlockBackfillDepth() uint64 {

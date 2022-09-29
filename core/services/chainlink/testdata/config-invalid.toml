@@ -4,6 +4,21 @@ LeaseDuration='10s'
 
 [[EVM]]
 ChainID = '1'
+MaxInFlightTransactions = 10
+
+[EVM.GasEstimator]
+Mode = 'BlockHistory'
+BumpTxDepth = 11
+BumpPercent = 1
+TipCapDefault = 3
+TipCapMinimum = 4
+FeeCapDefault = 2
+PriceMin = '10 gwei'
+PriceDefault = '9 gwei'
+PriceMax = '5 gwei'
+
+[EVM.GasEstimator.BlockHistory]
+BlockHistorySize = 0
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -15,6 +30,17 @@ SendOnly = true
 [[EVM]]
 ChainID = '1'
 ChainType = 'Foo'
+FinalityDepth = 32
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+BumpThreshold = 0
+EIP1559DynamicFees = true
+FeeCapDefault = 101
+PriceMax = 99
+
+[EVM.HeadTracker]
+HistoryDepth = 30
 
 [[EVM.KeySpecific]]
 Key = '0xde709f2102306220921060314715629080e2fb77'
@@ -22,6 +48,11 @@ Key = '0xde709f2102306220921060314715629080e2fb77'
 [[EVM.KeySpecific]]
 Key = '0xde709f2102306220921060314715629080e2fb77'
 
+[[EVM]]
+ChainID = '10'
+ChainType = 'Arbitrum'
+FinalityDepth = 0
+MinIncomingConfirmations = 0
 
 [[Solana]]
 ChainID = 'mainnet'

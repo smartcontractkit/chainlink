@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	_ "embed"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"net"
@@ -954,17 +955,36 @@ func TestConfig_Validate(t *testing.T) {
 	}{
 		{name: "invalid", toml: invalidTOML, exp: `5 errors:
 	1) Database.Lock.LeaseRefreshInterval: invalid value 6s: must be less than or equal to half of LeaseDuration (10s)
-	2) EVM: 4 errors:
+	2) EVM: 5 errors:
 		1) 1.ChainID: invalid value 1: duplicate - must be unique
 		2) 0.Nodes.1.Name: invalid value foo: duplicate - must be unique
-		3) 0.Nodes: 2 errors:
+		3) 0: 3 errors:
+			1) GasEstimator.BumpTxDepth: invalid value 11: must be less than or equal to MaxInFlightTransactions
+			2) GasEstimator: 6 errors:
+				1) BumpPercent: invalid value 1: may not be less than Geth's default of 10
+				2) TipCapDefault: invalid value 3 wei: must be greater than or euqal to TipCapMinimum
+				3) FeeCapDefault: invalid value 3 wei: must be greater than or euqal to TipCapDefault
+				4) PriceMin: invalid value 10 gwei: must be less than or equal to PriceDefault
+				5) PriceMax: invalid value 10 gwei: must be greater than or equal to PriceDefault
+				6) BlockHistory.BlockHistorySize: invalid value 0: must be greater than or equal to 1 with BlockHistory Mode
+			3) Nodes: 2 errors:
 				1) 0.HTTPURL: missing: required for all nodes
 				2) 1: 2 errors:
 					1) WSURL: missing: required for SendOnly nodes
 					2) HTTPURL: missing: required for all nodes
-		4) 1: 2 errors:
-			1) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
-			2) KeySpecific.Key: invalid value 0xde709f2102306220921060314715629080e2fb77: duplicate - must be unique
+		4) 1: 5 errors:
+			1) ChainType: invalid value Foo: only "" can be used with this chain id
+			2) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
+			3) HeadTracker.HistoryDepth: invalid value 30: must be equal to or reater than FinalityDepth
+			4) GasEstimator: 2 errors:
+				1) FeeCapDefault: invalid value 101 wei: must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
+				2) PriceMax: invalid value 1 gwei: must be greater than or equal to PriceDefault
+			5) KeySpecific.Key: invalid value 0xde709f2102306220921060314715629080e2fb77: duplicate - must be unique
+		5) 2: 4 errors:
+			1) ChainType: invalid value Arbitrum: only "optimism" can be used with this chain id
+			2) ChainType: invalid value Arbitrum: must be one of arbitrum, metis, optimism, xdai or omitted
+			3) FinalityDepth: invalid value 0: must be greater than or equal to 1
+			4) MinIncomingConfirmations: invalid value 0: must be greater than or equal to 1
 	3) Solana: 3 errors:
 		1) 1.ChainID: invalid value mainnet: duplicate - must be unique
 		2) 1.Nodes.1.Name: invalid value bar: duplicate - must be unique
@@ -984,6 +1004,7 @@ func TestConfig_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
 			require.NoError(t, decodeTOMLStrict(tt.toml, &c))
+			c.setDefaults()
 			assertValidationError(t, &c, tt.exp)
 		})
 	}
@@ -1135,7 +1156,12 @@ Must not comprise:
 }
 
 func decodeTOMLStrict(s string, v interface{}) error {
-	return toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields().Decode(v)
+	err := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields().Decode(v)
+	if s, ok := err.(fmt.Stringer); ok { //nolint:errorlint
+		// get the detailed message
+		return fmt.Errorf("%v: %s", err, s.String())
+	}
+	return err
 }
 
 func assertValidationError(t *testing.T, invalid interface{ Validate() error }, expMsg string) {
@@ -1148,6 +1174,13 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
+	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
+	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Terra = terra.TerraConfigs{{ChainID: ptr("unknown terra chain")}}
 	c.setDefaults()
+	if s, err := c.TOMLString(); assert.NoError(t, err) {
+		t.Log(s, err)
+	}
 	cfgtest.AssertFieldsNotNil(t, c.Core)
 }

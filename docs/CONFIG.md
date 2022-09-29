@@ -3917,7 +3917,7 @@ BalancePollPeriod = '5s' # Default
 ConfirmPollPeriod = '500ms' # Default
 OCR2CachePollPeriod = '1s' # Default
 OCR2CacheTTL = '1m' # Default
-TxTimeout = '1h' # Default
+TxTimeout = '1m' # Default
 TxRetryTimeout = '10s' # Default
 TxConfirmTimeout = '30s' # Default
 SkipPreflight = true # Default
@@ -3964,7 +3964,7 @@ OCR2CacheTTL is the stale OCR2 cache deadline.
 
 ### TxTimeout<a id='Solana-TxTimeout'></a>
 ```toml
-TxTimeout = '1h' # Default
+TxTimeout = '1m' # Default
 ```
 TxTimeout is the timeout for sending txes to an RPC endpoint.
 

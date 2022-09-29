@@ -99,7 +99,8 @@ func NewApp(client *Client) *cli.App {
 			if err != nil {
 				return err
 			}
-			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/33615/create-new-implementation-of-chainscopedconfig-generalconfig-interfaces-that-sources-config-from-a-config-toml-file
+			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
+			//TODO note that empty string is NOT OK since it is sometimes meaningful - must use os.LookupEnv()
 		} else {
 			// Legacy ENV
 			if c.IsSet("secrets") {

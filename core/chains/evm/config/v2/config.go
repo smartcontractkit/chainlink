@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
@@ -204,8 +205,29 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else if c.ChainID.String() == "" {
 		err = multierr.Append(err, v2.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+	} else if must, ok := ChainTypeForID(c.ChainID); ok { // known chain id
+		if c.ChainType == nil && must != "" || c.ChainType != nil && *c.ChainType != string(must) {
+			err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+		}
 	}
-	//TODO more from chain scoped?
+	var chainType config.ChainType
+	if c.ChainType != nil {
+		chainType = config.ChainType(*c.ChainType)
+	}
+	switch chainType {
+	case config.ChainOptimism, config.ChainMetis:
+		gasEst := *c.GasEstimator.Mode
+		switch gasEst {
+		case "Optimism2", "L2Suggested":
+			// valid
+		case "Optimism":
+			err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.Mode", Value: gasEst, Msg: "unsupported since OVM 1.0 was discontinued - use L2Suggested"})
+		default:
+			err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.Mode", Value: gasEst, Msg: fmt.Sprintf("not allowed with ChainType %q - use L2Suggested", chainType)})
+		}
+	case config.ChainArbitrum, config.ChainXDai:
+	}
 
 	return
 }
@@ -219,8 +241,8 @@ type Chain struct {
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *models.Duration
-	MaxInFlightTransactions  *uint32
-	MaxQueuedTransactions    *uint32
+	MaxInFlightTransactions  *uint32 //TODO TxMaxInFlight https://app.shortcut.com/chainlinklabs/story/54384/standardize-toml-field-names
+	MaxQueuedTransactions    *uint32 //TODO TxMaxQueued https://app.shortcut.com/chainlinklabs/story/54384/standardize-toml-field-names
 	MinIncomingConfirmations *uint32
 	MinimumContractPayment   *assets.Link
 	NonceAutoSync            *bool
@@ -251,7 +273,19 @@ func (c Chain) ValidateConfig() (err error) {
 	if c.ChainType != nil && !config.ChainType(*c.ChainType).IsValid() {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType, Msg: config.ErrInvalidChainType.Error()})
 	}
-	//TODO more from chain scoped?
+
+	if uint32(*c.GasEstimator.BumpTxDepth) > *c.MaxInFlightTransactions {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth, Msg: "must be less than or equal to MaxInFlightTransactions"})
+	}
+	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth, Msg: "must be equal to or reater than FinalityDepth"})
+	}
+	if *c.FinalityDepth < 1 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth, Msg: "must be greater than or equal to 1"})
+	}
+	if *c.MinIncomingConfirmations < 1 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "MinIncomingConfirmations", Value: *c.MinIncomingConfirmations, Msg: "must be greater than or equal to 1"})
+	}
 	return
 }
 
@@ -366,9 +400,40 @@ type GasEstimator struct {
 
 	FeeCapDefault *utils.Wei
 	TipCapDefault *utils.Wei
-	TipCapMinimum *utils.Wei
+	TipCapMinimum *utils.Wei //TODO TipCapMin
 
 	BlockHistory *BlockHistoryEstimator
+}
+
+func (e *GasEstimator) ValidateConfig() (err error) {
+	if uint64(*e.BumpPercent) < core.DefaultTxPoolConfig.PriceBump {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "BumpPercent", Value: *e.BumpPercent, Msg: fmt.Sprintf("may not be less than Geth's default of %d", core.DefaultTxPoolConfig.PriceBump)})
+	}
+	if e.TipCapDefault.Cmp(e.TipCapMinimum) < 0 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "TipCapDefault", Value: e.TipCapDefault, Msg: "must be greater than or euqal to TipCapMinimum"})
+	}
+	if e.FeeCapDefault.Cmp(e.TipCapDefault) < 0 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "FeeCapDefault", Value: e.TipCapDefault, Msg: "must be greater than or euqal to TipCapDefault"})
+	}
+	if *e.Mode == "FixedPrice" && *e.BumpThreshold == 0 && *e.EIP1559DynamicFees && e.FeeCapDefault.Cmp(e.PriceMax) != 0 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "FeeCapDefault", Value: e.FeeCapDefault,
+			Msg: fmt.Sprintf("must be equal to PriceMax (%s) since you are using FixedPrice estimation with gas bumping disabled in "+
+				"EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault", e.PriceMax)})
+	} else if e.FeeCapDefault.Cmp(e.PriceMax) > 0 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "FeeCapDefault", Value: e.FeeCapDefault, Msg: fmt.Sprintf("must be less than or equal to PriceMax (%s)", e.PriceMax)})
+	}
+
+	if e.PriceMin.Cmp(e.PriceDefault) > 0 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "PriceMin", Value: e.PriceMin, Msg: "must be less than or equal to PriceDefault"})
+	}
+	if e.PriceMax.Cmp(e.PriceDefault) < 0 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "PriceMax", Value: e.PriceMin, Msg: "must be greater than or equal to PriceDefault"})
+	}
+	if *e.Mode == "BlockHistory" && *e.BlockHistory.BlockHistorySize <= 0 {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "BlockHistory.BlockHistorySize", Value: *e.BlockHistory.BlockHistorySize, Msg: "must be greater than or equal to 1 with BlockHistory Mode"})
+	}
+
+	return
 }
 
 func (e *GasEstimator) setFrom(f *GasEstimator) {

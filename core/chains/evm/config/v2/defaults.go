@@ -10,6 +10,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"golang.org/x/exp/slices"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -78,6 +79,17 @@ func Defaults(chainID *utils.Big) (c Chain, name string) {
 		name = defaultNames[s]
 	}
 	return
+}
+
+func ChainTypeForID(chainID *utils.Big) (config.ChainType, bool) {
+	s := chainID.String()
+	if d, ok := defaults[s]; ok {
+		if d.ChainType == nil {
+			return "", true
+		}
+		return config.ChainType(*d.ChainType), true
+	}
+	return "", false
 }
 
 // SetFrom updates c with any non-nil values from f.

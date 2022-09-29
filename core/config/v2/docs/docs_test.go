@@ -12,8 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestDoc(t *testing.T) {
@@ -32,26 +37,82 @@ func TestDoc(t *testing.T) {
 
 	cfgtest.AssertFieldsNotNil(t, c)
 
+	var defaults chainlink.Config
+	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docsTOML), &defaults))
+
 	t.Run("EVM", func(t *testing.T) {
 		fallbackDefaults, _ := evmcfg.Defaults(nil)
-
-		var defaults chainlink.Config
-		require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(chainsEVMTOML), &defaults))
 		docDefaults := defaults.EVM[0].Chain
+
+		require.Equal(t, "", *docDefaults.ChainType)
+		docDefaults.ChainType = nil
 
 		// clean up KeySpecific as a special case
 		require.Equal(t, 1, len(docDefaults.KeySpecific))
-		require.Equal(t, evmcfg.KeySpecific{}, docDefaults.KeySpecific[0])
+		ks := evmcfg.KeySpecific{Key: new(ethkey.EIP55Address),
+			GasEstimator: &evmcfg.KeySpecificGasEstimator{PriceMax: new(utils.Wei)}}
+		require.Equal(t, ks, docDefaults.KeySpecific[0])
 		docDefaults.KeySpecific = nil
 
-		fallback, err := toml.Marshal(fallbackDefaults)
-		require.NoError(t, err)
-		doc, err := toml.Marshal(docDefaults)
-		require.NoError(t, err)
-		fs, ds := string(fallback), string(doc)
+		// per-job limits are nilable
+		require.Zero(t, *docDefaults.GasEstimator.LimitOCRJobType)
+		require.Zero(t, *docDefaults.GasEstimator.LimitDRJobType)
+		require.Zero(t, *docDefaults.GasEstimator.LimitKeeperJobType)
+		require.Zero(t, *docDefaults.GasEstimator.LimitVRFJobType)
+		require.Zero(t, *docDefaults.GasEstimator.LimitFMJobType)
+		docDefaults.GasEstimator.LimitOCRJobType = nil
+		docDefaults.GasEstimator.LimitDRJobType = nil
+		docDefaults.GasEstimator.LimitKeeperJobType = nil
+		docDefaults.GasEstimator.LimitVRFJobType = nil
+		docDefaults.GasEstimator.LimitFMJobType = nil
 
-		assert.Equal(t, fs, ds, diff.Diff(fs, ds))
+		// EIP1559FeeCapBufferBlocks doesn't have a constant default - it is derived from another field
+		require.Zero(t, *docDefaults.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks)
+		docDefaults.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks = nil
+
+		// addresses w/o global values
+		require.Zero(t, *docDefaults.FlagsContractAddress)
+		require.Zero(t, *docDefaults.LinkContractAddress)
+		require.Zero(t, *docDefaults.OperatorFactoryAddress)
+		docDefaults.FlagsContractAddress = nil
+		docDefaults.LinkContractAddress = nil
+		docDefaults.OperatorFactoryAddress = nil
+
+		assertTOML(t, fallbackDefaults, docDefaults)
 	})
+
+	t.Run("Solana", func(t *testing.T) {
+		var fallbackDefaults solana.SolanaConfig
+		fallbackDefaults.SetDefaults()
+
+		assertTOML(t, fallbackDefaults.Chain, defaults.Solana[0].Chain)
+	})
+
+	t.Run("Starknet", func(t *testing.T) {
+		var fallbackDefaults starknet.StarknetConfig
+		fallbackDefaults.SetDefaults()
+
+		assertTOML(t, fallbackDefaults.Chain, defaults.Starknet[0].Chain)
+	})
+
+	t.Run("Terra", func(t *testing.T) {
+		var fallbackDefaults terra.TerraConfig
+		fallbackDefaults.SetDefaults()
+
+		assertTOML(t, fallbackDefaults.Chain, defaults.Terra[0].Chain)
+	})
+}
+
+func assertTOML[T any](t *testing.T, fallback, docs T) {
+	t.Helper()
+	t.Logf("fallback: %#v", fallback)
+	t.Logf("docs: %#v", docs)
+	fb, err := toml.Marshal(fallback)
+	require.NoError(t, err)
+	db, err := toml.Marshal(docs)
+	require.NoError(t, err)
+	fs, ds := string(fb), string(db)
+	assert.Equal(t, fs, ds, diff.Diff(fs, ds))
 }
 
 var (

@@ -36,23 +36,6 @@ type Config struct {
 	Terra terra.TerraConfigs `toml:",omitempty"`
 }
 
-// TODO these method have to be on the generalConfig, not just the Config
-func (c *Config) EVMConfigs() evmcfg.EVMConfigs {
-	return c.EVM
-}
-
-func (c *Config) SolanaConfigs() solana.SolanaConfigs {
-	return c.Solana
-}
-
-func (c *Config) StarknetConfigs() starknet.StarknetConfigs {
-	return c.Starknet
-}
-
-func (c *Config) TerraConfigs() terra.TerraConfigs {
-	return c.Terra
-}
-
 // TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
 	b, err := toml.Marshal(c)
@@ -78,7 +61,17 @@ func (c *Config) setDefaults() {
 		input.Chain = ch
 	}
 
-	//TODO terra and solana defaults https://app.shortcut.com/chainlinklabs/story/37975/chains-nodes-should-be-read-from-the-config-interface
+	for _, input := range c.Solana {
+		input.Chain.SetDefaults()
+	}
+
+	for _, input := range c.Starknet {
+		input.Chain.SetDefaults()
+	}
+
+	for _, input := range c.Terra {
+		input.Chain.SetDefaults()
+	}
 }
 
 type Secrets struct {

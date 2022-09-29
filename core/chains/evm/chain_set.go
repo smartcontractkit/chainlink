@@ -95,9 +95,9 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	for i, c := range cll.startedChains {
 		evmChainIDs[i] = c.ID()
 	}
-	defChainID := "nil"
+	defChainID := "unspecified"
 	if cll.defaultID != nil {
-		defChainID = cll.defaultID.String()
+		defChainID = fmt.Sprintf("%q", cll.defaultID.String())
 	}
 	cll.logger.Infow(fmt.Sprintf("EVM: Started %d/%d chains, default chain ID is %s", len(cll.startedChains), len(cll.Chains()), defChainID), "startedEvmChainIDs", evmChainIDs)
 	return nil

@@ -232,6 +232,9 @@ func (c *SolanaConfig) Commitment() rpc.CommitmentType {
 }
 
 func (c *SolanaConfig) MaxRetries() *uint {
+	if c.Chain.MaxRetries == nil {
+		return nil
+	}
 	mr := uint(*c.Chain.MaxRetries)
 	return &mr
 }

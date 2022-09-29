@@ -57,19 +57,13 @@ func writeDefaults(r io.Reader, w *io.PipeWriter) {
 }
 
 func nilToZero(val reflect.Value) {
-	k := val.Kind()
-	switch k { //nolint:exhaustive
-	case reflect.Map, reflect.Slice:
-		return
-	case reflect.Ptr:
+	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			t := val.Type().Elem()
 			val.Set(reflect.New(t))
 		}
-	}
-	if k == reflect.Ptr {
 		if val.Type().Implements(textUnmarshalerType) {
-			return // skip values unmarshaled from strings
+			return // don't descend inside - leave whole zero value
 		}
 		val = val.Elem()
 	}
@@ -84,8 +78,18 @@ func nilToZero(val reflect.Value) {
 		}
 		return
 	case reflect.Map:
+		if !val.IsNil() {
+			for _, k := range val.MapKeys() {
+				nilToZero(val.MapIndex(k))
+			}
+		}
 		return
 	case reflect.Slice:
+		if !val.IsNil() {
+			for i := 0; i < val.Len(); i++ {
+				nilToZero(val.Index(i))
+			}
+		}
 		return
 	default:
 		return
