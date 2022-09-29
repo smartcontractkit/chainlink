@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,10 +37,6 @@ import (
 )
 
 const (
-	defaultChainlinkNodeImage = "smartcontract/chainlink:1.8.0-root"
-	// defaultChainlinkNodeImage = "chainlink:local"
-	defaultPOSTGRESImage = "postgres:latest"
-
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
 	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs~#"
 )
@@ -187,9 +184,9 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 	// Pull DB image if needed
 	var out io.ReadCloser
-	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, defaultPOSTGRESImage); err != nil {
+	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, h.cfg.PostgresDockerImage); err != nil {
 		log.Println("Pulling Postgres docker image...")
-		if out, err = dockerClient.ImagePull(ctx, defaultPOSTGRESImage, types.ImagePullOptions{}); err != nil {
+		if out, err = dockerClient.ImagePull(ctx, h.cfg.PostgresDockerImage, types.ImagePullOptions{}); err != nil {
 			return "", nil, fmt.Errorf("failed to pull Postgres image: %s", err)
 		}
 		out.Close()
@@ -220,7 +217,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	// Create DB container
 	postgresContainerName := fmt.Sprintf("%s-postgres", containerName)
 	dbContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
-		Image: defaultPOSTGRESImage,
+		Image: h.cfg.PostgresDockerImage,
 		Cmd:   []string{"postgres", "-c", `max_connections=1000`},
 		Env: []string{
 			"POSTGRES_USER=postgres",
@@ -245,9 +242,9 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	time.Sleep(time.Second * 10)
 
 	// Pull node image if needed
-	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, defaultChainlinkNodeImage); err != nil {
+	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, h.cfg.ChainlinkDockerImage); err != nil {
 		log.Println("Pulling node docker image...")
-		if out, err = dockerClient.ImagePull(ctx, defaultChainlinkNodeImage, types.ImagePullOptions{}); err != nil {
+		if out, err = dockerClient.ImagePull(ctx, h.cfg.ChainlinkDockerImage, types.ImagePullOptions{}); err != nil {
 			return "", nil, fmt.Errorf("failed to pull node image: %s", err)
 		}
 		out.Close()
@@ -263,7 +260,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	// Create container with mounted files
 	portStr := fmt.Sprintf("%d", port)
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
-		Image: defaultChainlinkNodeImage,
+		Image: h.cfg.ChainlinkDockerImage,
 		Cmd:   []string{"local", "n", "-p", "/run/secrets/chainlink-node-password", "-a", "/run/secrets/chainlink-node-api"},
 		Env: append([]string{
 			"DATABASE_URL=postgresql://postgres:development_password@" + postgresContainerName + ":5432/postgres?sslmode=disable",
@@ -359,21 +356,43 @@ func authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPC
 	return cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr), nil
 }
 
-// getNodeAddress returns chainlink node's wallet address
-func getNodeAddress(client cmd.HTTPClient) (string, error) {
-	resp, err := client.Get("/v2/keys/eth")
+func nodeRequest(client cmd.HTTPClient, path string) ([]byte, error) {
+	resp, err := client.Get(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to get ETH keys: %s", err)
+		return []byte{}, fmt.Errorf("GET error from client: %s", err)
 	}
 	defer resp.Body.Close()
 
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %s", err)
+		return []byte{}, fmt.Errorf("failed to read response body: %s", err)
+	}
+
+	type errorDetail struct {
+		Detail string `json:"detail"`
+	}
+
+	type errorResp struct {
+		Errors []errorDetail `json:"errors"`
+	}
+
+	var errs errorResp
+	if err := json.Unmarshal(raw, &errs); err == nil && len(errs.Errors) > 0 {
+		return []byte{}, fmt.Errorf("error returned from api: %s", errs.Errors[0].Detail)
+	}
+
+	return raw, nil
+}
+
+// getNodeAddress returns chainlink node's wallet address
+func getNodeAddress(client cmd.HTTPClient) (string, error) {
+	resp, err := nodeRequest(client, "/v2/keys/eth")
+	if err != nil {
+		return "", fmt.Errorf("failed to get ETH keys: %s", err)
 	}
 
 	var keys cmd.EthKeyPresenters
-	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
+	if err = jsonapi.Unmarshal(resp, &keys); err != nil {
 		return "", fmt.Errorf("failed to unmarshal response body: %s", err)
 	}
 
@@ -382,19 +401,13 @@ func getNodeAddress(client cmd.HTTPClient) (string, error) {
 
 // getNodeOCR2Config returns chainlink node's OCR2 bundle key ID
 func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
-	resp, err := client.Get("/v2/keys/ocr2")
+	resp, err := nodeRequest(client, "/v2/keys/ocr2")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OCR2 keys: %s", err)
 	}
-	defer resp.Body.Close()
-
-	raw, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %s", err)
-	}
 
 	var keys cmd.OCR2KeyBundlePresenters
-	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
+	if err = jsonapi.Unmarshal(resp, &keys); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response body: %s", err)
 	}
 
@@ -411,19 +424,13 @@ func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, erro
 
 // getP2PKeyID returns chainlink node's P2P key ID
 func getP2PKeyID(client cmd.HTTPClient) (string, error) {
-	resp, err := client.Get("/v2/keys/p2p")
+	resp, err := nodeRequest(client, "/v2/keys/p2p")
 	if err != nil {
 		return "", fmt.Errorf("failed to get OCR2 keys: %s", err)
 	}
-	defer resp.Body.Close()
-
-	raw, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %s", err)
-	}
 
 	var keys cmd.P2PKeyPresenters
-	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
+	if err = jsonapi.Unmarshal(resp, &keys); err != nil {
 		return "", fmt.Errorf("failed to unmarshal response body: %s", err)
 	}
 

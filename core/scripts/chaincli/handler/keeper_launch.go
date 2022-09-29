@@ -124,6 +124,10 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		owners = append(owners, k.fromAddr)
 	}
 
+	if len(keepers) == 0 {
+		log.Fatal("no keepers available")
+	}
+
 	// Set Keepers
 	k.setKeepers(ctx, cls, deployer, keepers, owners)
 

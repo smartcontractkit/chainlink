@@ -11,17 +11,19 @@ import (
 
 // Config represents configuration fields
 type Config struct {
-	NodeURL         string   `mapstructure:"NODE_URL"`
-	ChainID         int64    `mapstructure:"CHAIN_ID"`
-	PrivateKey      string   `mapstructure:"PRIVATE_KEY"`
-	LinkTokenAddr   string   `mapstructure:"LINK_TOKEN_ADDR"`
-	Keepers         []string `mapstructure:"KEEPERS"`
-	KeeperURLs      []string `mapstructure:"KEEPER_URLS"`
-	KeeperEmails    []string `mapstructure:"KEEPER_EMAILS"`
-	KeeperPasswords []string `mapstructure:"KEEPER_PASSWORDS"`
-	ApproveAmount   string   `mapstructure:"APPROVE_AMOUNT"`
-	GasLimit        uint64   `mapstructure:"GAS_LIMIT"`
-	FundNodeAmount  string   `mapstructure:"FUND_CHAINLINK_NODE"`
+	NodeURL              string   `mapstructure:"NODE_URL"`
+	ChainID              int64    `mapstructure:"CHAIN_ID"`
+	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
+	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
+	Keepers              []string `mapstructure:"KEEPERS"`
+	KeeperURLs           []string `mapstructure:"KEEPER_URLS"`
+	KeeperEmails         []string `mapstructure:"KEEPER_EMAILS"`
+	KeeperPasswords      []string `mapstructure:"KEEPER_PASSWORDS"`
+	ApproveAmount        string   `mapstructure:"APPROVE_AMOUNT"`
+	GasLimit             uint64   `mapstructure:"GAS_LIMIT"`
+	FundNodeAmount       string   `mapstructure:"FUND_CHAINLINK_NODE"`
+	ChainlinkDockerImage string   `mapstructure:"CHAINLINK_DOCKER_IMAGE"`
+	PostgresDockerImage  string   `mapstructure:"POSTGRES_DOCKER_IMAGE"`
 
 	// OCR Config
 	BootstrapNodeAddr string `mapstructure:"BOOTSTRAP_NODE_ADDR"`
@@ -109,6 +111,9 @@ func init() {
 	viper.SetDefault("GAS_CEILING_MULTIPLIER", 1)
 	viper.SetDefault("FALLBACK_GAS_PRICE", 200000000000)
 	viper.SetDefault("FALLBACK_LINK_PRICE", 20000000000000000)
+	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.8.0-root")
+	viper.SetDefault("POSTGRES_DOCKER_IMAGE", "postgres:latest")
+
 	// Represented in WEI, which is 100 Ether
 	viper.SetDefault("UPKEEP_ADD_FUNDS_AMOUNT", "100000000000000000000")
 	viper.SetDefault("UPKEEP_TEST_RANGE", 1)
