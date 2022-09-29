@@ -18,7 +18,7 @@ before(async () => {
   )
 })
 
-describe.only('OCR2DRTestHelper', () => {
+describe('OCR2DRTestHelper', () => {
   let ctr: Contract
   let defaultAccount: Signer
 
