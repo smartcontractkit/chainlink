@@ -113,7 +113,7 @@ func (s *SimulateChecker) Check(
 	// always run simulation on "latest" block
 	err := s.Client.CallContext(ctx, &b, "eth_call", callArg, evmclient.ToBlockNumArg(nil))
 	if err != nil {
-		if jErr := evmclient.ExtractRPCError(err); jErr != nil {
+		if jErr := evmclient.ExtractRPCErrorOrNil(err); jErr != nil {
 			l.Criticalw("Transaction reverted during simulation",
 				"ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
 			return errors.Errorf("transaction reverted during simulation: %s", jErr.String())

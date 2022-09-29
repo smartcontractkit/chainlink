@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -106,6 +107,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
+
 	contractAddress := common.HexToAddress(args.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	if err != nil {
@@ -133,6 +135,13 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
+	var relayConfig RelayConfig
+	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
+	if err != nil {
+		return nil, err
+	}
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+
 	transmitterAddress := common.HexToAddress(transmitterID)
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 	var checker txm.TransmitCheckerSpec
@@ -143,11 +152,12 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
+
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, rargs.ForwardingAllowed, strategy, txm.TransmitCheckerSpec{}),
+		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)
@@ -175,7 +185,8 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 }
 
 type RelayConfig struct {
-	ChainID *utils.Big `json:"chainID"`
+	ChainID                     *utils.Big  `json:"chainID"`
+	EffectiveTransmitterAddress null.String `json:"effectiveTransmitterAddress"`
 }
 
 var _ relaytypes.MedianProvider = (*medianProvider)(nil)

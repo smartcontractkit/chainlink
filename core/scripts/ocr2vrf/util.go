@@ -25,8 +25,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -38,9 +39,15 @@ func deployDKG(e helpers.Environment) common.Address {
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFBeaconCoordinator(e helpers.Environment, linkAddress, dkgAddress, keyID string, beaconPeriodBlocks *big.Int) common.Address {
+func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress string) common.Address {
+	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(e.Owner, e.Ec, beaconPeriodBlocks, common.HexToAddress(linkAddress))
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployVRFBeacon(e helpers.Environment, coordinatorAddress, linkAddress, dkgAddress, keyID string) common.Address {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
-	_, tx, _, err := vrf_beacon_coordinator.DeployVRFBeaconCoordinator(e.Owner, e.Ec, common.HexToAddress(linkAddress), beaconPeriodBlocks, common.HexToAddress(dkgAddress), keyIDBytes)
+	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -140,7 +147,7 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAddr string, c vrfBeaconCoordinatorSetConfigArgs) {
+func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeaconSetConfigArgs) {
 	oracleIdentities := toOraclesIdentityList(
 		helpers.ParseAddressSlice(c.onchainPubKeys),
 		strings.Split(c.offchainPubKeys, ","),
@@ -177,9 +184,17 @@ func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAd
 
 	helpers.PanicErr(err)
 
-	coordinator := newVRFBeaconCoordinator(common.HexToAddress(vrfBeaconCoordinatorAddr), e.Ec)
+	beacon := newVRFBeacon(common.HexToAddress(vrfBeaconAddr), e.Ec)
 
-	tx, err := coordinator.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
+	tx, err := beacon.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func setProducer(e helpers.Environment, vrfCoordinatorAddr, vrfBeaconAddr string) {
+	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
+
+	tx, err := coordinator.SetProducer(e.Owner, common.HexToAddress(vrfBeaconAddr))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -228,7 +243,7 @@ func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, con
 }
 
 func requestRandomness(e helpers.Environment, coordinatorAddress string, numWords uint16, subID uint64, confDelay *big.Int) {
-	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
+	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 
 	tx, err := coordinator.RequestRandomness(e.Owner, numWords, subID, confDelay)
 	helpers.PanicErr(err)
@@ -236,7 +251,7 @@ func requestRandomness(e helpers.Environment, coordinatorAddress string, numWord
 }
 
 func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
-	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
+	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 
 	tx, err := coordinator.RedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
@@ -315,8 +330,8 @@ func printRandomnessFromConsumer(consumer *vrf_beacon_consumer.BeaconVRFConsumer
 	}
 }
 
-func newVRFBeaconCoordinator(addr common.Address, client *ethclient.Client) *vrf_beacon_coordinator.VRFBeaconCoordinator {
-	coordinator, err := vrf_beacon_coordinator.NewVRFBeaconCoordinator(addr, client)
+func newVRFCoordinator(addr common.Address, client *ethclient.Client) *vrf_coordinator.VRFCoordinator {
+	coordinator, err := vrf_coordinator.NewVRFCoordinator(addr, client)
 	helpers.PanicErr(err)
 	return coordinator
 }
@@ -331,6 +346,12 @@ func newVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Clie
 	consumer, err := vrf_beacon_consumer.NewBeaconVRFConsumer(addr, client)
 	helpers.PanicErr(err)
 	return consumer
+}
+
+func newVRFBeacon(addr common.Address, client *ethclient.Client) *vrf_beacon.VRFBeacon {
+	beacon, err := vrf_beacon.NewVRFBeacon(addr, client)
+	helpers.PanicErr(err)
+	return beacon
 }
 
 func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
