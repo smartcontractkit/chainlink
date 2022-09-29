@@ -79,21 +79,9 @@ func (o *ORM) SelectLatestLogEventSigWithConfs(eventSig common.Hash, address com
 	return &l, nil
 }
 
-func (o *ORM) DeleteRangeBlocks(start, end int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM log_poller_blocks WHERE block_number >= $1 AND block_number <= $2 AND evm_chain_id = $3`, start, end, utils.NewBig(o.chainID))
-	return err
-}
-
 func (o *ORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.Exec(`DELETE FROM log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
-	return err
-}
-
-func (o *ORM) DeleteLogs(start, end int64, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM logs WHERE block_number >= $1 AND block_number <= $2 AND evm_chain_id = $3`, start, end, utils.NewBig(o.chainID))
 	return err
 }
 
