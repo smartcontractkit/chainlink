@@ -4,7 +4,6 @@ package cmd_test
 
 import (
 	"flag"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -90,7 +89,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			require.Greater(t, len(r.Renders), 0)
 			renderer := r.Renders[len(r.Renders)-1]
 			renderedMsg := renderer.(*cmd.SolanaMsgPresenter)
-			fmt.Printf("%+v\n", renderedMsg)
+			t.Logf("%+v\n", renderedMsg)
 			require.NotEmpty(t, renderedMsg.ID)
 			assert.Equal(t, chainID, renderedMsg.ChainID)
 			assert.Equal(t, from.PublicKey().String(), renderedMsg.From)
