@@ -12,10 +12,70 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
+
+func DeployForwarderContracts(
+	contractDeployer contracts.ContractDeployer,
+	linkToken contracts.LinkToken,
+	chainClient blockchain.EVMClient,
+) (operator common.Address, authorizedForwarder common.Address, operatorFactoryInstance contracts.OperatorFactory) {
+	By("Deploying OperatorFactory contract")
+	operatorFactoryInstance, err := contractDeployer.DeployOperatorFactory(linkToken.Address())
+	Expect(err).ShouldNot(HaveOccurred(), "Deploying OperatorFactory Contract shouldn't fail")
+	err = chainClient.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for deployment of flux aggregator contract")
+
+	By("Subscribe to Operator factory Events")
+	operatorCreated := make(chan *operator_factory.OperatorFactoryOperatorCreated)
+	authorizedForwarderCreated := make(chan *operator_factory.OperatorFactoryAuthorizedForwarderCreated)
+	SubscribeOperatorFactoryEvents(authorizedForwarderCreated, operatorCreated, chainClient, operatorFactoryInstance)
+
+	By("Create new operator and forwarder")
+	_, err = operatorFactoryInstance.DeployNewOperatorAndForwarder()
+	Expect(err).ShouldNot(HaveOccurred(), "Deploying new operator with proposed ownership with forwarder shouldn't fail")
+	err = chainClient.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Waiting for events in nodes shouldn't fail")
+	eventDataAuthorizedForwarder, eventDataOperatorCreated := <-authorizedForwarderCreated, <-operatorCreated
+	operator, authorizedForwarder = eventDataOperatorCreated.Operator, eventDataAuthorizedForwarder.Forwarder
+
+	return operator, authorizedForwarder, operatorFactoryInstance
+}
+
+func AcceptAuthorizedReceiversOperator(
+	operator common.Address,
+	authorizedForwarder common.Address,
+	nodeAddresses []common.Address,
+	chainClient blockchain.EVMClient,
+	contractLoader contracts.ContractLoader,
+) {
+	operatorInstance, err := contractLoader.LoadOperatorContract(operator)
+	Expect(err).ShouldNot(HaveOccurred(), "Loading operator contract shouldn't fail")
+	forwarderInstance, err := contractLoader.LoadAuthorizedForwarder(authorizedForwarder)
+	Expect(err).ShouldNot(HaveOccurred(), "Loading authorized forwarder contract shouldn't fail")
+
+	By("Accept authorized receivers")
+	err = operatorInstance.AcceptAuthorizedReceivers([]common.Address{authorizedForwarder}, nodeAddresses)
+	Expect(err).ShouldNot(HaveOccurred(), "Accepting authorized receivers shouldn't fail")
+	err = chainClient.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Waiting for events in nodes shouldn't fail")
+
+	By("Verify authorized senders on forwarder")
+	senders, err := forwarderInstance.GetAuthorizedSenders(context.Background())
+	Expect(err).ShouldNot(HaveOccurred(), "Getting authorized senders shouldn't fail")
+	var nodesAddrs []string
+	for _, o := range nodeAddresses {
+		nodesAddrs = append(nodesAddrs, o.Hex())
+	}
+	Expect(senders).Should(Equal(nodesAddrs), "Senders addresses should match node addresses")
+
+	By("Verify forwarder Owner")
+	owner, err := forwarderInstance.Owner(context.Background())
+	Expect(err).ShouldNot(HaveOccurred(), "Getting authorized forwarder owner shouldn't fail")
+	Expect(owner).Should(Equal(operator.Hex()), "Forwarder owner should match operator")
+}
 
 func ProcessNewEvent(
 	eventSub geth.Subscription,
@@ -89,6 +149,7 @@ func SubscribeOperatorFactoryEvents(
 	go func() {
 		defer GinkgoRecover()
 		defer sub.Unsubscribe()
+		remainingExpectedEvents := 2
 		for {
 			select {
 			case err := <-sub.Err():
@@ -101,6 +162,12 @@ func SubscribeOperatorFactoryEvents(
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
 				Expect(err).ShouldNot(HaveOccurred(), "Getting event details for OperatorFactory instance shouldn't fail")
 				go ProcessNewEvent(sub, operatorCreated, authorizedForwarderCreated, &vLog, eventDetails, operatorFactoryInstance, contractABI, chainClient)
+				if eventDetails.Name == "AuthorizedForwarderCreated" || eventDetails.Name == "OperatorCreated" {
+					remainingExpectedEvents--
+					if remainingExpectedEvents <= 0 {
+						return
+					}
+				}
 			}
 		}
 	}()
