@@ -399,7 +399,7 @@ type JobResource struct {
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
 	GasLimit               clnull.Uint32           `json:"gasLimit"`
-	ForwardingAllowed      bool                    `json:"forwardingAllowed"`
+	ForwardingAllowed      null.Bool               `json:"forwardingAllowed"`
 	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
 	ExternalJobID          uuid.UUID               `json:"externalJobID"`
 	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`

@@ -17,9 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Return types:
 //
-//	[]byte
+// Return types:
+//     []byte
+//
 type ETHCallTask struct {
 	BaseTask            `mapstructure:",squash"`
 	Contract            string `json:"contract"`
@@ -29,7 +30,6 @@ type ETHCallTask struct {
 	GasPrice            string `json:"gasPrice"`
 	GasTipCap           string `json:"gasTipCap"`
 	GasFeeCap           string `json:"gasFeeCap"`
-	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
@@ -68,7 +68,6 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasPrice     MaybeBigIntParam
 		gasTipCap    MaybeBigIntParam
 		gasFeeCap    MaybeBigIntParam
-		gasUnlimited BoolParam
 		chainID      StringParam
 	)
 	err = multierr.Combine(
@@ -80,7 +79,6 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasTipCap, From(VarExpr(t.GasTipCap, vars), t.GasTipCap)), "gasTipCap"),
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
 		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID"),
-		errors.Wrap(ResolveParam(&gasUnlimited, From(VarExpr(t.GasUnlimited, vars), NonemptyString(t.GasUnlimited), false)), "gasUnlimited"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -93,16 +91,10 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		return Result{Error: err}, runInfo
 	}
 	var selectedGas uint32
-	if gasUnlimited {
-		if gas > 0 {
-			return Result{Error: errors.Wrapf(ErrBadInput, "gas must be zero when gasUnlimited is true")}, runInfo
-		}
+	if gas > 0 {
+		selectedGas = uint32(gas)
 	} else {
-		if gas > 0 {
-			selectedGas = uint32(gas)
-		} else {
-			selectedGas = SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
-		}
+		selectedGas = SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
 	}
 
 	call := ethereum.CallMsg{
@@ -125,14 +117,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
-			rpcError, errExtract := evmclient.ExtractRPCError(err)
-			if err != nil {
-				lggr.Warnw("failed to extract rpc error", "err", err, "errExtract", errExtract)
-				// Leave error as is.
-			} else {
-				// Update error to unmarshalled RPCError with revert data.
-				err = rpcError
-			}
+			err = t.retrieveRevertReason(err, lggr)
 		}
 
 		return Result{Error: err}, retryableRunInfo()
@@ -141,4 +126,14 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 
 	return Result{Value: resp}, runInfo
+}
+
+func (t *ETHCallTask) retrieveRevertReason(baseErr error, lggr logger.Logger) error {
+	reason, err := evmclient.ExtractRevertReasonFromRPCError(baseErr)
+	if err != nil {
+		lggr.Warnw("failed to extract revert reason", "baseErr", baseErr, "error", err)
+		return baseErr
+	}
+
+	return errors.Wrap(baseErr, reason)
 }

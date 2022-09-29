@@ -4,7 +4,7 @@ status = [
   "Core Tests (go_core_tests)",
   "Core Tests (go_core_race_tests)",
   "Solidity",  
-  "Operator UI",
+  "Operator UI Tests",
   "Prettier Formatting" 
 ]
 block_labels = [ "S-do-not-merge-yet" ]

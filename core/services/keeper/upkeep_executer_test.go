@@ -83,7 +83,7 @@ func setup(t *testing.T, estimator *gasmocks.Estimator) (
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 	lggr := logger.TestLogger(t)
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config(), job.KeeperSpec.FromAddress.Address())
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start(testutils.Context(t))
 	t.Cleanup(func() { executer.Close() })
@@ -119,8 +119,6 @@ func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 }
 
 func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
-	taskRuns := 11
-
 	t.Parallel()
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
@@ -144,7 +142,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
 				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
-					callArgs.Gas == 0
+					callArgs.Gas == 650_000
 			},
 			checkUpkeepResponse,
 		)
@@ -157,7 +155,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := newHead()
 		executer.OnNewLongestChain(testutils.Context(t), &head)
 		ethTxCreated.AwaitOrFail(t)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, taskRuns, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
 		assert.False(t, runs[0].HasFatalErrors())
@@ -194,7 +192,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 					)
 
 					return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
-						callArgs.Gas == 0
+						650_000 == callArgs.Gas
 				},
 				checkUpkeepResponse,
 			)
@@ -209,7 +207,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 			executer.OnNewLongestChain(testutils.Context(t), &head)
 			ethTxCreated.AwaitOrFail(t)
-			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, taskRuns, jpv2.Jrm, time.Second, 100*time.Millisecond)
+			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 			require.Len(t, runs, 1)
 			assert.False(t, runs[0].HasErrors())
 			assert.False(t, runs[0].HasFatalErrors())
@@ -241,7 +239,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
 				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
-					callArgs.Gas == 0
+					callArgs.Gas == 650_000
 			},
 			checkUpkeepResponse,
 		)
@@ -253,7 +251,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		head := newHead()
 		executer.OnNewLongestChain(testutils.Context(t), &head)
-		runs := cltest.WaitForPipelineError(t, 0, job.ID, 1, taskRuns, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineError(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.True(t, runs[0].HasErrors())
 		assert.True(t, runs[0].HasFatalErrors())
@@ -267,7 +265,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		jb.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
 		cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 		lggr := logger.TestLogger(t)
-		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config(), jb.KeeperSpec.FromAddress.Address())
+		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 		err := executer.Start(testutils.Context(t))
 		require.NoError(t, err)
 		head := newHead()
@@ -304,7 +302,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := cltest.Head(36)
 
 		executer.OnNewLongestChain(testutils.Context(t), head)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, taskRuns, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
 		etxs[0].AwaitOrFail(t)
@@ -340,7 +338,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 					)
 
 					return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
-						callArgs.Gas == 0
+						650_000 == callArgs.Gas
 				},
 				checkUpkeepResponse,
 			)
@@ -355,7 +353,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 			executer.OnNewLongestChain(testutils.Context(t), &head)
 			ethTxCreated.AwaitOrFail(t)
-			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, taskRuns, jpv2.Jrm, time.Second, 100*time.Millisecond)
+			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 			require.Len(t, runs, 1)
 			assert.False(t, runs[0].HasErrors())
 			assert.False(t, runs[0].HasFatalErrors())

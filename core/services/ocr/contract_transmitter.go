@@ -22,13 +22,12 @@ var (
 
 type (
 	OCRContractTransmitter struct {
-		contractAddress             gethCommon.Address
-		contractABI                 abi.ABI
-		transmitter                 ocrcommon.Transmitter
-		contractCaller              *offchainaggregator.OffchainAggregatorCaller
-		tracker                     *OCRContractTracker
-		chainID                     *big.Int
-		effectiveTransmitterAddress gethCommon.Address
+		contractAddress gethCommon.Address
+		contractABI     abi.ABI
+		transmitter     ocrcommon.Transmitter
+		contractCaller  *offchainaggregator.OffchainAggregatorCaller
+		tracker         *OCRContractTracker
+		chainID         *big.Int
 	}
 )
 
@@ -40,16 +39,14 @@ func NewOCRContractTransmitter(
 	logBroadcaster log.Broadcaster,
 	tracker *OCRContractTracker,
 	chainID *big.Int,
-	effectiveTransmitterAddress gethCommon.Address,
 ) *OCRContractTransmitter {
 	return &OCRContractTransmitter{
-		contractAddress:             address,
-		contractABI:                 contractABI,
-		transmitter:                 transmitter,
-		contractCaller:              contractCaller,
-		tracker:                     tracker,
-		chainID:                     chainID,
-		effectiveTransmitterAddress: effectiveTransmitterAddress,
+		contractAddress: address,
+		contractABI:     contractABI,
+		transmitter:     transmitter,
+		contractCaller:  contractCaller,
+		tracker:         tracker,
+		chainID:         chainID,
 	}
 }
 
@@ -72,7 +69,7 @@ func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context)
 }
 
 func (oc *OCRContractTransmitter) FromAddress() gethCommon.Address {
-	return oc.effectiveTransmitterAddress
+	return oc.transmitter.FromAddress()
 }
 
 func (oc *OCRContractTransmitter) ChainID() *big.Int {

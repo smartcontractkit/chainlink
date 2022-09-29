@@ -4,6 +4,7 @@
   "workspaces": {
     "packages": [
       "contracts",
+      "operator_ui",
       "tools",
       "tools/external-adapter"
     ],
@@ -24,6 +25,7 @@
     "prettier:check": "yarn prettier . --check --ignore-unknown",
     "prettier:write": "yarn prettier . --write --ignore-unknown",
     "setup": "wsrun -me -t setup",
+    "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
     "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
     "clean": "wsrun -me clean"
   },
@@ -34,6 +36,8 @@
     "eslint": "^6.8.0",
     "eslint-config-prettier": "^6.15.0",
     "eslint-plugin-prettier": "^3.4.1",
+    "eslint-plugin-react": "^7.23.2",
+    "eslint-plugin-react-hooks": "^4.0.0",
     "postinstall-postinstall": "^2.1.0",
     "prettier": "2.4.1",
     "ts-node": "^10.0.0",

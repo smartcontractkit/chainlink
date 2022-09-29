@@ -29,8 +29,7 @@ type ETHKeysController struct {
 
 // Index returns the node's Ethereum keys and the account balances of ETH & LINK.
 // Example:
-//
-//	"<application>/keys/eth"
+//  "<application>/keys/eth"
 func (ekc *ETHKeysController) Index(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
@@ -76,8 +75,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 
 // Create adds a new account
 // Example:
-//
-//	"<application>/keys/eth"
+//  "<application>/keys/eth"
 func (ekc *ETHKeysController) Create(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 
@@ -215,19 +213,43 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	keyID := c.Param("keyID")
-	if !common.IsHexAddress(keyID) {
-		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("invalid keyID: %s, must be hex address", keyID))
+	if !common.IsHexAddress(c.Param("keyID")) {
+		jsonAPIError(c, http.StatusBadRequest, errors.New("hard delete only"))
 		return
 	}
 
-	_, err = ethKeyStore.Delete(keyID)
+	chain, err := getChain(ekc.App.GetChains().EVM, c.Query("evmChainID"))
+	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	} else if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	keyID := c.Param("keyID")
+	state, err := ethKeyStore.GetState(keyID, chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	key, err := ethKeyStore.Delete(keyID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	r, err := presenters.NewETHKeyResource(key, state,
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(c.Request.Context(), state),
+	)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, r, "account")
 }
 
 // Import imports a key

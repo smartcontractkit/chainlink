@@ -357,10 +357,6 @@ func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
 	return *g.c.Keeper.RegistryPerformGasOverhead
 }
 
-func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.RegistryMaxPerformDataSize
-}
-
 func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return g.c.Keeper.RegistrySyncInterval.Duration()
 }

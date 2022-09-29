@@ -13,7 +13,7 @@ import (
 
 // Format implements fmt.Formatter to always print just the pointer address.
 // This is a hack to work around a race in github.com/stretchr/testify which
-// prints internal fields, including the state of nested, embedded mutexes.
+// prints internal fields, including the state of nested, embeded mutexes.
 func (fm *FluxMonitor) Format(f fmt.State, verb rune) {
 	fmt.Fprintf(f, "%[1]T<%[1]p>", fm)
 }

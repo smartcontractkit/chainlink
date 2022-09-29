@@ -62,11 +62,6 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				big.NewFloat(1),
 				defaultFluxEnv(networks.KlaytnBaobab),
 			),
-			Entry("Flux monitor suite on Optimism Goerli @optimism",
-				networks.OptimismGoerli,
-				big.NewFloat(.1),
-				defaultFluxEnv(networks.OptimismGoerli),
-			),
 		}
 
 		err              error

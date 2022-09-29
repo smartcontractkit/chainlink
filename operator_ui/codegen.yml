@@ -1,0 +1,28 @@
+overwrite: true
+schema:
+  - '../core/web/schema/**/*'
+  - '!../core/web/schema/*.go'
+documents:
+  - 'src/**/!(*.d).{ts,tsx}'
+  - '**/*.graphql'
+generates:
+  src/types/generated/graphql.d.ts:
+    plugins:
+      - 'typescript'
+      - 'typescript-operations'
+    config:
+      immutableTypes: true
+      enumsAsTypes: true
+      omitOperationSuffix: true
+      globalNamespace: true
+      exportFragmentSpreadSubTypes: true
+
+  ./graphql.schema.json:
+    plugins:
+      - 'introspection'
+
+  src/types/generated/possibleTypes.ts:
+    plugins:
+      - fragment-matcher
+    config:
+      useExplicitTyping: true

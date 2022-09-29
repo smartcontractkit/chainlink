@@ -2,6 +2,7 @@ package ocr_test
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		t.Log("creating DB")
+		fmt.Println("creating DB")
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,

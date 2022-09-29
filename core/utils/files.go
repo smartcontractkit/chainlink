@@ -101,7 +101,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 // FileSize repesents a file size in bytes.
 type FileSize uint64
 
-// nolint
+//nolint
 const (
 	KB = 1000
 	MB = 1000 * KB

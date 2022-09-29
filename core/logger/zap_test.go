@@ -15,18 +15,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
-
-func (cfg zapDiskLoggerConfig) newTestLogger(t *testing.T, zcfg zap.Config, cores ...zapcore.Core) Logger {
-	lggr, closeLggr, err := cfg.newLogger(zcfg, cores...)
-	assert.NoError(t, err)
-	t.Cleanup(func() {
-		assert.NoError(t, closeLggr())
-	})
-	return lggr
-}
 
 func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	cfg := newZapConfigBase()
@@ -41,7 +31,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
 	assert.NoError(t, err)
-	defer func() { assert.NoError(t, tmpFile.Close()) }()
+	defer tmpFile.Close()
 
 	var logFileSize utils.FileSize
 	err = logFileSize.UnmarshalText([]byte("100mb"))
@@ -75,7 +65,9 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr := zapCfg.newTestLogger(t, cfg)
+		lggr, close, err := zapCfg.newLogger(cfg)
+		assert.NoError(t, err)
+		defer func() { assert.NoError(t, close()) }()
 
 		pollChan <- time.Now()
 		<-zapCfg.testDiskLogLvlChan
@@ -106,7 +98,9 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr := zapCfg.newTestLogger(t, cfg)
+		lggr, close, err := zapCfg.newLogger(cfg)
+		assert.NoError(t, err)
+		defer func() { assert.NoError(t, close()) }()
 
 		pollChan <- time.Now()
 		<-zapCfg.testDiskLogLvlChan
@@ -137,7 +131,9 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr := zapCfg.newTestLogger(t, cfg)
+		lggr, close, err := zapCfg.newLogger(cfg)
+		assert.NoError(t, err)
+		defer func() { assert.NoError(t, close()) }()
 
 		lggr.Debug("writing to disk on test")
 
@@ -184,7 +180,9 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr := zapCfg.newTestLogger(t, cfg)
+		lggr, close, err := zapCfg.newLogger(cfg)
+		assert.NoError(t, err)
+		defer close()
 
 		lggr.Debug("test")
 
@@ -232,7 +230,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
 	assert.NoError(t, err)
-	defer func() { assert.NoError(t, tmpFile.Close()) }()
+	defer tmpFile.Close()
 
 	var logFileSize utils.FileSize
 	err = logFileSize.UnmarshalText([]byte("100mb"))
@@ -265,7 +263,9 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	}
 	zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-	lggr := zapCfg.newTestLogger(t, cfg)
+	lggr, closeLggr, err := zapCfg.newLogger(cfg)
+	assert.NoError(t, err)
+	defer closeLggr()
 
 	lggr.Debug("test message with caller")
 

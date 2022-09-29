@@ -5,6 +5,7 @@ package ethschnorr
 
 import (
 	crand "crypto/rand"
+	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"testing"
@@ -29,7 +30,7 @@ func printTest(t *testing.T, msg *big.Int, private kyber.Scalar,
 	privateBytes, err := private.MarshalBinary()
 	require.Nil(t, err)
 	pX, pY := secp256k1.Coordinates(public)
-	t.Logf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   "+
+	fmt.Printf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   "+
 		"'%064x',\n   '%040x'],\n",
 		msg, privateBytes, pX, pY, signature.Signature,
 		signature.CommitmentPublicAddress)
@@ -37,7 +38,7 @@ func printTest(t *testing.T, msg *big.Int, private kyber.Scalar,
 
 func TestShortSchnorr_SignAndVerify(t *testing.T) {
 	if printTests {
-		t.Log("tests = [\n")
+		fmt.Printf("tests = [\n")
 	}
 	for i := 0; i < numSignatures; i++ {
 		rand := mrand.New(mrand.NewSource(0))
@@ -75,7 +76,7 @@ func TestShortSchnorr_SignAndVerify(t *testing.T) {
 			"failed to reject signature with bad public commitment")
 	}
 	if printTests {
-		t.Log("]")
+		fmt.Println("]")
 	}
 	// Check other validations
 	edSuite := curve25519.NewBlakeSHA256Curve25519(false)

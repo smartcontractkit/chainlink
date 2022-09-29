@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -69,7 +68,7 @@ type logPoller struct {
 	eventSigs map[common.Hash]struct{}
 
 	replayStart    chan ReplayRequest
-	replayComplete chan error
+	replayComplete chan struct{}
 	ctx            context.Context
 	cancel         context.CancelFunc
 	done           chan struct{}
@@ -94,7 +93,7 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		orm:               orm,
 		lggr:              lggr,
 		replayStart:       make(chan ReplayRequest),
-		replayComplete:    make(chan error),
+		replayComplete:    make(chan struct{}),
 		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
@@ -185,14 +184,12 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 	// Block until replay complete or cancelled.
 	select {
-	case err := <-lp.replayComplete:
-		return err
+	case <-lp.replayComplete:
 	case <-lp.ctx.Done():
 		return ErrReplayAbortedOnShutdown
 	case <-ctx.Done():
 		return ErrReplayAbortedByClient
 	}
-	// Should never reach here.
 	return nil
 }
 
@@ -214,22 +211,6 @@ func (lp *logPoller) Close() error {
 	})
 }
 
-func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
-	lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			// Real DB error
-			return 0, err
-		}
-		// Nothing in db, use requested
-		return requested, nil
-	}
-	// We have lastProcessed, take min(requested, lastProcessed).
-	// This is to avoid replaying from a block later than what we have in the DB
-	// and skipping blocks.
-	return mathutil.Min(requested, lastProcessed.BlockNumber), nil
-}
-
 func (lp *logPoller) run() {
 	defer close(lp.done)
 	tick := time.After(0)
@@ -238,14 +219,9 @@ func (lp *logPoller) run() {
 		case <-lp.ctx.Done():
 			return
 		case replayReq := <-lp.replayStart:
-			fromBlock, err := lp.getReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
-			if err == nil {
-				// Serially process replay requests.
-				lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
-				lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
-			} else {
-				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
-			}
+			lp.lggr.Warnw("Executing replay", "fromBlock", replayReq.fromBlock)
+			// Serially process replay requests.
+			lp.pollAndSaveLogs(replayReq.ctx, replayReq.fromBlock)
 			select {
 			case <-lp.ctx.Done():
 				// We're shutting down, lets return.
@@ -253,7 +229,7 @@ func (lp *logPoller) run() {
 			case <-replayReq.ctx.Done():
 				// Client gave up, lets continue.
 				continue
-			case lp.replayComplete <- err:
+			case lp.replayComplete <- struct{}{}:
 			}
 		case <-tick:
 			tick = time.After(utils.WithJitter(lp.pollPeriod))
@@ -377,7 +353,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	// We will not have the previous currentBlock on initial poll.
 	havePreviousBlock := err1 == nil
 	if !havePreviousBlock {
-		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill", "currentBlockNumber", currentBlockNumber)
+		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill")
 		return currentBlock, nil
 	}
 	// Check for reorg.

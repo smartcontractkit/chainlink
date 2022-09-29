@@ -34,6 +34,7 @@ type sleeperTask struct {
 // immediately after it is finished. For this reason you should take care to
 // make sure that Worker is idempotent.
 // WakeUp does not block.
+//
 func NewSleeperTask(worker Worker) SleeperTask {
 	s := &sleeperTask{
 		worker:  worker,

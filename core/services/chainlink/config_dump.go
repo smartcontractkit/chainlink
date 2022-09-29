@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -214,6 +215,15 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].FinalityDepth = e
 		}
 	}
+	if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			if c.EVM[i].HeadTracker == nil {
+				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
+			}
+			c.EVM[i].HeadTracker.BlockEmissionIdleWarningThreshold = d
+		}
+	}
 	if e := envvar.NewUint32("EvmHeadTrackerHistoryDepth").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].HeadTracker == nil {
@@ -286,12 +296,10 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewDuration("NodeNoNewHeadsThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].NoNewHeadsThreshold = d
-		}
-	} else if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
-		d := models.MustNewDuration(*e)
-		for i := range c.EVM {
-			c.EVM[i].NoNewHeadsThreshold = d
+			if c.EVM[i].NodePool == nil {
+				c.EVM[i].NodePool = &evmcfg.NodePool{}
+			}
+			c.EVM[i].NodePool.NoNewHeadsThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("NodePollFailureThreshold").ParsePtr(); e != nil {
@@ -529,13 +537,25 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].RPCBlockQueryDelay = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.BlockDelay = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_DELAY"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				c.EVM[i].RPCBlockQueryDelay = &l
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+				}
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.BlockDelay = &l
 			}
 		}
 	}
@@ -863,7 +883,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		MaximumGracePeriod:           envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		RegistryCheckGasOverhead:     envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
 		RegistryPerformGasOverhead:   envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
-		RegistryMaxPerformDataSize:   envvar.NewUint32("KeeperRegistryMaxPerformDataSize").ParsePtr(),
 		RegistrySyncInterval:         envDuration("KeeperRegistrySyncInterval"),
 		RegistrySyncUpkeepQueueSize:  envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
@@ -977,6 +996,15 @@ func envSlice[T any](s string, parse func(*T, []byte) error) *[]T {
 		return ts, nil
 	}).ParsePtr()
 }
+
+func envBig(s string) *utils.Big {
+	return envvar.New(s, func(s string) (b utils.Big, err error) {
+		err = b.UnmarshalText([]byte(s))
+		return
+	}).ParsePtr()
+}
+
+var multiLineBreak = regexp.MustCompile("(\n){2,}")
 
 func isZeroPtr[T comparable](p *T) bool {
 	var t T

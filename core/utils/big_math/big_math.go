@@ -115,7 +115,7 @@ func bnIfy(val interface{}) *big.Int {
 	}
 }
 
-// nolint
+//nolint
 var (
 	Zero  = big.NewInt(0)
 	One   = big.NewInt(1)

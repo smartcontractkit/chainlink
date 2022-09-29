@@ -32,7 +32,7 @@ $ npm install @chainlink/contracts --save
 The solidity smart contracts themselves can be imported via the `src` directory of `@chainlink/contracts`:
 
 ```solidity
-import '@chainlink/contracts/src/v0.8/AutomationCompatibleInterface.sol';
+import '@chainlink/contracts/src/v0.8/KeeperCompatibleInterface.sol';
 
 ```
 

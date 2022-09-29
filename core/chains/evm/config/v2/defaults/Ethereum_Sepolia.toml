@@ -7,5 +7,6 @@ EIP1559DynamicFees = true
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
+BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50

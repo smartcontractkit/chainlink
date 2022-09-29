@@ -34,13 +34,26 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Solidity Coverage
         continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@v2
       - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v2
         with:
           node-version: "16"
-          cache: yarn
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
       - name: Run coverage
         env:
@@ -59,13 +72,26 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Solidity
         continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@v2
       - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v2
         with:
           node-version: "16"
-          cache: 'yarn'
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
       - name: Compile all contracts
         run: ./contracts/scripts/native_solc_compile_all

@@ -81,19 +81,14 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
+	vrfAddress := deployVRFBeaconCoordinator(
+		e, link.String(), dkgAddress.String(), *keyID, big.NewInt(*beaconPeriodBlocks))
 
-	fmt.Println("Deploying VRF beacon...")
-	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
-
-	fmt.Println("Adding VRF Beacon as DKG client...")
-	addClientToDKG(e, dkgAddress.String(), *keyID, vrfBeaconAddress.String())
-
-	fmt.Println("Adding VRF Beacon as producer in VRF Coordinator")
-	setProducer(e, vrfCoordinatorAddress.String(), vrfBeaconAddress.String())
+	fmt.Println("Adding VRF as DKG client...")
+	addClientToDKG(e, dkgAddress.String(), *keyID, vrfAddress.String())
 
 	fmt.Println("Deploying beacon consumer...")
-	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
@@ -122,8 +117,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		flagSet.String("dkg-address", dkgAddress.String(), "the contract address of the DKG")
 
 		// VRF args
-		flagSet.String("vrf-beacon-address", vrfBeaconAddress.String(), "the contract address of the VRF Beacon")
-		flagSet.String("vrf-coordinator-address", vrfCoordinatorAddress.String(), "the contract address of the VRF Coordinator")
+		flagSet.String("vrf-address", vrfAddress.String(), "the contract address of the VRF")
 		flagSet.String("link-eth-feed-address", feedAddress.Hex(), "link eth feed address")
 		flagSet.Int64("lookback-blocks", *lookbackBlocks, "lookback blocks")
 		flagSet.String("confirmation-delays", *confDelays, "confirmation delays")
@@ -171,8 +165,8 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	fmt.Println()
 	fmt.Println("Generated vrf setConfig command:")
 	vrfCommand := fmt.Sprintf(
-		"go run . beacon-set-config -beacon-address %s -conf-delays %s -onchain-pub-keys %s -offchain-pub-keys %s -config-pub-keys %s -peer-ids %s -transmitters %s -schedule 1,1,1,1,1",
-		vrfBeaconAddress.String(),
+		"go run . coordinator-set-config -coordinator-address %s -conf-delays %s -onchain-pub-keys %s -offchain-pub-keys %s -config-pub-keys %s -peer-ids %s -transmitters %s -schedule 1,1,1,1,1",
+		vrfAddress.String(),
 		*confDelays,
 		strings.Join(onChainPublicKeys[1:], ","),
 		strings.Join(offChainPublicKeys[1:], ","),

@@ -12,11 +12,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
@@ -138,8 +137,9 @@ func (c *chain) Start(ctx context.Context) error {
 
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
-		var ms services.MultiStart
-		return ms.Start(ctx, c.txm, c.balanceMonitor)
+		return multierr.Combine(
+			c.txm.Start(ctx),
+			c.balanceMonitor.Start(ctx))
 	})
 }
 

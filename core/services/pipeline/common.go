@@ -357,8 +357,6 @@ const (
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 	TaskTypeMerge            TaskType = "merge"
-	TaskTypeLength           TaskType = "length"
-	TaskTypeLessThan         TaskType = "lessthan"
 	TaskTypeLowercase        TaskType = "lowercase"
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeConditional      TaskType = "conditional"
@@ -442,10 +440,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMerge:
 		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeLength:
-		task = &LengthTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeLessThan:
-		task = &LessThanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeLowercase:
 		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeUppercase:
