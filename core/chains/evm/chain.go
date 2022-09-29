@@ -46,8 +46,9 @@ var _ Chain = &chain{}
 
 type chain struct {
 	utils.StartStopOnce
-	id              *big.Int
-	cfg             evmconfig.ChainScopedConfig
+	id  *big.Int
+	cfg evmconfig.ChainScopedConfig
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config - immutability becomes default
 	cfgImmutable    bool // toml config is immutable
 	client          evmclient.Client
 	txm             txmgr.TxManager
@@ -68,6 +69,7 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func newDBChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())

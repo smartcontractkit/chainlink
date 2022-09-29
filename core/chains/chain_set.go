@@ -61,6 +61,7 @@ type ChainService[C Config] interface {
 // ChainSetOpts holds options for configuring a ChainSet via NewChainSet.
 type ChainSetOpts[I ID, C Config, N Node, S ChainService[C]] interface {
 	Validate() error
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	NewChain(DBChain[I, C]) (S, error)
 	ORMAndLogger() (ORM[I, C, N], logger.Logger)
 }
@@ -75,10 +76,12 @@ type chainSet[I ID, C Config, N Node, S ChainService[C]] struct {
 	chainsMu sync.RWMutex
 	chains   map[string]S
 
-	immutable bool // toml config is immutable
+	// immutability will be standard https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+	immutable bool // toml chain set is immutable
 }
 
 // NewChainSet returns a new ChainSet for the given ChainSetOpts.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewChainSet[I ID, C Config, N Node, S ChainService[C]](
 	opts ChainSetOpts[I, C, N, S], formatID func(I) string,
 ) (ChainSet[I, C, N, S], error) {

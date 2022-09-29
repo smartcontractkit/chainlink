@@ -1146,8 +1146,8 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 	}
 }
 
-func TestConfig_SetDefaults(t *testing.T) {
+func TestConfig_setDefaults(t *testing.T) {
 	var c Config
-	c.SetDefaults()
+	c.setDefaults()
 	cfgtest.AssertFieldsNotNil(t, c.Core)
 }

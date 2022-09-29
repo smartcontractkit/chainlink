@@ -98,6 +98,7 @@ type ChainScopedConfig interface {
 	PersistedConfig() evmtypes.ChainCfg
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type LegacyChainScopedConfig interface {
 	ChainScopedConfig
 	config.GeneralConfig
@@ -105,6 +106,7 @@ type LegacyChainScopedConfig interface {
 
 var _ ChainScopedConfig = &chainScopedConfig{}
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type chainScopedConfig struct {
 	config.GeneralConfig
 	logger     logger.Logger
@@ -121,6 +123,7 @@ type chainScopedConfig struct {
 	onceMapMu sync.RWMutex
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) LegacyChainScopedConfig {
 	csorm := &chainScopedConfigORM{*utils.NewBig(chainID), orm}
 	defaultSet, exists := chainSpecificConfigDefaultSets[chainID.Int64()]
@@ -1249,6 +1252,7 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 	return c.defaultSet.nodeSelectionMode
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func lookupEnv[T any](c *chainScopedConfig, k string, parse func(string) (T, error)) (t T, ok bool) {
 	s, ok := os.LookupEnv(k)
 	if !ok {

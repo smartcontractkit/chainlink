@@ -21,6 +21,7 @@ var (
 
 type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	chainSpecificConfigDefaultSet struct {
 		balanceMonitorEnabled                      bool
 		blockEmissionIdleWarningThreshold          time.Duration

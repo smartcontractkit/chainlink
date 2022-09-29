@@ -65,6 +65,7 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 	return o.ORM, o.Logger
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (terra.Chain, error) {
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
@@ -104,6 +105,7 @@ type ChainSet interface {
 }
 
 // NewChainSet returns a new chain set for opts.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
 	return chains.NewChainSet[string, *db.ChainCfg, db.Node, terra.Chain](&opts, func(s string) string { return s })
 }

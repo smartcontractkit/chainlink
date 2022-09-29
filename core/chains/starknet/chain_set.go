@@ -82,6 +82,7 @@ type ChainSet interface {
 }
 
 // NewChainSet returns a new chain set for opts.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
 	return chains.NewChainSet[string, *db.ChainCfg, db.Node, starkchain.Chain](&opts, func(s string) string { return s })
 }

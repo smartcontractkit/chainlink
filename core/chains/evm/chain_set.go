@@ -427,6 +427,7 @@ func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 }
 
 // NewDBChainSet returns a new ChainSet from legacy configuration.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewDBChainSet(ctx context.Context, opts ChainSetOpts, dbchains []types.DBChain, nodes map[string][]types.Node) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err

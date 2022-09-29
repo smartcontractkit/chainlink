@@ -66,8 +66,8 @@ func (c *Config) Validate() error {
 	return config.Validate(c)
 }
 
-// SetDefaults initializes unset fields with default values.
-func (c *Config) SetDefaults() {
+// setDefaults initializes unset fields with default values.
+func (c *Config) setDefaults() {
 	core := config.CoreDefaults()
 	core.SetFrom(&c.Core)
 	c.Core = core

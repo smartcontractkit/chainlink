@@ -281,6 +281,7 @@ type generalConfig struct {
 
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewGeneralConfig(lggr logger.Logger) GeneralConfig {
 	v := viper.New()
 	c := newGeneralConfigWithViper(v, lggr.Named("GeneralConfig"))

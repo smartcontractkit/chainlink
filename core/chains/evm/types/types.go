@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type NewNode struct {
 	Name       string      `json:"name"`
 	EVMChainID utils.Big   `json:"evmChainId"`
@@ -27,6 +28,7 @@ type NewNode struct {
 	SendOnly   bool        `json:"sendOnly"`
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type ChainConfigORM interface {
 	StoreString(chainID utils.Big, key, val string) error
 	Clear(chainID utils.Big, key string) error
@@ -53,6 +55,7 @@ type ORM interface {
 	SetupNodes([]Node, []utils.Big) error
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type ChainCfg struct {
 	BlockHistoryEstimatorBlockDelay                null.Int
 	BlockHistoryEstimatorBlockHistorySize          null.Int
@@ -112,6 +115,7 @@ func (c *ChainCfg) Value() (driver.Value, error) {
 
 type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type Node struct {
 	ID         int32
 	Name       string

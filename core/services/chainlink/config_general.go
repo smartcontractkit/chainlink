@@ -66,7 +66,7 @@ func NewTOMLGeneralConfig(lggr logger.Logger, configToml string, secretsToml str
 		return nil, err
 	}
 
-	c.SetDefaults()
+	c.setDefaults()
 
 	effective, err := c.TOMLString()
 	if err != nil {

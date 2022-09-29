@@ -53,6 +53,7 @@ type orm[I ID, C Config, N Node] struct {
 
 // NewORM returns an ORM backed by q, for the tables <prefix>_chains and <prefix>_nodes with column <prefix>_chain_id.
 // Additional Node fields should be included in nodeCols.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) ORM[I, C, N] {
 	return orm[I, C, N]{
 		newChainsORM[I, C](q, prefix),
@@ -60,6 +61,7 @@ func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) O
 	}
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 	return o.chainsORM.q.Transaction(func(q pg.Queryer) error {
 		tx := pg.WithQueryer(q)
