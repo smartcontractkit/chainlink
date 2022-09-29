@@ -14,8 +14,8 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.11.2
 	github.com/smartcontractkit/chainlink v1.8.0
-	github.com/smartcontractkit/chainlink-env v0.2.39
-	github.com/smartcontractkit/chainlink-testing-framework v1.6.6
+	github.com/smartcontractkit/chainlink-env v0.2.41
+	github.com/smartcontractkit/chainlink-testing-framework v1.6.8
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/atomic v1.9.0
@@ -91,7 +91,6 @@ require (
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect

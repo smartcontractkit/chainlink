@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -148,6 +149,61 @@ func DeployPerformanceKeeperContracts(
 	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
 
 	upkeeps := DeployKeeperConsumersPerformance(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn)
+
+	var upkeepsAddresses []string
+	for _, upkeep := range upkeeps {
+		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
+	}
+
+	upkeepIds := RegisterUpkeepContracts(linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses)
+
+	return registry, registrar, upkeeps, upkeepIds
+}
+
+// DeployPerformDataCheckerContracts deploys a set amount of keeper perform data checker contracts registered to a single registry
+func DeployPerformDataCheckerContracts(
+	registryVersion ethereum.KeeperRegistryVersion,
+	numberOfContracts int,
+	upkeepGasLimit uint32,
+	linkToken contracts.LinkToken,
+	contractDeployer contracts.ContractDeployer,
+	client blockchain.EVMClient,
+	registrySettings *contracts.KeeperRegistrySettings,
+	linkFundsForEachUpkeep *big.Int,
+	expectedData []byte,
+) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperPerformDataChecker, []*big.Int) {
+	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
+	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock ETH-Link feed shouldn't fail")
+	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
+	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock gas feed shouldn't fail")
+	err = client.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for mock feeds to deploy")
+
+	registry := DeployKeeperRegistry(contractDeployer, client,
+		&contracts.KeeperRegistryOpts{
+			RegistryVersion: registryVersion,
+			LinkAddr:        linkToken.Address(),
+			ETHFeedAddr:     ef.Address(),
+			GasFeedAddr:     gf.Address(),
+			TranscoderAddr:  ZeroAddress.Hex(),
+			RegistrarAddr:   ZeroAddress.Hex(),
+			Settings:        *registrySettings,
+		},
+	)
+
+	// Fund the registry with 1 LINK * amount of KeeperConsumerPerformance contracts
+	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfContracts))))
+	Expect(err).ShouldNot(HaveOccurred(), "Funding keeper registry contract shouldn't fail")
+
+	registrarSettings := contracts.KeeperRegistrarSettings{
+		AutoApproveConfigType: 2,
+		AutoApproveMaxAllowed: math.MaxUint16,
+		RegistryAddr:          registry.Address(),
+		MinLinkJuels:          big.NewInt(0),
+	}
+	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
+
+	upkeeps := DeployPerformDataChecker(contractDeployer, client, numberOfContracts, expectedData)
 
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
@@ -331,6 +387,35 @@ func DeployKeeperConsumersPerformance(
 	err := client.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for to deploy all keeper consumer contracts")
 	log.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
+
+	return upkeeps
+}
+
+func DeployPerformDataChecker(
+	contractDeployer contracts.ContractDeployer,
+	client blockchain.EVMClient,
+	numberOfContracts int,
+	expectedData []byte,
+) []contracts.KeeperPerformDataChecker {
+	upkeeps := make([]contracts.KeeperPerformDataChecker, 0)
+
+	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+		performDataCheckerInstance, err := contractDeployer.DeployKeeperPerformDataChecker(expectedData)
+		Expect(err).ShouldNot(HaveOccurred(), "Deploying KeeperPerformDataChecker instance %d shouldn't fail", contractCount+1)
+		upkeeps = append(upkeeps, performDataCheckerInstance)
+		log.Debug().
+			Str("Contract Address", performDataCheckerInstance.Address()).
+			Int("Number", contractCount+1).
+			Int("Out Of", numberOfContracts).
+			Msg("Deployed PerformDataChecker Contract")
+		if (contractCount+1)%ContractDeploymentInterval == 0 {
+			err = client.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for PerformDataChecker deployments")
+		}
+	}
+	err := client.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for to deploy all keeper perform data checker contracts")
+	log.Info().Msg("Successfully deployed all PerformDataChecker Contracts")
 
 	return upkeeps
 }

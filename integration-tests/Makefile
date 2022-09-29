@@ -48,3 +48,7 @@ endif
 	helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
 	helm repo add bitnami https://charts.bitnami.com/bitnami
 	helm repo update
+
+.PHONY: test_smoke_product
+test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product focus="@simulated" product="cron"
+	ARGS="$(args)" PRODUCT=$(product) FOCUS=$(focus) ./scripts/run_product_tests
