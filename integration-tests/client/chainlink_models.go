@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gopkg.in/guregu/null.v4"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -1254,4 +1255,29 @@ func NewBlankChainlinkProfileResults() *ChainlinkProfileResults {
 type CLNodesWithKeys struct {
 	Node       *Chainlink
 	KeysBundle NodeKeysBundle
+}
+
+// Forwarder the model that represents the created Forwarder when created
+type Forwarder struct {
+	Data ForwarderData `json:"data"`
+}
+
+// Forwarders is the model that represents the created Forwarders when read
+type Forwarders struct {
+	Data []Forwarder `json:"data"`
+}
+
+// ForwarderData is the model that represents the created Forwarder when read
+type ForwarderData struct {
+	ID         string    `json:"id"`
+	Address    string    `json:"address"`
+	EVMChainID string    `json:"evmChainId"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// ForwarderAttributes is the model that represents attributes of a Forwarder
+type ForwarderAttributes struct {
+	Address    string `json:"address"`
+	EVMChainID string `json:"evmChainID"`
 }

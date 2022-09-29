@@ -20,6 +20,7 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -86,6 +87,7 @@ var _ = Describe("Forwarder suite", func() {
 	AfterEach(func() {
 		By("Tearing down the environment")
 		chainClient.GasStats().PrintStats()
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	})
 
@@ -164,17 +166,32 @@ var _ = Describe("Forwarder suite", func() {
 		senders, err := forwarderInstance.GetAuthorizedSenders(context.Background())
 		Expect(err).ShouldNot(HaveOccurred(), "Getting authorized senders shouldn't fail")
 		log.Info().Msg(fmt.Sprintf("Authorized senders: %+v", senders))
-		var sendersAddrs []string
+		var nodesAddrs []string
 		for _, o := range nodeAddresses {
-			sendersAddrs = append(sendersAddrs, o.Hex())
+			nodesAddrs = append(nodesAddrs, o.Hex())
 		}
-		Expect(senders).Should(Equal(sendersAddrs), "Eoa addresses should match node addresses")
+		Expect(senders).Should(Equal(nodesAddrs), "Senders addresses should match node addresses")
 
 		By("Verify forwarder Owner")
 		owner, err := forwarderInstance.Owner(context.Background())
 		Expect(err).ShouldNot(HaveOccurred(), "Getting authorized forwarder owner shouldn't fail")
 		Expect(owner).Should(Equal(operator.Hex()), "Forwarder owner should match operator")
 
+		By("Track forwarder")
+		for _, node := range chainlinkNodes {
+			chainID := chainClient.GetChainID()
+			log.Info().Str("NodeURL", node.Config.URL).Str("ForwarderAddress", authorizedForwarder.Hex()).Str("ChaidID", chainID.String()).Msg("Setting Track forwarder")
+			response, _, err := node.TrackForwarder(chainID, authorizedForwarder)
+			fmt.Println(response)
+			Expect(err).ShouldNot(HaveOccurred(), "Forwarder should be created")
+		}
+
+		By("Get Forwarders")
+		for _, node := range chainlinkNodes {
+			forwarders, _, err := node.GetForwarders()
+			Expect(err).ShouldNot(HaveOccurred(), "Could not get forwarders list from one of the nodes")
+			fmt.Println(forwarders)
+		}
 	},
 		testScenarios,
 	)
