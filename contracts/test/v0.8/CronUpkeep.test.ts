@@ -1,5 +1,6 @@
 import moment from 'moment'
 import { ethers } from 'hardhat'
+import { Contract } from 'ethers'
 import { assert, expect } from 'chai'
 import { CronUpkeepTestHelper } from '../../typechain/CronUpkeepTestHelper'
 import { CronUpkeepDelegate } from '../../typechain/CronUpkeepDelegate'
@@ -11,7 +12,6 @@ import { BigNumber, BigNumberish } from '@ethersproject/bignumber'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { validCrons } from '../test-helpers/fixtures'
 import * as h from '../test-helpers/helpers'
-import { Contract } from '@ethersproject/contracts'
 
 const { utils } = ethers
 const { AddressZero } = ethers.constants
