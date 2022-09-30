@@ -180,6 +180,7 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.DBChain
 	if err = chain.Start(ctx); err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to start chain %s", dbchain.ID.String())
 	}
+	cll.startedChains = append(cll.startedChains, chain)
 	cll.chains[cid] = chain
 	return nil
 }
