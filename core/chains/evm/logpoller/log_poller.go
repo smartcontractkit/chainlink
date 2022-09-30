@@ -340,7 +340,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
 		})
 		if err != nil {
-			lp.lggr.Warnw("Unable to insert logs logs, retrying", "err", err, "from", from, "to", to)
+			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
 			return err
 		}
 	}
@@ -360,6 +360,15 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		if err1 != nil {
 			lp.lggr.Warnw("Unable to get currentBlock", "err", err1, "currentBlockNumber", currentBlockNumber)
 			return nil, err1
+		}
+		// Additional sanity checks, don't necessarily trust the RPC.
+		if currentBlock == nil {
+			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
+			return nil, errors.Errorf("Got nil block for %d", currentBlockNumber)
+		}
+		if currentBlock.Number.Int64() != currentBlockNumber {
+			lp.lggr.Warnw("Unable to get currentBlock, rpc returned incorrect block", "currentBlockNumber", currentBlockNumber, "got", currentBlock.Number.Int64())
+			return nil, errors.Errorf("Block mismatch have %d want %d", currentBlock.Number.Int64(), currentBlockNumber)
 		}
 	}
 	// Does this currentBlock point to the same parent that we have saved?
