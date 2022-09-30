@@ -2947,6 +2947,7 @@ ObservationGracePeriod = '1s'
 ```toml
 ChainType = 'arbitrum'
 FinalityDepth = 50
+LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
 MaxInFlightTransactions = 16
