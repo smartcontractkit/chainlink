@@ -36,12 +36,8 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
       - name: Run coverage
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
@@ -61,12 +57,8 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
-          cache: "pnpm"
-      - run: pnpm install --frozen-lockfile
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
       - name: Compile all contracts
         run: ./contracts/scripts/native_solc_compile_all
       - name: Verify local solc binaries
@@ -92,13 +84,8 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
-          cache: pnpm
-      - name: Run pnpm install
-        run: pnpm i --frozen-lockfile
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
         run: pnpm lint
 
@@ -116,12 +103,7 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
-          cache: pnpm
-      - name: Run pnpm install
-        run: pnpm install --frozen-lockfile
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
       - name: Run prettier check
         run: pnpm prettier:check

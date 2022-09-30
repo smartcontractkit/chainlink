@@ -79,13 +79,10 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
         with:
-          node-version: "16"
-          cache: pnpm
-      - name: Install contract dependencies
-        run: pnpm i --prod
+          prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
       - name: Setup Solana
