@@ -60,6 +60,8 @@ jobs:
         uses: ./.github/actions/setup-nodejs
       - name: Setup Hardhat
         uses: ./.github/actions/setup-hardhat
+        with:
+          shard: ${{ matrix.shard }}
       - name: Run coverage
         env:
           SHARD: ${{ matrix.shard }}
