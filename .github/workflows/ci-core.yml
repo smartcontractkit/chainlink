@@ -107,7 +107,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.shard.pkgs }}"
       - name: Store logs artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v2.3.0
+        uses: actions/upload-artifact@v3.1.0
         with:
           name: ${{ matrix.cmd }}_${{ matrix.shard.idx }}_logs
           path: |
