@@ -40,9 +40,9 @@ runs:
         path: |
           contracts/cache/
           contracts/artifacts/
-        key: contracts-${{ inputs.shard }}-${{ runner.os }}-${{ inputs.cache-version }}-${{ hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts', '${{ steps.cache-key.outputs.result }}' )
+        key: ${{ format('contracts-{0}-{1}-{2}-{3}', inputs.shard, runner.os, inputs.cache-version, hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts', steps.cache-key.outputs.result)) }}
         restore-keys: |
-          contracts-${{ inputs.shard }}-${{ runner.os }}-${{ inputs.cache-version }}-
+          ${{ format('contracts-{0}-{1}-{2}', inputs.shard, runner.os, inputs.cache-version) }}
 
     # - name: Compile contracts
     #   shell: bash
