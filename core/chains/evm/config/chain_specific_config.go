@@ -118,7 +118,7 @@ func setChainSpecificConfigDefaultSets() {
 		ethTxReaperInterval:                   1 * time.Hour,
 		ethTxReaperThreshold:                  168 * time.Hour,
 		ethTxResendAfterThreshold:             1 * time.Minute,
-		finalityDepth:                         50,
+		finalityDepth:                         5,
 		gasBumpPercent:                        20,
 		gasBumpThreshold:                      3,
 		gasBumpTxDepth:                        10,

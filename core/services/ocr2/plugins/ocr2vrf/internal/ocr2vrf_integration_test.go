@@ -37,7 +37,11 @@ import (
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_proxy"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator_proxy"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_proxy_admin"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -112,14 +116,39 @@ func setupOCR2VRFContracts(
 
 	b.Commit()
 
-	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
-		owner, b, big.NewInt(beaconPeriod), linkAddress)
+	proxyAdminAddress, _, _, err := vrf_proxy_admin.DeployVRFProxyAdmin(owner, b)
 	require.NoError(t, err)
 
 	b.Commit()
 
-	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
-		owner, b, linkAddress, coordinatorAddress, dkgAddress, keyID)
+	coordinatorImplAddress, _, _, err := vrf_wrapper.DeployVRFCoordinator(owner, b)
+	require.NoError(t, err)
+
+	b.Commit()
+
+	coordinatorAbi, err := vrf_coordinator.VRFCoordinatorMetaData.GetAbi()
+	require.NoError(t, err)
+	coordinatorCalldata, err := coordinatorAbi.Pack("initialize", big.NewInt(beaconPeriod), linkAddress)
+	require.NoError(t, err)
+
+	coordinatorAddress, _, _, err := vrf_coordinator_proxy.DeployVRFCoordinatorProxy(
+		owner, b, coordinatorImplAddress, proxyAdminAddress, coordinatorCalldata)
+	require.NoError(t, err)
+
+	b.Commit()
+
+	beaconImplAddress, _, _, err := vrf_beacon.DeployVRFBeacon(owner, b)
+	require.NoError(t, err)
+
+	b.Commit()
+
+	beaconAbi, err := vrf_beacon.VRFBeaconMetaData.GetAbi()
+	require.NoError(t, err)
+	beaconCalldata, err := beaconAbi.Pack("initialize", linkAddress, coordinatorAddress, dkgAddress, keyID)
+	require.NoError(t, err)
+
+	beaconAddress, _, _, err := vrf_beacon_proxy.DeployVRFBeaconProxy(
+		owner, b, beaconImplAddress, proxyAdminAddress, beaconCalldata)
 	require.NoError(t, err)
 
 	b.Commit()
@@ -134,6 +163,11 @@ func setupOCR2VRFContracts(
 	require.NoError(t, err)
 
 	b.Commit()
+
+	coordinator, err := vrf_coordinator.NewVRFCoordinator(coordinatorAddress, b)
+	require.NoError(t, err)
+	beacon, err := vrf_beacon.NewVRFBeacon(beaconAddress, b)
+	require.NoError(t, err)
 
 	_, err = coordinator.SetProducer(owner, beaconAddress)
 	require.NoError(t, err)

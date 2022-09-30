@@ -994,6 +994,11 @@ func main() {
 		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "get-tx":
+		tx, _, err := e.Ec.TransactionByHash(context.Background(), common.HexToHash("0xde5cde1e7fad17043e269aa71a87bb00661557ad6c81daceeffe3cf31883f8d2"))
+		// tx, _, err := e.Ec.TransactionByHash(context.Background(), common.HexToHash("0xc7c86abaf96d335505f39e930356802d9e4dbfdbebc43812cbb086c4d009c86e"))
+		helpers.PanicErr(err)
+		fmt.Println("tx gas:", tx.Gas())
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
 	default:

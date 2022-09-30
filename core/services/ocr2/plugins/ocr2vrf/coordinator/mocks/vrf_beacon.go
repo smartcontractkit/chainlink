@@ -24,29 +24,6 @@ type VRFBeaconInterface struct {
 	mock.Mock
 }
 
-// AcceptOwnership provides a mock function with given fields: opts
-func (_m *VRFBeaconInterface) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
-	ret := _m.Called(opts)
-
-	var r0 *types.Transaction
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts) *types.Transaction); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // AcceptPayeeship provides a mock function with given fields: opts, transmitter
 func (_m *VRFBeaconInterface) AcceptPayeeship(opts *bind.TransactOpts, transmitter common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, transmitter)
@@ -84,29 +61,6 @@ func (_m *VRFBeaconInterface) Address() common.Address {
 	}
 
 	return r0
-}
-
-// COORDINATOR provides a mock function with given fields: opts
-func (_m *VRFBeaconInterface) COORDINATOR(opts *bind.CallOpts) (common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 common.Address
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // ExposeType provides a mock function with given fields: opts, arg0
@@ -201,6 +155,29 @@ func (_m *VRFBeaconInterface) FilterConfigSet(opts *bind.FilterOpts) (*vrf_beaco
 	return r0, r1
 }
 
+// FilterInitialized provides a mock function with given fields: opts
+func (_m *VRFBeaconInterface) FilterInitialized(opts *bind.FilterOpts) (*vrf_beacon.VRFBeaconInitializedIterator, error) {
+	ret := _m.Called(opts)
+
+	var r0 *vrf_beacon.VRFBeaconInitializedIterator
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *vrf_beacon.VRFBeaconInitializedIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconInitializedIterator)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterNewTransmission provides a mock function with given fields: opts, aggregatorRoundId, epochAndRound
 func (_m *VRFBeaconInterface) FilterNewTransmission(opts *bind.FilterOpts, aggregatorRoundId []uint32, epochAndRound []*big.Int) (*vrf_beacon.VRFBeaconNewTransmissionIterator, error) {
 	ret := _m.Called(opts, aggregatorRoundId, epochAndRound)
@@ -247,36 +224,13 @@ func (_m *VRFBeaconInterface) FilterOraclePaid(opts *bind.FilterOpts, transmitte
 	return r0, r1
 }
 
-// FilterOwnershipTransferRequested provides a mock function with given fields: opts, from, to
-func (_m *VRFBeaconInterface) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*vrf_beacon.VRFBeaconOwnershipTransferRequestedIterator, error) {
-	ret := _m.Called(opts, from, to)
-
-	var r0 *vrf_beacon.VRFBeaconOwnershipTransferRequestedIterator
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) *vrf_beacon.VRFBeaconOwnershipTransferRequestedIterator); ok {
-		r0 = rf(opts, from, to)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconOwnershipTransferRequestedIterator)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []common.Address, []common.Address) error); ok {
-		r1 = rf(opts, from, to)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FilterOwnershipTransferred provides a mock function with given fields: opts, from, to
-func (_m *VRFBeaconInterface) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*vrf_beacon.VRFBeaconOwnershipTransferredIterator, error) {
-	ret := _m.Called(opts, from, to)
+// FilterOwnershipTransferred provides a mock function with given fields: opts, previousOwner, newOwner
+func (_m *VRFBeaconInterface) FilterOwnershipTransferred(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*vrf_beacon.VRFBeaconOwnershipTransferredIterator, error) {
+	ret := _m.Called(opts, previousOwner, newOwner)
 
 	var r0 *vrf_beacon.VRFBeaconOwnershipTransferredIterator
 	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) *vrf_beacon.VRFBeaconOwnershipTransferredIterator); ok {
-		r0 = rf(opts, from, to)
+		r0 = rf(opts, previousOwner, newOwner)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconOwnershipTransferredIterator)
@@ -285,7 +239,7 @@ func (_m *VRFBeaconInterface) FilterOwnershipTransferred(opts *bind.FilterOpts, 
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []common.Address, []common.Address) error); ok {
-		r1 = rf(opts, from, to)
+		r1 = rf(opts, previousOwner, newOwner)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -383,6 +337,29 @@ func (_m *VRFBeaconInterface) GetBillingAccessController(opts *bind.CallOpts) (c
 	return r0, r1
 }
 
+// Initialize provides a mock function with given fields: opts, link, coordinator, keyProvider, keyID
+func (_m *VRFBeaconInterface) Initialize(opts *bind.TransactOpts, link common.Address, coordinator common.Address, keyProvider common.Address, keyID [32]byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, link, coordinator, keyProvider, keyID)
+
+	var r0 *types.Transaction
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, common.Address, common.Address, [32]byte) *types.Transaction); ok {
+		r0 = rf(opts, link, coordinator, keyProvider, keyID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, common.Address, common.Address, [32]byte) error); ok {
+		r1 = rf(opts, link, coordinator, keyProvider, keyID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // KeyGenerated provides a mock function with given fields: opts, kd
 func (_m *VRFBeaconInterface) KeyGenerated(opts *bind.TransactOpts, kd vrf_beacon.KeyDataStructKeyData) (*types.Transaction, error) {
 	ret := _m.Called(opts, kd)
@@ -399,29 +376,6 @@ func (_m *VRFBeaconInterface) KeyGenerated(opts *bind.TransactOpts, kd vrf_beaco
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, vrf_beacon.KeyDataStructKeyData) error); ok {
 		r1 = rf(opts, kd)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// LINK provides a mock function with given fields: opts
-func (_m *VRFBeaconInterface) LINK(opts *bind.CallOpts) (common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 common.Address
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -674,6 +628,29 @@ func (_m *VRFBeaconInterface) ParseConfigSet(log types.Log) (*vrf_beacon.VRFBeac
 	return r0, r1
 }
 
+// ParseInitialized provides a mock function with given fields: log
+func (_m *VRFBeaconInterface) ParseInitialized(log types.Log) (*vrf_beacon.VRFBeaconInitialized, error) {
+	ret := _m.Called(log)
+
+	var r0 *vrf_beacon.VRFBeaconInitialized
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_beacon.VRFBeaconInitialized); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconInitialized)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *VRFBeaconInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -730,29 +707,6 @@ func (_m *VRFBeaconInterface) ParseOraclePaid(log types.Log) (*vrf_beacon.VRFBea
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconOraclePaid)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
-		r1 = rf(log)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ParseOwnershipTransferRequested provides a mock function with given fields: log
-func (_m *VRFBeaconInterface) ParseOwnershipTransferRequested(log types.Log) (*vrf_beacon.VRFBeaconOwnershipTransferRequested, error) {
-	ret := _m.Called(log)
-
-	var r0 *vrf_beacon.VRFBeaconOwnershipTransferRequested
-	if rf, ok := ret.Get(0).(func(types.Log) *vrf_beacon.VRFBeaconOwnershipTransferRequested); ok {
-		r0 = rf(log)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconOwnershipTransferRequested)
 		}
 	}
 
@@ -828,6 +782,29 @@ func (_m *VRFBeaconInterface) ParsePayeeshipTransferred(log types.Log) (*vrf_bea
 	var r1 error
 	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
 		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RenounceOwnership provides a mock function with given fields: opts
+func (_m *VRFBeaconInterface) RenounceOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	ret := _m.Called(opts)
+
+	var r0 *types.Transaction
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts) *types.Transaction); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts) error); ok {
+		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -973,13 +950,13 @@ func (_m *VRFBeaconInterface) SetPayees(opts *bind.TransactOpts, transmitters []
 	return r0, r1
 }
 
-// TransferOwnership provides a mock function with given fields: opts, to
-func (_m *VRFBeaconInterface) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
-	ret := _m.Called(opts, to)
+// TransferOwnership provides a mock function with given fields: opts, newOwner
+func (_m *VRFBeaconInterface) TransferOwnership(opts *bind.TransactOpts, newOwner common.Address) (*types.Transaction, error) {
+	ret := _m.Called(opts, newOwner)
 
 	var r0 *types.Transaction
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address) *types.Transaction); ok {
-		r0 = rf(opts, to)
+		r0 = rf(opts, newOwner)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -988,7 +965,7 @@ func (_m *VRFBeaconInterface) TransferOwnership(opts *bind.TransactOpts, to comm
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address) error); ok {
-		r1 = rf(opts, to)
+		r1 = rf(opts, newOwner)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1132,6 +1109,29 @@ func (_m *VRFBeaconInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *
 	return r0, r1
 }
 
+// WatchInitialized provides a mock function with given fields: opts, sink
+func (_m *VRFBeaconInterface) WatchInitialized(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconInitialized) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	var r0 event.Subscription
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconInitialized) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconInitialized) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WatchNewTransmission provides a mock function with given fields: opts, sink, aggregatorRoundId, epochAndRound
 func (_m *VRFBeaconInterface) WatchNewTransmission(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconNewTransmission, aggregatorRoundId []uint32, epochAndRound []*big.Int) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, aggregatorRoundId, epochAndRound)
@@ -1178,36 +1178,13 @@ func (_m *VRFBeaconInterface) WatchOraclePaid(opts *bind.WatchOpts, sink chan<- 
 	return r0, r1
 }
 
-// WatchOwnershipTransferRequested provides a mock function with given fields: opts, sink, from, to
-func (_m *VRFBeaconInterface) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
-	ret := _m.Called(opts, sink, from, to)
-
-	var r0 event.Subscription
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconOwnershipTransferRequested, []common.Address, []common.Address) event.Subscription); ok {
-		r0 = rf(opts, sink, from, to)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(event.Subscription)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconOwnershipTransferRequested, []common.Address, []common.Address) error); ok {
-		r1 = rf(opts, sink, from, to)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// WatchOwnershipTransferred provides a mock function with given fields: opts, sink, from, to
-func (_m *VRFBeaconInterface) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
-	ret := _m.Called(opts, sink, from, to)
+// WatchOwnershipTransferred provides a mock function with given fields: opts, sink, previousOwner, newOwner
+func (_m *VRFBeaconInterface) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconOwnershipTransferred, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, previousOwner, newOwner)
 
 	var r0 event.Subscription
 	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconOwnershipTransferred, []common.Address, []common.Address) event.Subscription); ok {
-		r0 = rf(opts, sink, from, to)
+		r0 = rf(opts, sink, previousOwner, newOwner)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(event.Subscription)
@@ -1216,7 +1193,7 @@ func (_m *VRFBeaconInterface) WatchOwnershipTransferred(opts *bind.WatchOpts, si
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconOwnershipTransferred, []common.Address, []common.Address) error); ok {
-		r1 = rf(opts, sink, from, to)
+		r1 = rf(opts, sink, previousOwner, newOwner)
 	} else {
 		r1 = ret.Error(1)
 	}

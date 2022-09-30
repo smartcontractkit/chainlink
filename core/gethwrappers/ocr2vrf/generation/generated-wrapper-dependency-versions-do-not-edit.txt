@@ -1,6 +1,9 @@
-GETH_VERSION: 1.10.21
-dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin d40b1573d056273199340c161d8b2db47cd096b84467852f45f30004d28e14f0
-vrf_beacon: ../../../contracts/solc/v0.8.15/VRFBeacon.abi ../../../contracts/solc/v0.8.15/VRFBeacon.bin a73668516aa207897504e9d5b8ae43571865297e58368fe8749a8eee2670c6bf
-vrf_beacon_consumer: ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin fb9fdf9591d181a39173b6966d72d63f87b67fc48037ba2253b6710816f53c86
+GETH_VERSION: 1.10.23
+dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin 594a4de0399ab3d2d3ff10527f09384ee5a16f418f73ec9447902ea8728a4e06
+vrf_beacon: ../../../contracts/solc/v0.8.15/VRFBeacon.abi ../../../contracts/solc/v0.8.15/VRFBeacon.bin f726cf963593d287d1804dec999637dff3d190364f670e1f68e7b81f3271fc36
+vrf_beacon_consumer: ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin 0c18684b83ddec2ccfa4db6a9b04ebcbd950eb7ff9d9e6c0b6778d38bdb271e6
 vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 51f61173fd85d4a77884696eaff152c30b7c771b88ab687dc806214a88943e43
-vrf_coordinator: ../../../contracts/solc/v0.8.15/VRFCoordinator.abi ../../../contracts/solc/v0.8.15/VRFCoordinator.bin 697045fc2bf4f40e4fcc3419dc7364a02c2d25cb86e20ea84d082084e20b6bd1
+vrf_beacon_proxy: ../../../contracts/solc/v0.8.15/VRFBeaconProxy.abi ../../../contracts/solc/v0.8.15/VRFBeaconProxy.bin 1ee9a8ba651630455eb0aa78fd3d1d85f67b5e9241c1ad87bad784b394093263
+vrf_coordinator: ../../../contracts/solc/v0.8.15/VRFCoordinator.abi ../../../contracts/solc/v0.8.15/VRFCoordinator.bin badef072011931894410cd234f04c95b704f2e823292f3acaf0817a50b4e03e7
+vrf_coordinator_proxy: ../../../contracts/solc/v0.8.15/VRFCoordinatorProxy.abi ../../../contracts/solc/v0.8.15/VRFCoordinatorProxy.bin 64d6816aaf33344db462f8c710c37b4791356d46a5c77a2445f0861ca1858b64
+vrf_proxy_admin: ../../../contracts/solc/v0.8.15/VRFProxyAdmin.abi ../../../contracts/solc/v0.8.15/VRFProxyAdmin.bin 09446beeaacb6a3719a4f0678974e30f5690e25f9b37041a51e0af31ede91111

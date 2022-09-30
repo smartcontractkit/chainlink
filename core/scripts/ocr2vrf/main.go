@@ -55,20 +55,33 @@ func main() {
 		deployDKG(e)
 
 	case "coordinator-deploy":
+		deployVRFCoordinator(e)
+
+	case "coordinator-proxy-deploy":
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator implementation contract address")
+		adminAddress := cmd.String("admin-address", "", "admin contract address")
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		linkAddress := cmd.String("link-address", "", "link contract address")
-		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address")
-		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "admin-address", "beacon-period-blocks", "link-address")
+		deployVRFCoordinatorProxy(e, *coordinatorAddress, *adminAddress, *linkAddress, big.NewInt(*beaconPeriodBlocks))
 
 	case "beacon-deploy":
-		cmd := flag.NewFlagSet("beacon-deploy", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator contract address")
+		deployVRFBeacon(e)
+
+	case "beacon-proxy-deploy":
+		cmd := flag.NewFlagSet("beacon-proxy-deploy", flag.ExitOnError)
+		beaconAddress := cmd.String("beacon-address", "", "beacon contract address")
+		adminAddress := cmd.String("admin-address", "", "admin contract address")
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator proxy contract address")
 		linkAddress := cmd.String("link-address", "", "link contract address")
 		dkgAddress := cmd.String("dkg-address", "", "dkg contract address")
 		keyID := cmd.String("key-id", "", "key ID")
-		helpers.ParseArgs(cmd, os.Args[2:], "beacon-deploy", "coordinator-address", "link-address", "dkg-address", "key-id")
-		deployVRFBeacon(e, *coordinatorAddress, *linkAddress, *dkgAddress, *keyID)
+		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address", "admin-address", "coordinator-address", "beacon-period-blocks", "link-address")
+		deployVRFBeaconProxy(e, *beaconAddress, *adminAddress, *coordinatorAddress, *linkAddress, *dkgAddress, *keyID)
+
+	case "proxy-admin-deploy":
+		deployVRFProxyAdmin(e)
 
 	case "dkg-add-client":
 		cmd := flag.NewFlagSet("dkg-add-client", flag.ExitOnError)

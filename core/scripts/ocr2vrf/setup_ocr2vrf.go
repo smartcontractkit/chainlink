@@ -80,11 +80,20 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		feedAddress = common.HexToAddress(*linkEthFeed)
 	}
 
-	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
+	fmt.Println("Deploying VRF proxy admin...")
+	vrfAdmin := deployVRFProxyAdmin(e)
 
-	fmt.Println("Deploying VRF beacon...")
-	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
+	fmt.Println("Deploying VRF coordinator implementation contract...")
+	vrfCoordinatorImplAddress := deployVRFCoordinator(e)
+
+	fmt.Println("Deploy and initialize VRF coordinator proxy...")
+	vrfCoordinatorAddress := deployVRFCoordinatorProxy(e, vrfCoordinatorImplAddress.String(), vrfAdmin.String(), link.String(), big.NewInt(*beaconPeriodBlocks))
+
+	fmt.Println("Deploying VRF beacon implementation contract...")
+	vrfBeaconImplAddress := deployVRFBeacon(e)
+
+	fmt.Println("Deploy and initialize VRF beacon proxy...")
+	vrfBeaconAddress := deployVRFBeaconProxy(e, vrfBeaconImplAddress.String(), vrfAdmin.String(), vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
 
 	fmt.Println("Adding VRF Beacon as DKG client...")
 	addClientToDKG(e, dkgAddress.String(), *keyID, vrfBeaconAddress.String())
@@ -152,6 +161,17 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	helpers.FundNodes(e, transmitters, big.NewInt(*fundingAmount))
+
+	fmt.Println()
+	fmt.Println("LINK token contract address:", link.String())
+	fmt.Println("DKG contract address:", dkgAddress)
+	fmt.Println("VRF proxy admin address:", vrfAdmin)
+	fmt.Println("VRF coordinator implementation contract:", vrfCoordinatorImplAddress)
+	fmt.Println("VRF coordinator proxy contract:", vrfCoordinatorAddress)
+	fmt.Println("VRF beacon implementation contract:", vrfBeaconImplAddress)
+	fmt.Println("VRF beacon proxy contract:", vrfBeaconAddress)
+	fmt.Println("VRF consumer contract:", consumerAddress)
+	fmt.Println()
 
 	fmt.Println("Generated dkg setConfig command:")
 	dkgCommand := fmt.Sprintf(

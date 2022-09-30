@@ -1,6 +1,7 @@
 package coordinator
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -69,9 +70,12 @@ func (v *vrfRouter) IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error) {
 // The returned object must be casted to the expected type.
 // Calls either VRF beacon wrapper or VRF coordinator wrapper depending on the addresses of the log
 func (v *vrfRouter) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	fmt.Println("Inside parse log")
 	if log.Address == v.beacon.Address() {
+		fmt.Println("parsing beacon", log.Address)
 		return v.beacon.ParseLog(log)
 	} else if log.Address == v.coordinator.Address() {
+		fmt.Println("parsing coordinator", log.Address)
 		return v.coordinator.ParseLog(log)
 	} else {
 		return nil, errors.Errorf("failed to parse log. contractAddress: %x logs: %x", log.Address, log.Topics)

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -22,12 +23,16 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator_proxy"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_proxy_admin"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -39,15 +44,51 @@ func deployDKG(e helpers.Environment) common.Address {
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress string) common.Address {
-	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(e.Owner, e.Ec, beaconPeriodBlocks, common.HexToAddress(linkAddress))
+func deployVRFCoordinator(e helpers.Environment) common.Address {
+	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(e.Owner, e.Ec)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFBeacon(e helpers.Environment, coordinatorAddress, linkAddress, dkgAddress, keyID string) common.Address {
+func deployVRFBeacon(e helpers.Environment) common.Address {
+	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployVRFProxyAdmin(e helpers.Environment) common.Address {
+	_, tx, _, err := vrf_proxy_admin.DeployVRFProxyAdmin(e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployVRFBeaconProxy(e helpers.Environment, beaconAddress, adminAddress, coordinatorAddress, linkAddress, dkgAddress, keyID string) common.Address {
+	// initialize function call is abi-encoded and provided in the proxy construction
+	// this results in delegatecall() to logic contract
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
-	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
+	abi, err := vrf_beacon.VRFBeaconMetaData.GetAbi()
+	helpers.PanicErr(err)
+	calldata, err := abi.Pack("initialize", common.HexToAddress(linkAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
+	helpers.PanicErr(err)
+	//TODO: REMOVE
+	hexified := hexutil.Encode(calldata)
+	fmt.Println("initialize calldata:", hexified)
+	_, tx, _, err := vrf_beacon_proxy.DeployVRFBeaconProxy(e.Owner, e.Ec, common.HexToAddress(beaconAddress), common.HexToAddress(adminAddress), calldata)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployVRFCoordinatorProxy(e helpers.Environment, coordinatorAddress, adminAddress, linkAddress string, beaconPeriodBlocks *big.Int) common.Address {
+	// initialize function call is abi-encoded and provided in the proxy construction
+	// this results in delegatecall() to logic contract
+	abi, err := vrf_coordinator.VRFCoordinatorMetaData.GetAbi()
+	helpers.PanicErr(err)
+	calldata, err := abi.Pack("initialize", beaconPeriodBlocks, common.HexToAddress(linkAddress))
+	helpers.PanicErr(err)
+	//TODO: REMOVE
+	hexified := hexutil.Encode(calldata)
+	fmt.Println("initialize calldata:", hexified)
+	_, tx, _, err := vrf_coordinator_proxy.DeployVRFCoordinatorProxy(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(adminAddress), calldata)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -186,7 +227,17 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 
 	beacon := newVRFBeacon(common.HexToAddress(vrfBeaconAddr), e.Ec)
 
+	fmt.Println(helpers.ParseAddressSlice(c.onchainPubKeys))
+	fmt.Println(helpers.ParseAddressSlice(c.transmitters))
+	fmt.Println("onchainConfig", hexutil.Encode(onchainConfig))
+	fmt.Println("offchainConfig", hexutil.Encode(offchainConfig))
+	fmt.Println("c.f()", c.f)
+
 	tx, err := beacon.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
+	fmt.Println("err", err)
+	rpc, err1 := evmclient.ExtractRPCError(err)
+	fmt.Println("rpc error", rpc)
+	fmt.Println("err1", err1)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
