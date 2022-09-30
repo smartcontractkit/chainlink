@@ -27,3 +27,4 @@ runs:
       name: Install prod dependencies
       shell: bash
       run: pnpm i --prod
+      working-directory: contracts
