@@ -13,11 +13,9 @@ on:
       - rollup
     paths:
       - "contracts/**"
-      - pnpm.lock
   pull_request:
     paths:
       - "contracts/**"
-      - pnpm.lock
 
 jobs:
   solidity-shards:
