@@ -349,13 +349,18 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 
 // getCurrentBlockMaybeHandleReorg accepts a block number
 // and will return that block if its parent points to our last saved block.
+// One can optionally pass the block header if it has already been queried to avoid an extra RPC call.
 // If its parent does not point to our last saved block we know a reorg has occurred.
 // In that case return the LCA+1, i.e. our new current (unprocessed) block.
-func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64) (*types.Header, error) {
-	currentBlock, err1 := lp.ec.HeaderByNumber(ctx, big.NewInt(currentBlockNumber))
-	if err1 != nil {
-		lp.lggr.Warnw("Unable to get currentBlock", "err", err1, "currentBlockNumber", currentBlockNumber)
-		return nil, err1
+func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *types.Header) (*types.Header, error) {
+	var err1 error
+	if currentBlock == nil {
+		// If we don't have the current block already, lets get it.
+		currentBlock, err1 = lp.ec.HeaderByNumber(ctx, big.NewInt(currentBlockNumber))
+		if err1 != nil {
+			lp.lggr.Warnw("Unable to get currentBlock", "err", err1, "currentBlockNumber", currentBlockNumber)
+			return nil, err1
+		}
 	}
 	// Does this currentBlock point to the same parent that we have saved?
 	// If not, there was a reorg, so we need to rewind.
@@ -433,9 +438,14 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
 		return
 	}
+	var currentBlock *types.Header
+	if currentBlockNumber == latestBlockNumber {
+		// Can re-use our currentBlock and avoid an extra RPC call.
+		currentBlock = latestBlock
+	}
 	// Possibly handle a reorg. For example if we crash, we'll be in the middle of processing unfinalized blocks.
 	// Returns (currentBlock || LCA+1 if reorg detected, error)
-	currentBlock, err := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
+	currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, currentBlock)
 	if err != nil {
 		// If there's an error handling the reorg, we can't be sure what state the db was left in.
 		// Resume from the latest block saved and retry.
@@ -452,7 +462,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
 	if lastSafeBackfillBlock >= currentBlockNumber {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", lastSafeBackfillBlock)
-		if err := lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
+		if err = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
 			lp.lggr.Errorw("Unable to backfill, retrying", "err", err)
@@ -460,7 +470,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		}
 		// If we successfully backfilled we have logs up to and including lastSafeBackfillBlock,
 		// now load the first unfinalized block.
-		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, lastSafeBackfillBlock+1)
+		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, lastSafeBackfillBlock+1, nil)
 		if err != nil {
 			// If there's an error handling the reorg, we can't be sure what state the db was left in.
 			// Resume from the latest block saved.
@@ -498,7 +508,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		if currentBlockNumber > latestBlockNumber {
 			break
 		}
-		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
+		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
 		if err != nil {
 			// If there's an error handling the reorg, we can't be sure what state the db was left in.
 			// Resume from the latest block saved.
