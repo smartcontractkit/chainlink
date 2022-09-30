@@ -2,7 +2,6 @@ package clientdss
 
 import (
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -143,7 +142,7 @@ var printTests = false
 func printTest(t *testing.T, msg *big.Int, public kyber.Point,
 	signature ethschnorr.Signature) {
 	pX, pY := secp256k1.Coordinates(public)
-	fmt.Printf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   '%040x'],\n",
+	t.Logf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   '%040x'],\n",
 		msg, pX, pY, signature.Signature,
 		signature.CommitmentPublicAddress)
 }
