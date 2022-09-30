@@ -5,24 +5,6 @@ on:
   pull_request:
 
 jobs:
-  solidity-shards:
-    name: Solidity Shards
-    runs-on: ubuntu-latest
-    outputs:
-      shards: ${{ steps.shard.outputs.dirs }}
-    steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity Shards
-        continue-on-error: true
-      - name: Get directories to shard
-        id: shard
-        run: ./contracts/scripts/shard_by_dir
-
   solidity-coverage:
     name: Solidity Coverage ${{ matrix.shard }}
     strategy:
