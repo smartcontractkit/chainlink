@@ -107,15 +107,19 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(12), latest.BlockNumber)
 
-	// Delete a block
-	require.NoError(t, o1.DeleteRangeBlocks(10, 10))
+	// Delete a block (only 10 on chain).
+	require.NoError(t, o1.DeleteBlocksAfter(10))
 	_, err = o1.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
-	// Delete block from another chain.
-	require.NoError(t, o2.DeleteRangeBlocks(11, 11))
+	// Delete blocks from another chain.
+	require.NoError(t, o2.DeleteBlocksAfter(11))
 	_, err = o2.SelectBlockByHash(common.HexToHash("0x1234"))
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	// Delete blocks after should also delete block 12.
+	_, err = o2.SelectBlockByHash(common.HexToHash("0x1235"))
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
@@ -215,7 +219,7 @@ func TestORM(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	// With block 12, anything <=2 should work
-	require.NoError(t, o1.DeleteRangeBlocks(10, 10))
+	require.NoError(t, o1.DeleteBlocksAfter(10))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 11))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 12))
 	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
@@ -263,6 +267,16 @@ func TestORM(t *testing.T) {
 	lgs, err = o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic, topic2}, 2)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
+
+	// Delete logs after should delete all logs.
+	err = o1.DeleteLogsAfter(1)
+	require.NoError(t, err)
+	latest, err = o1.SelectLatestBlock()
+	require.NoError(t, err)
+	t.Log(latest.BlockNumber)
+	logs, err = o1.selectLogsByBlockRange(1, latest.BlockNumber)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(logs))
 }
 
 func insertLogsTopicValueRange(t *testing.T, o *ORM, addr common.Address, blockNumber int, eventSig []byte, start, stop int) {
