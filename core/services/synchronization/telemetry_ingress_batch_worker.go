@@ -1,12 +1,12 @@
 package synchronization
 
 import (
-	"context"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/atomic"
 )
 
@@ -71,7 +71,7 @@ func (tw *telemetryIngressBatchWorker) Start() {
 
 				// Send batched telemetry to the ingress server, log any errors
 				telemBatchReq := tw.BuildTelemBatchReq()
-				ctx, cancel := context.WithTimeout(context.Background(), tw.telemSendTimeout)
+				ctx, cancel := utils.ContextFromChanWithDeadline(tw.chDone, tw.telemSendTimeout)
 				_, err := tw.telemClient.TelemBatch(ctx, telemBatchReq)
 				cancel()
 

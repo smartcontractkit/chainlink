@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -21,7 +22,7 @@ var (
 
 //go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
 type rpcClient interface {
-	Call(result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
 // l2SuggestedPriceEstimator is an Estimator which uses the L2 suggested gas price from eth_gasPrice.
@@ -93,7 +94,10 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	var res hexutil.Big
-	if err := o.client.Call(&res, "eth_gasPrice"); err != nil {
+	ctx, cancel := evmclient.ContextWithDefaultTimeoutFromChan(o.chStop)
+	defer cancel()
+
+	if err := o.client.CallContext(ctx, &res, "eth_gasPrice"); err != nil {
 		o.logger.Warnf("Failed to refresh prices, got error: %s", err)
 		return
 	}

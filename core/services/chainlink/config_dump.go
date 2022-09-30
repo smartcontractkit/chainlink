@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -16,7 +15,9 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -91,6 +92,9 @@ type dbData struct {
 	SolanaChains []solana.DBChain
 	SolanaNodes  map[string][]soldb.Node
 
+	StarknetChains []starknet.DBChain
+	StarknetNodes  map[string][]stkdb.Node
+
 	TerraChains []tertyp.DBChain
 	TerraNodes  map[string][]terdb.Node
 }
@@ -133,6 +137,18 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 			solChain.Enabled = nil
 		}
 		c.Solana = append(c.Solana, &solChain)
+	}
+
+	for _, dbChain := range dbData.StarknetChains {
+		var starkChain StarknetConfig
+		if err := starkChain.setFromDB(dbChain, dbData.StarknetNodes[dbChain.ID]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for starknet chain %s", dbChain.ID)
+		}
+		if *starkChain.Enabled {
+			// no need to persist if enabled
+			starkChain.Enabled = nil
+		}
+		c.Starknet = append(c.Starknet, &starkChain)
 	}
 
 	for _, dbChain := range dbData.TerraChains {
@@ -196,15 +212,6 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint32("EvmFinalityDepth").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].FinalityDepth = e
-		}
-	}
-	if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
-		d := models.MustNewDuration(*e)
-		for i := range c.EVM {
-			if c.EVM[i].HeadTracker == nil {
-				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
-			}
-			c.EVM[i].HeadTracker.BlockEmissionIdleWarningThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("EvmHeadTrackerHistoryDepth").ParsePtr(); e != nil {
@@ -279,10 +286,12 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewDuration("NodeNoNewHeadsThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			if c.EVM[i].NodePool == nil {
-				c.EVM[i].NodePool = &evmcfg.NodePool{}
-			}
-			c.EVM[i].NodePool.NoNewHeadsThreshold = d
+			c.EVM[i].NoNewHeadsThreshold = d
+		}
+	} else if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].NoNewHeadsThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("NodePollFailureThreshold").ParsePtr(); e != nil {
@@ -520,25 +529,13 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].GasEstimator == nil {
-				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-			}
-			if c.EVM[i].GasEstimator.BlockHistory == nil {
-				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
-			}
-			c.EVM[i].GasEstimator.BlockHistory.BlockDelay = e
+			c.EVM[i].RPCBlockQueryDelay = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_DELAY"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].GasEstimator == nil {
-					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-				}
-				if c.EVM[i].GasEstimator.BlockHistory == nil {
-					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
-				}
-				c.EVM[i].GasEstimator.BlockHistory.BlockDelay = &l
+				c.EVM[i].RPCBlockQueryDelay = &l
 			}
 		}
 	}
@@ -866,6 +863,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		MaximumGracePeriod:           envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		RegistryCheckGasOverhead:     envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
 		RegistryPerformGasOverhead:   envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
+		RegistryMaxPerformDataSize:   envvar.NewUint32("KeeperRegistryMaxPerformDataSize").ParsePtr(),
 		RegistrySyncInterval:         envDuration("KeeperRegistrySyncInterval"),
 		RegistrySyncUpkeepQueueSize:  envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
@@ -892,6 +890,15 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 	if isZeroPtr(c.AutoPprof) {
 		c.AutoPprof = nil
+	}
+
+	c.Pyroscope = &config.Pyroscope{
+		AuthToken:     envvar.NewString("PyroscopeAuthToken").ParsePtr(),
+		ServerAddress: envvar.NewString("PyroscopeServerAddress").ParsePtr(),
+		Environment:   envvar.NewString("PyroscopeEnvironment").ParsePtr(),
+	}
+	if isZeroPtr(c.Pyroscope) {
+		c.Pyroscope = nil
 	}
 
 	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
@@ -970,15 +977,6 @@ func envSlice[T any](s string, parse func(*T, []byte) error) *[]T {
 		return ts, nil
 	}).ParsePtr()
 }
-
-func envBig(s string) *utils.Big {
-	return envvar.New(s, func(s string) (b utils.Big, err error) {
-		err = b.UnmarshalText([]byte(s))
-		return
-	}).ParsePtr()
-}
-
-var multiLineBreak = regexp.MustCompile("(\n){2,}")
 
 func isZeroPtr[T comparable](p *T) bool {
 	var t T

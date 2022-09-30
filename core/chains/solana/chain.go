@@ -13,11 +13,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaclient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
@@ -54,8 +55,6 @@ type verifiedCachedClient struct {
 	chainID         string
 	expectedChainID string
 	nodeURL         string
-
-	lggr logger.Logger
 
 	chainIDVerified     bool
 	chainIDVerifiedLock sync.RWMutex
@@ -289,9 +288,8 @@ func (c *chain) Start(ctx context.Context) error {
 		c.lggr.Debug("Starting")
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
-		return multierr.Combine(
-			c.txm.Start(ctx),
-			c.balanceMonitor.Start(ctx))
+		var ms services.MultiStart
+		return ms.Start(ctx, c.txm, c.balanceMonitor)
 	})
 }
 

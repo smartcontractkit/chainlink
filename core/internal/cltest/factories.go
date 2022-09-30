@@ -2,7 +2,6 @@ package cltest
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -481,7 +480,7 @@ func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) e
 	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
-	err := horm.IdempotentInsertHead(context.Background(), &h)
+	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
 	return h
 }

@@ -463,6 +463,16 @@ func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
 	return nil
 }
 
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	err := cli.Config.Validate()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+	}
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	return nil
+}
+
 func normalizePassword(password string) string {
 	return url.QueryEscape(strings.TrimSpace(password))
 }
@@ -595,7 +605,7 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 	}
 	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
 
-	remoteSemverUnset := remoteVersion == "unset" || remoteVersion == "" || remoteSha == "unset" || remoteSha == ""
+	remoteSemverUnset := remoteVersion == static.Unset || remoteVersion == "" || remoteSha == static.Unset || remoteSha == ""
 	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
 
 	if remoteSemverUnset || cliRemoteSemverMismatch {
