@@ -11,6 +11,7 @@ import { BigNumber, BigNumberish } from '@ethersproject/bignumber'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { validCrons } from '../test-helpers/fixtures'
 import * as h from '../test-helpers/helpers'
+import { Contract } from '@ethersproject/contracts'
 
 const { utils } = ethers
 const { AddressZero } = ethers.constants
@@ -118,7 +119,7 @@ describe('CronUpkeep', () => {
     // Casting cron is necessary due to a tricky yarn version mismatch issue, likely between ethers
     // and typechain. Remove once the version issue is resolved.
     // https://app.shortcut.com/chainlinklabs/story/21905/remove-contract-cast-in-cronupkeep-test-ts
-    h.publicAbi(cron, [
+    h.publicAbi(cron as unknown as Contract, [
       's_maxJobs',
       'performUpkeep',
       'createCronJobFromEncodedSpec',
