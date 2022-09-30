@@ -9,6 +9,7 @@ truffle-config.js
 truffle.js
 gethload.js
 
+pnpm-lock.yaml
 coverage
 abi
 artifacts
