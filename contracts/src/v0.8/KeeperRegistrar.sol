@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/KeeperRegistryInterface.sol";
+import "./interfaces/KeeperRegistryInterface1_2.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 import "./ConfirmedOwner.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";

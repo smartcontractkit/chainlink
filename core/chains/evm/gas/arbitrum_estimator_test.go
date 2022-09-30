@@ -46,8 +46,8 @@ func TestArbitrumEstimator(t *testing.T) {
 		config.On("EvmGasLimitMax").Return(maxGasLimit)
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
-		rpcClient.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
 		})
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
@@ -73,8 +73,8 @@ func TestArbitrumEstimator(t *testing.T) {
 		config := mocks.NewConfig(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, client, ethClient)
 
-		client.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
 		})
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
@@ -100,8 +100,8 @@ func TestArbitrumEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, client, ethClient)
 
-		client.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(120)
 		})
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
@@ -135,7 +135,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, client, ethClient)
 
-		client.On("Call", mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
@@ -156,8 +156,8 @@ func TestArbitrumEstimator(t *testing.T) {
 		config.On("EvmGasLimitMax").Return(maxGasLimit)
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
-		rpcClient.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
 		})
 		const (
@@ -193,8 +193,8 @@ func TestArbitrumEstimator(t *testing.T) {
 		config.On("EvmGasLimitMax").Return(maxGasLimit)
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
-		rpcClient.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
 		})
 		const (

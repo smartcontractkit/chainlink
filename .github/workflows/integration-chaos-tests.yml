@@ -14,6 +14,14 @@ jobs:
     name: Build Chainlink Image
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Configure AWS Credentials
@@ -27,6 +35,11 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+      - name: Fetch operator-ui
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make operator-ui  
       - name: Build and Push
         uses: docker/build-push-action@v2
         with:
@@ -49,10 +62,18 @@ jobs:
     needs:
       - build-chainlink
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: EVM Chaos Tests
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/ctf-ci-e2e-action@v1.0.4
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@02c9ae5ec7f88250088bab88f14b4b043162b46d # v2.0.18
         with:
           test_command_to_run: make test_chaos
           test_download_vendor_packages_command: make gomod
@@ -61,6 +82,8 @@ jobs:
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/chaos/logs
           publish_check_name: EVM Chaos Test Results
+          go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          CGO_ENABLED: 1

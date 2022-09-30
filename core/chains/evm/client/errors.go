@@ -1,18 +1,12 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strings"
-	"time"
 
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
@@ -323,15 +317,33 @@ func (err *JsonError) String() string {
 	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
 }
 
-func ExtractRPCError(err error) *JsonError {
-	jErr, eErr := extractRPCError(err)
+func ExtractRPCErrorOrNil(err error) *JsonError {
+	jErr, eErr := ExtractRPCError(err)
 	if eErr != nil {
 		return nil
 	}
 	return jErr
 }
 
-func extractRPCError(baseErr error) (*JsonError, error) {
+// ExtractRPCError attempts to extract a full JsonError (including revert reason details)
+// from an error returned by a CallContract to an external RPC. As per https://github.com/ethereum/go-ethereum/blob/c49e065fea78a5d3759f7853a608494913e5824e/internal/ethapi/api.go#L974
+// CallContract server side for a revert will return an error which contains either:
+//   - The error directly from the EVM if there's no data (no revert reason, like an index out of bounds access) which
+//     when marshalled will only have a Message.
+//   - An error which implements rpc.DataError which when marshalled will have a Data field containing the execution result.
+//     If the revert not a custom Error (solidity >= 0.8.0), like require(1 == 2, "revert"), then geth and forks will automatically
+//     parse the string and put it in the message. If its a custom error, it's up to the client to decode the Data field which will be
+//     the abi encoded data of the custom error, i.e. revert MyCustomError(10) -> keccak(MyCustomError(uint256))[:4] || abi.encode(10).
+//
+// However, it appears that RPCs marshal this in different ways into a JsonError object received client side,
+// some adding "Reverted" prefixes, removing the method signature etc. To avoid RPC specific parsing and support custom errors
+// we return the full object returned from the RPC with a String() method that stringifies all fields for logging so no information is lost.
+// Some examples:
+// kovan (parity)
+// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted from message.
+// rinkeby / ropsten (geth)
+// { "error":  { "code": 3, "data": "0xABC123...", "message": "execution reverted: hello world" } } // revert reason automatically parsed if a simple require and included in message.
+func ExtractRPCError(baseErr error) (*JsonError, error) {
 	if baseErr == nil {
 		return nil, errors.New("no error present")
 	}
@@ -349,55 +361,4 @@ func extractRPCError(baseErr error) (*JsonError, error) {
 		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
 	}
 	return &jErr, nil
-}
-
-// ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
-// an RPC eth_call that reverted by parsing the message from the "data" field
-// ex:
-// kovan (parity)
-// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted
-// rinkeby / ropsten (geth)
-// { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
-func ExtractRevertReasonFromRPCError(err error) (string, error) {
-	jErr, eErr := extractRPCError(err)
-	if eErr != nil {
-		return "", eErr
-	}
-	dataStr, ok := jErr.Data.(string)
-	if !ok {
-		return "", errors.New("invalid error type")
-	}
-	matches := hexDataRegex.FindStringSubmatch(dataStr)
-	if len(matches) != 1 {
-		return "", errors.New("unknown data payload format")
-	}
-	hexData := utils.RemoveHexPrefix(matches[0])
-	if len(hexData) < 8 {
-		return "", errors.New("unknown data payload format")
-	}
-	revertReasonBytes, err := hex.DecodeString(hexData[8:])
-	if err != nil {
-		return "", errors.Wrap(err, "unable to decode hex to bytes")
-	}
-
-	ln := len(revertReasonBytes)
-	breaker := time.After(time.Second * 5)
-cleanup:
-	for {
-		select {
-		case <-breaker:
-			break cleanup
-		default:
-			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
-			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
-			revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
-			if ln == len(revertReasonBytes) {
-				break cleanup
-			}
-			ln = len(revertReasonBytes)
-		}
-	}
-
-	revertReason := strings.TrimSpace(string(revertReasonBytes))
-	return revertReason, nil
 }

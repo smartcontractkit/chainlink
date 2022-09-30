@@ -2,7 +2,7 @@ package logger
 
 import "go.uber.org/zap/zapcore"
 
-// encodeLevel is a zapcore.EncodeLevel that encodes crit in place of dpanic for our custom Critical* level.
+// encodeLevel is a zapcore.EncodeLevel that encodes 'crit' in place of dpanic for our custom Critical* level.
 func encodeLevel(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	if l == zapcore.DPanicLevel {
 		enc.AppendString("crit")

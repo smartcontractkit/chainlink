@@ -32,6 +32,7 @@ func TestConfigPoller(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	require.NoError(t, err)
 	b := backends.NewSimulatedBackend(core.GenesisAlloc{
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
@@ -59,10 +60,11 @@ func TestConfigPoller(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
-	logPoller := NewConfigPoller(lggr, lp, ocrAddress)
+	logPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
+	require.NoError(t, err)
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
@@ -136,6 +138,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		1, // faults
 		nil,
 	)
+	require.NoError(t, err)
 	signerAddresses, err := OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
 	transmitterAddresses, err := AccountToAddress(transmitters)

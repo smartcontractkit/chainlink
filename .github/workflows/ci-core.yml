@@ -1,24 +1,60 @@
 name: CI Core
 
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 
 jobs:
+  shard-packages:
+    name: Shard Go Tests
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.shard.outputs.shards }} 
+    env:
+      SHARDS: 10 
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Shard Go Tests 
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Install zx shell
+        run: npm i -g zx
+      - name: Shard list of go packages
+        id: shard
+        run: ./tools/ci/shard_packages
+
   core:
+    needs: [shard-packages]
     strategy:
       fail-fast: false
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests"]
-    name: Core Tests
+        shard: ${{ fromJson(needs.shard-packages.outputs.shards) }}  
+    name: Core Tests (${{ matrix.cmd }}) ${{ matrix.shard.id }}
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
     services:
       postgres:
-        image: postgres:14
+        image: postgres:14-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -33,48 +69,45 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.shard.id }}
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v3
+      - name: Setup node
+        uses: actions/setup-node@v3
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          node-version: "16"
+          cache: yarn
+      - name: Install contract dependencies
+        run: yarn install --prod --frozen-lockfile
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-#      - name: Install terrad
-#        run: ./tools/ci/install_terrad
-      - name: Install solana cli
-        run: ./tools/ci/install_solana
+      - name: Build binary
+        run: go build -o chainlink.test ./core
       - name: Setup DB
-        run: go run ./core local db preparetest
+        run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout
         if: github.event.schedule != ''
         run: echo "TIMEOUT=5m" >> $GITHUB_ENV
       - name: Run tests
-        run: ./tools/bin/${{ matrix.cmd }}
+        run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.shard.pkgs }}"
       - name: Store logs artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v2.3.0
         with:
-          name: ${{ matrix.cmd }}_logs
+          name: ${{ matrix.cmd }}_${{ matrix.shard.idx }}_logs
           path: |
             ./output.txt
             ./race.*
@@ -83,3 +116,16 @@ jobs:
         uses: docker://docker:latest
         with:
           args: logs ${{ job.services.postgres.id }}
+
+  # Satisfy required check for core tests
+  # while still allowing for adjustable sharding
+  core-complete:
+    needs: [core]
+    name: Core Tests (${{ matrix.cmd }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cmd: ['go_core_tests', 'go_core_race_tests']
+    steps:
+      - run: echo "${{ matrix.cmd }} have finished"

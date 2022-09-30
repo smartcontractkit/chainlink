@@ -782,7 +782,7 @@ func TestStartStopOnce_StartErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "foo has already been started once")
 	err = s.StopOnce("foo", func() error { return nil })
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "foo is not started or has already been stopped; state=StartFailed")
+	assert.Contains(t, err.Error(), "foo cannot be stopped from this state; state=StartFailed")
 
 	assert.Equal(t, utils.StartStopOnce_StartFailed, s.LoadState())
 }
@@ -811,7 +811,7 @@ func TestStartStopOnce_StopErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "foo has already been started once")
 	err = s.StopOnce("foo", func() error { return nil })
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "foo is not started or has already been stopped; state=StopFailed")
+	assert.Contains(t, err.Error(), "foo cannot be stopped from this state; state=StopFailed")
 
 	assert.Equal(t, utils.StartStopOnce_StopFailed, s.LoadState())
 }
