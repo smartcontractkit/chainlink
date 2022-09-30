@@ -35,7 +35,6 @@ func validate(s interface{}) (err error) {
 	v := reflect.ValueOf(s)
 	if t.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			//TODO error if required? https://app.shortcut.com/chainlinklabs/story/33618/add-config-validate-command
 			return
 		}
 		t = t.Elem()
@@ -46,7 +45,6 @@ func validate(s interface{}) (err error) {
 		reflect.Func, reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8, reflect.Interface,
 		reflect.Invalid, reflect.Ptr, reflect.String, reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Uint8, reflect.Uintptr, reflect.UnsafePointer:
-		//TODO additional field validation? e.g. struct tags? https://app.shortcut.com/chainlinklabs/story/33618/add-config-validate-command
 		return
 	case reflect.Struct:
 		for i := 0; i < t.NumField(); i++ {
@@ -58,8 +56,15 @@ func validate(s interface{}) (err error) {
 			if !fv.CanInterface() {
 				continue
 			}
+			if fv.Kind() == reflect.Ptr && fv.IsNil() {
+				continue
+			}
 			if fe := Validate(fv.Interface()); fe != nil {
-				err = multierr.Append(err, namedMultiErrorList(fe, ft.Name))
+				if ft.Anonymous {
+					err = multierr.Append(err, fe)
+				} else {
+					err = multierr.Append(err, namedMultiErrorList(fe, ft.Name))
+				}
 			}
 		}
 		return
@@ -71,6 +76,9 @@ func validate(s interface{}) (err error) {
 			if !v.CanInterface() {
 				continue
 			}
+			if mv.Kind() == reflect.Ptr && mv.IsNil() {
+				continue
+			}
 			if me := Validate(mv.Interface()); me != nil {
 				err = multierr.Append(err, namedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
 			}
@@ -80,6 +88,9 @@ func validate(s interface{}) (err error) {
 		for i := 0; i < v.Len(); i++ {
 			iv := v.Index(i)
 			if !v.CanInterface() {
+				continue
+			}
+			if iv.Kind() == reflect.Ptr && iv.IsNil() {
 				continue
 			}
 			if me := Validate(iv.Interface()); me != nil {

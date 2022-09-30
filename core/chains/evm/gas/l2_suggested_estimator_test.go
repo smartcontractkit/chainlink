@@ -31,10 +31,10 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
-	t.Run("calling EstimateGas on started estimator returns prices", func(t *testing.T) {
+	t.Run("calling GetLegacyGas on started estimator returns prices", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		client.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
 		})
 
@@ -51,8 +51,8 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		o := gas.NewL2SuggestedPriceEstimator(logger.TestLogger(t), client)
 
-		client.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
 		})
 
@@ -69,8 +69,8 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		o := gas.NewL2SuggestedPriceEstimator(logger.TestLogger(t), client)
 
-		client.On("Call", mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
-			res := args.Get(0).(*hexutil.Big)
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
+			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(120)
 		})
 
@@ -93,7 +93,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		o := gas.NewL2SuggestedPriceEstimator(logger.TestLogger(t), client)
 
-		client.On("Call", mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
 
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })

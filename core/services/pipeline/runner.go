@@ -121,9 +121,12 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 // Start starts Runner.
 func (r *runner) Start(context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
-		r.wgDone.Add(2)
+		r.wgDone.Add(1)
 		go r.scheduleUnfinishedRuns()
-		go r.runReaperLoop()
+		if r.config.JobPipelineReaperInterval() != time.Duration(0) {
+			r.wgDone.Add(1)
+			go r.runReaperLoop()
+		}
 		return nil
 	})
 }
@@ -596,12 +599,15 @@ func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qo
 }
 
 func (r *runner) runReaper() {
-	ctx, cancel := utils.ContextFromChan(r.chStop)
+	r.lggr.Debugw("Pipeline run reaper starting")
+	ctx, cancel := utils.ContextFromChanWithDeadline(r.chStop, r.config.JobPipelineReaperInterval())
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
 	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
+	} else {
+		r.lggr.Debugw("Pipeline run reaper completed successfully")
 	}
 }
 
@@ -613,8 +619,10 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
 	now := time.Now()
 
-	// immediately run reaper so we don't consider runs that are too old
-	r.runReaper()
+	if r.config.JobPipelineReaperInterval() > time.Duration(0) {
+		// immediately run reaper so we don't consider runs that are too old
+		r.runReaper()
+	}
 
 	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()

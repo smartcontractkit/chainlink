@@ -16,7 +16,7 @@
 
 [Chainlink](https://chain.link/) expands the capabilities of smart contracts by enabling access to real-world data and off-chain computation while maintaining the security and reliability guarantees inherent to blockchain technology.
 
-This repo contains the Chainlink core node, operator UI and contracts. The core node is the bundled binary available to be run by node operators participating in a [decentralized oracle network](https://link.smartcontract.com/whitepaper).
+This repo contains the Chainlink core node and contracts. The core node is the bundled binary available to be run by node operators participating in a [decentralized oracle network](https://link.smartcontract.com/whitepaper).
 All major release versions have pre-built docker images available for download from the [Chainlink dockerhub](https://hub.docker.com/r/smartcontract/chainlink/tags).
 If you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
 If you are here to report a bug or request a feature, please [check currently open Issues](https://github.com/smartcontractkit/chainlink/issues).
@@ -33,7 +33,7 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.18](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.19](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/). See the current version in `package.json` at the root of this repo under the `engines.node` key.
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
@@ -48,25 +48,18 @@ regarding Chainlink social accounts, news, and networking.
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
-### Mac M1/ARM64 [EXPERIMENTAL]
+### Apple Silicon - ARM64
 
-Chainlink can be experimentally compiled with ARM64 as the target arch. You may run into errors with cosmwasm:
+Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
 
+Chainlink Docker image currently has an indirect dependency on WebAssemby because of our `terra-money/core` (CosmWasm) dependency via `smartcontractkit/chainlink-terra`. This dependency requires a native `libwasmvm` library, which needs to be sourced depending on the underlying system architecture.
+
+An ARM64 supported Docker image will be built by default on ARM64 systems (Apple Silicon), but there is also an option to add an extra `LIBWASMVM_ARCH` build argument and choose between `aarch64` or `x86_64`:
+
+```bash
+# LIBWASMVM_ARCH (libwasmvm.so) architecture choice, defaults to output of `uname -m` (arch) if unset
+$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile --build-arg LIBWASMVM_ARCH=aarch64
 ```
-# github.com/CosmWasm/wasmvm/api
-ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
-Undefined symbols for architecture arm64:# github.com/CosmWasm/wasmvm/api
-ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
-Undefined symbols for architecture arm64:
-```
-
-In this case, try the following steps:
-
-1. `git clone git@github.com:mandrean/terra-core.git`
-2. `cd terra-core; git checkout feat/multiarch`
-3. `make install; cd ..`
-4. `go work init /path/to/chainlink`
-5. `go work use /path/to/terra-core`
 
 ### Ethereum Execution Client Requirements
 

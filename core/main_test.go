@@ -4,7 +4,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"gopkg.in/guregu/null.v4"
@@ -27,7 +27,7 @@ func runEx(args ...string) {
 	tc.Overrides.Dev = null.BoolFrom(false)
 	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
-		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
+		Renderer:               cmd.RendererTable{Writer: io.Discard},
 		Config:                 tc,
 		Logger:                 lggr,
 		CloseLogger:            lggr.Sync,
@@ -164,6 +164,7 @@ func ExampleRun_config() {
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
 	//    logsql       Enable/disable sql statement logging
+	//    validate     Validate provided TOML config file
 	//
 	// OPTIONS:
 	//    --help, -h  show help

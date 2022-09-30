@@ -81,6 +81,7 @@ func TestP2PKeys_EncryptedP2PKey(t *testing.T) {
 	cryptoJSON, err := keystore.EncryptDataV3(marshalledPrivK, []byte(adulteratedPassword("password")), utils.FastScryptParams.N, utils.FastScryptParams.P)
 	require.NoError(t, err)
 	encryptedPrivKey, err := json.Marshal(&cryptoJSON)
+	require.NoError(t, err)
 
 	p2pk := EncryptedP2PKey{
 		ID:               1,

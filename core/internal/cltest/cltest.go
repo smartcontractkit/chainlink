@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -112,6 +112,8 @@ const (
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
 	DefaultOCR2KeyBundleID = "92be59c45d0d7b192ef88d391f444ea7c78644f8607f567aab11d53668c27a4d"
+	// Private key seed of test keys created with `big.NewInt(1)`, representations of value present in `scrub_logs` script
+	KeyBigIntSeed = 1
 )
 
 var (
@@ -119,16 +121,16 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
-	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
-	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
-	DefaultDKGEncryptKey = dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(1))
+	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
+	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultDKGEncryptKey = dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(KeyBigIntSeed))
 )
 
 func init() {
@@ -242,11 +244,13 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
+	reaperInterval := time.Duration(0) // disable reaper
 	overrides := configtest.GeneralConfigOverrides{
-		Dialect:             dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:      null.IntFrom(NewRandomPositiveInt64()),
-		P2PEnabled:          null.BoolFrom(false),
-		ShutdownGracePeriod: &shutdownGracePeriod,
+		Dialect:                   dialects.TransactionWrappedPostgres,
+		AdvisoryLockID:            null.IntFrom(NewRandomPositiveInt64()),
+		P2PEnabled:                null.BoolFrom(false),
+		ShutdownGracePeriod:       &shutdownGracePeriod,
+		JobPipelineReaperInterval: &reaperInterval,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
@@ -374,7 +378,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	var chains chainlink.Chains
-	chains.EVM, err = evm.LoadChainSet(evm.ChainSetOpts{
+	chains.EVM, err = evm.LoadChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,
@@ -648,7 +652,7 @@ func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.LogConfig) keystore.Master {
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	t.Helper()
 
-	b, err := ioutil.ReadAll(body)
+	b, err := io.ReadAll(body)
 	require.NoError(t, err)
 	return models.JSON{Result: gjson.ParseBytes(b)}
 }
@@ -656,7 +660,7 @@ func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 	t.Helper()
 
-	b, err := ioutil.ReadAll(body)
+	b, err := io.ReadAll(body)
 	require.NoError(t, err)
 	var respJSON models.JSONAPIErrors
 	err = json.Unmarshal(b, &respJSON)
@@ -668,7 +672,7 @@ func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 func MustReadFile(t testing.TB, file string) []byte {
 	t.Helper()
 
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	require.NoError(t, err)
 	return content
 }
@@ -714,7 +718,7 @@ func bodyCleaner(t testing.TB, resp *http.Response, err error) (*http.Response, 
 func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
 	t.Helper()
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	return b
 }
@@ -762,7 +766,7 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(dir string) (string, error) {
 	logFile := filepath.Join(dir, logger.LogsFile)
-	b, err := ioutil.ReadFile(logFile)
+	b, err := os.ReadFile(logFile)
 	return string(b), err
 }
 
@@ -1040,7 +1044,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 	t.Logf("expected status code %s got %s", http.StatusText(expectedStatusCode), http.StatusText(resp.StatusCode))
 
 	if resp.StatusCode >= 300 && resp.StatusCode < 600 {
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			assert.FailNowf(t, "Unable to read body", err.Error())
 		}

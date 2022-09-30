@@ -77,6 +77,8 @@ func (n *Nurse) Start() error {
 		runtime.MemProfileRate = n.cfg.AutoPprofMemProfileRate()
 
 		runtime.SetCPUProfileRate(n.cfg.AutoPprofCPUProfileRate())
+		runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
+		runtime.SetMutexProfileFraction(n.cfg.AutoPprofMutexProfileFraction())
 
 		err := utils.EnsureDirAndMaxPerms(n.cfg.AutoPprofProfileRoot(), 0644)
 		if err != nil {
@@ -190,11 +192,6 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 		)
 		return
 	}
-
-	runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
-	defer runtime.SetBlockProfileRate(0)
-	runtime.SetMutexProfileFraction(n.cfg.AutoPprofMutexProfileFraction())
-	defer runtime.SetMutexProfileFraction(0)
 
 	now := time.Now()
 

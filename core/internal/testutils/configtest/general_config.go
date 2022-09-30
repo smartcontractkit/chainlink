@@ -89,6 +89,7 @@ type GeneralConfigOverrides struct {
 	GlobalMinimumContractPayment            *assets.Link
 	GlobalOCRObservationGracePeriod         time.Duration
 	KeeperCheckUpkeepGasPriceFeatureEnabled null.Bool
+	KeeperRegistryMaxPerformDataSize        null.Int
 	KeeperMaximumGracePeriod                null.Int
 	KeeperRegistrySyncInterval              *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize       null.Int
@@ -108,6 +109,7 @@ type GeneralConfigOverrides struct {
 	LinkContractAddress                     null.String
 	OperatorFactoryAddress                  null.String
 	NodeNoNewHeadsThreshold                 *time.Duration
+	JobPipelineReaperInterval               *time.Duration
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
@@ -440,6 +442,13 @@ func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 		return uint32(c.Overrides.KeeperRegistrySyncUpkeepQueueSize.Int64)
 	}
 	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
+}
+
+func (c *TestGeneralConfig) KeeperRegistryMaxPerformDataSize() uint32 {
+	if c.Overrides.KeeperRegistryMaxPerformDataSize.Valid {
+		return uint32(c.Overrides.KeeperRegistryMaxPerformDataSize.Int64)
+	}
+	return c.GeneralConfig.KeeperRegistryMaxPerformDataSize()
 }
 
 // KeeperCheckUpkeepGasPriceFeatureEnabled overrides
@@ -824,6 +833,13 @@ func (c *TestGeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool
 		return *c.Overrides.NodeNoNewHeadsThreshold, true
 	}
 	return c.GeneralConfig.GlobalNodeNoNewHeadsThreshold()
+}
+
+func (c *TestGeneralConfig) JobPipelineReaperInterval() time.Duration {
+	if c.Overrides.JobPipelineReaperInterval != nil {
+		return *c.Overrides.JobPipelineReaperInterval
+	}
+	return c.GeneralConfig.JobPipelineReaperInterval()
 }
 
 func (c *TestGeneralConfig) GlobalEvmUseForwarders() (bool, bool) {

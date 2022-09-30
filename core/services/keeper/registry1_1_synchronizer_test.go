@@ -55,6 +55,8 @@ func mockRegistry1_1(
 ) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 
+	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).
+		Return(&types.Header{Number: big.NewInt(10)}, nil)
 	registryMock.MockResponse("getConfig", config).Once()
 	registryMock.MockResponse("getKeeperList", keeperList).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", cancelledUpkeeps).Once()

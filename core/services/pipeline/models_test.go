@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -122,7 +121,7 @@ func TestRun_StringOutputs(t *testing.T) {
 					Val:   []interface{}{tc.val},
 				},
 			}
-			fmt.Println(tc.val)
+			t.Log(tc.val)
 			outputs, err := run.StringOutputs()
 			assert.NoError(t, err)
 			assert.NotNil(t, outputs)
