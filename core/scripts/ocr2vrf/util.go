@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
@@ -43,6 +44,19 @@ func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, li
 	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(e.Owner, e.Ec, beaconPeriodBlocks, common.HexToAddress(linkAddress))
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployAuthorizedForwarder(e helpers.Environment, link common.Address, owner common.Address) common.Address {
+	_, tx, _, err := authorized_forwarder.DeployAuthorizedForwarder(e.Owner, e.Ec, link, owner, common.Address{}, []byte{})
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func setAuthorizedSenders(e helpers.Environment, forwarder common.Address, senders []common.Address) {
+	f, err := authorized_forwarder.NewAuthorizedForwarder(forwarder, e.Ec)
+	helpers.PanicErr(err)
+	tx, err := f.SetAuthorizedSenders(e.Owner, senders)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func deployVRFBeacon(e helpers.Environment, coordinatorAddress, linkAddress, dkgAddress, keyID string) common.Address {

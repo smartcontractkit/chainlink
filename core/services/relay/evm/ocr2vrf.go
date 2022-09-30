@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	ovr2vrfConfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 )
 
 // DKGProvider provides all components needed for a DKG plugin.
@@ -62,15 +63,32 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
-	if err != nil {
-		return nil, err
-	}
 
 	var pluginConfig config.PluginConfig
 	err = json.Unmarshal(pargs.PluginConfig, &pluginConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	var contractTransmitter *ContractTransmitter
+
+	if pluginConfig.UseForwarder {
+		var sendingKeys []common.Address
+		sendingKeysStrings := strings.Split(pluginConfig.SendingKeys, ",")
+
+		for _, s := range sendingKeysStrings {
+			sendingKeys = append(sendingKeys, common.HexToAddress(s))
+		}
+
+		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, pargs.TransmitterID, sendingKeys, configWatcher)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &dkgProvider{
@@ -85,13 +103,38 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+
+	var pluginConfig ovr2vrfConfig.PluginConfig
+	err = json.Unmarshal(pargs.PluginConfig, &pluginConfig)
 	if err != nil {
 		return nil, err
 	}
+
+	var contractTransmitter *ContractTransmitter
+
+	if pluginConfig.UseForwarder {
+		var sendingKeys []common.Address
+		sendingKeysStrings := strings.Split(pluginConfig.SendingKeys, ",")
+
+		for _, s := range sendingKeysStrings {
+			sendingKeys = append(sendingKeys, common.HexToAddress(s))
+		}
+
+		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, pargs.TransmitterID, sendingKeys, configWatcher)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &ocr2vrfProvider{
 		configWatcher:       configWatcher,
 		contractTransmitter: contractTransmitter,
+		pluginConfig:        pluginConfig,
 	}, nil
 }
 
@@ -108,6 +151,7 @@ func (c *dkgProvider) ContractTransmitter() types.ContractTransmitter {
 type ocr2vrfProvider struct {
 	*configWatcher
 	contractTransmitter *ContractTransmitter
+	pluginConfig        ovr2vrfConfig.PluginConfig
 }
 
 func (c *ocr2vrfProvider) ContractTransmitter() types.ContractTransmitter {

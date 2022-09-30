@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -18,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type SetupOCR2VRFNodePayload struct {
@@ -28,6 +32,7 @@ type SetupOCR2VRFNodePayload struct {
 	Transmitter       string
 	DkgEncrypt        string
 	DkgSign           string
+	SendingKeys       []string
 }
 
 type dkgTemplateArgs struct {
@@ -36,6 +41,8 @@ type dkgTemplateArgs struct {
 	p2pv2BootstrapperPeerID string
 	p2pv2BootstrapperPort   string
 	transmitterID           string
+	useForwarder            bool
+	sendingKeys             string
 	chainID                 int64
 	encryptionPublicKey     string
 	keyID                   string
@@ -68,6 +75,8 @@ transmitterID        = "%s"
 chainID              = %d
 
 [pluginConfig]
+useForwarder         = %t
+sendingKeys          = "%s"
 EncryptionPublicKey  = "%s"
 KeyID                = "%s"
 SigningPublicKey     = "%s"
@@ -89,6 +98,8 @@ transmitterID        = "%s"
 chainID              = %d
 
 [pluginConfig]
+useForwarder         = %t
+sendingKeys          = "%s"
 dkgEncryptionPublicKey = "%s"
 dkgSigningPublicKey    = "%s"
 dkgKeyID               = "%s"
@@ -111,6 +122,8 @@ relay                              = "evm"
 [relayConfig]
 chainID                            = %d
 `
+
+const forwarderAdditionalEOACount = 4
 
 func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePayload, error) {
 	lggr := cli.Logger.Named("ConfigureOCR2VRFNode")
@@ -136,12 +149,51 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 		return nil, cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
+	chainID := c.Int64("chainID")
+
 	// Initialize keystore and generate keys.
 	keyStore := app.GetKeyStore()
 	err = setupKeystore(cli, c, app, keyStore)
 	if err != nil {
 		return nil, cli.errorOut(err)
 	}
+
+	// Initialize transmitter settings.
+	var sendingKeys []string
+	useForwarder := c.Bool("use-forwarder")
+	ethKeys, _ := app.GetKeyStore().Eth().GetAll()
+	transmitterID := ethKeys[0].Address.String()
+
+	// Populate sendingKeys with current ETH keys.
+	for _, k := range ethKeys {
+		sendingKeys = append(sendingKeys, k.Address.String())
+	}
+
+	if useForwarder {
+		// Replace the transmitter ID with the forwarder address.
+		forwarderAddress := c.String("forwarder-address")
+		transmitterID = forwarderAddress
+
+		// Add extra sending keys if using a forwarder.
+		for i := 0; i < forwarderAdditionalEOACount; i++ {
+			k, err := app.GetKeyStore().Eth().Create()
+			if err != nil {
+				return nil, err
+			}
+
+			sendingKeys = append(sendingKeys, k.Address.String())
+		}
+
+		// Create forwarder for management in forwarder_manager.go.
+		orm := forwarders.NewORM(ldb.DB(), lggr, cli.Config)
+		_, err := orm.CreateForwarder(common.HexToAddress(transmitterID), *utils.NewBigI(chainID))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Construct string from sendingKeys.
+	sendingKeysString := strings.Join(sendingKeys, ",")
 
 	// Get all configuration parameters.
 	keyID := c.String("keyID")
@@ -151,8 +203,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	dkgSignKey := dkgSign[0].PublicKeyString()
 	p2p, _ := app.GetKeyStore().P2P().GetAll()
 	ocr2List, _ := app.GetKeyStore().OCR2().GetAll()
-	ethKeys, _ := app.GetKeyStore().Eth().GetAll()
-	transmitterID := ethKeys[0].Address.String()
 	peerID := p2p[0].PeerID().Raw()
 	if !c.Bool("isBootstrapper") {
 		peerID = c.String("bootstrapperPeerID")
@@ -182,7 +232,9 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 			p2pv2BootstrapperPeerID: peerID,
 			p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 			transmitterID:           transmitterID,
-			chainID:                 c.Int64("chainID"),
+			useForwarder:            useForwarder,
+			sendingKeys:             sendingKeysString,
+			chainID:                 chainID,
 			encryptionPublicKey:     dkgEncryptKey,
 			keyID:                   keyID,
 			signingPublicKey:        dkgSignKey,
@@ -196,7 +248,9 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 				p2pv2BootstrapperPeerID: peerID,
 				p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 				transmitterID:           transmitterID,
-				chainID:                 c.Int64("chainID"),
+				useForwarder:            useForwarder,
+				sendingKeys:             sendingKeysString,
+				chainID:                 chainID,
 				encryptionPublicKey:     dkgEncryptKey,
 				keyID:                   keyID,
 				signingPublicKey:        dkgSignKey,
@@ -222,6 +276,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 		Transmitter:       transmitterID,
 		DkgEncrypt:        dkgEncryptKey,
 		DkgSign:           dkgSignKey,
+		SendingKeys:       sendingKeys,
 	}, nil
 }
 
@@ -295,6 +350,8 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 		args.p2pv2BootstrapperPort,
 		args.transmitterID,
 		args.chainID,
+		args.useForwarder,
+		args.sendingKeys,
 		args.encryptionPublicKey,
 		args.keyID,
 		args.signingPublicKey,
@@ -329,6 +386,8 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.p2pv2BootstrapperPort,
 		args.transmitterID,
 		args.chainID,
+		args.useForwarder,
+		args.sendingKeys,
 		args.encryptionPublicKey,
 		args.signingPublicKey,
 		args.keyID,

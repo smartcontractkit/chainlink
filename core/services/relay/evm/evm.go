@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -16,6 +15,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 	"gopkg.in/guregu/null.v4"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -158,6 +159,33 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
 		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
+		configWatcher.chain.LogPoller(),
+		lggr,
+	)
+}
+
+func newContractTransmitterWithForwarder(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, sendingKeys []common.Address, configWatcher *configWatcher) (*ContractTransmitter, error) {
+	var relayConfig RelayConfig
+	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
+	if err != nil {
+		return nil, err
+	}
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
+	var checker txm.TransmitCheckerSpec
+	if configWatcher.chain.Config().OCRSimulateTransactions() {
+		checker.CheckerType = txm.TransmitCheckerTypeSimulate
+	}
+	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
+	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
+		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	}
+
+	return NewOCRContractTransmitter(
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		configWatcher.contractABI,
+		ocrcommon.NewTransmitterWithForwarder(configWatcher.chain.TxManager(), sendingKeys, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)
