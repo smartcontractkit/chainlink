@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-
-pushd contracts
-pnpm compile
-pnpm test
-popd
