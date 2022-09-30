@@ -100,6 +100,10 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
       - name: Test native compilation
         run: ./contracts/scripts/native_solc_compile_all
       - name: Verify local solc binaries
