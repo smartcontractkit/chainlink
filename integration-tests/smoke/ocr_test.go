@@ -33,9 +33,9 @@ var _ = Describe("OCR Feed @ocr", func() {
 				defaultOCREnv(networks.SimulatedEVM),
 			),
 			Entry("OCR suite on General EVM @general",
-				networks.GeneralEVM(),
-				big.NewFloat(1),
-				defaultOCREnv(networks.GeneralEVM()),
+				networks.GeneralEVM,
+				big.NewFloat(.1),
+				defaultOCREnv(networks.GeneralEVM),
 			),
 			Entry("OCR suite on Metis Stardust @metis",
 				networks.MetisStardust,
@@ -56,6 +56,16 @@ var _ = Describe("OCR Feed @ocr", func() {
 				networks.KlaytnBaobab,
 				big.NewFloat(1),
 				defaultOCREnv(networks.KlaytnBaobab),
+			),
+			Entry("OCR suite on Optimism Goerli @optimism",
+				networks.OptimismGoerli,
+				big.NewFloat(.0005),
+				defaultOCREnv(networks.OptimismGoerli),
+			),
+			Entry("OCR suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				big.NewFloat(.005),
+				defaultOCREnv(networks.ArbitrumGoerli),
 			),
 		}
 
@@ -83,7 +93,6 @@ var _ = Describe("OCR Feed @ocr", func() {
 	) {
 		By("Deploying the environment")
 		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
 
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
@@ -143,7 +152,9 @@ func defaultOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
