@@ -14,16 +14,36 @@ on:
     paths:
       - "contracts/**"
       - pnpm.lock
-      - "tools/ci/**"
   pull_request:
     paths:
       - "contracts/**"
       - pnpm.lock
-      - "tools/ci/**"
 
 jobs:
+  solidity-shards:
+    name: Solidity Shards
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.shard.outputs.dirs }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity Shards
+        continue-on-error: true
+      - name: Get directories to shard
+        id: shard
+        run: ./contracts/scripts/shard_by_dir
+
   solidity-coverage:
-    name: Solidity Coverage
+    name: Solidity Coverage ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["cross-version", "v0.6", "v0.7", "v0.8"]
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -32,19 +52,28 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity Coverage
+          this-job-name: Solidity Coverage ${{ matrix.shard }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        uses: ./.github/actions/setup-hardhat
       - name: Run coverage
         env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-        run: ./tools/ci/solidity_coverage
+          SHARD: ${{ matrix.shard }}
+        run: pnpm coverage
+        working-directory: contracts
+      - name: Push coverage
+        run: ./tools/bin/codecov -f ./contracts/coverage.json
 
   solidity:
-    name: Solidity
+    name: Solidity ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["cross-version", "v0.6", "v0.7", "v0.8"]
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -59,18 +88,59 @@ jobs:
         uses: actions/checkout@v2
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
-      - name: Compile all contracts
+      - name: Setup Hardhat
+        uses: ./.github/actions/setup-hardhat
+        with:
+          shard: ${{ matrix.shard }}
+      - name: Run tests
+        env:
+          SHARD: ${{ matrix.shard }}
+        working-directory: contracts
+        run: pnpm test
+
+  prepublish-test:
+    name: Prepublish Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Prepublish Test
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Run Prepublish test
+        working-directory: contracts
+        run: pnpm prepublishOnly
+
+  native-compile:
+    name: Native Compilation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Native Compilation
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Test native compilation
         run: ./contracts/scripts/native_solc_compile_all
       - name: Verify local solc binaries
         run: ./tools/ci/check_solc_hashes
-      - name: Run tests
-        env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-        run: ./tools/ci/solidity_test_hardhat
-      - name: Run prepublish NPM test
-        run: ./tools/ci/prepublish_npm_test
 
   lint:
+    defaults:
+      run:
+        working-directory: contracts
     name: Lint
     runs-on: ubuntu-latest
     steps:
@@ -90,6 +160,9 @@ jobs:
         run: pnpm lint
 
   prettier:
+    defaults:
+      run:
+        working-directory: contracts
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
