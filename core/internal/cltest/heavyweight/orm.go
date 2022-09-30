@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -76,7 +75,7 @@ func prepareFullTestDB(t *testing.T, name string, empty bool, loadFixtures bool)
 			t.Fatal("could not get runtime.Caller(1)")
 		}
 		filepath := path.Join(path.Dir(filename), "../../../store/fixtures/fixtures.sql")
-		fixturesSQL, err := ioutil.ReadFile(filepath)
+		fixturesSQL, err := os.ReadFile(filepath)
 		require.NoError(t, err)
 		_, err = db.Exec(string(fixturesSQL))
 		require.NoError(t, err)

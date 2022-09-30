@@ -37,8 +37,10 @@ $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
 $SCRIPTPATH/native_solc8_6_compile factories/CronUpkeepFactory.sol
-$SCRIPTPATH/native_solc8_6_compile KeeperRegistry.sol
-$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryCheckUpkeepGasUsageWrapper.sol
+$SCRIPTPATH/native_solc8_6_compile KeeperRegistry1_2.sol
+$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistry1_3.sol
+$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryLogic1_3.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
@@ -62,10 +64,10 @@ $SCRIPTPATH/native_solc8_6_compile BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile BatchVRFCoordinatorV2.sol
 
 # VRF V2 Wrapper
-$SCRIPTPATH/native_solc8_15_compile VRFV2Wrapper.sol
-$SCRIPTPATH/native_solc8_15_compile interfaces/VRFV2WrapperInterface.sol
-$SCRIPTPATH/native_solc8_15_compile VRFV2WrapperConsumerBase.sol
-$SCRIPTPATH/native_solc8_15_compile tests/VRFV2WrapperConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile VRFV2Wrapper.sol
+$SCRIPTPATH/native_solc8_6_compile interfaces/VRFV2WrapperInterface.sol
+$SCRIPTPATH/native_solc8_6_compile VRFV2WrapperConsumerBase.sol
+$SCRIPTPATH/native_solc8_6_compile tests/VRFV2WrapperConsumerExample.sol
 
 
 # Make sure the example consumers compile

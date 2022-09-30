@@ -366,6 +366,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	require.Equal(t, job.JSONConfig{"juelsPerFeeCoinSource": spec.JuelsPerFeeCoinPipeline}, pluginValues.PluginConfig)
 
 	err = goose.Down(db.DB, migrationDir)
+	require.NoError(t, err)
 
 	sql = `SELECT plugin_type, plugin_config FROM offchainreporting2_oracle_specs`
 	err = db.Get(&pluginValues, sql)

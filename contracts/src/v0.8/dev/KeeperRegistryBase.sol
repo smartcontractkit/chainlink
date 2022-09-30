@@ -6,12 +6,12 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "./ExecutionPrevention.sol";
-import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceDev.sol";
-import "./interfaces/UpkeepTranscoderInterfaceDev.sol";
+import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterface1_3.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -28,14 +28,14 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint32 internal constant UINT32_MAX = type(uint32).max;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
-  UpkeepFormatDev internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormatDev.V2;
-
+  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V2;
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
-  bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  bytes internal constant L1_FEE_DATA_PADDING =
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // MAX_INPUT_DATA represents the estimated max size of the sum of L1 data padding and msg.data in performUpkeep
   // function, which includes 4 bytes for function selector, 32 bytes for upkeep id, 35 bytes for data padding, and
   // 64 bytes for estimated perform data
-  bytes public MAX_INPUT_DATA =
+  bytes internal constant MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   address[] internal s_keeperList;
@@ -65,6 +65,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error ArrayHasNoEntries();
   error CannotCancel();
   error DuplicateEntry();
+  error EmptyAddress();
   error GasLimitCanOnlyIncrease();
   error GasLimitOutsideRange();
   error IndexOutOfRange();
@@ -180,6 +181,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   ) ConfirmedOwner(msg.sender) {
     PAYMENT_MODEL = paymentModel;
     REGISTRY_GAS_OVERHEAD = registryGasOverhead;
+    if (ZERO_ADDRESS == link || ZERO_ADDRESS == linkEthFeed || ZERO_ADDRESS == fastGasFeed) {
+      revert EmptyAddress();
+    }
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);

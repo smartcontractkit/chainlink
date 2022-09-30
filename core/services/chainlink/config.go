@@ -1,7 +1,7 @@
 package chainlink
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
@@ -10,11 +10,15 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmtyp "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -38,25 +42,18 @@ type Config struct {
 
 	Solana SolanaConfigs `toml:",omitempty"`
 
+	Starknet StarknetConfigs `toml:",omitempty"`
+
 	Terra TerraConfigs `toml:",omitempty"`
 }
 
-func prettifyTOML(tomlString string) string {
-	// remove runs of line breaks
-	s := multiLineBreak.ReplaceAllLiteralString(tomlString, "\n")
-	// restore them preceding keys
-	s = strings.Replace(s, "\n[", "\n\n[", -1)
-	s = strings.TrimPrefix(s, "\n")
-	return s
-}
-
-// TOMLString returns a pretty-printed TOML encoded string, with extra line breaks removed.
+// TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
 	b, err := toml.Marshal(c)
 	if err != nil {
 		return "", err
 	}
-	return prettifyTOML(string(b)), nil
+	return string(b), nil
 }
 
 func (c *Config) Validate() error {
@@ -132,7 +129,7 @@ type EVMConfigs []*EVMConfig
 
 func (cs EVMConfigs) ValidateConfig() (err error) {
 	chainIDs := map[string]struct{}{}
-	for _, c := range cs {
+	for i, c := range cs {
 		if c.ChainID == nil {
 			continue
 		}
@@ -141,7 +138,7 @@ func (cs EVMConfigs) ValidateConfig() (err error) {
 			continue
 		}
 		if _, ok := chainIDs[chainID]; ok {
-			err = multierr.Append(err, config.ErrInvalid{Name: "ChainID", Msg: "duplicate - must be unique", Value: chainID})
+			err = multierr.Append(err, config.ErrInvalid{Name: fmt.Sprintf("%d: ChainID", i), Msg: "duplicate - must be unique", Value: chainID})
 		} else {
 			chainIDs[chainID] = struct{}{}
 		}
@@ -153,12 +150,12 @@ type EVMNodes []*evmcfg.Node
 
 func (ns EVMNodes) ValidateConfig() (err error) {
 	names := map[string]struct{}{}
-	for _, n := range ns {
+	for i, n := range ns {
 		if n.Name == nil || *n.Name == "" {
 			continue
 		}
 		if _, ok := names[*n.Name]; ok {
-			err = multierr.Append(err, config.ErrInvalid{Name: "Name", Msg: "duplicate - must be unique", Value: *n.Name})
+			err = multierr.Append(err, config.ErrInvalid{Name: fmt.Sprintf("%d: Name", i), Msg: "duplicate - must be unique", Value: *n.Name})
 		}
 		names[*n.Name] = struct{}{}
 	}
@@ -171,6 +168,9 @@ type EVMConfig struct {
 	evmcfg.Chain
 	Nodes EVMNodes
 }
+
+// Ensure that the embedded struct will be validated (w/o requiring a pointer receiver).
+var _ config.Validated = evmcfg.Chain{}
 
 func (c *EVMConfig) setFromDB(ch evmtyp.DBChain, nodes []evmtyp.Node) error {
 	c.ChainID = &ch.ID
@@ -203,7 +203,7 @@ type SolanaConfigs []*SolanaConfig
 
 func (cs SolanaConfigs) ValidateConfig() (err error) {
 	chainIDs := map[string]struct{}{}
-	for _, c := range cs {
+	for i, c := range cs {
 		if c.ChainID == nil {
 			continue
 		}
@@ -212,7 +212,7 @@ func (cs SolanaConfigs) ValidateConfig() (err error) {
 			continue
 		}
 		if _, ok := chainIDs[chainID]; ok {
-			err = multierr.Append(err, config.ErrInvalid{Name: "ChainID", Msg: "duplicate - must be unique", Value: chainID})
+			err = multierr.Append(err, config.ErrInvalid{Name: fmt.Sprintf("%d: ChainID", i), Msg: "duplicate - must be unique", Value: chainID})
 		} else {
 			chainIDs[chainID] = struct{}{}
 		}
@@ -224,12 +224,12 @@ type SolanaNodes []*solcfg.Node
 
 func (ns SolanaNodes) ValidateConfig() (err error) {
 	names := map[string]struct{}{}
-	for _, n := range ns {
+	for i, n := range ns {
 		if n.Name == nil || *n.Name == "" {
 			continue
 		}
 		if _, ok := names[*n.Name]; ok {
-			err = multierr.Append(err, config.ErrInvalid{Name: "Name", Msg: "duplicate - must be unique", Value: *n.Name})
+			err = multierr.Append(err, config.ErrInvalid{Name: fmt.Sprintf("%d: Name", i), Msg: "duplicate - must be unique", Value: *n.Name})
 		}
 		names[*n.Name] = struct{}{}
 	}
@@ -270,9 +270,9 @@ func (c *SolanaConfig) ValidateConfig() (err error) {
 	return
 }
 
-type TerraConfigs []*TerraConfig
+type StarknetConfigs []*StarknetConfig
 
-func (cs TerraConfigs) ValidateConfig() (err error) {
+func (cs StarknetConfigs) ValidateConfig() (err error) {
 	chainIDs := map[string]struct{}{}
 	for _, c := range cs {
 		if c.ChainID == nil {
@@ -291,9 +291,44 @@ func (cs TerraConfigs) ValidateConfig() (err error) {
 	return
 }
 
-type TerraNodes []*tercfg.Node
+type StarknetConfig struct {
+	ChainID *string
+	Enabled *bool
+	stkcfg.Chain
+	Nodes StarknetNodes
+}
 
-func (ns TerraNodes) ValidateConfig() (err error) {
+func (c *StarknetConfig) setFromDB(ch starknet.DBChain, nodes []stkdb.Node) error {
+	c.ChainID = &ch.ID
+	c.Enabled = &ch.Enabled
+
+	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
+		return err
+	}
+	for _, db := range nodes {
+		var n stkcfg.Node
+		if err := n.SetFromDB(db); err != nil {
+			return err
+		}
+		c.Nodes = append(c.Nodes, &n)
+	}
+
+	return nil
+}
+
+func (c *StarknetConfig) ValidateConfig() (err error) {
+	if c.ChainID == nil {
+		err = multierr.Append(err, config.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+	} else if *c.ChainID == "" {
+		err = multierr.Append(err, config.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+	}
+
+	return
+}
+
+type StarknetNodes []*stkcfg.Node
+
+func (ns StarknetNodes) ValidateConfig() (err error) {
 	names := map[string]struct{}{}
 	for _, n := range ns {
 		if n.Name == nil || *n.Name == "" {
@@ -301,6 +336,43 @@ func (ns TerraNodes) ValidateConfig() (err error) {
 		}
 		if _, ok := names[*n.Name]; ok {
 			err = multierr.Append(err, config.ErrInvalid{Name: "Name", Msg: "duplicate - must be unique", Value: *n.Name})
+		}
+		names[*n.Name] = struct{}{}
+	}
+	return
+}
+
+type TerraConfigs []*TerraConfig
+
+func (cs TerraConfigs) ValidateConfig() (err error) {
+	chainIDs := map[string]struct{}{}
+	for i, c := range cs {
+		if c.ChainID == nil {
+			continue
+		}
+		chainID := *c.ChainID
+		if chainID == "" {
+			continue
+		}
+		if _, ok := chainIDs[chainID]; ok {
+			err = multierr.Append(err, config.ErrInvalid{Name: fmt.Sprintf("%d: ChainID", i), Msg: "duplicate - must be unique", Value: chainID})
+		} else {
+			chainIDs[chainID] = struct{}{}
+		}
+	}
+	return
+}
+
+type TerraNodes []*tercfg.Node
+
+func (ns TerraNodes) ValidateConfig() (err error) {
+	names := map[string]struct{}{}
+	for i, n := range ns {
+		if n.Name == nil || *n.Name == "" {
+			continue
+		}
+		if _, ok := names[*n.Name]; ok {
+			err = multierr.Append(err, config.ErrInvalid{Name: fmt.Sprintf("%d: Name", i), Msg: "duplicate - must be unique", Value: *n.Name})
 		}
 		names[*n.Name] = struct{}{}
 	}

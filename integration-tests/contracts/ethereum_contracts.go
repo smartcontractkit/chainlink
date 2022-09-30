@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
@@ -371,11 +372,8 @@ func NewFluxAggregatorRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest FluxAggregator round and check to see whether the round has confirmed
-func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) error {
-	if block.Block.Number() == nil {
-		return nil
-	}
+// ReceiveHeader will query the latest FluxAggregator round and check to see whether the round has confirmed
+func (f *FluxAggregatorRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) error {
 	if f.complete {
 		return nil
 	}
@@ -387,7 +385,7 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) 
 		Str("Contract Address", f.fluxInstance.Address()).
 		Int64("Current Round", lr.Int64()).
 		Int64("Waiting for Round", f.roundID.Int64()).
-		Uint64("Block Number", block.NumberU64())
+		Uint64("Header Number", header.Number.Uint64())
 	if lr.Cmp(f.roundID) >= 0 {
 		fluxLog.Msg("FluxAggregator round completed")
 		f.complete = true
@@ -442,8 +440,8 @@ func NewVRFConsumerRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest VRFConsumer round and check to see whether the round has confirmed
-func (f *VRFConsumerRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) error {
+// ReceiveHeader will query the latest VRFConsumer round and check to see whether the round has confirmed
+func (f *VRFConsumerRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) error {
 	if f.done {
 		return nil
 	}
@@ -455,7 +453,7 @@ func (f *VRFConsumerRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) err
 		Str("Contract Address", f.consumer.Address()).
 		Int64("Waiting for Round", f.roundID.Int64()).
 		Int64("Current round ID", roundID.Int64()).
-		Uint64("Block Number", block.NumberU64())
+		Uint64("Header Number", header.Number.Uint64())
 	if roundID.Int64() == f.roundID.Int64() {
 		randomness, err := f.consumer.RandomnessOutput(context.Background())
 		if err != nil {
@@ -828,8 +826,8 @@ func NewRunlogRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest Runlog round and check to see whether the round has confirmed
-func (o *RunlogRoundConfirmer) ReceiveBlock(_ blockchain.NodeBlock) error {
+// ReceiveHeader will query the latest Runlog round and check to see whether the round has confirmed
+func (o *RunlogRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	currentRoundID, err := o.consumer.RoundID(context.Background())
 	if err != nil {
 		return err
@@ -891,8 +889,8 @@ func NewOffchainAggregatorRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest OffchainAggregator round and check to see whether the round has confirmed
-func (o *OffchainAggregatorRoundConfirmer) ReceiveBlock(_ blockchain.NodeBlock) error {
+// ReceiveHeader will query the latest OffchainAggregator round and check to see whether the round has confirmed
+func (o *OffchainAggregatorRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	if channelClosed(o.doneChan) {
 		return nil
 	}
@@ -989,7 +987,7 @@ func (v *EthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
 // EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
 type EthereumMockETHLINKFeed struct {
 	client  blockchain.EVMClient
-	feed    *ethereum.MockV3AggregatorContract
+	feed    *ethereum.MockETHLINKAggregator
 	address *common.Address
 }
 
@@ -1005,7 +1003,7 @@ func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return data.Answer, nil
+	return data.Ans, nil
 }
 
 // EthereumMockGASFeed represents mocked Gas feed contract

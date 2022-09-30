@@ -23,7 +23,6 @@ type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
 	chainSpecificConfigDefaultSet struct {
 		balanceMonitorEnabled                          bool
-		balanceMonitorBlockDelay                       uint16
 		blockEmissionIdleWarningThreshold              time.Duration
 		blockHistoryEstimatorBatchSize                 uint32
 		blockHistoryEstimatorBlockDelay                uint16
@@ -109,7 +108,6 @@ func setChainSpecificConfigDefaultSets() {
 
 	fallbackDefaultSet = chainSpecificConfigDefaultSet{
 		balanceMonitorEnabled:                      true,
-		balanceMonitorBlockDelay:                   1,
 		blockEmissionIdleWarningThreshold:          1 * time.Minute,
 		blockHistoryEstimatorBatchSize:             4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
 		blockHistoryEstimatorBlockDelay:            1,
@@ -178,14 +176,18 @@ func setChainSpecificConfigDefaultSets() {
 	kovan := mainnet
 	kovan.linkContractAddress = "0xa36085F69e2889c224210F603D836748e7dC0088"
 	kovan.operatorFactoryAddress = "0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3"
-	kovan.eip1559DynamicFees = false // FIXME: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	// WONTFIX: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	// This is a WONTFIX because support for Kovan will soon be dropped
+	kovan.eip1559DynamicFees = false
 	goerli := mainnet
 	goerli.linkContractAddress = "0x326c977e6efc84e512bb9c30f76e30c160ed06fb"
-	goerli.eip1559DynamicFees = false // TODO: EIP1559 on goerli has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	goerli.eip1559DynamicFees = true
 	goerli.operatorFactoryAddress = ""
 	rinkeby := mainnet
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
-	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	// WONTFIX: Rinkeby has not been tested with EIP1559
+	// This is a WONTFIX because support for Rinkeby will soon be dropped
+	rinkeby.eip1559DynamicFees = false
 	rinkeby.operatorFactoryAddress = ""
 	sepolia := mainnet
 	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
@@ -196,12 +198,13 @@ func setChainSpecificConfigDefaultSets() {
 	// see: https://goethereumbook.org/en/client-simulated/
 	// generally speaking, this is only used in tests
 	simulated := fallbackDefaultSet
-	simulated.balanceMonitorBlockDelay = 0
 	simulated.blockEmissionIdleWarningThreshold = 0
 	simulated.nodeDeadAfterNoNewHeadersThreshold = 0 // Assume simulated chain can never die
 	simulated.ethTxResendAfterThreshold = 0
-	simulated.finalityDepth = 1    // Simulated does not have re-orgs
-	simulated.gasBumpThreshold = 0 // Never bump gas
+	simulated.gasFeeCapDefault = *assets.GWei(100000)
+	simulated.maxGasPriceWei = *assets.GWei(100000) // must be the same as gasFeeCapDefault in FixedPrice mode with gas bumping disabled
+	simulated.finalityDepth = 1                     // Simulated does not have re-orgs
+	simulated.gasBumpThreshold = 0                  // Never bump gas
 	simulated.gasEstimatorMode = "FixedPrice"
 	simulated.headTrackerHistoryDepth = 10
 	simulated.headTrackerSamplingInterval = 1 * time.Second
@@ -233,7 +236,6 @@ func setChainSpecificConfigDefaultSets() {
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
 	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 	bscMainnet := fallbackDefaultSet
-	bscMainnet.balanceMonitorBlockDelay = 2
 	bscMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	bscMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	bscMainnet.blockHistoryEstimatorBlockDelay = 2
@@ -258,7 +260,6 @@ func setChainSpecificConfigDefaultSets() {
 	// Polygon has a 1s block time and looser finality guarantees than ethereum.
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
-	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	polygonMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	polygonMainnet.finalityDepth = 500  // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
@@ -304,7 +305,6 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
-	optimismMainnet.balanceMonitorBlockDelay = 0
 	optimismMainnet.blockEmissionIdleWarningThreshold = 0
 	optimismMainnet.nodeDeadAfterNoNewHeadersThreshold = 0    // Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
@@ -327,7 +327,6 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
-	fantomMainnet.balanceMonitorBlockDelay = 2
 	fantomMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	fantomMainnet.blockHistoryEstimatorBlockDelay = 2
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
@@ -392,7 +391,6 @@ func setChainSpecificConfigDefaultSets() {
 	metisMainnet := fallbackDefaultSet
 	metisMainnet.blockEmissionIdleWarningThreshold = 0
 	metisMainnet.nodeDeadAfterNoNewHeadersThreshold = 0
-	metisMainnet.balanceMonitorBlockDelay = 0
 	metisMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on metis
 	metisMainnet.chainType = config.ChainMetis
 	metisMainnet.finalityDepth = 1    // Sequencer offers absolute finality

@@ -9,8 +9,9 @@ import (
 	"reflect"
 	"time"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
+
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
@@ -21,7 +22,7 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 //
-// A note on Feature Flags
+// # A note on Feature Flags
 //
 // Feature flags should be used during development of large features that might
 // span more than one release cycle. Most changes that are not considered "complete"
@@ -279,7 +280,8 @@ type ConfigSchema struct {
 	KeeperBaseFeeBufferPercent              uint32        `env:"KEEPER_BASE_FEE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
-	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
+	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"300000"`
+	KeeperRegistryMaxPerformDataSize        uint64        `env:"KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE" default:"5000"`
 	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
@@ -298,6 +300,11 @@ type ConfigSchema struct {
 	AutoPprofMutexProfileFraction int             `env:"AUTO_PPROF_MUTEX_PROFILE_FRACTION" default:"1"` //nodoc
 	AutoPprofMemThreshold         utils.FileSize  `env:"AUTO_PPROF_MEM_THRESHOLD" default:"4gb"`        //nodoc
 	AutoPprofGoroutineThreshold   int             `env:"AUTO_PPROF_GOROUTINE_THRESHOLD" default:"5000"` //nodoc
+
+	// Pyroscope (live profiling)
+	PyroscopeAuthToken     string `env:"PYROSCOPE_AUTH_TOKEN"`                    //nodoc
+	PyroscopeServerAddress string `env:"PYROSCOPE_SERVER_ADDRESS"`                //nodoc
+	PyroscopeEnvironment   string `env:"PYROSCOPE_ENVIRONMENT" default:"mainnet"` //nodoc
 }
 
 // Name gets the environment variable Name for a config schema field

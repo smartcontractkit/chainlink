@@ -86,10 +86,10 @@ var (
 		GasEstimationBuffer:       0,
 	}
 
-	// ArbitrumRinkeby https://developer.offchainlabs.com/docs/public_chains - soon to be deprecated
-	ArbitrumRinkeby *blockchain.EVMNetwork = &blockchain.EVMNetwork{
-		Name:                      "Arbitrum Rinkeby",
-		ChainID:                   421611,
+	// OptimismGoerli https://dev.optimism.io/kovan-to-goerli/
+	OptimismGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Optimism Goerli",
+		ChainID:                   420,
 		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
 		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
