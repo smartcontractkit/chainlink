@@ -350,8 +350,11 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 // getCurrentBlockMaybeHandleReorg accepts a block number
 // and will return that block if its parent points to our last saved block.
 // One can optionally pass the block header if it has already been queried to avoid an extra RPC call.
-// If its parent does not point to our last saved block we know a reorg has occurred.
-// In that case return the LCA+1, i.e. our new current (unprocessed) block.
+// If its parent does not point to our last saved block we know a reorg has occurred,
+// so we:
+// 1. Find the LCA by following parent hashes.
+// 2. Delete all logs and blocks after the LCA
+// 3. Return the LCA+1, i.e. our new current (unprocessed) block.
 func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *types.Header) (*types.Header, error) {
 	var err1 error
 	if currentBlock == nil {
@@ -398,12 +401,12 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			// These deletes are bounded by reorg depth, so they are
 			// fast and should not slow down the log readers.
-			err3 := lp.orm.DeleteRangeBlocks(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
+			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
 				return err3
 			}
-			err3 = lp.orm.DeleteLogs(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
+			err3 = lp.orm.DeleteLogsAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err3)
 				return err3
