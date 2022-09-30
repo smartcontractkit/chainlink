@@ -26,10 +26,16 @@ var launchAndTestCmd = &cobra.Command{
 			log.Fatal("failed to get withdraw flag: ", err)
 		}
 
-		hdlr.LaunchAndTest(cmd.Context(), withdraw)
+		printLogs, err := cmd.Flags().GetBool("export-logs")
+		if err != nil {
+			log.Fatal("failed to get export-logs flag: ", err)
+		}
+
+		hdlr.LaunchAndTest(cmd.Context(), withdraw, printLogs)
 	},
 }
 
 func init() {
 	launchAndTestCmd.Flags().BoolP("withdraw", "w", false, "Specify if funds should be withdrawn and upkeeps should be canceled")
+	launchAndTestCmd.Flags().BoolP("export-logs", "l", false, "Specify if container logs should be exported to ./")
 }

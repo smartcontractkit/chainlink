@@ -26,7 +26,7 @@ import (
 
 type startedNodeData struct {
 	url     string
-	cleanup func()
+	cleanup func(bool)
 }
 
 // LaunchAndTest launches keeper registry, chainlink nodes, upkeeps and start performing.
@@ -37,7 +37,7 @@ type startedNodeData struct {
 // 5. fund nodes if needed
 // 6. set keepers in the registry
 // 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
-func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
+func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs bool) {
 	lggr, closeLggr := logger.NewLogger()
 	defer closeLggr()
 
@@ -142,7 +142,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Cleanup resources
 	for _, startedNode := range startedNodes {
 		if startedNode.cleanup != nil {
-			startedNode.cleanup()
+			startedNode.cleanup(printLogs)
 		}
 	}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -170,7 +171,7 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) {
 	}
 }
 
-func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraEnvVars ...string) (string, func(), error) {
+func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraEnvVars ...string) (string, func(bool), error) {
 	// Create docker client to launch nodes
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -317,8 +318,36 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 	time.Sleep(time.Second * 40)
 
-	return addr, func() {
+	return addr, func(writeLogs bool) {
 		fileCleanup()
+
+		if writeLogs {
+			var rdr io.ReadCloser
+			rdr, err := dockerClient.ContainerLogs(ctx, nodeContainerResp.ID, types.ContainerLogsOptions{
+				ShowStderr: true,
+				Timestamps: true,
+			})
+			if err != nil {
+				rdr.Close()
+				log.Fatal("Failed to collect logs from container: ", err)
+			}
+
+			stdErr, err := os.OpenFile(fmt.Sprintf("./%s-stderr.log", nodeContainerResp.ID), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+			if err != nil {
+				rdr.Close()
+				stdErr.Close()
+				log.Fatal("Failed to open file: ", err)
+			}
+
+			if _, err := stdcopy.StdCopy(io.Discard, stdErr, rdr); err != nil {
+				rdr.Close()
+				stdErr.Close()
+				log.Fatal("Failed to write logs to file: ", err)
+			}
+
+			rdr.Close()
+			stdErr.Close()
+		}
 
 		if err = dockerClient.ContainerStop(ctx, nodeContainerResp.ID, nil); err != nil {
 			log.Fatal("Failed to stop node container: ", err)
