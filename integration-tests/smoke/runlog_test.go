@@ -35,9 +35,9 @@ var _ = Describe("Direct request suite @runlog", func() {
 				defaultRunlogEnv(networks.SimulatedEVM),
 			),
 			Entry("Runlog suite on General EVM @general",
-				networks.GeneralEVM(),
+				networks.GeneralEVM,
 				big.NewFloat(.1),
-				defaultRunlogEnv(networks.GeneralEVM()),
+				defaultRunlogEnv(networks.GeneralEVM),
 			),
 			Entry("Runlog suite on Metis Stardust @metis",
 				networks.MetisStardust,
@@ -63,6 +63,11 @@ var _ = Describe("Direct request suite @runlog", func() {
 				networks.OptimismGoerli,
 				big.NewFloat(.1),
 				defaultRunlogEnv(networks.OptimismGoerli),
+			),
+			Entry("Runlog suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				big.NewFloat(.1),
+				defaultRunlogEnv(networks.ArbitrumGoerli),
 			),
 		}
 
@@ -91,7 +96,6 @@ var _ = Describe("Direct request suite @runlog", func() {
 	) {
 		By("Deploying the environment")
 		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
 
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
@@ -187,7 +191,9 @@ func defaultRunlogEnv(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
