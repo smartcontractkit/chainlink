@@ -3,6 +3,9 @@ name: Solidity
 on:
   push:
 
+env:
+  NODE_OPTIONS: --max_old_space_size=5120
+
 jobs:
   solidity-coverage:
     name: Solidity Coverage ${{ matrix.shard }}

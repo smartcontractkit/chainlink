@@ -44,7 +44,7 @@ runs:
         restore-keys: |
           ${{ format('contracts-{0}-{1}-{2}', inputs.shard, runner.os, inputs.cache-version) }}
 
-    # - name: Compile contracts
-    #   shell: bash
-    #   run: pnpm compile
-    #   working-directory: contracts
+    - name: Compile contracts
+      shell: bash
+      run: pnpm compile
+      working-directory: contracts
