@@ -185,8 +185,8 @@ github.com/ashanbrown/forbidigo v1.3.0/go.mod h1:vVW7PEdqEFqapJe95xHkTfB1+XvZXBF
 github.com/ashanbrown/makezero v1.1.1/go.mod h1:i1bJLCRSCHOcOa9Y6MyF2FTfMZMFdHvxKHxgO5Z1axI=
 github.com/ava-labs/avalanchego v1.8.5 h1:HhNJUsvwk+DxxncutN/4rlnUmnQvtF/73qNbpW3BFJc=
 github.com/ava-labs/avalanchego v1.8.5/go.mod h1:GAo3tDCj5Ulx9xIY78ad5SmGFqtdmFRjJGQ2gJk//Vk=
-github.com/ava-labs/coreth v0.10.0 h1:BwZa6G3yr7+0T0t7MzU4Jd0yt9QxfhXv7R8sBko20D8=
-github.com/ava-labs/coreth v0.10.0/go.mod h1:o9MtalIgKMH3PY7Ca4GDHMziEvGPxaAtKFaLd6uJvJI=
+github.com/ava-labs/coreth v0.10.1 h1:ZSyCmQ4WuZeZK1anAcdddFkPCVok318uWPXPJFM2aiM=
+github.com/ava-labs/coreth v0.10.1/go.mod h1:IhfO9oA8KicFyYZA3nIqjV/TS6xzAqT5ml2QKfNGtGA=
 github.com/avast/retry-go v3.0.0+incompatible h1:4SOWQ7Qs+oroOTQOYnAHqelpCO0biHSxpiH9JdtuBj0=
 github.com/aws/aws-lambda-go v1.13.3/go.mod h1:4UKl9IzQMoD+QF79YdCuzCwp8VbmG4VAQwij/eHl5CU=
 github.com/aws/aws-sdk-go v1.22.1/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
