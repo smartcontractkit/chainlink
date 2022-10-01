@@ -5,12 +5,16 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -75,4 +79,48 @@ func TestUpdateConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, price, chain.Config().KeySpecificMaxGasPriceWei(address))
+}
+
+func TestAddClose(t *testing.T) {
+	t.Parallel()
+
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+	db := pgtest.NewSqlxDB(t)
+	kst := cltest.NewKeyStore(t, db, cfg)
+	require.NoError(t, kst.Unlock(cltest.Password))
+
+	genEthClient := func(c types.DBChain) evmclient.Client {
+		return cltest.NewEthMocksWithStartupAssertions(t)
+	}
+
+	chainCfg := types.ChainCfg{}
+	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: genEthClient})
+	chains := chainSet.Chains()
+	require.Equal(t, 1, len(chains))
+
+	chainSet.Start(testutils.Context(t))
+	require.NoError(t, chainSet.Chains()[0].Ready())
+
+	newId := testutils.NewRandomEVMChainID()
+
+	chain, err := chainSet.Add(testutils.Context(t), *utils.NewBig(newId), &chainCfg)
+	require.NoError(t, err)
+
+	assert.Equal(t, *utils.NewBig(newId), chain.ID)
+
+	chains = chainSet.Chains()
+	require.Equal(t, 2, len(chains))
+	require.Equal(t, *newId, *chains[1].ID())
+
+	assert.NoError(t, chains[0].Ready())
+	assert.NoError(t, chains[1].Ready())
+
+	chainSet.Close()
+
+	chains[0].Client().(*evmmocks.Client).AssertCalled(t, "Close")
+	chains[1].Client().(*evmmocks.Client).AssertCalled(t, "Close")
+
+	assert.Error(t, chains[0].Ready())
+	assert.Error(t, chains[1].Ready())
 }
