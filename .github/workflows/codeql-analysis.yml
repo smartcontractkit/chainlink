@@ -44,6 +44,9 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@3f62b754e23e0dd60f91b744033e1dc1654c0ec6 # v2.1.15
