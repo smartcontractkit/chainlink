@@ -50,7 +50,7 @@
     "typescript": "^4.3.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.3.3",
+    "@openzeppelin/contracts": "^4.7.3",
     "@openzeppelin/contracts-v0.7": "npm:@openzeppelin/contracts@v3.4.2",
     "@eth-optimism/contracts": "^0.5.21"
   }
