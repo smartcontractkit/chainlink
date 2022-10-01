@@ -955,51 +955,84 @@ func TestConfig_Validate(t *testing.T) {
 	}{
 		{name: "invalid", toml: invalidTOML, exp: `5 errors:
 	1) Database.Lock.LeaseRefreshInterval: invalid value 6s: must be less than or equal to half of LeaseDuration (10s)
-	2) EVM: 5 errors:
+	2) EVM: 8 errors:
 		1) 1.ChainID: invalid value 1: duplicate - must be unique
 		2) 0.Nodes.1.Name: invalid value foo: duplicate - must be unique
-		3) 0: 3 errors:
-			1) GasEstimator.BumpTxDepth: invalid value 11: must be less than or equal to MaxInFlightTransactions
-			2) GasEstimator: 6 errors:
+		3) 3.Nodes.4.WSURL: invalid value ws://dupe.com: duplicate - must be unique
+		4) 0: 4 errors:
+			1) Nodes: missing: must have at least one primary node with WSURL
+			2) GasEstimator.BumpTxDepth: invalid value 11: must be less than or equal to MaxInFlightTransactions
+			3) GasEstimator: 6 errors:
 				1) BumpPercent: invalid value 1: may not be less than Geth's default of 10
-				2) TipCapDefault: invalid value 3 wei: must be greater than or euqal to TipCapMinimum
-				3) FeeCapDefault: invalid value 3 wei: must be greater than or euqal to TipCapDefault
+				2) TipCapDefault: invalid value 3 wei: must be greater than or equal to TipCapMinimum
+				3) FeeCapDefault: invalid value 3 wei: must be greater than or equal to TipCapDefault
 				4) PriceMin: invalid value 10 gwei: must be less than or equal to PriceDefault
 				5) PriceMax: invalid value 10 gwei: must be greater than or equal to PriceDefault
 				6) BlockHistory.BlockHistorySize: invalid value 0: must be greater than or equal to 1 with BlockHistory Mode
-			3) Nodes: 2 errors:
-				1) 0.HTTPURL: missing: required for all nodes
-				2) 1: 2 errors:
-					1) WSURL: missing: required for SendOnly nodes
+			4) Nodes: 2 errors:
+				1) 0: 2 errors:
+					1) WSURL: missing: required for primary nodes
 					2) HTTPURL: missing: required for all nodes
-		4) 1: 5 errors:
-			1) ChainType: invalid value Foo: only "" can be used with this chain id
-			2) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
-			3) HeadTracker.HistoryDepth: invalid value 30: must be equal to or reater than FinalityDepth
-			4) GasEstimator: 2 errors:
+				2) 1: 2 errors:
+					1) WSURL: missing: required for primary nodes
+					2) HTTPURL: missing: required for all nodes
+		5) 1: 6 errors:
+			1) ChainType: invalid value Foo: must not be set with this chain id
+			2) Nodes: missing: must have at least one node
+			3) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
+			4) HeadTracker.HistoryDepth: invalid value 30: must be equal to or reater than FinalityDepth
+			5) GasEstimator: 2 errors:
 				1) FeeCapDefault: invalid value 101 wei: must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				2) PriceMax: invalid value 1 gwei: must be greater than or equal to PriceDefault
-			5) KeySpecific.Key: invalid value 0xde709f2102306220921060314715629080e2fb77: duplicate - must be unique
-		5) 2: 4 errors:
+			6) KeySpecific.Key: invalid value 0xde709f2102306220921060314715629080e2fb77: duplicate - must be unique
+		6) 2: 5 errors:
 			1) ChainType: invalid value Arbitrum: only "optimism" can be used with this chain id
-			2) ChainType: invalid value Arbitrum: must be one of arbitrum, metis, optimism, xdai or omitted
-			3) FinalityDepth: invalid value 0: must be greater than or equal to 1
-			4) MinIncomingConfirmations: invalid value 0: must be greater than or equal to 1
-	3) Solana: 3 errors:
+			2) Nodes: missing: must have at least one node
+			3) ChainType: invalid value Arbitrum: must be one of arbitrum, metis, optimism, xdai or omitted
+			4) FinalityDepth: invalid value 0: must be greater than or equal to 1
+			5) MinIncomingConfirmations: invalid value 0: must be greater than or equal to 1
+		7) 3.Nodes: 5 errors:
+				1) 0: 2 errors:
+					1) Name: missing: required for all nodes
+					2) HTTPURL: empty: required for all nodes
+				2) 1: 3 errors:
+					1) Name: missing: required for all nodes
+					2) WSURL: invalid value http: must be ws or wss
+					3) HTTPURL: missing: required for all nodes
+				3) 2: 2 errors:
+					1) Name: empty: required for all nodes
+					2) HTTPURL: invalid value ws: must be http or https
+				4) 3.HTTPURL: missing: required for all nodes
+				5) 4.HTTPURL: missing: required for all nodes
+		8) 4: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: missing: must have at least one node
+	3) Solana: 5 errors:
 		1) 1.ChainID: invalid value mainnet: duplicate - must be unique
 		2) 1.Nodes.1.Name: invalid value bar: duplicate - must be unique
-		3) 1.Nodes: 2 errors:
+		3) 0.Nodes: missing: must have at least one node
+		4) 1.Nodes: 2 errors:
 				1) 0.URL: missing: required for all nodes
 				2) 1.URL: missing: required for all nodes
-	4) Starknet: 2 errors:
+		5) 2: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: missing: must have at least one node
+	4) Starknet: 3 errors:
 		1) 0.Nodes.1.Name: invalid value primary: duplicate - must be unique
 		2) 0.ChainID: missing: required for all chains
-	5) Terra: 3 errors:
+		3) 1: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: missing: must have at least one node
+	5) Terra: 5 errors:
 		1) 1.ChainID: invalid value Bombay-12: duplicate - must be unique
 		2) 0.Nodes.1.Name: invalid value test: duplicate - must be unique
 		3) 0.Nodes: 2 errors:
 				1) 0.TendermintURL: missing: required for all nodes
-				2) 1.TendermintURL: missing: required for all nodes`},
+				2) 1.TendermintURL: missing: required for all nodes
+		4) 1.Nodes: missing: must have at least one node
+		5) 2: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: missing: must have at least one node`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config

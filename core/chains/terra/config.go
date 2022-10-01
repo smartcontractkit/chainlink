@@ -20,48 +20,32 @@ import (
 type TerraConfigs []*TerraConfig
 
 func (cs TerraConfigs) ValidateConfig() (err error) {
-	chainIDs := map[string]struct{}{}
+	// Unique chain IDs
+	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
-		if c.ChainID == nil {
-			continue
-		}
-		chainID := *c.ChainID
-		if chainID == "" {
-			continue
-		}
-		if _, ok := chainIDs[chainID]; ok {
-			err = multierr.Append(err, v2.ErrInvalid{Name: fmt.Sprintf("%d.ChainID", i), Msg: "duplicate - must be unique", Value: chainID})
-		} else {
-			chainIDs[chainID] = struct{}{}
+		if chainIDs.IsDupe(c.ChainID) {
+			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
 		}
 	}
 
 	// Unique node names
-	names := map[string]struct{}{}
+	names := v2.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
-			if n.Name == nil || *n.Name == "" {
-				continue
+			if names.IsDupe(n.Name) {
+				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
 			}
-			if _, ok := names[*n.Name]; ok {
-				err = multierr.Append(err, v2.ErrInvalid{Name: fmt.Sprintf("%d.Nodes.%d.Name", i, j), Msg: "duplicate - must be unique", Value: *n.Name})
-			}
-			names[*n.Name] = struct{}{}
 		}
 	}
 
 	// Unique TendermintURLs
-	urls := map[string]struct{}{}
+	urls := v2.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
-			if n.TendermintURL == nil {
-				continue
+			u := (*url.URL)(n.TendermintURL)
+			if urls.IsDupeFmt(u) {
+				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.TendermintURL", i, j), u.String()))
 			}
-			us := (*url.URL)(n.TendermintURL).String()
-			if _, ok := urls[us]; ok {
-				err = multierr.Append(err, v2.ErrInvalid{Name: fmt.Sprintf("%d.Nodes.%d.TendermintURL", i, j), Msg: "duplicate - must be unique", Value: us})
-			}
-			urls[us] = struct{}{}
 		}
 	}
 	return
@@ -171,6 +155,10 @@ func (c *TerraConfig) ValidateConfig() (err error) {
 		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else if *c.ChainID == "" {
 		err = multierr.Append(err, v2.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+	}
+
+	if len(c.Nodes) == 0 {
+		err = multierr.Append(err, v2.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	}
 
 	return

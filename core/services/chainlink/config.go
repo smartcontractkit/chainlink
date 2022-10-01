@@ -55,22 +55,36 @@ func (c *Config) setDefaults() {
 	core.SetFrom(&c.Core)
 	c.Core = core
 
-	for _, input := range c.EVM {
-		ch, _ := evmcfg.Defaults(input.ChainID)
-		ch.SetFrom(&input.Chain)
-		input.Chain = ch
+	for i := range c.EVM {
+		if input := c.EVM[i]; input == nil {
+			ch, _ := evmcfg.Defaults(nil)
+			c.EVM[i] = &evmcfg.EVMConfig{Chain: ch}
+		} else {
+			ch, _ := evmcfg.Defaults(input.ChainID)
+			ch.SetFrom(&input.Chain)
+			input.Chain = ch
+		}
 	}
 
-	for _, input := range c.Solana {
-		input.Chain.SetDefaults()
+	for i := range c.Solana {
+		if c.Solana[i] == nil {
+			c.Solana[i] = new(solana.SolanaConfig)
+		}
+		c.Solana[i].Chain.SetDefaults()
 	}
 
-	for _, input := range c.Starknet {
-		input.Chain.SetDefaults()
+	for i := range c.Starknet {
+		if c.Starknet[i] == nil {
+			c.Starknet[i] = new(starknet.StarknetConfig)
+		}
+		c.Starknet[i].Chain.SetDefaults()
 	}
 
-	for _, input := range c.Terra {
-		input.Chain.SetDefaults()
+	for i := range c.Terra {
+		if c.Terra[i] == nil {
+			c.Terra[i] = new(terra.TerraConfig)
+		}
+		c.Terra[i].Chain.SetDefaults()
 	}
 }
 

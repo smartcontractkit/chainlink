@@ -523,6 +523,10 @@ func (u *URL) String() string {
 	return (*url.URL)(u).String()
 }
 
+func (u *URL) IsZero() bool {
+	return (url.URL)(*u) == url.URL{}
+}
+
 func (u *URL) MarshalText() ([]byte, error) {
 	return []byte(u.String()), nil
 }
