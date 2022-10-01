@@ -9,7 +9,7 @@ require (
 	github.com/btcsuite/btcd v0.23.1
 	github.com/cosmos/cosmos-sdk v0.44.5
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/docker/docker v20.10.17+incompatible
+	github.com/docker/docker v20.10.18+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
 	github.com/ethereum/go-ethereum v1.10.25
