@@ -100,15 +100,15 @@ func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
 }
 
 func (c *ChainScoped) EthTxReaperInterval() time.Duration {
-	return c.cfg.TxReaperInterval.Duration()
+	return c.cfg.Transactions.ReaperInterval.Duration()
 }
 
 func (c *ChainScoped) EthTxReaperThreshold() time.Duration {
-	return c.cfg.TxReaperThreshold.Duration()
+	return c.cfg.Transactions.ReaperThreshold.Duration()
 }
 
 func (c *ChainScoped) EthTxResendAfterThreshold() time.Duration {
-	return c.cfg.TxResendAfterThreshold.Duration()
+	return c.cfg.Transactions.ResendAfterThreshold.Duration()
 }
 
 func (c *ChainScoped) EvmFinalityDepth() uint32 {
@@ -153,23 +153,38 @@ func (c *ChainScoped) EvmGasLimitTransfer() uint32 {
 }
 
 func (c *ChainScoped) EvmGasLimitOCRJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitOCRJobType
+	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
+		return t.OCR
+	}
+	return nil
 }
 
 func (c *ChainScoped) EvmGasLimitDRJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitDRJobType
+	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
+		return t.DR
+	}
+	return nil
 }
 
 func (c *ChainScoped) EvmGasLimitVRFJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitVRFJobType
+	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
+		return t.VRF
+	}
+	return nil
 }
 
 func (c *ChainScoped) EvmGasLimitFMJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitFMJobType
+	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
+		return t.FM
+	}
+	return nil
 }
 
 func (c *ChainScoped) EvmGasLimitKeeperJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitKeeperJobType
+	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
+		return t.Keeper
+	}
+	return nil
 }
 
 func (c *ChainScoped) EvmGasPriceDefault() *big.Int {
@@ -189,7 +204,7 @@ func (c *ChainScoped) EvmGasTipCapDefault() *big.Int {
 }
 
 func (c *ChainScoped) EvmGasTipCapMinimum() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.TipCapMinimum)
+	return (*big.Int)(c.cfg.GasEstimator.TipCapMin)
 }
 
 func (c *ChainScoped) EvmHeadTrackerHistoryDepth() uint32 {
@@ -213,11 +228,11 @@ func (c *ChainScoped) EvmLogPollInterval() time.Duration {
 }
 
 func (c *ChainScoped) EvmMaxInFlightTransactions() uint32 {
-	return *c.cfg.MaxInFlightTransactions
+	return *c.cfg.Transactions.MaxInFlight
 }
 
 func (c *ChainScoped) EvmMaxQueuedTransactions() uint64 {
-	return uint64(*c.cfg.MaxQueuedTransactions)
+	return uint64(*c.cfg.Transactions.MaxQueued)
 }
 
 func (c *ChainScoped) EvmNonceAutoSync() bool {
@@ -225,7 +240,7 @@ func (c *ChainScoped) EvmNonceAutoSync() bool {
 }
 
 func (c *ChainScoped) EvmUseForwarders() bool {
-	return *c.cfg.UseForwarders
+	return *c.cfg.Transactions.ForwardersEnabled
 }
 
 func (c *ChainScoped) EvmRPCDefaultBatchSize() uint32 {
@@ -271,7 +286,7 @@ func (c *ChainScoped) MinIncomingConfirmations() uint32 {
 }
 
 func (c *ChainScoped) MinimumContractPayment() *assets.Link {
-	return c.cfg.MinimumContractPayment
+	return c.cfg.MinContractPayment
 }
 
 func (c *ChainScoped) NodeNoNewHeadsThreshold() time.Duration {

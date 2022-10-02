@@ -9,18 +9,20 @@ FlagsContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LinkContractAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 LogBackfillBatchSize = 200
 LogPollInterval = '10s'
-MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
-MinimumContractPayment = '123456789'
+MinContractPayment = '123456789'
 NonceAutoSync = true
 NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
-TxReaperInterval = '10h0m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '5m0s'
-UseForwarders = true
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 1500
+ReaperInterval = '10h0m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '5m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -33,11 +35,6 @@ LimitDefault = 102030405
 LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
-LimitOCRJobType = 9901
-LimitDRJobType = 9902
-LimitVRFJobType = 9903
-LimitFMJobType = 9904
-LimitKeeperJobType = 9905
 BumpMin = '987.654 kwei'
 BumpPercent = 2
 BumpThreshold = 10
@@ -45,7 +42,14 @@ BumpTxDepth = 7
 EIP1559DynamicFees = true
 FeeCapDefault = '45.678912345 gwei'
 TipCapDefault = '4.321 kwei'
-TipCapMinimum = '7 wei'
+TipCapMin = '7 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
@@ -87,18 +91,20 @@ FlagsContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LinkContractAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 LogBackfillBatchSize = 200
 LogPollInterval = '10s'
-MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
-MinimumContractPayment = '123456789'
+MinContractPayment = '123456789'
 NonceAutoSync = true
 NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
-TxReaperInterval = '10h0m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '5m0s'
-UseForwarders = true
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 1500
+ReaperInterval = '10h0m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '5m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -110,17 +116,19 @@ LimitDefault = 102030405
 LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
-LimitOCRJobType = 9901
-LimitDRJobType = 9902
-LimitVRFJobType = 9903
-LimitFMJobType = 9904
-LimitKeeperJobType = 9905
 BumpMin = '987.654 kwei'
 BumpPercent = 2
 BumpThreshold = 10
 BumpTxDepth = 7
 EIP1559DynamicFees = true
 FeeCapDefault = '45.678912345 gwei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
@@ -151,18 +159,20 @@ FlagsContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LinkContractAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 LogBackfillBatchSize = 200
 LogPollInterval = '10s'
-MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
-MinimumContractPayment = '123456789'
+MinContractPayment = '123456789'
 NonceAutoSync = true
 NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
-TxReaperInterval = '10h0m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '5m0s'
-UseForwarders = true
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 1500
+ReaperInterval = '10h0m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '5m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -174,17 +184,19 @@ LimitDefault = 102030405
 LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
-LimitOCRJobType = 9901
-LimitDRJobType = 9902
-LimitVRFJobType = 9903
-LimitFMJobType = 9904
-LimitKeeperJobType = 9905
 BumpMin = '987.654 kwei'
 BumpPercent = 2
 BumpThreshold = 10
 BumpTxDepth = 7
 EIP1559DynamicFees = true
 FeeCapDefault = '45.678912345 gwei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
@@ -217,18 +229,20 @@ FlagsContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LinkContractAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 LogBackfillBatchSize = 200
 LogPollInterval = '10s'
-MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
-MinimumContractPayment = '123456789'
+MinContractPayment = '123456789'
 NonceAutoSync = true
 NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
-TxReaperInterval = '10h0m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '5m0s'
-UseForwarders = true
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 1500
+ReaperInterval = '10h0m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '5m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -240,17 +254,19 @@ LimitDefault = 102030405
 LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
-LimitOCRJobType = 9901
-LimitDRJobType = 9902
-LimitVRFJobType = 9903
-LimitFMJobType = 9904
-LimitKeeperJobType = 9905
 BumpMin = '987.654 kwei'
 BumpPercent = 2
 BumpThreshold = 10
 BumpTxDepth = 7
 EIP1559DynamicFees = true
 FeeCapDefault = '45.678912345 gwei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
