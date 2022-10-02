@@ -128,7 +128,7 @@ func NewErrDuplicate(name string, value any) ErrInvalid {
 }
 
 func (e ErrInvalid) Error() string {
-	return fmt.Sprintf("%s: invalid value %v: %s", e.Name, e.Value, e.Msg)
+	return fmt.Sprintf("%s: invalid value (%v): %s", e.Name, e.Value, e.Msg)
 }
 
 type ErrMissing struct {

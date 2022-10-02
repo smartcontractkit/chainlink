@@ -25,8 +25,8 @@ func (m multiErrorList) Error() string {
 	}
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "%d errors:", l)
-	for i, e := range m {
-		fmt.Fprintf(&sb, "\n\t%d) %v", i+1, e)
+	for _, e := range m {
+		fmt.Fprintf(&sb, "\n\t- %v", e)
 	}
 	return sb.String()
 }
