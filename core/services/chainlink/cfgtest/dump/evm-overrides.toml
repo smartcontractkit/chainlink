@@ -63,9 +63,6 @@ PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 
-[EVM.OCR]
-ObservationTimeout = '8m0s'
-
 [[EVM.Nodes]]
 Name = 'primary_0_1'
 WSURL = 'ws://test1.invalid'

@@ -13,19 +13,17 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaclient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -41,6 +39,7 @@ type chain struct {
 	utils.StartStopOnce
 	id             string
 	cfg            config.Config
+	cfgImmutable   bool // toml config is immutable
 	txm            *soltxm.Txm
 	balanceMonitor services.ServiceCtx
 	orm            ORM
@@ -174,12 +173,10 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-// NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain DBChain, orm ORM, lggr logger.Logger) (*chain, error) {
-	cfg := config.NewConfig(*dbchain.Cfg, lggr)
-	lggr = lggr.With("chainID", dbchain.ID, "chainSet", "solana")
+func newChain(id string, cfg config.Config, ks keystore.Solana, orm ORM, lggr logger.Logger) (*chain, error) {
+	lggr = lggr.With("chainID", id, "chainSet", "solana")
 	var ch = chain{
-		id:          dbchain.ID,
+		id:          id,
 		cfg:         cfg,
 		orm:         orm,
 		lggr:        lggr.Named("Chain"),
@@ -202,6 +199,10 @@ func (c *chain) Config() config.Config {
 }
 
 func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
+	if c.cfgImmutable {
+		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
+		return
+	}
 	c.cfg.Update(*cfg)
 }
 

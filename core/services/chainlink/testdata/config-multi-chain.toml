@@ -11,9 +11,11 @@ JSONConsole = true
 DefaultHTTPRequestTimeout = '30s'
 
 [OCR2]
+Enabled = true
 DatabaseTimeout = '20s'
 
 [OCR]
+Enabled = true
 BlockchainTimeout = '5s'
 
 [P2P]

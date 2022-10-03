@@ -2,7 +2,7 @@ package chainlink
 
 import (
 	_ "embed"
-	"flag"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"net"
@@ -17,13 +17,15 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -62,9 +64,11 @@ var (
 				DefaultHTTPRequestTimeout: models.MustNewDuration(30 * time.Second),
 			},
 			OCR2: &config.OCR2{
+				Enabled:         ptr(true),
 				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
 			},
 			OCR: &config.OCR{
+				Enabled:           ptr(true),
 				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
 			},
 			P2P: &config.P2P{
@@ -77,7 +81,7 @@ var (
 				CPUProfileRate: ptr[int64](7),
 			},
 		},
-		EVM: []*EVMConfig{
+		EVM: []*evmcfg.EVMConfig{
 			{
 				ChainID: utils.NewBigI(1),
 				Chain: evmcfg.Chain{
@@ -121,7 +125,7 @@ var (
 					},
 				}},
 		},
-		Solana: []*SolanaConfig{
+		Solana: []*solana.SolanaConfig{
 			{
 				ChainID: ptr("mainnet"),
 				Chain: solcfg.Chain{
@@ -141,7 +145,7 @@ var (
 				},
 			},
 		},
-		Starknet: []*StarknetConfig{
+		Starknet: []*starknet.StarknetConfig{
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
@@ -152,7 +156,7 @@ var (
 				},
 			},
 		},
-		Terra: []*TerraConfig{
+		Terra: []*terra.TerraConfig{
 			{
 				ChainID: ptr("Columbus-5"),
 				Chain: tercfg.Chain{
@@ -318,6 +322,7 @@ func TestConfig_Marshal(t *testing.T) {
 		OutgoingMessageBufferSize: ptr[int64](17),
 		TraceLogging:              ptr(true),
 		V1: &config.P2PV1{
+			Enabled:                          ptr(false),
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
 			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
@@ -331,6 +336,7 @@ func TestConfig_Marshal(t *testing.T) {
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
 		V2: &config.P2PV2{
+			Enabled:           ptr(true),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
@@ -381,7 +387,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Environment: ptr("dev"),
 		Release:     ptr("v1.2.3"),
 	}
-	full.EVM = []*EVMConfig{
+	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
@@ -471,7 +477,6 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
-					ObservationTimeout:                 &second,
 					ObservationGracePeriod:             &second,
 				},
 			},
@@ -493,7 +498,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []*SolanaConfig{
+	full.Solana = []*solana.SolanaConfig{
 		{
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
@@ -516,7 +521,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Starknet = []*StarknetConfig{
+	full.Starknet = []*starknet.StarknetConfig{
 		{
 			ChainID: ptr("foobar"),
 			Enabled: ptr(true),
@@ -533,7 +538,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Terra = []*TerraConfig{
+	full.Terra = []*terra.TerraConfig{
 		{
 			ChainID: ptr("Bombay-12"),
 			Enabled: ptr(true),
@@ -682,6 +687,7 @@ OutgoingMessageBufferSize = 17
 TraceLogging = true
 
 [P2P.V1]
+Enabled = false
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -695,6 +701,7 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
+Enabled = true
 AnnounceAddresses = ['a', 'b', 'c']
 DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
@@ -818,7 +825,6 @@ SelectionMode = 'HighestHead'
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
-ObservationTimeout = '1s'
 ObservationGracePeriod = '1s'
 
 [[EVM.Nodes]]
@@ -948,37 +954,90 @@ func TestConfig_Validate(t *testing.T) {
 		exp  string
 	}{
 		{name: "invalid", toml: invalidTOML, exp: `5 errors:
-	1) Database: Lock: LeaseRefreshInterval (6s) must be less than or equal to half of LeaseDuration (10s)
-	2) EVM: 3 errors:
-		1) 1: ChainID: invalid value 1: duplicate - must be unique
-		2) 0: Nodes: 3 errors:
-				1) 1: Name: invalid value foo: duplicate - must be unique
-				2) 0: HTTPURL: missing: required for all nodes
-				3) 1: 2 errors:
-					1) WSURL: missing: required for SendOnly nodes
+	1) Database.Lock.LeaseRefreshInterval: invalid value 6s: must be less than or equal to half of LeaseDuration (10s)
+	2) EVM: 8 errors:
+		1) 1.ChainID: invalid value 1: duplicate - must be unique
+		2) 0.Nodes.1.Name: invalid value foo: duplicate - must be unique
+		3) 3.Nodes.4.WSURL: invalid value ws://dupe.com: duplicate - must be unique
+		4) 0: 4 errors:
+			1) Nodes: missing: must have at least one primary node with WSURL
+			2) GasEstimator.BumpTxDepth: invalid value 11: must be less than or equal to MaxInFlightTransactions
+			3) GasEstimator: 6 errors:
+				1) BumpPercent: invalid value 1: may not be less than Geth's default of 10
+				2) TipCapDefault: invalid value 3 wei: must be greater than or equal to TipCapMinimum
+				3) FeeCapDefault: invalid value 3 wei: must be greater than or equal to TipCapDefault
+				4) PriceMin: invalid value 10 gwei: must be less than or equal to PriceDefault
+				5) PriceMax: invalid value 10 gwei: must be greater than or equal to PriceDefault
+				6) BlockHistory.BlockHistorySize: invalid value 0: must be greater than or equal to 1 with BlockHistory Mode
+			4) Nodes: 2 errors:
+				1) 0: 2 errors:
+					1) WSURL: missing: required for primary nodes
 					2) HTTPURL: missing: required for all nodes
-		3) 1: 2 errors:
-			1) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
-			2) KeySpecific: duplicate address: 0xde709f2102306220921060314715629080e2fb77
-	3) Solana: 2 errors:
-		1) 1: ChainID: invalid value mainnet: duplicate - must be unique
-		2) 1: Nodes: 3 errors:
-				1) 1: Name: invalid value bar: duplicate - must be unique
-				2) 0: URL: missing: required for all nodes
-				3) 1: URL: missing: required for all nodes
-	4) Starknet: 0: 2 errors:
+				2) 1: 2 errors:
+					1) WSURL: missing: required for primary nodes
+					2) HTTPURL: missing: required for all nodes
+		5) 1: 6 errors:
+			1) ChainType: invalid value Foo: must not be set with this chain id
+			2) Nodes: missing: must have at least one node
+			3) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
+			4) HeadTracker.HistoryDepth: invalid value 30: must be equal to or reater than FinalityDepth
+			5) GasEstimator: 2 errors:
+				1) FeeCapDefault: invalid value 101 wei: must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
+				2) PriceMax: invalid value 1 gwei: must be greater than or equal to PriceDefault
+			6) KeySpecific.Key: invalid value 0xde709f2102306220921060314715629080e2fb77: duplicate - must be unique
+		6) 2: 5 errors:
+			1) ChainType: invalid value Arbitrum: only "optimism" can be used with this chain id
+			2) Nodes: missing: must have at least one node
+			3) ChainType: invalid value Arbitrum: must be one of arbitrum, metis, optimism, xdai or omitted
+			4) FinalityDepth: invalid value 0: must be greater than or equal to 1
+			5) MinIncomingConfirmations: invalid value 0: must be greater than or equal to 1
+		7) 3.Nodes: 5 errors:
+				1) 0: 2 errors:
+					1) Name: missing: required for all nodes
+					2) HTTPURL: empty: required for all nodes
+				2) 1: 3 errors:
+					1) Name: missing: required for all nodes
+					2) WSURL: invalid value http: must be ws or wss
+					3) HTTPURL: missing: required for all nodes
+				3) 2: 2 errors:
+					1) Name: empty: required for all nodes
+					2) HTTPURL: invalid value ws: must be http or https
+				4) 3.HTTPURL: missing: required for all nodes
+				5) 4.HTTPURL: missing: required for all nodes
+		8) 4: 2 errors:
 			1) ChainID: missing: required for all chains
-			2) Nodes: Name: invalid value primary: duplicate - must be unique
-	5) Terra: 2 errors:
-		1) 1: ChainID: invalid value Bombay-12: duplicate - must be unique
-		2) 0: Nodes: 3 errors:
-				1) 1: Name: invalid value test: duplicate - must be unique
-				2) 0: TendermintURL: missing: required for all nodes
-				3) 1: TendermintURL: missing: required for all nodes`},
+			2) Nodes: missing: must have at least one node
+	3) Solana: 5 errors:
+		1) 1.ChainID: invalid value mainnet: duplicate - must be unique
+		2) 1.Nodes.1.Name: invalid value bar: duplicate - must be unique
+		3) 0.Nodes: missing: must have at least one node
+		4) 1.Nodes: 2 errors:
+				1) 0.URL: missing: required for all nodes
+				2) 1.URL: missing: required for all nodes
+		5) 2: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: missing: must have at least one node
+	4) Starknet: 3 errors:
+		1) 0.Nodes.1.Name: invalid value primary: duplicate - must be unique
+		2) 0.ChainID: missing: required for all chains
+		3) 1: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: missing: must have at least one node
+	5) Terra: 5 errors:
+		1) 1.ChainID: invalid value Bombay-12: duplicate - must be unique
+		2) 0.Nodes.1.Name: invalid value test: duplicate - must be unique
+		3) 0.Nodes: 2 errors:
+				1) 0.TendermintURL: missing: required for all nodes
+				2) 1.TendermintURL: missing: required for all nodes
+		4) 1.Nodes: missing: must have at least one node
+		5) 2: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: missing: must have at least one node`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
 			require.NoError(t, decodeTOMLStrict(tt.toml, &c))
+			c.setDefaults()
 			assertValidationError(t, &c, tt.exp)
 		})
 	}
@@ -1005,6 +1064,8 @@ func ptr[T any](v T) *T {
 }
 
 var (
+	//go:embed testdata/config-empty-effective.toml
+	emptyEffectiveTOML string
 	//go:embed testdata/config-multi-chain-effective.toml
 	multiChainEffectiveTOML string
 )
@@ -1020,7 +1081,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 		wantConfig    string
 		wantEffective string
 	}{
-		{name: "empty"},
+		{name: "empty", wantEffective: emptyEffectiveTOML},
 		{name: "full", inputConfig: fullTOML, wantConfig: fullTOML, wantEffective: fullTOML},
 		{name: "multi-chain", inputConfig: multiChainTOML, wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML},
 		// TODO: more test cases
@@ -1028,7 +1089,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewGeneralConfig(tt.inputConfig, secretsTOML, nil)
+			c, err := NewTOMLGeneralConfig(lggr, tt.inputConfig, secretsTOML, nil, nil)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
@@ -1047,14 +1108,14 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
 	assert.EqualError(t, err, "toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
 	assert.EqualError(t, err, "toml: key Dev is already defined")
 }
 
@@ -1069,16 +1130,12 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	_, err = pwdFile.WriteString(PWD_OVERRIDE)
 	assert.NoError(t, err)
 
-	flagSet := flag.NewFlagSet("", 0)
-	flagSet.String("password", "", "")
-	err = flagSet.Set("password", pwdFile.Name())
-	assert.NoError(t, err)
-	context := cli.NewContext(nil, flagSet, nil)
+	filename := pwdFile.Name()
 
 	t.Setenv("DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	c, err := NewGeneralConfig(fullTOML, secretsTOML, context)
+	c, err := NewTOMLGeneralConfig(logger.TestLogger(t), fullTOML, secretsTOML, &filename, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()
@@ -1132,7 +1189,12 @@ Must not comprise:
 }
 
 func decodeTOMLStrict(s string, v interface{}) error {
-	return toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields().Decode(v)
+	err := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields().Decode(v)
+	if s, ok := err.(fmt.Stringer); ok { //nolint:errorlint
+		// get the detailed message
+		return fmt.Errorf("%v: %s", err, s.String())
+	}
+	return err
 }
 
 func assertValidationError(t *testing.T, invalid interface{ Validate() error }, expMsg string) {
@@ -1141,4 +1203,17 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 		got := err.Error()
 		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
 	}
+}
+
+func TestConfig_setDefaults(t *testing.T) {
+	var c Config
+	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
+	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Terra = terra.TerraConfigs{{ChainID: ptr("unknown terra chain")}}
+	c.setDefaults()
+	if s, err := c.TOMLString(); assert.NoError(t, err) {
+		t.Log(s, err)
+	}
+	cfgtest.AssertFieldsNotNil(t, c.Core)
 }
