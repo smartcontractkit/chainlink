@@ -30,8 +30,8 @@ var _ = Describe("Cronjob suite @cron", func() {
 				defaultCronEnv(networks.SimulatedEVM),
 			),
 			Entry("Cronjob suite on General EVM Network read from env vars @general",
-				networks.GeneralEVM(),
-				defaultCronEnv(networks.GeneralEVM()),
+				networks.GeneralEVM,
+				defaultCronEnv(networks.GeneralEVM),
 			),
 			Entry("Cronjob suite on Metis Stardust @metis",
 				networks.MetisStardust,
@@ -52,6 +52,10 @@ var _ = Describe("Cronjob suite @cron", func() {
 			Entry("Cronjob suite on Optimism Goerli @optimism",
 				networks.OptimismGoerli,
 				defaultCronEnv(networks.OptimismGoerli),
+			),
+			Entry("Cronjob suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				defaultCronEnv(networks.ArbitrumGoerli),
 			),
 		}
 
@@ -74,7 +78,6 @@ var _ = Describe("Cronjob suite @cron", func() {
 	) {
 		By("Deploying the environment")
 		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred(), "Error deploying test environment")
 
@@ -127,7 +130,9 @@ func defaultCronEnv(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).

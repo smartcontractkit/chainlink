@@ -66,7 +66,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 }
 
 func TestLogPoller_Batching(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 	var logs []Log
 	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
 	// a maximum of 6553 log inserts per tx. As inserting more than 6553 would result in
@@ -171,11 +171,10 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 }
 
 func TestLogPoller_PollAndSaveLogs(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 
 	// Set up a log poller listening for log emitter logs.
-	lp := NewLogPoller(th.ORM, client.NewSimulatedBackendClient(t, th.Client, th.ChainID), th.Lggr, 15*time.Second, 2, 3, 2)
-	require.NoError(t, lp.MergeFilter([]common.Hash{
+	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{
 		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2},
 	))
 
@@ -186,7 +185,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
 	// DB: empty
-	newStart := lp.PollAndSaveLogs(testutils.Context(t), 1)
+	newStart := th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
 	assert.Equal(t, int64(2), newStart)
 
 	// We expect to have saved block 1.
@@ -203,7 +202,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assertHaveCanonical(t, 1, 1, th.Client, th.ORM)
 
 	// Polling again should be a noop, since we are at the latest.
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(2), newStart)
 	latest, err := th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -218,7 +217,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th.Client.Commit()
 
 	// Polling should get us the L1 log.
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(3), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -252,7 +251,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 3 (we need a new block for us to do any polling and detect the reorg).
 	th.Client.Commit()
 
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(4), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -273,7 +272,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th.Client.Commit()
 	// Create 4
 	th.Client.Commit()
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(5), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -307,7 +306,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 5
 	th.Client.Commit()
 
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(7), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
@@ -334,7 +333,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(11), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
@@ -360,7 +359,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(18), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(11, 17)
 	require.NoError(t, err)
@@ -370,7 +369,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 }
 
 func TestLogPoller_Logs(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
@@ -442,7 +441,7 @@ func TestLogPoller_MergeFilter(t *testing.T) {
 }
 
 func TestLogPoller_GetBlocks(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 
 	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{
 		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2},
@@ -524,7 +523,7 @@ func TestLogPoller_GetBlocks(t *testing.T) {
 }
 
 func TestGetReplayFromBlock(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 	// Commit a few blocks
 	for i := 0; i < 10; i++ {
 		th.Client.Commit()

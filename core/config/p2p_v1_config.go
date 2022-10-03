@@ -39,7 +39,7 @@ func (c *generalConfig) P2PBootstrapPeers() ([]string, error) {
 		if bps != nil {
 			return bps, nil
 		}
-		return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS env var is not set")
+		return nil, errors.Wrap(ErrEnvUnset, "P2P_BOOTSTRAP_PEERS env var is not set")
 	}
 	return []string{}, nil
 }

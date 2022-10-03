@@ -80,7 +80,7 @@ func measureHashToCurveGasCost(t *testing.T, contract contract,
 		big.NewInt(input))
 
 	_, err := vrfkey.HashToCurve(vrfkey.Generator, big.NewInt(input),
-		func(*big.Int) { numOrdinates += 1 })
+		func(*big.Int) { numOrdinates++ })
 	require.NoError(t, err, "corresponding golang HashToCurve calculation failed")
 	return estimate, numOrdinates
 }
@@ -95,7 +95,7 @@ func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
 func TestMeasureHashToCurveGasCost(t *testing.T) {
 	contract, owner := deployVRFContract(t)
 	numSamples := int64(numSamples())
-	for i := int64(0); i < numSamples; i += 1 {
+	for i := int64(0); i < numSamples; i++ {
 		gasCost, numOrdinates := measureHashToCurveGasCost(t, contract, owner, i)
 		assert.Less(t, gasCost, HashToCurveGasCostBound(numOrdinates),
 			"on-chain hashToCurve gas cost exceeded estimate function")

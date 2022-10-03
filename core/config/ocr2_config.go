@@ -53,7 +53,7 @@ func (c *generalConfig) OCR2KeyBundleID() (string, error) {
 	if kbStr != "" {
 		_, err := models.Sha256HashFromHex(kbStr)
 		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
+			return "", errors.Wrapf(ErrEnvInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
 		}
 	}
 	return kbStr, nil
