@@ -141,7 +141,8 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		S,                    // s []int,
 		oracleIdentities,     // oracles []OracleIdentityExtra,
 		ocr2keepers.OffchainConfig{
-			PerformLockoutWindow: 100 * 5 * 1000, // ~100 block lockout
+			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
+			UniqueReports:        false,           // set quorum requirements
 		}.Encode(), // reportingPluginConfig []byte,
 		50*time.Millisecond, // maxDurationQuery time.Duration,
 		time.Second,         // maxDurationObservation time.Duration,

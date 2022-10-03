@@ -407,7 +407,18 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 		}
 
+		// RunResultSaver needs to be started first, so it's available
+		// to read odb writes. It is stopped last after the OraclePlugin is shut down
+		// so no further runs are enqueued, and we can drain the queue.
+		runResultSaver := ocrcommon.NewResultRunSaver(
+			runResults,
+			d.pipelineRunner,
+			make(chan struct{}),
+			lggr,
+		)
+
 		return []job.ServiceCtx{
+			runResultSaver,
 			keeperProvider,
 			pluginService,
 		}, nil
