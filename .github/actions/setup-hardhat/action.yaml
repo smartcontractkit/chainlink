@@ -4,7 +4,7 @@ inputs:
     required: true
     description: The shard to cache under, such as "v0.5", "cross-version"
   cache-version:
-    default: "1"
+    default: "2"
     description: Change to bust cache
 description: Setup pnpm for contracts
 runs:
