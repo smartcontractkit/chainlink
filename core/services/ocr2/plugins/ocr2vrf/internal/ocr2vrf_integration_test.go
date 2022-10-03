@@ -312,7 +312,6 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 	t.Log("Adding bootstrap node job")
 	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer bootstrapNode.app.Stop()
 
 	chainSet := bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
@@ -332,11 +331,9 @@ chainID 			= 1337
 	require.NoError(t, err)
 
 	t.Log("Creating OCR2VRF jobs")
-	var jobIDs []int32
 	for i := 0; i < numNodes; i++ {
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
-		defer apps[i].Stop()
 
 		jobSpec := fmt.Sprintf(`
 type                 	= "offchainreporting2"
@@ -379,7 +376,6 @@ lookbackBlocks         	= %d # This is an integer
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
-		jobIDs = append(jobIDs, ocrJob.ID)
 	}
 
 	t.Log("jobs added, running log poller replay")
@@ -421,6 +417,7 @@ lookbackBlocks         	= %d # This is an integer
 
 	// Send a VRF request and mine it
 	_, err = uni.consumer.TestRequestRandomness(uni.owner, 2, 1, big.NewInt(1))
+	require.NoError(t, err)
 	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, 1, 1, big.NewInt(2), 50_000, []byte{})
 	require.NoError(t, err)
 
