@@ -153,7 +153,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
 				fn := args.Get(4).(func(pg.Queryer) error)
-				fn(nil)
+				require.NoError(t, fn(nil))
 			}).Once()
 
 		err := uni.service.Start(testutils.Context(t))

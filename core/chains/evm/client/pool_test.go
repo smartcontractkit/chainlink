@@ -152,8 +152,7 @@ func TestPool_Dial(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
-			defer cancel()
+			ctx := testutils.Context(t)
 
 			nodes := make([]evmclient.Node, len(test.nodes))
 			for i, n := range test.nodes {

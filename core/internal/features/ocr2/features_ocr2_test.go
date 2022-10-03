@@ -274,7 +274,6 @@ func TestIntegration_OCR2(t *testing.T) {
 
 	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer bootstrapNode.app.Stop()
 
 	chainSet := bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
@@ -306,7 +305,6 @@ chainID 			= 1337
 	for i := 0; i < 4; i++ {
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
-		defer apps[i].Stop()
 
 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -541,7 +539,6 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 
 	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer bootstrapNode.app.Stop()
 
 	chainSet := bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
@@ -574,7 +571,6 @@ chainID 			= 1337
 	for i := 0; i < 4; i++ {
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
-		defer apps[i].Stop()
 
 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -582,7 +578,7 @@ chainID 			= 1337
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer slowServers[i].Close()
+		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := ioutil.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -596,7 +592,7 @@ chainID 			= 1337
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer servers[i].Close()
+		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
 		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),

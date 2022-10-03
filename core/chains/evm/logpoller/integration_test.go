@@ -111,8 +111,10 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
-		th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err)
+		_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err)
 		th.Client.Commit()
 	}
 	// The poller starts on a new chain at latest-finality (5 in this case),
