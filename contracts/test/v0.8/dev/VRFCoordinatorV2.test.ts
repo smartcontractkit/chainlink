@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { Signer, Contract, BigNumber } from 'ethers'
 import { assert, expect } from 'chai'
 import { publicAbi } from '../../test-helpers/helpers'
-import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/utils/random'
+import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/fork/random'
 
 describe('VRFCoordinatorV2', () => {
   let vrfCoordinatorV2: Contract
@@ -909,11 +909,12 @@ describe('VRFCoordinatorV2', () => {
         owner,
       )
       const mockLinkEthZero = await mockAggregatorV3Factory.deploy(0, 0)
-      const vrfCoordinatorV2TestHelperZero = await vrfCoordinatorV2TestHelperFactory.deploy(
-        linkToken.address,
-        blockHashStore.address,
-        mockLinkEthZero.address,
-      )
+      const vrfCoordinatorV2TestHelperZero =
+        await vrfCoordinatorV2TestHelperFactory.deploy(
+          linkToken.address,
+          blockHashStore.address,
+          mockLinkEthZero.address,
+        )
       await expect(
         vrfCoordinatorV2TestHelperZero
           .connect(oracle)
@@ -924,11 +925,12 @@ describe('VRFCoordinatorV2', () => {
           ),
       ).to.be.revertedWith(`InvalidLinkWeiPrice(0)`)
       const mockLinkEthNegative = await mockAggregatorV3Factory.deploy(0, -1)
-      const vrfCoordinatorV2TestHelperNegative = await vrfCoordinatorV2TestHelperFactory.deploy(
-        linkToken.address,
-        blockHashStore.address,
-        mockLinkEthNegative.address,
-      )
+      const vrfCoordinatorV2TestHelperNegative =
+        await vrfCoordinatorV2TestHelperFactory.deploy(
+          linkToken.address,
+          blockHashStore.address,
+          mockLinkEthNegative.address,
+        )
       await expect(
         vrfCoordinatorV2TestHelperNegative
           .connect(owner)
