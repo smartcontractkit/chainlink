@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	geth "github.com/ethereum/go-ethereum"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -171,4 +173,24 @@ func SubscribeOperatorFactoryEvents(
 			}
 		}
 	}()
+}
+
+func TrackForwarder(chainClient blockchain.EVMClient, authorizedForwarder common.Address, chainlinkNodes []*client.Chainlink) {
+	for _, node := range chainlinkNodes {
+		chainID := chainClient.GetChainID()
+		_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
+		Expect(err).ShouldNot(HaveOccurred(), "Forwarder track should be created")
+		log.Info().Str("NodeURL", node.Config.URL).
+			Str("ForwarderAddress", authorizedForwarder.Hex()).
+			Str("ChaidID", chainID.String()).
+			Msg("Forwarder tracked")
+	}
+}
+
+func GetForwarders(chainlinkNodes []*client.Chainlink) {
+	for _, node := range chainlinkNodes {
+		forwarders, _, err := node.GetForwarders()
+		Expect(err).ShouldNot(HaveOccurred(), "Could not get forwarders list from one of the nodes")
+		fmt.Println(forwarders)
+	}
 }

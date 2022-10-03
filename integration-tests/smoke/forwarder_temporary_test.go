@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -128,21 +127,7 @@ var _ = Describe("Forwarder suite", func() {
 		operator, authorizedForwarder, _ := actions.DeployForwarderContracts(contractDeployer, linkToken, chainClient)
 		actions.AcceptAuthorizedReceiversOperator(operator, authorizedForwarder, nodeAddresses, chainClient, contractLoader)
 
-		By("Track forwarder")
-		for _, node := range chainlinkNodes {
-			chainID := chainClient.GetChainID()
-			log.Info().Str("NodeURL", node.Config.URL).Str("ForwarderAddress", authorizedForwarder.Hex()).Str("ChaidID", chainID.String()).Msg("Setting Track forwarder")
-			response, _, err := node.TrackForwarder(chainID, authorizedForwarder)
-			fmt.Println(response)
-			Expect(err).ShouldNot(HaveOccurred(), "Forwarder should be created")
-		}
-
-		By("Get Forwarders")
-		for _, node := range chainlinkNodes {
-			forwarders, _, err := node.GetForwarders()
-			Expect(err).ShouldNot(HaveOccurred(), "Could not get forwarders list from one of the nodes")
-			fmt.Println(forwarders)
-		}
+		actions.TrackForwarder(chainClient, authorizedForwarder, chainlinkNodes)
 	},
 		testScenarios,
 	)

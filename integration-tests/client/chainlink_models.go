@@ -1269,15 +1269,15 @@ type Forwarders struct {
 
 // ForwarderData is the model that represents the created Forwarder when read
 type ForwarderData struct {
-	ID         string    `json:"id"`
-	Address    string    `json:"address"`
-	EVMChainID string    `json:"evmChainId"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	ID        string    `json:"id"`
+	Address   string    `json:"address"`
+	ChainID   string    `json:"chainId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // ForwarderAttributes is the model that represents attributes of a Forwarder
 type ForwarderAttributes struct {
-	Address    string `json:"address"`
-	EVMChainID string `json:"evmChainID"`
+	Address string `json:"address"`
+	ChainID string `json:"chainID"`
 }

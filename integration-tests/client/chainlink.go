@@ -984,15 +984,15 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 }
 
 // TrackForwarder track forwarder address in db.
-func (c *Chainlink) TrackForwarder(evmChainID *big.Int, address common.Address) (*Forwarder, *http.Response, error) {
+func (c *Chainlink) TrackForwarder(chainID *big.Int, address common.Address) (*Forwarder, *http.Response, error) {
 	response := &Forwarder{}
 	request := ForwarderAttributes{
-		EVMChainID: evmChainID.String(),
-		Address:    address.Hex(),
+		ChainID: chainID.String(),
+		Address: address.Hex(),
 	}
 	log.Debug().Str("Node URL", c.Config.URL).
 		Str("Forwarder address", (address).Hex()).
-		Str("Chain ID", evmChainID.String()).
+		Str("Chain ID", chainID.String()).
 		Msg("Track forwarder")
 	resp, err := c.APIClient.R().
 		SetBody(request).
