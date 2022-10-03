@@ -23,7 +23,7 @@ jobs:
           this-job-name: Build Chainlink Image
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -71,7 +71,7 @@ jobs:
           this-job-name: EVM Chaos Tests
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@02c9ae5ec7f88250088bab88f14b4b043162b46d # v2.0.18
         with:
