@@ -62,21 +62,26 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		log.Fatalf("blocks range difference must not more than %d", defaultMaxBlocksRange)
 	}
 
-	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 	var registryAddr common.Address
 	var keeperRegistry11 *registry11.KeeperRegistry
 	var keeperRegistry12 *registry12.KeeperRegistry
+	// var keeperRegistry20 *registry20.KeeperRegistry
 
-	if isVersion12 {
-		registryAddr, keeperRegistry12 = k.getRegistry2(ctx)
-	} else {
-		registryAddr, keeperRegistry11 = k.getRegistry1(ctx)
+	switch k.cfg.RegistryVersion {
+	case keeper.RegistryVersion_1_1:
+		registryAddr, keeperRegistry11 = k.getRegistry11(ctx)
+	case keeper.RegistryVersion_1_2:
+		registryAddr, keeperRegistry12 = k.getRegistry12(ctx)
+	case keeper.RegistryVersion_2_0:
+		// registryAddr, keeperRegistry20 = k.getRegistry20(ctx)
+	default:
+		panic("unexpected registry version")
 	}
 
 	// Get positioning constant of the current registry
 	var positioningConstant int32
 	var err error
-	if !isVersion12 {
+	if k.cfg.RegistryVersion == keeper.RegistryVersion_1_1 {
 		positioningConstant, err = keeper.CalcPositioningConstant(utils.NewBig(upkeepId), ethkey.EIP55AddressFromAddress(registryAddr))
 		if err != nil {
 			log.Fatal("failed to get positioning constant: ", err)
@@ -100,7 +105,25 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		var payload []byte
 		var keeperIndex uint64
 
-		if isVersion12 {
+		switch k.cfg.RegistryVersion {
+		case keeper.RegistryVersion_1_1:
+			config, err2 := keeperRegistry11.GetConfig(callOpts)
+			if err2 != nil {
+				log.Fatal("failed to fetch registry config: ", err2)
+			}
+
+			bcpt = config.BlockCountPerTurn.Uint64()
+			keepers, err2 = keeperRegistry11.GetKeeperList(callOpts)
+			if err2 != nil {
+				log.Fatal("failed to fetch keepers list: ", err2)
+			}
+
+			keeperIndex = (uint64(positioningConstant) + ((block - (block % bcpt)) / bcpt)) % uint64(len(keepers))
+			payload, err2 = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
+			if err2 != nil {
+				log.Fatal("failed to pack checkUpkeep: ", err2)
+			}
+		case keeper.RegistryVersion_1_2:
 			state, err2 := keeperRegistry12.GetState(callOpts)
 			if err2 != nil {
 				log.Fatal("failed to fetch registry state: ", err2)
@@ -140,23 +163,10 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 			if err2 != nil {
 				log.Fatal("failed to pack checkUpkeep: ", err2)
 			}
-		} else {
-			config, err2 := keeperRegistry11.GetConfig(callOpts)
-			if err2 != nil {
-				log.Fatal("failed to fetch registry config: ", err2)
-			}
-
-			bcpt = config.BlockCountPerTurn.Uint64()
-			keepers, err2 = keeperRegistry11.GetKeeperList(callOpts)
-			if err2 != nil {
-				log.Fatal("failed to fetch keepers list: ", err2)
-			}
-
-			keeperIndex = (uint64(positioningConstant) + ((block - (block % bcpt)) / bcpt)) % uint64(len(keepers))
-			payload, err2 = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
-			if err2 != nil {
-				log.Fatal("failed to pack checkUpkeep: ", err2)
-			}
+		case keeper.RegistryVersion_2_0:
+			panic("not implemented yet")
+		default:
+			panic("unexpected registry version")
 		}
 
 		args := map[string]interface{}{

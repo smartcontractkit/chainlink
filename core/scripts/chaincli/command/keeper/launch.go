@@ -15,6 +15,10 @@ var launchAndTestCmd = &cobra.Command{
 	Long:  `This command launches chainlink nodes, keeper setup and starts performing upkeeps.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
+		if err := cfg.Validate(); err != nil {
+			log.Fatal(err)
+		}
+
 		hdlr := handler.NewKeeper(cfg)
 
 		withdraw, err := cmd.Flags().GetBool("withdraw")
@@ -22,10 +26,16 @@ var launchAndTestCmd = &cobra.Command{
 			log.Fatal("failed to get withdraw flag: ", err)
 		}
 
-		hdlr.LaunchAndTest(cmd.Context(), withdraw)
+		printLogs, err := cmd.Flags().GetBool("export-logs")
+		if err != nil {
+			log.Fatal("failed to get export-logs flag: ", err)
+		}
+
+		hdlr.LaunchAndTest(cmd.Context(), withdraw, printLogs)
 	},
 }
 
 func init() {
 	launchAndTestCmd.Flags().BoolP("withdraw", "w", false, "Specify if funds should be withdrawn and upkeeps should be canceled")
+	launchAndTestCmd.Flags().BoolP("export-logs", "l", false, "Specify if container logs should be exported to ./")
 }
