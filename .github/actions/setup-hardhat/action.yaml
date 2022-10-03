@@ -40,6 +40,7 @@ runs:
         path: |
           contracts/cache/
           contracts/artifacts/
+          contracts/typechain/
         key: ${{ format('contracts-{0}-{1}-{2}-{3}', inputs.shard, runner.os, inputs.cache-version, hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts', steps.cache-key.outputs.result)) }}
         restore-keys: |
           ${{ format('contracts-{0}-{1}-{2}', inputs.shard, runner.os, inputs.cache-version) }}
