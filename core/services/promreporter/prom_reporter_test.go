@@ -43,7 +43,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			}).
 			Return()
 
-		reporter.Start(testutils.Context(t))
+		require.NoError(t, reporter.Start(testutils.Context(t)))
 		defer reporter.Close()
 
 		head := newHead()
@@ -111,7 +111,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 				subscribeCalls.Inc()
 			}).
 			Return()
-		reporter.Start(testutils.Context(t))
+		require.NoError(t, reporter.Start(testutils.Context(t)))
 		defer reporter.Close()
 
 		head := newHead()
