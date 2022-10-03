@@ -2615,6 +2615,72 @@ ObservationGracePeriod = '1s'
 
 </p></details>
 
+<details><summary>Optimism Alpha (28528)<a id='EVM-28528'></a></summary><p>
+
+```toml
+ChainType = 'optimism'
+FinalityDepth = 200
+LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '30s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+BumpTxDepth = 10
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockHistorySize = 24
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 300
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
 <details><summary>Arbitrum Mainnet (42161)<a id='EVM-42161'></a></summary><p>
 
 ```toml

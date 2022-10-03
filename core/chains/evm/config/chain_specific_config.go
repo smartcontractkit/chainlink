@@ -318,6 +318,8 @@ func setChainSpecificConfigDefaultSets() {
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
 	optimismGoerli := optimismKovan
 	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
+	optimismAlpha := optimismGoerli
+	optimismAlpha.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -427,6 +429,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[66] = okxMainnet
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
+	chainSpecificConfigDefaultSets[28528] = optimismAlpha
 
 	chainSpecificConfigDefaultSets[1337] = simulated
 

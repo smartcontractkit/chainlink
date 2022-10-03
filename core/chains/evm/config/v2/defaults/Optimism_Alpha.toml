@@ -1,0 +1,16 @@
+ChainID = '28528'
+ChainType = 'optimism'
+FinalityDepth = 200
+LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
+
+NoNewHeadsThreshold = '60s'
+TxResendAfterThreshold = '30s'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[HeadTracker]
+HistoryDepth = 300
