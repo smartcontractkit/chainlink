@@ -1,4 +1,4 @@
-package config
+package docs
 
 import (
 	_ "embed"
@@ -19,10 +19,22 @@ const (
 	tokenExtended = "**EXTENDED**"
 )
 
-//go:embed docs.toml
-var docsTOML string
+var (
+	//go:embed core.toml
+	coreTOML string
+	//go:embed chains-evm.toml
+	chainsEVMTOML string
+	//go:embed chains-solana.toml
+	chainsSolanaTOML string
+	//go:embed chains-starknet.toml
+	chainsStarknetTOML string
+	//go:embed chains-terra.toml
+	chainsTerraTOML string
 
-// GenerateDocs returns MarkDown documentation generated from docs.toml.
+	docsTOML = coreTOML + chainsEVMTOML + chainsSolanaTOML + chainsStarknetTOML + chainsTerraTOML
+)
+
+// GenerateDocs returns MarkDown documentation generated from core.toml & chains-*.toml.
 func GenerateDocs() (string, error) {
 	return generateDocs(docsTOML)
 }
@@ -32,7 +44,7 @@ func generateDocs(toml string) (string, error) {
 	items, err := parseTOMLDocs(toml)
 	var sb strings.Builder
 
-	sb.WriteString(`[//]: # (Documentation generated from docs.toml - DO NOT EDIT.)
+	sb.WriteString(`[//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
 ## Table of contents
 
@@ -183,7 +195,7 @@ func (k keyval) String() string {
 }
 
 func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
-	defer func() { err = utils.MultiErrorList(err) }()
+	defer func() { _, err = utils.MultiErrorList(err) }()
 	globalTable := table{name: "Global"}
 	currentTable := &globalTable
 	items = append(items, currentTable)

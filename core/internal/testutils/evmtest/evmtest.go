@@ -46,7 +46,7 @@ type TestChainOpts struct {
 	KeyStore       keystore.Eth
 }
 
-func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {
+func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.LegacyChainScopedConfig {
 	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{},
 		nil, logger.TestLogger(t), cfg)
 }
@@ -61,22 +61,22 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
 	}
 	if testopts.Client != nil {
-		opts.GenEthClient = func(c evmtypes.DBChain) evmclient.Client {
+		opts.GenEthClient = func() evmclient.Client {
 			return testopts.Client
 		}
 	}
 	if testopts.LogBroadcaster != nil {
-		opts.GenLogBroadcaster = func(c evmtypes.DBChain) log.Broadcaster {
+		opts.GenLogBroadcaster = func() log.Broadcaster {
 			return testopts.LogBroadcaster
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(evmtypes.DBChain, httypes.HeadBroadcaster) httypes.HeadTracker {
+		opts.GenHeadTracker = func(httypes.HeadBroadcaster) httypes.HeadTracker {
 			return testopts.HeadTracker
 		}
 	}
 	if testopts.TxManager != nil {
-		opts.GenTxManager = func(evmtypes.DBChain) txmgr.TxManager {
+		opts.GenTxManager = func() txmgr.TxManager {
 			return testopts.TxManager
 		}
 
@@ -99,7 +99,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}},
 	}
 
-	cc, err := evm.NewChainSet(testutils.Context(t), opts, chains, nodes)
+	cc, err := evm.NewDBChainSet(testutils.Context(t), opts, chains, nodes)
 	require.NoError(t, err)
 	return cc
 }
@@ -247,14 +247,35 @@ func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) (nodes []evmty
 	return
 }
 
-// Node implements evmtypes.ORM
-func (mo *MockORM) Node(id int32, qopts ...pg.QOpt) (evmtypes.Node, error) {
-	panic("not implemented")
+func (mo *MockORM) NodeNamed(name string, opt ...pg.QOpt) (evmtypes.Node, error) {
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+	for _, ns := range maps.Values(mo.nodes) {
+		for _, n := range ns {
+			if n.Name == name {
+				return n, nil
+			}
+		}
+	}
+	return evmtypes.Node{}, sql.ErrNoRows
 }
 
 // GetNodesByChainIDs implements evmtypes.ORM
 func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []evmtypes.Node, err error) {
-	panic("not implemented")
+	ids := map[string]struct{}{}
+	for _, chainID := range chainIDs {
+		ids[chainID.String()] = struct{}{}
+	}
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+	for _, ns := range maps.Values(mo.nodes) {
+		for _, n := range ns {
+			if _, ok := ids[n.EVMChainID.String()]; ok {
+				nodes = append(nodes, n)
+			}
+		}
+	}
+	return
 }
 
 // NodesForChain implements evmtypes.ORM
