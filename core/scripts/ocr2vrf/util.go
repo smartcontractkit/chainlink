@@ -27,6 +27,7 @@ import (
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer_batch"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -54,6 +55,12 @@ func deployVRFBeacon(e helpers.Environment, coordinatorAddress, linkAddress, dkg
 
 func deployVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
 	_, tx, _, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployBatchVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
+	_, tx, _, err := vrf_beacon_consumer_batch.DeployLoadTestBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -348,6 +355,12 @@ func newVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Clie
 	return consumer
 }
 
+func newBatchVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *vrf_beacon_consumer_batch.LoadTestBeaconVRFConsumer {
+	consumer, err := vrf_beacon_consumer_batch.NewLoadTestBeaconVRFConsumer(addr, client)
+	helpers.PanicErr(err)
+	return consumer
+}
+
 func newVRFBeacon(addr common.Address, client *ethclient.Client) *vrf_beacon.VRFBeacon {
 	beacon, err := vrf_beacon.NewVRFBeacon(addr, client)
 	helpers.PanicErr(err)
@@ -399,4 +412,36 @@ func newSetupClient() *cmd.Client {
 		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
 		PasswordPrompter:               cmd.NewPasswordPrompter(),
 	}
+}
+
+func requestRandomnessCallbackBatch(
+	e helpers.Environment,
+	consumerAddress string,
+	numWords uint16,
+	subID uint64,
+	confDelay *big.Int,
+	callbackGasLimit uint32,
+	args []byte,
+	batchSize *big.Int,
+) (requestID *big.Int) {
+	consumer := newBatchVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+
+	tx, err := consumer.TestRequestRandomnessFulfillmentBatch(e.Owner, subID, numWords, confDelay, callbackGasLimit, args, batchSize)
+	helpers.PanicErr(err)
+	receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "TestRequestRandomnessFulfillment")
+
+	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
+	helpers.PanicErr(err)
+
+	blockNumber := receipt.BlockNumber
+	periodOffset := new(big.Int).Mod(blockNumber, periodBlocks)
+	nextBeaconOutputHeight := new(big.Int).Sub(new(big.Int).Add(blockNumber, periodBlocks), periodOffset)
+
+	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
+
+	requestID, err = consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
+	helpers.PanicErr(err)
+	fmt.Println("requestID: ", requestID)
+
+	return requestID
 }

@@ -34,6 +34,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	linkEthFeed := fs.String("link-eth-feed", "", "LINK-ETH feed address")
 	confDelays := fs.String("conf-delays", "1,2,3,4,5,6,7,8", "8 confirmation delays")
 	lookbackBlocks := fs.Int64("lookback-blocks", 1000, "lookback blocks")
+	useBatching := fs.Bool("use-batching", false, "use a batching coordinator")
 	weiPerUnitLink := fs.String("wei-per-unit-link", assets.GWei(60_000_000).String(), "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
 
@@ -94,6 +95,12 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println("Deploying beacon consumer...")
 	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+
+	var batchConsumerAddress common.Address
+	if *useBatching {
+		fmt.Println("Deploying batch beacon consumer...")
+		batchConsumerAddress = deployBatchVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	}
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
@@ -197,6 +204,15 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		consumerAddress.Hex())
 	fmt.Println(callbackCommand)
 	fmt.Println()
+
+	if *useBatching {
+		fmt.Println("Consumer callback batch request command:")
+		callbackCommand = fmt.Sprintf(
+			"go run . consumer-request-callback-batch -consumer-address %s -sub-id <sub-id> -batch-size <batch-size>",
+			batchConsumerAddress.Hex())
+		fmt.Println(callbackCommand)
+		fmt.Println()
+	}
 
 	fmt.Println("Consumer redeem randomness command:")
 	redeemCommand := fmt.Sprintf(

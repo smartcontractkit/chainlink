@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -37,6 +38,7 @@ import (
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer_batch"
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -66,6 +68,9 @@ type ocr2vrfUniverse struct {
 
 	consumerAddress common.Address
 	consumer        *vrf_beacon_consumer.BeaconVRFConsumer
+
+	batchConsumerAddress common.Address
+	batchConsumer        *vrf_beacon_consumer_batch.LoadTestBeaconVRFConsumer
 
 	feedAddress common.Address
 	feed        *mock_v3_aggregator_contract.MockV3AggregatorContract
@@ -130,6 +135,12 @@ func setupOCR2VRFContracts(
 
 	b.Commit()
 
+	batchConsumerAddress, _, batchConsumer, err := vrf_beacon_consumer_batch.DeployLoadTestBeaconVRFConsumer(
+		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
+	require.NoError(t, err)
+
+	b.Commit()
+
 	_, err = dkg.AddClient(owner, keyID, beaconAddress)
 	require.NoError(t, err)
 
@@ -144,20 +155,22 @@ func setupOCR2VRFContracts(
 	}
 
 	return ocr2vrfUniverse{
-		owner:              owner,
-		backend:            b,
-		dkgAddress:         dkgAddress,
-		dkg:                dkg,
-		beaconAddress:      beaconAddress,
-		coordinatorAddress: coordinatorAddress,
-		beacon:             beacon,
-		coordinator:        coordinator,
-		linkAddress:        linkAddress,
-		link:               link,
-		consumerAddress:    consumerAddress,
-		consumer:           consumer,
-		feedAddress:        feedAddress,
-		feed:               feed,
+		owner:                owner,
+		backend:              b,
+		dkgAddress:           dkgAddress,
+		dkg:                  dkg,
+		beaconAddress:        beaconAddress,
+		coordinatorAddress:   coordinatorAddress,
+		beacon:               beacon,
+		coordinator:          coordinator,
+		linkAddress:          linkAddress,
+		link:                 link,
+		consumerAddress:      consumerAddress,
+		consumer:             consumer,
+		batchConsumerAddress: batchConsumerAddress,
+		batchConsumer:        batchConsumer,
+		feedAddress:          feedAddress,
+		feed:                 feed,
 	}
 }
 
@@ -177,6 +190,7 @@ func setupNodeOCR2(
 	config.Overrides.P2PEnabled = null.BoolFrom(true)
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
 	config.Overrides.P2PListenPort = null.NewInt(0, true)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(3_500_000, true)
 	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
 	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
 	p2paddresses := []string{
@@ -421,6 +435,9 @@ lookbackBlocks         	= %d # This is an integer
 	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, 1, 1, big.NewInt(2), 50_000, []byte{})
 	require.NoError(t, err)
 
+	_, err = uni.batchConsumer.TestRequestRandomnessFulfillmentBatch(uni.owner, 1, 1, big.NewInt(2), 200_000, []byte{}, big.NewInt(2))
+	require.NoError(t, err)
+
 	uni.backend.Commit()
 
 	t.Log("waiting for fulfillment")
@@ -446,9 +463,32 @@ lookbackBlocks         	= %d # This is an integer
 		t.Logf("TestRedeemRandomness 2nd word err: %+v", err2)
 		rw3, err3 := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(1), big.NewInt(0))
 		t.Logf("FulfillRandomness 1st word err: %+v", err3)
-		t.Log("randomness from redeemRandomness:", rw1.String(), rw2.String())
-		t.Log("randomness from fulfillRandomness:", rw3.String())
-		return err1 == nil && err2 == nil && err3 == nil
+		rw4, err4 := uni.batchConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(2), big.NewInt(0))
+		t.Logf("Batch FulfillRandomness 1st word err: %+v", err4)
+		rw5, err5 := uni.batchConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(3), big.NewInt(0))
+		t.Logf("Batch FulfillRandomness 2nd word err: %+v", err5)
+		batchTotalRequests, err6 := uni.batchConsumer.STotalRequests(nil)
+		t.Logf("Batch FulfillRandomness total requests err: %+v", err6)
+		batchTotalFulfillments, err7 := uni.batchConsumer.STotalFulfilled(nil)
+		t.Logf("Batch FulfillRandomness total fulfillments err: %+v", err7)
+		var err8 error
+		if batchTotalRequests.Int64() != batchTotalFulfillments.Int64() {
+			err8 = errors.New("batchTotalRequests is not equal to batchTotalFulfillments")
+		}
+		t.Logf("Batch FulfillRandomness total requests/fulfillments equal err: %+v", err8)
+
+		t.Logf("randomness from redeemRandomness: %s %s", rw1.String(), rw2.String())
+		t.Logf("randomness from fulfillRandomness: %s", rw3.String())
+		t.Logf("randomness from batch fulfillRandomness: %s %s", rw4.String(), rw5.String())
+		t.Logf("total batch requested and fulfilled: %d %d", batchTotalRequests, batchTotalFulfillments)
+
+		errs := []error{err1, err2, err3, err4, err5, err6, err7, err8}
+		for _, err := range errs {
+			if err != nil {
+				return false
+			}
+		}
+		return true
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 }
 
