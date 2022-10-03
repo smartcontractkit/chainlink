@@ -954,85 +954,85 @@ func TestConfig_Validate(t *testing.T) {
 		exp  string
 	}{
 		{name: "invalid", toml: invalidTOML, exp: `5 errors:
-	1) Database.Lock.LeaseRefreshInterval: invalid value 6s: must be less than or equal to half of LeaseDuration (10s)
-	2) EVM: 8 errors:
-		1) 1.ChainID: invalid value 1: duplicate - must be unique
-		2) 0.Nodes.1.Name: invalid value foo: duplicate - must be unique
-		3) 3.Nodes.4.WSURL: invalid value ws://dupe.com: duplicate - must be unique
-		4) 0: 4 errors:
-			1) Nodes: missing: must have at least one primary node with WSURL
-			2) GasEstimator.BumpTxDepth: invalid value 11: must be less than or equal to MaxInFlightTransactions
-			3) GasEstimator: 6 errors:
-				1) BumpPercent: invalid value 1: may not be less than Geth's default of 10
-				2) TipCapDefault: invalid value 3 wei: must be greater than or equal to TipCapMinimum
-				3) FeeCapDefault: invalid value 3 wei: must be greater than or equal to TipCapDefault
-				4) PriceMin: invalid value 10 gwei: must be less than or equal to PriceDefault
-				5) PriceMax: invalid value 10 gwei: must be greater than or equal to PriceDefault
-				6) BlockHistory.BlockHistorySize: invalid value 0: must be greater than or equal to 1 with BlockHistory Mode
-			4) Nodes: 2 errors:
-				1) 0: 2 errors:
-					1) WSURL: missing: required for primary nodes
-					2) HTTPURL: missing: required for all nodes
-				2) 1: 2 errors:
-					1) WSURL: missing: required for primary nodes
-					2) HTTPURL: missing: required for all nodes
-		5) 1: 6 errors:
-			1) ChainType: invalid value Foo: must not be set with this chain id
-			2) Nodes: missing: must have at least one node
-			3) ChainType: invalid value Foo: must be one of arbitrum, metis, optimism, xdai or omitted
-			4) HeadTracker.HistoryDepth: invalid value 30: must be equal to or reater than FinalityDepth
-			5) GasEstimator: 2 errors:
-				1) FeeCapDefault: invalid value 101 wei: must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
-				2) PriceMax: invalid value 1 gwei: must be greater than or equal to PriceDefault
-			6) KeySpecific.Key: invalid value 0xde709f2102306220921060314715629080e2fb77: duplicate - must be unique
-		6) 2: 5 errors:
-			1) ChainType: invalid value Arbitrum: only "optimism" can be used with this chain id
-			2) Nodes: missing: must have at least one node
-			3) ChainType: invalid value Arbitrum: must be one of arbitrum, metis, optimism, xdai or omitted
-			4) FinalityDepth: invalid value 0: must be greater than or equal to 1
-			5) MinIncomingConfirmations: invalid value 0: must be greater than or equal to 1
-		7) 3.Nodes: 5 errors:
-				1) 0: 2 errors:
-					1) Name: missing: required for all nodes
-					2) HTTPURL: empty: required for all nodes
-				2) 1: 3 errors:
-					1) Name: missing: required for all nodes
-					2) WSURL: invalid value http: must be ws or wss
-					3) HTTPURL: missing: required for all nodes
-				3) 2: 2 errors:
-					1) Name: empty: required for all nodes
-					2) HTTPURL: invalid value ws: must be http or https
-				4) 3.HTTPURL: missing: required for all nodes
-				5) 4.HTTPURL: missing: required for all nodes
-		8) 4: 2 errors:
-			1) ChainID: missing: required for all chains
-			2) Nodes: missing: must have at least one node
-	3) Solana: 5 errors:
-		1) 1.ChainID: invalid value mainnet: duplicate - must be unique
-		2) 1.Nodes.1.Name: invalid value bar: duplicate - must be unique
-		3) 0.Nodes: missing: must have at least one node
-		4) 1.Nodes: 2 errors:
-				1) 0.URL: missing: required for all nodes
-				2) 1.URL: missing: required for all nodes
-		5) 2: 2 errors:
-			1) ChainID: missing: required for all chains
-			2) Nodes: missing: must have at least one node
-	4) Starknet: 3 errors:
-		1) 0.Nodes.1.Name: invalid value primary: duplicate - must be unique
-		2) 0.ChainID: missing: required for all chains
-		3) 1: 2 errors:
-			1) ChainID: missing: required for all chains
-			2) Nodes: missing: must have at least one node
-	5) Terra: 5 errors:
-		1) 1.ChainID: invalid value Bombay-12: duplicate - must be unique
-		2) 0.Nodes.1.Name: invalid value test: duplicate - must be unique
-		3) 0.Nodes: 2 errors:
-				1) 0.TendermintURL: missing: required for all nodes
-				2) 1.TendermintURL: missing: required for all nodes
-		4) 1.Nodes: missing: must have at least one node
-		5) 2: 2 errors:
-			1) ChainID: missing: required for all chains
-			2) Nodes: missing: must have at least one node`},
+	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
+	- EVM: 8 errors:
+		- 1.ChainID: invalid value (1): duplicate - must be unique
+		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
+		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
+		- 0: 4 errors:
+			- Nodes: missing: must have at least one primary node with WSURL
+			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to MaxInFlightTransactions
+			- GasEstimator: 6 errors:
+				- BumpPercent: invalid value (1): may not be less than Geth's default of 10
+				- TipCapDefault: invalid value (3 wei): must be greater than or equal to TipCapMinimum
+				- FeeCapDefault: invalid value (3 wei): must be greater than or equal to TipCapDefault
+				- PriceMin: invalid value (10 gwei): must be less than or equal to PriceDefault
+				- PriceMax: invalid value (10 gwei): must be greater than or equal to PriceDefault
+				- BlockHistory.BlockHistorySize: invalid value (0): must be greater than or equal to 1 with BlockHistory Mode
+			- Nodes: 2 errors:
+				- 0: 2 errors:
+					- WSURL: missing: required for primary nodes
+					- HTTPURL: missing: required for all nodes
+				- 1: 2 errors:
+					- WSURL: missing: required for primary nodes
+					- HTTPURL: missing: required for all nodes
+		- 1: 6 errors:
+			- ChainType: invalid value (Foo): must not be set with this chain id
+			- Nodes: missing: must have at least one node
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai or omitted
+			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or reater than FinalityDepth
+			- GasEstimator: 2 errors:
+				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
+				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
+			- KeySpecific.Key: invalid value (0xde709f2102306220921060314715629080e2fb77): duplicate - must be unique
+		- 2: 5 errors:
+			- ChainType: invalid value (Arbitrum): only "optimism" can be used with this chain id
+			- Nodes: missing: must have at least one node
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, optimism, xdai or omitted
+			- FinalityDepth: invalid value (0): must be greater than or equal to 1
+			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
+		- 3.Nodes: 5 errors:
+				- 0: 2 errors:
+					- Name: missing: required for all nodes
+					- HTTPURL: empty: required for all nodes
+				- 1: 3 errors:
+					- Name: missing: required for all nodes
+					- WSURL: invalid value (http): must be ws or wss
+					- HTTPURL: missing: required for all nodes
+				- 2: 2 errors:
+					- Name: empty: required for all nodes
+					- HTTPURL: invalid value (ws): must be http or https
+				- 3.HTTPURL: missing: required for all nodes
+				- 4.HTTPURL: missing: required for all nodes
+		- 4: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Solana: 5 errors:
+		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
+		- 0.Nodes: missing: must have at least one node
+		- 1.Nodes: 2 errors:
+				- 0.URL: missing: required for all nodes
+				- 1.URL: missing: required for all nodes
+		- 2: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Starknet: 3 errors:
+		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+		- 0.ChainID: missing: required for all chains
+		- 1: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Terra: 5 errors:
+		- 1.ChainID: invalid value (Bombay-12): duplicate - must be unique
+		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
+		- 0.Nodes: 2 errors:
+				- 0.TendermintURL: missing: required for all nodes
+				- 1.TendermintURL: missing: required for all nodes
+		- 1.Nodes: missing: must have at least one node
+		- 2: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
@@ -1152,19 +1152,19 @@ func TestSecrets_Validate(t *testing.T) {
 			toml: `ExplorerAccessKey = "access_key"
 ExplorerSecret = "secret"`,
 			exp: `2 errors:
-	1) DatabaseURL: empty: must be provided and non-empty
-	2) KeystorePassword: empty: must be provided and non-empty`},
+	- DatabaseURL: empty: must be provided and non-empty
+	- KeystorePassword: empty: must be provided and non-empty`},
 
 		{name: "invalid-urls",
 			toml: `DatabaseURL = "postgresql://user:passlocalhost:5432/asdf"
 DatabaseBackupURL = "foo-bar?password=asdf"`,
 			exp: `3 errors:
-	1) DatabaseURL: invalid value *****: missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+	- DatabaseURL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
 Must have a length of 16-50 characters
 Must not comprise:
 	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 
-	2) DatabaseBackupURL: invalid value *****: missing or insufficiently complex password: 
+	- DatabaseBackupURL: invalid value (*****): missing or insufficiently complex password: 
 Expected password complexity:
 Must be at least 16 characters long
 Must not comprise:
@@ -1178,7 +1178,7 @@ Must have a length of 16-50 characters
 Must not comprise:
 	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 
-	3) KeystorePassword: empty: must be provided and non-empty`},
+	- KeystorePassword: empty: must be provided and non-empty`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
