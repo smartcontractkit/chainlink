@@ -552,13 +552,14 @@ func (r *Resolver) CreateNode(ctx context.Context, args struct {
 }
 
 func (r *Resolver) DeleteNode(ctx context.Context, args struct {
-	Name string
+	ID graphql.ID
 }) (*DeleteNodePayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().NodeNamed(args.Name)
+	name := string(args.ID)
+	node, err := r.App.EVMORM().NodeNamed(name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteNodePayloadResolver(nil, err), nil

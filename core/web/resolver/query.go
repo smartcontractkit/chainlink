@@ -222,12 +222,13 @@ func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, erro
 }
 
 // Node retrieves a node by ID (Name)
-func (r *Resolver) Node(ctx context.Context, args struct{ Name string }) (*NodePayloadResolver, error) {
+func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*NodePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().NodeNamed(args.Name)
+	name := string(args.ID)
+	node, err := r.App.EVMORM().NodeNamed(name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewNodePayloadResolver(nil, err), nil

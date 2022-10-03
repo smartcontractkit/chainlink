@@ -105,7 +105,7 @@ func Test_NodeQuery(t *testing.T) {
 
 	query := `
 		query GetNode {
-			node(name: "node-name") {
+			node(id: "node-name") {
 				... on Node {
 					name
 					wsURL
@@ -236,8 +236,8 @@ func Test_DeleteNodeMutation(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
-		mutation DeleteNode($name: String!) {
-			deleteNode(name: $name) {
+		mutation DeleteNode($id: ID!) {
+			deleteNode(id: $id) {
 				... on DeleteNodeSuccess {
 					node {
 						name
@@ -264,7 +264,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 	}
 
 	variables := map[string]interface{}{
-		"name": name,
+		"id": name,
 	}
 
 	d, err := json.Marshal(map[string]interface{}{
