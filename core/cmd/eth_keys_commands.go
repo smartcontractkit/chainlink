@@ -173,7 +173,7 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusNoContent {
-		cli.errorOut(errors.Errorf("Delete ETH key failed: %s", resp.Body))
+		return cli.errorOut(errors.Errorf("Delete ETH key failed: %s", resp.Body))
 	}
 	fmt.Println(confirmationMsg)
 	return nil

@@ -162,7 +162,8 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, stmt.Get(&p2pPeer1, &p2pPeer1))
 		require.NoError(t, stmt.Get(&p2pPeer2, &p2pPeer2))
 		cltest.AssertCount(t, db, p2pTableName, 2)
-		ks.Delete(key.PeerID())
+		_, err = ks.Delete(key.PeerID())
+		require.NoError(t, err)
 		cltest.AssertCount(t, db, p2pTableName, 1)
 	})
 

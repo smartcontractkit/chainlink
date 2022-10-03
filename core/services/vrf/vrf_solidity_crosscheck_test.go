@@ -374,7 +374,7 @@ func TestVRF_MarshalProof(t *testing.T) {
 		// Only the lower 160 bits of the word containing uWitness have any effect
 		inAddressZeroBytes := func(b int64) bool { return b >= 224 && b < 236 }
 		originalByte := mproof[corruptionTargetByte]
-		mproof[corruptionTargetByte] += 1
+		mproof[corruptionTargetByte]++
 		_, err = deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
 		require.True(t, inAddressZeroBytes(corruptionTargetByte) || err != nil,
 			"VRF verification accepted a bad proof! Changed byte %d from %d to %d in %s, which is of length %d",

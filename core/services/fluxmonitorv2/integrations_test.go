@@ -481,10 +481,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			t.Cleanup(mockServer.Close)
 			u, _ := url.Parse(mockServer.URL)
-			app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 				Name: "bridge",
 				URL:  models.WebURL(*u),
-			})
+			}))
 
 			// When event appears on submissionReceived, flux monitor job run is complete
 			submissionReceived := fa.WatchSubmissionReceived(t,
