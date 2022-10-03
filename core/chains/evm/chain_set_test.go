@@ -90,7 +90,7 @@ func TestAddClose(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db, cfg)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	genEthClient := func(c types.DBChain) evmclient.Client {
+	genEthClient := func() evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}
 
