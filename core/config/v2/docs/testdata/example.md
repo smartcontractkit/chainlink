@@ -1,4 +1,4 @@
-[//]: # (Documentation generated from docs.toml - DO NOT EDIT.)
+[//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
 ## Table of contents
 

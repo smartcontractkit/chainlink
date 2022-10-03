@@ -135,7 +135,7 @@ test_chaos: ## Run core node chaos tests.
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./internal/config/docs/main.go > ./docs/CONFIG.md
+	go run ./core/config/v2/docs/cmd/generate/main.go > ./docs/CONFIG.md
 
 help:
 	@echo ""

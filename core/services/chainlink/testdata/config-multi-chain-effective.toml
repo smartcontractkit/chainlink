@@ -1,32 +1,187 @@
+ExplorerURL = ''
+InsecureFastScrypt = false
 RootDir = 'my/root/dir'
+ShutdownGracePeriod = '5s'
+
+[Feature]
+FeedsManager = false
+LogPoller = false
+UICSAKeys = false
 
 [Database]
+DefaultIdleInTxSessionTimeout = '1h0m0s'
+DefaultLockTimeout = '15s'
+DefaultQueryTimeout = '10s'
+MigrateOnStartup = true
+ORMMaxIdleConns = 10
+ORMMaxOpenConns = 20
+
+[Database.Backup]
+Dir = ''
+Frequency = '1h0m0s'
+Mode = 'none'
+OnVersionUpgrade = true
+
 [Database.Listener]
+MaxReconnectDuration = '10m0s'
+MinReconnectInterval = '1m0s'
 FallbackPollInterval = '2m0s'
 
+[Database.Lock]
+LeaseDuration = '10s'
+LeaseRefreshInterval = '1s'
+
+[TelemetryIngress]
+UniConn = true
+Logging = false
+ServerPubKey = ''
+URL = ''
+BufferSize = 100
+MaxBatchSize = 50
+SendInterval = '500ms'
+SendTimeout = '10s'
+UseBatchSend = true
+
 [Log]
+DatabaseQueries = false
+FileDir = ''
+FileMaxSize = '5.12gb'
+FileMaxAgeDays = 0
+FileMaxBackups = 1
 JSONConsole = true
+UnixTS = false
+
+[WebServer]
+AllowOrigins = 'http://localhost:3000,http://localhost:6688'
+BridgeResponseURL = ''
+HTTPWriteTimeout = '10s'
+HTTPPort = 6688
+SecureCookies = true
+SessionTimeout = '15m0s'
+SessionReaperExpiration = '240h0m0s'
+
+[WebServer.MFA]
+RPID = ''
+RPOrigin = ''
+
+[WebServer.RateLimit]
+Authenticated = 1000
+AuthenticatedPeriod = '1m0s'
+Unauthenticated = 5
+UnauthenticatedPeriod = '20s'
+
+[WebServer.TLS]
+CertPath = ''
+ForceRedirect = false
+Host = ''
+HTTPSPort = 6689
+KeyPath = ''
 
 [JobPipeline]
 DefaultHTTPRequestTimeout = '30s'
+ExternalInitiatorsEnabled = false
+HTTPRequestMaxSize = '32.77kb'
+MaxRunDuration = '10m0s'
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '24h0m0s'
+ResultWriteQueueDepth = 100
+
+[FluxMonitor]
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 
 [OCR2]
+Enabled = true
+ContractConfirmations = 3
+BlockchainTimeout = '20s'
+ContractPollInterval = '1m0s'
+ContractSubscribeInterval = '2m0s'
+ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '20s'
+KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 
 [OCR]
+Enabled = true
+ObservationTimeout = '5s'
 BlockchainTimeout = '5s'
+ContractPollInterval = '1m0s'
+ContractSubscribeInterval = '2m0s'
+DefaultTransactionQueueDepth = 1
+KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+SimulateTransactions = false
+TransmitterAddress = ''
 
 [P2P]
 IncomingMessageBufferSize = 999
+OutgoingMessageBufferSize = 10
+TraceLogging = false
+
+[P2P.V1]
+Enabled = false
+AnnounceIP = ''
+AnnouncePort = 0
+BootstrapCheckInterval = '20s'
+DefaultBootstrapPeers = []
+DHTAnnouncementCounterUserPrefix = 0
+DHTLookupInterval = 10
+ListenIP = '0.0.0.0'
+ListenPort = 0
+NewStreamTimeout = '10s'
+PeerID = ''
+PeerstoreWriteInterval = '5m0s'
+
+[P2P.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []
 
 [Keeper]
+DefaultTransactionQueueDepth = 1
 GasPriceBufferPercent = 10
+GasTipCapBufferPercent = 20
+BaseFeeBufferPercent = 20
+MaximumGracePeriod = 100
+RegistryCheckGasOverhead = 200000
+RegistryPerformGasOverhead = 300000
+RegistryMaxPerformDataSize = 5000
+RegistrySyncInterval = '30m0s'
+RegistrySyncUpkeepQueueSize = 10
+TurnLookBack = 1000
+TurnFlagEnabled = false
+UpkeepCheckGasPriceEnabled = false
 
 [AutoPprof]
+Enabled = false
+ProfileRoot = ''
+PollInterval = '10s'
+GatherDuration = '10s'
+GatherTraceDuration = '5s'
+MaxProfileSize = '100.00mb'
 CPUProfileRate = 7
+MemProfileRate = 1
+BlockProfileRate = 1
+MutexProfileFraction = 1
+MemThreshold = '4.00gb'
+GoroutineThreshold = 5000
+
+[Pyroscope]
+AuthToken = ''
+ServerAddress = ''
+Environment = 'mainnet'
+
+[Sentry]
+Debug = false
+DSN = ''
+Environment = 'prod'
+Release = ''
 
 [[EVM]]
 ChainID = '1'
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 26
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 100
@@ -98,6 +253,8 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '42'
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 100
@@ -164,6 +321,8 @@ WSURL = 'wss://web.socket/test'
 
 [[EVM]]
 ChainID = '137'
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 100
@@ -229,6 +388,15 @@ WSURL = 'wss://web.socket/test'
 
 [[Solana]]
 ChainID = 'mainnet'
+BalancePollPeriod = '5s'
+ConfirmPollPeriod = '500ms'
+OCR2CachePollPeriod = '1s'
+OCR2CacheTTL = '1m0s'
+TxTimeout = '1m0s'
+TxRetryTimeout = '10s'
+TxConfirmTimeout = '30s'
+SkipPreflight = true
+Commitment = 'confirmed'
 MaxRetries = 12
 
 [[Solana.Nodes]]
@@ -237,7 +405,16 @@ URL = 'http://mainnet.solana.com'
 
 [[Solana]]
 ChainID = 'testnet'
+BalancePollPeriod = '5s'
+ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1m0s'
+TxTimeout = '1m0s'
+TxRetryTimeout = '10s'
+TxConfirmTimeout = '30s'
+SkipPreflight = true
+Commitment = 'confirmed'
+MaxRetries = 0
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -245,7 +422,12 @@ URL = 'http://testnet.solana.com'
 
 [[Starknet]]
 ChainID = 'foobar'
+OCR2CachePollPeriod = '5s'
+OCR2CacheTTL = '1m0s'
+RequestTimeout = '10s'
+TxTimeout = '1m0s'
 TxSendFrequency = '1h0m0s'
+TxMaxBatchSize = 100
 
 [[Starknet.Nodes]]
 Name = 'primary'
@@ -253,7 +435,16 @@ URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Columbus-5'
+BlockRate = '6s'
+BlocksUntilTxTimeout = 30
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 13
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
 
 [[Terra.Nodes]]
 Name = 'primary'
@@ -261,7 +452,16 @@ TendermintURL = 'http://columbus.terra.com'
 
 [[Terra]]
 ChainID = 'Bombay-12'
+BlockRate = '6s'
 BlocksUntilTxTimeout = 20
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
+MaxMsgsPerBatch = 100
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
 
 [[Terra.Nodes]]
 Name = 'primary'
