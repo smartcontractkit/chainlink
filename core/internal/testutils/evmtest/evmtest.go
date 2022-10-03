@@ -36,7 +36,7 @@ import (
 )
 
 type TestChainOpts struct {
-	Client         evmclient.Client
+	Client         interface{} // evmclient.Client or func() evmclient.Client
 	LogBroadcaster log.Broadcaster
 	GeneralConfig  config.GeneralConfig
 	ChainCfg       evmtypes.ChainCfg
@@ -61,8 +61,15 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
 	}
 	if testopts.Client != nil {
-		opts.GenEthClient = func() evmclient.Client {
-			return testopts.Client
+		switch client := testopts.Client.(type) {
+		case evmclient.Client:
+			opts.GenEthClient = func() evmclient.Client {
+				return client
+			}
+		case func() evmclient.Client:
+			opts.GenEthClient = client
+		default:
+			panic("received unexpected type for testopts.Client")
 		}
 	}
 	if testopts.LogBroadcaster != nil {
