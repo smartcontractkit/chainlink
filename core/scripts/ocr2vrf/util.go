@@ -25,9 +25,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer_batch"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -59,8 +59,8 @@ func deployVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddres
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployBatchVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
-	_, tx, _, err := vrf_beacon_consumer_batch.DeployLoadTestBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
+func deployLoadTestVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
+	_, tx, _, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -355,8 +355,8 @@ func newVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Clie
 	return consumer
 }
 
-func newBatchVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *vrf_beacon_consumer_batch.LoadTestBeaconVRFConsumer {
-	consumer, err := vrf_beacon_consumer_batch.NewLoadTestBeaconVRFConsumer(addr, client)
+func newLoadTestVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *load_test_beacon_consumer.LoadTestBeaconVRFConsumer {
+	consumer, err := load_test_beacon_consumer.NewLoadTestBeaconVRFConsumer(addr, client)
 	helpers.PanicErr(err)
 	return consumer
 }
@@ -424,7 +424,7 @@ func requestRandomnessCallbackBatch(
 	args []byte,
 	batchSize *big.Int,
 ) (requestID *big.Int) {
-	consumer := newBatchVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+	consumer := newLoadTestVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
 
 	tx, err := consumer.TestRequestRandomnessFulfillmentBatch(e.Owner, subID, numWords, confDelay, callbackGasLimit, args, batchSize)
 	helpers.PanicErr(err)
