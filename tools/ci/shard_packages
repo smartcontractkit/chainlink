@@ -24,20 +24,20 @@
  * @prop {boolean=} overwrite - Replace all existing content in summary file with buffer contents
  */
 
-import { EOL } from 'os'
-import { constants, promises } from 'fs'
-const { access, appendFile, writeFile } = promises
+import {EOL} from "os";
+import {constants, promises} from "fs";
+const {access, appendFile, writeFile} = promises;
 
-export const SUMMARY_ENV_VAR = 'GITHUB_STEP_SUMMARY'
+export const SUMMARY_ENV_VAR = "GITHUB_STEP_SUMMARY";
 export const SUMMARY_DOCS_URL =
-  'https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary'
+  "https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary";
 
 class Summary {
-  _buffer
-  _filePath
+  _buffer;
+  _filePath;
 
   constructor() {
-    this._buffer = ''
+    this._buffer = "";
   }
 
   /**
@@ -48,26 +48,26 @@ class Summary {
    */
   async filePath() {
     if (this._filePath) {
-      return this._filePath
+      return this._filePath;
     }
 
-    const pathFromEnv = process.env[SUMMARY_ENV_VAR]
+    const pathFromEnv = process.env[SUMMARY_ENV_VAR];
     if (!pathFromEnv) {
       throw new Error(
-        `Unable to find environment variable for $${SUMMARY_ENV_VAR}. Check if your runtime environment supports job summaries.`,
-      )
+        `Unable to find environment variable for $${SUMMARY_ENV_VAR}. Check if your runtime environment supports job summaries.`
+      );
     }
 
     try {
-      await access(pathFromEnv, constants.R_OK | constants.W_OK)
+      await access(pathFromEnv, constants.R_OK | constants.W_OK);
     } catch {
       throw new Error(
-        `Unable to access summary file: '${pathFromEnv}'. Check if the file has correct read/write permissions.`,
-      )
+        `Unable to access summary file: '${pathFromEnv}'. Check if the file has correct read/write permissions.`
+      );
     }
 
-    this._filePath = pathFromEnv
-    return this._filePath
+    this._filePath = pathFromEnv;
+    return this._filePath;
   }
 
   /**
@@ -82,13 +82,13 @@ class Summary {
   wrap(tag, content, attrs = {}) {
     const htmlAttrs = Object.entries(attrs)
       .map(([key, value]) => ` ${key}="${value}"`)
-      .join('')
+      .join("");
 
     if (!content) {
-      return `<${tag}${htmlAttrs}>`
+      return `<${tag}${htmlAttrs}>`;
     }
 
-    return `<${tag}${htmlAttrs}>${content}</${tag}>`
+    return `<${tag}${htmlAttrs}>${content}</${tag}>`;
   }
 
   /**
@@ -99,11 +99,11 @@ class Summary {
    * @returns {Promise<Summary>} summary instance
    */
   async write(options) {
-    const overwrite = !!options?.overwrite
-    const filePath = await this.filePath()
-    const writeFunc = overwrite ? writeFile : appendFile
-    await writeFunc(filePath, this._buffer, { encoding: 'utf8' })
-    return this.emptyBuffer()
+    const overwrite = !!options?.overwrite;
+    const filePath = await this.filePath();
+    const writeFunc = overwrite ? writeFile : appendFile;
+    await writeFunc(filePath, this._buffer, {encoding: "utf8"});
+    return this.emptyBuffer();
   }
 
   /**
@@ -112,7 +112,7 @@ class Summary {
    * @returns {Summary} summary instance
    */
   async clear() {
-    return this.emptyBuffer().write({ overwrite: true })
+    return this.emptyBuffer().write({overwrite: true});
   }
 
   /**
@@ -121,7 +121,7 @@ class Summary {
    * @returns {string} string of summary buffer
    */
   stringify() {
-    return this._buffer
+    return this._buffer;
   }
 
   /**
@@ -130,7 +130,7 @@ class Summary {
    * @returns {boolen} true if the buffer is empty
    */
   isEmptyBuffer() {
-    return this._buffer.length === 0
+    return this._buffer.length === 0;
   }
 
   /**
@@ -139,8 +139,8 @@ class Summary {
    * @returns {Summary} summary instance
    */
   emptyBuffer() {
-    this._buffer = ''
-    return this
+    this._buffer = "";
+    return this;
   }
 
   /**
@@ -152,8 +152,8 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addRaw(text, addEOL) {
-    this._buffer += text
-    return addEOL ? this.addEOL() : this
+    this._buffer += text;
+    return addEOL ? this.addEOL() : this;
   }
 
   /**
@@ -162,7 +162,7 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addEOL() {
-    return this.addRaw(EOL)
+    return this.addRaw(EOL);
   }
 
   /**
@@ -175,10 +175,10 @@ class Summary {
    */
   addCodeBlock(code, lang) {
     const attrs = {
-      ...(lang && { lang }),
-    }
-    const element = this.wrap('pre', this.wrap('code', code), attrs)
-    return this.addRaw(element).addEOL()
+      ...(lang && {lang}),
+    };
+    const element = this.wrap("pre", this.wrap("code", code), attrs);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -190,10 +190,10 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addList(items, ordered = false) {
-    const tag = ordered ? 'ol' : 'ul'
-    const listItems = items.map((item) => this.wrap('li', item)).join('')
-    const element = this.wrap(tag, listItems)
-    return this.addRaw(element).addEOL()
+    const tag = ordered ? "ol" : "ul";
+    const listItems = items.map((item) => this.wrap("li", item)).join("");
+    const element = this.wrap(tag, listItems);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -208,27 +208,27 @@ class Summary {
       .map((row) => {
         const cells = row
           .map((cell) => {
-            if (typeof cell === 'string') {
-              return this.wrap('td', cell)
+            if (typeof cell === "string") {
+              return this.wrap("td", cell);
             }
 
-            const { header, data, colspan, rowspan } = cell
-            const tag = header ? 'th' : 'td'
+            const {header, data, colspan, rowspan} = cell;
+            const tag = header ? "th" : "td";
             const attrs = {
-              ...(colspan && { colspan }),
-              ...(rowspan && { rowspan }),
-            }
+              ...(colspan && {colspan}),
+              ...(rowspan && {rowspan}),
+            };
 
-            return this.wrap(tag, data, attrs)
+            return this.wrap(tag, data, attrs);
           })
-          .join('')
+          .join("");
 
-        return this.wrap('tr', cells)
+        return this.wrap("tr", cells);
       })
-      .join('')
+      .join("");
 
-    const element = this.wrap('table', tableBody)
-    return this.addRaw(element).addEOL()
+    const element = this.wrap("table", tableBody);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -240,8 +240,8 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addDetails(label, content) {
-    const element = this.wrap('details', this.wrap('summary', label) + content)
-    return this.addRaw(element).addEOL()
+    const element = this.wrap("details", this.wrap("summary", label) + content);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -254,14 +254,14 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addImage(src, alt, options) {
-    const { width, height } = options || {}
+    const {width, height} = options || {};
     const attrs = {
-      ...(width && { width }),
-      ...(height && { height }),
-    }
+      ...(width && {width}),
+      ...(height && {height}),
+    };
 
-    const element = this.wrap('img', null, { src, alt, ...attrs })
-    return this.addRaw(element).addEOL()
+    const element = this.wrap("img", null, {src, alt, ...attrs});
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -273,12 +273,12 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addHeading(text, level) {
-    const tag = `h${level}`
-    const allowedTag = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)
+    const tag = `h${level}`;
+    const allowedTag = ["h1", "h2", "h3", "h4", "h5", "h6"].includes(tag)
       ? tag
-      : 'h1'
-    const element = this.wrap(allowedTag, text)
-    return this.addRaw(element).addEOL()
+      : "h1";
+    const element = this.wrap(allowedTag, text);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -287,8 +287,8 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addSeparator() {
-    const element = this.wrap('hr', null)
-    return this.addRaw(element).addEOL()
+    const element = this.wrap("hr", null);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -297,8 +297,8 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addBreak() {
-    const element = this.wrap('br', null)
-    return this.addRaw(element).addEOL()
+    const element = this.wrap("br", null);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -311,10 +311,10 @@ class Summary {
    */
   addQuote(text, cite) {
     const attrs = {
-      ...(cite && { cite }),
-    }
-    const element = this.wrap('blockquote', text, attrs)
-    return this.addRaw(element).addEOL()
+      ...(cite && {cite}),
+    };
+    const element = this.wrap("blockquote", text, attrs);
+    return this.addRaw(element).addEOL();
   }
 
   /**
@@ -326,89 +326,107 @@ class Summary {
    * @returns {Summary} summary instance
    */
   addLink(text, href) {
-    const element = this.wrap('a', text, { href })
-    return this.addRaw(element).addEOL()
+    const element = this.wrap("a", text, {href});
+    return this.addRaw(element).addEOL();
   }
 }
 
-await runAtGitRoot()
+await runAtGitRoot();
 
-$.verbose = false
-const numOfShards = Number(process.env.SHARDS) || 5
-const packages = await $`go list ./...`
-const parsedPackages = packages.stdout.trimEnd().split('\n')
-console.log(`${parsedPackages.length} packages to shard...`)
-const maxPackagesPerShard = Math.max(parsedPackages.length / numOfShards)
-const shardedPackages = new Array(numOfShards).fill(null).map(() => [])
+const configs = [
+  {
+    key: "core",
+    cmd: async () => {
+      const packages = await $`go list ./...`;
+      const parsedPackages = packages.stdout.trimEnd().split("\n");
 
-parsedPackages.forEach((pkg, i) => {
-  const shardIndex = Math.floor(i / maxPackagesPerShard)
-  shardedPackages[shardIndex].push(pkg)
-})
+      return parsedPackages;
+    },
+  },
+  {
+    key: "contracts",
+    cmd: async () => {
+      const tests = await glob([`contracts/src/v0.8/**/*.test.ts`]);
+
+      return tests;
+    },
+  },
+];
+
+$.verbose = false;
+const numOfShards = Number(process.env.SHARDS) || 5;
+console.log(`${packages.length} packages to shard...`);
+const maxPackagesPerShard = Math.max(packages.length / numOfShards);
+const shardedPackages = new Array(numOfShards).fill(null).map(() => []);
+
+packages.forEach((pkg, i) => {
+  const shardIndex = Math.floor(i / maxPackagesPerShard);
+  shardedPackages[shardIndex].push(pkg);
+});
 
 const mappedShardedPackages = shardedPackages.map((gp, i) => ({
   idx: `${i + 1}`,
   id: `${i + 1}/${numOfShards}`,
-  pkgs: gp.join(' '),
-}))
+  pkgs: gp.join(" "),
+}));
 
-const serializedShardedPackages = JSON.stringify(mappedShardedPackages)
-setOutput('shards', serializedShardedPackages)
-createSummary(parsedPackages, shardedPackages, mappedShardedPackages)
+const serializedShardedPackages = JSON.stringify(mappedShardedPackages);
+setOutput("shards", serializedShardedPackages);
+createSummary(packages, shardedPackages, mappedShardedPackages);
 
 function setOutput(name, body) {
   if (process.env.CI) {
-    console.log(`::set-output name=${name}::${body}`)
+    console.log(`::set-output name=${name}::${body}`);
   } else {
-    console.log(body)
+    console.log(body);
   }
 }
 
-function createSummary(parsedPackages, shardedPackages, mappedShardedPackages) {
+function createSummary(packages, shardedPackages, mappedShardedPackages) {
   if (!process.env.CI) {
-    return
+    return;
   }
-  const numberOfPackages = parsedPackages.length
-  const numberOfShards = shardedPackages.length
-  const postProcessedNumberOfPackages = shardedPackages.flat().length
+  const numberOfPackages = packages.length;
+  const numberOfShards = shardedPackages.length;
+  const postProcessedNumberOfPackages = shardedPackages.flat().length;
 
-  const summary = new Summary()
+  const summary = new Summary();
   summary
-    .addHeading('Sharding Summary')
+    .addHeading("Sharding Summary")
     .addHeading(
       `Number of packages from "go list ./...": ${numberOfPackages}`,
-      3,
+      3
     )
     .addHeading(
       `Number of packages placed into shards: ${postProcessedNumberOfPackages}`,
-      3,
+      3
     )
     .addHeading(`Number of shards created: ${numberOfShards}`, 3)
     .addBreak()
     .addTable([
       [
-        { data: 'Shard Number', header: true },
-        { data: 'Packages Tested', header: true },
+        {data: "Shard Number", header: true},
+        {data: "Packages Tested", header: true},
       ],
       ...mappedShardedPackages.map((p) => {
         const mappedPackages = p.pkgs
-          .split(' ')
+          .split(" ")
           .map(
             (packageName) =>
               `<li> ${packageName.replace(
-                'github.com/smartcontractkit/',
-                '',
-              )} </li>`,
+                "github.com/smartcontractkit/",
+                ""
+              )} </li>`
           )
-          .join('\n')
+          .join("\n");
 
-        return [p.id, mappedPackages]
+        return [p.id, mappedPackages];
       }),
     ])
-    .write()
+    .write();
 }
 
 async function runAtGitRoot() {
-  const gitRoot = await $`git rev-parse --show-toplevel`
-  cd(gitRoot.stdout.trimEnd())
+  const gitRoot = await $`git rev-parse --show-toplevel`;
+  cd(gitRoot.stdout.trimEnd());
 }
