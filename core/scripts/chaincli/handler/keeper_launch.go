@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/big"
 	"os"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -280,7 +281,7 @@ func (k *Keeper) createLegacyKeeperJob(client cmd.HTTPClient, registryAddr, node
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read error response body: %s", err)
 		}
@@ -336,7 +337,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read error response body: %s", err)
 		}

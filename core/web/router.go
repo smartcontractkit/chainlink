@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/pprof"
@@ -510,12 +509,12 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 // Inspired by https://github.com/gin-gonic/gin/issues/961
 func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		buf, err := ioutil.ReadAll(c.Request.Body)
+		buf, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			lggr.Error("Web request log error: ", err.Error())
 			// Implicitly relies on limits.RequestSizeLimiter
 			// overriding of c.Request.Body to abort gin's Context
-			// inside ioutil.ReadAll.
+			// inside io.ReadAll.
 			// Functions as we would like, but horrible from an architecture
 			// and design pattern perspective.
 			if !c.IsAborted() {
@@ -524,7 +523,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 			return
 		}
 		rdr := bytes.NewBuffer(buf)
-		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(buf))
 
 		start := time.Now()
 		c.Next()

@@ -3,7 +3,6 @@ package chainlink
 import (
 	_ "embed"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"net"
 	"os"
@@ -1124,7 +1123,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	const PWD_OVERRIDE = "great_password"
 	const DBURL_OVERRIDE = "http://user@db"
 
-	pwdFile, err := ioutil.TempFile("", "")
+	pwdFile, err := os.CreateTemp("", "")
 	assert.NoError(t, err)
 	defer os.Remove(pwdFile.Name())
 	_, err = pwdFile.WriteString(PWD_OVERRIDE)
