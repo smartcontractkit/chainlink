@@ -107,10 +107,16 @@ jobs:
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
       - name: Test native compilation
         run: ./contracts/scripts/native_solc_compile_all
       - name: Verify local solc binaries
         run: ./tools/ci/check_solc_hashes
+      - name: Generate Go Wrappers
+        run: go generate ./core/gethwrappers
+      - name: Display git diff
+        run: git diff --minimal
 
   lint:
     defaults:
