@@ -3,7 +3,6 @@ package webhook_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -84,7 +83,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	client.On("Do", mock.MatchedBy(func(r *http.Request) bool {
 		body, err := r.GetBody()
 		require.NoError(t, err)
-		b, err := ioutil.ReadAll(body)
+		b, err := io.ReadAll(body)
 		require.NoError(t, err)
 
 		assert.Equal(t, jb.ExternalJobID.String(), gjson.GetBytes(b, "jobId").Str)

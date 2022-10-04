@@ -6,7 +6,6 @@ import (
 	"net/mail"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
@@ -118,7 +117,6 @@ type SessionRequest struct {
 	WebAuthnData   string `json:"webauthndata"`
 	WebAuthnConfig WebAuthnConfiguration
 	SessionStore   *WebAuthnSessionStore
-	RequestContext *gin.Context
 }
 
 // Session holds the unique id for the authenticated session.

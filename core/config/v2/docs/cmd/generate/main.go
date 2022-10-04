@@ -3,15 +3,14 @@
 package main
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/internal/config"
+	"github.com/smartcontractkit/chainlink/core/config/v2/docs"
 )
 
 func main() {
-	s, err := config.GenerateDocs()
+	s, err := docs.GenerateDocs()
 	fmt.Print(s)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "invalid config docs: %v\n", err)

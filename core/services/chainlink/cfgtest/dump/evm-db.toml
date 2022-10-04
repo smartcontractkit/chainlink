@@ -52,9 +52,6 @@ Key = '0xae4E781a6218A8031764928E88d457937A954fC3'
 [EVM.KeySpecific.GasEstimator]
 PriceMax = '42 wei'
 
-[EVM.OCR]
-ObservationTimeout = '8m0s'
-
 [[EVM.Nodes]]
 Name = 'primary_0_1'
 WSURL = 'ws://test1.invalid'
