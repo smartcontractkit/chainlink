@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -314,7 +314,7 @@ chainID 			= 1337
 		}))
 		defer slowServers[i].Close()
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := ioutil.ReadAll(req.Body)
+			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
 			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
@@ -580,7 +580,7 @@ chainID 			= 1337
 		}))
 		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := ioutil.ReadAll(req.Body)
+			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
 			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))

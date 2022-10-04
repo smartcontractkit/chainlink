@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
@@ -74,7 +74,7 @@ func PasswordFromFile(pwdFile string) (string, error) {
 	if len(pwdFile) == 0 {
 		return "", nil
 	}
-	dat, err := ioutil.ReadFile(pwdFile)
+	dat, err := os.ReadFile(pwdFile)
 	// handle POSIX case, when text files may have a trailing \n
 	pwd := strings.TrimSuffix(string(dat), "\n")
 

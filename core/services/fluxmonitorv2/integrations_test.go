@@ -3,7 +3,7 @@ package fluxmonitorv2_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -465,7 +465,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
 				generatePriceResponseFn(reportPrice),
 				func(r *http.Request) {
-					b, err1 := ioutil.ReadAll(r.Body)
+					b, err1 := io.ReadAll(r.Body)
 					require.NoError(t, err1)
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
