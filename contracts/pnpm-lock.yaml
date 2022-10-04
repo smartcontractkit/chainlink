@@ -19,7 +19,7 @@ specifiers:
   '@nomiclabs/hardhat-ethers': ^2.0.2
   '@nomiclabs/hardhat-etherscan': ^3.1.0
   '@nomiclabs/hardhat-waffle': ^2.0.1
-  '@openzeppelin/contracts': ^4.3.3
+  '@openzeppelin/contracts': ~4.3.3
   '@openzeppelin/contracts-v0.7': npm:@openzeppelin/contracts@v3.4.2
   '@openzeppelin/test-helpers': ^0.5.11
   '@typechain/ethers-v5': ^7.0.1
@@ -55,7 +55,7 @@ specifiers:
 
 dependencies:
   '@eth-optimism/contracts': 0.5.37_ethers@5.6.1
-  '@openzeppelin/contracts': 4.7.3
+  '@openzeppelin/contracts': 4.3.3
   '@openzeppelin/contracts-v0.7': /@openzeppelin/contracts/3.4.2
 
 devDependencies:
@@ -987,8 +987,8 @@ packages:
     resolution: {integrity: sha512-z0zMCjyhhp4y7XKAcDAi3Vgms4T2PstwBdahiO0+9NaGICQKjynK3wduSRplTgk4LXmoO1yfDGO5RbjKYxtuxA==}
     dev: false
 
-  /@openzeppelin/contracts/4.7.3:
-    resolution: {integrity: sha512-dGRS0agJzu8ybo44pCIf3xBaPQN/65AIXNgK8+4gzKd5kbvlqyxryUYVLJv7fK98Seyd2hDZzVEHSWAh0Bt1Yw==}
+  /@openzeppelin/contracts/4.3.3:
+    resolution: {integrity: sha512-tDBopO1c98Yk7Cv/PZlHqrvtVjlgK5R4J6jxLwoO7qxK4xqOiZG+zSkIvGFpPZ0ikc3QOED3plgdqjgNTnBc7g==}
     dev: false
 
   /@openzeppelin/test-helpers/0.5.16_bn.js@4.12.0:
