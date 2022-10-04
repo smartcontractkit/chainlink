@@ -10,8 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
@@ -728,7 +729,10 @@ func (e *EthereumContractDeployer) DeployVRFCoordinatorV2(linkAddr string, bhsAd
 
 // DeployVRFCoordinator deploys VRF coordinator contract
 func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, interface{}, error) {
+	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
 		return ethereum.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
 	})
 	if err != nil {

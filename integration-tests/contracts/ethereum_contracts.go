@@ -11,11 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
@@ -689,6 +690,86 @@ func (o *EthereumOffchainAggregator) SetConfig(
 
 		oracleIdentity := ocrConfigHelper.OracleIdentity{
 			TransmitAddress:       common.HexToAddress(primaryEthKey),
+			OnChainSigningAddress: onChainSigningAddress,
+			PeerID:                primaryP2PKey.Attributes.PeerID,
+			OffchainPublicKey:     offchainSigningAddress,
+		}
+		oracleIdentityExtra := ocrConfigHelper.OracleIdentityExtra{
+			OracleIdentity:                  oracleIdentity,
+			SharedSecretEncryptionPublicKey: ocrTypes.SharedSecretEncryptionPublicKey(configPublicKey),
+		}
+
+		ocrConfig.OracleIdentities = append(ocrConfig.OracleIdentities, oracleIdentityExtra)
+	}
+
+	signers, transmitters, threshold, encodedConfigVersion, encodedConfig, err := ocrConfigHelper.ContractSetConfigArgs(
+		ocrConfig.DeltaProgress,
+		ocrConfig.DeltaResend,
+		ocrConfig.DeltaRound,
+		ocrConfig.DeltaGrace,
+		ocrConfig.DeltaC,
+		ocrConfig.AlphaPPB,
+		ocrConfig.DeltaStage,
+		ocrConfig.RMax,
+		ocrConfig.S,
+		ocrConfig.OracleIdentities,
+		ocrConfig.F,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Set Config
+	opts, err := o.client.TransactionOpts(o.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := o.ocr.SetConfig(opts, signers, transmitters, threshold, encodedConfigVersion, encodedConfig)
+	if err != nil {
+		return err
+	}
+	return o.client.ProcessTransaction(tx)
+}
+
+// SetConfigEffectiveTransmitters sets the payees and the offchain reporting protocol
+// configuration with effective transmitters
+func (o *EthereumOffchainAggregator) SetConfigEffectiveTransmitters(
+	chainlinkNodes []*client.Chainlink,
+	ocrConfig OffChainAggregatorConfig,
+	effectiveTransmitters []common.Address,
+) error {
+	// Gather necessary addresses and keys from our chainlink nodes to properly configure the OCR contract
+	log.Info().Str("Contract Address", o.address.Hex()).Msg("Configuring OCR Contract")
+	for i, node := range chainlinkNodes {
+		ocrKeys, err := node.MustReadOCRKeys()
+		if err != nil {
+			return err
+		}
+		primaryOCRKey := ocrKeys.Data[0]
+		p2pKeys, err := node.MustReadP2PKeys()
+		if err != nil {
+			return err
+		}
+		primaryP2PKey := p2pKeys.Data[0]
+
+		// Need to convert the key representations
+		var onChainSigningAddress [20]byte
+		var configPublicKey [32]byte
+		offchainSigningAddress, err := hex.DecodeString(primaryOCRKey.Attributes.OffChainPublicKey)
+		if err != nil {
+			return err
+		}
+		decodeConfigKey, err := hex.DecodeString(primaryOCRKey.Attributes.ConfigPublicKey)
+		if err != nil {
+			return err
+		}
+
+		// https://stackoverflow.com/questions/8032170/how-to-assign-string-to-bytes-array
+		copy(onChainSigningAddress[:], common.HexToAddress(primaryOCRKey.Attributes.OnChainSigningAddress).Bytes())
+		copy(configPublicKey[:], decodeConfigKey)
+
+		oracleIdentity := ocrConfigHelper.OracleIdentity{
+			TransmitAddress:       effectiveTransmitters[i],
 			OnChainSigningAddress: onChainSigningAddress,
 			PeerID:                primaryP2PKey.Attributes.PeerID,
 			OffchainPublicKey:     offchainSigningAddress,
@@ -1427,8 +1508,8 @@ func (e *EthereumOperator) Address() string {
 func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address, eoa []common.Address) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	log.Info().
-		Str("Forwarders addresses", fmt.Sprint(forwarders)).
-		Str("Eoa addresses", fmt.Sprint(eoa)).
+		Str("ForwardersAddresses", fmt.Sprint(forwarders)).
+		Str("EoaAddresses", fmt.Sprint(eoa)).
 		Msg("Accepting Authorized Receivers")
 	tx, err := e.operator.AcceptAuthorizedReceivers(opts, forwarders, eoa)
 	if err != nil {

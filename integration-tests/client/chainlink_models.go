@@ -813,6 +813,7 @@ type OCRTaskJobSpec struct {
 	ContractConfirmations    int           `toml:"contractConfigConfirmations"`            // Optional
 	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
 	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
+	ForwardingAllowed        bool          `toml:"forwardingAllowed"`                      // Optional, by default false
 	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
 	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
 	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
@@ -868,6 +869,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint       string
 		TransmitterAddress       string
 		ObservationSource        string
+		ForwardingAllowed        bool
 	}{
 		Name:                     o.Name,
 		BlockChainTimeout:        o.BlockChainTimeout,
@@ -882,6 +884,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint:       o.MonitoringEndpoint,
 		TransmitterAddress:       o.TransmitterAddress,
 		ObservationSource:        o.ObservationSource,
+		ForwardingAllowed:        o.ForwardingAllowed,
 	}
 	// Results in /dns4//tcp/6690/p2p/12D3KooWAuC9xXBnadsYJpqzZZoB4rMRWqRGpxCrr2mjS7zCoAdN\
 	ocrTemplateString := `type = "offchainreporting"
@@ -905,6 +908,7 @@ p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
+forwardingAllowed					   ={{if not .ForwardingAllowed}} false {{else}} {{.ForwardingAllowed}} {{end}}
 observationSource                      = """
 {{.ObservationSource}}
 """`

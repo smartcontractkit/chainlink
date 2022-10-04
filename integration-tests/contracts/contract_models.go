@@ -8,9 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
@@ -136,6 +137,7 @@ type OffchainAggregator interface {
 	Fund(nativeAmount *big.Float) error
 	GetContractData(ctx context.Context) (*OffchainAggregatorData, error)
 	SetConfig(chainlinkNodes []*client.Chainlink, ocrConfig OffChainAggregatorConfig) error
+	SetConfigEffectiveTransmitters(chainlinkNodes []*client.Chainlink, ocrConfig OffChainAggregatorConfig, effectiveTransmitters []common.Address) error
 	SetPayees([]string, []string) error
 	RequestNewRound() error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)

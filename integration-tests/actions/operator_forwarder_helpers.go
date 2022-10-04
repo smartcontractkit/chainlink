@@ -23,27 +23,31 @@ func DeployForwarderContracts(
 	contractDeployer contracts.ContractDeployer,
 	linkToken contracts.LinkToken,
 	chainClient blockchain.EVMClient,
-) (operator common.Address, authorizedForwarder common.Address, operatorFactoryInstance contracts.OperatorFactory) {
+	numberOfOperatorForwarderPairs int,
+) (operators []common.Address, authorizedForwarders []common.Address, operatorFactoryInstance contracts.OperatorFactory) {
 	By("Deploying OperatorFactory contract")
 	operatorFactoryInstance, err := contractDeployer.DeployOperatorFactory(linkToken.Address())
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying OperatorFactory Contract shouldn't fail")
 	err = chainClient.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for deployment of flux aggregator contract")
 
-	By("Subscribe to Operator factory Events")
 	operatorCreated := make(chan *operator_factory.OperatorFactoryOperatorCreated)
 	authorizedForwarderCreated := make(chan *operator_factory.OperatorFactoryAuthorizedForwarderCreated)
-	SubscribeOperatorFactoryEvents(authorizedForwarderCreated, operatorCreated, chainClient, operatorFactoryInstance)
-
-	By("Create new operator and forwarder")
-	_, err = operatorFactoryInstance.DeployNewOperatorAndForwarder()
-	Expect(err).ShouldNot(HaveOccurred(), "Deploying new operator with proposed ownership with forwarder shouldn't fail")
+	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
+		By("Subscribe to Operator factory Events")
+		SubscribeOperatorFactoryEvents(authorizedForwarderCreated, operatorCreated, chainClient, operatorFactoryInstance)
+		By("Create new operator and forwarder")
+		_, err = operatorFactoryInstance.DeployNewOperatorAndForwarder()
+		Expect(err).ShouldNot(HaveOccurred(), "Deploying new operator with proposed ownership with forwarder shouldn't fail")
+		err = chainClient.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred(), "Waiting for events in nodes shouldn't fail")
+		eventDataAuthorizedForwarder, eventDataOperatorCreated := <-authorizedForwarderCreated, <-operatorCreated
+		operator, authorizedForwarder := eventDataOperatorCreated.Operator, eventDataAuthorizedForwarder.Forwarder
+		operators = append(operators, operator)
+		authorizedForwarders = append(authorizedForwarders, authorizedForwarder)
+	}
 	err = chainClient.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred(), "Waiting for events in nodes shouldn't fail")
-	eventDataAuthorizedForwarder, eventDataOperatorCreated := <-authorizedForwarderCreated, <-operatorCreated
-	operator, authorizedForwarder = eventDataOperatorCreated.Operator, eventDataAuthorizedForwarder.Forwarder
-
-	return operator, authorizedForwarder, operatorFactoryInstance
+	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
 func AcceptAuthorizedReceiversOperator(
@@ -175,16 +179,14 @@ func SubscribeOperatorFactoryEvents(
 	}()
 }
 
-func TrackForwarder(chainClient blockchain.EVMClient, authorizedForwarder common.Address, chainlinkNodes []*client.Chainlink) {
-	for _, node := range chainlinkNodes {
-		chainID := chainClient.GetChainID()
-		_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
-		Expect(err).ShouldNot(HaveOccurred(), "Forwarder track should be created")
-		log.Info().Str("NodeURL", node.Config.URL).
-			Str("ForwarderAddress", authorizedForwarder.Hex()).
-			Str("ChaidID", chainID.String()).
-			Msg("Forwarder tracked")
-	}
+func TrackForwarder(chainClient blockchain.EVMClient, authorizedForwarder common.Address, node *client.Chainlink) {
+	chainID := chainClient.GetChainID()
+	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
+	Expect(err).ShouldNot(HaveOccurred(), "Forwarder track should be created")
+	log.Info().Str("NodeURL", node.Config.URL).
+		Str("ForwarderAddress", authorizedForwarder.Hex()).
+		Str("ChaidID", chainID.String()).
+		Msg("Forwarder tracked")
 }
 
 func GetForwarders(chainlinkNodes []*client.Chainlink) {
