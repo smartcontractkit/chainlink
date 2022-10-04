@@ -405,11 +405,11 @@ type ChainSetOpts struct {
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func() client.Client
-	GenLogBroadcaster func() log.Broadcaster
-	GenLogPoller      func() logpoller.LogPoller
-	GenHeadTracker    func(httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func() txmgr.TxManager
+	GenEthClient      func(*big.Int) client.Client
+	GenLogBroadcaster func(*big.Int) log.Broadcaster
+	GenLogPoller      func(*big.Int) logpoller.LogPoller
+	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenTxManager      func(*big.Int) txmgr.TxManager
 }
 
 func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
