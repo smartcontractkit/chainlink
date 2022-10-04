@@ -2,7 +2,7 @@ package web
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"sort"
@@ -235,7 +235,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	defer ekc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

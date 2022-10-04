@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"net/url"
@@ -392,7 +391,7 @@ func nodeRequest(client cmd.HTTPClient, path string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return []byte{}, fmt.Errorf("failed to read response body: %s", err)
 	}
@@ -469,7 +468,7 @@ func getP2PKeyID(client cmd.HTTPClient) (string, error) {
 // createCredsFiles creates two temporary files with node creds: api and password.
 func createCredsFiles() (string, string, func(), error) {
 	// Create temporary file with chainlink node login creds
-	apiFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-api")
+	apiFile, err := os.CreateTemp("", "chainlink-node-api")
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create api file: %s", err)
 	}
@@ -478,7 +477,7 @@ func createCredsFiles() (string, string, func(), error) {
 	_, _ = apiFile.WriteString(defaultChainlinkNodePassword)
 
 	// Create temporary file with chainlink node password
-	passwordFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-password")
+	passwordFile, err := os.CreateTemp("", "chainlink-node-password")
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create password file: %s", err)
 	}
