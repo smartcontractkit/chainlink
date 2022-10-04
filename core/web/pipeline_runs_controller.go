@@ -2,7 +2,7 @@ package web
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -95,7 +95,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		jsonAPIResponse(c, res, "pipelineRun")
 	}
 
-	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
+	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
