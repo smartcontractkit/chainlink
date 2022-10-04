@@ -772,8 +772,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		cfg := cltest.NewTestGeneralConfig(t)
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
-		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
+		for i := range heads {
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &heads[i]))
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
@@ -789,8 +789,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		cfg := cltest.NewTestGeneralConfig(t)
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
-		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
+		for i := range heads {
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &heads[i]))
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
@@ -825,8 +825,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		cfg := cltest.NewTestGeneralConfig(t)
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
-		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
+		for i := range heads {
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &heads[i]))
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
@@ -858,8 +858,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		cfg := cltest.NewTestGeneralConfig(t)
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
-		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
+		for i := range heads {
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &heads[i]))
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
@@ -904,8 +904,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		cfg := cltest.NewTestGeneralConfig(t)
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
-		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
+		for i := range heads {
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &heads[i]))
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)
@@ -935,8 +935,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		cfg := cltest.NewTestGeneralConfig(t)
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
-		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
+		for i := range heads {
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &heads[i]))
 		}
 
 		ethClient := evmtest.NewEthClientMock(t)

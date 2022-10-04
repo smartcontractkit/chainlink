@@ -1,4 +1,3 @@
-// TODO: Improve code reuse (mostly c/p of core/chains/terra/orm_test.go)
 package starknet_test
 
 import (
@@ -55,7 +54,7 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	gotNode, err = orm.Node(gotNode.ID)
+	gotNode, err = orm.NodeNamed(gotNode.Name)
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 

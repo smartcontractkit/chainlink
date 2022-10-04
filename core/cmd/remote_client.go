@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -441,7 +440,7 @@ func (cli *Client) configDumpStr() (string, error) {
 		}
 	}()
 
-	respPayload, err := ioutil.ReadAll(resp.Body)
+	respPayload, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", cli.errorOut(err)
 	}
@@ -554,7 +553,7 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := ioutil.ReadFile(dir)
+	file, err := os.ReadFile(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -574,7 +573,7 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 }
 
 func parseResponse(resp *http.Response) ([]byte, error) {
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return b, multierr.Append(errors.New(resp.Status), err)
 	}
@@ -615,7 +614,9 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 			return nil
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
-		cli.CookieAuthenticator.Logout()
+		if err2 := cli.CookieAuthenticator.Logout(); err2 != nil {
+			cli.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2)
+		}
 		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}
 	return nil
