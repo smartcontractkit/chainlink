@@ -2,7 +2,7 @@
 # NOTE: This is not a required check to merge, merely a check so you know to create tickets to update the products that rely on this.
 name: Build External Repositories
 on:
-  push:
+  pull_request:
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -35,6 +35,10 @@ jobs:
         with:
           repository: smartcontractkit/chainlink
           ref: develop
+      - name: Install operator-ui
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make operator-ui
       - name: Replace chainlink-relay deps
         run: go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
       - name: Build Image
