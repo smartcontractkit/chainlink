@@ -53,6 +53,7 @@ type mocks struct {
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
 	txmORM      *txmgrMocks.ORM
+	auditLogger *audit.AuditLoggerService
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -85,8 +86,6 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ctx = loader.InjectDataloader(testutils.Context(t), app)
 	)
 
-	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(&audit.AuditLoggerService{}).Maybe()
-
 	// Setup mocks
 	// Note - If you add a new mock make sure you assert it's expectation below.
 	m := &mocks{
@@ -112,6 +111,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
 		balM:        evmORMMocks.NewBalanceMonitor(t),
 		txmORM:      txmgrMocks.NewORM(t),
+		auditLogger: &audit.AuditLoggerService{},
 	}
 
 	f := &gqlTestFramework{
