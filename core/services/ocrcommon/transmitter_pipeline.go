@@ -12,13 +12,13 @@ import (
 )
 
 const txObservationSource = `
-    transmit_tx        	[type=ethtx
-						 minConfirmations=0
-						 to="$(jobSpec.contractAddress)"
-						 from="[$(jobSpec.fromAddress)]"
-						 evmChainID="$(jobSpec.evmChainID)"
-						 data="$(jobSpec.data)"
-						 gasLimit="$(jobSpec.gasLimit)"]
+    transmit_tx [type=ethtx
+                 minConfirmations=0
+                 to="$(jobSpec.contractAddress)"
+                 from="[$(jobSpec.fromAddress)]"
+                 evmChainID="$(jobSpec.evmChainID)"
+                 data="$(jobSpec.data)"
+                 gasLimit="$(jobSpec.gasLimit)"]
     transmit_tx
 `
 
