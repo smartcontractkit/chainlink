@@ -80,7 +80,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 			sendingKeys = append(sendingKeys, common.HexToAddress(s))
 		}
 
-		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, pargs.TransmitterID, sendingKeys, configWatcher)
+		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, sendingKeys, configWatcher)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +120,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 			sendingKeys = append(sendingKeys, common.HexToAddress(s))
 		}
 
-		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, pargs.TransmitterID, sendingKeys, configWatcher)
+		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, sendingKeys, configWatcher)
 		if err != nil {
 			return nil, err
 		}

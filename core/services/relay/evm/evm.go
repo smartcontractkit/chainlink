@@ -164,7 +164,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	)
 }
 
-func newContractTransmitterWithForwarder(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, sendingKeys []common.Address, configWatcher *configWatcher) (*ContractTransmitter, error) {
+func newContractTransmitterWithForwarder(lggr logger.Logger, rargs relaytypes.RelayArgs, sendingKeys []common.Address, configWatcher *configWatcher) (*ContractTransmitter, error) {
 	var relayConfig RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {

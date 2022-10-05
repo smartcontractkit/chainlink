@@ -180,8 +180,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCROracleSpec.TransmitterAddress != nil {
 				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					// TODO: A case for this logic needs to be added, that allows for forwarders.
-					// 	return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCROracleSpec.TransmitterAddress)
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCROracleSpec.TransmitterAddress)
 				}
 			}
 
@@ -230,21 +229,30 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
-				// TODO: A case for this logic needs to be added, that allows for forwarders.
 				case relay.EVM:
-					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
-					if err != nil {
-						// return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					chains := o.chainSet.Chains()
+					var useForwarders bool = true
+					for _, c := range chains {
+						if !c.Config().EvmUseForwarders() {
+							useForwarders = false
+						}
+					}
+					// While using tx forwarders, the TransmitterID does not need to be a local sending key.
+					if !useForwarders {
+						_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
+						if err != nil {
+							return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+						}
 					}
 				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						// return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				case relay.Terra:
 					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						// return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				}
 			}
