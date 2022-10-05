@@ -34,7 +34,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	linkEthFeed := fs.String("link-eth-feed", "", "LINK-ETH feed address")
 	useForwarder := fs.Bool("use-forwarder", false, "boolean to use the forwarder")
 	confDelays := fs.String("conf-delays", "1,2,3,4,5,6,7,8", "8 confirmation delays")
-	lookbackBlocks := fs.Int64("lookback-blocks", 20, "lookback blocks")
+	lookbackBlocks := fs.Int64("lookback-blocks", 1000, "lookback blocks")
 	weiPerUnitLink := fs.String("wei-per-unit-link", assets.GWei(60_000_000).String(), "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
 
