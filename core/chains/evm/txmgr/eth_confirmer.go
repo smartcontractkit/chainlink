@@ -1617,10 +1617,9 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 	}
 	var receipts []x
 
-	q := ec.q.WithOpts(pg.WithParentCtx(ctx))
 	// NOTE: we don't filter on eth_txes.state = 'confirmed', because a transaction with an attached receipt
 	// is guaranteed to be confirmed. This results in a slightly better query plan.
-	if err := q.SelectContext(ctx, &receipts, `
+	if err := ec.q.SelectContext(ctx, &receipts, `
 	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
 	INNER JOIN eth_txes ON eth_txes.pipeline_task_run_id = pipeline_task_runs.id
