@@ -36,6 +36,7 @@ specifiers:
   hardhat: ~2.10.1
   hardhat-abi-exporter: ^2.2.1
   hardhat-contract-sizer: ^2.5.1
+  istanbul: ^0.4.5
   moment: ^2.29.4
   prettier: ^2.7.1
   prettier-plugin-solidity: 1.0.0-beta.18
@@ -83,6 +84,7 @@ devDependencies:
   hardhat: 2.10.1_pzcav2z4jiwxejxoak4yifv6cy
   hardhat-abi-exporter: 2.2.1_hardhat@2.10.1
   hardhat-contract-sizer: 2.5.1_hardhat@2.10.1
+  istanbul: 0.4.5
   moment: 2.29.4
   prettier: 2.7.1
   prettier-plugin-solidity: 1.0.0-beta.18_prettier@2.7.1
@@ -6535,6 +6537,30 @@ packages:
 
   /isstream/0.1.2:
     resolution: {integrity: sha512-Yljz7ffyPbrLpLngrMtZ7NduUgVvi6wG9RJ9IUcyCd59YQ911PBJphODUcbOVbqYfxe1wuYf/LJ8PauMRwsM/g==}
+    dev: true
+
+  /istanbul/0.4.5:
+    resolution: {integrity: sha512-nMtdn4hvK0HjUlzr1DrKSUY8ychprt8dzHOgY2KXsIhHu5PuQQEOTM27gV9Xblyon7aUH/TSFIjRHEODF/FRPg==}
+    deprecated: |-
+      This module is no longer maintained, try this instead:
+        npm i nyc
+      Visit https://istanbul.js.org/integrations for other alternatives.
+    hasBin: true
+    dependencies:
+      abbrev: 1.0.9
+      async: 1.5.2
+      escodegen: 1.8.1
+      esprima: 2.7.3
+      glob: 5.0.15
+      handlebars: 4.7.7
+      js-yaml: 3.14.1
+      mkdirp: 0.5.6
+      nopt: 3.0.6
+      once: 1.4.0
+      resolve: 1.1.7
+      supports-color: 3.2.3
+      which: 1.3.1
+      wordwrap: 1.0.0
     dev: true
 
   /isurl/1.0.0:

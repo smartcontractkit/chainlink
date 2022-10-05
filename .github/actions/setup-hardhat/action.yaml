@@ -1,8 +1,8 @@
 name: Setup NodeJS
 inputs:
-  shard:
+  namespace:
     required: true
-    description: The shard to cache under, such as "v0.5", "cross-version"
+    description: A cache namespace to add
   cache-version:
     default: "2"
     description: Change to bust cache
@@ -10,24 +10,6 @@ description: Setup pnpm for contracts
 runs:
   using: composite
   steps:
-    - name: Generate hash cache key
-      uses: actions/github-script@v6
-      id: cache-key
-      env:
-        SHARD: ${{ inputs.shard }}
-      with:
-        script: |
-          const shard = process.env.SHARD 
-          const validShards = ['cross-version', 'v0.6', 'v0.7', 'v0.8']
-          if(!validShards.includes(shard)) throw Error(`No valid shard found, valid shards are ${JSON.stringify(validShards)}`)
-          const dirToCache = shard === 'cross-version' ? '' : `${shard}/`
-
-          // When the shard is 'cross-version', the resulting hashFiles input ends up being 'contracts/src/**/*.sol', since we are possibly testing any version of contracts
-          // Otherwise, it is 'contracts/src/v0.8/**/*.sol', if the 'shard' was 'v0.8'.
-          const cacheKey = `contracts/src/${dirToCache}**/*.sol`
-          console.log(`Generated cache key for shard "${shard}": ${cacheKey}`)
-          return cacheKey
-
     - name: Cache Compilers
       uses: actions/cache@v3
       with:
@@ -41,9 +23,9 @@ runs:
           contracts/cache/
           contracts/artifacts/
           contracts/typechain/
-        key: ${{ format('contracts-{0}-{1}-{2}-{3}', inputs.shard, runner.os, inputs.cache-version, hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts', steps.cache-key.outputs.result)) }}
+        key: ${{ format('contracts-{0}-{1}-{2}', runner.os, inputs.cache-version, inputs.namespace, hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts', 'contracts/src/**/*.sol')) }}
         restore-keys: |
-          ${{ format('contracts-{0}-{1}-{2}', inputs.shard, runner.os, inputs.cache-version) }}
+          ${{ format('contracts-{0}-{1}-', runner.os, inputs.cache-version, inputs.namespace) }}
 
     - name: Compile contracts
       shell: bash

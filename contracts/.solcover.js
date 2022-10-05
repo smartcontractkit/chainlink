@@ -7,6 +7,7 @@ module.exports = {
     'v0.8/mocks',
     'v0.8/tests',
   ],
+  istanbulReporter: ['text', 'text-summary', 'json'],
   mocha: {
     grep: '@skip-coverage', // Find everything with this tag
     invert: true, // Run the grep's inverse set.

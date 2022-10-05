@@ -7,12 +7,35 @@ env:
   NODE_OPTIONS: --max_old_space_size=5120
 
 jobs:
-  solidity-coverage:
-    name: Solidity Coverage ${{ matrix.shard }}
+  shard-tests:
+    name: Shard Solidity Tests
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.shard.outputs.shards }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Shard Solidity Tests
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Generate shards
+        uses: ./.github/actions/shard-packages
+        with:
+          config: ./contracts/ci.json
+        id: shard
+
+  solidity-coverage-shards:
+    needs: [shard-tests]
+    name: Solidity Coverage ${{ matrix.shard.id }}
     strategy:
       fail-fast: false
       matrix:
-        shard: ["cross-version", "v0.6", "v0.7", "v0.8"]
+        shard: ${{ fromJson(needs.shard-tests.outputs.shards) }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -21,7 +44,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity Coverage ${{ matrix.shard }}
+          this-job-name: Solidity Coverage ${{ matrix.shard.id }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -30,21 +53,52 @@ jobs:
       - name: Setup Hardhat
         uses: ./.github/actions/setup-hardhat
         with:
-          shard: ${{ matrix.shard }}
+          namespace: coverage
       - name: Run coverage
         env:
-          SHARD: ${{ matrix.shard }}
-        run: pnpm coverage
+          SHARD: ${{ matrix.shard.coverageTests }}
+        shell: bash
+        run: pnpm coverage --testfiles "$SHARD"
         working-directory: contracts
       - name: Push coverage
         run: ./tools/bin/codecov -f ./contracts/coverage.json
+      - name: Rename coverage
+        run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.shard.idx }}
+      - name: Upload coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: solidity-coverage-${{ matrix.shard.idx }}
+          path: ./contracts/coverage-${{ matrix.shard.idx }}.json
 
-  solidity:
-    name: Solidity ${{ matrix.shard }}
+  solidity-coverage:
+    needs: [solidity-coverage-shards]
+    name: Solidity Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Make coverage directory
+        run: mkdir ./contracts/coverage-reports
+      - name: Download coverage
+        uses: actions/download-artifacts@v3
+        with:
+          path: ./contracts/coverage-reports
+      - name: Display structure of downloaded files
+        run: ls -R
+        working-directory: contracts
+      - name: Generate merged report
+        run: pnpm istanbul report text text-summary
+        working-directory: contracts
+
+  solidity-shards:
+    needs: [shard-tests]
+    name: Solidity ${{ matrix.shard.id }}
     strategy:
       fail-fast: false
       matrix:
-        shard: ["cross-version", "v0.6", "v0.7", "v0.8"]
+        shard: ${{ fromJson(needs.shard-tests.outputs.shards) }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -53,7 +107,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity
+          this-job-name: Solidity ${{ matrix.shard.id }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -62,12 +116,19 @@ jobs:
       - name: Setup Hardhat
         uses: ./.github/actions/setup-hardhat
         with:
-          shard: ${{ matrix.shard }}
+          namespace: coverage
       - name: Run tests
         env:
-          SHARD: ${{ matrix.shard }}
+          SHARD: ${{ matrix.shard.tests }}
         working-directory: contracts
-        run: pnpm test
+        run: pnpm test -- $SHARD
+
+  solidity:
+    needs: [solidity-shards]
+    name: Solidity
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Solidity tests finished!'
 
   prepublish-test:
     name: Prepublish Test

@@ -27,7 +27,7 @@ export default {
     artifacts: './artifacts',
     cache: './cache',
     sources: './src',
-    tests: `./test/${process.env.SHARD || ''}`,
+    tests: `./test`,
   },
   typechain: {
     outDir: './typechain',
