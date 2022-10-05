@@ -28,6 +28,7 @@ import (
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/metricpipeline"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
@@ -334,6 +335,17 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			"dkgContractID", cfg.DKGContractAddress), true, func(msg string) {
 			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		})
+
+		metricPipeline := metricpipeline.NewMetricPipeline(
+			time.Millisecond,
+			200*time.Millisecond,
+			10,
+			nil,
+			jobSpec.PipelineSpec.JobName,
+			jobSpec.ExternalJobID.String(),
+			"ocr2vrf",
+		)
+
 		oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
 			VRFLogger:                    vrfLogger,
 			DKGLogger:                    dkgLogger,
@@ -361,6 +373,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			Esk:                          encryptionSecretKey.KyberScalar(),
 			Ssk:                          signingSecretKey.KyberScalar(),
 			KeyID:                        keyID,
+			MetricPipeline:               metricPipeline,
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")
