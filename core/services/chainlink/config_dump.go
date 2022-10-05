@@ -196,19 +196,28 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewDuration("EthTxReaperInterval").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].TxReaperInterval = d
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ReaperInterval = d
 		}
 	}
 	if e := envvar.NewDuration("EthTxReaperThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].TxReaperThreshold = d
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ReaperThreshold = d
 		}
 	}
 	if e := envvar.NewDuration("EthTxResendAfterThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].TxResendAfterThreshold = d
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ResendAfterThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("EvmFinalityDepth").ParsePtr(); e != nil {
@@ -282,7 +291,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		return
 	}).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MinimumContractPayment = e
+			c.EVM[i].MinContractPayment = e
 		}
 	}
 	if e := envvar.NewDuration("NodeNoNewHeadsThreshold").ParsePtr(); e != nil {
@@ -387,7 +396,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitOCRJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.OCR = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitDRJobType").ParsePtr(); e != nil {
@@ -395,7 +407,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitDRJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.DR = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitVRFJobType").ParsePtr(); e != nil {
@@ -403,7 +418,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitVRFJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.VRF = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitFMJobType").ParsePtr(); e != nil {
@@ -411,7 +429,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitFMJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.FM = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitKeeperJobType").ParsePtr(); e != nil {
@@ -419,7 +440,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitKeeperJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.Keeper = e
 		}
 	}
 	if e := envvar.New("EvmGasLimitMultiplier", decimal.NewFromString).ParsePtr(); e != nil {
@@ -459,7 +483,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.TipCapMinimum = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.TipCapMin = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMaxGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
@@ -605,6 +629,9 @@ func (c *Config) loadLegacyEVMEnv() {
 			if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
 				c.EVM[i].GasEstimator.BlockHistory = nil
 			}
+			if isZeroPtr(c.EVM[i].GasEstimator.LimitJobType) {
+				c.EVM[i].GasEstimator.LimitJobType = nil
+			}
 			if isZeroPtr(c.EVM[i].GasEstimator) {
 				c.EVM[i].GasEstimator = nil
 			}
@@ -612,12 +639,18 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint32("EvmMaxInFlightTransactions").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MaxInFlightTransactions = e
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.MaxInFlight = e
 		}
 	}
 	if e := envvar.NewUint32("EvmMaxQueuedTransactions").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MaxInFlightTransactions = e
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.MaxInFlight = e
 		}
 	}
 	if e := envvar.NewBool("EvmNonceAutoSync").ParsePtr(); e != nil {
@@ -627,7 +660,15 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewBool("EvmUseForwarders").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].UseForwarders = e
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ForwardersEnabled = e
+		}
+	}
+	for i := range c.EVM {
+		if isZeroPtr(c.EVM[i].Transactions) {
+			c.EVM[i].Transactions = nil
 		}
 	}
 }
@@ -651,8 +692,8 @@ func (c *Config) loadLegacyCoreEnv() {
 		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
 		DefaultQueryTimeout:           mustParseDuration(os.Getenv("DATABASE_DEFAULT_QUERY_TIMEOUT")),
 		MigrateOnStartup:              envvar.NewBool("MigrateDatabase").ParsePtr(),
-		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
-		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
+		MaxIdleConns:                  envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
+		MaxOpenConns:                  envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
 		Listener: &config.DatabaseListener{
 			MaxReconnectDuration: envDuration("DatabaseListenerMaxReconnectDuration"),
 			MinReconnectInterval: envDuration("DatabaseListenerMinReconnectInterval"),
@@ -699,12 +740,17 @@ func (c *Config) loadLegacyCoreEnv() {
 
 	c.Log = &config.Log{
 		DatabaseQueries: envvar.NewBool("LogSQL").ParsePtr(),
-		FileDir:         envvar.NewString("LogFileDir").ParsePtr(),
-		FileMaxSize:     envvar.LogFileMaxSize.ParsePtr(),
-		FileMaxAgeDays:  envvar.LogFileMaxAge.ParsePtr(),
-		FileMaxBackups:  envvar.LogFileMaxBackups.ParsePtr(),
 		JSONConsole:     envvar.JSONConsole.ParsePtr(),
 		UnixTS:          envvar.LogUnixTS.ParsePtr(),
+		File: &config.LogFile{
+			Dir:        envvar.NewString("LogFileDir").ParsePtr(),
+			MaxSize:    envvar.LogFileMaxSize.ParsePtr(),
+			MaxAgeDays: envvar.LogFileMaxAge.ParsePtr(),
+			MaxBackups: envvar.LogFileMaxBackups.ParsePtr(),
+		},
+	}
+	if isZeroPtr(c.Log.File) {
+		c.Log.File = nil
 	}
 	if isZeroPtr(c.Log) {
 		c.Log = nil
@@ -750,16 +796,21 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.JobPipeline = &config.JobPipeline{
-		DefaultHTTPRequestTimeout: envDuration("DefaultHTTPTimeout"),
 		ExternalInitiatorsEnabled: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
 		MaxRunDuration:            envDuration("JobPipelineMaxRunDuration"),
 		ReaperInterval:            envDuration("JobPipelineReaperInterval"),
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
+		HTTPRequest: &config.JobPipelineHTTPRequest{
+			DefaultTimeout: envDuration("DefaultHTTPTimeout"),
+		},
 	}
 	if p := envvar.NewInt64("DefaultHTTPLimit").ParsePtr(); p != nil {
 		b := utils.FileSize(*p)
-		c.JobPipeline.HTTPRequestMaxSize = &b
+		c.JobPipeline.HTTPRequest.MaxSize = &b
+	}
+	if isZeroPtr(c.JobPipeline.HTTPRequest) {
+		c.JobPipeline.HTTPRequest = nil
 	}
 	if isZeroPtr(c.JobPipeline) {
 		c.JobPipeline = nil
@@ -871,15 +922,20 @@ func (c *Config) loadLegacyCoreEnv() {
 		GasPriceBufferPercent:        envvar.NewUint32("KeeperGasPriceBufferPercent").ParsePtr(),
 		GasTipCapBufferPercent:       envvar.NewUint32("KeeperGasTipCapBufferPercent").ParsePtr(),
 		BaseFeeBufferPercent:         envvar.NewUint32("KeeperBaseFeeBufferPercent").ParsePtr(),
-		MaximumGracePeriod:           envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
-		RegistryCheckGasOverhead:     envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
-		RegistryPerformGasOverhead:   envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
-		RegistryMaxPerformDataSize:   envvar.NewUint32("KeeperRegistryMaxPerformDataSize").ParsePtr(),
-		RegistrySyncInterval:         envDuration("KeeperRegistrySyncInterval"),
-		RegistrySyncUpkeepQueueSize:  envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
+		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
 		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
 		UpkeepCheckGasPriceEnabled:   envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
+		Registry: &config.KeeperRegistry{
+			CheckGasOverhead:    envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
+			PerformGasOverhead:  envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
+			MaxPerformDataSize:  envvar.NewUint32("KeeperRegistryMaxPerformDataSize").ParsePtr(),
+			SyncInterval:        envDuration("KeeperRegistrySyncInterval"),
+			SyncUpkeepQueueSize: envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
+		},
+	}
+	if isZeroPtr(c.Keeper.Registry) {
+		c.Keeper.Registry = nil
 	}
 	if isZeroPtr(c.Keeper) {
 		c.Keeper = nil
