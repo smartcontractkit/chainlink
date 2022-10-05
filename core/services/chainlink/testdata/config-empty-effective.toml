@@ -12,9 +12,9 @@ UICSAKeys = false
 DefaultIdleInTxSessionTimeout = '1h0m0s'
 DefaultLockTimeout = '15s'
 DefaultQueryTimeout = '10s'
+MaxIdleConns = 10
+MaxOpenConns = 20
 MigrateOnStartup = true
-ORMMaxIdleConns = 10
-ORMMaxOpenConns = 20
 
 [Database.Backup]
 Dir = ''
@@ -44,12 +44,14 @@ UseBatchSend = true
 
 [Log]
 DatabaseQueries = false
-FileDir = ''
-FileMaxSize = '5.12gb'
-FileMaxAgeDays = 0
-FileMaxBackups = 1
 JSONConsole = false
 UnixTS = false
+
+[Log.File]
+Dir = ''
+MaxSize = '5.12gb'
+MaxAgeDays = 0
+MaxBackups = 1
 
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
@@ -78,13 +80,15 @@ HTTPSPort = 6689
 KeyPath = ''
 
 [JobPipeline]
-DefaultHTTPRequestTimeout = '15s'
 ExternalInitiatorsEnabled = false
-HTTPRequestMaxSize = '32.77kb'
 MaxRunDuration = '10m0s'
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '24h0m0s'
 ResultWriteQueueDepth = 100
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '15s'
+MaxSize = '32.77kb'
 
 [FluxMonitor]
 DefaultTransactionQueueDepth = 1
@@ -143,15 +147,17 @@ DefaultTransactionQueueDepth = 1
 GasPriceBufferPercent = 20
 GasTipCapBufferPercent = 20
 BaseFeeBufferPercent = 20
-MaximumGracePeriod = 100
-RegistryCheckGasOverhead = 200000
-RegistryPerformGasOverhead = 300000
-RegistryMaxPerformDataSize = 5000
-RegistrySyncInterval = '30m0s'
-RegistrySyncUpkeepQueueSize = 10
+MaxGracePeriod = 100
 TurnLookBack = 1000
 TurnFlagEnabled = false
 UpkeepCheckGasPriceEnabled = false
+
+[Keeper.Registry]
+CheckGasOverhead = 200000
+PerformGasOverhead = 300000
+MaxPerformDataSize = 5000
+SyncInterval = '30m0s'
+SyncUpkeepQueueSize = 10
 
 [AutoPprof]
 Enabled = false
