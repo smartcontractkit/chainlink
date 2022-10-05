@@ -82,10 +82,3 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 func (t *pipelineTransmitter) FromAddress() common.Address {
 	return t.effectiveTransmitterAddress
 }
-
-func (t *pipelineTransmitter) forwarderAddress() common.Address {
-	if t.effectiveTransmitterAddress != t.fromAddress {
-		return t.effectiveTransmitterAddress
-	}
-	return common.Address{}
-}
