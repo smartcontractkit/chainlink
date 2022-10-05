@@ -196,7 +196,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 1*time.Second)
+	stopMining := cltest.Mine(backend, 3*time.Second)
 	defer stopMining()
 
 	// Deploy contracts
@@ -378,7 +378,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
 	/*
-		TODO: Add test for second upkeep once listening to perform logs is implemented
+		TODO(@EasterTheBunny): Add test for second upkeep once listening to perform logs is implemented
 
 		// change payload
 		_, err = upkeepContract.SetBytesToSend(carrol, payload2)
