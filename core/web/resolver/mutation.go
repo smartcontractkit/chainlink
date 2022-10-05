@@ -633,7 +633,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.ChainRpcNodeDeleted, map[string]interface{}{"id": id})
+	r.App.GetAuditLogger().Audit(audit.ChainRpcNodeDeleted, map[string]interface{}{"name": name})
 	return NewDeleteNodePayloadResolver(&node, nil), nil
 }
 
