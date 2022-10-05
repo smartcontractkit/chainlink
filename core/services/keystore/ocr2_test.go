@@ -19,7 +19,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	keyStore := keystore.ExposedNewMaster(t, db, cfg)
-	keyStore.Unlock(cltest.Password)
+	require.NoError(t, keyStore.Unlock(cltest.Password))
 	ks := keyStore.OCR2()
 	reset := func() {
 		_, err := db.Exec("DELETE FROM encrypted_key_rings")
