@@ -24,8 +24,10 @@ func FallbackDefaultsAsV2() v2.Chain {
 
 func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	c := v2.Chain{
-		BlockBackfillDepth:       nil,
-		BlockBackfillSkip:        nil,
+		// moved from global, so setting that default here
+		BlockBackfillDepth: ptr[uint32](10),
+		BlockBackfillSkip:  ptr(false),
+
 		ChainType:                ptr(string(set.chainType)),
 		FinalityDepth:            ptr(set.finalityDepth),
 		FlagsContractAddress:     asEIP155Address(set.flagsContractAddress),
@@ -71,10 +73,9 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			PriceMax:           utils.NewWei(&set.maxGasPriceWei),
 			PriceMin:           utils.NewWei(&set.minGasPriceWei),
 			BlockHistory: &v2.BlockHistoryEstimator{
-				BatchSize:                 ptr(set.blockHistoryEstimatorBatchSize),
-				BlockHistorySize:          ptr(set.blockHistoryEstimatorBlockHistorySize),
-				EIP1559FeeCapBufferBlocks: set.blockHistoryEstimatorEIP1559FeeCapBufferBlocks,
-				TransactionPercentile:     ptr(set.blockHistoryEstimatorTransactionPercentile),
+				BatchSize:             ptr(set.blockHistoryEstimatorBatchSize),
+				BlockHistorySize:      ptr(set.blockHistoryEstimatorBlockHistorySize),
+				TransactionPercentile: ptr(set.blockHistoryEstimatorTransactionPercentile),
 			},
 		},
 		HeadTracker: &v2.HeadTracker{
@@ -92,7 +93,6 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			ContractConfirmations:              ptr(set.ocrContractConfirmations),
 			ContractTransmitterTransmitTimeout: models.MustNewDuration(set.ocrContractTransmitterTransmitTimeout),
 			DatabaseTimeout:                    models.MustNewDuration(set.ocrDatabaseTimeout),
-			ObservationTimeout:                 nil,
 			ObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
 		},
 	}

@@ -661,7 +661,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := cfg.OCRTransmitterAddress()
-		if !errors.Is(errors.Cause(err), config.ErrUnset) {
+		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
 			if err != nil {
 				return nil, err
 			}

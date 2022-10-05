@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -937,9 +936,9 @@ isBootstrapPeer    = true
 					res.WriteHeader(http.StatusOK)
 					res.Write([]byte(`{"data":10}`))
 				}))
-				defer slowServers[i].Close()
+				t.Cleanup(slowServers[i].Close)
 				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-					b, err := ioutil.ReadAll(req.Body)
+					b, err := io.ReadAll(req.Body)
 					require.NoError(t, err)
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
@@ -951,7 +950,7 @@ isBootstrapPeer    = true
 					res.WriteHeader(http.StatusOK)
 					res.Write([]byte(`{"data":10}`))
 				}))
-				defer servers[i].Close()
+				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
 				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
@@ -1168,9 +1167,9 @@ isBootstrapPeer    = true
 				res.WriteHeader(http.StatusOK)
 				res.Write([]byte(`{"data":10}`))
 			}))
-			defer slowServers[i].Close()
+			t.Cleanup(slowServers[i].Close)
 			servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-				b, err := ioutil.ReadAll(req.Body)
+				b, err := io.ReadAll(req.Body)
 				require.NoError(t, err)
 				var m bridges.BridgeMetaDataJSON
 				require.NoError(t, json.Unmarshal(b, &m))
@@ -1182,7 +1181,7 @@ isBootstrapPeer    = true
 				res.WriteHeader(http.StatusOK)
 				res.Write([]byte(`{"data":10}`))
 			}))
-			defer servers[i].Close()
+			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)
 			err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 				Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),

@@ -17,7 +17,9 @@ import (
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	stktyp "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -92,7 +94,7 @@ type dbData struct {
 	SolanaChains []solana.DBChain
 	SolanaNodes  map[string][]soldb.Node
 
-	StarknetChains []starknet.DBChain
+	StarknetChains []stktyp.DBChain
 	StarknetNodes  map[string][]stkdb.Node
 
 	TerraChains []tertyp.DBChain
@@ -116,8 +118,8 @@ func configDump(data dbData) (string, error) {
 // loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.
 func (c *Config) loadChainsAndNodes(dbData dbData) error {
 	for _, dbChain := range dbData.EVMChains {
-		var evmChain EVMConfig
-		if err := evmChain.setFromDB(dbChain, dbData.EVMNodes[dbChain.ID.String()]); err != nil {
+		var evmChain evmcfg.EVMConfig
+		if err := evmChain.SetFromDB(dbChain, dbData.EVMNodes[dbChain.ID.String()]); err != nil {
 			return errors.Wrapf(err, "failed to convert db config for evm chain %v", dbChain.ID)
 		}
 		if *evmChain.Enabled {
@@ -128,8 +130,8 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 	}
 
 	for _, dbChain := range dbData.SolanaChains {
-		var solChain SolanaConfig
-		if err := solChain.setFromDB(dbChain, dbData.SolanaNodes[dbChain.ID]); err != nil {
+		var solChain solana.SolanaConfig
+		if err := solChain.SetFromDB(dbChain, dbData.SolanaNodes[dbChain.ID]); err != nil {
 			return errors.Wrapf(err, "failed to convert db config for solana chain %s", dbChain.ID)
 		}
 		if *solChain.Enabled {
@@ -140,8 +142,8 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 	}
 
 	for _, dbChain := range dbData.StarknetChains {
-		var starkChain StarknetConfig
-		if err := starkChain.setFromDB(dbChain, dbData.StarknetNodes[dbChain.ID]); err != nil {
+		var starkChain starknet.StarknetConfig
+		if err := starkChain.SetFromDB(dbChain, dbData.StarknetNodes[dbChain.ID]); err != nil {
 			return errors.Wrapf(err, "failed to convert db config for starknet chain %s", dbChain.ID)
 		}
 		if *starkChain.Enabled {
@@ -152,8 +154,8 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 	}
 
 	for _, dbChain := range dbData.TerraChains {
-		var terChain TerraConfig
-		if err := terChain.setFromDB(dbChain, dbData.TerraNodes[dbChain.ID]); err != nil {
+		var terChain terra.TerraConfig
+		if err := terChain.SetFromDB(dbChain, dbData.TerraNodes[dbChain.ID]); err != nil {
 			return errors.Wrapf(err, "failed to convert db config for terra chain %s", dbChain.ID)
 		}
 		if *terChain.Enabled {
@@ -781,9 +783,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
 	}
-	if e := c.OCR2.Enabled; e != nil && *e {
-		c.OCR2.Enabled = nil // no need to be explicit
-	}
 	if isZeroPtr(c.OCR2) {
 		c.OCR2 = nil
 	}
@@ -799,9 +798,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
 	}
-	if e := c.OCR.Enabled; e != nil && *e {
-		c.OCR.Enabled = nil // no need to be explicit
-	}
 	if isZeroPtr(c.OCR) {
 		c.OCR = nil
 	}
@@ -811,43 +807,58 @@ func (c *Config) loadLegacyCoreEnv() {
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
 		TraceLogging:              envvar.NewBool("OCRTraceLogging").ParsePtr(),
 	}
-	if p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
+	p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
 		err = ns.UnmarshalText([]byte(s))
 		return
-	}).ParsePtr(); p != nil {
-		ns := *p
-		var v1, v2, v1v2 = ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV2, ocrnetworking.NetworkingStackV1V2
-		if ns == v1 || ns == v1v2 {
-			c.P2P.V1 = &config.P2PV1{
-				AnnounceIP:                       envIP("P2PAnnounceIP"),
-				AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
-				BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
-				DefaultBootstrapPeers:            envStringSlice("P2PBootstrapPeers"),
-				DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
-				DHTLookupInterval:                first(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
-				ListenIP:                         envIP("P2PListenIP"),
-				ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
-				NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
-				PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
-				PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
-			}
+	}).ParsePtr()
+	var v1, v2, v1v2 = ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV2, ocrnetworking.NetworkingStackV1V2
+	if p == nil {
+		p = &v1 // legacy default
+	}
+	ns := *p
+	t := true
+	if ns == v1 || ns == v1v2 {
+		c.P2P.V1 = &config.P2PV1{
+			Enabled:                          &t,
+			AnnounceIP:                       envIP("P2PAnnounceIP"),
+			AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
+			BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
+			DefaultBootstrapPeers:            envStringSlice("P2PBootstrapPeers"),
+			DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
+			DHTLookupInterval:                first(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
+			ListenIP:                         envIP("P2PListenIP"),
+			ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
+			NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
+			PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
+			PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 		}
-		if ns == v2 || ns == v1v2 {
-			c.P2P.V2 = &config.P2PV2{
-				AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
-				DefaultBootstrappers: envSlice("P2PV2Bootstrappers", func(v *ocrcommontypes.BootstrapperLocator, b []byte) error {
-					fmt.Println("TEST", string(b))
-					return v.UnmarshalText(b)
-				}),
-				DeltaDial:       envDuration("P2PV2DeltaDial"),
-				DeltaReconcile:  envDuration("P2PV2DeltaReconcile"),
-				ListenAddresses: envStringSlice("P2PV2ListenAddresses"),
-			}
+	}
+	if ns == v2 || ns == v1v2 {
+		c.P2P.V2 = &config.P2PV2{
+			Enabled:           &t,
+			AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
+			DefaultBootstrappers: envSlice("P2PV2Bootstrappers", func(v *ocrcommontypes.BootstrapperLocator, b []byte) error {
+				fmt.Println("TEST", string(b))
+				return v.UnmarshalText(b)
+			}),
+			DeltaDial:       envDuration("P2PV2DeltaDial"),
+			DeltaReconcile:  envDuration("P2PV2DeltaReconcile"),
+			ListenAddresses: envStringSlice("P2PV2ListenAddresses"),
 		}
+	}
+
+	v1Enabled := c.P2P.V1.Enabled != nil && *c.P2P.V1.Enabled
+	if v1Enabled {
+		// exclude from check
+		c.P2P.V1.Enabled = nil
 	}
 	if isZeroPtr(c.P2P.V1) {
 		c.P2P.V1 = nil
+	} else if v1Enabled {
+		// restore
+		c.P2P.V1.Enabled = &t
 	}
+
 	if isZeroPtr(c.P2P.V2) {
 		c.P2P.V2 = nil
 	}
@@ -944,9 +955,18 @@ func envURL(s string) *models.URL {
 }
 
 func envIP(s string) *net.IP {
-	return envvar.New(s, func(s string) (net.IP, error) {
+	ip := envvar.New(s, func(s string) (net.IP, error) {
 		return net.ParseIP(s), nil
 	}).ParsePtr()
+	if ip != nil {
+		// ensure non-zero
+		for _, b := range *ip {
+			if b != 0 {
+				return ip
+			}
+		}
+	}
+	return nil
 }
 
 func envStringSlice(s string) *[]string {

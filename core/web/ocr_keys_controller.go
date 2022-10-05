@@ -1,10 +1,11 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -63,7 +64,7 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 	defer ocrkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

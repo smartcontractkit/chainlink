@@ -34,8 +34,8 @@ import (
 
 // nolint
 var (
-	ErrUnset   = errors.New("env var unset")
-	ErrInvalid = errors.New("env var invalid")
+	ErrEnvUnset   = errors.New("env var unset")
+	ErrEnvInvalid = errors.New("env var invalid")
 
 	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 )
@@ -62,7 +62,7 @@ type FeatureFlags interface {
 
 type LogFn func(...any)
 
-type GeneralOnlyConfig interface {
+type BasicConfig interface {
 	Validate() error
 	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
@@ -183,6 +183,13 @@ type GeneralOnlyConfig interface {
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	VRFPassword() string
+
+	OCR1Config
+	OCR2Config
+
+	P2PNetworking
+	P2PV1Networking
+	P2PV2Networking
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -234,6 +241,10 @@ type GlobalConfig interface {
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
+	GlobalOCRContractConfirmations() (uint16, bool)
+	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
+	GlobalOCRDatabaseTimeout() (time.Duration, bool)
+	GlobalOCRObservationGracePeriod() (time.Duration, bool)
 	GlobalOperatorFactoryAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
@@ -241,16 +252,10 @@ type GlobalConfig interface {
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
 	GlobalNodeSelectionMode() (string, bool)
-
-	OCR1Config
-	OCR2Config
-	P2PNetworking
-	P2PV1Networking
-	P2PV2Networking
 }
 
 type GeneralConfig interface {
-	GeneralOnlyConfig
+	BasicConfig
 	GlobalConfig
 }
 
@@ -276,6 +281,7 @@ type generalConfig struct {
 
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewGeneralConfig(lggr logger.Logger) GeneralConfig {
 	v := viper.New()
 	c := newGeneralConfigWithViper(v, lggr.Named("GeneralConfig"))
@@ -356,10 +362,10 @@ EVM_ENABLED=false
 `)
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrEnvInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrEnvInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {

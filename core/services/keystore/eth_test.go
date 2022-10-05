@@ -171,13 +171,13 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	// - key 4
 	//   enabled - fixture
 	k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
-	ethKeyStore.Enable(k1.Address, testutils.FixtureChainID)
-	ethKeyStore.Enable(k1.Address, testutils.SimulatedChainID)
+	require.NoError(t, ethKeyStore.Enable(k1.Address, testutils.FixtureChainID))
+	require.NoError(t, ethKeyStore.Enable(k1.Address, testutils.SimulatedChainID))
 
 	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
-	ethKeyStore.Enable(k2.Address, testutils.FixtureChainID)
-	ethKeyStore.Enable(k2.Address, testutils.SimulatedChainID)
-	ethKeyStore.Disable(k2.Address, testutils.SimulatedChainID)
+	require.NoError(t, ethKeyStore.Enable(k2.Address, testutils.FixtureChainID))
+	require.NoError(t, ethKeyStore.Enable(k2.Address, testutils.SimulatedChainID))
+	require.NoError(t, ethKeyStore.Disable(k2.Address, testutils.SimulatedChainID))
 
 	k3, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
 	ethKeyStore.Enable(k3.Address, testutils.SimulatedChainID)
@@ -744,13 +744,13 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	// - key 4
 	//   enabled - fixture
 	k1, addr1 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
-	ks.Enable(k1.Address, testutils.SimulatedChainID)
-	ks.Enable(k1.Address, testutils.FixtureChainID)
+	require.NoError(t, ks.Enable(k1.Address, testutils.SimulatedChainID))
+	require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
 
 	k2, addr2 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
-	ks.Enable(k2.Address, testutils.FixtureChainID)
-	ks.Enable(k2.Address, testutils.SimulatedChainID)
-	ks.Disable(k2.Address, testutils.SimulatedChainID)
+	require.NoError(t, ks.Enable(k2.Address, testutils.FixtureChainID))
+	require.NoError(t, ks.Enable(k2.Address, testutils.SimulatedChainID))
+	require.NoError(t, ks.Disable(k2.Address, testutils.SimulatedChainID))
 
 	k3, addr3 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
 	ks.Enable(k3.Address, testutils.SimulatedChainID)
