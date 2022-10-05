@@ -57,7 +57,7 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job)
 	return keeperProvider, nil
 }
 
-func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet) (evmrelay.OCR2KeeperProvider, ktypes.Registry, ktypes.ReportEncoder, error) {
+func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet) (evmrelay.OCR2KeeperProvider, ktypes.Registry, ktypes.ReportEncoder, *LogCoordinator, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -68,19 +68,22 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 
 	// get the chain from the config
 	if chain, err = EVMChainForSpec(spec, set); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	if registry, err = kchain.NewEVMRegistryV2_0(ethkey.MustEIP55Address(oSpec.ContractID).Address(), chain.Client()); err != nil {
-		return nil, nil, nil, err
+	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
+	if registry, err = kchain.NewEVMRegistryV2_0(rAddr, chain.Client()); err != nil {
+		return nil, nil, nil, nil, err
 	}
 
 	encoder = kchain.NewEVMReportEncoder()
 
-	return keeperProvider, registry, encoder, err
+	coordinator, err := NewLogCoordinator(lggr, chain.LogPoller(), rAddr, chain.Client(), 100)
+
+	return keeperProvider, registry, encoder, coordinator, err
 }

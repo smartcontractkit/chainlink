@@ -382,7 +382,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		keeperProvider, rgstry, encoder, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet)
+		keeperProvider, rgstry, encoder, coordinator, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
@@ -401,6 +401,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			OnchainKeyring:               kb,
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
+			PerformLogProvider:           coordinator.PerformLogProvider(),
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {
@@ -419,6 +420,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 
 		return []job.ServiceCtx{
 			runResultSaver,
+			coordinator,
 			keeperProvider,
 			pluginService,
 		}, nil
