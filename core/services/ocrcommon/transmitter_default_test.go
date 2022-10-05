@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
 
-func Test_Transmitter_CreateEthTransaction(t *testing.T) {
+func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
