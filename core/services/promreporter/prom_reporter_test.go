@@ -74,7 +74,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			}).
 			Return()
 		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
-		reporter.Start(testutils.Context(t))
+		require.NoError(t, reporter.Start(testutils.Context(t)))
 		defer reporter.Close()
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
