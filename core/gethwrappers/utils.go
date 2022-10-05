@@ -3,7 +3,6 @@ package gethwrappers
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -13,13 +12,13 @@ import (
 
 // VersionHash is the hash used to detect changes in the underlying contract
 func VersionHash(abiPath string, binPath string) (hash string) {
-	abi, err := ioutil.ReadFile(abiPath)
+	abi, err := os.ReadFile(abiPath)
 	if err != nil {
 		Exit("Could not read abi path to create version hash", err)
 	}
 	bin := []byte("")
 	if binPath != "-" {
-		bin, err = ioutil.ReadFile(binPath)
+		bin, err = os.ReadFile(binPath)
 		if err != nil {
 			Exit("Could not read abi path to create version hash", err)
 		}
@@ -56,7 +55,7 @@ func GetProjectRoot() (rootPath string) {
 }
 
 func TempDir(dirPrefix string) (string, func()) {
-	tmpDir, err := ioutil.TempDir("", dirPrefix+"-contractWrapper")
+	tmpDir, err := os.MkdirTemp("", dirPrefix+"-contractWrapper")
 	if err != nil {
 		Exit("failed to create temporary working directory", err)
 	}

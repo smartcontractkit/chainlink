@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -78,7 +78,7 @@ func (h *baseHandler) createBootstrapJob(client cmd.HTTPClient, contractAddr str
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read error response body: %s", err)
 		}
