@@ -15,6 +15,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 var (
@@ -43,14 +44,16 @@ type OCR2KeeperRelayer interface {
 type ocr2keeperRelayer struct {
 	db    *sqlx.DB
 	chain evm.Chain
+	pr    pipeline.Runner
 	lggr  logger.Logger
 }
 
 // NewOCR2KeeperRelayer is the constructor of ocr2keeperRelayer
-func NewOCR2KeeperRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger) OCR2KeeperRelayer {
+func NewOCR2KeeperRelayer(db *sqlx.DB, chain evm.Chain, pr pipeline.Runner, lggr logger.Logger) OCR2KeeperRelayer {
 	return &ocr2keeperRelayer{
 		db:    db,
 		chain: chain,
+		pr:    pr,
 		lggr:  lggr,
 	}
 }
@@ -61,7 +64,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		return nil, err
 	}
 
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher, r.pr)
 	if err != nil {
 		return nil, err
 	}
