@@ -20,8 +20,12 @@ import (
 	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 )
 
-// OneLINK representation of a single LINK token
-var OneLINK = big.NewFloat(1e18)
+var (
+	// ChainlinkKeyPassword used to encrypt exported keys
+	ChainlinkKeyPassword = "twochains"
+	// OneLINK representation of a single LINK token
+	OneLINK = big.NewFloat(1e18)
+)
 
 type Chainlink struct {
 	APIClient         *resty.Client
@@ -485,6 +489,34 @@ func (c *Chainlink) PrimaryEthAddressForChain(chainId string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// ExportEVMKeys exports Chainlink private EVM keys
+func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
+	exportedKeys := make([]*ExportedEVMKey, 0)
+	keys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys.Data {
+		if key.Attributes.ETHBalance != "0" {
+			exportedKey := &ExportedEVMKey{}
+			_, err := c.APIClient.R().
+				SetResult(exportedKey).
+				SetPathParam("keyAddress", key.Attributes.Address).
+				SetQueryParam("newpassword", ChainlinkKeyPassword).
+				Post("/v2/keys/eth/export/{keyAddress}")
+			if err != nil {
+				return nil, err
+			}
+			exportedKeys = append(exportedKeys, exportedKey)
+		}
+	}
+	log.Info().
+		Str("Node URL", c.Config.URL).
+		Str("Password", ChainlinkKeyPassword).
+		Msg("Exported EVM Keys")
+	return exportedKeys, nil
 }
 
 // CreateTxKey creates a tx key on the Chainlink node

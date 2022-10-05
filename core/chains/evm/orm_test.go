@@ -129,7 +129,7 @@ func Test_EVMORM_Node(t *testing.T) {
 	chain := mustInsertChain(t, orm)
 	node := mustInsertNode(t, orm, chain.ID)
 
-	actual, err := orm.Node(node.ID)
+	actual, err := orm.NodeNamed(node.Name)
 	assert.NoError(t, err)
 
 	require.Equal(t, node, actual)

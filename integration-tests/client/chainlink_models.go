@@ -6,9 +6,10 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/lib/pq"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -116,6 +117,29 @@ type BridgeTypeAttributes struct {
 type Session struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// ExportedEVMKey holds all details needed to recreate a private key of the Chainlink node
+type ExportedEVMKey struct {
+	Address string `json:"address"`
+	Crypto  struct {
+		Cipher       string `json:"cipher"`
+		CipherText   string `json:"ciphertext"`
+		CipherParams struct {
+			Iv string `json:"iv"`
+		} `json:"cipherparams"`
+		Kdf       string `json:"kdf"`
+		KDFParams struct {
+			DkLen int    `json:"dklen"`
+			N     int    `json:"n"`
+			P     int    `json:"p"`
+			R     int    `json:"r"`
+			Salt  string `json:"salt"`
+		} `json:"kdfparams"`
+		Mac string `json:"mac"`
+	} `json:"crypto"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
 }
 
 // VRFExportKey is the model that represents the exported VRF key
@@ -887,12 +911,42 @@ observationSource                      = """
 	return marshallTemplate(specWrap, "OCR Job", ocrTemplateString)
 }
 
+// These are temporarily here until we find a fix for issue 53656/soak-test-compilation-broken-on-macos-m1
+// there is some compilation issue with cosmwasm
+// once fixed replace with /core/services/job/models.go versions again
+type TempOCR2PluginType string
+
+const (
+	Median  TempOCR2PluginType = "median"
+	DKG     TempOCR2PluginType = "dkg"
+	OCR2VRF TempOCR2PluginType = "ocr2vrf"
+)
+
+type TempJSONConfig map[string]interface{}
+type TempOCR2OracleSpec struct {
+	ID                                int32              `toml:"-"`
+	ContractID                        string             `toml:"contractID"`
+	Relay                             relay.Network      `toml:"relay"`
+	RelayConfig                       TempJSONConfig     `toml:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray     `toml:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String        `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
+	PluginConfig                      TempJSONConfig     `toml:"pluginConfig"`
+	PluginType                        TempOCR2PluginType `toml:"pluginType"`
+	CreatedAt                         time.Time          `toml:"-"`
+	UpdatedAt                         time.Time          `toml:"-"`
+}
+
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
-	OCR2OracleSpec    job.OCR2OracleSpec
+	OCR2OracleSpec    TempOCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 

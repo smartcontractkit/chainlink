@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -25,6 +26,7 @@ func Test_ContractTransmitter_ChainID(t *testing.T) {
 		nil,
 		nil,
 		chainID,
+		common.Address{},
 	)
 
 	assert.Equal(t, chainID, ct.ChainID())

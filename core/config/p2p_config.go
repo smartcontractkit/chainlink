@@ -45,7 +45,7 @@ func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
 	}
 	var pid p2pkey.PeerID
 	if err := pid.UnmarshalText([]byte(pidStr)); err != nil {
-		c.lggr.Critical(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
+		c.lggr.Critical(errors.Wrapf(ErrEnvInvalid, "P2P_PEER_ID is invalid %v", err))
 		return ""
 	}
 	return pid
@@ -82,25 +82,25 @@ type P2PDeprecated interface {
 // DEPRECATED, do not use defaults, use only if specified and the
 // newer env vars is not
 func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
-	return c.viper.GetDuration("OCRBootstrapCheckInterval")
+	return getEnvWithFallback(c, envvar.NewDuration("OCRBootstrapCheckInterval"))
 }
 
 // DEPRECATED
 func (c *generalConfig) OCRDHTLookupInterval() int {
-	return c.viper.GetInt("OCRDHTLookupInterval")
+	return int(getEnvWithFallback(c, envvar.NewInt64("OCRDHTLookupInterval")))
 }
 
 // DEPRECATED
 func (c *generalConfig) OCRNewStreamTimeout() time.Duration {
-	return c.viper.GetDuration("OCRNewStreamTimeout")
+	return getEnvWithFallback(c, envvar.NewDuration("OCRNewStreamTimeout"))
 }
 
 // DEPRECATED
 func (c *generalConfig) OCRIncomingMessageBufferSize() int {
-	return c.viper.GetInt("OCRIncomingMessageBufferSize")
+	return int(getEnvWithFallback(c, envvar.NewInt64("OCRIncomingMessageBufferSize")))
 }
 
 // DEPRECATED
 func (c *generalConfig) OCROutgoingMessageBufferSize() int {
-	return c.viper.GetInt("OCROutgoingMessageBufferSize")
+	return int(getEnvWithFallback(c, envvar.NewInt64("OCROutgoingMessageBufferSize")))
 }

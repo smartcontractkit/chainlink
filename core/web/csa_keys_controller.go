@@ -2,7 +2,7 @@ package web
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,7 +57,7 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 func (ctrl *CSAKeysController) Import(c *gin.Context) {
 	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
