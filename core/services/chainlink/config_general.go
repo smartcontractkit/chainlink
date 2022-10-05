@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/contrib/sessions"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
@@ -61,7 +61,7 @@ type generalConfig struct {
 
 func NewTOMLGeneralConfig(lggr logger.Logger, configToml string, secretsToml string, keystorePasswordFileName, vrfPasswordFileName *string) (coreconfig.GeneralConfig, error) {
 	var c Config
-	err := toml.Unmarshal([]byte(configToml), &c)
+	err := v2.DecodeTOML(strings.NewReader(configToml), &c)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func NewTOMLGeneralConfig(lggr logger.Logger, configToml string, secretsToml str
 	}
 
 	var s Secrets
-	err = toml.Unmarshal([]byte(secretsToml), &s)
+	err = v2.DecodeTOML(strings.NewReader(secretsToml), &s)
 	if err != nil {
 		return nil, err
 	}
@@ -297,11 +297,11 @@ func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 }
 
 func (g *generalConfig) DefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequestMaxSize)
+	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
 
 func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.DefaultHTTPRequestTimeout
+	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -373,27 +373,27 @@ func (g *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
 }
 
 func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaximumGracePeriod
+	return *g.c.Keeper.MaxGracePeriod
 }
 
 func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryCheckGasOverhead
+	return *g.c.Keeper.Registry.CheckGasOverhead
 }
 
 func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryPerformGasOverhead
+	return *g.c.Keeper.Registry.PerformGasOverhead
 }
 
 func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.RegistryMaxPerformDataSize
+	return *g.c.Keeper.Registry.MaxPerformDataSize
 }
 
 func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.RegistrySyncInterval.Duration()
+	return g.c.Keeper.Registry.SyncInterval.Duration()
 }
 
 func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.RegistrySyncUpkeepQueueSize
+	return *g.c.Keeper.Registry.SyncUpkeepQueueSize
 }
 
 func (g *generalConfig) KeeperTurnLookBack() int64 {
@@ -420,7 +420,7 @@ func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
 }
 
 func (g *generalConfig) LogFileDir() string {
-	s := *g.c.Log.FileDir
+	s := *g.c.Log.File.Dir
 	if s == "" {
 		s = g.RootDir()
 	}
@@ -428,15 +428,15 @@ func (g *generalConfig) LogFileDir() string {
 }
 
 func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.FileMaxSize
+	return *g.c.Log.File.MaxSize
 }
 
 func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.FileMaxAgeDays
+	return *g.c.Log.File.MaxAgeDays
 }
 
 func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.FileMaxBackups
+	return *g.c.Log.File.MaxBackups
 }
 
 func (g *generalConfig) LogUnixTimestamps() bool {
@@ -448,11 +448,11 @@ func (g *generalConfig) MigrateDatabase() bool {
 }
 
 func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.ORMMaxIdleConns)
+	return int(*g.c.Database.MaxIdleConns)
 }
 
 func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.ORMMaxOpenConns)
+	return int(*g.c.Database.MaxOpenConns)
 }
 
 func (g *generalConfig) OCRBootstrapCheckInterval() time.Duration {
