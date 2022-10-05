@@ -97,47 +97,44 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 test_install_ginkgo: ## Install ginkgo executable to run tests
 	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
 
+.PHONY: test_need_operator_assets
+test_need_operator_assets: ## Add blank file in web assets if operator ui has not been built
+	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
+
 .PHONY: test_smoke
 test_smoke: ## Run all integration smoke tests, using only simulated networks, default behavior
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
 
 .PHONY: test_smoke_simulated
 test_smoke_simulated: ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
 
 .PHONY: test_smoke_raw
 test_smoke_raw: ## Run ALL integration smoke tests, only used for when focusing a specific suite or test
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 
 .PHONY: test_soak_ocr
 test_soak_ocr: ## Run the OCR soak test
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 	cd ./integration-tests && go test -v -run ^TestOCRSoak$$ ./soak -count=1 && cd ..
 
 .PHONY: test_soak_keeper
 test_soak_keeper: ## Run the OCR soak test
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
 
 .PHONY: test_perf
 test_perf: ## Run core node performance tests.
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 	ginkgo -v -r --junit-report=tests-perf-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/performance
 
 .PHONY: test_chaos
 test_chaos: ## Run core node chaos tests.
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 	ginkgo -r --focus @chaos --nodes 5 ./integration-tests/chaos
 
 .PHONY: config-docs
