@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"net/http"
@@ -513,10 +512,10 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.DatabaseURL()
 	db, err := sql.Open(string(dialects.Postgres), dbUrl.String())
-	defer db.Close()
 	if err != nil {
 		return cli.errorOut(err)
 	}
+	defer db.Close()
 	templateDB := strings.Trim(dbUrl.Path, "/")
 	if err = dropAndCreatePristineDB(db, templateDB); err != nil {
 		return cli.errorOut(err)
@@ -767,7 +766,7 @@ func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err err
 		return errors.New("could not get runtime.Caller(1)")
 	}
 	filepath := path.Join(path.Dir(filename), pathToFixtures)
-	fixturesSQL, err := ioutil.ReadFile(filepath)
+	fixturesSQL, err := os.ReadFile(filepath)
 	if err != nil {
 		return err
 	}

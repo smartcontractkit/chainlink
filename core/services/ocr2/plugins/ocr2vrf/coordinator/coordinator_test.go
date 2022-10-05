@@ -102,6 +102,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 
 		c := &coordinator{
 			lp:                 lp,
+			lggr:               logger.TestLogger(t),
 			topics:             tp,
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
@@ -126,6 +127,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 
 		c := &coordinator{
 			lp:            lp,
+			lggr:          logger.TestLogger(t),
 			topics:        tp,
 			beaconAddress: beaconAddress,
 			finalityDepth: 10,
@@ -151,6 +153,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 		c := &coordinator{
 			lp:                 lp,
 			topics:             tp,
+			lggr:               logger.TestLogger(t),
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
 			dkgAddress:         dkgAddress,

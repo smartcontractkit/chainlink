@@ -186,7 +186,7 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, cfg)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
@@ -287,12 +287,12 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	require.NoError(t, app.KeyStore.Unlock(Password))
-	var chainID utils.Big = *utils.NewBig(&FixtureChainID)
+	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
@@ -315,8 +315,8 @@ const (
 )
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
-// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
-func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
+func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
 
@@ -372,9 +372,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if ethClient == nil {
 		ethClient = evmclient.NewNullClient(nil, lggr)
 	}
-	if chainORM == nil {
-		chainORM = evm.NewORM(db, lggr, cfg)
-	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	var chains chainlink.Chains
@@ -385,7 +382,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(c evmtypes.DBChain) evmclient.Client {
+		GenEthClient: func(_ *big.Int) evmclient.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}
@@ -397,42 +394,64 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 	if cfg.TerraEnabled() {
 		terraLggr := lggr.Named("Terra")
-		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		opts := terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
 			DB:               db,
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
-			ORM:              terra.NewORM(db, terraLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
+			cfgs := newCfg.TerraConfigs()
+			opts.ORM = terra.NewORMImmut(cfgs)
+			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
+
+		} else {
+			opts.ORM = terra.NewORM(db, terraLggr, cfg)
+			chains.Terra, err = terra.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
 	}
 	if cfg.SolanaEnabled() {
 		solLggr := lggr.Named("Solana")
-		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
-			Config:           cfg,
-			Logger:           solLggr,
-			DB:               db,
-			KeyStore:         keyStore.Solana(),
-			EventBroadcaster: eventBroadcaster,
-			ORM:              solana.NewORM(db, solLggr, cfg),
-		})
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			DB:       db,
+			KeyStore: keyStore.Solana(),
+		}
+		if newCfg, ok := cfg.(interface {
+			SolanaConfigs() solana.SolanaConfigs
+		}); ok {
+			cfgs := newCfg.SolanaConfigs()
+			opts.ORM = solana.NewORMImmut(cfgs)
+			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		} else {
+			opts.ORM = solana.NewORM(db, solLggr, cfg)
+			chains.Solana, err = solana.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")
-		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+		opts := starknet.ChainSetOpts{
 			Config:   cfg,
 			Logger:   starkLggr,
-			DB:       db,
 			KeyStore: keyStore.StarkNet(),
-			// EventBroadcaster: eventBroadcaster,
-			ORM: starknet.NewORM(db, starkLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface {
+			StarknetConfigs() starknet.StarknetConfigs
+		}); ok {
+			cfgs := newCfg.StarknetConfigs()
+			opts.ORM = starknet.NewORMImmut(cfgs)
+			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		} else {
+			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
+			chains.StarkNet, err = starknet.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}

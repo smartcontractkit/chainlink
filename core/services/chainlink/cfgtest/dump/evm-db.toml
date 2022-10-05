@@ -8,15 +8,17 @@ LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 99
 LogPollInterval = '43s'
 MinIncomingConfirmations = 99
-MinimumContractPayment = '7'
+MinContractPayment = '7'
 NonceAutoSync = false
 NoNewHeadsThreshold = '99h0m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 99
 RPCBlockQueryDelay = 99
-TxReaperThreshold = '10m0s'
-TxResendAfterThreshold = '5m10s'
-UseForwarders = false
+
+[EVM.Transactions]
+ForwardersEnabled = false
+ReaperThreshold = '10m0s'
+ResendAfterThreshold = '5m10s'
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
@@ -24,18 +26,20 @@ PriceDefault = '3.456 kwei'
 PriceMax = '9 mwei'
 LimitDefault = 99
 LimitMultiplier = '1.75'
-LimitOCRJobType = 9901
-LimitDRJobType = 9902
-LimitVRFJobType = 9903
-LimitFMJobType = 9904
-LimitKeeperJobType = 9905
 BumpMin = '159 wei'
 BumpPercent = 99
 BumpTxDepth = 99
 EIP1559DynamicFees = true
 FeeCapDefault = '9.876 kwei'
 TipCapDefault = '4.321 kwei'
-TipCapMinimum = '7 wei'
+TipCapMin = '7 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
 
 [EVM.GasEstimator.BlockHistory]
 BlockHistorySize = 99
@@ -51,9 +55,6 @@ Key = '0xae4E781a6218A8031764928E88d457937A954fC3'
 
 [EVM.KeySpecific.GasEstimator]
 PriceMax = '42 wei'
-
-[EVM.OCR]
-ObservationTimeout = '8m0s'
 
 [[EVM.Nodes]]
 Name = 'primary_0_1'

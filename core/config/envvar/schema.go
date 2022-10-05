@@ -35,6 +35,7 @@ import (
 //
 // Good example usage is for alternative blockchain support, new services like
 // Feeds Manager, external initiators and so on.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type ConfigSchema struct {
 	// ESSENTIAL
 	DatabaseURL string `env:"DATABASE_URL"`

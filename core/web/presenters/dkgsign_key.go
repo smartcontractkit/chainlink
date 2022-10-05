@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"github.com/manyminds/api2go/jsonapi"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 )
 

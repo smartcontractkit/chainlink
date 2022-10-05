@@ -119,6 +119,29 @@ type Session struct {
 	Password string `json:"password"`
 }
 
+// ExportedEVMKey holds all details needed to recreate a private key of the Chainlink node
+type ExportedEVMKey struct {
+	Address string `json:"address"`
+	Crypto  struct {
+		Cipher       string `json:"cipher"`
+		CipherText   string `json:"ciphertext"`
+		CipherParams struct {
+			Iv string `json:"iv"`
+		} `json:"cipherparams"`
+		Kdf       string `json:"kdf"`
+		KDFParams struct {
+			DkLen int    `json:"dklen"`
+			N     int    `json:"n"`
+			P     int    `json:"p"`
+			R     int    `json:"r"`
+			Salt  string `json:"salt"`
+		} `json:"kdfparams"`
+		Mac string `json:"mac"`
+	} `json:"crypto"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
+}
+
 // VRFExportKey is the model that represents the exported VRF key
 type VRFExportKey struct {
 	PublicKey string `json:"PublicKey"`

@@ -90,7 +90,7 @@ type ChainScopedOnlyConfig interface {
 
 //go:generate mockery --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.GeneralConfig
+	config.BasicConfig
 	ChainScopedOnlyConfig
 	Validate() error
 	// Both Configure() and PersistedConfig() should be accessed through ChainSet methods only.
@@ -98,8 +98,15 @@ type ChainScopedConfig interface {
 	PersistedConfig() evmtypes.ChainCfg
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+type LegacyChainScopedConfig interface {
+	ChainScopedConfig
+	config.GeneralConfig
+}
+
 var _ ChainScopedConfig = &chainScopedConfig{}
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type chainScopedConfig struct {
 	config.GeneralConfig
 	logger     logger.Logger
@@ -116,7 +123,8 @@ type chainScopedConfig struct {
 	onceMapMu sync.RWMutex
 }
 
-func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) ChainScopedConfig {
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) LegacyChainScopedConfig {
 	csorm := &chainScopedConfigORM{*utils.NewBig(chainID), orm}
 	defaultSet, exists := chainSpecificConfigDefaultSets[chainID.Int64()]
 	if !exists {
@@ -733,9 +741,6 @@ func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uin
 		c.logPersistedOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", p.Int64)
 		return uint16(p.Int64)
 	}
-	if c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks != nil {
-		return *c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks
-	}
 	// Default is the gas bump threshold + 1 block
 	return uint16(c.EvmGasBumpThreshold() + 1)
 }
@@ -1247,6 +1252,7 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 	return c.defaultSet.nodeSelectionMode
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func lookupEnv[T any](c *chainScopedConfig, k string, parse func(string) (T, error)) (t T, ok bool) {
 	s, ok := os.LookupEnv(k)
 	if !ok {
