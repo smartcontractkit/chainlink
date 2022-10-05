@@ -83,12 +83,22 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	if !cll.opts.Config.EVMRPCEnabled() {
 		cll.logger.Warn("EVM RPC connections are disabled. Chainlink will not connect to any EVM RPC node.")
 	}
-	for _, c := range cll.Chains() {
-		if err := c.Start(ctx); err != nil {
-			cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
-			continue
+	if cll.immutable {
+		var ms services.MultiStart
+		for id, c := range cll.Chains() {
+			if err := ms.Start(ctx, c); err != nil {
+				return errors.Wrapf(err, "failed to start chain %q", id)
+			}
+			cll.startedChains = append(cll.startedChains, c)
 		}
-		cll.startedChains = append(cll.startedChains, c)
+	} else {
+		for id, c := range cll.Chains() {
+			if err := c.Start(ctx); err != nil {
+				cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %d failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", id, err), "evmChainID", id, "err", err)
+				continue
+			}
+			cll.startedChains = append(cll.startedChains, c)
+		}
 	}
 	evmChainIDs := make([]*big.Int, len(cll.startedChains))
 	for i, c := range cll.startedChains {
@@ -395,11 +405,11 @@ type ChainSetOpts struct {
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func() client.Client
-	GenLogBroadcaster func() log.Broadcaster
-	GenLogPoller      func() logpoller.LogPoller
-	GenHeadTracker    func(httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func() txmgr.TxManager
+	GenEthClient      func(*big.Int) client.Client
+	GenLogBroadcaster func(*big.Int) log.Broadcaster
+	GenLogPoller      func(*big.Int) logpoller.LogPoller
+	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenTxManager      func(*big.Int) txmgr.TxManager
 }
 
 func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {

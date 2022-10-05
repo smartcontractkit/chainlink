@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"os"
@@ -368,7 +367,7 @@ func (h *mockHTTPClient) Get(path string, headers ...map[string]string) (*http.R
 	if path == "/v2/build_info" {
 		// Return mocked response here
 		json := fmt.Sprintf(`{"version":"%s","commitSHA":"%s"}`, h.mockVersion, h.mockSha)
-		r := ioutil.NopCloser(bytes.NewReader([]byte(json)))
+		r := io.NopCloser(bytes.NewReader([]byte(json)))
 		return &http.Response{
 			StatusCode: 200,
 			Body:       r,

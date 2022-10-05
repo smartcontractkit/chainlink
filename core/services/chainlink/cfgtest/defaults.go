@@ -7,30 +7,20 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 )
 
 // DocDefaultsOnly reads only the default values from a docs TOML file and decodes in to cfg.
 // Fields without defaults will set to zero values.
-func DocDefaultsOnly(r io.Reader, cfg any) error {
+func DocDefaultsOnly(r io.Reader, cfg any, decode func(io.Reader, any) error) error {
 	pr, pw := io.Pipe()
 	defer pr.Close()
 	go writeDefaults(r, pw)
-	if err := decodeDefaults(pr, cfg); err != nil {
-		return err
+	if err := decode(pr, cfg); err != nil {
+		return errors.Wrapf(err, "failed to decode default core configuration")
 	}
 	// replace niled examples with zero values.
 	nilToZero(reflect.ValueOf(cfg))
-	return nil
-}
-
-// decodeDefaults decodes to defaults from r.
-func decodeDefaults(r io.Reader, cfg any) error {
-	d := toml.NewDecoder(r).DisallowUnknownFields()
-	if err := d.Decode(cfg); err != nil {
-		return errors.Wrapf(err, "failed to decode default core configuration")
-	}
 	return nil
 }
 
