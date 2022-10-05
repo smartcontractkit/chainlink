@@ -8,7 +8,8 @@ FallbackPollInterval = '2m0s'
 JSONConsole = true
 
 [JobPipeline]
-DefaultHTTPRequestTimeout = '30s'
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '30s'
 
 [OCR2]
 Enabled = true
