@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/linkedin/goavro"
+	"github.com/linkedin/goavro/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -249,13 +249,14 @@ func (f fakeFeedConfig) GetContractAddressBytes() []byte { return f.ContractAddr
 func (f fakeFeedConfig) GetMultiply() *big.Int           { return f.Multiply }
 func (f fakeFeedConfig) ToMapping() map[string]interface{} {
 	return map[string]interface{}{
-		"feed_name":        f.Name,
-		"feed_path":        f.Path,
-		"symbol":           f.Symbol,
-		"heartbeat_sec":    int64(f.HeartbeatSec),
-		"contract_type":    f.ContractType,
-		"contract_status":  f.ContractStatus,
-		"contract_address": f.ContractAddress,
+		"feed_name":               f.Name,
+		"feed_path":               f.Path,
+		"symbol":                  f.Symbol,
+		"heartbeat_sec":           int64(f.HeartbeatSec),
+		"contract_type":           f.ContractType,
+		"contract_status":         f.ContractStatus,
+		"contract_address":        f.ContractAddress,
+		"contract_address_string": map[string]interface{}{"string": f.ContractAddressEncoded},
 		// These are solana specific but are kept here for backwards compatibility in Avro.
 		"transmissions_account": []byte{},
 		"state_account":         []byte{},
