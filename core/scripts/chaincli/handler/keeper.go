@@ -51,7 +51,7 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 
 	// Create Keeper Jobs on Nodes for Registry
 	cls := make([]cmd.HTTPClient, len(k.cfg.Keepers))
-	for i, keeperAddr := range k.cfg.Keepers {
+	for i, _ := range k.cfg.Keepers {
 		url := k.cfg.KeeperURLs[i]
 		email := k.cfg.KeeperEmails[i]
 		if len(email) == 0 {
@@ -68,13 +68,13 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 		}
 		cls[i] = cl
 
-		if err = k.createKeeperJob(cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
-			log.Fatal(err)
-		}
+		//if err = k.createKeeperJob(cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
+		//	log.Fatal(err)
+		//}
 	}
 
 	// Approve keeper registry
-	k.approveFunds(ctx, registryAddr)
+	// k.approveFunds(ctx, registryAddr)
 
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)

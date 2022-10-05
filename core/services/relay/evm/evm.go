@@ -135,7 +135,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	}, nil
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, pr pipeline.Runner) (*ContractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
 	var relayConfig RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -155,9 +155,48 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
 
-	var transmitter Transmitter
-	if pr != nil {
-		transmitter = ocrcommon.NewPipelineTransmitter(
+	return NewOCRContractTransmitter(
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		configWatcher.contractABI,
+		ocrcommon.NewDefaultTransmitter(
+			configWatcher.chain.TxManager(),
+			transmitterAddress,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			txm.TransmitCheckerSpec{},
+		),
+		configWatcher.chain.LogPoller(),
+		lggr,
+	)
+}
+
+func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, pr pipeline.Runner) (*ContractTransmitter, error) {
+	var relayConfig RelayConfig
+	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+		return nil, err
+	}
+
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	transmitterAddress := common.HexToAddress(transmitterID)
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
+
+	var checker txm.TransmitCheckerSpec
+	if configWatcher.chain.Config().OCRSimulateTransactions() {
+		checker.CheckerType = txm.TransmitCheckerTypeSimulate
+	}
+
+	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
+	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
+		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	}
+
+	return NewOCRContractTransmitter(
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		configWatcher.contractABI,
+		ocrcommon.NewPipelineTransmitter(
 			lggr,
 			transmitterAddress,
 			gasLimit,
@@ -166,23 +205,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 			txm.TransmitCheckerSpec{},
 			pr,
 			configWatcher.chain.ID().String(),
-		)
-	} else {
-		transmitter = ocrcommon.NewDefaultTransmitter(
-			configWatcher.chain.TxManager(),
-			transmitterAddress,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			txm.TransmitCheckerSpec{},
-		)
-	}
-
-	return NewOCRContractTransmitter(
-		configWatcher.contractAddress,
-		configWatcher.chain.Client(),
-		configWatcher.contractABI,
-		transmitter,
+		),
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)
@@ -193,7 +216,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, nil)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
 	if err != nil {
 		return nil, err
 	}
