@@ -236,16 +236,38 @@ func main() {
 		redeemRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
 
 	case "beacon-info":
-		cmd := flag.NewFlagSet("coordinator-info", flag.ExitOnError)
-		beaconAddress := cmd.String("beacon-address", "", "VRF coordinator contract address")
+		cmd := flag.NewFlagSet("beacon-info", flag.ExitOnError)
+		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address")
 		beacon := newVRFBeacon(common.HexToAddress(*beaconAddress), e.Ec)
 		keyID, err := beacon.SKeyID(nil)
 		helpers.PanicErr(err)
-		fmt.Println("coordinator key id:", hexutil.Encode(keyID[:]))
+		fmt.Println("beacon key id:", hexutil.Encode(keyID[:]))
 		keyHash, err := beacon.SProvingKeyHash(nil)
 		helpers.PanicErr(err)
-		fmt.Println("coordinator proving key hash:", hexutil.Encode(keyHash[:]))
+		fmt.Println("beacon proving key hash:", hexutil.Encode(keyHash[:]))
+
+	case "coordinator-create-sub":
+		cmd := flag.NewFlagSet("coordinator-create-sub", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+		createSubscription(e, *coordinatorAddress)
+
+	case "coordinator-add-consumer":
+		cmd := flag.NewFlagSet("coordinator-add-consumer", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+		consumerAddress := cmd.String("consumer-address", "", "VRF consumer contract address")
+		subId := cmd.Int64("sub-id", 1, "subscription ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "consumer-address")
+		addConsumer(e, *coordinatorAddress, *consumerAddress, big.NewInt(*subId))
+
+	case "beacon-set-payees":
+		cmd := flag.NewFlagSet("beacon-set-payees", flag.ExitOnError)
+		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
+		transmitters := cmd.String("transmitters", "", "comma-separated list of transmitters")
+		payees := cmd.String("payees", "", "comma-separated list of payees")
+		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address", "transmitters", "payees")
+		setPayees(e, *beaconAddress, helpers.ParseAddressSlice(*transmitters), helpers.ParseAddressSlice(*payees))
 
 	case "consumer-deploy":
 		cmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
