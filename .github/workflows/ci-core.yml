@@ -17,6 +17,7 @@ jobs:
       shards: ${{ steps.shard.outputs.shards }}
     env:
       SHARDS: 10
+      PROJECT: core
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics

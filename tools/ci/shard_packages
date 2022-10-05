@@ -335,7 +335,7 @@ await runAtGitRoot();
 
 const configs = [
   {
-    key: "core",
+    project: "core",
     cmd: async () => {
       const packages = await $`go list ./...`;
       const parsedPackages = packages.stdout.trimEnd().split("\n");
@@ -344,7 +344,7 @@ const configs = [
     },
   },
   {
-    key: "contracts",
+    project: "contracts",
     cmd: async () => {
       const tests = await glob([`contracts/src/v0.8/**/*.test.ts`]);
 
@@ -355,7 +355,16 @@ const configs = [
 
 $.verbose = false;
 const numOfShards = Number(process.env.SHARDS) || 5;
+const project = process.env.PROJECT;
 console.log(`${packages.length} packages to shard...`);
+const packages = await configs.find((c) => c.project === project)?.cmd();
+if (!packages) {
+  throw Error(
+    `Could not find config for project: ${project}. Valid projects are ${JSON.stringify(
+      configs.map((c) => c.project)
+    )}`
+  );
+}
 const maxPackagesPerShard = Math.max(packages.length / numOfShards);
 const shardedPackages = new Array(numOfShards).fill(null).map(() => []);
 
