@@ -95,6 +95,9 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	fmt.Println("Deploying beacon consumer...")
 	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
+	fmt.Println("Deploying batch beacon consumer...")
+	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
 		onChainPublicKeys  []string
@@ -195,6 +198,13 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	callbackCommand := fmt.Sprintf(
 		"go run . consumer-request-callback -consumer-address %s -sub-id <sub-id>",
 		consumerAddress.Hex())
+	fmt.Println(callbackCommand)
+	fmt.Println()
+
+	fmt.Println("Consumer callback batch request command:")
+	callbackCommand = fmt.Sprintf(
+		"go run . consumer-request-callback-batch -consumer-address %s -sub-id <sub-id> -batch-size <batch-size>",
+		loadTestConsumerAddress.Hex())
 	fmt.Println(callbackCommand)
 	fmt.Println()
 
