@@ -231,7 +231,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				switch jb.OCR2OracleSpec.Relay {
 				case relay.EVM:
 					chains := o.chainSet.Chains()
-					var useForwarders bool = true
+					var useForwarders = true
 					for _, c := range chains {
 						if !c.Config().EvmUseForwarders() {
 							useForwarders = false
