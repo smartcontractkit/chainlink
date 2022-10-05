@@ -102,46 +102,39 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
 
 .PHONY: test_smoke
-test_smoke: ## Run all integration smoke tests, using only simulated networks, default behavior
-	$(MAKE) test_need_operator_assets
+test_smoke: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
 
 .PHONY: test_smoke_simulated
-test_smoke_simulated: ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
-	$(MAKE) test_need_operator_assets
+test_smoke_simulated: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
 
 .PHONY: test_smoke_raw
-test_smoke_raw: ## Run ALL integration smoke tests, only used for when focusing a specific suite or test
-	$(MAKE) test_need_operator_assets
+test_smoke_raw: test_need_operator_assets ## Run ALL integration smoke tests, only used for when focusing a specific suite or test
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 
 .PHONY: test_soak_ocr
-test_soak_ocr: ## Run the OCR soak test
-	$(MAKE) test_need_operator_assets
+test_soak_ocr: test_need_operator_assets ## Run the OCR soak test
 	cd ./integration-tests && go test -v -run ^TestOCRSoak$$ ./soak -count=1 && cd ..
 
 .PHONY: test_soak_keeper
-test_soak_keeper: ## Run the OCR soak test
-	$(MAKE) test_need_operator_assets
+test_soak_keeper: test_need_operator_assets ## Run the OCR soak test
 	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
 
 .PHONY: test_perf
-test_perf: ## Run core node performance tests.
-	$(MAKE) test_need_operator_assets
+test_perf: test_need_operator_assets ## Run core node performance tests.
 	ginkgo -v -r --junit-report=tests-perf-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/performance
 
 .PHONY: test_chaos
-test_chaos: ## Run core node chaos tests.
-	$(MAKE) test_need_operator_assets
+test_chaos: test_need_operator_assets ## Run core node chaos tests.
 	ginkgo -r --focus @chaos --nodes 5 ./integration-tests/chaos
 
 .PHONY: config-docs
