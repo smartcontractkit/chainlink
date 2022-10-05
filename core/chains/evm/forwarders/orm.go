@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
