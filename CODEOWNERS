@@ -66,8 +66,8 @@
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
 .tool-versions @smartcontractkit/prodsec-public
 .nvmrc @smartcontractkit/prodsec-public
-package.json @smartcontractkit/prodsec-public
-yarn.lock @smartcontractkit/prodsec-public
+contracts/package.json @smartcontractkit/prodsec-public
+contracts/pnpm.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public
 go.sum @smartcontractkit/prodsec-public
 integration-tests/go.mod @smartcontractkit/prodsec-public
