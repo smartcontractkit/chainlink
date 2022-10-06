@@ -445,6 +445,12 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 
+	// Address required.
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{}})
+	require.Error(t, err)
+	// Event required
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{}, []common.Address{a1}})
+	require.Error(t, err)
 	// ID should increment
 	id1, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
 	require.NoError(t, err)
