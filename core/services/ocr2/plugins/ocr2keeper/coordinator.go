@@ -149,7 +149,7 @@ func (c *LogCoordinator) run() {
 				end-c.lookbackBlocks,
 				end,
 				[]common.Hash{
-					registry.KeeperRegistryTransmitted{}.Topic(),
+					registry.KeeperRegistryUpkeepPerformed{}.Topic(),
 				},
 				c.registryAddress,
 				pg.WithParentCtx(ctx),
