@@ -30,6 +30,10 @@ type Median struct {
 	pluginConfig config.PluginConfig
 }
 
+func (m *Median) Name() string {
+	return "MedianPlugin"
+}
+
 var _ plugins.OraclePlugin = &Median{}
 
 // NewMedian parses the arguments and returns a new Median struct.

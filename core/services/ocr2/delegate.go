@@ -29,6 +29,7 @@ import (
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -53,6 +54,8 @@ type Delegate struct {
 }
 
 var _ job.Delegate = (*Delegate)(nil)
+
+var promMetricsEnabled = true
 
 func NewDelegate(
 	db *sqlx.DB,
@@ -437,6 +440,23 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	pluginServices, err := pluginOracle.GetServices()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get plugin services")
+	}
+
+	if promMetricsEnabled {
+		chainIDInterface, ok := spec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
+		}
+		chainID := int64(chainIDInterface.(float64))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get chainset")
+		}
+		pluginFactory = promwrapper.NewPromFactory(
+			pluginFactory,
+			pluginOracle.Name(),
+			chain.ID(),
+		)
 	}
 
 	oracle, err := libocr2.NewOracle(libocr2.OracleArgs{

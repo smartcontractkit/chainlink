@@ -14,4 +14,6 @@ type OraclePlugin interface {
 	// GetServices returns any additional services that the plugin might need. This can return an empty slice when
 	// there are no additional services needed.
 	GetServices() (services []job.ServiceCtx, err error)
+	// Name returns the name of this plugin.
+	Name() string
 }

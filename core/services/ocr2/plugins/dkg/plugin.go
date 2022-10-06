@@ -31,6 +31,10 @@ type container struct {
 	ethClient    evmclient.Client
 }
 
+func (d *container) Name() string {
+	return "DKGPlugin"
+}
+
 var _ plugins.OraclePlugin = &container{}
 
 func NewDKG(
