@@ -50,7 +50,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 		Return(false, nil).
 		Run(func(args mock.Arguments) {
 			run := args.Get(1).(*pipeline.Run)
-			require.Equal(t, pipeline.NewVarsFrom(map[string]interface{}{
+			require.Equal(t, map[string]interface{}{
 				"jobSpec": map[string]interface{}{
 					"contractAddress": toAddress.String(),
 					"fromAddress":     fromAddress.String(),
@@ -58,7 +58,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 					"evmChainID":      chainID,
 					"data":            payload,
 				},
-			}), run.Inputs.Val)
+			}, run.Inputs.Val)
 
 			save := args.Get(3).(bool)
 			require.True(t, save)
