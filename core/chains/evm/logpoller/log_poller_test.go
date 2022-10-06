@@ -174,9 +174,11 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 
 	// Set up a log poller listening for log emitter logs.
-	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2},
-	))
+	_, err := th.LogPoller.RegisterFilter(Filter{
+		[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
+		[]common.Address{th.EmitterAddress1, th.EmitterAddress2},
+	})
+	require.NoError(t, err)
 
 	b, err := th.Client.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
@@ -385,7 +387,7 @@ func TestLogPoller_Logs(t *testing.T) {
 		GenLog(th.ChainID, 2, 3, "0x5", event2[:], address2),
 	}))
 
-	// Select for all addresses
+	// Select for all Addresses
 	lgs, err := th.ORM.SelectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(lgs))
@@ -416,36 +418,38 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, event1.Bytes(), lgs[0].Topics[0])
 }
 
-func TestLogPoller_MergeFilter(t *testing.T) {
+func TestLogPoller_RegisterFilter(t *testing.T) {
 	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
-	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}))
+	_, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}})
+	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter().Topics)
 
-	// Should de-dupe eventSigs
-	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}))
+	// Should de-dupe EventSigs
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 
-	// Should de-dupe addresses
-	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}))
+	// Should de-dupe Addresses
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 
-	require.Error(t, lp.assertInFilter([]common.Hash{common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65")}, []common.Address{a1}))
-	require.Error(t, lp.assertInFilter([]common.Hash{common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65")}, []common.Address{a1}))
-	_, err := lp.Logs(1, 1, EmitterABI.Events["Log1"].ID, common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbd"))
+	_, err = lp.Logs(1, 1, EmitterABI.Events["Log1"].ID, common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbd"))
 	require.Error(t, err)
 }
 
 func TestLogPoller_GetBlocks(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 
-	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2},
-	))
+	_, err := th.LogPoller.RegisterFilter(Filter{[]common.Hash{
+		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}},
+	)
+	require.NoError(t, err)
 
 	// LP retrieves block 1
 	blockNums := []uint64{1}
