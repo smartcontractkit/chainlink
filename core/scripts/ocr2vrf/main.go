@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -288,6 +289,33 @@ func main() {
 			big.NewInt(int64(*confDelay)),
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args
+		)
+	case "consumer-read-randomness":
+		cmd := flag.NewFlagSet("consumer-read-randomness", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
+		requestID := cmd.String("request-id", "", "VRF request ID")
+		numWords := cmd.Int("num-words", 1, "number of words to fetch")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		readRandomness(e, *consumerAddress, decimal.RequireFromString(*requestID).BigInt(), *numWords)
+
+	case "consumer-request-callback-batch":
+		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		numWords := cmd.Uint("num-words", 1, "number of words to request")
+		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
+		batchSize := cmd.Int64("batch-size", 1, "batch size")
+		callbackGasLimit := cmd.Uint("cb-gas-limit", 200_000, "callback gas limit")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		requestRandomnessCallbackBatch(
+			e,
+			*consumerAddress,
+			uint16(*numWords),
+			*subID,
+			big.NewInt(int64(*confDelay)),
+			uint32(*callbackGasLimit),
+			nil, // test consumer doesn't use any args,
+			big.NewInt(*batchSize),
 		)
 
 	case "dkg-setup":
