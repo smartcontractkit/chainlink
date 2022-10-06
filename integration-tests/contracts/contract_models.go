@@ -11,7 +11,10 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
@@ -133,7 +136,7 @@ type OffchainAggregator interface {
 	Address() string
 	Fund(nativeAmount *big.Float) error
 	GetContractData(ctx context.Context) (*OffchainAggregatorData, error)
-	SetConfig(chainlinkNodes []*client.Chainlink, ocrConfig OffChainAggregatorConfig) error
+	SetConfig(chainlinkNodes []*client.Chainlink, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
 	SetPayees([]string, []string) error
 	RequestNewRound() error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
@@ -275,4 +278,25 @@ type PerfEvent struct {
 	Round          *big.Int
 	RequestID      [32]byte
 	BlockTimestamp *big.Int
+}
+
+// OperatorFactory creates Operator contracts for node operators
+type OperatorFactory interface {
+	Address() string
+	DeployNewOperatorAndForwarder() (*types.Transaction, error)
+	ParseAuthorizedForwarderCreated(log types.Log) (*operator_factory.OperatorFactoryAuthorizedForwarderCreated, error)
+	ParseOperatorCreated(log types.Log) (*operator_factory.OperatorFactoryOperatorCreated, error)
+}
+
+// Operator operates forwarders
+type Operator interface {
+	Address() string
+	AcceptAuthorizedReceivers(forwarders []common.Address, eoa []common.Address) error
+}
+
+// AuthorizedForwarder forward requests from cll nodes eoa
+type AuthorizedForwarder interface {
+	Address() string
+	Owner(ctx context.Context) (string, error)
+	GetAuthorizedSenders(ctx context.Context) ([]string, error)
 }

@@ -112,7 +112,7 @@ func TestAddClose(t *testing.T) {
 
 	chains = chainSet.Chains()
 	require.Equal(t, 2, len(chains))
-	require.Equal(t, *newId, *chains[1].ID())
+	require.NotEqual(t, chains[0].ID().String(), chains[1].ID().String())
 
 	assert.NoError(t, chains[0].Ready())
 	assert.NoError(t, chains[1].Ready())
