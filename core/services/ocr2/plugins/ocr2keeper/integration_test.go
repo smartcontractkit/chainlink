@@ -18,6 +18,15 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/networking"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/stretchr/testify/require"
+	"github.com/umbracle/ethgo/abi"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -36,14 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/networking"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
-	"github.com/stretchr/testify/require"
-	"github.com/umbracle/ethgo/abi"
-	"gopkg.in/guregu/null.v4"
 )
 
 var (
@@ -244,11 +245,11 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 
 	// Add the bootstrap job
 	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
-		type               	= "bootstrap"
-		relay 				= "evm"
-		schemaVersion      	= 1
-		name               	= "boot"
-		contractID    	    = "%s"
+		type                              = "bootstrap"
+		relay                             = "evm"
+		schemaVersion                     = 1
+		name                              = "boot"
+		contractID                        = "%s"
 		contractConfigTrackerPollInterval = "1s"
 
 		[relayConfig]
