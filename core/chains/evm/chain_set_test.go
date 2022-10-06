@@ -90,12 +90,13 @@ func TestAddClose(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db, cfg)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	genEthClient := func() evmclient.Client {
+	chainCfg := types.ChainCfg{}
+	opts, cs, ns := evmtest.NewChainSetOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
+	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}
-
-	chainCfg := types.ChainCfg{}
-	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: genEthClient})
+	chainSet, err := evm.NewDBChainSet(testutils.Context(t), opts, cs, ns)
+	require.NoError(t, err)
 	chains := chainSet.Chains()
 	require.Equal(t, 1, len(chains))
 
@@ -111,7 +112,7 @@ func TestAddClose(t *testing.T) {
 
 	chains = chainSet.Chains()
 	require.Equal(t, 2, len(chains))
-	require.Equal(t, *newId, *chains[1].ID())
+	require.NotEqual(t, chains[0].ID().String(), chains[1].ID().String())
 
 	assert.NoError(t, chains[0].Ready())
 	assert.NoError(t, chains[1].Ready())

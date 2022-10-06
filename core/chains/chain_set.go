@@ -300,15 +300,25 @@ func (c *chainSet[I, C, N, S]) Start(ctx context.Context) error {
 
 		c.chainsMu.Lock()
 		defer c.chainsMu.Unlock()
-		var started int
-		for id, ch := range c.chains {
-			if err := ch.Start(ctx); err != nil {
-				c.lggr.Errorw(fmt.Sprintf("Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly.", id), "err", err)
-				continue
+		if c.immutable {
+			var ms services.MultiStart
+			for id, ch := range c.chains {
+				if err := ms.Start(ctx, ch); err != nil {
+					return errors.Wrapf(err, "failed to start chain %q", id)
+				}
 			}
-			started++
+			c.lggr.Info(fmt.Sprintf("Started %d chains", len(c.chains)))
+		} else {
+			var started int
+			for id, ch := range c.chains {
+				if err := ch.Start(ctx); err != nil {
+					c.lggr.Errorw(fmt.Sprintf("Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly.", id), "err", err)
+					continue
+				}
+				started++
+			}
+			c.lggr.Info(fmt.Sprintf("Started %d/%d chains", started, len(c.chains)))
 		}
-		c.lggr.Info(fmt.Sprintf("Started %d/%d chains", started, len(c.chains)))
 		return nil
 	})
 }

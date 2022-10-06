@@ -4,14 +4,14 @@ LeaseDuration='10s'
 
 [[EVM]]
 ChainID = '1'
-MaxInFlightTransactions = 10
+Transactions.MaxInFlight= 10
 
 [EVM.GasEstimator]
 Mode = 'BlockHistory'
 BumpTxDepth = 11
 BumpPercent = 1
 TipCapDefault = 3
-TipCapMinimum = 4
+TipCapMin = 4
 FeeCapDefault = 2
 PriceMin = '10 gwei'
 PriceDefault = '9 gwei'

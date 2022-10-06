@@ -231,20 +231,15 @@ type Chain struct {
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *models.Duration
-	MaxInFlightTransactions  *uint32 //TODO TxMaxInFlight https://app.shortcut.com/chainlinklabs/story/54384/standardize-toml-field-names
-	MaxQueuedTransactions    *uint32 //TODO TxMaxQueued https://app.shortcut.com/chainlinklabs/story/54384/standardize-toml-field-names
 	MinIncomingConfirmations *uint32
-	MinimumContractPayment   *assets.Link
+	MinContractPayment       *assets.Link
 	NonceAutoSync            *bool
 	NoNewHeadsThreshold      *models.Duration
 	OperatorFactoryAddress   *ethkey.EIP55Address
 	RPCDefaultBatchSize      *uint32
 	RPCBlockQueryDelay       *uint16
-	TxReaperInterval         *models.Duration
-	TxReaperThreshold        *models.Duration
-	TxResendAfterThreshold   *models.Duration
 
-	UseForwarders *bool
+	Transactions *Transactions
 
 	BalanceMonitor *BalanceMonitor
 
@@ -286,9 +281,9 @@ func (c Chain) ValidateConfig() (err error) {
 		}
 	}
 
-	if uint32(*c.GasEstimator.BumpTxDepth) > *c.MaxInFlightTransactions {
+	if uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
-			Msg: "must be less than or equal to MaxInFlightTransactions"})
+			Msg: "must be less than or equal to Transactions.MaxInFlight"})
 	}
 	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
@@ -311,8 +306,8 @@ func (c *Chain) asV1() *types.ChainCfg {
 		BlockHistoryEstimatorBlockHistorySize:          null.Int{},
 		BlockHistoryEstimatorEIP1559FeeCapBufferBlocks: null.Int{},
 		ChainType:                      null.StringFromPtr(c.ChainType),
-		EthTxReaperThreshold:           c.TxReaperThreshold,
-		EthTxResendAfterThreshold:      c.TxResendAfterThreshold,
+		EthTxReaperThreshold:           c.Transactions.ReaperThreshold,
+		EthTxResendAfterThreshold:      c.Transactions.ResendAfterThreshold,
 		EvmEIP1559DynamicFees:          null.BoolFromPtr(c.GasEstimator.EIP1559DynamicFees),
 		EvmFinalityDepth:               nullInt(c.FinalityDepth),
 		EvmGasBumpPercent:              nullInt(c.GasEstimator.BumpPercent),
@@ -322,14 +317,14 @@ func (c *Chain) asV1() *types.ChainCfg {
 		EvmGasLimitDefault:             nullInt(c.GasEstimator.LimitDefault),
 		EvmGasLimitMax:                 nullInt(c.GasEstimator.LimitMax),
 		EvmGasLimitMultiplier:          nullFloat(c.GasEstimator.LimitMultiplier),
-		EvmGasLimitOCRJobType:          nullInt(c.GasEstimator.LimitOCRJobType),
-		EvmGasLimitDRJobType:           nullInt(c.GasEstimator.LimitDRJobType),
-		EvmGasLimitVRFJobType:          nullInt(c.GasEstimator.LimitVRFJobType),
-		EvmGasLimitFMJobType:           nullInt(c.GasEstimator.LimitFMJobType),
-		EvmGasLimitKeeperJobType:       nullInt(c.GasEstimator.LimitKeeperJobType),
+		EvmGasLimitOCRJobType:          nullInt(c.GasEstimator.LimitJobType.OCR),
+		EvmGasLimitDRJobType:           nullInt(c.GasEstimator.LimitJobType.DR),
+		EvmGasLimitVRFJobType:          nullInt(c.GasEstimator.LimitJobType.VRF),
+		EvmGasLimitFMJobType:           nullInt(c.GasEstimator.LimitJobType.FM),
+		EvmGasLimitKeeperJobType:       nullInt(c.GasEstimator.LimitJobType.Keeper),
 		EvmGasPriceDefault:             (*utils.Big)(c.GasEstimator.PriceDefault),
 		EvmGasTipCapDefault:            (*utils.Big)(c.GasEstimator.TipCapDefault),
-		EvmGasTipCapMinimum:            (*utils.Big)(c.GasEstimator.TipCapMinimum),
+		EvmGasTipCapMinimum:            (*utils.Big)(c.GasEstimator.TipCapMin),
 		EvmHeadTrackerHistoryDepth:     nullInt(c.HeadTracker.HistoryDepth),
 		EvmHeadTrackerMaxBufferSize:    nullInt(c.HeadTracker.MaxBufferSize),
 		EvmHeadTrackerSamplingInterval: c.HeadTracker.SamplingInterval,
@@ -337,14 +332,14 @@ func (c *Chain) asV1() *types.ChainCfg {
 		EvmLogPollInterval:             c.LogPollInterval,
 		EvmMaxGasPriceWei:              (*utils.Big)(c.GasEstimator.PriceMax),
 		EvmNonceAutoSync:               null.BoolFromPtr(c.NonceAutoSync),
-		EvmUseForwarders:               null.BoolFromPtr(c.UseForwarders),
+		EvmUseForwarders:               null.BoolFromPtr(c.Transactions.ForwardersEnabled),
 		EvmRPCDefaultBatchSize:         nullInt(c.RPCDefaultBatchSize),
 		FlagsContractAddress:           nullString(c.FlagsContractAddress),
 		GasEstimatorMode:               null.StringFromPtr(c.GasEstimator.Mode),
 		LinkContractAddress:            nullString(c.LinkContractAddress),
 		OperatorFactoryAddress:         nullString(c.OperatorFactoryAddress),
 		MinIncomingConfirmations:       nullInt(c.MinIncomingConfirmations),
-		MinimumContractPayment:         c.MinimumContractPayment,
+		MinimumContractPayment:         c.MinContractPayment,
 		NodeNoNewHeadsThreshold:        c.NoNewHeadsThreshold,
 	}
 	for _, ks := range c.KeySpecific {
@@ -379,6 +374,36 @@ func nullString[S fmt.Stringer](s *S) null.String {
 	return null.StringFrom((*s).String())
 }
 
+type Transactions struct {
+	ForwardersEnabled    *bool
+	MaxInFlight          *uint32
+	MaxQueued            *uint32
+	ReaperInterval       *models.Duration
+	ReaperThreshold      *models.Duration
+	ResendAfterThreshold *models.Duration
+}
+
+func (t *Transactions) setFrom(f *Transactions) {
+	if v := f.ForwardersEnabled; v != nil {
+		t.ForwardersEnabled = v
+	}
+	if v := f.MaxInFlight; v != nil {
+		t.MaxInFlight = v
+	}
+	if v := f.MaxQueued; v != nil {
+		t.MaxQueued = v
+	}
+	if v := f.ReaperInterval; v != nil {
+		t.ReaperInterval = v
+	}
+	if v := f.ReaperThreshold; v != nil {
+		t.ReaperThreshold = v
+	}
+	if v := f.ResendAfterThreshold; v != nil {
+		t.ResendAfterThreshold = v
+	}
+}
+
 type BalanceMonitor struct {
 	Enabled *bool
 }
@@ -400,12 +425,7 @@ type GasEstimator struct {
 	LimitMax        *uint32
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
-
-	LimitOCRJobType    *uint32
-	LimitDRJobType     *uint32
-	LimitVRFJobType    *uint32
-	LimitFMJobType     *uint32
-	LimitKeeperJobType *uint32
+	LimitJobType    *GasLimitJobType
 
 	BumpMin       *utils.Wei
 	BumpPercent   *uint16
@@ -416,7 +436,7 @@ type GasEstimator struct {
 
 	FeeCapDefault *utils.Wei
 	TipCapDefault *utils.Wei
-	TipCapMinimum *utils.Wei //TODO TipCapMin
+	TipCapMin     *utils.Wei
 
 	BlockHistory *BlockHistoryEstimator
 }
@@ -426,7 +446,7 @@ func (e *GasEstimator) ValidateConfig() (err error) {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "BumpPercent", Value: *e.BumpPercent,
 			Msg: fmt.Sprintf("may not be less than Geth's default of %d", core.DefaultTxPoolConfig.PriceBump)})
 	}
-	if e.TipCapDefault.Cmp(e.TipCapMinimum) < 0 {
+	if e.TipCapDefault.Cmp(e.TipCapMin) < 0 {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "TipCapDefault", Value: e.TipCapDefault,
 			Msg: "must be greater than or equal to TipCapMinimum"})
 	}
@@ -493,29 +513,14 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	if v := f.LimitTransfer; v != nil {
 		e.LimitTransfer = v
 	}
-	if v := f.LimitOCRJobType; v != nil {
-		e.LimitOCRJobType = v
-	}
-	if v := f.LimitDRJobType; v != nil {
-		e.LimitDRJobType = v
-	}
-	if v := f.LimitVRFJobType; v != nil {
-		e.LimitVRFJobType = v
-	}
-	if v := f.LimitFMJobType; v != nil {
-		e.LimitFMJobType = v
-	}
-	if v := f.LimitKeeperJobType; v != nil {
-		e.LimitKeeperJobType = v
-	}
 	if v := f.PriceDefault; v != nil {
 		e.PriceDefault = v
 	}
 	if v := f.TipCapDefault; v != nil {
 		e.TipCapDefault = v
 	}
-	if v := f.TipCapMinimum; v != nil {
-		e.TipCapMinimum = v
+	if v := f.TipCapMin; v != nil {
+		e.TipCapMin = v
 	}
 	if v := f.PriceMax; v != nil {
 		e.PriceMax = v
@@ -523,11 +528,43 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	if v := f.PriceMin; v != nil {
 		e.PriceMin = v
 	}
+	if v := f.LimitJobType; v != nil {
+		if e.LimitJobType == nil {
+			e.LimitJobType = &GasLimitJobType{}
+		}
+		e.LimitJobType.setFrom(f.LimitJobType)
+	}
 	if f.BlockHistory != nil {
 		if e.BlockHistory == nil {
 			e.BlockHistory = &BlockHistoryEstimator{}
 		}
 		e.BlockHistory.setFrom(f.BlockHistory)
+	}
+}
+
+type GasLimitJobType struct {
+	OCR    *uint32 `toml:",inline"`
+	DR     *uint32 `toml:",inline"`
+	VRF    *uint32 `toml:",inline"`
+	FM     *uint32 `toml:",inline"`
+	Keeper *uint32 `toml:",inline"`
+}
+
+func (t *GasLimitJobType) setFrom(f *GasLimitJobType) {
+	if f.OCR != nil {
+		t.OCR = f.OCR
+	}
+	if f.DR != nil {
+		t.DR = f.DR
+	}
+	if f.VRF != nil {
+		t.VRF = f.VRF
+	}
+	if f.FM != nil {
+		t.FM = f.FM
+	}
+	if f.Keeper != nil {
+		t.Keeper = f.Keeper
 	}
 }
 
@@ -642,8 +679,18 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg.ChainType.Valid {
 		c.ChainType = &cfg.ChainType.String
 	}
-	c.TxReaperThreshold = cfg.EthTxReaperThreshold
-	c.TxResendAfterThreshold = cfg.EthTxResendAfterThreshold
+	if cfg.EthTxReaperThreshold != nil {
+		if c.Transactions == nil {
+			c.Transactions = &Transactions{}
+		}
+		c.Transactions.ReaperThreshold = cfg.EthTxReaperThreshold
+	}
+	if cfg.EthTxResendAfterThreshold != nil {
+		if c.Transactions == nil {
+			c.Transactions = &Transactions{}
+		}
+		c.Transactions.ResendAfterThreshold = cfg.EthTxResendAfterThreshold
+	}
 	if cfg.EvmFinalityDepth.Valid {
 		v := uint32(cfg.EvmFinalityDepth.Int64)
 		c.FinalityDepth = &v
@@ -677,7 +724,10 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.NonceAutoSync = &cfg.EvmNonceAutoSync.Bool
 	}
 	if cfg.EvmUseForwarders.Valid {
-		c.UseForwarders = &cfg.EvmUseForwarders.Bool
+		if c.Transactions == nil {
+			c.Transactions = &Transactions{}
+		}
+		c.Transactions.ForwardersEnabled = &cfg.EvmUseForwarders.Bool
 	}
 	if cfg.EvmRPCDefaultBatchSize.Valid {
 		v := uint32(cfg.EvmRPCDefaultBatchSize.Int64)
@@ -734,7 +784,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.TipCapMinimum = cfg.EvmGasTipCapMinimum.Wei()
+		c.GasEstimator.TipCapMin = cfg.EvmGasTipCapMinimum.Wei()
 	}
 	if cfg.EvmGasBumpPercent.Valid {
 		if c.GasEstimator == nil {
@@ -780,36 +830,51 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
+		if c.GasEstimator.LimitJobType == nil {
+			c.GasEstimator.LimitJobType = &GasLimitJobType{}
+		}
 		v := uint32(cfg.EvmGasLimitOCRJobType.Int64)
-		c.GasEstimator.LimitOCRJobType = &v
+		c.GasEstimator.LimitJobType.OCR = &v
 	}
 	if cfg.EvmGasLimitDRJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
+		if c.GasEstimator.LimitJobType == nil {
+			c.GasEstimator.LimitJobType = &GasLimitJobType{}
+		}
 		v := uint32(cfg.EvmGasLimitDRJobType.Int64)
-		c.GasEstimator.LimitDRJobType = &v
+		c.GasEstimator.LimitJobType.DR = &v
 	}
 	if cfg.EvmGasLimitVRFJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
+		if c.GasEstimator.LimitJobType == nil {
+			c.GasEstimator.LimitJobType = &GasLimitJobType{}
+		}
 		v := uint32(cfg.EvmGasLimitVRFJobType.Int64)
-		c.GasEstimator.LimitVRFJobType = &v
+		c.GasEstimator.LimitJobType.VRF = &v
 	}
 	if cfg.EvmGasLimitFMJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
+		if c.GasEstimator.LimitJobType == nil {
+			c.GasEstimator.LimitJobType = &GasLimitJobType{}
+		}
 		v := uint32(cfg.EvmGasLimitFMJobType.Int64)
-		c.GasEstimator.LimitFMJobType = &v
+		c.GasEstimator.LimitJobType.FM = &v
 	}
 	if cfg.EvmGasLimitKeeperJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
+		if c.GasEstimator.LimitJobType == nil {
+			c.GasEstimator.LimitJobType = &GasLimitJobType{}
+		}
 		v := uint32(cfg.EvmGasLimitKeeperJobType.Int64)
-		c.GasEstimator.LimitKeeperJobType = &v
+		c.GasEstimator.LimitJobType.Keeper = &v
 	}
 
 	if cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
@@ -861,7 +926,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		v := uint32(cfg.MinIncomingConfirmations.Int64)
 		c.MinIncomingConfirmations = &v
 	}
-	c.MinimumContractPayment = cfg.MinimumContractPayment
+	c.MinContractPayment = cfg.MinimumContractPayment
 	if cfg.NodeNoNewHeadsThreshold != nil {
 		c.NoNewHeadsThreshold = cfg.NodeNoNewHeadsThreshold
 	}

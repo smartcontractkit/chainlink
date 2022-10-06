@@ -19,12 +19,12 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db, cfg)
-	keyStore.Unlock(cltest.Password)
+	require.NoError(t, keyStore.Unlock(cltest.Password))
 	ks := keyStore.StarkNet()
 	reset := func() {
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		keyStore.ResetXXXTestOnly()
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 
 	t.Run("initializes with an empty state", func(t *testing.T) {

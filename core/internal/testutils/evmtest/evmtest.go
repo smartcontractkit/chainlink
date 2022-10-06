@@ -36,7 +36,7 @@ import (
 )
 
 type TestChainOpts struct {
-	Client         interface{} // evmclient.Client or func() evmclient.Client
+	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	GeneralConfig  config.GeneralConfig
 	ChainCfg       evmtypes.ChainCfg
@@ -54,6 +54,13 @@ func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.Lega
 // NewChainSet returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
 func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
+	opts, chains, nodes := NewChainSetOpts(t, testopts)
+	cc, err := evm.NewDBChainSet(testutils.Context(t), opts, chains, nodes)
+	require.NoError(t, err)
+	return cc
+}
+
+func NewChainSetOpts(t testing.TB, testopts TestChainOpts) (evm.ChainSetOpts, []evmtypes.DBChain, map[string][]evmtypes.Node) {
 	opts := evm.ChainSetOpts{
 		Config:           testopts.GeneralConfig,
 		DB:               testopts.DB,
@@ -61,29 +68,20 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
 	}
 	if testopts.Client != nil {
-		switch client := testopts.Client.(type) {
-		case evmclient.Client:
-			opts.GenEthClient = func() evmclient.Client {
-				return client
-			}
-		case func() evmclient.Client:
-			opts.GenEthClient = client
-		default:
-			panic("received unexpected type for testopts.Client")
-		}
+		opts.GenEthClient = func(*big.Int) evmclient.Client { return testopts.Client }
 	}
 	if testopts.LogBroadcaster != nil {
-		opts.GenLogBroadcaster = func() log.Broadcaster {
+		opts.GenLogBroadcaster = func(*big.Int) log.Broadcaster {
 			return testopts.LogBroadcaster
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(httypes.HeadBroadcaster) httypes.HeadTracker {
+		opts.GenHeadTracker = func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker {
 			return testopts.HeadTracker
 		}
 	}
 	if testopts.TxManager != nil {
-		opts.GenTxManager = func() txmgr.TxManager {
+		opts.GenTxManager = func(*big.Int) txmgr.TxManager {
 			return testopts.TxManager
 		}
 
@@ -105,10 +103,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 			WSURL:      null.StringFrom("ws://example.invalid"),
 		}},
 	}
-
-	cc, err := evm.NewDBChainSet(testutils.Context(t), opts, chains, nodes)
-	require.NoError(t, err)
-	return cc
+	return opts, chains, nodes
 }
 
 func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
