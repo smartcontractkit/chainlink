@@ -438,6 +438,18 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
+
+	// ID should increment
+	id1, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
+	id2, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
+	assert.Equal(t, id1+1, id2)
+	// Removing non-existence filterID should error.
+	err = lp.UnregisterFilter(id1)
+	require.NoError(t, err)
+	err = lp.UnregisterFilter(id1)
+	require.Error(t, err)
 }
 
 func TestLogPoller_GetBlocks(t *testing.T) {
