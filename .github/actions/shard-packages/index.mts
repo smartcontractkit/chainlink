@@ -57,6 +57,7 @@ interface SolidityConfig {
   shards: {
     parallelism: number;
     dir: string;
+    slowTests?: string[];
   }[];
 }
 
@@ -108,25 +109,78 @@ async function handleGolang(config: GolangConfig) {
 async function handleSolidity(config: SolidityConfig) {
   const {basePath, shards: configByShard} = config;
   const shards = await Promise.all(
-    configByShard.map(async ({dir, parallelism}) => {
-      const globPath = path.join(basePath, dir, "/**/*.test.ts");
-      const rawTests = await glob(globPath);
-      const tests = rawTests.map((r) => r.replace("contracts/", ""));
-      const testsByShard = simpleShard(tests, parallelism);
+    configByShard.map(
+      async ({dir, parallelism, slowTests: slowTestMatchers}) => {
+        const globPath = path.join(basePath, dir, "/**/*.test.ts");
+        const rawTests = await glob(globPath);
+        let tests = rawTests.map((r) => r.replace("contracts/", ""));
+        const slowTests: Tests = [];
 
-      const shards: SolidityShard[] = testsByShard.map((tests, i) => ({
-        idx: `${dir}_${i + 1}`,
-        id: `${dir} ${i + 1}/${parallelism}`,
-        tests: tests.join(" "),
-        coverageTests:
-          tests.length === 1 ? tests.join(",") : `{${tests.join(",")}}`,
-      }));
-      return shards;
-    })
+        // If the user supplies slow test matchers
+        // then we go through each test to see if we get a case sensitive match
+        // and if we get a match against a test file, we remove that test file from
+        // our test array and add it to our slow tests instead
+        if (slowTestMatchers) {
+          const oldTests = tests.map((t) => t);
+          tests = [];
+
+          oldTests.forEach((t) => {
+            const isSlow = slowTestMatchers.reduce(
+              (isSlow, matcher) => t.includes(matcher) || isSlow,
+              false
+            );
+            if (isSlow) {
+              slowTests.push(t);
+            } else {
+              tests.push(t);
+            }
+          });
+        }
+
+        const testsByShard = slowTestAwareSimpleShard(
+          tests,
+          slowTests,
+          parallelism
+        );
+        const shards: SolidityShard[] = testsByShard.map((tests, i) => ({
+          idx: `${dir}_${i + 1}`,
+          id: `${dir} ${i + 1}/${parallelism}`,
+          tests: tests.join(" "),
+          coverageTests:
+            tests.length === 1 ? tests.join(",") : `{${tests.join(",")}}`,
+        }));
+        return shards;
+      }
+    )
   );
 
   const serializedShards = JSON.stringify(shards.flat());
   setOutput("shards", serializedShards);
+}
+
+function slowTestAwareSimpleShard(
+  tests: Tests,
+  slowTests: Tests,
+  numOfShards: number
+): TestsByShard {
+  const maxTestsPerShard = Math.max(tests.length / numOfShards);
+
+  const testsByShard: TestsByShard = new Array(numOfShards)
+    .fill(null)
+    .map(() => []);
+
+  // Evenly distribute slow tests over each shard
+  slowTests.forEach((test, i) => {
+    const shardIndex = i % numOfShards;
+    testsByShard[shardIndex].push(test);
+  });
+
+  tests.forEach((test, i) => {
+    const shardIndex = Math.floor(i / maxTestsPerShard);
+    testsByShard[shardIndex].push(test);
+  });
+
+  return testsByShard;
 }
 
 /**
