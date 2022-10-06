@@ -443,6 +443,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (!target.isContract()) revert NotAContract();
     if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
+    if (s_upkeep[id].target != address(0)) revert UpkeepAlreadyExists();
     s_upkeep[id] = Upkeep({
       target: target,
       executeGas: gasLimit,
