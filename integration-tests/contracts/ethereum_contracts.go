@@ -653,90 +653,7 @@ func (o *EthereumOffchainAggregator) SetPayees(
 func (o *EthereumOffchainAggregator) SetConfig(
 	chainlinkNodes []*client.Chainlink,
 	ocrConfig OffChainAggregatorConfig,
-) error {
-	// Gather necessary addresses and keys from our chainlink nodes to properly configure the OCR contract
-	log.Info().Str("Contract Address", o.address.Hex()).Msg("Configuring OCR Contract")
-	for _, node := range chainlinkNodes {
-		ocrKeys, err := node.MustReadOCRKeys()
-		if err != nil {
-			return err
-		}
-		primaryOCRKey := ocrKeys.Data[0]
-		primaryEthKey, err := node.PrimaryEthAddress()
-		if err != nil {
-			return err
-		}
-		p2pKeys, err := node.MustReadP2PKeys()
-		if err != nil {
-			return err
-		}
-		primaryP2PKey := p2pKeys.Data[0]
-
-		// Need to convert the key representations
-		var onChainSigningAddress [20]byte
-		var configPublicKey [32]byte
-		offchainSigningAddress, err := hex.DecodeString(primaryOCRKey.Attributes.OffChainPublicKey)
-		if err != nil {
-			return err
-		}
-		decodeConfigKey, err := hex.DecodeString(primaryOCRKey.Attributes.ConfigPublicKey)
-		if err != nil {
-			return err
-		}
-
-		// https://stackoverflow.com/questions/8032170/how-to-assign-string-to-bytes-array
-		copy(onChainSigningAddress[:], common.HexToAddress(primaryOCRKey.Attributes.OnChainSigningAddress).Bytes())
-		copy(configPublicKey[:], decodeConfigKey)
-
-		oracleIdentity := ocrConfigHelper.OracleIdentity{
-			TransmitAddress:       common.HexToAddress(primaryEthKey),
-			OnChainSigningAddress: onChainSigningAddress,
-			PeerID:                primaryP2PKey.Attributes.PeerID,
-			OffchainPublicKey:     offchainSigningAddress,
-		}
-		oracleIdentityExtra := ocrConfigHelper.OracleIdentityExtra{
-			OracleIdentity:                  oracleIdentity,
-			SharedSecretEncryptionPublicKey: ocrTypes.SharedSecretEncryptionPublicKey(configPublicKey),
-		}
-
-		ocrConfig.OracleIdentities = append(ocrConfig.OracleIdentities, oracleIdentityExtra)
-	}
-
-	signers, transmitters, threshold, encodedConfigVersion, encodedConfig, err := ocrConfigHelper.ContractSetConfigArgs(
-		ocrConfig.DeltaProgress,
-		ocrConfig.DeltaResend,
-		ocrConfig.DeltaRound,
-		ocrConfig.DeltaGrace,
-		ocrConfig.DeltaC,
-		ocrConfig.AlphaPPB,
-		ocrConfig.DeltaStage,
-		ocrConfig.RMax,
-		ocrConfig.S,
-		ocrConfig.OracleIdentities,
-		ocrConfig.F,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Set Config
-	opts, err := o.client.TransactionOpts(o.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := o.ocr.SetConfig(opts, signers, transmitters, threshold, encodedConfigVersion, encodedConfig)
-	if err != nil {
-		return err
-	}
-	return o.client.ProcessTransaction(tx)
-}
-
-// SetConfigEffectiveTransmitters sets the payees and the offchain reporting protocol
-// configuration with effective transmitters
-func (o *EthereumOffchainAggregator) SetConfigEffectiveTransmitters(
-	chainlinkNodes []*client.Chainlink,
-	ocrConfig OffChainAggregatorConfig,
-	effectiveTransmitters []common.Address,
+	transmitters []common.Address,
 ) error {
 	// Gather necessary addresses and keys from our chainlink nodes to properly configure the OCR contract
 	log.Info().Str("Contract Address", o.address.Hex()).Msg("Configuring OCR Contract")
@@ -746,6 +663,9 @@ func (o *EthereumOffchainAggregator) SetConfigEffectiveTransmitters(
 			return err
 		}
 		primaryOCRKey := ocrKeys.Data[0]
+		if err != nil {
+			return err
+		}
 		p2pKeys, err := node.MustReadP2PKeys()
 		if err != nil {
 			return err
@@ -769,7 +689,7 @@ func (o *EthereumOffchainAggregator) SetConfigEffectiveTransmitters(
 		copy(configPublicKey[:], decodeConfigKey)
 
 		oracleIdentity := ocrConfigHelper.OracleIdentity{
-			TransmitAddress:       effectiveTransmitters[i],
+			TransmitAddress:       transmitters[i],
 			OnChainSigningAddress: onChainSigningAddress,
 			PeerID:                primaryP2PKey.Attributes.PeerID,
 			OffchainPublicKey:     offchainSigningAddress,

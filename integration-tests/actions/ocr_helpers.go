@@ -69,11 +69,14 @@ func DeployOCRContracts(
 	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for OCR contracts to set payees and transmitters")
 
 	// Set Config
+	transmitterAddresses, err := ChainlinkNodeAddresses(chainlinkNodes[1:])
+	Expect(err).ShouldNot(HaveOccurred(), "Getting node common addresses should not fail")
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
 			chainlinkNodes[1:],
 			contracts.DefaultOffChainAggregatorConfig(len(chainlinkNodes[1:])),
+			transmitterAddresses,
 		)
 		Expect(err).ShouldNot(HaveOccurred())
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
@@ -136,7 +139,7 @@ func DeployOCRContractsForwarderFlow(
 	// Set Config
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfigEffectiveTransmitters(
+		err = ocrInstance.SetConfig(
 			chainlinkNodes[1:],
 			contracts.DefaultOffChainAggregatorConfig(len(chainlinkNodes[1:])),
 			forwarderAddresses,
@@ -251,7 +254,7 @@ func CreateOCRJobsWithForwarder(
 					URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, nodeContractPairID),
 				}
 
-				// This sets a default value for all node and ocr instances in order to avoid 404 issues
+				// This sets default value for all node and ocr instances in order to avoid 404 issues
 				SetAllAdapterResponsesToTheSameValue(0, ocrInstances, chainlinkNodes, mockserver)
 
 				err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)

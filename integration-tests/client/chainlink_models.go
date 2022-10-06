@@ -908,7 +908,7 @@ p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
-forwardingAllowed					   ={{if not .ForwardingAllowed}} false {{else}} {{.ForwardingAllowed}} {{end}}
+forwardingAllowed					   = {{.ForwardingAllowed}}
 observationSource                      = """
 {{.ObservationSource}}
 """`

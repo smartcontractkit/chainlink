@@ -185,7 +185,7 @@ func TrackForwarder(chainClient blockchain.EVMClient, authorizedForwarder common
 	Expect(err).ShouldNot(HaveOccurred(), "Forwarder track should be created")
 	log.Info().Str("NodeURL", node.Config.URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
-		Str("ChaidID", chainID.String()).
+		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
 }
 
