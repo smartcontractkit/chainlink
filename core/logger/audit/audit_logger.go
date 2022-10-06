@@ -39,6 +39,25 @@ type AuditLoggerConfig struct {
 	Headers        *ServiceHeaders
 }
 
+func (p *AuditLoggerConfig) SetFrom(f *AuditLoggerConfig) {
+	if v := f.Enabled; v != nil {
+		p.Enabled = v
+	}
+	if v := f.ForwardToUrl; v != nil {
+		p.ForwardToUrl = v
+	}
+	if v := f.Environment; v != nil {
+		p.Environment = v
+	}
+	if v := f.JsonWrapperKey; v != nil {
+		p.JsonWrapperKey = v
+	}
+	if v := f.Headers; v != nil {
+		p.Headers = v
+	}
+
+}
+
 type ServiceHeaders []ServiceHeader
 
 func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
@@ -100,11 +119,6 @@ type Config interface {
 type HTTPAuditLoggerInterface interface {
 	Do(req *http.Request) (*http.Response, error)
 }
-
-// environment := "production"
-// if isDev {
-// 	environment = "develop"
-// }
 
 type AuditLoggerService struct {
 	logger          logger.Logger            // The standard logger configured in the node

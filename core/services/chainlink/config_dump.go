@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	stktyp "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -687,6 +688,18 @@ func (c *Config) loadLegacyCoreEnv() {
 		c.Feature = nil
 	}
 
+	c.AuditLogger = &audit.AuditLoggerConfig{
+		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
+		ForwardToUrl:   envURL("AuditLoggerForwardToUrl"),
+		Environment:    environment(),
+		JsonWrapperKey: envvar.NewString("AuditLoggerJsonWrapperKey").ParsePtr(),
+		Headers:        serviceHeaders("AuditLoggerHeaders"),
+	}
+
+	if isZeroPtr(c.AuditLogger) {
+		c.AuditLogger = nil
+	}
+
 	c.Database = &config.Database{
 		DefaultIdleInTxSessionTimeout: mustParseDuration(os.Getenv("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT")),
 		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
@@ -1008,6 +1021,30 @@ func envURL(s string) *models.URL {
 		return *p
 	}
 	return nil
+}
+
+func serviceHeaders(s string) *audit.ServiceHeaders {
+	return envvar.New(s, func(s string) (audit.ServiceHeaders, error) {
+		sh := make(audit.ServiceHeaders, 0)
+		err := sh.UnmarshalText([]byte(s))
+		if err != nil {
+			return nil, nil
+		}
+		return sh, nil
+	}).ParsePtr()
+}
+
+func environment() *string {
+	maybeDev := envvar.NewBool("Dev").ParsePtr()
+	if maybeDev == nil {
+		return nil
+	}
+
+	environment := "develop"
+	if !*maybeDev {
+		environment = "production"
+	}
+	return &environment
 }
 
 func envIP(s string) *net.IP {

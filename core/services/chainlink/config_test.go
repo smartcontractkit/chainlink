@@ -50,6 +50,14 @@ var (
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
 
+			AuditLogger: &audit.AuditLoggerConfig{
+				Enabled:        ptr(false),
+				ForwardToUrl:   mustURL("http://localhost:9898"),
+				Environment:    ptr("develop"),
+				Headers:        ptr(make(audit.ServiceHeaders, 0)),
+				JsonWrapperKey: ptr(""),
+			},
+
 			Database: &config.Database{
 				Listener: &config.DatabaseListener{
 					FallbackPollInterval: models.MustNewDuration(2 * time.Minute),

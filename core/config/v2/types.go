@@ -95,6 +95,13 @@ func (c *Core) SetFrom(f *Core) {
 		c.ShutdownGracePeriod = v
 	}
 
+	if f.AuditLogger != nil {
+		if c.AuditLogger == nil {
+			c.AuditLogger = &audit.AuditLoggerConfig{}
+		}
+		c.AuditLogger.SetFrom(f.AuditLogger)
+	}
+
 	if f.Feature != nil {
 		if c.Feature == nil {
 			c.Feature = &Feature{}
