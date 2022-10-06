@@ -30,22 +30,9 @@ type transmitter struct {
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(txm txManager, fromAddress common.Address, gasLimit uint32, effectiveTransmitterAddress common.Address, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
+func NewTransmitter(txm txManager, fromAddresses []common.Address, gasLimit uint32, effectiveTransmitterAddress common.Address, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
 	return &transmitter{
 		txm:                         txm,
-		fromAddresses:               []common.Address{fromAddress},
-		gasLimit:                    gasLimit,
-		effectiveTransmitterAddress: effectiveTransmitterAddress,
-		strategy:                    strategy,
-		checker:                     checker,
-	}
-}
-
-// NewTransmitterWithForwarder creates a new eth transmitter with multiple fromAddresses, for use with a forwarder
-func NewTransmitterWithForwarder(txm txManager, fromAddresses []common.Address, gasLimit uint32, effectiveTransmitterAddress common.Address, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
-	return &transmitter{
-		txm:                         txm,
-		nextFromAddressIndex:        0,
 		fromAddresses:               fromAddresses,
 		gasLimit:                    gasLimit,
 		effectiveTransmitterAddress: effectiveTransmitterAddress,
@@ -74,9 +61,13 @@ func (t *transmitter) FromAddress() common.Address {
 func (t *transmitter) FromAddressForTransaction() common.Address {
 	// Use Round-Robin to select the next fromAddress.
 	nextFromAddress := t.fromAddresses[t.nextFromAddressIndex]
-	t.nextFromAddressIndex++
-	if t.nextFromAddressIndex >= len(t.fromAddresses) {
-		t.nextFromAddressIndex = 0
+
+	// Only apply round-robin logic for multiple sending keys.
+	if len(t.fromAddresses) > 1 {
+		t.nextFromAddressIndex++
+		if t.nextFromAddressIndex >= len(t.fromAddresses) {
+			t.nextFromAddressIndex = 0
+		}
 	}
 
 	return nextFromAddress

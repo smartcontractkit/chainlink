@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,7 +41,6 @@ type dkgTemplateArgs struct {
 	p2pv2BootstrapperPort   string
 	transmitterID           string
 	useForwarder            bool
-	sendingKeys             string
 	chainID                 int64
 	encryptionPublicKey     string
 	keyID                   string
@@ -75,8 +73,6 @@ transmitterID        = "%s"
 chainID              = %d
 
 [pluginConfig]
-useForwarder         = %t
-sendingKeys          = "%s"
 EncryptionPublicKey  = "%s"
 KeyID                = "%s"
 SigningPublicKey     = "%s"
@@ -98,8 +94,6 @@ transmitterID        = "%s"
 chainID              = %d
 
 [pluginConfig]
-useForwarder         = %t
-sendingKeys          = "%s"
 dkgEncryptionPublicKey = "%s"
 dkgSigningPublicKey    = "%s"
 dkgKeyID               = "%s"
@@ -192,9 +186,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 		}
 	}
 
-	// Construct string from sendingKeys.
-	sendingKeysString := strings.Join(sendingKeys, ",")
-
 	// Get all configuration parameters.
 	keyID := c.String("keyID")
 	dkgEncrypt, _ := app.GetKeyStore().DKGEncrypt().GetAll()
@@ -233,7 +224,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 			p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 			transmitterID:           transmitterID,
 			useForwarder:            useForwarder,
-			sendingKeys:             sendingKeysString,
 			chainID:                 chainID,
 			encryptionPublicKey:     dkgEncryptKey,
 			keyID:                   keyID,
@@ -249,7 +239,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 				p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 				transmitterID:           transmitterID,
 				useForwarder:            useForwarder,
-				sendingKeys:             sendingKeysString,
 				chainID:                 chainID,
 				encryptionPublicKey:     dkgEncryptKey,
 				keyID:                   keyID,
@@ -350,8 +339,6 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 		args.p2pv2BootstrapperPort,
 		args.transmitterID,
 		args.chainID,
-		args.useForwarder,
-		args.sendingKeys,
 		args.encryptionPublicKey,
 		args.keyID,
 		args.signingPublicKey,
@@ -386,8 +373,6 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.p2pv2BootstrapperPort,
 		args.transmitterID,
 		args.chainID,
-		args.useForwarder,
-		args.sendingKeys,
 		args.encryptionPublicKey,
 		args.signingPublicKey,
 		args.keyID,

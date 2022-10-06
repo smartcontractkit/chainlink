@@ -70,25 +70,9 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 		return nil, err
 	}
 
-	var contractTransmitter *ContractTransmitter
-
-	if pluginConfig.UseForwarder {
-		var sendingKeys []common.Address
-		sendingKeysStrings := strings.Split(pluginConfig.SendingKeys, ",")
-
-		for _, s := range sendingKeysStrings {
-			sendingKeys = append(sendingKeys, common.HexToAddress(s))
-		}
-
-		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, sendingKeys, configWatcher)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
-		if err != nil {
-			return nil, err
-		}
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	if err != nil {
+		return nil, err
 	}
 
 	return &dkgProvider{
@@ -110,31 +94,14 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 		return nil, err
 	}
 
-	var contractTransmitter *ContractTransmitter
-
-	if pluginConfig.UseForwarder {
-		var sendingKeys []common.Address
-		sendingKeysStrings := strings.Split(pluginConfig.SendingKeys, ",")
-
-		for _, s := range sendingKeysStrings {
-			sendingKeys = append(sendingKeys, common.HexToAddress(s))
-		}
-
-		contractTransmitter, err = newContractTransmitterWithForwarder(r.lggr, rargs, sendingKeys, configWatcher)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
-		if err != nil {
-			return nil, err
-		}
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ocr2vrfProvider{
 		configWatcher:       configWatcher,
 		contractTransmitter: contractTransmitter,
-		pluginConfig:        pluginConfig,
 	}, nil
 }
 
@@ -151,7 +118,6 @@ func (c *dkgProvider) ContractTransmitter() types.ContractTransmitter {
 type ocr2vrfProvider struct {
 	*configWatcher
 	contractTransmitter *ContractTransmitter
-	pluginConfig        ovr2vrfConfig.PluginConfig
 }
 
 func (c *ocr2vrfProvider) ContractTransmitter() types.ContractTransmitter {

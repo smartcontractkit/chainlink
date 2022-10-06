@@ -26,8 +26,6 @@ type PluginConfig struct {
 	VRFCoordinatorAddress string `json:"vrfCoordinatorAddress"`
 	LinkEthFeedAddress    string `json:"linkEthFeedAddress"`
 	LookbackBlocks        int64  `json:"lookbackBlocks"`
-	UseForwarder          bool   `json:"useForwarder"`
-	SendingKeys           string `json:"sendingKeys"`
 }
 
 // ValidatePluginConfig validates that the given OCR2VRF plugin configuration is correct.

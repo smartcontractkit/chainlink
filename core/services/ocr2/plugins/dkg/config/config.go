@@ -11,8 +11,6 @@ type PluginConfig struct {
 	EncryptionPublicKey string `json:"encryptionPublicKey"`
 	SigningPublicKey    string `json:"signingPublicKey"`
 	KeyID               string `json:"keyID"`
-	UseForwarder        bool   `json:"useForwarder"`
-	SendingKeys         string `json:"sendingKeys"`
 }
 
 // ValidatePluginConfig validates that the given DKG plugin configuration is correct.

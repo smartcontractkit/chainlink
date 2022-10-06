@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
@@ -141,9 +142,30 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	if err != nil {
 		return nil, err
 	}
+	var fromAddresses []common.Address
+	sendingKeys := relayConfig.SendingKeys
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	useForwarders := configWatcher.chain.Config().EvmUseForwarders()
 
-	transmitterAddress := common.HexToAddress(transmitterID)
+	if useForwarders {
+		// If using the forwarder, ensure sending keys are provided.
+		if len(sendingKeys) == 0 {
+			return nil, errors.New("no sending keys found in job spec with forwarder enabled")
+		}
+
+		// The sending keys provided are used as the from addresses.
+		for _, s := range sendingKeys {
+			// Ensure the transmitter is not contained in the sending keys slice.
+			if s == effectiveTransmitterAddress.String() {
+				return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
+			}
+			fromAddresses = append(fromAddresses, common.HexToAddress(s))
+		}
+	} else {
+		// If not using the forwarder, the effectiveTransmitterAddress (TransmitterID) is used as the from address.
+		fromAddresses = append(fromAddresses, effectiveTransmitterAddress)
+	}
+
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
@@ -158,34 +180,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
-		configWatcher.chain.LogPoller(),
-		lggr,
-	)
-}
-
-func newContractTransmitterWithForwarder(lggr logger.Logger, rargs relaytypes.RelayArgs, sendingKeys []common.Address, configWatcher *configWatcher) (*ContractTransmitter, error) {
-	var relayConfig RelayConfig
-	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
-	if err != nil {
-		return nil, err
-	}
-	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
-	var checker txm.TransmitCheckerSpec
-	if configWatcher.chain.Config().OCRSimulateTransactions() {
-		checker.CheckerType = txm.TransmitCheckerTypeSimulate
-	}
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
-	}
-
-	return NewOCRContractTransmitter(
-		configWatcher.contractAddress,
-		configWatcher.chain.Client(),
-		configWatcher.contractABI,
-		ocrcommon.NewTransmitterWithForwarder(configWatcher.chain.TxManager(), sendingKeys, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
+		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), fromAddresses, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)
@@ -213,8 +208,9 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 }
 
 type RelayConfig struct {
-	ChainID                     *utils.Big  `json:"chainID"`
-	EffectiveTransmitterAddress null.String `json:"effectiveTransmitterAddress"`
+	ChainID                     *utils.Big     `json:"chainID"`
+	EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`
+	SendingKeys                 pq.StringArray `json:"sendingKeys"`
 }
 
 var _ relaytypes.MedianProvider = (*medianProvider)(nil)
