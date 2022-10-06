@@ -8,7 +8,7 @@ The docker-compose configuration present in this directory allows for a user to 
 
 # Using the compose script
 
-Inside the `chainlink/tools/docker` directory, there is a helper script that is included which should cover all cases of integration / acceptance / development needs acroos multiple services. To see a list of available commands, perform the following:
+Inside the `chainlink/tools/docker` directory, there is a helper script that is included which should cover all cases of integration / acceptance / development needs across multiple services. To see a list of available commands, perform the following:
 
 ```sh
 cd tools/docker
