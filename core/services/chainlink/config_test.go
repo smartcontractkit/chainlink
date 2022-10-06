@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	_ "embed"
-	"fmt"
 	"math"
 	"net"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kylelemons/godebug/diff"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
@@ -22,11 +20,11 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
@@ -60,7 +58,9 @@ var (
 				JSONConsole: ptr(true),
 			},
 			JobPipeline: &config.JobPipeline{
-				DefaultHTTPRequestTimeout: models.MustNewDuration(30 * time.Second),
+				HTTPRequest: &config.JobPipelineHTTPRequest{
+					DefaultTimeout: models.MustNewDuration(30 * time.Second),
+				},
 			},
 			OCR2: &config.OCR2{
 				Enabled:         ptr(true),
@@ -218,8 +218,8 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
 
 		MigrateOnStartup: ptr(true),
-		ORMMaxIdleConns:  ptr[int64](7),
-		ORMMaxOpenConns:  ptr[int64](13),
+		MaxIdleConns:     ptr[int64](7),
+		MaxOpenConns:     ptr[int64](13),
 		Listener: &config.DatabaseListener{
 			MaxReconnectDuration: models.MustNewDuration(time.Minute),
 			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
@@ -249,12 +249,14 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Log = &config.Log{
 		JSONConsole:     ptr(true),
-		FileDir:         ptr("log/file/dir"),
 		DatabaseQueries: ptr(true),
-		FileMaxSize:     ptr[utils.FileSize](100 * utils.GB),
-		FileMaxAgeDays:  ptr[int64](17),
-		FileMaxBackups:  ptr[int64](9),
 		UnixTS:          ptr(true),
+		File: &config.LogFile{
+			Dir:        ptr("log/file/dir"),
+			MaxSize:    ptr[utils.FileSize](100 * utils.GB),
+			MaxAgeDays: ptr[int64](17),
+			MaxBackups: ptr[int64](9),
+		},
 	}
 	full.WebServer = &config.WebServer{
 		AllowOrigins:            ptr("*"),
@@ -283,13 +285,15 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.JobPipeline = &config.JobPipeline{
-		HTTPRequestMaxSize:        ptr[utils.FileSize](100 * utils.MB),
-		DefaultHTTPRequestTimeout: models.MustNewDuration(time.Minute),
 		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
+		HTTPRequest: &config.JobPipelineHTTPRequest{
+			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
+			DefaultTimeout: models.MustNewDuration(time.Minute),
+		},
 	}
 	full.FluxMonitor = &config.FluxMonitor{
 		DefaultTransactionQueueDepth: ptr[uint32](100),
@@ -351,15 +355,17 @@ func TestConfig_Marshal(t *testing.T) {
 		GasPriceBufferPercent:        ptr[uint32](12),
 		GasTipCapBufferPercent:       ptr[uint32](43),
 		BaseFeeBufferPercent:         ptr[uint32](89),
-		MaximumGracePeriod:           ptr[int64](31),
-		RegistryCheckGasOverhead:     ptr[uint32](90),
-		RegistryPerformGasOverhead:   ptr[uint32](math.MaxUint32),
-		RegistrySyncInterval:         models.MustNewDuration(time.Hour),
-		RegistrySyncUpkeepQueueSize:  ptr[uint32](31),
-		RegistryMaxPerformDataSize:   ptr[uint32](5000),
+		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
 		TurnFlagEnabled:              ptr(true),
 		UpkeepCheckGasPriceEnabled:   ptr(true),
+		Registry: &config.KeeperRegistry{
+			CheckGasOverhead:    ptr[uint32](90),
+			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
+			SyncInterval:        models.MustNewDuration(time.Hour),
+			SyncUpkeepQueueSize: ptr[uint32](31),
+			MaxPerformDataSize:  ptr[uint32](5000),
+		},
 	}
 	full.AutoPprof = &config.AutoPprof{
 		Enabled:              ptr(true),
@@ -412,16 +418,19 @@ func TestConfig_Marshal(t *testing.T) {
 					LimitMax:           ptr[uint32](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint32](100),
-					LimitOCRJobType:    ptr[uint32](1001),
-					LimitDRJobType:     ptr[uint32](1002),
-					LimitVRFJobType:    ptr[uint32](1003),
-					LimitFMJobType:     ptr[uint32](1004),
-					LimitKeeperJobType: ptr[uint32](1005),
 					TipCapDefault:      utils.NewBigI(2).Wei(),
-					TipCapMinimum:      utils.NewBigI(1).Wei(),
+					TipCapMin:          utils.NewBigI(1).Wei(),
 					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
 					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
 					PriceMin:           utils.NewBigI(13).Wei(),
+
+					LimitJobType: &evmcfg.GasLimitJobType{
+						OCR:    ptr[uint32](1001),
+						DR:     ptr[uint32](1002),
+						VRF:    ptr[uint32](1003),
+						FM:     ptr[uint32](1004),
+						Keeper: ptr[uint32](1005),
+					},
 
 					BlockHistory: &evmcfg.BlockHistoryEstimator{
 						BatchSize:                 ptr[uint32](17),
@@ -440,26 +449,25 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 
-				LinkContractAddress:  mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize: ptr[uint32](17),
-				LogPollInterval:      &minute,
-
-				MaxInFlightTransactions:  ptr[uint32](19),
-				MaxQueuedTransactions:    ptr[uint32](99),
+				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
+				LogBackfillBatchSize:     ptr[uint32](17),
+				LogPollInterval:          &minute,
+				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
-				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
+				NonceAutoSync:            ptr(true),
+				NoNewHeadsThreshold:      &minute,
+				OperatorFactoryAddress:   mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				RPCDefaultBatchSize:      ptr[uint32](17),
+				RPCBlockQueryDelay:       ptr[uint16](10),
 
-				NonceAutoSync:       ptr(true),
-				NoNewHeadsThreshold: &minute,
-
-				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-
-				RPCDefaultBatchSize:    ptr[uint32](17),
-				RPCBlockQueryDelay:     ptr[uint16](10),
-				TxReaperInterval:       &minute,
-				TxReaperThreshold:      &minute,
-				TxResendAfterThreshold: &hour,
-				UseForwarders:          ptr(true),
+				Transactions: &evmcfg.Transactions{
+					MaxInFlight:          ptr[uint32](19),
+					MaxQueued:            ptr[uint32](99),
+					ReaperInterval:       &minute,
+					ReaperThreshold:      &minute,
+					ResendAfterThreshold: &hour,
+					ForwardersEnabled:    ptr(true),
+				},
 
 				HeadTracker: &evmcfg.HeadTracker{
 					HistoryDepth:     ptr[uint32](15),
@@ -581,9 +589,9 @@ UICSAKeys = true
 DefaultIdleInTxSessionTimeout = '1m0s'
 DefaultLockTimeout = '1h0m0s'
 DefaultQueryTimeout = '1s'
+MaxIdleConns = 7
+MaxOpenConns = 13
 MigrateOnStartup = true
-ORMMaxIdleConns = 7
-ORMMaxOpenConns = 13
 
 [Database.Backup]
 Dir = 'test/backup/dir'
@@ -613,12 +621,14 @@ UseBatchSend = true
 `},
 		{"Log", Config{Core: config.Core{Log: full.Log}}, `[Log]
 DatabaseQueries = true
-FileDir = 'log/file/dir'
-FileMaxSize = '100.00gb'
-FileMaxAgeDays = 17
-FileMaxBackups = 9
 JSONConsole = true
 UnixTS = true
+
+[Log.File]
+Dir = 'log/file/dir'
+MaxSize = '100.00gb'
+MaxAgeDays = 17
+MaxBackups = 9
 `},
 		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `[WebServer]
 AllowOrigins = '*'
@@ -651,13 +661,15 @@ DefaultTransactionQueueDepth = 100
 SimulateTransactions = true
 `},
 		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
-DefaultHTTPRequestTimeout = '1m0s'
 ExternalInitiatorsEnabled = true
-HTTPRequestMaxSize = '100.00mb'
 MaxRunDuration = '1h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1m0s'
+MaxSize = '100.00mb'
 `},
 		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `[OCR]
 Enabled = true
@@ -712,15 +724,17 @@ DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
-MaximumGracePeriod = 31
-RegistryCheckGasOverhead = 90
-RegistryPerformGasOverhead = 4294967295
-RegistryMaxPerformDataSize = 5000
-RegistrySyncInterval = '1h0m0s'
-RegistrySyncUpkeepQueueSize = 31
+MaxGracePeriod = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
+
+[Keeper.Registry]
+CheckGasOverhead = 90
+PerformGasOverhead = 4294967295
+MaxPerformDataSize = 5000
+SyncInterval = '1h0m0s'
+SyncUpkeepQueueSize = 31
 `},
 		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true
@@ -758,19 +772,21 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
-MaxInFlightTransactions = 19
-MaxQueuedTransactions = 99
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9.223372036854775807 link'
+MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
-TxReaperInterval = '1m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '1h0m0s'
-UseForwarders = true
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 19
+MaxQueued = 99
+ReaperInterval = '1m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '1h0m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -784,11 +800,6 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
-LimitOCRJobType = 1001
-LimitDRJobType = 1002
-LimitVRFJobType = 1003
-LimitFMJobType = 1004
-LimitKeeperJobType = 1005
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6
@@ -796,7 +807,14 @@ BumpTxDepth = 6
 EIP1559DynamicFees = true
 FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 1001
+DR = 1002
+VRF = 1003
+FM = 1004
+Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
@@ -916,8 +934,8 @@ TendermintURL = 'http://bar.web'
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
 
 			var got Config
-			d := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields()
-			require.NoError(t, d.Decode(&got))
+
+			require.NoError(t, config.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
 			require.NoError(t, err)
 			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
@@ -927,8 +945,7 @@ TendermintURL = 'http://bar.web'
 
 func TestConfig_full(t *testing.T) {
 	var got Config
-	d := toml.NewDecoder(strings.NewReader(fullTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&got))
+	require.NoError(t, config.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
 		for n := range got.EVM[c].Nodes {
@@ -960,7 +977,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
 		- 0: 4 errors:
 			- Nodes: missing: must have at least one primary node with WSURL
-			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to MaxInFlightTransactions
+			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to Transactions.MaxInFlight
 			- GasEstimator: 6 errors:
 				- BumpPercent: invalid value (1): may not be less than Geth's default of 10
 				- TipCapDefault: invalid value (3 wei): must be greater than or equal to TipCapMinimum
@@ -1035,7 +1052,7 @@ func TestConfig_Validate(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
-			require.NoError(t, decodeTOMLStrict(tt.toml, &c))
+			require.NoError(t, config.DecodeTOML(strings.NewReader(tt.toml), &c))
 			c.setDefaults()
 			assertValidationError(t, &c, tt.exp)
 		})
@@ -1181,19 +1198,10 @@ Must not comprise:
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
-			require.NoError(t, decodeTOMLStrict(tt.toml, &s))
+			require.NoError(t, config.DecodeTOML(strings.NewReader(tt.toml), &s))
 			assertValidationError(t, &s, tt.exp)
 		})
 	}
-}
-
-func decodeTOMLStrict(s string, v interface{}) error {
-	err := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields().Decode(v)
-	if s, ok := err.(fmt.Stringer); ok { //nolint:errorlint
-		// get the detailed message
-		return fmt.Errorf("%v: %s", err, s.String())
-	}
-	return err
 }
 
 func assertValidationError(t *testing.T, invalid interface{ Validate() error }, expMsg string) {
