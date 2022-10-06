@@ -51,7 +51,7 @@ var (
 	oneEth    = big.NewInt(1000000000000000000)
 	oneHunEth = big.NewInt(0).Mul(oneEth, big.NewInt(100))
 
-	payload1 = common.Hex2Bytes("1234")
+	payload1 = common.Hex2Bytes("12340000")
 	payload2 = common.Hex2Bytes("ABCD")
 )
 
