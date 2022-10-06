@@ -422,6 +422,12 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
+
+	// We expect a zero filter if nothing registered yet.
+	f := lp.filter(nil, nil, nil)
+	require.Equal(t, 1, len(f.Addresses))
+	assert.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), f.Addresses[0])
+
 	_, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1}, lp.Filter().Addresses)
@@ -450,6 +456,10 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.NoError(t, err)
 	err = lp.UnregisterFilter(id1)
 	require.Error(t, err)
+	// Continues to increment fine after removing.
+	id3, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
+	assert.Equal(t, id2+1, id3)
 }
 
 func TestLogPoller_GetBlocks(t *testing.T) {
@@ -566,4 +576,34 @@ func TestGetReplayFromBlock(t *testing.T) {
 	fromBlock, err = th.LogPoller.getReplayFromBlock(testutils.Context(t), requested)
 	require.NoError(t, err)
 	assert.Equal(t, requested, fromBlock)
+}
+
+func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
+	lggr := logger.TestLogger(b)
+	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2)
+	for i := 0; i < nFilters; i++ {
+		var addresses []common.Address
+		var events []common.Hash
+		for j := 0; j < nAddresses; j++ {
+			addresses = append(addresses, common.BigToAddress(big.NewInt(int64(j+1))))
+		}
+		for j := 0; j < nEvents; j++ {
+			events = append(events, common.BigToHash(big.NewInt(int64(j+1))))
+		}
+		_, err := lp.RegisterFilter(Filter{EventSigs: events, Addresses: addresses})
+		require.NoError(b, err)
+	}
+	for n := 0; n < b.N; n++ {
+		lp.filter(nil, nil, nil)
+	}
+}
+
+func BenchmarkFilter10_1(b *testing.B) {
+	benchmarkFilter(b, 10, 1, 1)
+}
+func BenchmarkFilter100_10(b *testing.B) {
+	benchmarkFilter(b, 100, 10, 10)
+}
+func BenchmarkFilter1000_100(b *testing.B) {
+	benchmarkFilter(b, 1000, 100, 100)
 }

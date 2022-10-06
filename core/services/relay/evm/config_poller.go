@@ -139,7 +139,7 @@ type ConfigPoller struct {
 }
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
-	_, err := destChainPoller.RegisterFilter(logpoller.Filter{[]common.Hash{ConfigSet}, []common.Address{addr}});
+	_, err := destChainPoller.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
 	}

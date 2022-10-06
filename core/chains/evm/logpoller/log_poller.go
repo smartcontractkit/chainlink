@@ -68,8 +68,9 @@ type logPoller struct {
 	filterMu        sync.RWMutex
 	currentFilterID int
 	filters         map[int]Filter
-	//Addresses map[common.Address]struct{}
-	//EventSigs map[common.Hash]struct{}
+	filterDirty     bool
+	cachedAddresses []common.Address
+	cachedEventSigs []common.Hash
 
 	replayStart    chan ReplayRequest
 	replayComplete chan error
@@ -105,6 +106,7 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		backfillBatchSize: backfillBatchSize,
 		rpcBatchSize:      rpcBatchSize,
 		filters:           make(map[int]Filter),
+		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
 }
 
@@ -146,6 +148,7 @@ func (lp *logPoller) RegisterFilter(filter Filter) (int, error) {
 	}
 	lp.currentFilterID++
 	lp.filters[lp.currentFilterID] = filter
+	lp.filterDirty = true
 	return lp.currentFilterID, nil
 }
 
@@ -157,12 +160,16 @@ func (lp *logPoller) UnregisterFilter(filterID int) error {
 		return errors.Errorf("filter %d doesn't exist", filterID)
 	}
 	delete(lp.filters, filterID)
+	lp.filterDirty = true
 	return nil
 }
 
 func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
+	if !lp.filterDirty {
+		return ethereum.FilterQuery{FromBlock: from, ToBlock: to, BlockHash: bh, Topics: [][]common.Hash{lp.cachedEventSigs}, Addresses: lp.cachedAddresses}
+	}
 	var (
 		addresses  []common.Address
 		eventSigs  []common.Hash
@@ -196,6 +203,9 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 		// then as jobs are added dynamically start using their filters.
 		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
 	}
+	lp.cachedAddresses = addresses
+	lp.cachedEventSigs = eventSigs
+	lp.filterDirty = false
 	return ethereum.FilterQuery{FromBlock: from, ToBlock: to, BlockHash: bh, Topics: [][]common.Hash{eventSigs}, Addresses: addresses}
 }
 
