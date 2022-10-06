@@ -12,9 +12,9 @@ UICSAKeys = false
 DefaultIdleInTxSessionTimeout = '1h0m0s'
 DefaultLockTimeout = '15s'
 DefaultQueryTimeout = '10s'
+MaxIdleConns = 10
+MaxOpenConns = 20
 MigrateOnStartup = true
-ORMMaxIdleConns = 10
-ORMMaxOpenConns = 20
 
 [Database.Backup]
 Dir = ''
@@ -44,12 +44,14 @@ UseBatchSend = true
 
 [Log]
 DatabaseQueries = false
-FileDir = ''
-FileMaxSize = '5.12gb'
-FileMaxAgeDays = 0
-FileMaxBackups = 1
 JSONConsole = true
 UnixTS = false
+
+[Log.File]
+Dir = ''
+MaxSize = '5.12gb'
+MaxAgeDays = 0
+MaxBackups = 1
 
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
@@ -78,13 +80,15 @@ HTTPSPort = 6689
 KeyPath = ''
 
 [JobPipeline]
-DefaultHTTPRequestTimeout = '30s'
 ExternalInitiatorsEnabled = false
-HTTPRequestMaxSize = '32.77kb'
 MaxRunDuration = '10m0s'
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '24h0m0s'
 ResultWriteQueueDepth = 100
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '30s'
+MaxSize = '32.77kb'
 
 [FluxMonitor]
 DefaultTransactionQueueDepth = 1
@@ -143,15 +147,17 @@ DefaultTransactionQueueDepth = 1
 GasPriceBufferPercent = 10
 GasTipCapBufferPercent = 20
 BaseFeeBufferPercent = 20
-MaximumGracePeriod = 100
-RegistryCheckGasOverhead = 200000
-RegistryPerformGasOverhead = 300000
-RegistryMaxPerformDataSize = 5000
-RegistrySyncInterval = '30m0s'
-RegistrySyncUpkeepQueueSize = 10
+MaxGracePeriod = 100
 TurnLookBack = 1000
 TurnFlagEnabled = false
 UpkeepCheckGasPriceEnabled = false
+
+[Keeper.Registry]
+CheckGasOverhead = 200000
+PerformGasOverhead = 300000
+MaxPerformDataSize = 5000
+SyncInterval = '30m0s'
+SyncUpkeepQueueSize = 10
 
 [AutoPprof]
 Enabled = false
@@ -186,19 +192,21 @@ FinalityDepth = 26
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -219,7 +227,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
@@ -259,19 +267,21 @@ FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
 MinIncomingConfirmations = 3
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -292,7 +302,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
@@ -327,18 +337,20 @@ FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
-MinimumContractPayment = '0.00001 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
-UseForwarders = false
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 5000
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -359,7 +371,7 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4

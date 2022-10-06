@@ -1,12 +1,14 @@
 ChainID = '80001'
 FinalityDepth = 500
-MaxQueuedTransactions = 5000
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 5
 NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 10
-TxResendAfterThreshold = '1m'
+
+[Transactions]
+ResendAfterThreshold = '1m'
+MaxQueued = 5000
 
 [BalanceMonitor]
 Enabled = true

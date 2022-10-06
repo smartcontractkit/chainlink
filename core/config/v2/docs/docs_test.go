@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -38,7 +39,7 @@ func TestDoc(t *testing.T) {
 	cfgtest.AssertFieldsNotNil(t, c)
 
 	var defaults chainlink.Config
-	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docsTOML), &defaults))
+	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docsTOML), &defaults, config.DecodeTOML))
 
 	t.Run("EVM", func(t *testing.T) {
 		fallbackDefaults, _ := evmcfg.Defaults(nil)
@@ -55,16 +56,12 @@ func TestDoc(t *testing.T) {
 		docDefaults.KeySpecific = nil
 
 		// per-job limits are nilable
-		require.Zero(t, *docDefaults.GasEstimator.LimitOCRJobType)
-		require.Zero(t, *docDefaults.GasEstimator.LimitDRJobType)
-		require.Zero(t, *docDefaults.GasEstimator.LimitKeeperJobType)
-		require.Zero(t, *docDefaults.GasEstimator.LimitVRFJobType)
-		require.Zero(t, *docDefaults.GasEstimator.LimitFMJobType)
-		docDefaults.GasEstimator.LimitOCRJobType = nil
-		docDefaults.GasEstimator.LimitDRJobType = nil
-		docDefaults.GasEstimator.LimitKeeperJobType = nil
-		docDefaults.GasEstimator.LimitVRFJobType = nil
-		docDefaults.GasEstimator.LimitFMJobType = nil
+		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.OCR)
+		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.DR)
+		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.Keeper)
+		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.VRF)
+		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.FM)
+		docDefaults.GasEstimator.LimitJobType = nil
 
 		// EIP1559FeeCapBufferBlocks doesn't have a constant default - it is derived from another field
 		require.Zero(t, *docDefaults.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks)

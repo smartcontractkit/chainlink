@@ -35,6 +35,7 @@ type HeadTracker interface {
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
+//
 //go:generate mockery --name HeadTrackable --output ../mocks/ --case=underscore
 type HeadTrackable interface {
 	OnNewLongestChain(ctx context.Context, head *evmtypes.Head)
@@ -46,6 +47,7 @@ type HeadBroadcasterRegistry interface {
 
 // HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
+//
 //go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
 	services.ServiceCtx
@@ -57,7 +59,6 @@ type HeadBroadcaster interface {
 type NewHeadHandler func(ctx context.Context, header *evmtypes.Head) error
 
 // HeadListener manages evmclient.Client connection that receives heads from the eth node
-//go:generate mockery --name HeadListener --output ../mocks/ --case=underscore
 type HeadListener interface {
 	// ListenForNewHeads kicks off the listen loop (not thread safe)
 	// done() must be executed upon leaving ListenForNewHeads()

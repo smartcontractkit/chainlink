@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	cfgv2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -40,8 +40,8 @@ func init() {
 			ChainID *utils.Big
 			Chain
 		}{}
-		d := toml.NewDecoder(bytes.NewReader(b)).DisallowUnknownFields()
-		if err := d.Decode(&config); err != nil {
+
+		if err := cfgv2.DecodeTOML(bytes.NewReader(b), &config); err != nil {
 			log.Fatalf("failed to decode %q: %v", path, err)
 		}
 		if fe.Name() == "fallback.toml" {
@@ -118,17 +118,11 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.LogPollInterval; v != nil {
 		c.LogPollInterval = v
 	}
-	if v := f.MaxInFlightTransactions; v != nil {
-		c.MaxInFlightTransactions = v
-	}
-	if v := f.MaxQueuedTransactions; v != nil {
-		c.MaxQueuedTransactions = v
-	}
 	if v := f.MinIncomingConfirmations; v != nil {
 		c.MinIncomingConfirmations = v
 	}
-	if v := f.MinimumContractPayment; v != nil {
-		c.MinimumContractPayment = v
+	if v := f.MinContractPayment; v != nil {
+		c.MinContractPayment = v
 	}
 	if v := f.NonceAutoSync; v != nil {
 		c.NonceAutoSync = v
@@ -145,17 +139,11 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.RPCBlockQueryDelay; v != nil {
 		c.RPCBlockQueryDelay = v
 	}
-	if v := f.TxReaperInterval; v != nil {
-		c.TxReaperInterval = v
-	}
-	if v := f.TxReaperThreshold; v != nil {
-		c.TxReaperThreshold = v
-	}
-	if v := f.TxResendAfterThreshold; v != nil {
-		c.TxResendAfterThreshold = v
-	}
-	if v := f.UseForwarders; v != nil {
-		c.UseForwarders = v
+	if f.Transactions != nil {
+		if c.Transactions == nil {
+			c.Transactions = &Transactions{}
+		}
+		c.Transactions.setFrom(f.Transactions)
 	}
 	if f.BalanceMonitor != nil {
 		if c.BalanceMonitor == nil {
