@@ -59,14 +59,14 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   }
 
   struct RegistrationParams {
+    string name;
+    bytes encryptedEmail;
     address upkeepContract;
     uint32 gasLimit;
     address adminAddress;
-    uint96 amount;
-    string name;
     bytes checkData;
     bytes offchainConfig;
-    bytes encryptedEmail;
+    uint96 amount;
   }
 
   RegistrarConfig private s_config;
@@ -139,6 +139,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param adminAddress address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    * @param amount quantity of LINK upkeep is funded with (specified in Juels)
+   * @param offchainConfig offchainConfig for upkeep in bytes
    * @param sender address of the sender making the request
    */
   function register(
@@ -154,14 +155,14 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   ) external onlyLINK {
     _register(
       RegistrationParams({
+        name: name,
+        encryptedEmail: encryptedEmail,
         upkeepContract: upkeepContract,
         gasLimit: gasLimit,
         adminAddress: adminAddress,
-        amount: amount,
         checkData: checkData,
         offchainConfig: offchainConfig,
-        name: name,
-        encryptedEmail: encryptedEmail
+        amount: amount
       }),
       sender
     );
@@ -205,13 +206,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     _approve(
       RegistrationParams({
         name: name,
+        encryptedEmail: "",
         upkeepContract: upkeepContract,
         gasLimit: gasLimit,
         adminAddress: adminAddress,
         checkData: checkData,
         offchainConfig: offchainConfig,
-        amount: request.balance,
-        encryptedEmail: ""
+        amount: request.balance
       }),
       expectedHash
     );
