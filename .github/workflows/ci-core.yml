@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       shards: ${{ steps.shard.outputs.shards }}
-    env:
-      SHARDS: 10
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -34,11 +32,11 @@ jobs:
           only-modules: "true"
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Install zx shell
-        run: npm i -g zx
-      - name: Shard list of go packages
+      - name: Generate shards
         id: shard
-        run: ./tools/ci/shard_packages
+        uses: ./.github/actions/shard-packages
+        with:
+          config: ./ci.json
 
   core:
     needs: [shard-packages]

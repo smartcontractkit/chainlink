@@ -1,0 +1,35 @@
+name: Test Sharding
+description: Shard tests
+inputs:
+  config:
+    required: true
+    description: The path to the sharding config
+outputs:
+  shards:
+    description: The generated test shards
+    value: ${{ steps.shard.outputs.shards }}
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@10693b3829bf86eb2572aef5f3571dcf5ca9287d #v2.2.2
+      with:
+        version: ^7.0.0
+
+    - uses: actions/setup-node@v3
+      with:
+        node-version: "16"
+        cache: "pnpm"
+        cache-dependency-path: "./.github/actions/shard-packages/pnpm-lock.yaml"
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm i --prod
+      working-directory: "./.github/actions/shard-packages"
+
+    - name: Run test sharder
+      id: shard
+      shell: bash
+      run: pnpm start
+      env:
+        CONFIG: ${{ inputs.config }}
+      working-directory: "./.github/actions/shard-packages"
