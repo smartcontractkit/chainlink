@@ -1,54 +1,105 @@
-##
-# NOTE: any changes to the event triggers or the paths here should be reflected in:
-#       solidity-paths-ignore.yml
-##
-
 name: Solidity
 
 on:
   push:
-    branches:
-      - staging
-      - trying
-      - rollup
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
   pull_request:
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
+
+env:
+  NODE_OPTIONS: --max_old_space_size=5120
 
 jobs:
+  shard-tests:
+    name: Shard Solidity Tests
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.shard.outputs.shards }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Shard Solidity Tests
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Generate shards
+        id: shard
+        uses: ./.github/actions/shard-packages
+        with:
+          config: ./contracts/ci.json
+
+  solidity-coverage-shards:
+    needs: [shard-tests]
+    name: Solidity Coverage ${{ matrix.shard.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.shard-tests.outputs.shards) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity Coverage ${{ matrix.shard.id }}
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        uses: ./.github/actions/setup-hardhat
+        with:
+          namespace: coverage
+      - name: Run coverage
+        env:
+          SHARD: ${{ matrix.shard.coverageTests }}
+        shell: bash
+        run: pnpm coverage --testfiles "$SHARD"
+        working-directory: contracts
+      - name: Push coverage
+        run: ./tools/bin/codecov -f ./contracts/coverage.json
+      - name: Rename coverage
+        run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.shard.idx }}.json
+      - name: Upload coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: solidity-coverage-${{ matrix.shard.idx }}
+          path: ./contracts/coverage-${{ matrix.shard.idx }}.json
+
   solidity-coverage:
+    needs: [solidity-coverage-shards]
     name: Solidity Coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity Coverage
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-      - name: Setup node
-        uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Make coverage directory
+        run: mkdir ./contracts/coverage-reports
+      - name: Download coverage
+        uses: actions/download-artifact@v3
         with:
-          node-version: "16"
-          cache: yarn
-      - run: yarn install --frozen-lockfile
-      - name: Run coverage
-        env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-        run: ./tools/ci/solidity_coverage
+          path: ./contracts/coverage-reports
+      - name: Display structure of downloaded files
+        run: ls -R coverage-reports
+        working-directory: contracts
+      - name: Generate merged report
+        run: pnpm istanbul report text text-summary
+        working-directory: contracts
 
-  solidity:
-    name: Solidity
+  solidity-shards:
+    needs: [shard-tests]
+    name: Solidity ${{ matrix.shard.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.shard-tests.outputs.shards) }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -57,23 +108,116 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity
+          this-job-name: Solidity ${{ matrix.shard.id }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-      - name: Setup node
-        uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        uses: ./.github/actions/setup-hardhat
         with:
-          node-version: "16"
-          cache: 'yarn'
-      - run: yarn install --frozen-lockfile
-      - name: Compile all contracts
-        run: ./contracts/scripts/native_solc_compile_all
-      - name: Verify local solc binaries
-        run: ./tools/ci/check_solc_hashes
+          namespace: coverage
       - name: Run tests
         env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-        run: ./tools/ci/solidity_test_hardhat
-      - name: Run prepublish NPM test
-        run: ./tools/ci/prepublish_npm_test
+          SHARD: ${{ matrix.shard.tests }}
+        working-directory: contracts
+        run: pnpm test -- $SHARD
+
+  solidity:
+    needs: [solidity-shards]
+    name: Solidity
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Solidity tests finished!'
+
+  prepublish-test:
+    name: Prepublish Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Prepublish Test
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Run Prepublish test
+        working-directory: contracts
+        run: pnpm prepublishOnly
+
+  native-compile:
+    name: Native Compilation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Native Compilation
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Run native compile and generate wrappers
+        run: make go-solidity-wrappers
+      - name: Verify local solc binaries
+        run: ./tools/ci/check_solc_hashes
+      - name: Display git diff
+        run: git diff --minimal
+
+  lint:
+    defaults:
+      run:
+        working-directory: contracts
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Lint
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Run pnpm lint
+        run: pnpm lint
+
+  prettier:
+    defaults:
+      run:
+        working-directory: contracts
+    name: Prettier Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Prettier Formatting
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Run prettier check
+        run: pnpm prettier:check
