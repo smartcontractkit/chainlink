@@ -288,6 +288,19 @@ func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string
 	return requestID
 }
 
+func readRandomness(
+	e helpers.Environment,
+	consumerAddress string,
+	requestID *big.Int,
+	numWords int) {
+	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+	for i := 0; i < numWords; i++ {
+		r, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(int64(i)))
+		helpers.PanicErr(err)
+		fmt.Println("random word", i, ":", r.String())
+	}
+}
+
 func requestRandomnessCallback(
 	e helpers.Environment,
 	consumerAddress string,
