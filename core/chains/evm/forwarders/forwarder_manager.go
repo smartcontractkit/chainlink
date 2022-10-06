@@ -221,6 +221,11 @@ func (f *FwdMgr) runLoop() {
 		select {
 		case <-tick:
 			addrs := f.collectAddresses()
+			if len(addrs) == 0 {
+				f.logger.Debug("Skipping log syncing, no forwarders tracked.")
+				continue
+			}
+
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
