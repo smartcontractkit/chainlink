@@ -23,12 +23,12 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db, cfg)
-	keyStore.Unlock(cltest.Password)
+	require.NoError(t, keyStore.Unlock(cltest.Password))
 	ks := keyStore.P2P()
 	reset := func() {
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		keyStore.ResetXXXTestOnly()
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 
 	t.Run("initializes with an empty state", func(t *testing.T) {
@@ -38,9 +38,9 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.Equal(t, 0, len(keys))
 	})
 
-	t.Run("errors when getting non-existant ID", func(t *testing.T) {
+	t.Run("errors when getting non-existent ID", func(t *testing.T) {
 		defer reset()
-		_, err := ks.Get("non-existant-id")
+		_, err := ks.Get("non-existent-id")
 		require.Error(t, err)
 	})
 
@@ -162,7 +162,8 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, stmt.Get(&p2pPeer1, &p2pPeer1))
 		require.NoError(t, stmt.Get(&p2pPeer2, &p2pPeer2))
 		cltest.AssertCount(t, db, p2pTableName, 2)
-		ks.Delete(key.PeerID())
+		_, err = ks.Delete(key.PeerID())
+		require.NoError(t, err)
 		cltest.AssertCount(t, db, p2pTableName, 1)
 	})
 

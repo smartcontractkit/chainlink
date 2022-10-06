@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
@@ -78,4 +79,54 @@ func TestRunErrors_ToError(t *testing.T) {
 	runErrors = append(runErrors, null.NewString("", false))
 	expected := errors.New("bad thing happened; pretty bad thing happened")
 	require.Equal(t, expected.Error(), runErrors.ToError().Error())
+}
+
+func TestRun_StringOutputs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("invalid outputs", func(t *testing.T) {
+		run := &pipeline.Run{
+			Outputs: pipeline.JSONSerializable{
+				Valid: false,
+			},
+		}
+		outputs, err := run.StringOutputs()
+		assert.NoError(t, err)
+		assert.Empty(t, outputs)
+	})
+
+	big := big.NewInt(123)
+	dec := mustDecimal(t, "123")
+
+	testCases := []struct {
+		name string
+		val  interface{}
+		want string
+	}{
+		{"int64", int64(123), "123"},
+		{"uint64", uint64(123), "123"},
+		{"float64", float64(123.456), "123.456"},
+		{"large float64", float64(9007199254740991231), "9007199254740991000"},
+		{"big.Int", *big, "123"},
+		{"*big.Int", big, "123"},
+		{"decimal", *dec, "123"},
+		{"*decimal", dec, "123"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			run := &pipeline.Run{
+				Outputs: pipeline.JSONSerializable{
+					Valid: true,
+					Val:   []interface{}{tc.val},
+				},
+			}
+			t.Log(tc.val)
+			outputs, err := run.StringOutputs()
+			assert.NoError(t, err)
+			assert.NotNil(t, outputs)
+			assert.Len(t, outputs, 1)
+			assert.Equal(t, tc.want, *outputs[0])
+		})
+	}
 }

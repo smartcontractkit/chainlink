@@ -32,12 +32,46 @@ import (
 var _ = Describe("Flux monitor suite @flux", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Flux monitor suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(10)),
-			Entry("Flux monitor suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.1)),
-			Entry("Flux monitor suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
-			Entry("Flux monitor suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
-			Entry("Flux monitor suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
-			Entry("Flux monitor suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
+			Entry("Flux monitor suite on Simulated Network @simulated",
+				networks.SimulatedEVM,
+				big.NewFloat(10),
+				defaultFluxEnv(networks.SimulatedEVM),
+			),
+			Entry("Flux monitor suite on General EVM @general",
+				networks.GeneralEVM,
+				big.NewFloat(.1),
+				defaultFluxEnv(networks.GeneralEVM),
+			),
+			Entry("Flux monitor suite on Metis Stardust @metis",
+				networks.MetisStardust,
+				big.NewFloat(.01),
+				defaultFluxEnv(networks.MetisStardust),
+			),
+			Entry("Flux monitor suite on Sepolia Testnet @sepolia",
+				networks.SepoliaTestnet,
+				big.NewFloat(.1),
+				defaultFluxEnv(networks.SepoliaTestnet),
+			),
+			Entry("Flux monitor suite on Görli Testnet @goerli",
+				networks.GoerliTestnet,
+				big.NewFloat(.1),
+				defaultFluxEnv(networks.GoerliTestnet),
+			),
+			Entry("Flux monitor suite on Klaytn Baobab @klaytn",
+				networks.KlaytnBaobab,
+				big.NewFloat(1),
+				defaultFluxEnv(networks.KlaytnBaobab),
+			),
+			Entry("Flux monitor suite on Optimism Goerli @optimism",
+				networks.OptimismGoerli,
+				big.NewFloat(.1),
+				defaultFluxEnv(networks.OptimismGoerli),
+			),
+			Entry("Flux monitor suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				big.NewFloat(.1),
+				defaultFluxEnv(networks.ArbitrumGoerli),
+			),
 		}
 
 		err              error
@@ -64,26 +98,11 @@ var _ = Describe("Flux monitor suite @flux", func() {
 	DescribeTable("Flux suite on different EVM networks", func(
 		testNetwork *blockchain.EVMNetwork,
 		funding *big.Float,
+		env *environment.Environment,
 	) {
-		evmChart := ethereum.New(nil)
-		if !testNetwork.Simulated {
-			evmChart = ethereum.New(&ethereum.Props{
-				NetworkName: testNetwork.Name,
-				Simulated:   testNetwork.Simulated,
-				WsURLs:      testNetwork.URLs,
-			})
-		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		}).
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart).
-			AddHelm(chainlink.New(0, map[string]interface{}{
-				"env":      testNetwork.ChainlinkValuesMap(),
-				"replicas": 3,
-			}))
+		testEnvironment = env
+
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -206,3 +225,24 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		testScenarios,
 	)
 })
+
+func defaultFluxEnv(network *blockchain.EVMNetwork) *environment.Environment {
+	evmConf := ethereum.New(nil)
+	if !network.Simulated {
+		evmConf = ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConf).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"env":      network.ChainlinkValuesMap(),
+			"replicas": 3,
+		}))
+}

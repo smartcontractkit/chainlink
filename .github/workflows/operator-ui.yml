@@ -1,52 +1,40 @@
-##
-# NOTE: any changes to the event triggers or the paths here should be reflected in:
-#       operator-ui-paths-ignore.yml
-##
-
 name: Operator UI
 
 on:
   push:
     branches:
-      - staging
-      - trying
-      - rollup
-    paths:
-      - 'operator_ui/**'
-      - yarn.lock
-      - 'tools/ci/**'
-  pull_request:
-    paths:
-      - 'operator_ui/**'
-      - yarn.lock
-      - 'tools/ci/**'
+      - develop
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */1 * * *' # Run every hour
 
 jobs:
-  operator-ui:
-    name: Operator UI Tests
+  update-version:
+    name: Update Version
     runs-on: ubuntu-latest
     steps:
-      - name: Setup node
-        uses: actions/setup-node@v2
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
         with:
-          node-version: "16"
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Update Version 
+        continue-on-error: true
+
       - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/checkout@v3
+
+      - name: Update version
+        id: update
         env:
-          cache-name: yarn-cache
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./operator_ui/check.sh
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@18f90432bedd2afd6a825469ffd38aa24712a91d # v4.1.1
         with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - name: Run yarn install
-        run: yarn install --frozen-lockfile
-      - name: Run Operator UI tests
-        run: ./tools/ci/operator_ui_test
+          title: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          branch: chore/update-operator-ui
+          commit-message: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          body: ${{ steps.update.outputs.body }} 

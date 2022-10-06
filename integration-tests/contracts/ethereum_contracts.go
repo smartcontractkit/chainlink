@@ -14,6 +14,10 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
@@ -372,11 +376,8 @@ func NewFluxAggregatorRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest FluxAggregator round and check to see whether the round has confirmed
-func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) error {
-	if block.Block.Number() == nil {
-		return nil
-	}
+// ReceiveHeader will query the latest FluxAggregator round and check to see whether the round has confirmed
+func (f *FluxAggregatorRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) error {
 	if f.complete {
 		return nil
 	}
@@ -388,7 +389,7 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) 
 		Str("Contract Address", f.fluxInstance.Address()).
 		Int64("Current Round", lr.Int64()).
 		Int64("Waiting for Round", f.roundID.Int64()).
-		Uint64("Block Number", block.NumberU64())
+		Uint64("Header Number", header.Number.Uint64())
 	if lr.Cmp(f.roundID) >= 0 {
 		fluxLog.Msg("FluxAggregator round completed")
 		f.complete = true
@@ -443,8 +444,8 @@ func NewVRFConsumerRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest VRFConsumer round and check to see whether the round has confirmed
-func (f *VRFConsumerRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) error {
+// ReceiveHeader will query the latest VRFConsumer round and check to see whether the round has confirmed
+func (f *VRFConsumerRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) error {
 	if f.done {
 		return nil
 	}
@@ -456,7 +457,7 @@ func (f *VRFConsumerRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) err
 		Str("Contract Address", f.consumer.Address()).
 		Int64("Waiting for Round", f.roundID.Int64()).
 		Int64("Current round ID", roundID.Int64()).
-		Uint64("Block Number", block.NumberU64())
+		Uint64("Header Number", header.Number.Uint64())
 	if roundID.Int64() == f.roundID.Int64() {
 		randomness, err := f.consumer.RandomnessOutput(context.Background())
 		if err != nil {
@@ -652,16 +653,16 @@ func (o *EthereumOffchainAggregator) SetPayees(
 func (o *EthereumOffchainAggregator) SetConfig(
 	chainlinkNodes []*client.Chainlink,
 	ocrConfig OffChainAggregatorConfig,
+	transmitters []common.Address,
 ) error {
 	// Gather necessary addresses and keys from our chainlink nodes to properly configure the OCR contract
 	log.Info().Str("Contract Address", o.address.Hex()).Msg("Configuring OCR Contract")
-	for _, node := range chainlinkNodes {
+	for i, node := range chainlinkNodes {
 		ocrKeys, err := node.MustReadOCRKeys()
 		if err != nil {
 			return err
 		}
 		primaryOCRKey := ocrKeys.Data[0]
-		primaryEthKey, err := node.PrimaryEthAddress()
 		if err != nil {
 			return err
 		}
@@ -688,7 +689,7 @@ func (o *EthereumOffchainAggregator) SetConfig(
 		copy(configPublicKey[:], decodeConfigKey)
 
 		oracleIdentity := ocrConfigHelper.OracleIdentity{
-			TransmitAddress:       common.HexToAddress(primaryEthKey),
+			TransmitAddress:       transmitters[i],
 			OnChainSigningAddress: onChainSigningAddress,
 			PeerID:                primaryP2PKey.Attributes.PeerID,
 			OffchainPublicKey:     offchainSigningAddress,
@@ -829,8 +830,8 @@ func NewRunlogRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest Runlog round and check to see whether the round has confirmed
-func (o *RunlogRoundConfirmer) ReceiveBlock(_ blockchain.NodeBlock) error {
+// ReceiveHeader will query the latest Runlog round and check to see whether the round has confirmed
+func (o *RunlogRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	currentRoundID, err := o.consumer.RoundID(context.Background())
 	if err != nil {
 		return err
@@ -892,8 +893,8 @@ func NewOffchainAggregatorRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest OffchainAggregator round and check to see whether the round has confirmed
-func (o *OffchainAggregatorRoundConfirmer) ReceiveBlock(_ blockchain.NodeBlock) error {
+// ReceiveHeader will query the latest OffchainAggregator round and check to see whether the round has confirmed
+func (o *OffchainAggregatorRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	if channelClosed(o.doneChan) {
 		return nil
 	}
@@ -1382,6 +1383,96 @@ type EthereumDeviationFlaggingValidator struct {
 }
 
 func (e *EthereumDeviationFlaggingValidator) Address() string {
+	return e.address.Hex()
+}
+
+// EthereumOperatorFactory represents operator factory contract
+type EthereumOperatorFactory struct {
+	address         *common.Address
+	client          blockchain.EVMClient
+	operatorFactory *operator_factory.OperatorFactory
+}
+
+func (e *EthereumOperatorFactory) ParseAuthorizedForwarderCreated(eventLog types.Log) (*operator_factory.OperatorFactoryAuthorizedForwarderCreated, error) {
+	return e.operatorFactory.ParseAuthorizedForwarderCreated(eventLog)
+}
+
+func (e *EthereumOperatorFactory) ParseOperatorCreated(eventLog types.Log) (*operator_factory.OperatorFactoryOperatorCreated, error) {
+	return e.operatorFactory.ParseOperatorCreated(eventLog)
+}
+
+func (e *EthereumOperatorFactory) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	tx, err := e.operatorFactory.DeployNewOperatorAndForwarder(opts)
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
+// EthereumOperator represents operator contract
+type EthereumOperator struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	operator *operator_wrapper.Operator
+}
+
+func (e *EthereumOperator) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address, eoa []common.Address) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	log.Info().
+		Str("ForwardersAddresses", fmt.Sprint(forwarders)).
+		Str("EoaAddresses", fmt.Sprint(eoa)).
+		Msg("Accepting Authorized Receivers")
+	tx, err := e.operator.AcceptAuthorizedReceivers(opts, forwarders, eoa)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+// EthereumAuthorizedForwarder represents authorized forwarder contract
+type EthereumAuthorizedForwarder struct {
+	address             common.Address
+	client              blockchain.EVMClient
+	authorizedForwarder *authorized_forwarder.AuthorizedForwarder
+}
+
+// Owner return authorized forwarder owner address
+func (e *EthereumAuthorizedForwarder) Owner(ctx context.Context) (string, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	owner, err := e.authorizedForwarder.Owner(opts)
+
+	return owner.Hex(), err
+}
+
+func (e *EthereumAuthorizedForwarder) GetAuthorizedSenders(ctx context.Context) ([]string, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	authorizedSenders, err := e.authorizedForwarder.GetAuthorizedSenders(opts)
+	if err != nil {
+		return nil, err
+	}
+	var sendersAddrs []string
+	for _, o := range authorizedSenders {
+		sendersAddrs = append(sendersAddrs, o.Hex())
+	}
+	return sendersAddrs, nil
+}
+
+func (e *EthereumAuthorizedForwarder) Address() string {
 	return e.address.Hex()
 }
 

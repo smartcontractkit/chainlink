@@ -34,8 +34,8 @@ import (
 
 // nolint
 var (
-	ErrUnset   = errors.New("env var unset")
-	ErrInvalid = errors.New("env var invalid")
+	ErrEnvUnset   = errors.New("env var unset")
+	ErrEnvInvalid = errors.New("env var invalid")
 
 	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 )
@@ -62,7 +62,7 @@ type FeatureFlags interface {
 
 type LogFn func(...any)
 
-type GeneralOnlyConfig interface {
+type BasicConfig interface {
 	Validate() error
 	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
@@ -131,6 +131,7 @@ type GeneralOnlyConfig interface {
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint32
 	KeeperRegistryPerformGasOverhead() uint32
+	KeeperRegistryMaxPerformDataSize() uint32
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
@@ -182,6 +183,13 @@ type GeneralOnlyConfig interface {
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	VRFPassword() string
+
+	OCR1Config
+	OCR2Config
+
+	P2PNetworking
+	P2PV1Networking
+	P2PV2Networking
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -207,6 +215,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpWei() (*big.Int, bool)
 	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint32, bool)
+	GlobalEvmGasLimitMax() (uint32, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint32, bool)
 	GlobalEvmGasLimitOCRJobType() (uint32, bool)
@@ -232,6 +241,10 @@ type GlobalConfig interface {
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
+	GlobalOCRContractConfirmations() (uint16, bool)
+	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
+	GlobalOCRDatabaseTimeout() (time.Duration, bool)
+	GlobalOCRObservationGracePeriod() (time.Duration, bool)
 	GlobalOperatorFactoryAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
@@ -239,16 +252,10 @@ type GlobalConfig interface {
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
 	GlobalNodeSelectionMode() (string, bool)
-
-	OCR1Config
-	OCR2Config
-	P2PNetworking
-	P2PV1Networking
-	P2PV2Networking
 }
 
 type GeneralConfig interface {
-	GeneralOnlyConfig
+	BasicConfig
 	GlobalConfig
 }
 
@@ -274,6 +281,7 @@ type generalConfig struct {
 
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewGeneralConfig(lggr logger.Logger) GeneralConfig {
 	v := viper.New()
 	c := newGeneralConfigWithViper(v, lggr.Named("GeneralConfig"))
@@ -354,10 +362,10 @@ EVM_ENABLED=false
 `)
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrEnvInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrEnvInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {
@@ -423,7 +431,7 @@ EVM_ENABLED=false
 			}
 		}
 		if !(c.Dev() || skipDatabasePasswordComplexityCheck) {
-			if err := validateDBURL(c.DatabaseURL()); err != nil {
+			if err := ValidateDBURL(c.DatabaseURL()); err != nil {
 				// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
 				c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s.\nDatabase should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink. To bypass this check at your own risk, you may set SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true\n\n", err, utils.PasswordComplexityRequirements)
 			}
@@ -437,7 +445,7 @@ EVM_ENABLED=false
 	return nil
 }
 
-func validateDBURL(dbURI url.URL) error {
+func ValidateDBURL(dbURI url.URL) error {
 	if strings.Contains(dbURI.Redacted(), "_test") {
 		return nil
 	}
@@ -846,6 +854,12 @@ func (c *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
 	return getEnvWithFallback(c, envvar.KeeperRegistryPerformGasOverhead)
 }
 
+// KeeperRegistryMaxPerformDataSize is the max perform data size we allow in our pipeline for an
+// upkeep to be performed with
+func (c *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
+	return getEnvWithFallback(c, envvar.KeeperRegistryMaxPerformDataSize)
+}
+
 // KeeperDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Keeper
 // Set to 0 to use SendEvery strategy instead
 func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
@@ -871,7 +885,8 @@ func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
-// sync of the keeper registry contract it is tracking
+// sync of the keeper registry contract it is tracking *after* the most recent update triggered
+// by an on-chain log.
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return getEnvWithFallback(c, envvar.KeeperRegistrySyncInterval)
 }
@@ -1279,6 +1294,9 @@ func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint32)
 }
+func (c *generalConfig) GlobalEvmGasLimitMax() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitMax"), parse.Uint32)
+}
 func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitMultiplier"), parse.F32)
 }
@@ -1431,12 +1449,12 @@ func (c *generalConfig) LogFileDir() string {
 
 // Implemented only in config V2. V1 uses a --password flag.
 func (c *generalConfig) KeystorePassword() string {
-	c.lggr.Warn("Config V1 should us --password flag instead of calling KeystorePassword()")
+	c.lggr.Warn("Config V1 should use --password flag instead of calling KeystorePassword()")
 	return ""
 }
 
 // Implemented only in config V2. V1 uses a --vrfpassword flag.
 func (c *generalConfig) VRFPassword() string {
-	c.lggr.Warn("Config V1 should us --vrfpassword flag instead of calling VRFPassword()")
+	c.lggr.Warn("Config V1 should use --vrfpassword flag instead of calling VRFPassword()")
 	return ""
 }

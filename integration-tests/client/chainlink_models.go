@@ -6,7 +6,11 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -75,6 +79,14 @@ type TaskRun struct {
 	DotID      string      `json:"dotId"`
 }
 
+type NodeKeysBundle struct {
+	OCR2Key    OCR2Key
+	PeerID     string
+	TXKey      TxKey
+	P2PKeys    P2PKeys
+	EthAddress string
+}
+
 // RunInputs run inputs (value)
 type RunInputs struct {
 	Parse int `json:"parse"`
@@ -106,6 +118,29 @@ type BridgeTypeAttributes struct {
 type Session struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// ExportedEVMKey holds all details needed to recreate a private key of the Chainlink node
+type ExportedEVMKey struct {
+	Address string `json:"address"`
+	Crypto  struct {
+		Cipher       string `json:"cipher"`
+		CipherText   string `json:"ciphertext"`
+		CipherParams struct {
+			Iv string `json:"iv"`
+		} `json:"cipherparams"`
+		Kdf       string `json:"kdf"`
+		KDFParams struct {
+			DkLen int    `json:"dklen"`
+			N     int    `json:"n"`
+			P     int    `json:"p"`
+			R     int    `json:"r"`
+			Salt  string `json:"salt"`
+		} `json:"kdfparams"`
+		Mac string `json:"mac"`
+	} `json:"crypto"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
 }
 
 // VRFExportKey is the model that represents the exported VRF key
@@ -778,6 +813,7 @@ type OCRTaskJobSpec struct {
 	ContractConfirmations    int           `toml:"contractConfigConfirmations"`            // Optional
 	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
 	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
+	ForwardingAllowed        bool          `toml:"forwardingAllowed"`                      // Optional, by default false
 	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
 	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
 	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
@@ -793,6 +829,13 @@ type P2PData struct {
 	RemoteIP   string
 	RemotePort string
 	PeerID     string
+}
+
+func (p P2PData) P2PV2Bootstrapper() string {
+	if p.RemotePort == "" {
+		p.RemotePort = "6690"
+	}
+	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.RemoteIP, p.RemotePort)
 }
 
 // Type returns the type of the job
@@ -826,6 +869,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint       string
 		TransmitterAddress       string
 		ObservationSource        string
+		ForwardingAllowed        bool
 	}{
 		Name:                     o.Name,
 		BlockChainTimeout:        o.BlockChainTimeout,
@@ -840,6 +884,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint:       o.MonitoringEndpoint,
 		TransmitterAddress:       o.TransmitterAddress,
 		ObservationSource:        o.ObservationSource,
+		ForwardingAllowed:        o.ForwardingAllowed,
 	}
 	// Results in /dns4//tcp/6690/p2p/12D3KooWAuC9xXBnadsYJpqzZZoB4rMRWqRGpxCrr2mjS7zCoAdN\
 	ocrTemplateString := `type = "offchainreporting"
@@ -863,6 +908,7 @@ p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
+forwardingAllowed					   = {{.ForwardingAllowed}}
 observationSource                      = """
 {{.ObservationSource}}
 """`
@@ -870,25 +916,43 @@ observationSource                      = """
 	return marshallTemplate(specWrap, "OCR Job", ocrTemplateString)
 }
 
+// These are temporarily here until we find a fix for issue 53656/soak-test-compilation-broken-on-macos-m1
+// there is some compilation issue with cosmwasm
+// once fixed replace with /core/services/job/models.go versions again
+type TempOCR2PluginType string
+
+const (
+	Median  TempOCR2PluginType = "median"
+	DKG     TempOCR2PluginType = "dkg"
+	OCR2VRF TempOCR2PluginType = "ocr2vrf"
+)
+
+type TempJSONConfig map[string]interface{}
+type TempOCR2OracleSpec struct {
+	ID                                int32              `toml:"-"`
+	ContractID                        string             `toml:"contractID"`
+	Relay                             relay.Network      `toml:"relay"`
+	RelayConfig                       TempJSONConfig     `toml:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray     `toml:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String        `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
+	PluginConfig                      TempJSONConfig     `toml:"pluginConfig"`
+	PluginType                        TempOCR2PluginType `toml:"pluginType"`
+	CreatedAt                         time.Time          `toml:"-"`
+	UpdatedAt                         time.Time          `toml:"-"`
+}
+
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCR2TaskJobSpec struct {
-	Name                     string            `toml:"name"`
-	JobType                  string            `toml:"type"`
-	ContractID               string            `toml:"contractID"`                             // Address of the OCR contract/account(s)
-	Relay                    string            `toml:"relay"`                                  // Name of blockchain relay to use
-	PluginType               string            `toml:"pluginType"`                             // Type of report plugin to use
-	RelayConfig              map[string]string `toml:"relayConfig"`                            // Relay spec object in stringified form
-	P2PV2Bootstrappers       []P2PData         `toml:"p2pv2Bootstrappers"`                     // P2P ID of the bootstrap node
-	OCRKeyBundleID           string            `toml:"ocrKeyBundleID"`                         // ID of this node's OCR key bundle
-	MonitoringEndpoint       string            `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
-	TransmitterID            string            `toml:"transmitterID"`                          // ID of address this node will use to transmit
-	BlockChainTimeout        time.Duration     `toml:"blockchainTimeout"`                      // Optional
-	TrackerSubscribeInterval time.Duration     `toml:"contractConfigTrackerSubscribeInterval"` // Optional
-	TrackerPollInterval      time.Duration     `toml:"contractConfigTrackerPollInterval"`      // Optional
-	ContractConfirmations    int               `toml:"contractConfigConfirmations"`            // Optional
-	ObservationSource        string            `toml:"observationSource"`                      // List of commands for the Chainlink node
-	JuelsPerFeeCoinSource    string            `toml:"juelsPerFeeCoinSource"`                  // List of commands to fetch JuelsPerFeeCoin value (used to calculate ocr payments)
+	Name              string `toml:"name"`
+	JobType           string `toml:"type"`
+	OCR2OracleSpec    TempOCR2OracleSpec
+	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
 // Type returns the type of the job
@@ -896,9 +960,43 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
+	specWrap := struct {
+		Name                     string
+		JobType                  string
+		ContractID               string
+		Relay                    string
+		PluginType               string
+		RelayConfig              map[string]interface{}
+		PluginConfig             map[string]interface{}
+		P2PV2Bootstrappers       []string
+		OCRKeyBundleID           string
+		MonitoringEndpoint       string
+		TransmitterID            string
+		BlockchainTimeout        time.Duration
+		TrackerSubscribeInterval time.Duration
+		TrackerPollInterval      time.Duration
+		ContractConfirmations    uint16
+		ObservationSource        string
+	}{
+		Name:                  o.Name,
+		JobType:               o.JobType,
+		ContractID:            o.OCR2OracleSpec.ContractID,
+		Relay:                 string(o.OCR2OracleSpec.Relay),
+		PluginType:            string(o.OCR2OracleSpec.PluginType),
+		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
+		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
+		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
+		MonitoringEndpoint:    o.OCR2OracleSpec.MonitoringEndpoint.String,
+		TransmitterID:         o.OCR2OracleSpec.TransmitterID.String,
+		BlockchainTimeout:     o.OCR2OracleSpec.BlockchainTimeout.Duration(),
+		ContractConfirmations: o.OCR2OracleSpec.ContractConfigConfirmations,
+		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
+		ObservationSource:     o.ObservationSource,
+	}
 	ocr2TemplateString := `type = "{{ .JobType }}"
 schemaVersion                          = 1
-blockchainTimeout                      ={{if not .BlockChainTimeout}} "20s" {{else}} "{{.BlockChainTimeout}}" {{end}}
+blockchainTimeout                      ={{if not .BlockchainTimeout}} "20s" {{else}} "{{.BlockchainTimeout}}" {{end}}
 contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{else}} {{.ContractConfirmations}} {{end}}
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} "{{.TrackerPollInterval}}" {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} "{{.TrackerSubscribeInterval}}" {{end}}
@@ -907,8 +1005,7 @@ relay																	 = "{{.Relay}}"
 contractID		                         = "{{.ContractID}}"
 {{if .P2PV2Bootstrappers}}
 p2pv2Bootstrappers                      = [
-  {{range $peer := .P2PV2Bootstrappers}}
-  "{{$peer.PeerID}}@{{$peer.RemoteIP}}:{{if $peer.RemotePort}}{{$peer.RemotePort}}{{else}}6690{{end}}",
+  {{range .P2PV2Bootstrappers}}"{{.}}",
   {{end}}
 ]
 {{else}}
@@ -923,17 +1020,17 @@ observationSource                      = """
 {{.ObservationSource}}
 """
 [pluginConfig]
-juelsPerFeeCoinSource                  = """
-{{.JuelsPerFeeCoinSource}}
-"""
+{{range $key, $value := .PluginConfig}}
+{{$key}} = {{$value}}
+{{end}}
 {{end}}
 
 [relayConfig]
 {{range $key, $value := .RelayConfig}}
-{{$key}} = "{{$value}}"
+{{$key}} = {{$value}}
 {{end}}`
 
-	return marshallTemplate(o, "OCR2 Job", ocr2TemplateString)
+	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
 
 // VRFV2JobSpec represents a VRFV2 job
@@ -1157,4 +1254,34 @@ func NewBlankChainlinkProfileResults() *ChainlinkProfileResults {
 		results.Reports = append(results.Reports, &ChainlinkProfileResult{Type: profile})
 	}
 	return results
+}
+
+type CLNodesWithKeys struct {
+	Node       *Chainlink
+	KeysBundle NodeKeysBundle
+}
+
+// Forwarder the model that represents the created Forwarder when created
+type Forwarder struct {
+	Data ForwarderData `json:"data"`
+}
+
+// Forwarders is the model that represents the created Forwarders when read
+type Forwarders struct {
+	Data []Forwarder `json:"data"`
+}
+
+// ForwarderData is the model that represents the created Forwarder when read
+type ForwarderData struct {
+	ID        string    `json:"id"`
+	Address   string    `json:"address"`
+	ChainID   string    `json:"chainId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// ForwarderAttributes is the model that represents attributes of a Forwarder
+type ForwarderAttributes struct {
+	Address string `json:"address"`
+	ChainID string `json:"chainID"`
 }

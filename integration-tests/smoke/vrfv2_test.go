@@ -28,12 +28,46 @@ import (
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("VRFv2 suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(5)),
-			Entry("VRFv2 suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.05)),
-			Entry("VRFv2 suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.005)),
-			Entry("VRFv2 suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.05)),
-			Entry("VRFv2 suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.05)),
-			Entry("VRFv2 suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(.5)),
+			Entry("VRFv2 suite on Simulated Network @simulated",
+				networks.SimulatedEVM,
+				big.NewFloat(5),
+				defaultVRFv2Env(networks.SimulatedEVM),
+			),
+			Entry("VRFv2 suite on General EVM @general",
+				networks.GeneralEVM,
+				big.NewFloat(.05),
+				defaultVRFv2Env(networks.GeneralEVM),
+			),
+			Entry("VRFv2 suite on Metis Stardust @metis",
+				networks.MetisStardust,
+				big.NewFloat(.005),
+				defaultVRFv2Env(networks.MetisStardust),
+			),
+			Entry("VRFv2 suite on Sepolia Testnet @sepolia",
+				networks.SepoliaTestnet,
+				big.NewFloat(.05),
+				defaultVRFv2Env(networks.SepoliaTestnet),
+			),
+			Entry("VRFv2 suite on on Görli Testnet @goerli",
+				networks.GoerliTestnet,
+				big.NewFloat(.05),
+				defaultVRFv2Env(networks.GoerliTestnet),
+			),
+			Entry("VRFv2 suite on Klaytn Baobab @klaytn",
+				networks.KlaytnBaobab,
+				big.NewFloat(.5),
+				defaultVRFv2Env(networks.KlaytnBaobab),
+			),
+			Entry("VRFv2 suite on Optimism Goerli @optimism",
+				networks.OptimismGoerli,
+				big.NewFloat(.05),
+				defaultVRFv2Env(networks.OptimismGoerli),
+			),
+			Entry("VRFv2 suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				big.NewFloat(.05),
+				defaultVRFv2Env(networks.ArbitrumGoerli),
+			),
 		}
 
 		testEnvironment *environment.Environment
@@ -53,23 +87,10 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	DescribeTable("VRFv2 suite on different EVM networks", func(
 		testNetwork *blockchain.EVMNetwork,
 		funding *big.Float,
+		env *environment.Environment,
 	) {
-		evmChart := ethdeploy.New(nil)
-		if !testNetwork.Simulated {
-			evmChart = ethdeploy.New(&ethdeploy.Props{
-				NetworkName: testNetwork.Name,
-				Simulated:   testNetwork.Simulated,
-				WsURLs:      testNetwork.URLs,
-			})
-		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		}).
-			AddHelm(evmChart).
-			AddHelm(chainlink.New(0, map[string]interface{}{
-				"env": testNetwork.ChainlinkValuesMap(),
-			}))
+		testEnvironment = env
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -193,3 +214,21 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		testScenarios,
 	)
 })
+
+func defaultVRFv2Env(network *blockchain.EVMNetwork) *environment.Environment {
+	evmConfig := ethdeploy.New(nil)
+	if !network.Simulated {
+		evmConfig = ethdeploy.New(&ethdeploy.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"env": network.ChainlinkValuesMap(),
+		}))
+}

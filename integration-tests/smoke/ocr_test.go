@@ -27,12 +27,46 @@ import (
 var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("OCR suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(50)),
-			Entry("OCR suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(1)),
-			Entry("OCR suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
-			Entry("OCR suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
-			Entry("OCR suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
-			Entry("OCR suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
+			Entry("OCR suite on Simulated Network @simulated",
+				networks.SimulatedEVM,
+				big.NewFloat(50),
+				defaultOCREnv(networks.SimulatedEVM),
+			),
+			Entry("OCR suite on General EVM @general",
+				networks.GeneralEVM,
+				big.NewFloat(.1),
+				defaultOCREnv(networks.GeneralEVM),
+			),
+			Entry("OCR suite on Metis Stardust @metis",
+				networks.MetisStardust,
+				big.NewFloat(.01),
+				defaultOCREnv(networks.MetisStardust),
+			),
+			Entry("OCR suite on Sepolia Testnet @sepolia",
+				networks.SepoliaTestnet,
+				big.NewFloat(.1),
+				defaultOCREnv(networks.SepoliaTestnet),
+			),
+			Entry("OCR suite on Görli Testnet @goerli",
+				networks.GoerliTestnet,
+				big.NewFloat(.1),
+				defaultOCREnv(networks.GoerliTestnet),
+			),
+			Entry("OCR suite on Klaytn Baobab @klaytn",
+				networks.KlaytnBaobab,
+				big.NewFloat(1),
+				defaultOCREnv(networks.KlaytnBaobab),
+			),
+			Entry("OCR suite on Optimism Goerli @optimism",
+				networks.OptimismGoerli,
+				big.NewFloat(.0005),
+				defaultOCREnv(networks.OptimismGoerli),
+			),
+			Entry("OCR suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				big.NewFloat(.005),
+				defaultOCREnv(networks.ArbitrumGoerli),
+			),
 		}
 
 		err               error
@@ -55,26 +89,11 @@ var _ = Describe("OCR Feed @ocr", func() {
 	DescribeTable("OCR suite on different EVM networks", func(
 		testNetwork *blockchain.EVMNetwork,
 		funding *big.Float,
+		env *environment.Environment,
 	) {
-		evmChart := ethereum.New(nil)
-		if !testNetwork.Simulated {
-			evmChart = ethereum.New(&ethereum.Props{
-				NetworkName: testNetwork.Name,
-				Simulated:   testNetwork.Simulated,
-				WsURLs:      testNetwork.URLs,
-			})
-		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		}).
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart).
-			AddHelm(chainlink.New(0, map[string]interface{}{
-				"env":      testNetwork.ChainlinkValuesMap(),
-				"replicas": 6,
-			}))
+		testEnvironment = env
+
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -123,3 +142,24 @@ var _ = Describe("OCR Feed @ocr", func() {
 		testScenarios,
 	)
 })
+
+func defaultOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
+	evmConfig := ethereum.New(nil)
+	if !network.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"env":      network.ChainlinkValuesMap(),
+			"replicas": 6,
+		}))
+}

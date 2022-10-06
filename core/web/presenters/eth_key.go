@@ -14,6 +14,7 @@ type ETHKeyResource struct {
 	JAID
 	EVMChainID     utils.Big    `json:"evmChainID"`
 	Address        string       `json:"address"`
+	NextNonce      int64        `json:"nextNonce"`
 	EthBalance     *assets.Eth  `json:"ethBalance"`
 	LinkBalance    *assets.Link `json:"linkBalance"`
 	Disabled       bool         `json:"disabled"`
@@ -41,6 +42,7 @@ func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOpti
 	r := &ETHKeyResource{
 		JAID:        NewJAID(k.Address.Hex()),
 		EVMChainID:  state.EVMChainID,
+		NextNonce:   state.NextNonce,
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
 		LinkBalance: nil,

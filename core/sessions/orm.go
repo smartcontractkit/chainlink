@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"crypto/subtle"
-	"database/sql"
 	"encoding/json"
 	"strings"
 	"time"
@@ -84,6 +83,9 @@ func (o *orm) ListUsers() (users []User, err error) {
 	return
 }
 
+// ErrUserSessionExpired defines the error triggered when the user session has expired
+var ErrUserSessionExpired = errors.New("session missing or expired, please login again")
+
 // AuthorizedUserWithSession will return the API user associated with the Session ID if it
 // exists and hasn't expired, and update session's LastUsed field.
 func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
@@ -94,24 +96,25 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 	var user User
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		// First find user based on session token
-		var email string
-		if err := tx.Get(&email, "SELECT email FROM sessions WHERE id = $1 FOR UPDATE", sessionID); err != nil {
+		var foundSession struct {
+			Email string
+			Valid bool
+		}
+		if err := tx.Get(&foundSession, "SELECT email, last_used + $2 >= now() as valid FROM sessions WHERE id = $1 FOR UPDATE", sessionID, o.sessionDuration); err != nil {
 			return errors.Wrap(err, "no matching user for provided session token")
 		}
-		if err := tx.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
+
+		if !foundSession.Valid {
+			return ErrUserSessionExpired
+		}
+
+		if err := tx.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", foundSession.Email); err != nil {
 			return errors.Wrap(err, "no matching user for provided session email")
 		}
-		// Sesssion valid and tied to user, update last_used
-		result, err := tx.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
+		// Session valid and tied to user, update last_used
+		_, err := tx.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
 		if err != nil {
 			return errors.Wrap(err, "unable to update sessions table")
-		}
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			return err
-		}
-		if rowsAffected == 0 {
-			return sql.ErrNoRows
 		}
 		return nil
 	})

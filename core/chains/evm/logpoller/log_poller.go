@@ -12,10 +12,13 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -29,7 +32,7 @@ type LogPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 	MergeFilter(eventSigs []common.Hash, addresses []common.Address) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
-	GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
+	GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
@@ -59,13 +62,14 @@ type logPoller struct {
 	pollPeriod        time.Duration // poll period set by block production rate
 	finalityDepth     int64         // finality depth is taken to mean that block (head - finality) is finalized
 	backfillBatchSize int64         // batch size to use when backfilling finalized logs
+	rpcBatchSize      int64         // batch size to use for fallback RPC calls made in GetBlocks
 
 	filterMu  sync.RWMutex
 	addresses map[common.Address]struct{}
 	eventSigs map[common.Hash]struct{}
 
 	replayStart    chan ReplayRequest
-	replayComplete chan struct{}
+	replayComplete chan error
 	ctx            context.Context
 	cancel         context.CancelFunc
 	done           chan struct{}
@@ -78,23 +82,25 @@ type ReplayRequest struct {
 
 // NewLogPoller creates a log poller. Note there is an assumption
 // that blocks can be processed faster than they are produced for the given chain, or the poller will fall behind.
-// Block processing involves in the steady state (non-reorg case):
+// Block processing involves the following calls in steady state (without reorgs):
 // - eth_getBlockByNumber - headers only (transaction hashes, not full transaction objects),
-// - 1 db read latest block
+// - eth_getLogs - get the logs for the block
+// - 1 db read latest block - for checking reorgs
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize int64) *logPoller {
+func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize, rpcBatchSize int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
 		lggr:              lggr,
 		replayStart:       make(chan ReplayRequest),
-		replayComplete:    make(chan struct{}),
+		replayComplete:    make(chan error),
 		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
+		rpcBatchSize:      rpcBatchSize,
 		addresses:         make(map[common.Address]struct{}),
 		eventSigs:         make(map[common.Hash]struct{}),
 	}
@@ -180,12 +186,14 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 	// Block until replay complete or cancelled.
 	select {
-	case <-lp.replayComplete:
+	case err := <-lp.replayComplete:
+		return err
 	case <-lp.ctx.Done():
 		return ErrReplayAbortedOnShutdown
 	case <-ctx.Done():
 		return ErrReplayAbortedByClient
 	}
+	// Should never reach here.
 	return nil
 }
 
@@ -207,6 +215,22 @@ func (lp *logPoller) Close() error {
 	})
 }
 
+func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
+	lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			// Real DB error
+			return 0, err
+		}
+		// Nothing in db, use requested
+		return requested, nil
+	}
+	// We have lastProcessed, take min(requested, lastProcessed).
+	// This is to avoid replaying from a block later than what we have in the DB
+	// and skipping blocks.
+	return mathutil.Min(requested, lastProcessed.BlockNumber), nil
+}
+
 func (lp *logPoller) run() {
 	defer close(lp.done)
 	tick := time.After(0)
@@ -215,9 +239,14 @@ func (lp *logPoller) run() {
 		case <-lp.ctx.Done():
 			return
 		case replayReq := <-lp.replayStart:
-			lp.lggr.Warnw("Executing replay", "fromBlock", replayReq.fromBlock)
-			// Serially process replay requests.
-			lp.pollAndSaveLogs(replayReq.ctx, replayReq.fromBlock)
+			fromBlock, err := lp.getReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
+			if err == nil {
+				// Serially process replay requests.
+				lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
+				lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
+			} else {
+				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
+			}
 			select {
 			case <-lp.ctx.Done():
 				// We're shutting down, lets return.
@@ -225,7 +254,7 @@ func (lp *logPoller) run() {
 			case <-replayReq.ctx.Done():
 				// Client gave up, lets continue.
 				continue
-			case lp.replayComplete <- struct{}{}:
+			case lp.replayComplete <- err:
 			}
 		case <-tick:
 			tick = time.After(utils.WithJitter(lp.pollPeriod))
@@ -291,52 +320,59 @@ func convertTopics(topics []common.Hash) [][]byte {
 	return topicsForDB
 }
 
-func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
+// backfill will query FilterLogs in batches for logs in the
+// block range [start, end] and save them to the db.
+// Retries until ctx cancelled. Will return an error if cancelled
+// or if there is an error backfilling.
+func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	for from := start; from <= end; from += lp.backfillBatchSize {
-		var (
-			logs []types.Log
-			err  error
-		)
 		to := mathutil.Min(from+lp.backfillBatchSize-1, end)
-		// Retry forever to query for logs,
-		// unblocked by resolving node connectivity issues.
-		utils.RetryWithBackoff(ctx, func() bool {
-			logs, err = lp.ec.FilterLogs(ctx, lp.filter(big.NewInt(from), big.NewInt(to), nil))
-			if err != nil {
-				lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", from, "to", to)
-				return true
-			}
-			return false
-		})
+		logs, err := lp.ec.FilterLogs(ctx, lp.filter(big.NewInt(from), big.NewInt(to), nil))
+		if err != nil {
+			lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", from, "to", to)
+			return err
+		}
 		if len(logs) == 0 {
 			continue
 		}
 		lp.lggr.Infow("Backfill found logs", "from", from, "to", to, "logs", len(logs))
-		// Retry forever to save logs,
-		// unblocked by resolving db connectivity issues.
-		utils.RetryWithBackoff(ctx, func() bool {
-			err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-				return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
-			})
-			if err != nil {
-				lp.lggr.Warnw("Unable to insert logs logs, retrying", "err", err, "from", from, "to", to)
-				return true
-			}
-			return false
+		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
 		})
+		if err != nil {
+			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
+			return err
+		}
 	}
-	return end + 1
+	return nil
 }
 
 // getCurrentBlockMaybeHandleReorg accepts a block number
 // and will return that block if its parent points to our last saved block.
-// If its parent does not point to our last saved block we know a reorg has occurred.
-// In that case return the LCA+1, i.e. our new current (unprocessed) block.
-func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64) (*types.Header, error) {
-	currentBlock, err1 := lp.ec.HeaderByNumber(ctx, big.NewInt(currentBlockNumber))
-	if err1 != nil {
-		lp.lggr.Warnw("Unable to get currentBlock", "err", err1, "currentBlockNumber", currentBlockNumber)
-		return nil, err1
+// One can optionally pass the block header if it has already been queried to avoid an extra RPC call.
+// If its parent does not point to our last saved block we know a reorg has occurred,
+// so we:
+// 1. Find the LCA by following parent hashes.
+// 2. Delete all logs and blocks after the LCA
+// 3. Return the LCA+1, i.e. our new current (unprocessed) block.
+func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *types.Header) (*types.Header, error) {
+	var err1 error
+	if currentBlock == nil {
+		// If we don't have the current block already, lets get it.
+		currentBlock, err1 = lp.ec.HeaderByNumber(ctx, big.NewInt(currentBlockNumber))
+		if err1 != nil {
+			lp.lggr.Warnw("Unable to get currentBlock", "err", err1, "currentBlockNumber", currentBlockNumber)
+			return nil, err1
+		}
+		// Additional sanity checks, don't necessarily trust the RPC.
+		if currentBlock == nil {
+			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
+			return nil, errors.Errorf("Got nil block for %d", currentBlockNumber)
+		}
+		if currentBlock.Number.Int64() != currentBlockNumber {
+			lp.lggr.Warnw("Unable to get currentBlock, rpc returned incorrect block", "currentBlockNumber", currentBlockNumber, "got", currentBlock.Number.Int64())
+			return nil, errors.Errorf("Block mismatch have %d want %d", currentBlock.Number.Int64(), currentBlockNumber)
+		}
 	}
 	// Does this currentBlock point to the same parent that we have saved?
 	// If not, there was a reorg, so we need to rewind.
@@ -349,7 +385,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	// We will not have the previous currentBlock on initial poll.
 	havePreviousBlock := err1 == nil
 	if !havePreviousBlock {
-		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill")
+		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill", "currentBlockNumber", currentBlockNumber)
 		return currentBlock, nil
 	}
 	// Check for reorg.
@@ -374,12 +410,12 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			// These deletes are bounded by reorg depth, so they are
 			// fast and should not slow down the log readers.
-			err3 := lp.orm.DeleteRangeBlocks(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
+			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
 				return err3
 			}
-			err3 = lp.orm.DeleteLogs(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
+			err3 = lp.orm.DeleteLogsAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err3)
 				return err3
@@ -414,16 +450,22 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
 		return
 	}
+	var currentBlock *types.Header
+	if currentBlockNumber == latestBlockNumber {
+		// Can re-use our currentBlock and avoid an extra RPC call.
+		currentBlock = latestBlock
+	}
 	// Possibly handle a reorg. For example if we crash, we'll be in the middle of processing unfinalized blocks.
 	// Returns (currentBlock || LCA+1 if reorg detected, error)
-	currentBlock, err := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
+	currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, currentBlock)
 	if err != nil {
 		// If there's an error handling the reorg, we can't be sure what state the db was left in.
-		// Resume from the latest block saved.
-		lp.lggr.Errorw("Unable to get current block", "err", err)
+		// Resume from the latest block saved and retry.
+		lp.lggr.Errorw("Unable to get current block, retrying", "err", err)
 		return
 	}
 	currentBlockNumber = currentBlock.Number.Int64()
+
 	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs.
 	// Log insertion is idempotent so this is ok.
 	// E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
@@ -432,12 +474,15 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
 	if lastSafeBackfillBlock >= currentBlockNumber {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", lastSafeBackfillBlock)
-		currentBlockNumber = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock)
-	}
-
-	for currentBlockNumber <= latestBlockNumber {
-		// Same reorg detection on unfinalized blocks.
-		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
+		if err = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
+			// If there's an error backfilling, we can just return and retry from the last block saved
+			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
+			lp.lggr.Errorw("Unable to backfill, retrying", "err", err)
+			return
+		}
+		// If we successfully backfilled we have logs up to and including lastSafeBackfillBlock,
+		// now load the first unfinalized block.
+		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, lastSafeBackfillBlock+1, nil)
 		if err != nil {
 			// If there's an error handling the reorg, we can't be sure what state the db was left in.
 			// Resume from the latest block saved.
@@ -445,6 +490,9 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		currentBlockNumber = currentBlock.Number.Int64()
+	}
+
+	for {
 		h := currentBlock.Hash()
 		var logs []types.Log
 		logs, err = lp.ec.FilterLogs(ctx, lp.filter(nil, nil, &h))
@@ -454,7 +502,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		}
 		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			if err2 := lp.orm.InsertBlock(currentBlock.Hash(), currentBlockNumber, pg.WithQueryer(tx)); err2 != nil {
+			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, pg.WithQueryer(tx)); err2 != nil {
 				return err2
 			}
 			if len(logs) == 0 {
@@ -466,7 +514,20 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err, "block", currentBlockNumber)
 			return
 		}
+		// Update current block.
+		// Same reorg detection on unfinalized blocks.
 		currentBlockNumber++
+		if currentBlockNumber > latestBlockNumber {
+			break
+		}
+		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
+		if err != nil {
+			// If there's an error handling the reorg, we can't be sure what state the db was left in.
+			// Resume from the latest block saved.
+			lp.lggr.Errorw("Unable to get current block", "err", err)
+			return
+		}
+		currentBlockNumber = currentBlock.Number.Int64()
 	}
 }
 
@@ -481,7 +542,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Heade
 	}
 	blockAfterLCA := *current
 	reorgStart := parent.Number.Int64()
-	// We expected reorgs up to the block after (current - finalityDepth),
+	// We expect reorgs up to the block after (current - finalityDepth),
 	// since the block at (current - finalityDepth) is finalized.
 	// We loop via parent instead of current so current always holds the LCA+1.
 	// If the parent block number becomes < the first finalized block our reorg is too deep.
@@ -588,6 +649,7 @@ func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return b.BlockNumber, nil
 }
 
@@ -612,12 +674,83 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 
 // GetBlocks tries to get the specified block numbers from the log pollers
 // blocks table. Returns the blocks it was able to find, empty slice if none.
-// It is not guaranteed to find the blocks specified, since
-// the log poller does not save blocks when backfilling.
-// It can be used as a cache of recent blocks (falling back to an RPC on cache miss),
-// to speed up querying and avoid loading an EVM node.
-func (lp *logPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
-	return lp.orm.GetBlocks(numbers, qopts...)
+// When the log poller does not have requested blocks, it falls back
+// to RPC to fetch the missing blocks.
+// response contains blocks in the same order as "numbers" in request parameters
+// the first context parameter takes precedence over contexts passed through qopts
+func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	blocksFound := make(map[uint64]LogPollerBlock)
+	qopts = append(qopts, pg.WithParentCtx(ctx))
+	lpBlocks, err := lp.orm.GetBlocks(numbers, qopts...)
+	if err != nil {
+		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
+	}
+	for _, b := range lpBlocks {
+		blocksFound[uint64(b.BlockNumber)] = b
+	}
+
+	// Fallback to RPC for blocks not found in log poller blocks table
+	var reqs []rpc.BatchElem
+	for _, num := range numbers {
+		if _, ok := blocksFound[num]; !ok {
+			req := rpc.BatchElem{
+				Method: "eth_getBlockByNumber",
+				Args:   []interface{}{hexutil.EncodeBig(big.NewInt(0).SetUint64(num)), false},
+				Result: &evmtypes.Head{},
+			}
+			reqs = append(reqs, req)
+		}
+	}
+
+	for i := 0; i < len(reqs); i += int(lp.rpcBatchSize) {
+		j := i + int(lp.rpcBatchSize)
+		if j > len(reqs) {
+			j = len(reqs)
+		}
+
+		err := lp.ec.BatchCallContext(ctx, reqs[i:j])
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, r := range reqs {
+		if r.Error != nil {
+			return nil, r.Error
+		}
+		block, is := r.Result.(*evmtypes.Head)
+
+		if !is {
+			return nil, errors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
+		}
+		if block == nil {
+			return nil, errors.New("invariant violation: got nil block")
+		}
+		if block.Hash == (common.Hash{}) {
+			return nil, errors.Errorf("missing block hash for block number: %d", block.Number)
+		}
+		if block.Number < 0 {
+			return nil, errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
+		}
+		blocksFound[uint64(block.Number)] = LogPollerBlock{
+			EvmChainId:  block.EVMChainID,
+			BlockHash:   block.Hash,
+			BlockNumber: block.Number,
+			CreatedAt:   block.Timestamp,
+		}
+	}
+
+	var blocks []LogPollerBlock
+	for _, num := range numbers {
+		b, ok := blocksFound[num]
+		if !ok {
+			return nil, errors.Errorf("block: %d was not found in db or RPC call", num)
+		}
+		blocks = append(blocks, b)
+	}
+
+	return blocks, nil
 }
 
 func EvmWord(i uint64) common.Hash {

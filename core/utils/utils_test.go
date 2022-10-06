@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -420,12 +421,12 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 
 	go func() {
 		ch <- 1
-		once.StartOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StartOnce("slow service", func() (err error) {
 			ready <- true
 			<-next // continue after the other StartOnce call fails
 
 			return nil
-		})
+		}))
 		<-next
 		ch <- 2
 
@@ -433,9 +434,9 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 
 	go func() {
 		<-ready // try starting halfway through startup
-		once.StartOnce("slow service", func() (err error) {
+		assert.Error(t, once.StartOnce("slow service", func() (err error) {
 			return nil
-		})
+		}))
 		next <- true
 		ch <- 3
 		next <- true
@@ -782,7 +783,7 @@ func TestStartStopOnce_StartErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "foo has already been started once")
 	err = s.StopOnce("foo", func() error { return nil })
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "foo is not started or has already been stopped; state=StartFailed")
+	assert.Contains(t, err.Error(), "foo cannot be stopped from this state; state=StartFailed")
 
 	assert.Equal(t, utils.StartStopOnce_StartFailed, s.LoadState())
 }
@@ -811,7 +812,7 @@ func TestStartStopOnce_StopErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "foo has already been started once")
 	err = s.StopOnce("foo", func() error { return nil })
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "foo is not started or has already been stopped; state=StopFailed")
+	assert.Contains(t, err.Error(), "foo cannot be stopped from this state; state=StopFailed")
 
 	assert.Equal(t, utils.StartStopOnce_StopFailed, s.LoadState())
 }

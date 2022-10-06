@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -24,15 +25,21 @@ import (
 )
 
 type poolConfig struct {
-	selectionMode string
+	selectionMode       string
+	noNewHeadsThreshold time.Duration
 }
 
 func (c poolConfig) NodeSelectionMode() string {
 	return c.selectionMode
 }
 
+func (c poolConfig) NodeNoNewHeadsThreshold() time.Duration {
+	return c.noNewHeadsThreshold
+}
+
 var defaultConfig evmclient.PoolConfig = &poolConfig{
-	selectionMode: evmclient.NodeSelectionMode_RoundRobin,
+	selectionMode:       evmclient.NodeSelectionMode_RoundRobin,
+	noNewHeadsThreshold: 0,
 }
 
 func TestPool_Dial(t *testing.T) {
@@ -145,8 +152,7 @@ func TestPool_Dial(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
-			defer cancel()
+			ctx := testutils.Context(t)
 
 			nodes := make([]evmclient.Node, len(test.nodes))
 			for i, n := range test.nodes {

@@ -47,6 +47,7 @@ type ChainScopedOnlyConfig interface {
 	EvmGasBumpWei() *big.Int
 	EvmGasFeeCapDefault() *big.Int
 	EvmGasLimitDefault() uint32
+	EvmGasLimitMax() uint32
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint32
 	EvmGasLimitOCRJobType() *uint32
@@ -89,7 +90,7 @@ type ChainScopedOnlyConfig interface {
 
 //go:generate mockery --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.GeneralConfig
+	config.BasicConfig
 	ChainScopedOnlyConfig
 	Validate() error
 	// Both Configure() and PersistedConfig() should be accessed through ChainSet methods only.
@@ -97,8 +98,15 @@ type ChainScopedConfig interface {
 	PersistedConfig() evmtypes.ChainCfg
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+type LegacyChainScopedConfig interface {
+	ChainScopedConfig
+	config.GeneralConfig
+}
+
 var _ ChainScopedConfig = &chainScopedConfig{}
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type chainScopedConfig struct {
 	config.GeneralConfig
 	logger     logger.Logger
@@ -115,7 +123,8 @@ type chainScopedConfig struct {
 	onceMapMu sync.RWMutex
 }
 
-func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) ChainScopedConfig {
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) LegacyChainScopedConfig {
 	csorm := &chainScopedConfigORM{*utils.NewBig(chainID), orm}
 	defaultSet, exists := chainSpecificConfigDefaultSets[chainID.Int64()]
 	if !exists {
@@ -172,7 +181,10 @@ func (c *chainScopedConfig) validate() (err error) {
 	if c.EvmGasFeeCapDefault().Cmp(c.EvmGasTipCapDefault()) < 0 {
 		err = multierr.Combine(err, errors.Errorf("EVM_GAS_FEE_CAP_DEFAULT (%s) must be greater than or equal to EVM_GAS_TIP_CAP_DEFAULT (%s)", c.EvmGasFeeCapDefault(), c.EvmGasTipCapDefault()))
 	}
-	if c.EvmGasFeeCapDefault().Cmp(c.EvmMaxGasPriceWei()) > 0 {
+	if c.EvmGasBumpThreshold() == 0 && c.GasEstimatorMode() == "FixedPrice" && c.EvmGasFeeCapDefault().Cmp(c.EvmMaxGasPriceWei()) != 0 && c.EvmEIP1559DynamicFees() {
+		// EvmGasFeeCapDefault MUST == EvmMaxGasPriceWei in EIP1559 mode if fixed estimator mode is on and gas bumping is disabled
+		err = multierr.Combine(err, errors.Errorf("You are using FixedPrice estimator with gas bumping disabled in EIP1559 mode. ETH_MAX_GAS_PRICE_WEI (current value: %s) will be used as the FeeCap for transactions instead of EVM_GAS_TIP_CAP_DEFAULT (current value: %s). To prevent surprising behaviour, you are required to set EVM_GAS_TIP_CAP_DEFAULT and ETH_MAX_GAS_PRICE_WEI to the same value in this mode", c.EvmMaxGasPriceWei(), c.EvmGasFeeCapDefault()))
+	} else if c.EvmGasFeeCapDefault().Cmp(c.EvmMaxGasPriceWei()) > 0 {
 		err = multierr.Combine(err, errors.Errorf("EVM_GAS_FEE_CAP_DEFAULT (%s) must be less than or equal to ETH_MAX_GAS_PRICE_WEI (%s)", c.EvmGasFeeCapDefault(), c.EvmMaxGasPriceWei()))
 	}
 	if c.EvmMinGasPriceWei().Cmp(c.EvmGasPriceDefault()) > 0 {
@@ -286,14 +298,6 @@ func (c *chainScopedConfig) logKeySpecificOverrideOnce(name string, addr gethcom
 	}
 	c.logger.Infof("Key-specific var set %s=%v for key %s, overriding chain-specific values for %s", name, pstVal, addr.Hex(), name)
 	c.onceMap[k] = struct{}{}
-}
-
-// EvmBalanceMonitorBlockDelay is the number of blocks that the balance monitor
-// trails behind head. This is required e.g. for Infura because they will often
-// announce a new head, then route a request to a different node which does not
-// have this head yet.
-func (c *chainScopedConfig) EvmBalanceMonitorBlockDelay() uint16 {
-	return c.defaultSet.balanceMonitorBlockDelay
 }
 
 // EvmGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
@@ -737,9 +741,6 @@ func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uin
 		c.logPersistedOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", p.Int64)
 		return uint16(p.Int64)
 	}
-	if c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks != nil {
-		return *c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks
-	}
 	// Default is the gas bump threshold + 1 block
 	return uint16(c.EvmGasBumpThreshold() + 1)
 }
@@ -961,6 +962,22 @@ func (c *chainScopedConfig) EvmUseForwarders() bool {
 		return p.Bool
 	}
 	return c.defaultSet.useForwarders
+}
+
+func (c *chainScopedConfig) EvmGasLimitMax() uint32 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitMax()
+	if ok {
+		c.logEnvOverrideOnce("EvmGasLimitMax", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasLimitMax
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmGasLimitMax", p.Int64)
+		return uint32(p.Int64)
+	}
+	return c.defaultSet.gasLimitMax
 }
 
 // EvmGasLimitMultiplier is a factor by which a transaction's GasLimit is
@@ -1235,6 +1252,7 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 	return c.defaultSet.nodeSelectionMode
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func lookupEnv[T any](c *chainScopedConfig, k string, parse func(string) (T, error)) (t T, ok bool) {
 	s, ok := os.LookupEnv(k)
 	if !ok {

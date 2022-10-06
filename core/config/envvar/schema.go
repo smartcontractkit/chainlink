@@ -35,6 +35,7 @@ import (
 //
 // Good example usage is for alternative blockchain support, new services like
 // Feeds Manager, external initiators and so on.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type ConfigSchema struct {
 	// ESSENTIAL
 	DatabaseURL string `env:"DATABASE_URL"`
@@ -171,6 +172,7 @@ type ConfigSchema struct {
 	EvmGasBumpWei         *big.Int `env:"ETH_GAS_BUMP_WEI"`
 	EvmGasFeeCapDefault   *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
 	EvmGasLimitDefault    uint32   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitMax        uint32   `env:"ETH_GAS_LIMIT_MAX"`
 	EvmGasLimitMultiplier float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
 	EvmGasLimitTransfer   uint32   `env:"ETH_GAS_LIMIT_TRANSFER"`
 	EvmGasPriceDefault    *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
@@ -279,7 +281,8 @@ type ConfigSchema struct {
 	KeeperBaseFeeBufferPercent              uint32        `env:"KEEPER_BASE_FEE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
-	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
+	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"300000"`
+	KeeperRegistryMaxPerformDataSize        uint64        `env:"KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE" default:"5000"`
 	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`

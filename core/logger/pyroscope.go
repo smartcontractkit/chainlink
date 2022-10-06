@@ -23,17 +23,7 @@ func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
 	runtime.SetBlockProfileRate(cfg.AutoPprofBlockProfileRate())
 	runtime.SetMutexProfileFraction(cfg.AutoPprofMutexProfileFraction())
 
-	sha := static.Sha
-	ver := static.Version
-
-	if sha == "" {
-		sha = "unset"
-	} else if len(sha) > 7 {
-		sha = sha[:7]
-	}
-	if ver == "" {
-		ver = "unset"
-	}
+	sha, ver := static.Short()
 
 	return pyroscope.Start(pyroscope.Config{
 		// Maybe configurable to identify the specific NOP - TBD

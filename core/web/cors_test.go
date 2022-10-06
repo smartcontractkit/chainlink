@@ -4,8 +4,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {
