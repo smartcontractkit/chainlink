@@ -438,9 +438,6 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
-
-	_, err = lp.Logs(1, 1, EmitterABI.Events["Log1"].ID, common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbd"))
-	require.Error(t, err)
 }
 
 func TestLogPoller_GetBlocks(t *testing.T) {
