@@ -79,9 +79,17 @@ func (o *ORM) SelectLatestLogEventSigWithConfs(eventSig common.Hash, address com
 	return &l, nil
 }
 
+// DeleteBlocksAfter delete all blocks after and including start.
 func (o *ORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.Exec(`DELETE FROM log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
+	return err
+}
+
+// DeleteBlocksBefore delete all blocks before and including end.
+func (o *ORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	_, err := q.Exec(`DELETE FROM log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, end, utils.NewBig(o.chainID))
 	return err
 }
 
