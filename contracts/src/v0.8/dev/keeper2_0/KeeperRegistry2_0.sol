@@ -859,11 +859,9 @@ contract KeeperRegistry2_0 is
    * @param id upkeep to withdraw funds from
    * @param to destination address for sending remaining funds
    */
-  /**
-   * @dev nonRentrant as this is not callable from a user's performUpkeep
-   */
-  function withdrawFunds(uint256 id, address to) external nonReentrant {
+  function withdrawFunds(uint256 id, address to) external {
     // Executed through logic contract
+    // Restricted to nonRentrant in logic contract as this is not callable from a user's performUpkeep
     _fallback();
   }
 
