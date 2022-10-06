@@ -2,11 +2,9 @@ package internal_test
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"net"
 	"testing"
 	"time"
 
@@ -15,80 +13,89 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/ocr2vrf/altbn_128"
-	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
-	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/test_vrf_beacon_v1"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/test_vrf_beacon_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/test_vrf_coordinator_v1"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/test_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator_proxy"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_proxy_admin"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/libocr/commontypes"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/stretchr/testify/require"
 )
 
-type ocr2vrfUniverse struct {
-	owner   *bind.TransactOpts
-	backend *backends.SimulatedBackend
+func setupOCR2VRFV2Contracts(
+	t *testing.T,
+	beaconPeriod int64,
+	uni ocr2vrfUniverse) ocr2vrfUniverse {
 
-	dkgAddress common.Address
-	dkg        *dkg_wrapper.DKG
+	coordinatorImplAddress, _, _, err := test_vrf_coordinator_v2.DeployTestVRFCoordinatorV2(uni.owner, uni.backend)
+	require.NoError(t, err)
+	uni.backend.Commit()
 
-	beaconAddress      common.Address
-	coordinatorAddress common.Address
-	beacon             *vrf_beacon.VRFBeacon
-	coordinator        *vrf_wrapper.VRFCoordinator
+	beaconImplAddress, _, _, err := test_vrf_beacon_v2.DeployTestVRFBeaconV2(uni.owner, uni.backend)
+	require.NoError(t, err)
+	uni.backend.Commit()
 
-	linkAddress common.Address
-	link        *link_token_interface.LinkToken
+	coordinatorAbi, err := test_vrf_coordinator_v2.TestVRFCoordinatorV2MetaData.GetAbi()
+	require.NoError(t, err)
+	coordinatorCalldata, err := coordinatorAbi.Pack("initialize", big.NewInt(beaconPeriod), uni.linkAddress)
+	require.NoError(t, err)
 
-	consumerAddress common.Address
-	consumer        *vrf_beacon_consumer.BeaconVRFConsumer
+	beaconAbi, err := test_vrf_beacon_v2.TestVRFBeaconV2MetaData.GetAbi()
+	require.NoError(t, err)
+	beaconCalldata, err := beaconAbi.Pack("initialize", uni.linkAddress, uni.coordinatorAddress, uni.dkgAddress, uni.keyID, true)
+	require.NoError(t, err)
 
-	feedAddress common.Address
-	feed        *mock_v3_aggregator_contract.MockV3AggregatorContract
+	uni.proxyAdmin.VrfUpgradeAndCall(
+		uni.owner,
+		uni.coordinatorAddress,
+		uni.beaconAddress,
+		coordinatorImplAddress,
+		beaconImplAddress,
+		coordinatorCalldata,
+		beaconCalldata,
+	)
 
-	proxyAdminAddress common.Address
-	proxyAdmin        *vrf_proxy_admin.VRFProxyAdmin
-
-	keyID [32]byte
+	return ocr2vrfUniverse{
+		owner:              uni.owner,
+		backend:            uni.backend,
+		dkgAddress:         uni.dkgAddress,
+		dkg:                uni.dkg,
+		beaconAddress:      uni.beaconAddress,
+		coordinatorAddress: uni.coordinatorAddress,
+		beacon:             uni.beacon,
+		coordinator:        uni.coordinator,
+		linkAddress:        uni.linkAddress,
+		link:               uni.link,
+		consumerAddress:    uni.consumerAddress,
+		consumer:           uni.consumer,
+		feedAddress:        uni.feedAddress,
+		feed:               uni.feed,
+		keyID:              uni.keyID,
+	}
 }
 
-type ocr2Node struct {
-	app         *cltest.TestApplication
-	peerID      string
-	transmitter common.Address
-	keybundle   ocr2key.KeyBundle
-	config      *configtest.TestGeneralConfig
-}
-
-func setupOCR2VRFContracts(
+func setupOCR2VRFV1Contracts(
 	t *testing.T, beaconPeriod int64, keyID [32]byte, consumerShouldFail bool) ocr2vrfUniverse {
 	owner := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
@@ -121,12 +128,10 @@ func setupOCR2VRFContracts(
 
 	b.Commit()
 
-	proxyAdminAddress, _, _, err := vrf_proxy_admin.DeployVRFProxyAdmin(owner, b)
-	require.NoError(t, err)
-
+	proxyAdminAddress, _, proxyAdmin, err := vrf_proxy_admin.DeployVRFProxyAdmin(owner, b)
 	b.Commit()
 
-	coordinatorImplAddress, _, _, err := vrf_wrapper.DeployVRFCoordinator(owner, b)
+	coordinatorImplAddress, _, _, err := test_vrf_coordinator_v1.DeployTestVRFCoordinatorV1(owner, b)
 	require.NoError(t, err)
 
 	b.Commit()
@@ -142,7 +147,7 @@ func setupOCR2VRFContracts(
 
 	b.Commit()
 
-	beaconImplAddress, _, _, err := vrf_beacon.DeployVRFBeacon(owner, b)
+	beaconImplAddress, _, _, err := test_vrf_beacon_v1.DeployTestVRFBeaconV1(owner, b)
 	require.NoError(t, err)
 
 	b.Commit()
@@ -154,9 +159,6 @@ func setupOCR2VRFContracts(
 
 	beaconAddress, _, _, err := vrf_beacon_proxy.DeployVRFBeaconProxy(
 		owner, b, beaconImplAddress, proxyAdminAddress, beaconCalldata)
-	require.NoError(t, err)
-
-	b.Commit()
 
 	consumerAddress, _, consumer, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(
 		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
@@ -171,6 +173,7 @@ func setupOCR2VRFContracts(
 
 	coordinator, err := vrf_coordinator.NewVRFCoordinator(coordinatorAddress, b)
 	require.NoError(t, err)
+
 	beacon, err := vrf_beacon.NewVRFBeacon(beaconAddress, b)
 	require.NoError(t, err)
 
@@ -197,83 +200,15 @@ func setupOCR2VRFContracts(
 		consumer:           consumer,
 		feedAddress:        feedAddress,
 		feed:               feed,
+		proxyAdminAddress:  proxyAdminAddress,
+		proxyAdmin:         proxyAdmin,
+		keyID:              keyID,
 	}
 }
 
-func setupNodeOCR2(
-	t *testing.T,
-	owner *bind.TransactOpts,
-	port uint16,
-	dbName string,
-	b *backends.SimulatedBackend,
-) *ocr2Node {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
-	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
-	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
-	config.Overrides.FeatureLogPoller = null.BoolFrom(true)
-	poll := 500 * time.Millisecond
-	config.Overrides.GlobalEvmLogPollInterval = &poll
-	config.Overrides.P2PEnabled = null.BoolFrom(true)
-	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
-	config.Overrides.P2PListenPort = null.NewInt(0, true)
-	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
-	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
-	p2paddresses := []string{
-		fmt.Sprintf("127.0.0.1:%d", port),
-	}
-	config.Overrides.P2PV2ListenAddresses = p2paddresses
-	// Disables ocr spec validation so we can have fast polling for the test.
-	config.Overrides.Dev = null.BoolFrom(true)
-
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	_, err := app.GetKeyStore().P2P().Create()
-	require.NoError(t, err)
-
-	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
-	require.NoError(t, err)
-	require.Len(t, p2pIDs, 1)
-	peerID := p2pIDs[0].PeerID()
-
-	config.Overrides.P2PPeerID = peerID
-
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
-	require.NoError(t, err)
-	require.Len(t, sendingKeys, 1)
-	transmitter := sendingKeys[0].Address
-
-	// Fund the transmitter address with some ETH
-	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
-	require.NoError(t, err)
-
-	tx := types.NewTransaction(
-		n, transmitter,
-		assets.Ether(1),
-		21000,
-		assets.GWei(1),
-		nil)
-	signedTx, err := owner.Signer(owner.From, tx)
-	require.NoError(t, err)
-	err = b.SendTransaction(testutils.Context(t), signedTx)
-	require.NoError(t, err)
-	b.Commit()
-
-	kb, err := app.GetKeyStore().OCR2().Create("evm")
-	require.NoError(t, err)
-
-	return &ocr2Node{
-		app:         app,
-		peerID:      peerID.Raw(),
-		transmitter: transmitter,
-		keybundle:   kb,
-		config:      config,
-	}
-}
-
-func TestIntegration_OCR2VRF(t *testing.T) {
+func TestUpgrade_OCR2VRF(t *testing.T) {
 	keyID := randomKeyID(t)
-	uni := setupOCR2VRFContracts(t, 5, keyID, false)
-
-	t.Log("Creating bootstrap node")
+	uni := setupOCR2VRFV1Contracts(t, 5, keyID, false)
 
 	bootstrapNodePort := getFreePort(t)
 	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend)
@@ -455,11 +390,18 @@ lookbackBlocks         	= %d # This is an integer
 		oracles,
 		[]int{1, 2, 3, 4, 5, 6, 7, 8},
 		keyID)
+	// sendVRFRequestsAndVerify(t, uni)
 
+	// perform upgrade
+	newBeaconPeriod := 10
+	uniV2 := setupOCR2VRFV2Contracts(t, int64(newBeaconPeriod), uni)
+	sendVRFRequestsAndVerify(t, uniV2)
+}
+
+func sendVRFRequestsAndVerify(t *testing.T, uni ocr2vrfUniverse) {
 	t.Log("Sending VRF request")
-
 	// Send a VRF request and mine it
-	_, err = uni.consumer.TestRequestRandomness(uni.owner, 2, 1, big.NewInt(1))
+	_, err := uni.consumer.TestRequestRandomness(uni.owner, 2, 1, big.NewInt(1))
 	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, 1, 1, big.NewInt(2), 50_000, []byte{})
 	require.NoError(t, err)
 
@@ -492,132 +434,4 @@ lookbackBlocks         	= %d # This is an integer
 		t.Log("randomness from fulfillRandomness:", rw3.String())
 		return err1 == nil && err2 == nil && err3 == nil
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
-}
-
-func setDKGConfig(
-	t *testing.T,
-	uni ocr2vrfUniverse,
-	onchainPubKeys []common.Address,
-	transmitters []common.Address,
-	f uint8,
-	oracleIdentities []confighelper2.OracleIdentityExtra,
-	signKeys []dkgsignkey.Key,
-	encryptKeys []dkgencryptkey.Key,
-	keyID [32]byte,
-) {
-	var (
-		signingPubKeys []kyber.Point
-		encryptPubKeys []kyber.Point
-	)
-	for i := range signKeys {
-		signingPubKeys = append(signingPubKeys, signKeys[i].PublicKey)
-		encryptPubKeys = append(encryptPubKeys, encryptKeys[i].PublicKey)
-	}
-
-	offchainConfig, err := ocr2dkg.OffchainConfig(
-		encryptPubKeys,
-		signingPubKeys,
-		&altbn_128.G1{},
-		&ocr2vrftypes.PairingTranslation{
-			Suite: &altbn_128.PairingSuite{},
-		})
-	require.NoError(t, err)
-	onchainConfig, err := ocr2dkg.OnchainConfig(keyID)
-	require.NoError(t, err)
-
-	var schedule []int
-	for range oracleIdentities {
-		schedule = append(schedule, 1)
-	}
-
-	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
-		30*time.Second,
-		10*time.Second,
-		10*time.Second,
-		20*time.Second,
-		20*time.Second,
-		3,
-		schedule,
-		oracleIdentities,
-		offchainConfig,
-		50*time.Millisecond,
-		10*time.Second,
-		10*time.Second,
-		100*time.Millisecond,
-		1*time.Second,
-		int(f),
-		onchainConfig)
-	require.NoError(t, err)
-
-	_, err = uni.dkg.SetConfig(uni.owner, onchainPubKeys, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
-	require.NoError(t, err)
-
-	uni.backend.Commit()
-}
-
-func setVRFConfig(
-	t *testing.T,
-	uni ocr2vrfUniverse,
-	onchainPubKeys []common.Address,
-	transmitters []common.Address,
-	f uint8,
-	oracleIdentities []confighelper2.OracleIdentityExtra,
-	confDelaysSl []int,
-	keyID [32]byte,
-) {
-	offchainConfig := ocr2vrf.OffchainConfig()
-
-	confDelays := make(map[uint32]struct{})
-	for _, c := range confDelaysSl {
-		confDelays[uint32(c)] = struct{}{}
-	}
-
-	onchainConfig := ocr2vrf.OnchainConfig(confDelays)
-
-	var schedule []int
-	for range oracleIdentities {
-		schedule = append(schedule, 1)
-	}
-
-	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
-		30*time.Second,
-		10*time.Second,
-		10*time.Second,
-		20*time.Second,
-		20*time.Second,
-		3,
-		schedule,
-		oracleIdentities,
-		offchainConfig,
-		50*time.Millisecond,
-		10*time.Second,
-		10*time.Second,
-		100*time.Millisecond,
-		1*time.Second,
-		int(f),
-		onchainConfig)
-	require.NoError(t, err)
-
-	_, err = uni.beacon.SetConfig(
-		uni.owner, onchainPubKeys, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
-	require.NoError(t, err)
-
-	uni.backend.Commit()
-}
-
-func randomKeyID(t *testing.T) (r [32]byte) {
-	_, err := rand.Read(r[:])
-	require.NoError(t, err)
-	return
-}
-
-func getFreePort(t *testing.T) uint16 {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	require.NoError(t, err)
-
-	l, err := net.ListenTCP("tcp", addr)
-	require.NoError(t, err)
-	defer l.Close()
-
-	return uint16(l.Addr().(*net.TCPAddr).Port)
 }

@@ -15,3 +15,7 @@ $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/VRFCoordinatorProxy.sol
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/VRFProxyAdmin.sol
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/TestBeaconVRFConsumer.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFBeaconV2.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFBeaconV1.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFCoordinatorV1.sol
