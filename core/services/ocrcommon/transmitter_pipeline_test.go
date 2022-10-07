@@ -65,6 +65,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 			save := args.Get(3).(bool)
 			require.True(t, save)
 
+			run.State = pipeline.RunStatusCompleted
 		}).Once()
 
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
