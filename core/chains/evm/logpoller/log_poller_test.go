@@ -418,7 +418,6 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, event1.Bytes(), lgs[0].Topics[0])
 }
 
-
 func TestLogPoller_RegisterFilter(t *testing.T) {
 	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2, 1000)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
@@ -587,7 +586,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 	lggr := logger.TestLogger(b)
-	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2)
+	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2, 1000)
 	for i := 0; i < nFilters; i++ {
 		var addresses []common.Address
 		var events []common.Hash
