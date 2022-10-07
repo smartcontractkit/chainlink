@@ -753,9 +753,13 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
 	if app.Config.FeatureLogPoller() {
-		if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
-			return err
-		}
+		// Replays can be long running, kick this off in a goroutine.
+		// It will be cancelled on node shutdown via the lp's context.
+		go func() {
+			if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
+				app.logger.Errorw("Error replaying", "err", err)
+			}
+		}()
 	}
 	return nil
 }
