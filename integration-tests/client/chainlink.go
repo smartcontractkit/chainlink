@@ -490,7 +490,6 @@ func (c *Chainlink) PrimaryEthAddress() (string, error) {
 	return c.primaryEthAddress, nil
 }
 
-
 // EthAddresses returns the ETH addresses for the Chainlink node
 func (c *Chainlink) EthAddresses() ([]string, error) {
 	if len(c.ethAddresses) == 0 {
@@ -504,7 +503,7 @@ func (c *Chainlink) EthAddresses() ([]string, error) {
 		}
 	}
 	return c.ethAddresses, nil
- }
+}
 
 // PrimaryEthAddressForChain returns the primary ETH address for the Chainlink node for mentioned chain
 func (c *Chainlink) PrimaryEthAddressForChain(chainId string) (string, error) {
@@ -554,8 +553,9 @@ func (c *Chainlink) CreateTxKey(chain string, chainId string) (*TxKey, *http.Res
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
-			"evmChainID": chainId,
+			"chain": chain,
 		}).
+		SetQueryParam("evmChainID", chainId).
 		SetResult(txKey).
 		Post("/v2/keys/{chain}")
 	if err != nil {
@@ -985,7 +985,7 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 		}
 
 		peerID := p2pkeys.Data[0].Attributes.PeerID
-		txKey, _, err := n.CreateTxKey(chainId)
+		txKey, _, err := n.CreateTxKey(chainName, chainId)
 		if err != nil {
 			return nil, nil, err
 		}
