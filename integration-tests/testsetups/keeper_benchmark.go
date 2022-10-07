@@ -98,9 +98,6 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	for index := range inputs.RegistryVersions {
 		log.Info().Int("Index", index).Msg("Starting Test Setup")
 
-		// Fund chainlink nodes
-		err = actions.FundChainlinkNodesAddress(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
-		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 		linkToken, err := contractDeployer.DeployLinkTokenContract()
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 		err = k.chainClient.WaitForEvents()
@@ -122,6 +119,12 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			inputs.PreDeployedConsumers,
 			inputs.ResetUpkeeps,
 		)
+	}
+
+	for index := range inputs.RegistryVersions {
+		// Fund chainlink nodes
+		err = actions.FundChainlinkNodesAddress(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
+		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 	}
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
