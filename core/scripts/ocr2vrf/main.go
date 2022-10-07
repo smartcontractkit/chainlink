@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/arbitrum_vrf_beacon"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -240,7 +244,7 @@ func main() {
 		cmd := flag.NewFlagSet("coordinator-info", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF coordinator contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address")
-		beacon := newVRFBeacon(common.HexToAddress(*beaconAddress), e.Ec)
+		beacon := newVRFBeacon(e, common.HexToAddress(*beaconAddress))
 		keyID, err := beacon.SKeyID(nil)
 		helpers.PanicErr(err)
 		fmt.Println("coordinator key id:", hexutil.Encode(keyID[:]))
@@ -290,13 +294,15 @@ func main() {
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args
 		)
+
 	case "consumer-read-randomness":
 		cmd := flag.NewFlagSet("consumer-read-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		requestID := cmd.String("request-id", "", "VRF request ID")
 		numWords := cmd.Int("num-words", 1, "number of words to fetch")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
-		readRandomness(e, *consumerAddress, decimal.RequireFromString(*requestID).BigInt(), *numWords)
+		consumer := newBeaconConsumer(e, common.HexToAddress(*consumerAddress))
+		printRandomnessFromConsumer(consumer, decimal.RequireFromString(*requestID).BigInt(), int64(*numWords))
 
 	case "consumer-request-callback-batch":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
@@ -317,11 +323,36 @@ func main() {
 			nil, // test consumer doesn't use any args,
 			big.NewInt(*batchSize),
 		)
-
 	case "dkg-setup":
 		setupDKGNodes(e)
 	case "ocr2vrf-setup":
 		setupOCR2VRFNodes(e)
+	case "decode-error":
+		cmd := flag.NewFlagSet("decode-error", flag.ExitOnError)
+		errorHex := cmd.String("error-hex", "", "custom error in hex")
+		helpers.ParseArgs(cmd, os.Args[2:], "error-hex")
+		if !strings.HasPrefix(*errorHex, "0x") {
+			*errorHex = "0x" + *errorHex
+		}
+		errorBytes := hexutil.MustDecode(*errorHex)
+		tabi := evmtypes.MustGetABI(arbitrum_vrf_beacon.ArbitrumVRFBeaconMetaData.ABI)
+		var te *abi.Error
+		for _, e := range tabi.Errors {
+			if e.ID.Hex()[2:10] == (*errorHex)[2:10] {
+				te = &e
+				break
+			}
+		}
+		if te == nil {
+			fmt.Println("Can't find corresponding error - wrong contract specified?")
+			os.Exit(1)
+		} else {
+			fmt.Println("Error found:", te.Sig)
+		}
+
+		data, err := te.Unpack(errorBytes)
+		helpers.PanicErr(err)
+		fmt.Printf("error data unpacked: %+v\n", data)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

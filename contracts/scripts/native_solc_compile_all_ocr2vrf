@@ -13,3 +13,9 @@ $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFCoordinator.sol
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/TestBeaconVRFConsumer.sol
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/LoadTestBeaconVRFConsumer.sol
+
+# Arbitrum-specific
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/ArbitrumDKG.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/ArbitrumVRFBeacon.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/ArbitrumVRFCoordinator.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/ArbitrumTestBeaconVRFConsumer.sol

@@ -154,6 +154,8 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		dkgSigners = append(dkgSigners, payload.DkgSign)
 	}
 
+	fmt.Println()
+	fmt.Println("Funding the transmitter addresses...")
 	helpers.FundNodes(e, transmitters, big.NewInt(*fundingAmount))
 
 	fmt.Println("Generated dkg setConfig command:")
@@ -213,5 +215,12 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		"go run . consumer-redeem-randomness -consumer-address %s -request-id <req-id>",
 		consumerAddress.Hex())
 	fmt.Println(redeemCommand)
+	fmt.Println()
+
+	fmt.Println("Consumer read randomness command:")
+	readCommand := fmt.Sprintf(
+		"go run . consumer-read-randomness -consumer-address %s -request-id <req-id> -num-words <num-words>",
+		consumerAddress.Hex())
+	fmt.Println(readCommand)
 	fmt.Println()
 }

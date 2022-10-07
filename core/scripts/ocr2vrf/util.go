@@ -10,12 +10,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
-	"github.com/smartcontractkit/ocr2vrf/dkg"
+	ocr2vrfdkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/urfave/cli"
@@ -24,6 +26,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/arbitrum_beacon_vrf_consumer"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/arbitrum_dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/arbitrum_vrf_beacon"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/arbitrum_vrf_coordinator"
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
@@ -34,27 +40,88 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
+// The interfaces below define methods used by the contract wrappers.
+// We use these interfaces so that we don't have to duplicate arbitrum and non-arbitrum
+// calls, which are essentially identical, just slightly different go wrappers.
+type beaconConsumer interface {
+	TestRequestRandomness(opts *bind.TransactOpts, numWords uint16, subID uint64, confirmationDelayArg *big.Int) (*gethTypes.Transaction, error)
+	TestRequestRandomnessFulfillment(opts *bind.TransactOpts, subID uint64, numWords uint16, confirmationDelayArg *big.Int, callbackGasLimit uint32, arguments []byte) (*gethTypes.Transaction, error)
+	IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error)
+	SRequestsIDs(opts *bind.CallOpts, arg0 *big.Int, arg1 *big.Int) (*big.Int, error)
+	TestRedeemRandomness(opts *bind.TransactOpts, requestID *big.Int) (*gethTypes.Transaction, error)
+	SReceivedRandomnessByRequestID(opts *bind.CallOpts, arg0 *big.Int, arg1 *big.Int) (*big.Int, error)
+}
+
+type beacon interface {
+	SKeyID(opts *bind.CallOpts) ([32]byte, error)
+	SProvingKeyHash(opts *bind.CallOpts) ([32]byte, error)
+	SetConfig(opts *bind.TransactOpts, _signers []common.Address, _transmitters []common.Address, _f uint8, _onchainConfig []byte, _offchainConfigVersion uint64, _offchainConfig []byte) (*gethTypes.Transaction, error)
+}
+
+type coordinator interface {
+	SetProducer(opts *bind.TransactOpts, addr common.Address) (*gethTypes.Transaction, error)
+	RedeemRandomness(opts *bind.TransactOpts, requestID *big.Int) (*gethTypes.Transaction, error)
+	RequestRandomness(opts *bind.TransactOpts, numWords uint16, subID uint64, confirmationDelayArg *big.Int) (*gethTypes.Transaction, error)
+}
+
+type dkg interface {
+	AddClient(opts *bind.TransactOpts, keyID [32]byte, clientAddress common.Address) (*gethTypes.Transaction, error)
+	RemoveClient(opts *bind.TransactOpts, keyID [32]byte, clientAddress common.Address) (*gethTypes.Transaction, error)
+	SetConfig(opts *bind.TransactOpts, _signers []common.Address, _transmitters []common.Address, _f uint8, _onchainConfig []byte, _offchainConfigVersion uint64, _offchainConfig []byte) (*gethTypes.Transaction, error)
+}
+
 func deployDKG(e helpers.Environment) common.Address {
-	_, tx, _, err := dkgContract.DeployDKG(e.Owner, e.Ec)
+	var tx *gethTypes.Transaction
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		_, tx, _, err = arbitrum_dkg.DeployArbitrumDKG(e.Owner, e.Ec)
+	} else {
+		_, tx, _, err = dkgContract.DeployDKG(e.Owner, e.Ec)
+	}
+
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress string) common.Address {
-	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(e.Owner, e.Ec, beaconPeriodBlocks, common.HexToAddress(linkAddress))
+	var tx *gethTypes.Transaction
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		_, tx, _, err = arbitrum_vrf_coordinator.DeployArbitrumVRFCoordinator(e.Owner, e.Ec, beaconPeriodBlocks, common.HexToAddress(linkAddress))
+	} else {
+		_, tx, _, err = vrf_coordinator.DeployVRFCoordinator(e.Owner, e.Ec, beaconPeriodBlocks, common.HexToAddress(linkAddress))
+	}
+
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func deployVRFBeacon(e helpers.Environment, coordinatorAddress, linkAddress, dkgAddress, keyID string) common.Address {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
-	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
+	var tx *gethTypes.Transaction
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		_, tx, _, err = arbitrum_vrf_beacon.DeployArbitrumVRFBeacon(
+			e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
+	} else {
+		_, tx, _, err = vrf_beacon.DeployVRFBeacon(
+			e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
+	}
+
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func deployVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
-	_, tx, _, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
+	var tx *gethTypes.Transaction
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		_, tx, _, err = arbitrum_beacon_vrf_consumer.DeployArbitrumBeaconVRFConsumer(
+			e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
+	} else {
+		_, tx, _, err = vrf_beacon_consumer.DeployBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
+	}
+
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -68,10 +135,9 @@ func deployLoadTestVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinat
 func addClientToDKG(e helpers.Environment, dkgAddress string, keyID string, clientAddress string) {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
 
-	dkg, err := dkgContract.NewDKG(common.HexToAddress(dkgAddress), e.Ec)
-	helpers.PanicErr(err)
+	d := newDKG(e, common.HexToAddress(dkgAddress))
 
-	tx, err := dkg.AddClient(e.Owner, keyIDBytes, common.HexToAddress(clientAddress))
+	tx, err := d.AddClient(e.Owner, keyIDBytes, common.HexToAddress(clientAddress))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -79,10 +145,9 @@ func addClientToDKG(e helpers.Environment, dkgAddress string, keyID string, clie
 func removeClientFromDKG(e helpers.Environment, dkgAddress string, keyID string, clientAddress string) {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
 
-	dkg, err := dkgContract.NewDKG(common.HexToAddress(dkgAddress), e.Ec)
-	helpers.PanicErr(err)
+	d := newDKG(e, common.HexToAddress(dkgAddress))
 
-	tx, err := dkg.RemoveClient(e.Owner, keyIDBytes, common.HexToAddress(clientAddress))
+	tx, err := d.RemoveClient(e.Owner, keyIDBytes, common.HexToAddress(clientAddress))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -117,11 +182,11 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 
 	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
 
-	offchainConfig, err := dkg.OffchainConfig(encryptionKeys, signingKeys, &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
+	offchainConfig, err := ocr2vrfdkg.OffchainConfig(encryptionKeys, signingKeys, &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
 		Suite: &altbn_128.PairingSuite{},
 	})
 	helpers.PanicErr(err)
-	onchainConfig, err := dkg.OnchainConfig(dkg.KeyID(keyIDBytes))
+	onchainConfig, err := ocr2vrfdkg.OnchainConfig(ocr2vrfdkg.KeyID(keyIDBytes))
 	helpers.PanicErr(err)
 
 	fmt.Println("dkg offchain config:", hex.EncodeToString(offchainConfig))
@@ -147,9 +212,9 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 
 	helpers.PanicErr(err)
 
-	dkg := newDKG(common.HexToAddress(dkgAddress), e.Ec)
+	d := newDKG(e, common.HexToAddress(dkgAddress))
 
-	tx, err := dkg.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
+	tx, err := d.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -191,15 +256,15 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 
 	helpers.PanicErr(err)
 
-	beacon := newVRFBeacon(common.HexToAddress(vrfBeaconAddr), e.Ec)
+	b := newVRFBeacon(e, common.HexToAddress(vrfBeaconAddr))
 
-	tx, err := beacon.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
+	tx, err := b.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func setProducer(e helpers.Environment, vrfCoordinatorAddr, vrfBeaconAddr string) {
-	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
+	coordinator := newVRFCoordinator(e, common.HexToAddress(vrfCoordinatorAddr))
 
 	tx, err := coordinator.SetProducer(e.Owner, common.HexToAddress(vrfBeaconAddr))
 	helpers.PanicErr(err)
@@ -250,7 +315,7 @@ func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, con
 }
 
 func requestRandomness(e helpers.Environment, coordinatorAddress string, numWords uint16, subID uint64, confDelay *big.Int) {
-	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
+	coordinator := newVRFCoordinator(e, common.HexToAddress(coordinatorAddress))
 
 	tx, err := coordinator.RequestRandomness(e.Owner, numWords, subID, confDelay)
 	helpers.PanicErr(err)
@@ -258,7 +323,7 @@ func requestRandomness(e helpers.Environment, coordinatorAddress string, numWord
 }
 
 func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
-	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
+	coordinator := newVRFCoordinator(e, common.HexToAddress(coordinatorAddress))
 
 	tx, err := coordinator.RedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
@@ -266,7 +331,7 @@ func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestI
 }
 
 func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string, numWords uint16, subID uint64, confDelay *big.Int) *big.Int {
-	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+	consumer := newBeaconConsumer(e, common.HexToAddress(consumerAddress))
 
 	tx, err := consumer.TestRequestRandomness(e.Owner, numWords, subID, confDelay)
 	helpers.PanicErr(err)
@@ -288,19 +353,6 @@ func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string
 	return requestID
 }
 
-func readRandomness(
-	e helpers.Environment,
-	consumerAddress string,
-	requestID *big.Int,
-	numWords int) {
-	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
-	for i := 0; i < numWords; i++ {
-		r, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(int64(i)))
-		helpers.PanicErr(err)
-		fmt.Println("random word", i, ":", r.String())
-	}
-}
-
 func requestRandomnessCallback(
 	e helpers.Environment,
 	consumerAddress string,
@@ -310,7 +362,7 @@ func requestRandomnessCallback(
 	callbackGasLimit uint32,
 	args []byte,
 ) (requestID *big.Int) {
-	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+	consumer := newBeaconConsumer(e, common.HexToAddress(consumerAddress))
 
 	tx, err := consumer.TestRequestRandomnessFulfillment(e.Owner, subID, numWords, confDelay, callbackGasLimit, args)
 	helpers.PanicErr(err)
@@ -333,7 +385,7 @@ func requestRandomnessCallback(
 }
 
 func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int, numWords int64) {
-	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+	consumer := newBeaconConsumer(e, common.HexToAddress(consumerAddress))
 
 	tx, err := consumer.TestRedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
@@ -342,7 +394,7 @@ func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string,
 	printRandomnessFromConsumer(consumer, requestID, numWords)
 }
 
-func printRandomnessFromConsumer(consumer *vrf_beacon_consumer.BeaconVRFConsumer, requestID *big.Int, numWords int64) {
+func printRandomnessFromConsumer(consumer beaconConsumer, requestID *big.Int, numWords int64) {
 	for i := int64(0); i < numWords; i++ {
 		randomness, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(0))
 		helpers.PanicErr(err)
@@ -350,22 +402,40 @@ func printRandomnessFromConsumer(consumer *vrf_beacon_consumer.BeaconVRFConsumer
 	}
 }
 
-func newVRFCoordinator(addr common.Address, client *ethclient.Client) *vrf_coordinator.VRFCoordinator {
-	coordinator, err := vrf_coordinator.NewVRFCoordinator(addr, client)
+func newVRFCoordinator(e helpers.Environment, addr common.Address) (c coordinator) {
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		c, err = arbitrum_vrf_coordinator.NewArbitrumVRFCoordinator(addr, e.Ec)
+	} else {
+		c, err = vrf_coordinator.NewVRFCoordinator(addr, e.Ec)
+	}
+
 	helpers.PanicErr(err)
-	return coordinator
+	return
 }
 
-func newDKG(addr common.Address, client *ethclient.Client) *dkgContract.DKG {
-	dkg, err := dkgContract.NewDKG(addr, client)
+func newDKG(e helpers.Environment, addr common.Address) (d dkg) {
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		d, err = arbitrum_dkg.NewArbitrumDKG(addr, e.Ec)
+	} else {
+		d, err = dkgContract.NewDKG(addr, e.Ec)
+	}
+
 	helpers.PanicErr(err)
-	return dkg
+	return
 }
 
-func newVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *vrf_beacon_consumer.BeaconVRFConsumer {
-	consumer, err := vrf_beacon_consumer.NewBeaconVRFConsumer(addr, client)
+func newBeaconConsumer(e helpers.Environment, addr common.Address) (consumer beaconConsumer) {
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		consumer, err = arbitrum_beacon_vrf_consumer.NewArbitrumBeaconVRFConsumer(addr, e.Ec)
+	} else {
+		consumer, err = vrf_beacon_consumer.NewBeaconVRFConsumer(addr, e.Ec)
+	}
+
 	helpers.PanicErr(err)
-	return consumer
+	return
 }
 
 func newLoadTestVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *load_test_beacon_consumer.LoadTestBeaconVRFConsumer {
@@ -374,10 +444,16 @@ func newLoadTestVRFBeaconCoordinatorConsumer(addr common.Address, client *ethcli
 	return consumer
 }
 
-func newVRFBeacon(addr common.Address, client *ethclient.Client) *vrf_beacon.VRFBeacon {
-	beacon, err := vrf_beacon.NewVRFBeacon(addr, client)
+func newVRFBeacon(e helpers.Environment, addr common.Address) (b beacon) {
+	var err error
+	if helpers.IsArbitrumChainID(e.ChainID) {
+		b, err = arbitrum_vrf_beacon.NewArbitrumVRFBeacon(addr, e.Ec)
+	} else {
+		b, err = vrf_beacon.NewVRFBeacon(addr, e.Ec)
+	}
+
 	helpers.PanicErr(err)
-	return beacon
+	return
 }
 
 func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
