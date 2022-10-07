@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 )
 
@@ -377,6 +378,15 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		return received
 	}
 	g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+
+	// check pipeline runs
+	var allRuns []pipeline.Run
+	for _, node := range nodes {
+		runs, err2 := node.App.PipelineORM().GetAllRuns()
+		require.NoError(t, err2)
+		allRuns = append(allRuns, runs...)
+	}
+	require.GreaterOrEqual(t, len(allRuns), 1)
 
 	/*
 		TODO(@EasterTheBunny): Add test for second upkeep once listening to perform logs is implemented
