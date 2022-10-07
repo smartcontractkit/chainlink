@@ -1164,6 +1164,20 @@ func (_m *ChainScopedConfig) EvmLogBackfillBatchSize() uint32 {
 	return r0
 }
 
+// EvmLogKeepBlocksDepth provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmLogKeepBlocksDepth() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // EvmLogPollInterval provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmLogPollInterval() time.Duration {
 	ret := _m.Called()

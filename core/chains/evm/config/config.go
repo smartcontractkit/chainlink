@@ -63,6 +63,7 @@ type ChainScopedOnlyConfig interface {
 	EvmHeadTrackerSamplingInterval() time.Duration
 	EvmLogBackfillBatchSize() uint32
 	EvmLogPollInterval() time.Duration
+	EvmLogKeepBlocksDepth() uint32
 	EvmMaxGasPriceWei() *big.Int
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
@@ -1072,6 +1073,23 @@ func (c *chainScopedConfig) EvmLogPollInterval() time.Duration {
 		return p.Duration()
 	}
 	return c.defaultSet.logPollInterval
+}
+
+// EvmLogKeepBlocksDepth
+func (c *chainScopedConfig) EvmLogKeepBlocksDepth() uint32 {
+	val, ok := c.GeneralConfig.GlobalEvmLogKeepBlocksDepth()
+	if ok {
+		c.logEnvOverrideOnce("EvmLogKeepBlocksDepth", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmLogKeepBlocksDepth
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmLogKeepBlocksDepth", *p)
+		return uint32(p.Int64)
+	}
+	return c.defaultSet.logKeepBlocksDepth
 }
 
 // EvmLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs

@@ -90,15 +90,7 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(
-	orm *ORM,
-	ec client.Client,
-	lggr logger.Logger,
-	pollPeriod time.Duration,
-	finalityDepth int64,
-	backfillBatchSize int64,
-	rpcBatchSize int64,
-) *logPoller {
+func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -112,7 +104,7 @@ func NewLogPoller(
 		rpcBatchSize:      rpcBatchSize,
 		addresses:         make(map[common.Address]struct{}),
 		eventSigs:         make(map[common.Hash]struct{}),
-		keepBlocksDepth:   finalityDepth * 1000, // Maybe make configurable if desired?
+		keepBlocksDepth:   keepBlocksDepth,
 	}
 }
 
