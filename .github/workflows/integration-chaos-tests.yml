@@ -73,7 +73,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@02c9ae5ec7f88250088bab88f14b4b043162b46d # v2.0.18
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@369e110c686017bcec5445deacf3f2b842003c99 # v2.0.18
         with:
           test_command_to_run: make test_chaos
           test_download_vendor_packages_command: make gomod
