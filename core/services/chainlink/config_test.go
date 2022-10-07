@@ -20,6 +20,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -452,6 +453,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
 				LogBackfillBatchSize:     ptr[uint32](17),
 				LogPollInterval:          &minute,
+				LogKeepBlocksDepth:       ptr[uint32](100_000),
 				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
 				NonceAutoSync:            ptr(true),
@@ -772,6 +774,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 13
 MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
