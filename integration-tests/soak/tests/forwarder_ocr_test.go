@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
-var _ = Describe("OCR Soak Test @soak-ocr", func() {
+var _ = Describe("OCR Forwarder flow Soak Test - each node got one pair of operator forwarder @soak-forwarder-ocr", func() {
 	var (
 		err             error
 		testEnvironment *environment.Environment
@@ -64,13 +64,13 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 				TimeBetweenRounds:    time.Minute * 1,
 				StartingAdapterValue: 5,
 			})
-			ocrSoakTest.Setup(testEnvironment, false)
+			ocrSoakTest.Setup(testEnvironment, true)
 		})
 	})
 
 	Describe("With soak test contracts deployed", func() {
 		It("runs the soak test until error or timeout", func() {
-			ocrSoakTest.Run(false)
+			ocrSoakTest.Run(true)
 		})
 	})
 
