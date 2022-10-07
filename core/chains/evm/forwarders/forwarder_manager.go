@@ -195,9 +195,12 @@ func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) error {
 }
 
 func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
-	return f.logpoller.MergeFilter(
-		[]common.Hash{authChangedTopic},
-		[]common.Address{addr})
+	_, err := f.logpoller.RegisterFilter(
+		evmlogpoller.Filter{
+			EventSigs: []common.Hash{authChangedTopic},
+			Addresses: []common.Address{addr},
+		})
+	return err
 }
 
 func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {
