@@ -69,6 +69,7 @@ func NewKeeperBenchmarkTest(inputs KeeperBenchmarkTestInputs) *KeeperBenchmarkTe
 // Setup prepares contracts for the test
 func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	startTime := time.Now()
+	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues()
 	k.env = env
 	inputs := k.Inputs
@@ -128,6 +129,10 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	}
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
+	err = k.SendSlackNotification(nil)
+	if err != nil {
+		log.Warn().Msg("Sending test start slack notification failed")
+	}
 }
 
 // Run runs the keeper benchmark test
@@ -150,10 +155,6 @@ func (k *KeeperBenchmarkTest) Run() {
 	}
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli() - (90 * time.Second.Milliseconds())
-	err := k.SendSlackNotification(nil)
-	if err != nil {
-		log.Warn().Msg("Sending test start slack notification failed")
-	}
 
 	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
 
@@ -187,7 +188,7 @@ func (k *KeeperBenchmarkTest) Run() {
 	for rIndex := range k.keeperRegistries {
 		k.subscribeToUpkeepPerformedEvent(logSubscriptionStop, &k.TestReporter, rIndex)
 	}
-	err = k.chainClient.WaitForEvents()
+	err := k.chainClient.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for keeper subscriptions")
 	close(logSubscriptionStop)
 
