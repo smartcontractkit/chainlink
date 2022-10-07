@@ -8,14 +8,14 @@ python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 solc-select install 0.8.15
 
 # OCR2VRF
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/DKG.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/VRFBeacon.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/VRFCoordinator.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/VRFBeaconProxy.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/VRFCoordinatorProxy.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/VRFProxyAdmin.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/TestBeaconVRFConsumer.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFBeaconV2.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFCoordinatorV2.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFBeaconV1.sol
-$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../threshold-vrf/contracts/upgradeable/test/TestVRFCoordinatorV1.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/DKG.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFBeacon.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFCoordinator.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFBeaconProxy.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFCoordinatorProxy.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFProxyAdmin.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/TestBeaconVRFConsumer.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/upgradeable/test/TestVRFBeaconV2.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/upgradeable/test/TestVRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/upgradeable/test/TestVRFBeaconV1.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/upgradeable/test/TestVRFCoordinatorV1.sol

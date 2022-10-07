@@ -12,5 +12,5 @@ solc-select use 0.8.15
 solc @openzeppelin/=$ROOT/node_modules/@openzeppelin/contracts/ @openzeppelin-contracts-upgradeable/=$ROOT/node_modules/@openzeppelin/contracts-upgradeable/ \
     --overwrite --optimize --optimize-runs 1000 \
     -o $ROOT/contracts/solc/v0.8.15 \
-    --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/dev,$ROOT/contracts/src/v0.8/interfaces,$ROOT/contracts/src/v0.8/mocks,$ROOT/contracts/src/v0.8/tests,$ROOT/contracts/src/v0.8/vendor,$ROOT/node_modules/@openzeppelin/,$ROOT/../threshold-vrf/contracts \
+    --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/dev,$ROOT/contracts/src/v0.8/interfaces,$ROOT/contracts/src/v0.8/mocks,$ROOT/contracts/src/v0.8/tests,$ROOT/contracts/src/v0.8/vendor,$ROOT/node_modules/@openzeppelin/,$ROOT/../ocr2vrf-origin/contracts \
     $ROOT/contracts/src/v0.8/$1

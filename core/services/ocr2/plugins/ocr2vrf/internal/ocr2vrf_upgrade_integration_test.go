@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"reflect"
 	"testing"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,15 +60,15 @@ func setupOCR2VRFV2Contracts(
 
 	coordinatorAbi, err := test_vrf_coordinator_v2.TestVRFCoordinatorV2MetaData.GetAbi()
 	require.NoError(t, err)
-	coordinatorCalldata, err := coordinatorAbi.Pack("initialize", big.NewInt(beaconPeriod), uni.linkAddress)
+	coordinatorCalldata, err := coordinatorAbi.Pack("initialize", big.NewInt(beaconPeriod), uni.linkAddress, uni.owner.From)
 	require.NoError(t, err)
 
 	beaconAbi, err := test_vrf_beacon_v2.TestVRFBeaconV2MetaData.GetAbi()
 	require.NoError(t, err)
-	beaconCalldata, err := beaconAbi.Pack("initialize", uni.linkAddress, uni.coordinatorAddress, uni.dkgAddress, uni.keyID, true)
+	beaconCalldata, err := beaconAbi.Pack("initialize", uni.linkAddress, uni.coordinatorAddress, uni.dkgAddress, uni.keyID, uni.owner.From, true)
 	require.NoError(t, err)
 
-	uni.proxyAdmin.VrfUpgradeAndCall(
+	_, err = uni.proxyAdmin.VrfUpgradeAndCall(
 		uni.owner,
 		uni.coordinatorAddress,
 		uni.beaconAddress,
@@ -75,6 +77,34 @@ func setupOCR2VRFV2Contracts(
 		coordinatorCalldata,
 		beaconCalldata,
 	)
+	require.NoError(t, err)
+
+	uni.backend.Commit()
+
+	beacon, err := test_vrf_beacon_v2.NewTestVRFBeaconV2(uni.beaconAddress, uni.backend)
+	require.NoError(t, err)
+	coordinator, err := test_vrf_coordinator_v2.NewTestVRFCoordinatorV2(uni.coordinatorAddress, uni.backend)
+	require.NoError(t, err)
+
+	callOpts := &bind.CallOpts{
+		Context: testutils.Context(t),
+	}
+
+	tokenAddr := common.Address{19: 0x1}
+	_, err = coordinator.RegisterToken(uni.owner, tokenAddr)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	tokenAddress, err := coordinator.AcceptedTokens(callOpts, big.NewInt(0))
+	require.NoError(t, err)
+
+	allowOnchainVerification, err := beacon.AllowOnchainVerification(callOpts)
+	require.NoError(t, err)
+
+	// assert allowOnchainVerification was set as expected through initializer
+	assert.True(t, allowOnchainVerification)
+	// assert RegisterToken successfully added an to a newly introduced array state variable
+	assert.Equal(t, tokenAddr, tokenAddress)
 
 	return ocr2vrfUniverse{
 		owner:              uni.owner,
@@ -138,7 +168,7 @@ func setupOCR2VRFV1Contracts(
 
 	coordinatorAbi, err := vrf_coordinator.VRFCoordinatorMetaData.GetAbi()
 	require.NoError(t, err)
-	coordinatorCalldata, err := coordinatorAbi.Pack("initialize", big.NewInt(beaconPeriod), linkAddress)
+	coordinatorCalldata, err := coordinatorAbi.Pack("initialize", big.NewInt(beaconPeriod), linkAddress, owner.From)
 	require.NoError(t, err)
 
 	coordinatorAddress, _, _, err := vrf_coordinator_proxy.DeployVRFCoordinatorProxy(
@@ -154,11 +184,13 @@ func setupOCR2VRFV1Contracts(
 
 	beaconAbi, err := vrf_beacon.VRFBeaconMetaData.GetAbi()
 	require.NoError(t, err)
-	beaconCalldata, err := beaconAbi.Pack("initialize", linkAddress, coordinatorAddress, dkgAddress, keyID)
+	beaconCalldata, err := beaconAbi.Pack("initialize", linkAddress, coordinatorAddress, dkgAddress, keyID, owner.From)
 	require.NoError(t, err)
 
 	beaconAddress, _, _, err := vrf_beacon_proxy.DeployVRFBeaconProxy(
 		owner, b, beaconImplAddress, proxyAdminAddress, beaconCalldata)
+
+	b.Commit()
 
 	consumerAddress, _, consumer, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(
 		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
@@ -390,12 +422,41 @@ lookbackBlocks         	= %d # This is an integer
 		oracles,
 		[]int{1, 2, 3, 4, 5, 6, 7, 8},
 		keyID)
-	// sendVRFRequestsAndVerify(t, uni)
+	// read variables before upgrade.
+	// after the upgrade, these variables are compared to make sure storage layout isn't changed in unexpected ways
+	callOpts := &bind.CallOpts{
+		Context: testutils.Context(t),
+	}
+	configDetails, err := uni.beacon.LatestConfigDetails(callOpts)
+	require.NoError(t, err)
+	billingDetails, err := uni.beacon.GetBilling(callOpts)
+	require.NoError(t, err)
+	confDelays, err := uni.coordinator.GetConfirmationDelays(callOpts)
+	require.NoError(t, err)
+	beaconPeriodBlocks, err := uni.coordinator.IBeaconPeriodBlocks(callOpts)
+	require.NoError(t, err)
 
 	// perform upgrade
 	newBeaconPeriod := 10
 	uniV2 := setupOCR2VRFV2Contracts(t, int64(newBeaconPeriod), uni)
 	sendVRFRequestsAndVerify(t, uniV2)
+
+	configDetailsV2, err := uniV2.beacon.LatestConfigDetails(callOpts)
+	require.NoError(t, err)
+	billingDetailsV2, err := uniV2.beacon.GetBilling(callOpts)
+	require.NoError(t, err)
+	confDelaysV2, err := uniV2.coordinator.GetConfirmationDelays(callOpts)
+	require.NoError(t, err)
+	beaconPeriodBlocksV2, err := uniV2.coordinator.IBeaconPeriodBlocks(callOpts)
+	require.NoError(t, err)
+
+	// assert below state variables are not changed
+	assert.True(t, reflect.DeepEqual(configDetails, configDetailsV2))
+	assert.True(t, reflect.DeepEqual(billingDetails, billingDetailsV2))
+	assert.Equal(t, confDelays, confDelaysV2)
+	// assert beaconPeriodBlocks was changed during the upgrade
+	assert.Equal(t, int64(5), beaconPeriodBlocks.Int64())
+	assert.Equal(t, int64(10), beaconPeriodBlocksV2.Int64())
 }
 
 func sendVRFRequestsAndVerify(t *testing.T, uni ocr2vrfUniverse) {
