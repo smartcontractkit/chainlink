@@ -72,17 +72,8 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 		},
 	})
 
-	run := pipeline.NewRun(pipeline.Spec{
-		ID:                t.spec.ID,
-		DotDagSource:      txObservationSource,
-		CreatedAt:         t.spec.CreatedAt,
-		MaxTaskDuration:   t.spec.MaxTaskDuration,
-		GasLimit:          &t.spec.GasLimit.Uint32,
-		ForwardingAllowed: t.spec.ForwardingAllowed,
-		JobID:             t.spec.PipelineSpecID,
-		JobName:           t.spec.Name.ValueOrZero(),
-		JobType:           t.spec.Type.String(),
-	}, vars)
+	t.spec.PipelineSpec.DotDagSource = txObservationSource
+	run := pipeline.NewRun(*t.spec.PipelineSpec, vars)
 
 	if _, err := t.pr.Run(ctx, &run, t.lgr, true, nil); err != nil {
 		return errors.Wrap(err, "Skipped OCR transmission")
