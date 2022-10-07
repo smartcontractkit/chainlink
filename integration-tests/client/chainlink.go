@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog/log"
 
 	"golang.org/x/sync/errgroup"
 
@@ -981,4 +981,47 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 	}
 
 	return nkb, clNodes, nil
+}
+
+// TrackForwarder track forwarder address in db.
+func (c *Chainlink) TrackForwarder(chainID *big.Int, address common.Address) (*Forwarder, *http.Response, error) {
+	response := &Forwarder{}
+	request := ForwarderAttributes{
+		ChainID: chainID.String(),
+		Address: address.Hex(),
+	}
+	log.Debug().Str("Node URL", c.Config.URL).
+		Str("Forwarder address", (address).Hex()).
+		Str("Chain ID", chainID.String()).
+		Msg("Track forwarder")
+	resp, err := c.APIClient.R().
+		SetBody(request).
+		SetResult(response).
+		Post("/v2/nodes/evm/forwarders/track")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusCreated)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return response, resp.RawResponse, err
+}
+
+// GetForwarders get list of tracked forwarders
+func (c *Chainlink) GetForwarders() (*Forwarders, *http.Response, error) {
+	response := &Forwarders{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading Tracked Forwarders")
+	resp, err := c.APIClient.R().
+		SetResult(response).
+		Get("/v2/nodes/evm/forwarders")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, nil, err
+	}
+	return response, resp.RawResponse, err
 }
