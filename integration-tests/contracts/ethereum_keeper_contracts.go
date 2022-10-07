@@ -1079,21 +1079,21 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 			return errors.New("upkeep count increased by more than 1 in a single block")
 		}
 		log.Info().
-			Uint64("Block Number", receivedHeader.Number.Uint64()).
-			Str("Upkeep ID", o.upkeepID.String()).
-			Str("Contract Address", o.instance.Address()).
-			Int64("Upkeep Count", upkeepCount.Int64()).
-			Int64("Blocks since eligible", o.blocksSinceEligible).
-			Str("Registry Address", o.registry.Address()).
+			Uint64("Block_Number", receivedHeader.Number.Uint64()).
+			Str("Upkeep_ID", o.upkeepID.String()).
+			Str("Contract_Address", o.instance.Address()).
+			Int64("Upkeep_Count", upkeepCount.Int64()).
+			Int64("Blocks_since_eligible", o.blocksSinceEligible).
+			Str("Registry_Address", o.registry.Address()).
 			Msg("Upkeep Performed")
 
 		if o.blocksSinceEligible > o.upkeepSLA {
 			log.Warn().
-				Uint64("Block Number", receivedHeader.Number.Uint64()).
-				Str("Upkeep ID", o.upkeepID.String()).
-				Str("Contract Address", o.instance.Address()).
-				Int64("Blocks since eligible", o.blocksSinceEligible).
-				Str("Registry Address", o.registry.Address()).
+				Uint64("Block_Number", receivedHeader.Number.Uint64()).
+				Str("Upkeep_ID", o.upkeepID.String()).
+				Str("Contract_Address", o.instance.Address()).
+				Int64("Blocks_since_eligible", o.blocksSinceEligible).
+				Str("Registry_Address", o.registry.Address()).
 				Msg("Upkeep Missed SLA")
 			o.countMissed++
 		}
@@ -1112,10 +1112,10 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 			// First time this upkeep became eligible
 			o.countEligible++
 			log.Info().
-				Uint64("Block Number", receivedHeader.Number.Uint64()).
-				Str("Upkeep ID", o.upkeepID.String()).
-				Str("Contract Address", o.instance.Address()).
-				Str("Registry Address", o.registry.Address()).
+				Uint64("Block_Number", receivedHeader.Number.Uint64()).
+				Str("Upkeep_ID", o.upkeepID.String()).
+				Str("Contract_Address", o.instance.Address()).
+				Str("Registry_Address", o.registry.Address()).
 				Msg("Upkeep Now Eligible")
 		}
 		o.blocksSinceEligible++
@@ -1125,33 +1125,33 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		if o.blocksSinceEligible > 0 {
 			if o.blocksSinceEligible > o.upkeepSLA {
 				log.Warn().
-					Uint64("Block Number", receivedHeader.Number.Uint64()).
-					Str("Upkeep ID", o.upkeepID.String()).
-					Str("Contract Address", o.instance.Address()).
-					Int64("Blocks since eligible", o.blocksSinceEligible).
-					Str("Registry Address", o.registry.Address()).
+					Uint64("Block_Number", receivedHeader.Number.Uint64()).
+					Str("Upkeep_ID", o.upkeepID.String()).
+					Str("Contract_Address", o.instance.Address()).
+					Int64("Blocks_since_eligible", o.blocksSinceEligible).
+					Str("Registry_Address", o.registry.Address()).
 					Msg("Upkeep remained eligible at end of test and missed SLA")
 				o.countMissed++
 			} else {
 				log.Info().
-					Uint64("Block Number", receivedHeader.Number.Uint64()).
-					Str("Upkeep ID", o.upkeepID.String()).
-					Str("Contract Address", o.instance.Address()).
-					Int64("Upkeep Count", upkeepCount.Int64()).
-					Int64("Blocks since eligible", o.blocksSinceEligible).
-					Str("Registry Address", o.registry.Address()).
+					Uint64("Block_Number", receivedHeader.Number.Uint64()).
+					Str("Upkeep_ID", o.upkeepID.String()).
+					Str("Contract_Address", o.instance.Address()).
+					Int64("Upkeep_Count", upkeepCount.Int64()).
+					Int64("Blocks_since_eligible", o.blocksSinceEligible).
+					Str("Registry_Address", o.registry.Address()).
 					Msg("Upkeep remained eligible at end of test and was within SLA")
 			}
 			o.allCheckDelays = append(o.allCheckDelays, o.blocksSinceEligible)
 		}
 
 		log.Info().
-			Uint64("Block Number", receivedHeader.Number.Uint64()).
-			Str("Upkeep ID", o.upkeepID.String()).
-			Str("Contract Address", o.instance.Address()).
-			Int64("Upkeeps Performed", upkeepCount.Int64()).
-			Int64("Total Blocks Watched", o.blocksSinceSubscription).
-			Str("Registry Address", o.registry.Address()).
+			Uint64("Block_Number", receivedHeader.Number.Uint64()).
+			Str("Upkeep_ID", o.upkeepID.String()).
+			Str("Contract_Address", o.instance.Address()).
+			Int64("Upkeeps_Performed", upkeepCount.Int64()).
+			Int64("Total_Blocks_Watched", o.blocksSinceSubscription).
+			Str("Registry_Address", o.registry.Address()).
 			Msg("Finished Watching for Upkeeps")
 
 		o.doneChan <- true
@@ -1164,9 +1164,9 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		if err != nil {
 			log.Error().
 				Err(err).
-				Uint64("Block Number", receivedHeader.Number.Uint64()).
-				Int64("Upkeep Index", o.upkeepIndex).
-				Str("Upkeep ID", o.upkeepID.String()).
+				Uint64("Block_Number", receivedHeader.Number.Uint64()).
+				Int64("Upkeep_Index", o.upkeepIndex).
+				Str("Upkeep_ID", o.upkeepID.String()).
 				Msg("Error setting first eligible buffer of consumer contract")
 			return err
 		}
@@ -1174,17 +1174,17 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		if err != nil {
 			log.Error().
 				Err(err).
-				Uint64("Block Number", receivedHeader.Number.Uint64()).
-				Int64("Upkeep Index", o.upkeepIndex).
-				Str("Upkeep ID", o.upkeepID.String()).
+				Uint64("Block_Number", receivedHeader.Number.Uint64()).
+				Int64("Upkeep_Index", o.upkeepIndex).
+				Str("Upkeep_ID", o.upkeepID.String()).
 				Msg("Error resetting consumer contract")
 			return err
 		}
 		o.upkeepReset = true
 		log.Info().
-			Uint64("Block Number", receivedHeader.Number.Uint64()).
-			Int64("Upkeep Index", o.upkeepIndex).
-			Str("Upkeep ID", o.upkeepID.String()).
+			Uint64("Block_Number", receivedHeader.Number.Uint64()).
+			Int64("Upkeep_Index", o.upkeepIndex).
+			Str("Upkeep_ID", o.upkeepID.String()).
 			Msg("Upkeep Reset")
 	}
 	return nil
