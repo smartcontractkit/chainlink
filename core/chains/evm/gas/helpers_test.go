@@ -87,6 +87,7 @@ type MockConfig struct {
 	EvmGasTipCapMinimumF                            *assets.Wei
 	EvmMaxGasPriceWeiF                              *assets.Wei
 	EvmMinGasPriceWeiF                              *assets.Wei
+	EvmGasPriceDefaultF                             *assets.Wei
 }
 
 func NewMockConfig() *MockConfig {
@@ -158,7 +159,7 @@ func (m *MockConfig) EvmGasLimitMultiplier() float32 {
 }
 
 func (m *MockConfig) EvmGasPriceDefault() *assets.Wei {
-	panic("not implemented") // TODO: Implement
+	return m.EvmGasPriceDefaultF
 }
 
 func (m *MockConfig) EvmGasTipCapDefault() *assets.Wei {
