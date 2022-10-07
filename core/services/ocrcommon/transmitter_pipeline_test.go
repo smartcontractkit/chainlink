@@ -44,7 +44,9 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 		strategy,
 		txmgr.TransmitCheckerSpec{},
 		runner,
-		job.Job{},
+		job.Job{
+			PipelineSpec: &pipeline.Spec{},
+		},
 		chainID,
 	)
 
