@@ -7,11 +7,11 @@ env:
   NODE_OPTIONS: --max_old_space_size=5120
 
 jobs:
-  shard-tests:
-    name: Shard Solidity Tests
+  split-tests:
+    name: Split Solidity Tests
     runs-on: ubuntu-latest
     outputs:
-      shards: ${{ steps.shard.outputs.shards }}
+      splits: ${{ steps.split.outputs.splits }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -19,23 +19,23 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Shard Solidity Tests
+          this-job-name: Split Solidity Tests
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-      - name: Generate shards
-        id: shard
-        uses: ./.github/actions/shard-packages
+      - name: Generate splits
+        id: split
+        uses: ./.github/actions/split-tests
         with:
           config: ./contracts/ci.json
 
-  solidity-coverage-shards:
-    needs: [shard-tests]
-    name: Solidity Coverage ${{ matrix.shard.id }}
+  solidity-coverage-splits:
+    needs: [split-tests]
+    name: Solidity Coverage ${{ matrix.split.id }}
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJson(needs.shard-tests.outputs.shards) }}
+        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -44,7 +44,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity Coverage ${{ matrix.shard.id }}
+          this-job-name: Solidity Coverage ${{ matrix.split.id }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -56,22 +56,22 @@ jobs:
           namespace: coverage
       - name: Run coverage
         env:
-          SHARD: ${{ matrix.shard.coverageTests }}
+          SPLIT: ${{ matrix.split.coverageTests }}
         shell: bash
-        run: pnpm coverage --testfiles "$SHARD"
+        run: pnpm coverage --testfiles "$SPLIT"
         working-directory: contracts
       - name: Push coverage
         run: ./tools/bin/codecov -f ./contracts/coverage.json
       - name: Rename coverage
-        run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.shard.idx }}.json
+        run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.split.idx }}.json
       - name: Upload coverage
         uses: actions/upload-artifact@v3
         with:
-          name: solidity-coverage-${{ matrix.shard.idx }}
-          path: ./contracts/coverage-${{ matrix.shard.idx }}.json
+          name: solidity-coverage-${{ matrix.split.idx }}
+          path: ./contracts/coverage-${{ matrix.split.idx }}.json
 
   solidity-coverage:
-    needs: [solidity-coverage-shards]
+    needs: [solidity-coverage-splits]
     name: Solidity Coverage
     runs-on: ubuntu-latest
     steps:
@@ -92,13 +92,13 @@ jobs:
         run: pnpm istanbul report text text-summary
         working-directory: contracts
 
-  solidity-shards:
-    needs: [shard-tests]
-    name: Solidity ${{ matrix.shard.id }}
+  solidity-splits:
+    needs: [split-tests]
+    name: Solidity ${{ matrix.split.id }}
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJson(needs.shard-tests.outputs.shards) }}
+        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -107,7 +107,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity ${{ matrix.shard.id }}
+          this-job-name: Solidity ${{ matrix.split.id }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -119,12 +119,12 @@ jobs:
           namespace: coverage
       - name: Run tests
         env:
-          SHARD: ${{ matrix.shard.tests }}
+          SPLIT: ${{ matrix.split.tests }}
         working-directory: contracts
-        run: pnpm test -- $SHARD
+        run: pnpm test -- $SPLIT
 
   solidity:
-    needs: [solidity-shards]
+    needs: [solidity-splits]
     name: Solidity
     runs-on: ubuntu-latest
     steps:

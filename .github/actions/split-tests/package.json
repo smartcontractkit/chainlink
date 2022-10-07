@@ -5,8 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node -T --esm index.mts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "ts-node -T --esm ./src/index.mts",
+    "test": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +17,10 @@
     "zx": "^7.0.8"
   },
   "devDependencies": {
+    "@types/jest": "^29.1.2",
     "@types/node": "^18.8.2",
+    "jest": "^29.1.2",
+    "ts-jest": "^29.0.3",
     "typescript": "^4.8.4"
   }
 }

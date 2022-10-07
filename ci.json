@@ -1,4 +1,4 @@
 {
   "type": "golang",
-  "numOfShards": 8
+  "numOfSplits": 8
 }

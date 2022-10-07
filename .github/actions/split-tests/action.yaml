@@ -1,13 +1,13 @@
-name: Test Sharding
-description: Shard tests
+name: Test Spliting
+description: Split tests
 inputs:
   config:
     required: true
-    description: The path to the sharding config
+    description: The path to the splitting config
 outputs:
-  shards:
-    description: The generated test shards
-    value: ${{ steps.shard.outputs.shards }}
+  splits:
+    description: The generated test splits
+    value: ${{ steps.split.outputs.splits }}
 runs:
   using: composite
   steps:
@@ -19,17 +19,17 @@ runs:
       with:
         node-version: "16"
         cache: "pnpm"
-        cache-dependency-path: "./.github/actions/shard-packages/pnpm-lock.yaml"
+        cache-dependency-path: "./.github/actions/split-tests/pnpm-lock.yaml"
 
     - name: Install dependencies
       shell: bash
       run: pnpm i --prod
-      working-directory: "./.github/actions/shard-packages"
+      working-directory: "./.github/actions/split-tests"
 
-    - name: Run test sharder
-      id: shard
+    - name: Run test spliter
+      id: split
       shell: bash
       run: pnpm start
       env:
         CONFIG: ${{ inputs.config }}
-      working-directory: "./.github/actions/shard-packages"
+      working-directory: "./.github/actions/split-tests"
