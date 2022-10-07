@@ -698,7 +698,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					utils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      utils.NewHash(),
@@ -755,6 +755,8 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	if app.Config.FeatureLogPoller() {
 		// Replays can be long running, kick this off in a goroutine.
 		// It will be cancelled on node shutdown via the lp's context.
+		// TODO: Ideally the context passed here should be the server ctx, so on shutdown
+		// we kill any inprogress replays. Need some restructuring to obtain that
 		go func() {
 			if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
 				app.logger.Errorw("Error replaying", "err", err)
