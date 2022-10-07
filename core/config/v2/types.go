@@ -68,7 +68,7 @@ var (
 )
 
 func init() {
-	if err := cfgtest.DocDefaultsOnly(strings.NewReader(defaultsTOML), &defaults); err != nil {
+	if err := cfgtest.DocDefaultsOnly(strings.NewReader(defaultsTOML), &defaults, DecodeTOML); err != nil {
 		log.Fatalf("Failed to initialize defaults from docs: %v", err)
 	}
 }
@@ -265,9 +265,9 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *models.Duration
 	DefaultLockTimeout            *models.Duration
 	DefaultQueryTimeout           *models.Duration
+	MaxIdleConns                  *int64
+	MaxOpenConns                  *int64
 	MigrateOnStartup              *bool
-	ORMMaxIdleConns               *int64
-	ORMMaxOpenConns               *int64
 
 	Backup *DatabaseBackup
 
@@ -289,11 +289,11 @@ func (d *Database) setFrom(f *Database) {
 	if v := f.MigrateOnStartup; v != nil {
 		d.MigrateOnStartup = v
 	}
-	if v := f.ORMMaxIdleConns; v != nil {
-		d.ORMMaxIdleConns = v
+	if v := f.MaxIdleConns; v != nil {
+		d.MaxIdleConns = v
 	}
-	if v := f.ORMMaxOpenConns; v != nil {
-		d.ORMMaxOpenConns = v
+	if v := f.MaxOpenConns; v != nil {
+		d.MaxOpenConns = v
 	}
 
 	if f.Backup != nil {
@@ -426,35 +426,49 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 
 type Log struct {
 	DatabaseQueries *bool
-	FileDir         *string
-	FileMaxSize     *utils.FileSize
-	FileMaxAgeDays  *int64
-	FileMaxBackups  *int64
 	JSONConsole     *bool
 	UnixTS          *bool
+
+	File *LogFile
 }
 
 func (l *Log) setFrom(f *Log) {
 	if v := f.DatabaseQueries; v != nil {
 		l.DatabaseQueries = v
 	}
-	if v := f.FileDir; v != nil {
-		l.FileDir = v
-	}
-	if v := f.FileMaxSize; v != nil {
-		l.FileMaxSize = v
-	}
-	if v := f.FileMaxAgeDays; v != nil {
-		l.FileMaxAgeDays = v
-	}
-	if v := f.FileMaxBackups; v != nil {
-		l.FileMaxBackups = v
-	}
 	if v := f.JSONConsole; v != nil {
 		l.JSONConsole = v
 	}
 	if v := f.UnixTS; v != nil {
 		l.UnixTS = v
+	}
+	if f.File != nil {
+		if l.File == nil {
+			l.File = &LogFile{}
+		}
+		l.File.setFrom(f.File)
+	}
+}
+
+type LogFile struct {
+	Dir        *string
+	MaxSize    *utils.FileSize
+	MaxAgeDays *int64
+	MaxBackups *int64
+}
+
+func (l *LogFile) setFrom(f *LogFile) {
+	if v := f.Dir; v != nil {
+		l.Dir = v
+	}
+	if v := f.MaxSize; v != nil {
+		l.MaxSize = v
+	}
+	if v := f.MaxAgeDays; v != nil {
+		l.MaxAgeDays = v
+	}
+	if v := f.MaxBackups; v != nil {
+		l.MaxBackups = v
 	}
 }
 
@@ -579,24 +593,18 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 }
 
 type JobPipeline struct {
-	DefaultHTTPRequestTimeout *models.Duration //TODO HTTPRequestTimeout/HTTPRequest.Timeout https://app.shortcut.com/chainlinklabs/story/54384/standardize-toml-field-names
 	ExternalInitiatorsEnabled *bool
-	HTTPRequestMaxSize        *utils.FileSize
 	MaxRunDuration            *models.Duration
 	ReaperInterval            *models.Duration
 	ReaperThreshold           *models.Duration
 	ResultWriteQueueDepth     *uint32
+
+	HTTPRequest *JobPipelineHTTPRequest
 }
 
 func (j *JobPipeline) setFrom(f *JobPipeline) {
-	if v := f.DefaultHTTPRequestTimeout; v != nil {
-		j.DefaultHTTPRequestTimeout = v
-	}
 	if v := f.ExternalInitiatorsEnabled; v != nil {
 		j.ExternalInitiatorsEnabled = v
-	}
-	if v := f.HTTPRequestMaxSize; v != nil {
-		j.HTTPRequestMaxSize = v
 	}
 	if v := f.MaxRunDuration; v != nil {
 		j.MaxRunDuration = v
@@ -609,6 +617,26 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.ResultWriteQueueDepth; v != nil {
 		j.ResultWriteQueueDepth = v
+	}
+	if f.HTTPRequest != nil {
+		if j.HTTPRequest == nil {
+			j.HTTPRequest = &JobPipelineHTTPRequest{}
+		}
+		j.HTTPRequest.setFrom(f.HTTPRequest)
+	}
+}
+
+type JobPipelineHTTPRequest struct {
+	DefaultTimeout *models.Duration
+	MaxSize        *utils.FileSize
+}
+
+func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
+	if v := f.DefaultTimeout; v != nil {
+		j.DefaultTimeout = v
+	}
+	if v := f.MaxSize; v != nil {
+		j.MaxSize = v
 	}
 }
 
@@ -852,15 +880,12 @@ type Keeper struct {
 	GasPriceBufferPercent        *uint32
 	GasTipCapBufferPercent       *uint32
 	BaseFeeBufferPercent         *uint32
-	MaximumGracePeriod           *int64
-	RegistryCheckGasOverhead     *uint32
-	RegistryPerformGasOverhead   *uint32
-	RegistryMaxPerformDataSize   *uint32
-	RegistrySyncInterval         *models.Duration
-	RegistrySyncUpkeepQueueSize  *uint32
+	MaxGracePeriod               *int64
 	TurnLookBack                 *int64
 	TurnFlagEnabled              *bool
 	UpkeepCheckGasPriceEnabled   *bool
+
+	Registry *KeeperRegistry
 }
 
 func (k *Keeper) setFrom(f *Keeper) {
@@ -876,23 +901,8 @@ func (k *Keeper) setFrom(f *Keeper) {
 	if v := f.BaseFeeBufferPercent; v != nil {
 		k.BaseFeeBufferPercent = v
 	}
-	if v := f.MaximumGracePeriod; v != nil {
-		k.MaximumGracePeriod = v
-	}
-	if v := f.RegistryCheckGasOverhead; v != nil {
-		k.RegistryCheckGasOverhead = v
-	}
-	if v := f.RegistryPerformGasOverhead; v != nil {
-		k.RegistryPerformGasOverhead = v
-	}
-	if v := f.RegistryMaxPerformDataSize; v != nil {
-		k.RegistryMaxPerformDataSize = v
-	}
-	if v := f.RegistrySyncInterval; v != nil {
-		k.RegistrySyncInterval = v
-	}
-	if v := f.RegistrySyncUpkeepQueueSize; v != nil {
-		k.RegistrySyncUpkeepQueueSize = v
+	if v := f.MaxGracePeriod; v != nil {
+		k.MaxGracePeriod = v
 	}
 	if v := f.TurnLookBack; v != nil {
 		k.TurnLookBack = v
@@ -902,6 +912,38 @@ func (k *Keeper) setFrom(f *Keeper) {
 	}
 	if v := f.UpkeepCheckGasPriceEnabled; v != nil {
 		k.UpkeepCheckGasPriceEnabled = v
+	}
+	if f.Registry != nil {
+		if k.Registry == nil {
+			k.Registry = &KeeperRegistry{}
+		}
+		k.Registry.setFrom(f.Registry)
+	}
+}
+
+type KeeperRegistry struct {
+	CheckGasOverhead    *uint32
+	PerformGasOverhead  *uint32
+	MaxPerformDataSize  *uint32
+	SyncInterval        *models.Duration
+	SyncUpkeepQueueSize *uint32
+}
+
+func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
+	if v := f.CheckGasOverhead; v != nil {
+		k.CheckGasOverhead = v
+	}
+	if v := f.PerformGasOverhead; v != nil {
+		k.PerformGasOverhead = v
+	}
+	if v := f.MaxPerformDataSize; v != nil {
+		k.MaxPerformDataSize = v
+	}
+	if v := f.SyncInterval; v != nil {
+		k.SyncInterval = v
+	}
+	if v := f.SyncUpkeepQueueSize; v != nil {
+		k.SyncUpkeepQueueSize = v
 	}
 }
 

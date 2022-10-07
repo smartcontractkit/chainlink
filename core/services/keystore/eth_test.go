@@ -61,7 +61,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, state.Address.Address(), retrievedKeys[0].Address)
 		// adds key to db
 		keyStore.ResetXXXTestOnly()
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 		retrievedKeys, err = ethKeyStore.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(retrievedKeys))
@@ -180,10 +180,10 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	require.NoError(t, ethKeyStore.Disable(k2.Address, testutils.SimulatedChainID))
 
 	k3, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
-	ethKeyStore.Enable(k3.Address, testutils.SimulatedChainID)
+	require.NoError(t, ethKeyStore.Enable(k3.Address, testutils.SimulatedChainID))
 
 	k4, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
-	ethKeyStore.Enable(k4.Address, testutils.FixtureChainID)
+	require.NoError(t, ethKeyStore.Enable(k4.Address, testutils.FixtureChainID))
 
 	t.Run("with no address filter, rotates between all enabled addresses", func(t *testing.T) {
 		address1, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
@@ -756,10 +756,10 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	ks.Enable(k3.Address, testutils.SimulatedChainID)
 
 	t.Run("enabling the same key multiple times does not create duplicate states", func(t *testing.T) {
-		ks.Enable(k1.Address, testutils.FixtureChainID)
-		ks.Enable(k1.Address, testutils.FixtureChainID)
-		ks.Enable(k1.Address, testutils.FixtureChainID)
-		ks.Enable(k1.Address, testutils.FixtureChainID)
+		require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
+		require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
+		require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
+		require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
 
 		states, err := ks.GetStatesForKeys([]ethkey.KeyV2{k1})
 		require.NoError(t, err)
