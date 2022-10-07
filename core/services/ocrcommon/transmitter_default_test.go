@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
 
-func Test_Transmitter_CreateEthTransaction(t *testing.T) {
+func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -30,7 +30,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
-	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, effectiveTransmitterAddress, strategy, txmgr.TransmitCheckerSpec{})
+	transmitter := ocrcommon.NewDefaultTransmitter(txm, fromAddress, gasLimit, effectiveTransmitterAddress, strategy, txmgr.TransmitCheckerSpec{})
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    fromAddress,
