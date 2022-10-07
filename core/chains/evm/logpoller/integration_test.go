@@ -106,7 +106,8 @@ func TestLogPoller_Integration(t *testing.T) {
 	th := logpoller.SetupTH(t, 2, 3, 2)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 
-	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}))
+	_, err := th.LogPoller.RegisterFilter(logpoller.Filter{[]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}})
+	require.NoError(t, err)
 	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
 
 	// Emit some logs in blocks 3->7.
@@ -126,7 +127,11 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 5, len(logs))
 	// Now let's update the filter and replay to get Log2 logs.
-	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1}))
+	_, err = th.LogPoller.RegisterFilter(logpoller.Filter{
+		[]common.Hash{EmitterABI.Events["Log2"].ID},
+		[]common.Address{th.EmitterAddress1},
+	})
+	require.NoError(t, err)
 	// Replay an invalid block should error
 	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 0))
 	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 20))

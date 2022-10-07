@@ -163,7 +163,7 @@ func (o *ORM) SelectLogsWithSigsByBlockRangeFilter(start, end int64, address com
 		"end":       end,
 		"chainid":   utils.NewBig(o.chainID),
 		"address":   address,
-		"eventSigs": eventSigs,
+		"EventSigs": eventSigs,
 	}
 	query, args, err := sqlx.Named(
 		`
@@ -173,7 +173,7 @@ FROM logs
 WHERE logs.block_number BETWEEN :start AND :end
 	AND logs.evm_chain_id = :chainid
 	AND logs.address = :address
-	AND logs.event_sig IN (:eventSigs)
+	AND logs.event_sig IN (:EventSigs)
 ORDER BY (logs.block_number, logs.log_index)`, a)
 	if err != nil {
 		return nil, errors.Wrap(err, "sqlx Named")
@@ -224,7 +224,7 @@ WHERE evm_chain_id = :chainid
 	return blocks, err
 }
 
-// SelectLatestLogEventSigsAddrsWithConfs finds the latest log by (address, event) combination that matches a list of addresses and list of events
+// SelectLatestLogEventSigsAddrsWithConfs finds the latest log by (address, event) combination that matches a list of Addresses and list of events
 func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 
