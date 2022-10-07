@@ -37,7 +37,7 @@ func EVMChainForSpec(spec job.Job, set evm.ChainSet) (evm.Chain, error) {
 
 func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
-	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, pr, lggr.Named("OCR2KeeperRelayer"))
+	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, pr, spec, lggr.Named("OCR2KeeperRelayer"))
 
 	keeperProvider, err := ocr2keeperRelayer.NewOCR2KeeperProvider(
 		types.RelayArgs{

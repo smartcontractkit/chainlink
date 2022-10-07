@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -172,7 +173,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	)
 }
 
-func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, pr pipeline.Runner) (*ContractTransmitter, error) {
+func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, spec job.Job, pr pipeline.Runner) (*ContractTransmitter, error) {
 	var relayConfig RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -204,6 +205,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 			strategy,
 			txm.TransmitCheckerSpec{},
 			pr,
+			spec,
 			configWatcher.chain.ID().String(),
 		),
 		configWatcher.chain.LogPoller(),

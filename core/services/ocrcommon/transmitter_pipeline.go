@@ -2,12 +2,14 @@ package ocrcommon
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -30,6 +32,7 @@ type pipelineTransmitter struct {
 	strategy                    txmgr.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
 	pr                          pipeline.Runner
+	spec                        job.Job
 	chainID                     string
 }
 
@@ -42,6 +45,7 @@ func NewPipelineTransmitter(
 	strategy txmgr.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	pr pipeline.Runner,
+	spec job.Job,
 	chainID string,
 ) Transmitter {
 	return &pipelineTransmitter{
@@ -52,6 +56,7 @@ func NewPipelineTransmitter(
 		strategy:                    strategy,
 		checker:                     checker,
 		pr:                          pr,
+		spec:                        spec,
 		chainID:                     chainID,
 	}
 }
@@ -68,12 +73,23 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 	})
 
 	run := pipeline.NewRun(pipeline.Spec{
-		DotDagSource: txObservationSource,
-		GasLimit:     &t.gasLimit,
+		ID:                t.spec.ID,
+		DotDagSource:      txObservationSource,
+		CreatedAt:         t.spec.CreatedAt,
+		MaxTaskDuration:   t.spec.MaxTaskDuration,
+		GasLimit:          &t.spec.GasLimit.Uint32,
+		ForwardingAllowed: t.spec.ForwardingAllowed,
+		JobID:             t.spec.PipelineSpecID,
+		JobName:           t.spec.Name.ValueOrZero(),
+		JobType:           t.spec.Type.String(),
 	}, vars)
 
 	if _, err := t.pr.Run(ctx, &run, t.lgr, true, nil); err != nil {
 		return errors.Wrap(err, "Skipped OCR transmission")
+	}
+
+	if run.State != pipeline.RunStatusCompleted {
+		return fmt.Errorf("unexpected pipeline run state: %s", run.State)
 	}
 
 	return nil
