@@ -298,7 +298,9 @@ func (lp *logPoller) run() {
 			lp.pollAndSaveLogs(lp.ctx, start)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(lp.pollPeriod * 1000)
-			lp.pruneOldBlocks(lp.ctx)
+			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
+				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+			}
 		}
 	}
 }
