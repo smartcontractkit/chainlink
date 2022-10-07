@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,6 +15,7 @@ import (
 type ContractLoader interface {
 	LoadOperatorContract(address common.Address) (Operator, error)
 	LoadAuthorizedForwarder(address common.Address) (AuthorizedForwarder, error)
+	LoadKeeperConsumerBenchmark(address common.Address) (KeeperConsumerBenchmark, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -91,5 +93,23 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 		address:             address,
 		client:              e.client,
 		authorizedForwarder: instance.(*authorized_forwarder.AuthorizedForwarder),
+	}, err
+}
+
+// LoadKeeperConsumerBenchmark returns deployed on given address Keeper Consumer Contract
+func (e *EthereumContractLoader) LoadKeeperConsumerBenchmark(address common.Address) (KeeperConsumerBenchmark, error) {
+	instance, err := e.client.LoadContract("KeeperConsumerBenchmark", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return ethereum.NewKeeperConsumerBenchmark(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperConsumerBenchmark{
+		address:  &address,
+		client:   e.client,
+		consumer: instance.(*ethereum.KeeperConsumerBenchmark),
 	}, err
 }

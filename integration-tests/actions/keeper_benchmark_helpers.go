@@ -1,0 +1,177 @@
+package actions
+
+//revive:disable:dot-imports
+import (
+	"context"
+	"github.com/ethereum/go-ethereum/common"
+	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
+	"math"
+	"math/big"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+)
+
+// DeployBenchmarkKeeperContracts deploys a set amount of keeper Benchmark contracts registered to a single registry
+func DeployBenchmarkKeeperContracts(
+	registryVersion ethereum.KeeperRegistryVersion,
+	numberOfContracts int,
+	upkeepGasLimit uint32,
+	linkToken contracts.LinkToken,
+	contractDeployer contracts.ContractDeployer,
+	client blockchain.EVMClient,
+	registrySettings *contracts.KeeperRegistrySettings,
+	blockRange, // How many blocks to run the test for
+	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
+	performGasToBurn, // How much gas should be burned on performUpkeep() calls
+	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
+	predeployedContracts []string, // Array of addresses of predeployed consumer addresses to load
+	resetUpkeeps bool, // Set to true to reset predeployedContracts
+) (contracts.KeeperRegistry, []contracts.KeeperConsumerBenchmark, []*big.Int) {
+	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
+	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock ETH-Link feed shouldn't fail")
+	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
+	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock gas feed shouldn't fail")
+	err = client.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for mock feeds to deploy")
+
+	registry := DeployKeeperRegistry(contractDeployer, client,
+		&contracts.KeeperRegistryOpts{
+			RegistryVersion: registryVersion,
+			LinkAddr:        linkToken.Address(),
+			ETHFeedAddr:     ef.Address(),
+			GasFeedAddr:     gf.Address(),
+			TranscoderAddr:  ZeroAddress.Hex(),
+			RegistrarAddr:   ZeroAddress.Hex(),
+			Settings:        *registrySettings,
+		},
+	)
+
+	// Fund the registry with 1 LINK * amount of KeeperConsumerBenchmark contracts
+	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfContracts))))
+	Expect(err).ShouldNot(HaveOccurred(), "Funding keeper registry contract shouldn't fail")
+
+	registrarSettings := contracts.KeeperRegistrarSettings{
+		AutoApproveConfigType: 2,
+		AutoApproveMaxAllowed: math.MaxUint16,
+		RegistryAddr:          registry.Address(),
+		MinLinkJuels:          big.NewInt(0),
+	}
+	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
+
+	upkeeps := DeployKeeperConsumersBenchmark(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn, firstEligibleBuffer, predeployedContracts, resetUpkeeps)
+
+	upkeepsAddresses := []string{}
+	for _, upkeep := range upkeeps {
+		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
+	}
+	linkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(blockRange/blockInterval))
+	gasPrice := big.NewInt(0).Mul(registrySettings.FallbackGasPrice, big.NewInt(2))
+	minLinkBalance := big.NewInt(0).
+		Add(big.NewInt(0).
+			Mul(big.NewInt(0).
+				Div(big.NewInt(0).Mul(gasPrice, big.NewInt(int64(upkeepGasLimit+80000))), registrySettings.FallbackLinkPrice),
+				big.NewInt(1e18+0)),
+			big.NewInt(0))
+
+	linkFunds = big.NewInt(0).Add(linkFunds, minLinkBalance)
+
+	upkeepIds := RegisterUpkeepContracts(linkToken, linkFunds, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses)
+
+	return registry, upkeeps, upkeepIds
+}
+
+func DeployKeeperConsumersBenchmark(
+	contractDeployer contracts.ContractDeployer,
+	client blockchain.EVMClient,
+	numberOfContracts int,
+	blockRange, // How many blocks to run the test for
+	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
+	performGasToBurn, // How much gas should be burned on performUpkeep() calls
+	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block
+	predeployedContracts []string,
+	resetUpkeeps bool,
+) []contracts.KeeperConsumerBenchmark {
+	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
+
+	if len(predeployedContracts) > 0 {
+		contractLoader, err := contracts.NewContractLoader(client)
+		if err != nil {
+			log.Error().Err(err).Msg("Loading Contract Loader shouldn't fail")
+		}
+		for count, address := range predeployedContracts {
+			keeperConsumerInstance, err := contractLoader.LoadKeeperConsumerBenchmark(common.HexToAddress(address))
+			if err != nil {
+				log.Error().Err(err).Int("count", count+1).Msg("Loading KeeperConsumerBenchmark instance shouldn't fail")
+				keeperConsumerInstance, err = contractLoader.LoadKeeperConsumerBenchmark(common.HexToAddress(address))
+				if err != nil {
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to load KeeperConsumerBenchmark after retrying 1 time")
+				}
+			}
+			upkeeps = append(upkeeps, keeperConsumerInstance)
+		}
+
+		if resetUpkeeps {
+			for _, upkeep := range upkeeps {
+				err := upkeep.SetFirstEligibleBuffer(context.Background(), big.NewInt(10000))
+				if err != nil {
+					log.Error().Err(err).Str("UpkeepAddress", upkeep.Address()).Msg("SetFirstEligibleBuffer shouldn't fail")
+					err = upkeep.SetFirstEligibleBuffer(context.Background(), big.NewInt(10000))
+					if err != nil {
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to SetFirstEligibleBuffer after retrying 1 time")
+					}
+				}
+				err = upkeep.SetSpread(context.Background(), big.NewInt(blockRange), big.NewInt(blockInterval))
+				if err != nil {
+					log.Error().Err(err).Str("UpkeepAddress", upkeep.Address()).Msg("SetSpread shouldn't fail")
+				}
+				err = upkeep.Reset(context.Background())
+				if err != nil {
+					log.Error().Err(err).Str("UpkeepAddress", upkeep.Address()).Msg("SetSpread shouldn't fail")
+				}
+			}
+		}
+		return upkeeps
+	}
+
+	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+		// Deploy consumer
+		keeperConsumerInstance, err := contractDeployer.DeployKeeperConsumerBenchmark(
+			big.NewInt(blockRange),
+			big.NewInt(blockInterval),
+			big.NewInt(checkGasToBurn),
+			big.NewInt(performGasToBurn),
+			big.NewInt(firstEligibleBuffer),
+		)
+		if err != nil {
+			log.Error().Err(err).Int("count", contractCount+1).Msg("Deploying KeeperConsumerBenchmark instance %d shouldn't fail")
+			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumerBenchmark(
+				big.NewInt(blockRange),
+				big.NewInt(blockInterval),
+				big.NewInt(checkGasToBurn),
+				big.NewInt(performGasToBurn),
+				big.NewInt(firstEligibleBuffer),
+			)
+		}
+		//Expect(err).ShouldNot(HaveOccurred(), "Deploying KeeperConsumerBenchmark instance %d shouldn't fail", contractCount+1)
+		upkeeps = append(upkeeps, keeperConsumerInstance)
+		log.Debug().
+			Str("Contract Address", keeperConsumerInstance.Address()).
+			Int("Number", contractCount+1).
+			Int("Out Of", numberOfContracts).
+			Msg("Deployed Keeper Benchmark Contract")
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+			err = client.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for KeeperConsumerBenchmark deployments")
+		}
+	}
+	err := client.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for to deploy all keeper consumer contracts")
+	log.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
+
+	return upkeeps
+}
