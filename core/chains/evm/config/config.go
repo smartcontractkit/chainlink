@@ -1085,8 +1085,8 @@ func (c *chainScopedConfig) EvmLogKeepBlocksDepth() uint32 {
 	c.persistMu.RLock()
 	p := c.persistedCfg.EvmLogKeepBlocksDepth
 	c.persistMu.RUnlock()
-	if p != nil {
-		c.logPersistedOverrideOnce("EvmLogKeepBlocksDepth", *p)
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmLogKeepBlocksDepth", p.Int64)
 		return uint32(p.Int64)
 	}
 	return c.defaultSet.logKeepBlocksDepth
