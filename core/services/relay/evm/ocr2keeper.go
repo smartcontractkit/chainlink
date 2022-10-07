@@ -68,7 +68,6 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 	}
 
 	contractTransmitter, err := newPipelineContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher, r.spec, r.pr)
-	// contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher)
 	if err != nil {
 		return nil, err
 	}
