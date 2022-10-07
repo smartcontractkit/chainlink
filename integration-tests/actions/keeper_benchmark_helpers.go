@@ -106,7 +106,7 @@ func DeployKeeperConsumersBenchmark(
 		for count, address := range predeployedContracts {
 			keeperConsumerInstance, err := contractLoader.LoadKeeperConsumerBenchmark(common.HexToAddress(address))
 			if err != nil {
-				log.Error().Err(err).Int("count", count+1).Msg("Loading KeeperConsumerBenchmark instance shouldn't fail")
+				log.Error().Err(err).Int("count", count+1).Str("UpkeepAddress", address).Msg("Loading KeeperConsumerBenchmark instance shouldn't fail")
 				keeperConsumerInstance, err = contractLoader.LoadKeeperConsumerBenchmark(common.HexToAddress(address))
 				if err != nil {
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to load KeeperConsumerBenchmark after retrying 1 time")
@@ -116,14 +116,10 @@ func DeployKeeperConsumersBenchmark(
 		}
 
 		if resetUpkeeps {
-			for _, upkeep := range upkeeps {
+			for contractCount, upkeep := range upkeeps {
 				err := upkeep.SetFirstEligibleBuffer(context.Background(), big.NewInt(10000))
 				if err != nil {
-					log.Error().Err(err).Str("UpkeepAddress", upkeep.Address()).Msg("SetFirstEligibleBuffer shouldn't fail")
-					err = upkeep.SetFirstEligibleBuffer(context.Background(), big.NewInt(10000))
-					if err != nil {
-						Expect(err).ShouldNot(HaveOccurred(), "Failed to SetFirstEligibleBuffer after retrying 1 time")
-					}
+					Expect(err).ShouldNot(HaveOccurred(), "SetFirstEligibleBuffer shouldn't fail")
 				}
 				err = upkeep.SetSpread(context.Background(), big.NewInt(blockRange), big.NewInt(blockInterval))
 				if err != nil {
@@ -132,6 +128,10 @@ func DeployKeeperConsumersBenchmark(
 				err = upkeep.Reset(context.Background())
 				if err != nil {
 					log.Error().Err(err).Str("UpkeepAddress", upkeep.Address()).Msg("SetSpread shouldn't fail")
+				}
+				if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+					err = client.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for KeeperConsumerBenchmark deployments")
 				}
 			}
 		}
