@@ -231,6 +231,7 @@ type Chain struct {
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *models.Duration
+	LogKeepBlocksDepth       *uint32
 	MinIncomingConfirmations *uint32
 	MinContractPayment       *assets.Link
 	NonceAutoSync            *bool

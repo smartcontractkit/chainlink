@@ -494,3 +494,24 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 		assert.True(t, l.BlockNumber >= startBlock && l.BlockNumber <= endBlock)
 	}
 }
+
+func TestORM_DeleteBlocksBefore(t *testing.T) {
+	o1, _ := setup(t)
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 1))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 2))
+	require.NoError(t, o1.DeleteBlocksBefore(1))
+	// 1 should be gone.
+	_, err := o1.SelectBlockByNumber(1)
+	require.Equal(t, err, sql.ErrNoRows)
+	b, err := o1.SelectBlockByNumber(2)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), b.BlockNumber)
+	// Clear multiple
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 3))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 4))
+	require.NoError(t, o1.DeleteBlocksBefore(3))
+	_, err = o1.SelectBlockByNumber(2)
+	require.Equal(t, err, sql.ErrNoRows)
+	_, err = o1.SelectBlockByNumber(3)
+	require.Equal(t, err, sql.ErrNoRows)
+}
