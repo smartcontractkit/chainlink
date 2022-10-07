@@ -453,7 +453,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
 				LogBackfillBatchSize:     ptr[uint32](17),
 				LogPollInterval:          &minute,
-				LogKeepBlocksDepth:       ptr[uint32](100_000),
+				LogKeepBlocksDepth:       ptr[uint32](100000),
 				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
 				NonceAutoSync:            ptr(true),
@@ -1100,8 +1100,8 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 		wantConfig    string
 		wantEffective string
 	}{
-		//{name: "empty", wantEffective: emptyEffectiveTOML},
-		//{name: "full", inputConfig: fullTOML, wantConfig: fullTOML, wantEffective: fullTOML},
+		{name: "empty", wantEffective: emptyEffectiveTOML},
+		{name: "full", inputConfig: fullTOML, wantConfig: fullTOML, wantEffective: fullTOML},
 		{name: "multi-chain", inputConfig: multiChainTOML, wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML},
 		// TODO: more test cases
 	}
