@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -43,6 +44,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 		strategy,
 		txmgr.TransmitCheckerSpec{},
 		runner,
+		job.Job{},
 		chainID,
 	)
 
