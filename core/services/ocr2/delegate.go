@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -119,8 +120,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if !ok {
 			return nil, errors.New("chainID must be provided in relay config")
 		}
-		chainID := int64(chainIDInterface.(float64))
-		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		chainID, ok := chainIDInterface.(float64)
+		if !ok {
+			return nil, errors.Errorf("invalid chain type got %T want float64", chainIDInterface)
+		}
+		chain, err2 := d.chainSet.Get(big.NewInt(int64(chainID)))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
