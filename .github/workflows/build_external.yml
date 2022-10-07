@@ -30,24 +30,15 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Checkout Chainlink repo
-        uses: actions/checkout@v3
-        with:
-          repository: smartcontractkit/chainlink
-          ref: develop
-      - name: Install operator-ui
+      - name: Build the image
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@v2.0.21
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make operator-ui
-      - name: Replace chainlink-relay deps
-        run: go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
-      - name: Build Image
-        uses: docker/build-push-action@v3
+          GH_TOKEN: ${{ github.token }}
         with:
-          context: .
-          file: core/chainlink.Dockerfile
-          build-args: COMMIT_SHA=${{ github.sha }}
-          push: false
+          push_tag: ""
+          cl_repo: smartcontractkit/chainlink
+          cl_ref: develop
+          dep_relay_sha: ${{ github.event.pull_request.head.sha }}
   solana-build-relay:
     environment: integration
     permissions:
@@ -69,18 +60,16 @@ jobs:
         with:
           repository: smartcontractkit/chainlink-solana
           ref: relay_ci_updates
-      - uses: smartcontractkit/tool-versions-to-env-action@v1.0.7
-        id: tool-versions
-      - name: Setup go ${{ steps.tool-versions.outputs.golang_version }}
+      - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ steps.tool-versions.outputs.golang_version }}
+          go-version-file: "go.mod"
       - name: Replace chainlink-relay deps
-        run: go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
-      - name: Install Solana CLI
         run: |
-            cat go.mod
-            make test_install_ci
+          go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+          go mod tidy
+      - name: Install Solana CLI
+        run: make test_install_ci
       - name: Build & Test
         run: make test_relay_unit
   starknet-build-relay:
@@ -103,10 +92,15 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: smartcontractkit/chainlink-starknet
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: ./relayer/go.mod
       - name: Replace chainlink-relay deps
         run: | 
             cd relayer
             go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+            go mod tidy
       - name: Install Nix
         uses: cachix/install-nix-action@d64e0553100205688c0fb2fa16edb0fc8663c590 # v17
         with:
