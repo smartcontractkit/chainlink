@@ -3,6 +3,7 @@ package logpoller
 import (
 	"bytes"
 	"database/sql"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -17,7 +18,7 @@ import (
 )
 
 // Setup creates two orms representing logs from different chains.
-func setup(t *testing.T) (*ORM, *ORM) {
+func setup(t testing.TB) (*ORM, *ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
@@ -132,7 +133,7 @@ func TestORM(t *testing.T) {
 			LogIndex:    1,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     common.HexToAddress("0x1234"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -143,7 +144,7 @@ func TestORM(t *testing.T) {
 			LogIndex:    2,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(11),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     common.HexToAddress("0x1234"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -154,7 +155,7 @@ func TestORM(t *testing.T) {
 			LogIndex:    3,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(12),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     common.HexToAddress("0x1235"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -165,7 +166,7 @@ func TestORM(t *testing.T) {
 			LogIndex:    4,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(13),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     common.HexToAddress("0x1235"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -176,7 +177,7 @@ func TestORM(t *testing.T) {
 			LogIndex:    5,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(14),
-			EventSig:    topic2[:],
+			EventSig:    topic2,
 			Topics:      [][]byte{topic2[:]},
 			Address:     common.HexToAddress("0x1234"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -187,7 +188,7 @@ func TestORM(t *testing.T) {
 			LogIndex:    6,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(15),
-			EventSig:    topic2[:],
+			EventSig:    topic2,
 			Topics:      [][]byte{topic2[:]},
 			Address:     common.HexToAddress("0x1235"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -279,7 +280,7 @@ func TestORM(t *testing.T) {
 	require.Equal(t, 0, len(logs))
 }
 
-func insertLogsTopicValueRange(t *testing.T, o *ORM, addr common.Address, blockNumber int, eventSig []byte, start, stop int) {
+func insertLogsTopicValueRange(t *testing.T, o *ORM, addr common.Address, blockNumber int, eventSig common.Hash, start, stop int) {
 	var lgs []Log
 	for i := start; i <= stop; i++ {
 		lgs = append(lgs, Log{
@@ -287,7 +288,7 @@ func insertLogsTopicValueRange(t *testing.T, o *ORM, addr common.Address, blockN
 			LogIndex:    int64(i),
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(blockNumber),
-			EventSig:    eventSig[:],
+			EventSig:    eventSig,
 			Topics:      [][]byte{eventSig[:], EvmWord(uint64(i)).Bytes()},
 			Address:     addr,
 			TxHash:      common.HexToHash("0x1888"),
@@ -303,8 +304,8 @@ func TestORM_IndexedLogs(t *testing.T) {
 	addr := common.HexToAddress("0x1234")
 	bh := common.HexToHash("0x1234")
 	require.NoError(t, o1.InsertBlock(bh, 1))
-	insertLogsTopicValueRange(t, o1, addr, 1, eventSig.Bytes(), 1, 3)
-	insertLogsTopicValueRange(t, o1, addr, 2, eventSig.Bytes(), 4, 4) // unconfirmed
+	insertLogsTopicValueRange(t, o1, addr, 1, eventSig, 1, 3)
+	insertLogsTopicValueRange(t, o1, addr, 2, eventSig, 4, 4) // unconfirmed
 
 	lgs, err := o1.SelectIndexedLogs(addr, eventSig[:], 1, []common.Hash{EvmWord(1)}, 0)
 	require.NoError(t, err)
@@ -351,7 +352,7 @@ func TestORM_DataWords(t *testing.T) {
 			LogIndex:    int64(0),
 			BlockHash:   bh,
 			BlockNumber: int64(1),
-			EventSig:    eventSig[:],
+			EventSig:    eventSig,
 			Topics:      [][]byte{eventSig[:]},
 			Address:     addr,
 			TxHash:      common.HexToHash("0x1888"),
@@ -363,7 +364,7 @@ func TestORM_DataWords(t *testing.T) {
 			LogIndex:    int64(1),
 			BlockHash:   bh,
 			BlockNumber: int64(2),
-			EventSig:    eventSig[:],
+			EventSig:    eventSig,
 			Topics:      [][]byte{eventSig[:]},
 			Address:     addr,
 			TxHash:      common.HexToHash("0x1888"),
@@ -417,7 +418,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			LogIndex:    1,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     sourceAddr,
 			TxHash:      common.HexToHash("0x1888"),
@@ -428,7 +429,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			LogIndex:    2,
 			BlockHash:   common.HexToHash("0x1235"),
 			BlockNumber: int64(11),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     sourceAddr,
 			TxHash:      common.HexToHash("0x1888"),
@@ -439,7 +440,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			LogIndex:    3,
 			BlockHash:   common.HexToHash("0x1236"),
 			BlockNumber: int64(12),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     common.HexToAddress("0x1235"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -450,7 +451,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			LogIndex:    4,
 			BlockHash:   common.HexToHash("0x1237"),
 			BlockNumber: int64(13),
-			EventSig:    topic[:],
+			EventSig:    topic,
 			Topics:      [][]byte{topic[:]},
 			Address:     common.HexToAddress("0x1235"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -461,7 +462,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			LogIndex:    5,
 			BlockHash:   common.HexToHash("0x1238"),
 			BlockNumber: int64(14),
-			EventSig:    topic2[:],
+			EventSig:    topic2,
 			Topics:      [][]byte{topic2[:]},
 			Address:     sourceAddr,
 			TxHash:      common.HexToHash("0x1888"),
@@ -472,7 +473,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			LogIndex:    6,
 			BlockHash:   common.HexToHash("0x1239"),
 			BlockNumber: int64(15),
-			EventSig:    topic2[:],
+			EventSig:    topic2,
 			Topics:      [][]byte{topic2[:]},
 			Address:     sourceAddr,
 			TxHash:      common.HexToHash("0x1888"),
@@ -490,7 +491,31 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	assert.Len(t, logs, 4)
 	for _, l := range logs {
 		assert.Equal(t, sourceAddr, l.Address, "wrong log address")
-		assert.True(t, bytes.Equal(topic.Bytes(), l.EventSig) || bytes.Equal(topic2.Bytes(), l.EventSig), "wrong log topic")
+		assert.True(t, bytes.Equal(topic.Bytes(), l.EventSig.Bytes()) || bytes.Equal(topic2.Bytes(), l.EventSig.Bytes()), "wrong log topic")
 		assert.True(t, l.BlockNumber >= startBlock && l.BlockNumber <= endBlock)
+	}
+}
+
+func BenchmarkLogs(b *testing.B) {
+	o, _ := setup(b)
+	var lgs []Log
+	addr := common.HexToAddress("0x1234")
+	for i := 0; i < 10_000; i++ {
+		lgs = append(lgs, Log{
+			EvmChainId:  utils.NewBig(o.chainID),
+			LogIndex:    int64(i),
+			BlockHash:   common.HexToHash("0x1"),
+			BlockNumber: 1,
+			EventSig:    EmitterABI.Events["Log1"].ID,
+			Topics:      [][]byte{},
+			Address:     addr,
+			TxHash:      common.HexToHash("0x1234"),
+			Data:        common.HexToHash(fmt.Sprintf("0x%d", i)).Bytes(),
+		})
+	}
+	o.InsertLogs(lgs)
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		o.SelectDataWordRange(addr, EmitterABI.Events["Log1"].ID.Bytes(), 0, EvmWord(8000), EvmWord(8002), 0)
 	}
 }

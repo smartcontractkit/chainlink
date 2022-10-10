@@ -32,7 +32,7 @@ func logRuntime(t *testing.T, start time.Time) {
 }
 
 func TestPopulateLoadedDB(t *testing.T) {
-	t.Skip("only for local load testing and query analysis")
+	//t.Skip("only for local load testing and query analysis")
 	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDB(t, "logs_scale")
 	chainID := big.NewInt(137)
@@ -57,7 +57,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 				LogIndex:    1,
 				BlockHash:   common.HexToHash(fmt.Sprintf("0x%d", i+(1000*j))),
 				BlockNumber: int64(i + (1000 * j)),
-				EventSig:    event1[:],
+				EventSig:    event1,
 				Topics:      [][]byte{event1[:], logpoller.EvmWord(uint64(i + 1000*j)).Bytes()},
 				Address:     addr,
 				TxHash:      common.HexToHash("0x1234"),

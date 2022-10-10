@@ -346,7 +346,7 @@ func convertLogs(chainID *big.Int, logs []types.Log) []Log {
 			// We assume block numbers fit in int64
 			// in many places.
 			BlockNumber: int64(l.BlockNumber),
-			EventSig:    l.Topics[0].Bytes(), // First topic is always event signature.
+			EventSig:    l.Topics[0], // First topic is always event signature.
 			Topics:      convertTopics(l.Topics),
 			Address:     l.Address,
 			TxHash:      l.TxHash,

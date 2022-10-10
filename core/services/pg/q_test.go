@@ -33,6 +33,10 @@ func Test_sprintQ(t *testing.T) {
 			"SELECT $1 FROM table LIMIT $2;",
 			[]interface{}{"foo", Limit(-1)},
 			"SELECT foo FROM table LIMIT NULL;"},
+		{"bytes",
+			"SELECT $1 FROM table WHERE b = $2;",
+			[]interface{}{"foo", []byte{0x0a}},
+			"SELECT foo FROM table WHERE b = '\\x0a';"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sprintQ(tt.query, tt.args)

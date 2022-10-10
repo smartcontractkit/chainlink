@@ -40,7 +40,7 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 		LogIndex:    logIndex,
 		BlockHash:   common.HexToHash(blockHash),
 		BlockNumber: blockNum,
-		EventSig:    topic1,
+		EventSig:    common.BytesToHash(topic1),
 		Topics:      [][]byte{topic1},
 		Address:     address,
 		TxHash:      common.HexToHash("0x1234"),
@@ -599,6 +599,7 @@ func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 		_, err := lp.RegisterFilter(Filter{EventSigs: events, Addresses: addresses})
 		require.NoError(b, err)
 	}
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		lp.filter(nil, nil, nil)
 	}

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -280,10 +282,28 @@ func sprintQ(query string, args []interface{}) string {
 	}
 	var pairs []string
 	for i, arg := range args {
-		pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		// We print by type so one can directly take the logged query string and execute it manually in pg.
+		// Annoyingly it seems as though the logger itself will add an extra \, so you still have to remove that.
+		switch v := arg.(type) {
+		case []byte:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v))
+		case common.Address:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case common.Hash:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case pq.ByteaArray:
+			s := fmt.Sprintf("('\\x%x'", v[0])
+			for i := 0; i < len(v); i++ {
+				s += fmt.Sprintf(",'\\x%x'", v[i])
+			}
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s))
+		default:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		}
 	}
 	replacer := strings.NewReplacer(pairs...)
-	return replacer.Replace(query)
+	queryWithVals := replacer.Replace(query)
+	return strings.ReplaceAll(strings.ReplaceAll(queryWithVals, "\n", " "), "\t", " ")
 }
 
 // queryLogger extends Q with logging helpers for a particular query w/ args.

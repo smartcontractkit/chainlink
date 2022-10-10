@@ -31,7 +31,7 @@ func NewSqlDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func NewSqlxDB(t *testing.T) *sqlx.DB {
+func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
 	db, err := sqlx.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
