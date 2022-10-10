@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"math/big"
 	"strconv"
 	"strings"
@@ -115,6 +116,12 @@ type KeeperPerformDataChecker interface {
 	Address() string
 	Counter(ctx context.Context) (*big.Int, error)
 	SetExpectedData(ctx context.Context, expectedData []byte) error
+}
+
+type UpkeepResetter interface {
+	Address() string
+	ResetManyConsumerBenchmark(ctx context.Context, upkeepAddresses []string, testRange *big.Int,
+		averageEligibilityCadence *big.Int, firstEligibleBuffer *big.Int, checkGasToBurn *big.Int, performGasToBurn *big.Int) error
 }
 
 type UpkeepPerformedLog struct {
@@ -1410,6 +1417,33 @@ func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(ctx context.C
 		return err
 	}
 	tx, err := v.performDataChecker.SetExpectedData(opts, expectedData)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+type EthereumUpkeepResetter struct {
+	client   blockchain.EVMClient
+	consumer *int_ethereum.UpkeepResetter
+	address  *common.Address
+}
+
+func (v *EthereumUpkeepResetter) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumUpkeepResetter) ResetManyConsumerBenchmark(ctx context.Context, upkeepAddressesStr []string, testRange *big.Int,
+	averageEligibilityCadence *big.Int, firstEligibleBuffer *big.Int, checkGasToBurn *big.Int, performGasToBurn *big.Int) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	upkeepAddresses := make([]common.Address, 0)
+	for _, a := range upkeepAddressesStr {
+		upkeepAddresses = append(upkeepAddresses, common.HexToAddress(a))
+	}
+	tx, err := v.consumer.ResetManyConsumerBenchmark(opts, upkeepAddresses, testRange, averageEligibilityCadence, firstEligibleBuffer, checkGasToBurn, performGasToBurn)
 	if err != nil {
 		return err
 	}

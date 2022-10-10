@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"math/big"
 	"time"
 
@@ -61,6 +62,7 @@ type ContractDeployer interface {
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
+	DeployUpkeepResetter() (UpkeepResetter, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -834,5 +836,23 @@ func (e *EthereumContractDeployer) DeployOperatorFactory(linkAddr string) (Opera
 		address:         addr,
 		client:          e.client,
 		operatorFactory: instance.(*operator_factory.OperatorFactory),
+	}, err
+}
+
+// DeployUpkeepResetter deploys upkeep resetter contract
+func (e *EthereumContractDeployer) DeployUpkeepResetter() (UpkeepResetter, error) {
+	addr, _, instance, err := e.client.DeployContract("UpkeepResetter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return int_ethereum.DeployUpkeepResetter(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumUpkeepResetter{
+		address:  addr,
+		client:   e.client,
+		consumer: instance.(*int_ethereum.UpkeepResetter),
 	}, err
 }
