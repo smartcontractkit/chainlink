@@ -293,8 +293,8 @@ func sprintQ(query string, args []interface{}) string {
 			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
 		case pq.ByteaArray:
 			s := fmt.Sprintf("('\\x%x'", v[0])
-			for i := 0; i < len(v); i++ {
-				s += fmt.Sprintf(",'\\x%x'", v[i])
+			for j := 1; j < len(v); j++ {
+				s += fmt.Sprintf(",'\\x%x'", v[j])
 			}
 			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s))
 		default:
