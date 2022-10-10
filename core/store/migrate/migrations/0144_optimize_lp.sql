@@ -12,7 +12,7 @@ CREATE INDEX logs_idx_topic_four ON logs ((topics[4]));
 
 DROP INDEX logs_idx_evm_id_event_address_block;
 DROP INDEX logs_idx_block_number;
-ALTER TABLE log_poller_blocks ADD CONSTRAINT block_hash_uniq UNIQUE(block_hash);
+ALTER TABLE log_poller_blocks ADD CONSTRAINT block_hash_uniq UNIQUE(evm_chain_id,block_hash);
 --
 -- +goose Down
 DROP INDEX IF EXISTS logs_idx_data_word_one, logs_idx_data_word_two, logs_idx_data_word_three, logs_idx_topic_two, logs_idx_topic_three, logs_idx_topic_four;
