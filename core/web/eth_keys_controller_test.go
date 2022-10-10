@@ -29,7 +29,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 
-	app.KeyStore.Unlock(cltest.Password)
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// disabled key
 	k0, addr0 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
