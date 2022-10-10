@@ -29,8 +29,7 @@ var (
 	networkSettingsLoad = &blockchain.EVMNetwork{
 		Name:      "geth",
 		Simulated: true,
-		//ChainID:   100,
-		ChainID: 1337,
+		ChainID:   1337,
 		PrivateKeys: []string{
 			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 		},
@@ -232,7 +231,7 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 			v := NewDBVerifier(db, txs, LogsPerTx, fromBlockNumber)
 			v.VerifyAllTransactionsStored()
 		case "replay":
-			time.Sleep(2 * time.Minute)
+			time.Sleep(20 * time.Minute)
 			gen.Stop()
 
 			db, err := ctfClient.ConnectDB(0, e)

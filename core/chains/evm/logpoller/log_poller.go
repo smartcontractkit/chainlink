@@ -16,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -24,6 +26,29 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
+)
+
+var (
+	blockProcessingTimeTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "log_poller_block_processing_time_total_ms",
+		Help: "Total block processing time in log poller",
+	},
+		[]string{"evmChainID"},
+	)
+	blockProcessingTimePercentiles = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "log_poller_block_processing_time_bucket",
+		Help: "The duration of total processing time for block in log poller",
+		Buckets: []float64{
+			float64(50 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(200 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(1 * time.Second),
+			float64(2 * time.Second),
+			float64(4 * time.Second),
+			float64(8 * time.Second),
+		},
+	}, []string{"evmChainID"})
 )
 
 //go:generate mockery --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
@@ -301,6 +326,7 @@ func (lp *logPoller) run() {
 			case lp.replayComplete <- err:
 			}
 		case <-tick:
+			before := time.Now()
 			tick = time.After(utils.WithJitter(lp.pollPeriod))
 			// Always start from the latest block in the db.
 			var start int64
@@ -332,6 +358,8 @@ func (lp *logPoller) run() {
 				start = lastProcessed.BlockNumber + 1
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
+			blockProcessingTimeTotal.WithLabelValues(lp.ec.ChainID().String()).Set(float64(time.Since(before)))
+			blockProcessingTimePercentiles.WithLabelValues(lp.ec.ChainID().String()).Observe(float64(time.Since(before)))
 		}
 	}
 }
