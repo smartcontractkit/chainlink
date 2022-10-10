@@ -3,11 +3,12 @@ pragma solidity ^0.8.6;
 
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
+import "../../ConfirmedOwner.sol";
 
 /**
  * @title OCR2DR oracle contract (stub for now)
  */
-contract OCR2DROracle is OCR2DROracleInterface {
+contract OCR2DROracle is OCR2DROracleInterface, ConfirmedOwner {
   event OracleRequest(bytes32 requestId, bytes data);
   event CancelOracleRequest(bytes32 indexed requestId);
   event OracleResponse(bytes32 indexed requestId);
@@ -20,6 +21,8 @@ contract OCR2DROracle is OCR2DROracleInterface {
   }
 
   mapping(bytes32 => Request) s_requests;
+
+  constructor(address owner) ConfirmedOwner(owner) {}
 
   function sendRequest(
     uint256 nonce,

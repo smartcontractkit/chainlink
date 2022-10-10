@@ -38,7 +38,7 @@ before(async () => {
   )
 })
 
-describe.only('OCR2DRClientTestHelper', () => {
+describe('OCR2DRClientTestHelper', () => {
   const subscriptionId = 1
   const anyValue = () => true
 
@@ -46,7 +46,10 @@ describe.only('OCR2DRClientTestHelper', () => {
   let oracle: Contract
 
   beforeEach(async () => {
-    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
+    const accounts = await ethers.getSigners()
+    oracle = await ocr2drOracleFactory
+      .connect(roles.defaultAccount)
+      .deploy(accounts[0].address)
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
