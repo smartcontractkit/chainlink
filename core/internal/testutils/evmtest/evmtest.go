@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -35,6 +36,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {
+	if _, ok := cfg.(v2.HasEVMConfigs); ok {
+		return v2.NewTOMLChainScopedConfig(cfg, &v2.EVMConfig{ChainID: utils.NewBigI(0)}, logger.TestLogger(t))
+	}
+	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.TestLogger(t), cfg)
+}
+
+func NewLegacyChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.LegacyChainScopedConfig {
+	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.TestLogger(t), cfg)
+}
+
 type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
@@ -46,16 +58,16 @@ type TestChainOpts struct {
 	KeyStore       keystore.Eth
 }
 
-func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.LegacyChainScopedConfig {
-	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{},
-		nil, logger.TestLogger(t), cfg)
-}
-
 // NewChainSet returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
+func NewChainSet(t testing.TB, testopts TestChainOpts) (cc evm.ChainSet) {
 	opts, chains, nodes := NewChainSetOpts(t, testopts)
-	cc, err := evm.NewDBChainSet(testutils.Context(t), opts, chains, nodes)
+	var err error
+	if cfgs, ok := testopts.GeneralConfig.(v2.HasEVMConfigs); ok {
+		cc, err = evm.NewTOMLChainSet(testutils.Context(t), opts, cfgs.EVMConfigs())
+	} else {
+		cc, err = evm.NewDBChainSet(testutils.Context(t), opts, chains, nodes)
+	}
 	require.NoError(t, err)
 	return cc
 }

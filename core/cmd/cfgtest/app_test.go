@@ -61,7 +61,7 @@ func assertMethodsReturnEqual[M any](t *testing.T, a, b M) {
 				t.Skip("irrelevant")
 			case "P2PListenPort", "AppID":
 				t.Skip("randomized")
-			case "EVMEnabled", "P2PNetworkingStack", "P2PNetworkingStackRaw", "P2PEnabled", "BlockEmissionIdleWarningThreshold":
+			case "EVMEnabled", "EVMRPCEnabled", "P2PNetworkingStack", "P2PNetworkingStackRaw", "P2PEnabled", "BlockEmissionIdleWarningThreshold":
 				t.Skip("default redefined") // see core/cmd/chainlink/TestTOMLGeneralConfig_Defaults
 			}
 

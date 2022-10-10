@@ -197,6 +197,8 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
+// TODO how to wedge in new config w/o import cycle...
+// TODO use v2.NewTestGeneralConfig instead
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }

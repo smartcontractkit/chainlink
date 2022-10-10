@@ -59,6 +59,7 @@ type generalConfig struct {
 	logMu           sync.RWMutex
 }
 
+// TODO doc
 func NewTOMLGeneralConfig(lggr logger.Logger, configToml string, secretsToml string, keystorePasswordFileName, vrfPasswordFileName *string) (coreconfig.GeneralConfig, error) {
 	var c Config
 	err := v2.DecodeTOML(strings.NewReader(configToml), &c)
