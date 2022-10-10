@@ -297,7 +297,7 @@ func sprintQ(query string, args []interface{}) string {
 			for j := 1; j < len(v); j++ {
 				fmt.Fprintf(&s, ",'\\x%x'", v[j])
 			}
-			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s))
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s.String()))
 		default:
 			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
 		}

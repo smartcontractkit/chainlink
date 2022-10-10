@@ -41,7 +41,7 @@ func Test_sprintQ(t *testing.T) {
 		{"bytea[]",
 			"SELECT $1 FROM table WHERE b = $2;",
 			[]interface{}{"foo", pq.ByteaArray([][]byte{{0xa}, {0xb}})},
-			"SELECT foo FROM table WHERE b = ('\\x0a', '\\x0b');"},
+			"SELECT foo FROM table WHERE b = ('\\x0a','\\x0b');"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sprintQ(tt.query, tt.args)
