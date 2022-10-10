@@ -504,28 +504,17 @@ func BenchmarkLogs(b *testing.B) {
 			LogIndex:    int64(i),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: 1,
-<<<<<<< Updated upstream
 			EventSig:    EmitterABI.Events["Log1"].ID,
-=======
-			EventSig:    EmitterABI.Events["Log1"].ID.Bytes(),
->>>>>>> Stashed changes
 			Topics:      [][]byte{},
 			Address:     addr,
 			TxHash:      common.HexToHash("0x1234"),
 			Data:        common.HexToHash(fmt.Sprintf("0x%d", i)).Bytes(),
 		})
 	}
-<<<<<<< Updated upstream
-	o.InsertLogs(lgs)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		o.SelectDataWordRange(addr, EmitterABI.Events["Log1"].ID, 0, EvmWord(8000), EvmWord(8002), 0)
-=======
 	require.NoError(b, o.InsertLogs(lgs))
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, err := o.SelectDataWordRange(addr, EmitterABI.Events["Log1"].ID.Bytes(), 0, EvmWord(8000), EvmWord(8002), 0)
+		_, err := o.SelectDataWordRange(addr, EmitterABI.Events["Log1"].ID, 0, EvmWord(8000), EvmWord(8002), 0)
 		require.NoError(b, err)
->>>>>>> Stashed changes
 	}
 }

@@ -611,8 +611,8 @@ func (c *coordinator) unmarshalLogs(
 ) {
 	for _, lg := range logs {
 		rawLog := toGethLog(lg)
-		switch {
-		case lg.EventSig == c.randomnessRequestedTopic:
+		switch lg.EventSig {
+		case c.randomnessRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -626,7 +626,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
-		case lg.EventSig == c.randomnessFulfillmentRequestedTopic:
+		case c.randomnessFulfillmentRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -640,7 +640,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, rfr)
-		case lg.EventSig == c.randomWordsFulfilledTopic:
+		case c.randomWordsFulfilledTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -654,7 +654,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
-		case lg.EventSig == c.newTransmissionTopic:
+		case c.newTransmissionTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
