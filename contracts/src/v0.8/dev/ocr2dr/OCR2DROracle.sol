@@ -20,6 +20,7 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
 
   struct Commitment {
     address client;
+    uint256 subscriptionId;
   }
 
   mapping(bytes32 => Commitment) s_commitments;
@@ -28,14 +29,14 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
 
   function sendRequest(
     uint256 nonce,
-    uint256, /* subscriptionId */
+    uint256 subscriptionId,
     bytes calldata data
   ) external override returns (bytes32) {
     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, nonce));
     if (s_commitments[requestId].client != address(0)) {
       revert NonceMustBeUnique();
     }
-    s_commitments[requestId].client = msg.sender;
+    s_commitments[requestId] = Commitment(msg.sender, subscriptionId);
     emit OracleRequest(requestId, data);
     return requestId;
   }
@@ -63,10 +64,6 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
     _;
   }
 
-  /**
-   * @notice concrete implementation of AuthorizedReceiver
-   * @return bool of whether sender is authorized
-   */
   function _canSetAuthorizedSenders() internal view override returns (bool) {
     return isAuthorizedSender(msg.sender) || owner() == msg.sender;
   }
