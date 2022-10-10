@@ -10,7 +10,7 @@ interface OCR2DROracleInterface {
     uint256 nonce,
     uint256 subscriptionId,
     bytes calldata data
-  ) external;
+  ) external returns (bytes32);
 
   function cancelRequest(bytes32 requestId) external;
 

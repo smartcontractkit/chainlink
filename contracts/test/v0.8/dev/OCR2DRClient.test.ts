@@ -21,9 +21,9 @@ function getEventArg(events: any, eventName: string, argIndex: number) {
 
 async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const receipt = await tx.wait()
-  const data = receipt.logs?.[1].data
+  const data = receipt.logs?.[0].data
   return ethers.utils.defaultAbiCoder.decode(
-    ['address', 'uint256', 'bytes'],
+    ['address', 'bytes32', 'bytes'],
     data ?? '',
   )
 }
@@ -68,7 +68,7 @@ describe('OCR2DRClientTestHelper', () => {
         .to.emit(oracle, 'OracleRequest')
         .withArgs(
           client.address,
-          1, // nonce
+          anyValue,
           anyValue,
         )
     })

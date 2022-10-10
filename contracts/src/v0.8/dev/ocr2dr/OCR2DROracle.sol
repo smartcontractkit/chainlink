@@ -8,7 +8,7 @@ import "../interfaces/OCR2DROracleInterface.sol";
  * @title OCR2DR oracle contract (stub for now)
  */
 contract OCR2DROracle is OCR2DROracleInterface {
-  event OracleRequest(address sender, uint256 nonce, bytes data);
+  event OracleRequest(address sender, bytes32 requestId, bytes data);
   event CancelOracleRequest(bytes32 indexed requestId);
   event OracleResponse(bytes32 indexed requestId);
 
@@ -17,8 +17,10 @@ contract OCR2DROracle is OCR2DROracleInterface {
     uint256 nonce,
     uint256, /* subscriptionId */
     bytes calldata data
-  ) external override {
-    emit OracleRequest(sender, nonce, data);
+  ) external override returns (bytes32) {
+    bytes32 requestId = keccak256(abi.encodePacked(msg.sender, nonce));
+    emit OracleRequest(sender, requestId, data);
+    return requestId;
   }
 
   function cancelRequest(bytes32 requestId) external override {

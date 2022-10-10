@@ -19,7 +19,6 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   event RequestFulfilled(bytes32 indexed id);
   event RequestCancelled(bytes32 indexed id);
 
-  error TransferAndCallError();
   error SenderIsNotOracle();
   error RequestIsAlreadyPending();
   error RequestIsNotPending();
@@ -33,10 +32,9 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   function sendRequest(OCR2DR.Request memory req, uint256 subscriptionId) internal returns (bytes32) {
     uint256 nonce = s_requestCount;
     s_requestCount = nonce + 1;
-    bytes32 requestId = keccak256(abi.encodePacked(this, nonce));
-    s_pendingRequests[requestId] = address(s_oracle);
+    bytes32 requestId = s_oracle.sendRequest(address(this), nonce, subscriptionId, OCR2DR.encodeCBOR(req));
     emit RequestSent(requestId);
-    s_oracle.sendRequest(address(this), nonce, subscriptionId, OCR2DR.encodeCBOR(req));
+    s_pendingRequests[requestId] = address(s_oracle);
     return requestId;
   }
 
@@ -87,7 +85,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
-   * @notice the next request count to be used in generating a nonce
+   * @notice Gets the next request count to be used in generating a nonce
    * @dev starts at 1 in order to ensure consistent gas cost
    * @return returns the next request count to be used in a nonce
    */
@@ -104,7 +102,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
-   * @notice Retrieves the stored address of the oracle contract
+   * @notice Gets the stored address of the oracle contract
    * @return The address of the oracle contract
    */
   function getChainlinkOracleAddress() internal view returns (address) {
