@@ -3,7 +3,6 @@ package ocrcommon
 import (
 	"context"
 	"io"
-	"reflect"
 
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/smartcontractkit/sqlx"
@@ -213,7 +212,7 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 // Close closes the peer and peerstore
 func (p *SingletonPeerWrapper) Close() error {
 	return p.StopOnce("SingletonPeerWrapper", func() (err error) {
-		if !reflect.ValueOf(p.peerCloser).IsNil() {
+		if p.peerCloser != nil {
 			err = p.peerCloser.Close()
 		}
 		if p.pstoreWrapper != nil {
