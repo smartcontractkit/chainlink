@@ -1,13 +1,11 @@
 package chainlink
 
 import (
-	"math/big"
 	"net/url"
 
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
-func (g *generalConfig) DefaultChainID() *big.Int         { panic(v2.ErrUnsupported) }
 func (g *generalConfig) EthereumHTTPURL() *url.URL        { panic(v2.ErrUnsupported) }
 func (g *generalConfig) EthereumNodes() string            { panic(v2.ErrUnsupported) }
 func (g *generalConfig) EthereumSecondaryURLs() []url.URL { panic(v2.ErrUnsupported) }

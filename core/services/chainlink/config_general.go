@@ -43,7 +43,7 @@ type generalConfig struct {
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
 
-	c       *Config // all fields non-nil
+	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
 	secrets *Secrets
 
 	// state
@@ -154,6 +154,27 @@ func (g *generalConfig) EVMEnabled() bool {
 		}
 	}
 	return false
+}
+
+func (g *generalConfig) EVMRPCEnabled() bool {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			if len(c.Nodes) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) DefaultChainID() *big.Int {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			return (*big.Int)(c.ChainID)
+		}
+	}
+	return nil
+
 }
 
 func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
