@@ -49,6 +49,26 @@ var (
 			float64(8 * time.Second),
 		},
 	}, []string{"evmChainID"})
+	blockInsertionTimeTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "log_poller_block_insertion_time_total_ms",
+		Help: "Total block insertion time in log poller",
+	},
+		[]string{"evmChainID"},
+	)
+	blockInsertionTimePercentiles = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "log_poller_block_insertion_time_bucket",
+		Help: "The duration of total insertion time for block in log poller",
+		Buckets: []float64{
+			float64(50 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(200 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(1 * time.Second),
+			float64(2 * time.Second),
+			float64(4 * time.Second),
+			float64(8 * time.Second),
+		},
+	}, []string{"evmChainID"})
 )
 
 //go:generate mockery --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
@@ -573,6 +593,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
+		before := time.Now()
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, pg.WithQueryer(tx)); err2 != nil {
 				return err2
@@ -582,6 +603,8 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			}
 			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
 		})
+		blockInsertionTimeTotal.WithLabelValues(lp.ec.ChainID().String()).Set(float64(time.Since(before)))
+		blockInsertionTimePercentiles.WithLabelValues(lp.ec.ChainID().String()).Observe(float64(time.Since(before)))
 		if err != nil {
 			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err, "block", currentBlockNumber)
 			return

@@ -34,7 +34,7 @@ var (
 			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 		},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   2 * time.Minute,
+		Timeout:                   20 * time.Minute,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
@@ -67,12 +67,12 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 		reorgBlocks             = 15
 		EVMFinalityDepth        = "50"
 		EVMTrackerHistoryDepth  = "100"
-		EthLogPollInterval      = "5s"
+		EthLogPollInterval      = "400ms"
 		EthLogBackfillBatchSize = "100"
 
 		//  Generator params
-		TPS       = 10
-		LogsPerTx = 70
+		TPS       = 5
+		LogsPerTx = 175
 	)
 	DescribeTable("LogPoller can sustain chaos and reorgs", func(
 		testcase string,
@@ -174,8 +174,9 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 		fromBlockNumber, err := c.LatestBlockNumber(context.Background())
 		Expect(err).ShouldNot(HaveOccurred())
 		gen, err := ctfClient.NewLoadGenerator(&ctfClient.LoadGeneratorConfig{
-			RPS: TPS,
-			Gun: le,
+			RPS:         TPS,
+			Gun:         le,
+			CallTimeout: 20 * time.Minute,
 			SharedData: &contracts.EthereumLogEmitterSharedData{
 				EventType:           contracts.EventTypeInt,
 				EventsPerRequest:    LogsPerTx,
@@ -231,7 +232,7 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 			v := NewDBVerifier(db, txs, LogsPerTx, fromBlockNumber)
 			v.VerifyAllTransactionsStored()
 		case "replay":
-			time.Sleep(20 * time.Minute)
+			time.Sleep(60 * time.Minute)
 			gen.Stop()
 
 			db, err := ctfClient.ConnectDB(0, e)
@@ -270,6 +271,15 @@ var _ = Describe("LogPoller chaos tests @log-poller", func() {
 		//		FromLabels:  &map[string]*string{"app": a.Str("chainlink-0")},
 		//		ToLabels:    &map[string]*string{"app": a.Str("geth-ethereum-geth")},
 		//		DurationStr: "30s",
+		//	}),
+		//Entry("must survive delay",
+		//	"chaos",
+		//	chaos.NewNetworkLatency,
+		//	&chaos.Props{
+		//		FromLabels:  &map[string]*string{"app": a.Str("chainlink-0")},
+		//		ToLabels:    &map[string]*string{"app": a.Str("geth-ethereum-geth")},
+		//		Delay:       "100ms",
+		//		DurationStr: "30m",
 		//	}),
 	})
 	AfterEach(func() {
