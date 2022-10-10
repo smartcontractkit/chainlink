@@ -377,7 +377,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		require.NoError(t, err2)
 		return received
 	}
-	g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
 	// check pipeline runs
 	var allRuns []pipeline.Run
@@ -398,6 +398,6 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		require.NoError(t, err)
 
 		// observe 2nd job run and received payload changes
-		g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+		g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 	*/
 }
