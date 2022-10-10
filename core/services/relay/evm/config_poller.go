@@ -139,7 +139,8 @@ type ConfigPoller struct {
 }
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
-	if err := destChainPoller.MergeFilter([]common.Hash{ConfigSet}, []common.Address{addr}); err != nil {
+	_, err := destChainPoller.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	if err != nil {
 		return nil, err
 	}
 	return &ConfigPoller{
@@ -154,7 +155,7 @@ func (lp *ConfigPoller) Notify() <-chan struct{} {
 }
 
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 0, pg.WithParentCtx(ctx))
+	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
