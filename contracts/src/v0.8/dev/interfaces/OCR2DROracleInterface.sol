@@ -6,7 +6,6 @@ pragma solidity ^0.8.6;
  */
 interface OCR2DROracleInterface {
   function sendRequest(
-    address sender,
     uint256 nonce,
     uint256 subscriptionId,
     bytes calldata data
@@ -16,7 +15,6 @@ interface OCR2DROracleInterface {
 
   function fulfillRequest(
     bytes32 requestId,
-    address callbackAddress,
     bytes calldata response,
     bytes calldata err
   ) external;

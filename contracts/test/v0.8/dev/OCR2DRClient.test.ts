@@ -22,10 +22,7 @@ function getEventArg(events: any, eventName: string, argIndex: number) {
 async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const receipt = await tx.wait()
   const data = receipt.logs?.[0].data
-  return ethers.utils.defaultAbiCoder.decode(
-    ['address', 'bytes32', 'bytes'],
-    data ?? '',
-  )
+  return ethers.utils.defaultAbiCoder.decode(['bytes32', 'bytes'], data ?? '')
 }
 
 before(async () => {
@@ -41,7 +38,7 @@ before(async () => {
   )
 })
 
-describe('OCR2DRClientTestHelper', () => {
+describe.only('OCR2DRClientTestHelper', () => {
   const subscriptionId = 1
   const anyValue = () => true
 
@@ -66,11 +63,7 @@ describe('OCR2DRClientTestHelper', () => {
         .to.emit(client, 'RequestSent')
         .withArgs(anyValue)
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(
-          client.address,
-          anyValue,
-          anyValue,
-        )
+        .withArgs(anyValue, anyValue)
     })
 
     it('encodes user request to CBOR', async () => {
@@ -80,9 +73,9 @@ describe('OCR2DRClientTestHelper', () => {
         subscriptionId,
       )
       const args = await parseOracleRequestEventArgs(tx)
-      assert.equal(3, args.length)
+      assert.equal(2, args.length)
 
-      const decoded = await decodeDietCBOR(args[2])
+      const decoded = await decodeDietCBOR(args[1])
       assert.deepEqual(decoded, {
         language: 0,
         codeLocation: 0,
@@ -131,9 +124,7 @@ describe('OCR2DRClientTestHelper', () => {
 
       const response = web3.utils.asciiToHex('response')
       const error = web3.utils.asciiToHex('error')
-      await expect(
-        oracle.fulfillRequest(requestId, client.address, response, error),
-      )
+      await expect(oracle.fulfillRequest(requestId, response, error))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
         .to.emit(client, 'FulfillRequestInvoked')

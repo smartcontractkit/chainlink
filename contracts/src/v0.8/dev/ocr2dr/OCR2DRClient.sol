@@ -32,7 +32,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   function sendRequest(OCR2DR.Request memory req, uint256 subscriptionId) internal returns (bytes32) {
     uint256 nonce = s_requestCount;
     s_requestCount = nonce + 1;
-    bytes32 requestId = s_oracle.sendRequest(address(this), nonce, subscriptionId, OCR2DR.encodeCBOR(req));
+    bytes32 requestId = s_oracle.sendRequest(nonce, subscriptionId, OCR2DR.encodeCBOR(req));
     emit RequestSent(requestId);
     s_pendingRequests[requestId] = address(s_oracle);
     return requestId;
