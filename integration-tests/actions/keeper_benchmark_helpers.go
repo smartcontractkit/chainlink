@@ -23,13 +23,13 @@ func DeployBenchmarkKeeperContracts(
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
 	registrySettings *contracts.KeeperRegistrySettings,
-	blockRange,       // How many blocks to run the test for
-	blockInterval,    // Interval of blocks that upkeeps are expected to be performed
-	checkGasToBurn,   // How much gas should be burned on checkUpkeep() calls
+	blockRange, // How many blocks to run the test for
+	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn, // How much gas should be burned on performUpkeep() calls
-	firstEligibleBuffer int64,     // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
+	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 	predeployedContracts []string, // Array of addresses of predeployed consumer addresses to load
-	resetUpkeeps bool,             // Set to true to reset predeployedContracts
+	resetUpkeeps bool, // Set to true to reset predeployedContracts
 	upkeepResetterAddress string,
 ) (contracts.KeeperRegistry, []contracts.KeeperConsumerBenchmark, []*big.Int) {
 	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
@@ -89,9 +89,9 @@ func DeployKeeperConsumersBenchmark(
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
 	numberOfContracts int,
-	blockRange,       // How many blocks to run the test for
-	blockInterval,    // Interval of blocks that upkeeps are expected to be performed
-	checkGasToBurn,   // How much gas should be burned on checkUpkeep() calls
+	blockRange, // How many blocks to run the test for
+	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn, // How much gas should be burned on performUpkeep() calls
 	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block
 	predeployedContracts []string,
