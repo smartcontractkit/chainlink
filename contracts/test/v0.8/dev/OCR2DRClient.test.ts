@@ -116,6 +116,9 @@ describe('OCR2DRClientTestHelper', () => {
 
   describe('#fulfillRequest', () => {
     it('emits fulfillment events', async () => {
+      const accounts = await ethers.getSigners()
+      await oracle.setAuthorizedSenders([accounts[0].address])
+
       const tx = await client.sendSimpleRequestWithJavaScript(
         'function run() {}',
         subscriptionId,
