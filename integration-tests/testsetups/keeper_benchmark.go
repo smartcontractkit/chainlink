@@ -165,7 +165,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		// Send keeper jobs to registry and chainlink nodes
 		actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex)
 		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
-			inputs.PerformGasToBurn, 0, inputs.PreDeployedConsumers, inputs.UpkeepResetterAddress)
+			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, inputs.PreDeployedConsumers, inputs.UpkeepResetterAddress)
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
