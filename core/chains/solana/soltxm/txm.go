@@ -37,12 +37,11 @@ var (
 type Txm struct {
 	starter utils.StartStopOnce
 	lggr    logger.Logger
-	chSend  chan pendingTx
-	chSim   chan pendingTx
+	chSend  chan PendingTx
 	chStop  chan struct{}
 	done    sync.WaitGroup
 	cfg     config.Config
-	txs     PendingTxContext
+	txs     PendingTxs // interface so DB can be plugged in
 	ks      keystore.Solana
 	client  *utils.LazyLoad[solanaClient.ReaderWriter]
 
@@ -57,11 +56,10 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 	return &Txm{
 		starter: utils.StartStopOnce{},
 		lggr:    lggr,
-		chSend:  make(chan pendingTx, MaxQueueLen), // queue can support 1000 pending txs
-		chSim:   make(chan pendingTx, MaxQueueLen), // queue can support 1000 pending txs
+		chSend:  make(chan PendingTx, MaxQueueLen), // queue can support 1000 pending txs
 		chStop:  make(chan struct{}),
 		cfg:     cfg,
-		txs:     newPendingTxContextWithProm(chainID),
+		txs:     newPendingTxMemoryWithProm(chainID),
 		ks:      ks,
 		client:  utils.NewLazyLoad(tc),
 	}
@@ -70,7 +68,7 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 // Start subscribes to queuing channel and processes them.
 func (txm *Txm) Start(context.Context) error {
 	return txm.starter.StartOnce("solana_txm", func() error {
-		txm.done.Add(4) // waitgroup: tx retry, confirmer, simulator, feeGovernor
+		txm.done.Add(4) // waitgroup: tx retry, simulator
 		go txm.run()
 		return nil
 	})
@@ -81,10 +79,8 @@ func (txm *Txm) run() {
 	ctx, cancel := utils.ContextFromChan(txm.chStop)
 	defer cancel()
 
-	// start confirmer + simulator + feeGovernor
+	// start confirmer
 	go txm.confirm(ctx)
-	go txm.simulate(ctx)
-	go txm.feeGovernor(ctx)
 
 	for {
 		select {
@@ -244,7 +240,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"signature", s[i],
 						)
 
-						// check confirm timeout exceeded
+						// check confirm timeout exceeded -> rebroadcast with new bumped fee
 						if txm.txs.Expired(s[i], txm.cfg.TxConfirmTimeout()) {
 							txm.txs.OnError(s[i], TxFailDrop)
 							txm.lggr.Warnw("failed to find transaction within confirm timeout", "signature", s[i], "timeoutSeconds", txm.cfg.TxConfirmTimeout())
@@ -263,6 +259,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 						continue
 					}
 
+					// TODO: optimistically assume that processed == confirmed?
 					// if signature is processed, keep polling
 					if res[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
 						txm.lggr.Debugw("tx state: processed",
@@ -314,66 +311,6 @@ func (txm *Txm) confirm(ctx context.Context) {
 	}
 }
 
-// goroutine that simulates tx (use a bounded number of goroutines to pick from queue?)
-// simulate can cancel the send retry function early in the tx management process
-// additionally, it can provide reasons for why a tx failed in the logs
-func (txm *Txm) simulate(ctx context.Context) {
-	defer txm.done.Done()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-txm.chSim:
-			// get client
-			client, err := txm.client.Get()
-			if err != nil {
-				txm.lggr.Errorw("failed to get client in soltxm.simulate", "error", err)
-				continue
-			}
-
-			res, err := client.SimulateTx(ctx, msg.tx, nil) // use default options
-			if err != nil {
-				// this error can occur if endpoint goes down or if invalid signature (invalid signature should occur further upstream in sendWithExpBackoff)
-				// allow retry to continue in case temporary endpoint failure (if still invalid, confirm or timeout will cleanup)
-				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
-				continue
-			}
-
-			// continue if simulation does not return error continue
-			if res.Err == nil {
-				continue
-			}
-
-			// handle various errors
-			// https://github.com/solana-labs/solana/blob/master/sdk/src/transaction/error.rs
-			// ---
-			errStr := fmt.Sprintf("%v", res.Err) // convert to string to handle various interfaces
-			switch {
-			// blockhash not found when simulating, occurs when network bank has not seen the given blockhash or tx is too old
-			// let simulation process/clean up
-			case strings.Contains(errStr, "BlockhashNotFound"):
-				txm.lggr.Warnw("simulate: BlockhashNotFound", "signature", msg.signature, "result", res)
-				continue
-			// transaction will encounter execution error/revert, mark as reverted to remove from confirmation + retry
-			case strings.Contains(errStr, "InstructionError"):
-				txm.txs.OnError(msg.signature, TxFailSimRevert) // cancel retry
-				txm.lggr.Warnw("simulate: InstructionError", "signature", msg.signature, "result", res)
-				continue
-			// transaction is already processed in the chain, letting txm confirmation handle
-			case strings.Contains(errStr, "AlreadyProcessed"):
-				txm.lggr.Debugw("simulate: AlreadyProcessed", "signature", msg.signature, "result", res)
-				continue
-			// unrecognized errors (indicates more concerning failures)
-			default:
-				txm.txs.OnError(msg.signature, TxFailSimOther) // cancel retry
-				txm.lggr.Errorw("simulate: unrecognized error", "signature", msg.signature, "result", res)
-				continue
-			}
-		}
-	}
-}
-
 // Enqueue enqueue a msg destined for the solana chain.
 func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	// validate nil pointer
@@ -393,10 +330,9 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 		return errors.Wrap(err, "error in soltxm.Enqueue.GetKey")
 	}
 
-	msg := pendingTx{
-		tx:      tx,
-		timeout: txm.cfg.TxRetryTimeout(),
-		key:     key,
+	msg := PendingTx{
+		baseTx: tx,
+		key:    key,
 	}
 
 	select {
