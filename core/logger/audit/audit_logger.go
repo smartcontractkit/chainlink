@@ -216,11 +216,7 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 	select {
 	case l.loggingChannel <- wrappedLog:
 	default:
-		if l.loggingChannel == nil {
-			l.logger.Errorw("could not send log to audit subsystem because it has gone away!")
-		} else {
-			l.logger.Errorf("buffer is full. Dropping log with eventID: %s", eventID)
-		}
+		l.logger.Errorf("buffer is full. Dropping log with eventID: %s", eventID)
 	}
 }
 

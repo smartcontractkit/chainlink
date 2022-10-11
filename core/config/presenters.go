@@ -85,7 +85,10 @@ type EnvPrinter struct {
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 
 	// AuditLogger
-	AuditLoggerEnabled bool `json:"AUDIT_LOGGER_ENABLED"`
+	AuditLoggerEnabled        bool   `json:"AUDIT_LOGGER_ENABLED"`
+	AuditLoggerForwardToUrl   string `json:"AUDIT_LOGGER_FORWARD_TO_URL"`
+	AuditLoggerJsonWrapperKey string `json:"AUDIT_LOGGER_JSON_WRAPPER_KEY"`
+	AuditLoggerHeaders        string `json:"AUDIT_LOGGER_HEADERS"`
 
 	// OCR1
 	OCRContractTransmitterTransmitTimeout time.Duration `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
