@@ -34,7 +34,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	config := sessionReaperConfig{}
 	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr, cfg, &audit.AuditLoggerService{})
+	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr, cfg, audit.NoopLogger)
 
 	r := sessions.NewSessionReaper(db.DB, config, lggr)
 	defer r.Stop()

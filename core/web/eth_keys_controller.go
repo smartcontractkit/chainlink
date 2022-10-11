@@ -300,19 +300,18 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 func (ekc *ETHKeysController) Export(c *gin.Context) {
 	defer ekc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
-	address := c.Param("address")
+	id := c.Param("address")
 	newPassword := c.Query("newpassword")
 
-	bytes, err := ekc.App.GetKeyStore().Eth().Export(address, newPassword)
+	bytes, err := ekc.App.GetKeyStore().Eth().Export(id, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	ekc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
-		"type":    "ethereum",
-		"id":      "", // TODO: Figure out what the best way to fetch this is for consistency
-		"address": address,
+		"type": "ethereum",
+		"id":   id,
 	})
 
 	c.Data(http.StatusOK, MediaType, bytes)

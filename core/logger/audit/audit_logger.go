@@ -143,6 +143,8 @@ type wrappedAuditLog struct {
 	data    Data
 }
 
+var NoopLogger AuditLogger = &AuditLoggerService{}
+
 // NewAuditLogger returns a buffer push system that ingests audit log events and
 // asynchronously pushes them up to an HTTP log service.
 // Parses and validates the AUDIT_LOGS_* environment values and returns an enabled
