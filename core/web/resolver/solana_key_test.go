@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 )

@@ -16,9 +16,10 @@ import (
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/terra.go/msg"
+
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-	"github.com/smartcontractkit/terra.go/msg"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"

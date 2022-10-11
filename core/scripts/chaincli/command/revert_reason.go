@@ -1,9 +1,10 @@
 package command
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
-	"github.com/spf13/cobra"
 )
 
 // RevertReasonCmd takes in a failed tx hash and tries to give you the reason

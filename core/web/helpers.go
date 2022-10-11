@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 

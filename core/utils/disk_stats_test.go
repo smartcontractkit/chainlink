@@ -3,8 +3,9 @@ package utils_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestDiskStatsProvider_AvailableSpace(t *testing.T) {

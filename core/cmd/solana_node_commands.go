@@ -4,8 +4,9 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )

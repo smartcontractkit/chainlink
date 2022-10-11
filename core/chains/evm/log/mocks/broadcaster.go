@@ -5,8 +5,9 @@ package mocks
 import (
 	context "context"
 
-	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	mock "github.com/stretchr/testify/mock"
+
+	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 

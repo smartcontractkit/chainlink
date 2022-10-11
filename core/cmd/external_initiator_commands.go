@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	clipkg "github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 type ExternalInitiatorPresenter struct {

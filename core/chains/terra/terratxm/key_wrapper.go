@@ -2,8 +2,9 @@ package terratxm
 
 import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/terra.go/key"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 )
 
 // Note we use this strictly for https://github.com/smartcontractkit/terra.go/blob/master/tx/txbuilder.go#L37

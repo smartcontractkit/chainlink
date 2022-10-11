@@ -6,9 +6,10 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/stretchr/testify/mock"
 )
 
 func Test_CreateFeedsManagerChainConfig(t *testing.T) {

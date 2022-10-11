@@ -4,9 +4,10 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 type BridgePresenter struct {
