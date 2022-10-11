@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes]
     container:
-      image: projectserum/build:v0.24.2
+      image: projectserum/build:v0.25.0
       env:
         RUSTUP_HOME: "/root/.rustup"
         FORCE_COLOR: 1
