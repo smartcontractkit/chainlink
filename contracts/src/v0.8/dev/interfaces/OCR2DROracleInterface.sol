@@ -11,8 +11,6 @@ interface OCR2DROracleInterface {
     bytes calldata data
   ) external returns (bytes32);
 
-  function cancelRequest(bytes32 requestId) external;
-
   function fulfillRequest(
     bytes32 requestId,
     bytes calldata response,

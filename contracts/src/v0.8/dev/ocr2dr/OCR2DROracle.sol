@@ -11,8 +11,7 @@ import "../../ConfirmedOwner.sol";
  */
 contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwner {
   event OracleRequest(bytes32 requestId, bytes data);
-  event CancelOracleRequest(bytes32 indexed requestId);
-  event OracleResponse(bytes32 indexed requestId);
+  event OracleResponse(bytes32 requestId);
 
   error InvalidRequestID();
   error Unauthorized();
@@ -39,11 +38,6 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
     s_commitments[requestId] = Commitment(msg.sender, subscriptionId);
     emit OracleRequest(requestId, data);
     return requestId;
-  }
-
-  function cancelRequest(bytes32 requestId) external override validateRequestId(requestId) {
-    emit CancelOracleRequest(requestId);
-    delete s_commitments[requestId];
   }
 
   function fulfillRequest(

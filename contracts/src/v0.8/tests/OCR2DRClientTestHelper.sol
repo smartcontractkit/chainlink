@@ -20,10 +20,6 @@ contract OCR2DRClientTestHelper is OCR2DRClient {
     return sendRequest(request, subscriptionId);
   }
 
-  function cancelPendingRequest(bytes32 requestId) public {
-    cancelRequest(requestId);
-  }
-
   function fulfillRequest(
     bytes32 requestId,
     bytes memory response,

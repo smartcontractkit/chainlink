@@ -38,7 +38,7 @@ before(async () => {
   )
 })
 
-describe('OCR2DRClientTestHelper', () => {
+describe.only('OCR2DRClientTestHelper', () => {
   const subscriptionId = 1
   const anyValue = () => true
 
@@ -84,33 +84,6 @@ describe('OCR2DRClientTestHelper', () => {
         codeLocation: 0,
         source: js,
       })
-    })
-  })
-
-  describe('#cancelPendingRequest', () => {
-    it('emits events from the client and the oracle contracts', async () => {
-      const tx = await client.sendSimpleRequestWithJavaScript(
-        'function run() {}',
-        subscriptionId,
-      )
-
-      const { events } = await tx.wait()
-      const requestId = getEventArg(events, 'RequestSent', 0)
-      await expect(tx).to.emit(client, 'RequestSent').withArgs(requestId)
-
-      await expect(client.cancelPendingRequest(requestId))
-        .to.emit(client, 'RequestCancelled')
-        .withArgs(requestId)
-        .to.emit(oracle, 'CancelOracleRequest')
-        .withArgs(requestId)
-    })
-
-    it('reverts for unknown requestId', async () => {
-      await expect(
-        client.cancelPendingRequest(
-          '0x1bfce59c2e0d7e0f015eb02ec4e04de4e67a1fe1508a4420cfd49c650758abed',
-        ),
-      ).to.be.revertedWith('RequestIsNotPending')
     })
   })
 

@@ -17,7 +17,6 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
-  event RequestCancelled(bytes32 indexed id);
 
   error SenderIsNotOracle();
   error RequestIsAlreadyPending();
@@ -36,23 +35,6 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     emit RequestSent(requestId);
     s_pendingRequests[requestId] = address(s_oracle);
     return requestId;
-  }
-
-  /**
-   * @notice Allows a request to be cancelled if it has not been fulfilled
-   * @dev Requires keeping track of the expiration value emitted from the oracle contract.
-   * Deletes the request from the `pendingRequests` mapping.
-   * Emits RequestCancelled event.
-   * @param requestId The request ID, returned by sendRequest().
-   */
-  function cancelRequest(bytes32 requestId) internal {
-    if (s_pendingRequests[requestId] == address(0)) {
-      revert RequestIsNotPending();
-    }
-    OCR2DROracleInterface requested = OCR2DROracleInterface(s_pendingRequests[requestId]);
-    delete s_pendingRequests[requestId];
-    emit RequestCancelled(requestId);
-    requested.cancelRequest(requestId);
   }
 
   /**
@@ -115,7 +97,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
    * @param oracleAddress The address of the oracle contract that will fulfill the request
    * @param requestId The request ID used for the response
    */
-  function addChainlinkExternalRequest(address oracleAddress, bytes32 requestId) internal notPendingRequest(requestId) {
+  function addExternalRequest(address oracleAddress, bytes32 requestId) internal notPendingRequest(requestId) {
     s_pendingRequests[requestId] = oracleAddress;
   }
 
