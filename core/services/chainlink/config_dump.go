@@ -17,6 +17,7 @@ import (
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	stktyp "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -260,6 +261,11 @@ func (c *Config) loadLegacyEVMEnv() {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
 			c.EVM[i].LogPollInterval = d
+		}
+	}
+	if e := envvar.NewUint32("EvmLogKeepBlocksDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].LogKeepBlocksDepth = e
 		}
 	}
 	if e := envvar.NewUint32("EvmRPCDefaultBatchSize").ParsePtr(); e != nil {

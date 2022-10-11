@@ -231,6 +231,7 @@ type Chain struct {
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *models.Duration
+	LogKeepBlocksDepth       *uint32
 	MinIncomingConfirmations *uint32
 	MinContractPayment       *assets.Link
 	NonceAutoSync            *bool
@@ -330,6 +331,7 @@ func (c *Chain) asV1() *types.ChainCfg {
 		EvmHeadTrackerSamplingInterval: c.HeadTracker.SamplingInterval,
 		EvmLogBackfillBatchSize:        nullInt(c.LogBackfillBatchSize),
 		EvmLogPollInterval:             c.LogPollInterval,
+		EvmLogKeepBlocksDepth:          nullInt(c.LogKeepBlocksDepth),
 		EvmMaxGasPriceWei:              (*utils.Big)(c.GasEstimator.PriceMax),
 		EvmNonceAutoSync:               null.BoolFromPtr(c.NonceAutoSync),
 		EvmUseForwarders:               null.BoolFromPtr(c.Transactions.ForwardersEnabled),

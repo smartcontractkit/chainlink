@@ -160,6 +160,7 @@ type ConfigSchema struct {
 	EvmHeadTrackerSamplingInterval    time.Duration `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL"`
 	EvmLogBackfillBatchSize           uint32        `env:"ETH_LOG_BACKFILL_BATCH_SIZE"`
 	EvmLogPollInterval                time.Duration `env:"ETH_LOG_POLL_INTERVAL"`
+	EvmLogKeepBlocksDepth             uint32        `env:"ETH_LOG_KEEP_BLOCKS_DEPTH"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
 	OperatorFactoryAddress            string        `env:"OPERATOR_FACTORY_ADDRESS"`

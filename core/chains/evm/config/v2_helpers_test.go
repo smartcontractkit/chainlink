@@ -34,6 +34,7 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 		LinkContractAddress:      asEIP155Address(set.linkContractAddress),
 		LogBackfillBatchSize:     ptr(set.logBackfillBatchSize),
 		LogPollInterval:          models.MustNewDuration(set.logPollInterval),
+		LogKeepBlocksDepth:       ptr(set.logKeepBlocksDepth),
 		MinIncomingConfirmations: ptr(set.minIncomingConfirmations),
 		MinContractPayment:       set.minimumContractPayment,
 		NonceAutoSync:            ptr(set.nonceAutoSync),

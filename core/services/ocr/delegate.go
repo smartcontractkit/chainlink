@@ -166,7 +166,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	if concreteSpec.IsBootstrapPeer {
 		var bootstrapper *ocr.BootstrapNode
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
-			BootstrapperFactory:   peerWrapper.Peer,
+			BootstrapperFactory:   peerWrapper.Peer1,
 			V1Bootstrappers:       v1BootstrapPeers,
 			V2Bootstrappers:       v2Bootstrappers,
 			ContractConfigTracker: tracker,
@@ -238,7 +238,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, effectiveTransmitterAddress, strategy, checker),
+			ocrcommon.NewDefaultTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, effectiveTransmitterAddress, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
@@ -279,7 +279,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,
 			PrivateKeys:                  ocrkey,
-			BinaryNetworkEndpointFactory: peerWrapper.Peer,
+			BinaryNetworkEndpointFactory: peerWrapper.Peer1,
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              v1BootstrapPeers,
 			V2Bootstrappers:              v2Bootstrappers,

@@ -26,7 +26,7 @@ type Log struct {
 	BlockHash   common.Hash
 	BlockNumber int64
 	Topics      pq.ByteaArray
-	EventSig    []byte
+	EventSig    common.Hash
 	Address     common.Address
 	TxHash      common.Hash
 	Data        []byte
