@@ -408,7 +408,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -425,7 +425,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	require.NoError(t, db.Get(&relay, `SELECT relay FROM bootstrap_specs LIMIT 1`))
 	require.Equal(t, "evm", relay)
 
-	jobORM.DeleteJob(jb.ID)
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "bootstrap_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 }
@@ -434,7 +434,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})

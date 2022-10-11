@@ -87,7 +87,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 				result <- false
 			}
 		}()
-		spawner.Start(testutils.Context(t))
+		require.NoError(t, spawner.Start(testutils.Context(t)))
 		assert.True(t, <-result, "failed to signal to dependents")
 	})
 
@@ -116,7 +116,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobA.Type: delegateA,
 			jobB.Type: delegateB,
 		}, db, lggr, nil)
-		spawner.Start(testutils.Context(t))
+		require.NoError(t, spawner.Start(testutils.Context(t)))
 		err := spawner.CreateJob(jobA)
 		require.NoError(t, err)
 		jobSpecIDA := jobA.ID
@@ -169,7 +169,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		require.NoError(t, err)
 		delegateA.jobID = jobA.ID
 
-		spawner.Start(testutils.Context(t))
+		require.NoError(t, spawner.Start(testutils.Context(t)))
 
 		eventually.AwaitOrFail(t)
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
@@ -204,7 +204,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobSpecIDA := jobA.ID
 		delegateA.jobID = jobSpecIDA
 
-		spawner.Start(testutils.Context(t))
+		require.NoError(t, spawner.Start(testutils.Context(t)))
 		defer spawner.Close()
 
 		eventuallyStart.AwaitOrFail(t)

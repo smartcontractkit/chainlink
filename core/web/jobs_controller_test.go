@@ -95,8 +95,8 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	n := 10
 
@@ -130,7 +130,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)

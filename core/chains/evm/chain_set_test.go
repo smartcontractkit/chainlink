@@ -100,7 +100,7 @@ func TestAddClose(t *testing.T) {
 	chains := chainSet.Chains()
 	require.Equal(t, 1, len(chains))
 
-	chainSet.Start(testutils.Context(t))
+	require.NoError(t, chainSet.Start(testutils.Context(t)))
 	require.NoError(t, chainSet.Chains()[0].Ready())
 
 	newId := testutils.NewRandomEVMChainID()
