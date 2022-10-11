@@ -26,6 +26,11 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	fi || true
 	go mod download
 
+.PHONY: gomodtidy
+gomodtidy: ## Run go mod tidy on all modules.
+	go mod tidy
+	cd ./integration-tests && go mod tidy
+
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	mkdir -p $(GOBIN)
@@ -144,6 +149,10 @@ test_chaos: test_need_operator_assets ## Run core node chaos tests.
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
 	go run ./core/config/v2/docs/cmd/generate/main.go > ./docs/CONFIG.md
+
+.PHONY: golangci-lint
+golangci-lint: ## Run golangci-lint for all issues.
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
 help:
 	@echo ""

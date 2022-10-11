@@ -154,7 +154,7 @@ func TestETHTxTask(t *testing.T) {
 			false,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
-				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
+				"toAddr":    "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 				"data":      []byte("foobar"),
 				"gasLimit":  uint32(12345),
 				"requestData": map[string]interface{}{
