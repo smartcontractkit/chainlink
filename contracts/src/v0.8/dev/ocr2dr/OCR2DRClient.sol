@@ -7,12 +7,10 @@ import "../interfaces/OCR2DROracleInterface.sol";
 
 /**
  * @title The OCR2DR client contract
- * @dev This contract is similar to ChainlinkClient in many respects.
  * @notice Contract writers can inherit this contract in order to create on-demand OCR requests
  */
 abstract contract OCR2DRClient is OCR2DRClientInterface {
   OCR2DROracleInterface private s_oracle;
-  uint256 private s_requestCount = 1;
   mapping(bytes32 => address) private s_pendingRequests;
 
   event RequestSent(bytes32 indexed id);
@@ -29,11 +27,9 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
    * @return requestId The generated request ID
    */
   function sendRequest(OCR2DR.Request memory req, uint256 subscriptionId) internal returns (bytes32) {
-    uint256 nonce = s_requestCount;
-    s_requestCount = nonce + 1;
-    bytes32 requestId = s_oracle.sendRequest(nonce, subscriptionId, OCR2DR.encodeCBOR(req));
-    emit RequestSent(requestId);
+    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req));
     s_pendingRequests[requestId] = address(s_oracle);
+    emit RequestSent(requestId);
     return requestId;
   }
 
@@ -67,19 +63,10 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
-   * @notice Gets the next request count to be used in generating a nonce
-   * @dev starts at 1 in order to ensure consistent gas cost
-   * @return returns the next request count to be used in a nonce
-   */
-  function getNextRequestCount() internal view returns (uint256) {
-    return s_requestCount;
-  }
-
-  /**
    * @notice Sets the stored oracle address
-   * @param oracleAddress The address of the oracle contract
+   * @param oracleAddress The address of OCR2DR oracle contract
    */
-  function setChainlinkOracle(address oracleAddress) internal {
+  function setOracle(address oracleAddress) internal {
     s_oracle = OCR2DROracleInterface(oracleAddress);
   }
 

@@ -38,7 +38,7 @@ before(async () => {
   )
 })
 
-describe.only('OCR2DRClientTestHelper', () => {
+describe('OCR2DRClientTestHelper', () => {
   const subscriptionId = 1
   const anyValue = () => true
 
