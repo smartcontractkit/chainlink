@@ -164,7 +164,7 @@ jobs:
           ref: ${{ env.solana_sha }}
       - name: Build contracts
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@afe9aa36cda33d0098c99fb3ea41b3f0bf9e7fb4 # stable action on Oct 07 2022
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@25dce421ec217f880b7dab02f4c63efab3e69c86 # stable action on Oct 07 2022
         with:
           ref: ${{ env.solana_sha }}
 
