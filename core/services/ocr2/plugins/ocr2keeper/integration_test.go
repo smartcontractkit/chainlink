@@ -198,7 +198,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 3*time.Second)
+	stopMining := cltest.Mine(backend, 6*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -377,7 +377,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		require.NoError(t, err2)
 		return received
 	}
-	g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
 	// check pipeline runs
 	var allRuns []pipeline.Run
@@ -398,6 +398,6 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		require.NoError(t, err)
 
 		// observe 2nd job run and received payload changes
-		g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+		g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 	*/
 }

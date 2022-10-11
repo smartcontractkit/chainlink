@@ -611,8 +611,8 @@ func (c *coordinator) unmarshalLogs(
 ) {
 	for _, lg := range logs {
 		rawLog := toGethLog(lg)
-		switch {
-		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
+		switch lg.EventSig {
+		case c.randomnessRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -626,7 +626,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
-		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
+		case c.randomnessFulfillmentRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -640,7 +640,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, rfr)
-		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
+		case c.randomWordsFulfilledTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -654,7 +654,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
-		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
+		case c.newTransmissionTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -668,7 +668,7 @@ func (c *coordinator) unmarshalLogs(
 			}
 			newTransmissionLogs = append(newTransmissionLogs, nt)
 		default:
-			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
+			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", lg.EventSig))
 			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
 				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
 				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))

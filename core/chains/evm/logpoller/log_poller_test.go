@@ -40,7 +40,7 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 		LogIndex:    logIndex,
 		BlockHash:   common.HexToHash(blockHash),
 		BlockNumber: blockNum,
-		EventSig:    topic1,
+		EventSig:    common.BytesToHash(topic1),
 		Topics:      [][]byte{topic1},
 		Address:     address,
 		TxHash:      common.HexToHash("0x1234"),
@@ -399,7 +399,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[5].BlockHash.String())
 
 	// Filter by Address and topic
-	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(1, 3, address1, event1[:])
+	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(1, 3, address1, event1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[0].BlockHash.String())
@@ -409,7 +409,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, address1, lgs[1].Address)
 
 	// Filter by block
-	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(2, 2, address2, event1[:])
+	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(2, 2, address2, event1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[0].BlockHash.String())
@@ -599,6 +599,7 @@ func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 		_, err := lp.RegisterFilter(Filter{EventSigs: events, Addresses: addresses})
 		require.NoError(b, err)
 	}
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		lp.filter(nil, nil, nil)
 	}
