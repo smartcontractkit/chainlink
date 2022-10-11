@@ -26,7 +26,7 @@ func Test_DKGEncryptKeyStore_E2E(t *testing.T) {
 		_, err := db.Exec("DELETE FROM encrypted_key_rings")
 		require.NoError(t, err)
 		keyStore.ResetXXXTestOnly()
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 
 	t.Run("initializes with an empty state", func(t *testing.T) {
