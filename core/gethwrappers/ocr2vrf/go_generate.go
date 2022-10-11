@@ -14,3 +14,7 @@ package gethwrappers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.15/ArbitrumVRFCoordinator.abi ../../../contracts/solc/v0.8.15/ArbitrumVRFCoordinator.bin ArbitrumVRFCoordinator arbitrum_vrf_coordinator
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.15/ArbitrumVRFBeacon.abi ../../../contracts/solc/v0.8.15/ArbitrumVRFBeacon.bin ArbitrumVRFBeacon arbitrum_vrf_beacon
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.15/ArbitrumTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/ArbitrumTestBeaconVRFConsumer.bin ArbitrumBeaconVRFConsumer arbitrum_beacon_vrf_consumer
+
+// Mock generation
+//go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator --name VRFCoordinatorInterface --output ../../services/ocr2/plugins/ocr2vrf/coordinator/mocks/ --case=underscore --structname VRFCoordinatorInterface --filename vrf_coordinator.go
+//go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon --name VRFBeaconInterface --output ../../services/ocr2/plugins/ocr2vrf/coordinator/mocks/ --case=underscore --structname VRFBeaconInterface --filename vrf_beacon.go
