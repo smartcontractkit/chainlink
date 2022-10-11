@@ -62,6 +62,7 @@ type logPoller struct {
 	lggr              logger.Logger
 	pollPeriod        time.Duration // poll period set by block production rate
 	finalityDepth     int64         // finality depth is taken to mean that block (head - finality) is finalized
+	keepBlocksDepth   int64         // the number of blocks behind the head for which we keep the blocks. Must be greater than finality depth + 1.
 	backfillBatchSize int64         // batch size to use when backfilling finalized logs
 	rpcBatchSize      int64         // batch size to use for fallback RPC calls made in GetBlocks
 
@@ -93,7 +94,7 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize, rpcBatchSize int64) *logPoller {
+func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -105,6 +106,7 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
 		rpcBatchSize:      rpcBatchSize,
+		keepBlocksDepth:   keepBlocksDepth,
 		filters:           make(map[int]Filter),
 		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
@@ -242,6 +244,11 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {
+	if lp.keepBlocksDepth < (lp.finalityDepth + 1) {
+		// We add 1 since for reorg detection on the first unfinalized block
+		// we need to keep 1 finalized block.
+		return errors.Errorf("keepBlocksDepth %d must be greater than finality %d + 1", lp.keepBlocksDepth, lp.finalityDepth)
+	}
 	return lp.StartOnce("LogPoller", func() error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
@@ -277,7 +284,8 @@ func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (i
 
 func (lp *logPoller) run() {
 	defer close(lp.done)
-	tick := time.After(0)
+	logPollTick := time.After(0)
+	blockPruneTick := time.After(0)
 	for {
 		select {
 		case <-lp.ctx.Done():
@@ -300,8 +308,8 @@ func (lp *logPoller) run() {
 				continue
 			case lp.replayComplete <- err:
 			}
-		case <-tick:
-			tick = time.After(utils.WithJitter(lp.pollPeriod))
+		case <-logPollTick:
+			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
 			// Always start from the latest block in the db.
 			var start int64
 			lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
@@ -332,6 +340,11 @@ func (lp *logPoller) run() {
 				start = lastProcessed.BlockNumber + 1
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
+		case <-blockPruneTick:
+			blockPruneTick = time.After(lp.pollPeriod * 1000)
+			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
+				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+			}
 		}
 	}
 }
@@ -608,6 +621,24 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Heade
 	}
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
 	return nil, errors.New("Reorg greater than finality depth")
+}
+
+// pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.
+func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
+	latest, err := lp.ec.BlockByNumber(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if latest == nil {
+		return errors.Errorf("received nil block from RPC")
+	}
+	if latest.Number().Int64() <= lp.keepBlocksDepth {
+		// No-op, keep all blocks
+		return nil
+	}
+	// 1-2-3-4-5(latest), keepBlocksDepth=3
+	// Remove <= 2
+	return lp.orm.DeleteBlocksBefore(latest.Number().Int64()-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,

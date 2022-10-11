@@ -66,6 +66,9 @@ func (g *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) { panic(v
 func (g *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	panic(v2.ErrUnsupported)
 }
+func (g *generalConfig) GlobalEvmLogKeepBlocksDepth() (uint32, bool) {
+	panic(v2.ErrUnsupported)
+}
 func (g *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalEvmMaxInFlightTransactions() (uint32, bool) {
 	panic(v2.ErrUnsupported)
