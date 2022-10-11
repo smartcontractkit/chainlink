@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -14,7 +13,7 @@ import (
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
-	config, err := NewTOMLGeneralConfig(logger.TestLogger(t), "", "", nil, nil)
+	config, err := GeneralConfigTOML{}.New(logger.TestLogger(t))
 	require.NoError(t, err)
 	assert.PanicsWithError(t, v2.ErrUnsupported.Error(), func() {
 		_ = config.BlockBackfillDepth()
@@ -31,6 +30,4 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.False(t, config.StarkNetEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
-	assert.Equal(t, ocrnetworking.NetworkingStack(0), config.P2PNetworkingStack())
-	assert.False(t, config.P2PEnabled())
 }

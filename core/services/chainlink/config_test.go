@@ -1108,7 +1108,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewTOMLGeneralConfig(lggr, tt.inputConfig, secretsTOML, nil, nil)
+			c, err := GeneralConfigTOML{Config: tt.inputConfig, Secrets: secretsTOML}.New(lggr)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
@@ -1127,14 +1127,14 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
+	_, err := GeneralConfigTOML{Config: invalidTOML, Secrets: secretsTOML}.New(logger.TestLogger(t))
 	assert.EqualError(t, err, "toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
+	_, err := GeneralConfigTOML{Config: invalidTOML, Secrets: secretsTOML}.New(logger.TestLogger(t))
 	assert.EqualError(t, err, "toml: key Dev is already defined")
 }
 
@@ -1154,7 +1154,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	t.Setenv("DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	c, err := NewTOMLGeneralConfig(logger.TestLogger(t), fullTOML, secretsTOML, &filename, nil)
+	c, err := GeneralConfigTOML{Config: fullTOML, Secrets: secretsTOML, KeystorePasswordFileName: &filename}.New(logger.TestLogger(t))
 	assert.NoError(t, err)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()

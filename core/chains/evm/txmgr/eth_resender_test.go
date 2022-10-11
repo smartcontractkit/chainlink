@@ -8,6 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -15,20 +20,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	logCfg := pgtest.NewPGCfg(true)
+	borm := cltest.NewTxmORM(t, db, logCfg)
 
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 

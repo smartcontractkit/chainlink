@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -24,7 +25,7 @@ func (p PGCfg) LogSQL() bool            { return p.logSQL }
 
 func NewSqlDB(t *testing.T) *sql.DB {
 	testutils.SkipShortDB(t)
-	db, err := sql.Open("txdb", uuid.NewV4().String())
+	db, err := sql.Open(string(dialects.TransactionWrappedPostgres), uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -33,7 +34,7 @@ func NewSqlDB(t *testing.T) *sql.DB {
 
 func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
-	db, err := sqlx.Open("txdb", uuid.NewV4().String())
+	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 

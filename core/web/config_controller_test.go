@@ -17,7 +17,7 @@ import (
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewLegacyApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
@@ -34,5 +34,5 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, "", cp.TLSHost)
 	assert.Len(t, cp.EthereumURL, 0)
 	assert.Equal(t, big.NewInt(evmclient.NullClientChainID).String(), cp.DefaultChainID)
-	assert.Equal(t, cltest.NewTestGeneralConfig(t).BlockBackfillDepth(), cp.BlockBackfillDepth)
+	assert.Equal(t, app.Config.BlockBackfillDepth(), cp.BlockBackfillDepth)
 }

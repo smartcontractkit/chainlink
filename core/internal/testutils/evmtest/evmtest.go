@@ -38,7 +38,13 @@ import (
 
 func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {
 	if _, ok := cfg.(v2.HasEVMConfigs); ok {
-		return v2.NewTOMLChainScopedConfig(cfg, &v2.EVMConfig{ChainID: utils.NewBigI(0)}, logger.TestLogger(t))
+		chainID := utils.NewBigI(0)
+		newChain, _ := v2.Defaults(chainID)
+		evmCfg := v2.EVMConfig{
+			ChainID: chainID,
+			Chain:   newChain,
+		}
+		return v2.NewTOMLChainScopedConfig(cfg, &evmCfg, logger.TestLogger(t))
 	}
 	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.TestLogger(t), cfg)
 }
@@ -51,7 +57,7 @@ type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	GeneralConfig  config.GeneralConfig
-	ChainCfg       evmtypes.ChainCfg
+	ChainCfg       evmtypes.ChainCfg // Deprecated
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager

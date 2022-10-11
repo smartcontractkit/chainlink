@@ -197,12 +197,11 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
-// TODO how to wedge in new config w/o import cycle...
-// TODO use v2.NewTestGeneralConfig instead
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
+// Deprecated: see v2.TOML
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{
@@ -332,7 +331,7 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	}
 	// Always return txdb for tests, if you want a non-transactional database
 	// you must set an override explicitly
-	return "txdb"
+	return dialects.TransactionWrappedPostgres
 }
 
 func (c *TestGeneralConfig) DatabaseURL() url.URL {
