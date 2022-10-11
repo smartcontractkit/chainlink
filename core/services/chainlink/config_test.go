@@ -54,7 +54,6 @@ var (
 			AuditLogger: &audit.AuditLoggerConfig{
 				Enabled:        ptr(false),
 				ForwardToUrl:   mustURL("http://localhost:9898"),
-				Environment:    ptr("develop"),
 				Headers:        ptr(make(audit.ServiceHeaders, 0)),
 				JsonWrapperKey: ptr(""),
 			},
@@ -222,7 +221,6 @@ func TestConfig_Marshal(t *testing.T) {
 	full.AuditLogger = &audit.AuditLoggerConfig{
 		Enabled:        ptr(false),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
-		Environment:    ptr("develop"),
 		Headers:        ptr(serviceHeaders),
 		JsonWrapperKey: ptr(""),
 	}
@@ -604,7 +602,6 @@ ShutdownGracePeriod = '10s'
 		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = false
 ForwardToUrl = 'http://localhost:9898'
-Environment = 'develop'
 JsonWrapperKey = ''
 Headers = ''
 `},

@@ -330,6 +330,10 @@ func TestResolver_Config(t *testing.T) {
         "value": "30s"
       },
       {
+        "key": "AUDIT_LOGGER_ENABLED",
+        "value": "false"
+      },
+      {
         "key": "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",
         "value": "1"
       },

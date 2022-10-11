@@ -63,7 +63,7 @@ type ConfigSchema struct {
 
 	// Audit Logger
 	AuditLoggerEnabled        bool   `env:"AUDIT_LOGGER_ENABLED" default:"false"`
-	AuditLoggerForwardToUrl   string `env:"AUDIT_LOGGER_FORWARD_TO_URL" default:"http://localhost:9898"`
+	AuditLoggerForwardToUrl   string `env:"AUDIT_LOGGER_FORWARD_TO_URL" default:""`
 	AuditLoggerHeaders        string `env:"AUDIT_LOGGER_HEADERS" default:""`
 	AuditLoggerJsonWrapperKey string `env:"AUDIT_LOGGER_JSON_WRAPPER_KEY" default:""`
 

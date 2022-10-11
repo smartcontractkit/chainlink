@@ -34,7 +34,6 @@ type AuditLogger interface {
 type AuditLoggerConfig struct {
 	Enabled        *bool
 	ForwardToUrl   *models.URL
-	Environment    *string
 	JsonWrapperKey *string
 	Headers        *ServiceHeaders
 }
@@ -45,9 +44,6 @@ func (p *AuditLoggerConfig) SetFrom(f *AuditLoggerConfig) {
 	}
 	if v := f.ForwardToUrl; v != nil {
 		p.ForwardToUrl = v
-	}
-	if v := f.Environment; v != nil {
-		p.Environment = v
 	}
 	if v := f.JsonWrapperKey; v != nil {
 		p.JsonWrapperKey = v

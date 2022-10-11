@@ -210,7 +210,11 @@ func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
 }
 
 func (g *generalConfig) AuditLoggerEnvironment() string {
-	return *g.c.AuditLogger.Environment
+	if g.Dev() {
+		return "develop"
+	} else {
+		return "production"
+	}
 }
 
 func (g *generalConfig) AuditLoggerJsonWrapperKey() string {

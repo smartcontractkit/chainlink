@@ -8,6 +8,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/gqltesting"
+	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
@@ -113,6 +114,8 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		txmORM:      txmgrMocks.NewORM(t),
 		auditLogger: &audit.AuditLoggerService{},
 	}
+
+	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(&audit.AuditLoggerService{}).Maybe()
 
 	f := &gqlTestFramework{
 		t:          t,

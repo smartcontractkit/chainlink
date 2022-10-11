@@ -110,8 +110,6 @@ UseBatchSend = true # Default
 Enabled = false # Default
 # ForwardToUrl is where you want to forward logs to
 ForwardToUrl = 'http://localhost:9898' # Example
-# Environment is an identifier for the host/environment you're on
-Environment = 'develop' # Example
 # JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
 JsonWrapperKey = '' # Default
 # Headers is the set of headers you wish to pass along with each request

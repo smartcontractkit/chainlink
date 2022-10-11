@@ -697,7 +697,6 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.AuditLogger = &audit.AuditLoggerConfig{
 		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
 		ForwardToUrl:   envURL("AuditLoggerForwardToUrl"),
-		Environment:    environment(),
 		JsonWrapperKey: envvar.NewString("AuditLoggerJsonWrapperKey").ParsePtr(),
 		Headers:        serviceHeaders("AuditLoggerHeaders"),
 	}
