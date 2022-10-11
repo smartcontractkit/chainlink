@@ -121,6 +121,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   error InvalidReport();
   error RegistryPaused();
   error ReentrantCall();
+  error UpkeepAlreadyExists();
 
   enum MigrationPermission {
     NONE,
