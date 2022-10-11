@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 )
 
@@ -197,7 +198,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 3*time.Second)
+	stopMining := cltest.Mine(backend, 6*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -264,7 +265,6 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		relay = "evm"
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
-		maxTaskDuration = "1s"
 		contractID = "%s"
 		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
@@ -376,7 +376,16 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		require.NoError(t, err2)
 		return received
 	}
-	g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+
+	// check pipeline runs
+	var allRuns []pipeline.Run
+	for _, node := range nodes {
+		runs, err2 := node.App.PipelineORM().GetAllRuns()
+		require.NoError(t, err2)
+		allRuns = append(allRuns, runs...)
+	}
+	require.GreaterOrEqual(t, len(allRuns), 1)
 
 	/*
 		TODO(@EasterTheBunny): Add test for second upkeep once listening to perform logs is implemented
@@ -388,6 +397,6 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		require.NoError(t, err)
 
 		// observe 2nd job run and received payload changes
-		g.Eventually(receivedBytes, 60*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+		g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 	*/
 }
