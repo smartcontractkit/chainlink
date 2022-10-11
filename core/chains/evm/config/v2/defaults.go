@@ -118,6 +118,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.LogPollInterval; v != nil {
 		c.LogPollInterval = v
 	}
+	if v := f.LogKeepBlocksDepth; v != nil {
+		c.LogKeepBlocksDepth = v
+	}
 	if v := f.MinIncomingConfirmations; v != nil {
 		c.MinIncomingConfirmations = v
 	}

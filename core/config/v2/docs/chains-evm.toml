@@ -45,6 +45,9 @@ LogBackfillBatchSize = 100 # Default
 # **ADVANCED**
 # LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 LogPollInterval = '15s' # Default
+# **ADVANCED**
+# LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
+LogKeepBlocksDepth = 100000 # Default
 # MinContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 MinContractPayment = '10000000000000 juels' # Default
 # MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.

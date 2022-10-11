@@ -49,7 +49,7 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	}, 10e6)
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
-	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize)
+	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)

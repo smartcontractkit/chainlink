@@ -261,11 +261,10 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	for i, node := range nodes {
 		node.AddJob(t, fmt.Sprintf(`
 		type = "offchainreporting2"
-		pluginType = "ocr2keeper"
+		pluginType = "ocr2automation"
 		relay = "evm"
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
-		maxTaskDuration = "1s"
 		contractID = "%s"
 		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"

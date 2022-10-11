@@ -60,7 +60,7 @@ func TestConfigPoller(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
 	logPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
