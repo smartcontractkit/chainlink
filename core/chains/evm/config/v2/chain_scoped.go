@@ -227,6 +227,10 @@ func (c *ChainScoped) EvmLogPollInterval() time.Duration {
 	return c.cfg.LogPollInterval.Duration()
 }
 
+func (c *ChainScoped) EvmLogKeepBlocksDepth() uint32 {
+	return *c.cfg.LogKeepBlocksDepth
+}
+
 func (c *ChainScoped) EvmMaxInFlightTransactions() uint32 {
 	return *c.cfg.Transactions.MaxInFlight
 }

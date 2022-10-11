@@ -198,7 +198,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 3*time.Second)
+	stopMining := cltest.Mine(backend, 6*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -265,7 +265,6 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		relay = "evm"
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
-		maxTaskDuration = "1s"
 		contractID = "%s"
 		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
