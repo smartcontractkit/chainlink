@@ -12,9 +12,9 @@ UICSAKeys = true
 DefaultIdleInTxSessionTimeout = '1m0s'
 DefaultLockTimeout = '1h0m0s'
 DefaultQueryTimeout = '1s'
+MaxIdleConns = 7
+MaxOpenConns = 13
 MigrateOnStartup = true
-ORMMaxIdleConns = 7
-ORMMaxOpenConns = 13
 
 [Database.Backup]
 Dir = 'test/backup/dir'
@@ -44,12 +44,14 @@ UseBatchSend = true
 
 [Log]
 DatabaseQueries = true
-FileDir = 'log/file/dir'
-FileMaxSize = '100.00gb'
-FileMaxAgeDays = 17
-FileMaxBackups = 9
 JSONConsole = true
 UnixTS = true
+
+[Log.File]
+Dir = 'log/file/dir'
+MaxSize = '100.00gb'
+MaxAgeDays = 17
+MaxBackups = 9
 
 [WebServer]
 AllowOrigins = '*'
@@ -78,13 +80,15 @@ HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 
 [JobPipeline]
-DefaultHTTPRequestTimeout = '1m0s'
 ExternalInitiatorsEnabled = true
-HTTPRequestMaxSize = '100.00mb'
 MaxRunDuration = '1h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1m0s'
+MaxSize = '100.00mb'
 
 [FluxMonitor]
 DefaultTransactionQueueDepth = 100
@@ -117,6 +121,7 @@ OutgoingMessageBufferSize = 17
 TraceLogging = true
 
 [P2P.V1]
+Enabled = false
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -130,6 +135,7 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
+Enabled = true
 AnnounceAddresses = ['a', 'b', 'c']
 DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
@@ -141,14 +147,17 @@ DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
-MaximumGracePeriod = 31
-RegistryCheckGasOverhead = 90
-RegistryPerformGasOverhead = 4294967295
-RegistrySyncInterval = '1h0m0s'
-RegistrySyncUpkeepQueueSize = 31
+MaxGracePeriod = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
+
+[Keeper.Registry]
+CheckGasOverhead = 90
+PerformGasOverhead = 4294967295
+MaxPerformDataSize = 5000
+SyncInterval = '1h0m0s'
+SyncUpkeepQueueSize = 31
 
 [AutoPprof]
 Enabled = true
@@ -186,21 +195,24 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
-MaxInFlightTransactions = 19
-MaxQueuedTransactions = 99
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9.223372036854775807 link'
+MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
-TxReaperInterval = '1m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '1h0m0s'
-UseForwarders = true
+RPCBlockQueryDelay = 10
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 19
+MaxQueued = 99
+ReaperInterval = '1m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '1h0m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 17
 
 [EVM.GasEstimator]
 Mode = 'L2Suggested'
@@ -211,11 +223,6 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
-LimitOCRJobType = 1001
-LimitDRJobType = 1002
-LimitVRFJobType = 1003
-LimitFMJobType = 1004
-LimitKeeperJobType = 1005
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6
@@ -223,17 +230,22 @@ BumpTxDepth = 6
 EIP1559DynamicFees = true
 FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 1001
+DR = 1002
+VRF = 1003
+FM = 1004
+Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
-BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
@@ -245,7 +257,6 @@ Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
@@ -254,7 +265,6 @@ SelectionMode = 'HighestHead'
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
-ObservationTimeout = '1s'
 ObservationGracePeriod = '1s'
 
 [[EVM.Nodes]]
@@ -297,6 +307,20 @@ URL = 'http://solana.foo'
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
+
+[[Starknet]]
+ChainID = 'foobar'
+Enabled = true
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Bombay-12'

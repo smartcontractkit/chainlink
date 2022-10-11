@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -104,7 +103,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)
 
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
 		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
 		if err != nil {
@@ -135,7 +134,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	}
 
 	// Update to latest version
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		version := versioning.NewNodeVersion(static.Version)
 		if err = verORM.UpsertNodeVersion(version); err != nil {
 			return nil, errors.Wrap(err, "UpsertNodeVersion")
@@ -154,7 +153,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		Config:           cfg,
 		Logger:           appLggr,
 		DB:               db,
-		ORM:              evm.NewORM(db, appLggr, cfg),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
@@ -169,14 +167,22 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup Terra nodes")
 		}
-		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		opts := terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
 			DB:               db,
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
-			ORM:              terra.NewORM(db, terraLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
+			cfgs := newCfg.TerraConfigs()
+			opts.ORM = terra.NewORMImmut(cfgs)
+			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
+
+		} else {
+			opts.ORM = terra.NewORM(db, terraLggr, cfg)
+			chains.Terra, err = terra.NewChainSet(opts)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Terra chainset")
 		}
@@ -187,14 +193,21 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup Solana nodes")
 		}
-		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
-			Config:           cfg,
-			Logger:           solLggr,
-			DB:               db,
-			KeyStore:         keyStore.Solana(),
-			EventBroadcaster: eventBroadcaster,
-			ORM:              solana.NewORM(db, solLggr, cfg),
-		})
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			DB:       db,
+			KeyStore: keyStore.Solana(),
+		}
+		if newCfg, ok := cfg.(interface {
+			SolanaConfigs() solana.SolanaConfigs
+		}); ok {
+			cfgs := newCfg.SolanaConfigs()
+			opts.ORM = solana.NewORMImmut(cfgs)
+			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		} else {
+			opts.ORM = solana.NewORM(db, solLggr, cfg)
+			chains.Solana, err = solana.NewChainSet(opts)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
@@ -205,14 +218,21 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
 		}
-		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+		opts := starknet.ChainSetOpts{
 			Config:   cfg,
 			Logger:   starkLggr,
-			DB:       db,
 			KeyStore: keyStore.StarkNet(),
-			//TODO EventBroadcaster: eventBroadcaster,
-			ORM: starknet.NewORM(db, starkLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface {
+			StarknetConfigs() starknet.StarknetConfigs
+		}); ok {
+			cfgs := newCfg.StarknetConfigs()
+			opts.ORM = starknet.NewORMImmut(cfgs)
+			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		} else {
+			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
+			chains.StarkNet, err = starknet.NewChainSet(opts)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}
@@ -591,18 +611,18 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
 }
 
 // Removes any stored cookie.
 func (d DiskCookieStore) Reset() error {
 	// Write empty bytes
-	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
-	b, err := ioutil.ReadFile(d.cookiePath())
+	b, err := os.ReadFile(d.cookiePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -809,7 +829,7 @@ func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionReque
 	}
 
 	lggr.Debug("Initializing API credentials")
-	dat, err := ioutil.ReadFile(file)
+	dat, err := os.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err
 	}

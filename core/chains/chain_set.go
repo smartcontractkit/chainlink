@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	cfgv2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -60,6 +61,7 @@ type ChainService[C Config] interface {
 // ChainSetOpts holds options for configuring a ChainSet via NewChainSet.
 type ChainSetOpts[I ID, C Config, N Node, S ChainService[C]] interface {
 	Validate() error
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	NewChain(DBChain[I, C]) (S, error)
 	ORMAndLogger() (ORM[I, C, N], logger.Logger)
 }
@@ -73,9 +75,13 @@ type chainSet[I ID, C Config, N Node, S ChainService[C]] struct {
 
 	chainsMu sync.RWMutex
 	chains   map[string]S
+
+	// immutability will be standard https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+	immutable bool // toml chain set is immutable
 }
 
 // NewChainSet returns a new ChainSet for the given ChainSetOpts.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewChainSet[I ID, C Config, N Node, S ChainService[C]](
 	opts ChainSetOpts[I, C, N, S], formatID func(I) string,
 ) (ChainSet[I, C, N, S], error) {
@@ -101,6 +107,26 @@ func NewChainSet[I ID, C Config, N Node, S ChainService[C]](
 			err = multierr.Combine(err, err2)
 			continue
 		}
+	}
+
+	return &cs, err
+}
+
+// NewChainSetImmut returns a new immutable ChainSet for the given ChainSetOpts.
+func NewChainSetImmut[I ID, C Config, N Node, S ChainService[C]](chains map[string]S,
+	opts ChainSetOpts[I, C, N, S], formatID func(I) string,
+) (ChainSet[I, C, N, S], error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+	orm, lggr := opts.ORMAndLogger()
+	cs := chainSet[I, C, N, S]{
+		opts:      opts,
+		formatID:  formatID,
+		orm:       orm,
+		lggr:      lggr.Named("ChainSet"),
+		chains:    chains,
+		immutable: true,
 	}
 
 	return &cs, nil
@@ -170,6 +196,9 @@ func (c *chainSet[I, C, N, S]) initializeChain(ctx context.Context, dbchain DBCh
 }
 
 func (c *chainSet[I, C, N, S]) Add(ctx context.Context, id I, config C) (DBChain[I, C], error) {
+	if c.immutable {
+		return DBChain[I, C]{}, cfgv2.ErrUnsupported
+	}
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -190,6 +219,9 @@ func (c *chainSet[I, C, N, S]) Show(id I) (DBChain[I, C], error) {
 }
 
 func (c *chainSet[I, C, N, S]) Configure(ctx context.Context, id I, enabled bool, config C) (DBChain[I, C], error) {
+	if c.immutable {
+		return DBChain[I, C]{}, cfgv2.ErrUnsupported
+	}
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -219,6 +251,9 @@ func (c *chainSet[I, C, N, S]) Configure(ctx context.Context, id I, enabled bool
 }
 
 func (c *chainSet[I, C, N, S]) Remove(id I) error {
+	if c.immutable {
+		return cfgv2.ErrUnsupported
+	}
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -253,6 +288,9 @@ func (c *chainSet[I, C, N, S]) CreateNode(ctx context.Context, n N) (N, error) {
 }
 
 func (c *chainSet[I, C, N, S]) DeleteNode(ctx context.Context, id int32) error {
+	if c.immutable {
+		return cfgv2.ErrUnsupported
+	}
 	return c.orm.DeleteNode(id, pg.WithParentCtx(ctx))
 }
 
@@ -262,15 +300,25 @@ func (c *chainSet[I, C, N, S]) Start(ctx context.Context) error {
 
 		c.chainsMu.Lock()
 		defer c.chainsMu.Unlock()
-		var started int
-		for id, ch := range c.chains {
-			if err := ch.Start(ctx); err != nil {
-				c.lggr.Errorw(fmt.Sprintf("Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly.", id), "err", err)
-				continue
+		if c.immutable {
+			var ms services.MultiStart
+			for id, ch := range c.chains {
+				if err := ms.Start(ctx, ch); err != nil {
+					return errors.Wrapf(err, "failed to start chain %q", id)
+				}
 			}
-			started++
+			c.lggr.Info(fmt.Sprintf("Started %d chains", len(c.chains)))
+		} else {
+			var started int
+			for id, ch := range c.chains {
+				if err := ch.Start(ctx); err != nil {
+					c.lggr.Errorw(fmt.Sprintf("Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly.", id), "err", err)
+					continue
+				}
+				started++
+			}
+			c.lggr.Info(fmt.Sprintf("Started %d/%d chains", started, len(c.chains)))
 		}
-		c.lggr.Info(fmt.Sprintf("Started %d/%d chains", started, len(c.chains)))
 		return nil
 	})
 }

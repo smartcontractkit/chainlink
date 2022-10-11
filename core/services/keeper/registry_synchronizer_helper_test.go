@@ -75,6 +75,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 		MinIncomingConfirmations: 1,
 		Logger:                   logger.TestLogger(t),
 		SyncUpkeepQueueSize:      syncUpkeepQueueSize,
+		EffectiveKeeperAddress:   j.KeeperSpec.FromAddress.Address(),
 	})
 	return db, synchronizer, ethClient, lbMock, j
 }

@@ -71,7 +71,7 @@ func TestNullClient(t *testing.T) {
 		require.Equal(t, 1, logs.FilterMessage("Unsubscribe").Len())
 
 		chLogs := make(chan types.Log)
-		sub, err = nc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, chLogs)
+		_, err = nc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, chLogs)
 		require.NoError(t, err)
 		require.Equal(t, 1, logs.FilterMessage("SubscribeFilterLogs").Len())
 	})

@@ -32,7 +32,7 @@ var (
 	_ job.ServiceCtx = &listenerV1{}
 )
 
-var callbacksTimeout time.Duration = 10 * time.Second
+const callbacksTimeout = 10 * time.Second
 
 type request struct {
 	confirmedAtBlock uint64

@@ -1,0 +1,101 @@
+[[EVM]]
+ChainID = '0'
+Enabled = false
+ChainType = 'foobar'
+FinalityDepth = 99
+FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
+LogBackfillBatchSize = 99
+LogPollInterval = '43s'
+MinIncomingConfirmations = 99
+MinContractPayment = '7'
+NonceAutoSync = false
+NoNewHeadsThreshold = '99h0m0s'
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+RPCDefaultBatchSize = 99
+RPCBlockQueryDelay = 99
+
+[EVM.Transactions]
+ForwardersEnabled = false
+ReaperThreshold = '10m0s'
+ResendAfterThreshold = '5m10s'
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '3.456 kwei'
+PriceMax = '9 mwei'
+LimitDefault = 99
+LimitMultiplier = '1.75'
+BumpMin = '159 wei'
+BumpPercent = 99
+BumpTxDepth = 99
+EIP1559DynamicFees = true
+FeeCapDefault = '9.876 kwei'
+TipCapDefault = '4.321 kwei'
+TipCapMin = '7 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
+
+[EVM.GasEstimator.BlockHistory]
+BlockHistorySize = 99
+EIP1559FeeCapBufferBlocks = 99
+
+[EVM.HeadTracker]
+HistoryDepth = 99
+MaxBufferSize = 99
+SamplingInterval = '1h0m7s'
+
+[[EVM.KeySpecific]]
+Key = '0xae4E781a6218A8031764928E88d457937A954fC3'
+
+[EVM.KeySpecific.GasEstimator]
+PriceMax = '42 wei'
+
+[[EVM.Nodes]]
+Name = 'primary_0_1'
+WSURL = 'ws://test1.invalid'
+
+[[EVM.Nodes]]
+Name = 'primary_0_2'
+WSURL = 'ws://test2.invalid'
+HTTPURL = 'https://test2.invalid'
+
+[[EVM.Nodes]]
+Name = 'sendonly_0_1'
+HTTPURL = 'http://test5.invalid'
+SendOnly = true
+
+[[EVM]]
+ChainID = '42'
+Enabled = false
+
+[[EVM.Nodes]]
+Name = 'primary_42_1'
+WSURL = 'ws://test6.invalid'
+
+[[EVM]]
+ChainID = '43'
+
+[[EVM.Nodes]]
+Name = 'sendonly_43_1'
+HTTPURL = 'http://test7.invalid'
+SendOnly = true
+
+[[EVM]]
+ChainID = '1337'
+Enabled = false
+
+[[EVM.Nodes]]
+Name = 'primary_1337_1'
+WSURL = 'ws://test3.invalid'
+HTTPURL = 'http://test3.invalid'
+
+[[EVM.Nodes]]
+Name = 'sendonly_1337_1'
+HTTPURL = 'http://test4.invalid'
+SendOnly = true

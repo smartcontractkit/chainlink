@@ -221,18 +221,14 @@ func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, erro
 	return NewFeaturesPayloadResolver(r.App.GetConfig()), nil
 }
 
-// Node retrieves a node by ID
+// Node retrieves a node by ID (Name)
 func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*NodePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	id, err := stringutils.ToInt32(string(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	node, err := r.App.GetChains().EVM.GetNode(ctx, id)
+	name := string(args.ID)
+	node, err := r.App.EVMORM().NodeNamed(name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewNodePayloadResolver(nil, err), nil

@@ -168,6 +168,9 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 	case 11155111: // Sepolia
 		fmtURL = "https://sepolia.etherscan.io/tx/%s"
 
+	case 420: // Optimism Goerli
+		fmtURL = "https://goerli-optimism.etherscan.io/tx/%s"
+
 	case 56: // BSC mainnet
 		fmtURL = "https://bscscan.com/tx/%s"
 	case 97: // BSC testnet

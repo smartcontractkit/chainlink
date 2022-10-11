@@ -2,8 +2,6 @@ package chainlink
 
 import (
 	_ "embed"
-	"flag"
-	"io/ioutil"
 	"math"
 	"net"
 	"os"
@@ -12,19 +10,21 @@ import (
 	"time"
 
 	"github.com/kylelemons/godebug/diff"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
@@ -58,12 +58,16 @@ var (
 				JSONConsole: ptr(true),
 			},
 			JobPipeline: &config.JobPipeline{
-				DefaultHTTPRequestTimeout: models.MustNewDuration(30 * time.Second),
+				HTTPRequest: &config.JobPipelineHTTPRequest{
+					DefaultTimeout: models.MustNewDuration(30 * time.Second),
+				},
 			},
 			OCR2: &config.OCR2{
+				Enabled:         ptr(true),
 				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
 			},
 			OCR: &config.OCR{
+				Enabled:           ptr(true),
 				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
 			},
 			P2P: &config.P2P{
@@ -76,7 +80,7 @@ var (
 				CPUProfileRate: ptr[int64](7),
 			},
 		},
-		EVM: []*EVMConfig{
+		EVM: []*evmcfg.EVMConfig{
 			{
 				ChainID: utils.NewBigI(1),
 				Chain: evmcfg.Chain{
@@ -120,7 +124,7 @@ var (
 					},
 				}},
 		},
-		Solana: []*SolanaConfig{
+		Solana: []*solana.SolanaConfig{
 			{
 				ChainID: ptr("mainnet"),
 				Chain: solcfg.Chain{
@@ -140,7 +144,18 @@ var (
 				},
 			},
 		},
-		Terra: []*TerraConfig{
+		Starknet: []*starknet.StarknetConfig{
+			{
+				ChainID: ptr("foobar"),
+				Chain: stkcfg.Chain{
+					TxSendFrequency: relayutils.MustNewDuration(time.Hour),
+				},
+				Nodes: []*stkcfg.Node{
+					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+				},
+			},
+		},
+		Terra: []*terra.TerraConfig{
 			{
 				ChainID: ptr("Columbus-5"),
 				Chain: tercfg.Chain{
@@ -203,8 +218,8 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
 
 		MigrateOnStartup: ptr(true),
-		ORMMaxIdleConns:  ptr[int64](7),
-		ORMMaxOpenConns:  ptr[int64](13),
+		MaxIdleConns:     ptr[int64](7),
+		MaxOpenConns:     ptr[int64](13),
 		Listener: &config.DatabaseListener{
 			MaxReconnectDuration: models.MustNewDuration(time.Minute),
 			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
@@ -234,12 +249,14 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Log = &config.Log{
 		JSONConsole:     ptr(true),
-		FileDir:         ptr("log/file/dir"),
 		DatabaseQueries: ptr(true),
-		FileMaxSize:     ptr[utils.FileSize](100 * utils.GB),
-		FileMaxAgeDays:  ptr[int64](17),
-		FileMaxBackups:  ptr[int64](9),
 		UnixTS:          ptr(true),
+		File: &config.LogFile{
+			Dir:        ptr("log/file/dir"),
+			MaxSize:    ptr[utils.FileSize](100 * utils.GB),
+			MaxAgeDays: ptr[int64](17),
+			MaxBackups: ptr[int64](9),
+		},
 	}
 	full.WebServer = &config.WebServer{
 		AllowOrigins:            ptr("*"),
@@ -268,13 +285,15 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.JobPipeline = &config.JobPipeline{
-		HTTPRequestMaxSize:        ptr[utils.FileSize](100 * utils.MB),
-		DefaultHTTPRequestTimeout: models.MustNewDuration(time.Minute),
 		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
+		HTTPRequest: &config.JobPipelineHTTPRequest{
+			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
+			DefaultTimeout: models.MustNewDuration(time.Minute),
+		},
 	}
 	full.FluxMonitor = &config.FluxMonitor{
 		DefaultTransactionQueueDepth: ptr[uint32](100),
@@ -306,6 +325,7 @@ func TestConfig_Marshal(t *testing.T) {
 		OutgoingMessageBufferSize: ptr[int64](17),
 		TraceLogging:              ptr(true),
 		V1: &config.P2PV1{
+			Enabled:                          ptr(false),
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
 			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
@@ -319,6 +339,7 @@ func TestConfig_Marshal(t *testing.T) {
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
 		V2: &config.P2PV2{
+			Enabled:           ptr(true),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
@@ -334,14 +355,17 @@ func TestConfig_Marshal(t *testing.T) {
 		GasPriceBufferPercent:        ptr[uint32](12),
 		GasTipCapBufferPercent:       ptr[uint32](43),
 		BaseFeeBufferPercent:         ptr[uint32](89),
-		MaximumGracePeriod:           ptr[int64](31),
-		RegistryCheckGasOverhead:     ptr[uint32](90),
-		RegistryPerformGasOverhead:   ptr[uint32](math.MaxUint32),
-		RegistrySyncInterval:         models.MustNewDuration(time.Hour),
-		RegistrySyncUpkeepQueueSize:  ptr[uint32](31),
+		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
 		TurnFlagEnabled:              ptr(true),
 		UpkeepCheckGasPriceEnabled:   ptr(true),
+		Registry: &config.KeeperRegistry{
+			CheckGasOverhead:    ptr[uint32](90),
+			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
+			SyncInterval:        models.MustNewDuration(time.Hour),
+			SyncUpkeepQueueSize: ptr[uint32](31),
+			MaxPerformDataSize:  ptr[uint32](5000),
+		},
 	}
 	full.AutoPprof = &config.AutoPprof{
 		Enabled:              ptr(true),
@@ -368,14 +392,13 @@ func TestConfig_Marshal(t *testing.T) {
 		Environment: ptr("dev"),
 		Release:     ptr("v1.2.3"),
 	}
-	full.EVM = []*EVMConfig{
+	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				BalanceMonitor: &evmcfg.BalanceMonitor{
-					Enabled:    ptr(true),
-					BlockDelay: ptr[uint16](17),
+					Enabled: ptr(true),
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
@@ -395,20 +418,22 @@ func TestConfig_Marshal(t *testing.T) {
 					LimitMax:           ptr[uint32](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint32](100),
-					LimitOCRJobType:    ptr[uint32](1001),
-					LimitDRJobType:     ptr[uint32](1002),
-					LimitVRFJobType:    ptr[uint32](1003),
-					LimitFMJobType:     ptr[uint32](1004),
-					LimitKeeperJobType: ptr[uint32](1005),
 					TipCapDefault:      utils.NewBigI(2).Wei(),
-					TipCapMinimum:      utils.NewBigI(1).Wei(),
+					TipCapMin:          utils.NewBigI(1).Wei(),
 					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
 					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
 					PriceMin:           utils.NewBigI(13).Wei(),
 
+					LimitJobType: &evmcfg.GasLimitJobType{
+						OCR:    ptr[uint32](1001),
+						DR:     ptr[uint32](1002),
+						VRF:    ptr[uint32](1003),
+						FM:     ptr[uint32](1004),
+						Keeper: ptr[uint32](1005),
+					},
+
 					BlockHistory: &evmcfg.BlockHistoryEstimator{
 						BatchSize:                 ptr[uint32](17),
-						BlockDelay:                ptr[uint16](10),
 						BlockHistorySize:          ptr[uint16](12),
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
@@ -424,34 +449,33 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 
-				LinkContractAddress:  mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize: ptr[uint32](17),
-				LogPollInterval:      &minute,
-
-				MaxInFlightTransactions:  ptr[uint32](19),
-				MaxQueuedTransactions:    ptr[uint32](99),
+				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
+				LogBackfillBatchSize:     ptr[uint32](17),
+				LogPollInterval:          &minute,
+				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
-				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
+				NonceAutoSync:            ptr(true),
+				NoNewHeadsThreshold:      &minute,
+				OperatorFactoryAddress:   mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				RPCDefaultBatchSize:      ptr[uint32](17),
+				RPCBlockQueryDelay:       ptr[uint16](10),
 
-				NonceAutoSync: ptr(true),
-
-				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-
-				RPCDefaultBatchSize:    ptr[uint32](17),
-				TxReaperInterval:       &minute,
-				TxReaperThreshold:      &minute,
-				TxResendAfterThreshold: &hour,
-				UseForwarders:          ptr(true),
+				Transactions: &evmcfg.Transactions{
+					MaxInFlight:          ptr[uint32](19),
+					MaxQueued:            ptr[uint32](99),
+					ReaperInterval:       &minute,
+					ReaperThreshold:      &minute,
+					ResendAfterThreshold: &hour,
+					ForwardersEnabled:    ptr(true),
+				},
 
 				HeadTracker: &evmcfg.HeadTracker{
-					BlockEmissionIdleWarningThreshold: &hour,
-					HistoryDepth:                      ptr[uint32](15),
-					MaxBufferSize:                     ptr[uint32](17),
-					SamplingInterval:                  &hour,
+					HistoryDepth:     ptr[uint32](15),
+					MaxBufferSize:    ptr[uint32](17),
+					SamplingInterval: &hour,
 				},
 
 				NodePool: &evmcfg.NodePool{
-					NoNewHeadsThreshold:  &minute,
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
@@ -460,7 +484,6 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
-					ObservationTimeout:                 &second,
 					ObservationGracePeriod:             &second,
 				},
 			},
@@ -482,7 +505,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []*SolanaConfig{
+	full.Solana = []*solana.SolanaConfig{
 		{
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
@@ -505,7 +528,24 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Terra = []*TerraConfig{
+	full.Starknet = []*starknet.StarknetConfig{
+		{
+			ChainID: ptr("foobar"),
+			Enabled: ptr(true),
+			Chain: stkcfg.Chain{
+				OCR2CachePollPeriod: relayutils.MustNewDuration(6 * time.Hour),
+				OCR2CacheTTL:        relayutils.MustNewDuration(3 * time.Minute),
+				RequestTimeout:      relayutils.MustNewDuration(time.Minute + 3*time.Second),
+				TxTimeout:           relayutils.MustNewDuration(13 * time.Second),
+				TxSendFrequency:     relayutils.MustNewDuration(42 * time.Second),
+				TxMaxBatchSize:      ptr[int64](17),
+			},
+			Nodes: []*stkcfg.Node{
+				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+			},
+		},
+	}
+	full.Terra = []*terra.TerraConfig{
 		{
 			ChainID: ptr("Bombay-12"),
 			Enabled: ptr(true),
@@ -540,20 +580,18 @@ InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 `},
-		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `
-[Feature]
+		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 `},
-		{"Database", Config{Core: config.Core{Database: full.Database}}, `
-[Database]
+		{"Database", Config{Core: config.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
 DefaultLockTimeout = '1h0m0s'
 DefaultQueryTimeout = '1s'
+MaxIdleConns = 7
+MaxOpenConns = 13
 MigrateOnStartup = true
-ORMMaxIdleConns = 7
-ORMMaxOpenConns = 13
 
 [Database.Backup]
 Dir = 'test/backup/dir'
@@ -570,8 +608,7 @@ FallbackPollInterval = '2m0s'
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
-		{"TelemetryIngress", Config{Core: config.Core{TelemetryIngress: full.TelemetryIngress}}, `
-[TelemetryIngress]
+		{"TelemetryIngress", Config{Core: config.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
 UniConn = true
 Logging = true
 ServerPubKey = 'test-pub-key'
@@ -582,18 +619,18 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 `},
-		{"Log", Config{Core: config.Core{Log: full.Log}}, `
-[Log]
+		{"Log", Config{Core: config.Core{Log: full.Log}}, `[Log]
 DatabaseQueries = true
-FileDir = 'log/file/dir'
-FileMaxSize = '100.00gb'
-FileMaxAgeDays = 17
-FileMaxBackups = 9
 JSONConsole = true
 UnixTS = true
+
+[Log.File]
+Dir = 'log/file/dir'
+MaxSize = '100.00gb'
+MaxAgeDays = 17
+MaxBackups = 9
 `},
-		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `
-[WebServer]
+		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `[WebServer]
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 HTTPWriteTimeout = '1m0s'
@@ -619,23 +656,22 @@ Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 `},
-		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `
-[FluxMonitor]
+		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
 DefaultTransactionQueueDepth = 100
 SimulateTransactions = true
 `},
-		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `
-[JobPipeline]
-DefaultHTTPRequestTimeout = '1m0s'
+		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 ExternalInitiatorsEnabled = true
-HTTPRequestMaxSize = '100.00mb'
 MaxRunDuration = '1h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1m0s'
+MaxSize = '100.00mb'
 `},
-		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `
-[OCR]
+		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `[OCR]
 Enabled = true
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
@@ -646,8 +682,7 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 `},
-		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `
-[OCR2]
+		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
 ContractConfirmations = 11
 BlockchainTimeout = '3s'
@@ -657,13 +692,13 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 `},
-		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `
-[P2P]
+		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 TraceLogging = true
 
 [P2P.V1]
+Enabled = false
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -677,29 +712,31 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
+Enabled = true
 AnnounceAddresses = ['a', 'b', 'c']
 DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
-		{"Keeper", Config{Core: config.Core{Keeper: full.Keeper}}, `
-[Keeper]
+		{"Keeper", Config{Core: config.Core{Keeper: full.Keeper}}, `[Keeper]
 DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
-MaximumGracePeriod = 31
-RegistryCheckGasOverhead = 90
-RegistryPerformGasOverhead = 4294967295
-RegistrySyncInterval = '1h0m0s'
-RegistrySyncUpkeepQueueSize = 31
+MaxGracePeriod = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
+
+[Keeper.Registry]
+CheckGasOverhead = 90
+PerformGasOverhead = 4294967295
+MaxPerformDataSize = 5000
+SyncInterval = '1h0m0s'
+SyncUpkeepQueueSize = 31
 `},
-		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `
-[AutoPprof]
+		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'
 PollInterval = '1m0s'
@@ -713,21 +750,18 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 `},
-		{"Pyroscope", Config{Core: config.Core{Pyroscope: full.Pyroscope}}, `
-[Pyroscope]
+		{"Pyroscope", Config{Core: config.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
 AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 `},
-		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `
-[Sentry]
+		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `[Sentry]
 Debug = true
 DSN = 'sentry-dsn'
 Environment = 'dev'
 Release = 'v1.2.3'
 `},
-		{"EVM", Config{EVM: full.EVM}, `
-[[EVM]]
+		{"EVM", Config{EVM: full.EVM}, `[[EVM]]
 ChainID = '1'
 Enabled = false
 BlockBackfillDepth = 100
@@ -738,21 +772,24 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
-MaxInFlightTransactions = 19
-MaxQueuedTransactions = 99
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9.223372036854775807 link'
+MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
-TxReaperInterval = '1m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '1h0m0s'
-UseForwarders = true
+RPCBlockQueryDelay = 10
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 19
+MaxQueued = 99
+ReaperInterval = '1m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '1h0m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 17
 
 [EVM.GasEstimator]
 Mode = 'L2Suggested'
@@ -763,11 +800,6 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
-LimitOCRJobType = 1001
-LimitDRJobType = 1002
-LimitVRFJobType = 1003
-LimitFMJobType = 1004
-LimitKeeperJobType = 1005
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6
@@ -775,17 +807,22 @@ BumpTxDepth = 6
 EIP1559DynamicFees = true
 FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 1001
+DR = 1002
+VRF = 1003
+FM = 1004
+Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
-BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
@@ -797,7 +834,6 @@ Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
-NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
@@ -806,7 +842,6 @@ SelectionMode = 'HighestHead'
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
-ObservationTimeout = '1s'
 ObservationGracePeriod = '1s'
 
 [[EVM.Nodes]]
@@ -824,8 +859,7 @@ Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
-		{"Solana", Config{Solana: full.Solana}, `
-[[Solana]]
+		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
 ChainID = 'mainnet'
 Enabled = false
 BalancePollPeriod = '1m0s'
@@ -851,8 +885,21 @@ URL = 'http://solana.foo'
 Name = 'bar'
 URL = 'http://solana.bar'
 `},
-		{"Terra", Config{Terra: full.Terra}, `
-[[Terra]]
+		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
+ChainID = 'foobar'
+Enabled = true
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+`},
+		{"Terra", Config{Terra: full.Terra}, `[[Terra]]
 ChainID = 'Bombay-12'
 Enabled = true
 BlockRate = '1m0s'
@@ -887,8 +934,8 @@ TendermintURL = 'http://bar.web'
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
 
 			var got Config
-			d := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields()
-			require.NoError(t, d.Decode(&got))
+
+			require.NoError(t, config.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
 			require.NoError(t, err)
 			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
@@ -898,8 +945,7 @@ TendermintURL = 'http://bar.web'
 
 func TestConfig_full(t *testing.T) {
 	var got Config
-	d := toml.NewDecoder(strings.NewReader(fullTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&got))
+	require.NoError(t, config.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
 		for n := range got.EVM[c].Nodes {
@@ -918,34 +964,98 @@ func TestConfig_full(t *testing.T) {
 var invalidTOML string
 
 func TestConfig_Validate(t *testing.T) {
-	var invalid Config
-	d := toml.NewDecoder(strings.NewReader(invalidTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&invalid))
-	if err := invalid.Validate(); assert.Error(t, err) {
-		got := err.Error()
-		exp := `3 errors:
-	1) EVM: 3 errors:
-		1) ChainID: invalid value 1: duplicate - must be unique
-		2) 0: Nodes: 3 errors:
-				1) Name: invalid value foo: duplicate - must be unique
-				2) 0: HTTPURL: missing: required for all nodes
-				3) 1: 2 errors:
-					1) WSURL: missing: required for SendOnly nodes
-					2) HTTPURL: missing: required for all nodes
-		3) 1: Chain: KeySpecific: duplicate address: 0xde709f2102306220921060314715629080e2fb77
-	2) Solana: 2 errors:
-		1) ChainID: invalid value mainnet: duplicate - must be unique
-		2) 1: Nodes: 3 errors:
-				1) Name: invalid value bar: duplicate - must be unique
-				2) 0: URL: missing: required for all nodes
-				3) 1: URL: missing: required for all nodes
-	3) Terra: 2 errors:
-		1) ChainID: invalid value Bombay-12: duplicate - must be unique
-		2) 0: Nodes: 3 errors:
-				1) Name: invalid value test: duplicate - must be unique
-				2) 0: TendermintURL: missing: required for all nodes
-				3) 1: TendermintURL: missing: required for all nodes`
-		assert.Equal(t, exp, got, diff.Diff(exp, got))
+	for _, tt := range []struct {
+		name string
+		toml string
+		exp  string
+	}{
+		{name: "invalid", toml: invalidTOML, exp: `5 errors:
+	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
+	- EVM: 8 errors:
+		- 1.ChainID: invalid value (1): duplicate - must be unique
+		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
+		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
+		- 0: 4 errors:
+			- Nodes: missing: must have at least one primary node with WSURL
+			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to Transactions.MaxInFlight
+			- GasEstimator: 6 errors:
+				- BumpPercent: invalid value (1): may not be less than Geth's default of 10
+				- TipCapDefault: invalid value (3 wei): must be greater than or equal to TipCapMinimum
+				- FeeCapDefault: invalid value (3 wei): must be greater than or equal to TipCapDefault
+				- PriceMin: invalid value (10 gwei): must be less than or equal to PriceDefault
+				- PriceMax: invalid value (10 gwei): must be greater than or equal to PriceDefault
+				- BlockHistory.BlockHistorySize: invalid value (0): must be greater than or equal to 1 with BlockHistory Mode
+			- Nodes: 2 errors:
+				- 0: 2 errors:
+					- WSURL: missing: required for primary nodes
+					- HTTPURL: missing: required for all nodes
+				- 1: 2 errors:
+					- WSURL: missing: required for primary nodes
+					- HTTPURL: missing: required for all nodes
+		- 1: 6 errors:
+			- ChainType: invalid value (Foo): must not be set with this chain id
+			- Nodes: missing: must have at least one node
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai or omitted
+			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or reater than FinalityDepth
+			- GasEstimator: 2 errors:
+				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
+				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
+			- KeySpecific.Key: invalid value (0xde709f2102306220921060314715629080e2fb77): duplicate - must be unique
+		- 2: 5 errors:
+			- ChainType: invalid value (Arbitrum): only "optimism" can be used with this chain id
+			- Nodes: missing: must have at least one node
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, optimism, xdai or omitted
+			- FinalityDepth: invalid value (0): must be greater than or equal to 1
+			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
+		- 3.Nodes: 5 errors:
+				- 0: 2 errors:
+					- Name: missing: required for all nodes
+					- HTTPURL: empty: required for all nodes
+				- 1: 3 errors:
+					- Name: missing: required for all nodes
+					- WSURL: invalid value (http): must be ws or wss
+					- HTTPURL: missing: required for all nodes
+				- 2: 2 errors:
+					- Name: empty: required for all nodes
+					- HTTPURL: invalid value (ws): must be http or https
+				- 3.HTTPURL: missing: required for all nodes
+				- 4.HTTPURL: missing: required for all nodes
+		- 4: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Solana: 5 errors:
+		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
+		- 0.Nodes: missing: must have at least one node
+		- 1.Nodes: 2 errors:
+				- 0.URL: missing: required for all nodes
+				- 1.URL: missing: required for all nodes
+		- 2: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Starknet: 3 errors:
+		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+		- 0.ChainID: missing: required for all chains
+		- 1: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Terra: 5 errors:
+		- 1.ChainID: invalid value (Bombay-12): duplicate - must be unique
+		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
+		- 0.Nodes: 2 errors:
+				- 0.TendermintURL: missing: required for all nodes
+				- 1.TendermintURL: missing: required for all nodes
+		- 1.Nodes: missing: must have at least one node
+		- 2: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var c Config
+			require.NoError(t, config.DecodeTOML(strings.NewReader(tt.toml), &c))
+			c.setDefaults()
+			assertValidationError(t, &c, tt.exp)
+		})
 	}
 }
 
@@ -970,6 +1080,8 @@ func ptr[T any](v T) *T {
 }
 
 var (
+	//go:embed testdata/config-empty-effective.toml
+	emptyEffectiveTOML string
 	//go:embed testdata/config-multi-chain-effective.toml
 	multiChainEffectiveTOML string
 )
@@ -985,7 +1097,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 		wantConfig    string
 		wantEffective string
 	}{
-		{name: "empty"},
+		{name: "empty", wantEffective: emptyEffectiveTOML},
 		{name: "full", inputConfig: fullTOML, wantConfig: fullTOML, wantEffective: fullTOML},
 		{name: "multi-chain", inputConfig: multiChainTOML, wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML},
 		// TODO: more test cases
@@ -993,7 +1105,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewGeneralConfig(tt.inputConfig, secretsTOML, nil)
+			c, err := NewTOMLGeneralConfig(lggr, tt.inputConfig, secretsTOML, nil, nil)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
@@ -1012,14 +1124,14 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
 	assert.EqualError(t, err, "toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
 	assert.EqualError(t, err, "toml: key Dev is already defined")
 }
 
@@ -1028,40 +1140,87 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	const PWD_OVERRIDE = "great_password"
 	const DBURL_OVERRIDE = "http://user@db"
 
-	pwdFile, err := ioutil.TempFile("", "")
+	pwdFile, err := os.CreateTemp("", "")
 	assert.NoError(t, err)
 	defer os.Remove(pwdFile.Name())
 	_, err = pwdFile.WriteString(PWD_OVERRIDE)
 	assert.NoError(t, err)
 
-	flagSet := flag.NewFlagSet("", 0)
-	flagSet.String("password", "", "")
-	err = flagSet.Set("password", pwdFile.Name())
-	assert.NoError(t, err)
-	context := cli.NewContext(nil, flagSet, nil)
+	filename := pwdFile.Name()
 
 	t.Setenv("DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	c, err := NewGeneralConfig(fullTOML, secretsTOML, context)
+	c, err := NewTOMLGeneralConfig(logger.TestLogger(t), fullTOML, secretsTOML, &filename, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 
-//go:embed testdata/secrets-partial.toml
-var invalidSecretsTOML string
-
 func TestSecrets_Validate(t *testing.T) {
-	var invalid Secrets
-	d := toml.NewDecoder(strings.NewReader(invalidSecretsTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&invalid))
+	for _, tt := range []struct {
+		name string
+		toml string
+		exp  string
+	}{
+		{name: "partial",
+			toml: `ExplorerAccessKey = "access_key"
+ExplorerSecret = "secret"`,
+			exp: `2 errors:
+	- DatabaseURL: empty: must be provided and non-empty
+	- KeystorePassword: empty: must be provided and non-empty`},
+
+		{name: "invalid-urls",
+			toml: `DatabaseURL = "postgresql://user:passlocalhost:5432/asdf"
+DatabaseBackupURL = "foo-bar?password=asdf"`,
+			exp: `3 errors:
+	- DatabaseURL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+Must have a length of 16-50 characters
+Must not comprise:
+	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
+
+	- DatabaseBackupURL: invalid value (*****): missing or insufficiently complex password: 
+Expected password complexity:
+Must be at least 16 characters long
+Must not comprise:
+	Leading or trailing whitespace
+	A user's API email
+
+Faults:
+	password is less than 16 characters long
+. Database should be secured by a password matching the following complexity requirements: 
+Must have a length of 16-50 characters
+Must not comprise:
+	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
+
+	- KeystorePassword: empty: must be provided and non-empty`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var s Secrets
+			require.NoError(t, config.DecodeTOML(strings.NewReader(tt.toml), &s))
+			assertValidationError(t, &s, tt.exp)
+		})
+	}
+}
+
+func assertValidationError(t *testing.T, invalid interface{ Validate() error }, expMsg string) {
+	t.Helper()
 	if err := invalid.Validate(); assert.Error(t, err) {
 		got := err.Error()
-		exp := `2 errors:
-	1) Database URL: empty: must be provided and non-empty
-	2) Keystore Password: empty: must be provided and non-empty`
-		assert.Equal(t, exp, got, diff.Diff(exp, got))
+		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
 	}
+}
+
+func TestConfig_setDefaults(t *testing.T) {
+	var c Config
+	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
+	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Terra = terra.TerraConfigs{{ChainID: ptr("unknown terra chain")}}
+	c.setDefaults()
+	if s, err := c.TOMLString(); assert.NoError(t, err) {
+		t.Log(s, err)
+	}
+	cfgtest.AssertFieldsNotNil(t, c.Core)
 }

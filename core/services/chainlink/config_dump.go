@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -16,7 +15,11 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	stktyp "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -91,6 +94,9 @@ type dbData struct {
 	SolanaChains []solana.DBChain
 	SolanaNodes  map[string][]soldb.Node
 
+	StarknetChains []stktyp.DBChain
+	StarknetNodes  map[string][]stkdb.Node
+
 	TerraChains []tertyp.DBChain
 	TerraNodes  map[string][]terdb.Node
 }
@@ -112,8 +118,8 @@ func configDump(data dbData) (string, error) {
 // loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.
 func (c *Config) loadChainsAndNodes(dbData dbData) error {
 	for _, dbChain := range dbData.EVMChains {
-		var evmChain EVMConfig
-		if err := evmChain.setFromDB(dbChain, dbData.EVMNodes[dbChain.ID.String()]); err != nil {
+		var evmChain evmcfg.EVMConfig
+		if err := evmChain.SetFromDB(dbChain, dbData.EVMNodes[dbChain.ID.String()]); err != nil {
 			return errors.Wrapf(err, "failed to convert db config for evm chain %v", dbChain.ID)
 		}
 		if *evmChain.Enabled {
@@ -124,8 +130,8 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 	}
 
 	for _, dbChain := range dbData.SolanaChains {
-		var solChain SolanaConfig
-		if err := solChain.setFromDB(dbChain, dbData.SolanaNodes[dbChain.ID]); err != nil {
+		var solChain solana.SolanaConfig
+		if err := solChain.SetFromDB(dbChain, dbData.SolanaNodes[dbChain.ID]); err != nil {
 			return errors.Wrapf(err, "failed to convert db config for solana chain %s", dbChain.ID)
 		}
 		if *solChain.Enabled {
@@ -135,9 +141,21 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 		c.Solana = append(c.Solana, &solChain)
 	}
 
+	for _, dbChain := range dbData.StarknetChains {
+		var starkChain starknet.StarknetConfig
+		if err := starkChain.SetFromDB(dbChain, dbData.StarknetNodes[dbChain.ID]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for starknet chain %s", dbChain.ID)
+		}
+		if *starkChain.Enabled {
+			// no need to persist if enabled
+			starkChain.Enabled = nil
+		}
+		c.Starknet = append(c.Starknet, &starkChain)
+	}
+
 	for _, dbChain := range dbData.TerraChains {
-		var terChain TerraConfig
-		if err := terChain.setFromDB(dbChain, dbData.TerraNodes[dbChain.ID]); err != nil {
+		var terChain terra.TerraConfig
+		if err := terChain.SetFromDB(dbChain, dbData.TerraNodes[dbChain.ID]); err != nil {
 			return errors.Wrapf(err, "failed to convert db config for terra chain %s", dbChain.ID)
 		}
 		if *terChain.Enabled {
@@ -178,33 +196,33 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewDuration("EthTxReaperInterval").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].TxReaperInterval = d
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ReaperInterval = d
 		}
 	}
 	if e := envvar.NewDuration("EthTxReaperThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].TxReaperThreshold = d
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ReaperThreshold = d
 		}
 	}
 	if e := envvar.NewDuration("EthTxResendAfterThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].TxResendAfterThreshold = d
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ResendAfterThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("EvmFinalityDepth").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].FinalityDepth = e
-		}
-	}
-	if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
-		d := models.MustNewDuration(*e)
-		for i := range c.EVM {
-			if c.EVM[i].HeadTracker == nil {
-				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
-			}
-			c.EVM[i].HeadTracker.BlockEmissionIdleWarningThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("EvmHeadTrackerHistoryDepth").ParsePtr(); e != nil {
@@ -273,16 +291,18 @@ func (c *Config) loadLegacyEVMEnv() {
 		return
 	}).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MinimumContractPayment = e
+			c.EVM[i].MinContractPayment = e
 		}
 	}
 	if e := envvar.NewDuration("NodeNoNewHeadsThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			if c.EVM[i].NodePool == nil {
-				c.EVM[i].NodePool = &evmcfg.NodePool{}
-			}
-			c.EVM[i].NodePool.NoNewHeadsThreshold = d
+			c.EVM[i].NoNewHeadsThreshold = d
+		}
+	} else if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].NoNewHeadsThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("NodePollFailureThreshold").ParsePtr(); e != nil {
@@ -376,7 +396,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitOCRJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.OCR = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitDRJobType").ParsePtr(); e != nil {
@@ -384,7 +407,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitDRJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.DR = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitVRFJobType").ParsePtr(); e != nil {
@@ -392,7 +418,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitVRFJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.VRF = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitFMJobType").ParsePtr(); e != nil {
@@ -400,7 +429,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitFMJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.FM = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitKeeperJobType").ParsePtr(); e != nil {
@@ -408,7 +440,10 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.LimitKeeperJobType = e
+			if c.EVM[i].GasEstimator.LimitJobType == nil {
+				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
+			}
+			c.EVM[i].GasEstimator.LimitJobType.Keeper = e
 		}
 	}
 	if e := envvar.New("EvmGasLimitMultiplier", decimal.NewFromString).ParsePtr(); e != nil {
@@ -448,7 +483,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.TipCapMinimum = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.TipCapMin = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMaxGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
@@ -520,25 +555,13 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].GasEstimator == nil {
-				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-			}
-			if c.EVM[i].GasEstimator.BlockHistory == nil {
-				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
-			}
-			c.EVM[i].GasEstimator.BlockHistory.BlockDelay = e
+			c.EVM[i].RPCBlockQueryDelay = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_DELAY"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].GasEstimator == nil {
-					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-				}
-				if c.EVM[i].GasEstimator.BlockHistory == nil {
-					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
-				}
-				c.EVM[i].GasEstimator.BlockHistory.BlockDelay = &l
+				c.EVM[i].RPCBlockQueryDelay = &l
 			}
 		}
 	}
@@ -606,6 +629,9 @@ func (c *Config) loadLegacyEVMEnv() {
 			if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
 				c.EVM[i].GasEstimator.BlockHistory = nil
 			}
+			if isZeroPtr(c.EVM[i].GasEstimator.LimitJobType) {
+				c.EVM[i].GasEstimator.LimitJobType = nil
+			}
 			if isZeroPtr(c.EVM[i].GasEstimator) {
 				c.EVM[i].GasEstimator = nil
 			}
@@ -613,12 +639,18 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint32("EvmMaxInFlightTransactions").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MaxInFlightTransactions = e
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.MaxInFlight = e
 		}
 	}
 	if e := envvar.NewUint32("EvmMaxQueuedTransactions").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MaxInFlightTransactions = e
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.MaxInFlight = e
 		}
 	}
 	if e := envvar.NewBool("EvmNonceAutoSync").ParsePtr(); e != nil {
@@ -628,7 +660,15 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewBool("EvmUseForwarders").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].UseForwarders = e
+			if c.EVM[i].Transactions == nil {
+				c.EVM[i].Transactions = &evmcfg.Transactions{}
+			}
+			c.EVM[i].Transactions.ForwardersEnabled = e
+		}
+	}
+	for i := range c.EVM {
+		if isZeroPtr(c.EVM[i].Transactions) {
+			c.EVM[i].Transactions = nil
 		}
 	}
 }
@@ -652,8 +692,8 @@ func (c *Config) loadLegacyCoreEnv() {
 		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
 		DefaultQueryTimeout:           mustParseDuration(os.Getenv("DATABASE_DEFAULT_QUERY_TIMEOUT")),
 		MigrateOnStartup:              envvar.NewBool("MigrateDatabase").ParsePtr(),
-		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
-		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
+		MaxIdleConns:                  envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
+		MaxOpenConns:                  envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
 		Listener: &config.DatabaseListener{
 			MaxReconnectDuration: envDuration("DatabaseListenerMaxReconnectDuration"),
 			MinReconnectInterval: envDuration("DatabaseListenerMinReconnectInterval"),
@@ -700,12 +740,17 @@ func (c *Config) loadLegacyCoreEnv() {
 
 	c.Log = &config.Log{
 		DatabaseQueries: envvar.NewBool("LogSQL").ParsePtr(),
-		FileDir:         envvar.NewString("LogFileDir").ParsePtr(),
-		FileMaxSize:     envvar.LogFileMaxSize.ParsePtr(),
-		FileMaxAgeDays:  envvar.LogFileMaxAge.ParsePtr(),
-		FileMaxBackups:  envvar.LogFileMaxBackups.ParsePtr(),
 		JSONConsole:     envvar.JSONConsole.ParsePtr(),
 		UnixTS:          envvar.LogUnixTS.ParsePtr(),
+		File: &config.LogFile{
+			Dir:        envvar.NewString("LogFileDir").ParsePtr(),
+			MaxSize:    envvar.LogFileMaxSize.ParsePtr(),
+			MaxAgeDays: envvar.LogFileMaxAge.ParsePtr(),
+			MaxBackups: envvar.LogFileMaxBackups.ParsePtr(),
+		},
+	}
+	if isZeroPtr(c.Log.File) {
+		c.Log.File = nil
 	}
 	if isZeroPtr(c.Log) {
 		c.Log = nil
@@ -751,16 +796,21 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.JobPipeline = &config.JobPipeline{
-		DefaultHTTPRequestTimeout: envDuration("DefaultHTTPTimeout"),
 		ExternalInitiatorsEnabled: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
 		MaxRunDuration:            envDuration("JobPipelineMaxRunDuration"),
 		ReaperInterval:            envDuration("JobPipelineReaperInterval"),
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
+		HTTPRequest: &config.JobPipelineHTTPRequest{
+			DefaultTimeout: envDuration("DefaultHTTPTimeout"),
+		},
 	}
 	if p := envvar.NewInt64("DefaultHTTPLimit").ParsePtr(); p != nil {
 		b := utils.FileSize(*p)
-		c.JobPipeline.HTTPRequestMaxSize = &b
+		c.JobPipeline.HTTPRequest.MaxSize = &b
+	}
+	if isZeroPtr(c.JobPipeline.HTTPRequest) {
+		c.JobPipeline.HTTPRequest = nil
 	}
 	if isZeroPtr(c.JobPipeline) {
 		c.JobPipeline = nil
@@ -784,9 +834,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
 	}
-	if e := c.OCR2.Enabled; e != nil && *e {
-		c.OCR2.Enabled = nil // no need to be explicit
-	}
 	if isZeroPtr(c.OCR2) {
 		c.OCR2 = nil
 	}
@@ -802,9 +849,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
 	}
-	if e := c.OCR.Enabled; e != nil && *e {
-		c.OCR.Enabled = nil // no need to be explicit
-	}
 	if isZeroPtr(c.OCR) {
 		c.OCR = nil
 	}
@@ -814,43 +858,58 @@ func (c *Config) loadLegacyCoreEnv() {
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
 		TraceLogging:              envvar.NewBool("OCRTraceLogging").ParsePtr(),
 	}
-	if p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
+	p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
 		err = ns.UnmarshalText([]byte(s))
 		return
-	}).ParsePtr(); p != nil {
-		ns := *p
-		var v1, v2, v1v2 = ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV2, ocrnetworking.NetworkingStackV1V2
-		if ns == v1 || ns == v1v2 {
-			c.P2P.V1 = &config.P2PV1{
-				AnnounceIP:                       envIP("P2PAnnounceIP"),
-				AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
-				BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
-				DefaultBootstrapPeers:            envStringSlice("P2PBootstrapPeers"),
-				DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
-				DHTLookupInterval:                first(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
-				ListenIP:                         envIP("P2PListenIP"),
-				ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
-				NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
-				PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
-				PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
-			}
+	}).ParsePtr()
+	var v1, v2, v1v2 = ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV2, ocrnetworking.NetworkingStackV1V2
+	if p == nil {
+		p = &v1 // legacy default
+	}
+	ns := *p
+	t := true
+	if ns == v1 || ns == v1v2 {
+		c.P2P.V1 = &config.P2PV1{
+			Enabled:                          &t,
+			AnnounceIP:                       envIP("P2PAnnounceIP"),
+			AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
+			BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
+			DefaultBootstrapPeers:            envStringSlice("P2PBootstrapPeers"),
+			DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
+			DHTLookupInterval:                first(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
+			ListenIP:                         envIP("P2PListenIP"),
+			ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
+			NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
+			PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
+			PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 		}
-		if ns == v2 || ns == v1v2 {
-			c.P2P.V2 = &config.P2PV2{
-				AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
-				DefaultBootstrappers: envSlice("P2PV2Bootstrappers", func(v *ocrcommontypes.BootstrapperLocator, b []byte) error {
-					fmt.Println("TEST", string(b))
-					return v.UnmarshalText(b)
-				}),
-				DeltaDial:       envDuration("P2PV2DeltaDial"),
-				DeltaReconcile:  envDuration("P2PV2DeltaReconcile"),
-				ListenAddresses: envStringSlice("P2PV2ListenAddresses"),
-			}
+	}
+	if ns == v2 || ns == v1v2 {
+		c.P2P.V2 = &config.P2PV2{
+			Enabled:           &t,
+			AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
+			DefaultBootstrappers: envSlice("P2PV2Bootstrappers", func(v *ocrcommontypes.BootstrapperLocator, b []byte) error {
+				fmt.Println("TEST", string(b))
+				return v.UnmarshalText(b)
+			}),
+			DeltaDial:       envDuration("P2PV2DeltaDial"),
+			DeltaReconcile:  envDuration("P2PV2DeltaReconcile"),
+			ListenAddresses: envStringSlice("P2PV2ListenAddresses"),
 		}
+	}
+
+	v1Enabled := c.P2P.V1.Enabled != nil && *c.P2P.V1.Enabled
+	if v1Enabled {
+		// exclude from check
+		c.P2P.V1.Enabled = nil
 	}
 	if isZeroPtr(c.P2P.V1) {
 		c.P2P.V1 = nil
+	} else if v1Enabled {
+		// restore
+		c.P2P.V1.Enabled = &t
 	}
+
 	if isZeroPtr(c.P2P.V2) {
 		c.P2P.V2 = nil
 	}
@@ -863,14 +922,20 @@ func (c *Config) loadLegacyCoreEnv() {
 		GasPriceBufferPercent:        envvar.NewUint32("KeeperGasPriceBufferPercent").ParsePtr(),
 		GasTipCapBufferPercent:       envvar.NewUint32("KeeperGasTipCapBufferPercent").ParsePtr(),
 		BaseFeeBufferPercent:         envvar.NewUint32("KeeperBaseFeeBufferPercent").ParsePtr(),
-		MaximumGracePeriod:           envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
-		RegistryCheckGasOverhead:     envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
-		RegistryPerformGasOverhead:   envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
-		RegistrySyncInterval:         envDuration("KeeperRegistrySyncInterval"),
-		RegistrySyncUpkeepQueueSize:  envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
+		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
 		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
 		UpkeepCheckGasPriceEnabled:   envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
+		Registry: &config.KeeperRegistry{
+			CheckGasOverhead:    envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
+			PerformGasOverhead:  envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),
+			MaxPerformDataSize:  envvar.NewUint32("KeeperRegistryMaxPerformDataSize").ParsePtr(),
+			SyncInterval:        envDuration("KeeperRegistrySyncInterval"),
+			SyncUpkeepQueueSize: envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
+		},
+	}
+	if isZeroPtr(c.Keeper.Registry) {
+		c.Keeper.Registry = nil
 	}
 	if isZeroPtr(c.Keeper) {
 		c.Keeper = nil
@@ -946,9 +1011,18 @@ func envURL(s string) *models.URL {
 }
 
 func envIP(s string) *net.IP {
-	return envvar.New(s, func(s string) (net.IP, error) {
+	ip := envvar.New(s, func(s string) (net.IP, error) {
 		return net.ParseIP(s), nil
 	}).ParsePtr()
+	if ip != nil {
+		// ensure non-zero
+		for _, b := range *ip {
+			if b != 0 {
+				return ip
+			}
+		}
+	}
+	return nil
 }
 
 func envStringSlice(s string) *[]string {
@@ -979,15 +1053,6 @@ func envSlice[T any](s string, parse func(*T, []byte) error) *[]T {
 		return ts, nil
 	}).ParsePtr()
 }
-
-func envBig(s string) *utils.Big {
-	return envvar.New(s, func(s string) (b utils.Big, err error) {
-		err = b.UnmarshalText([]byte(s))
-		return
-	}).ParsePtr()
-}
-
-var multiLineBreak = regexp.MustCompile("(\n){2,}")
 
 func isZeroPtr[T comparable](p *T) bool {
 	var t T

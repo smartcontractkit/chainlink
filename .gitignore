@@ -8,10 +8,6 @@ tools/bin/abigen
 /chainlink
 core/chainlink
 
-# GUI
-operator_ui/dist
-operator_ui/artifacts
-
 # SQLite
 tools/clroot/db.sqlite3-shm
 tools/clroot/db.sqlite3-wal
@@ -47,6 +43,7 @@ cl_backup_*.tar.gz
 core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
 output.txt
 race.*
+golangci-lint-output.txt
 
 # DB state
 db/
