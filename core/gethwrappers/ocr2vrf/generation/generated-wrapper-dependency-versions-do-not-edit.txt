@@ -2,7 +2,7 @@ GETH_VERSION: 1.10.23
 arbitrum_beacon_vrf_consumer: ../../../contracts/solc/v0.8.15/ArbitrumTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/ArbitrumTestBeaconVRFConsumer.bin 63bf1c7a132315c9ffc70ffc866f73159af9119a88c8cc92e6630f17f28c5b0b
 arbitrum_dkg: ../../../contracts/solc/v0.8.15/ArbitrumDKG.abi ../../../contracts/solc/v0.8.15/ArbitrumDKG.bin 156fc5a88b92988a45402b402aadaa04b239c4e8d658111fb40a5256f5dbdf61
 arbitrum_test_beacon_vrf_consumer: ../../../contracts/solc/v0.8.15/ArbitrumTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/ArbitrumTestBeaconVRFConsumer.bin 63bf1c7a132315c9ffc70ffc866f73159af9119a88c8cc92e6630f17f28c5b0b
-arbitrum_vrf_beacon: ../../../contracts/solc/v0.8.15/ArbitrumVRFBeacon.abi ../../../contracts/solc/v0.8.15/ArbitrumVRFBeacon.bin 9a8861dc3a9b2755f6a92d2b5331b42b280af33ff45fb2c3c48d3fd5f703798b
+arbitrum_vrf_beacon: ../../../contracts/solc/v0.8.15/ArbitrumVRFBeacon.abi ../../../contracts/solc/v0.8.15/ArbitrumVRFBeacon.bin 64e40ac0ba5d478b83e47be56e215dfeb5d1996c87a8d8a44818350c566d0002
 arbitrum_vrf_coordinator: ../../../contracts/solc/v0.8.15/ArbitrumVRFCoordinator.abi ../../../contracts/solc/v0.8.15/ArbitrumVRFCoordinator.bin e9b604b93f7e9ad634371c96667c157f142620b5adee2e922f6798a939df1ffd
 dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin 12b81183a536329d313a04729763c359f6caf29392bf60cd3c1aa8923c98aad0
 load_test_beacon_consumer: ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.bin 0948b8abfd294956c392edd9053cc47dfeb5744c807cb0a7de382b66b53c0ee1

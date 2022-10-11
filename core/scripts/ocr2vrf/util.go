@@ -396,7 +396,7 @@ func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string,
 
 func printRandomnessFromConsumer(consumer beaconConsumer, requestID *big.Int, numWords int64) {
 	for i := int64(0); i < numWords; i++ {
-		randomness, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(0))
+		randomness, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(i))
 		helpers.PanicErr(err)
 		fmt.Println("random words index", i, ":", randomness.String())
 	}
