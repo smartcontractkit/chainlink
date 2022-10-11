@@ -27,10 +27,7 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
 
   constructor(address owner) ConfirmedOwner(owner) {}
 
-  function sendRequest(
-    uint256 subscriptionId,
-    bytes calldata data
-  ) external override returns (bytes32) {
+  function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
     s_nonce++;
     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, s_nonce));
     if (s_commitments[requestId].client != address(0)) {
