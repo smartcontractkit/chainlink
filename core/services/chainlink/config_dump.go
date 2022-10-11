@@ -1039,19 +1039,6 @@ func serviceHeaders(s string) *audit.ServiceHeaders {
 	}).ParsePtr()
 }
 
-func environment() *string {
-	maybeDev := envvar.NewBool("Dev").ParsePtr()
-	if maybeDev == nil {
-		return nil
-	}
-
-	environment := "develop"
-	if !*maybeDev {
-		environment = "production"
-	}
-	return &environment
-}
-
 func envIP(s string) *net.IP {
 	ip := envvar.New(s, func(s string) (net.IP, error) {
 		return net.ParseIP(s), nil
