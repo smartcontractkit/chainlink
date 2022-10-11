@@ -293,7 +293,7 @@ func (k *Keeper) createLegacyKeeperJob(client cmd.HTTPClient, registryAddr, node
 }
 
 const ocr2keeperJobTemplate = `type = "offchainreporting2"
-pluginType = "ocr2keeper"
+pluginType = "ocr2automation"
 relay = "evm"
 name = "ocr2"
 schemaVersion = 1
