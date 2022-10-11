@@ -411,7 +411,8 @@ func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.S
 	return payload
 }
 
-func configureEnvironmentVariables() {
+func configureEnvironmentVariables(useForwarder bool) {
+	helpers.PanicErr(os.Setenv("ETH_USE_FORWARDERS", fmt.Sprintf("%t", useForwarder)))
 	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
 	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
 }

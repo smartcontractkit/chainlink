@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -168,9 +169,19 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 		forwarderAddress := c.String("forwarder-address")
 		transmitterID = forwarderAddress
 
+		ks := app.GetKeyStore().Eth()
+
 		// Add extra sending keys if using a forwarder.
 		for i := 0; i < forwarderAdditionalEOACount; i++ {
-			k, err := app.GetKeyStore().Eth().Create()
+
+			// Create the sending key in the keystore.
+			k, err := ks.Create()
+			if err != nil {
+				return nil, err
+			}
+
+			// Enable the sending key for the current chain.
+			err = ks.Enable(k.Address, big.NewInt(chainID))
 			if err != nil {
 				return nil, err
 			}

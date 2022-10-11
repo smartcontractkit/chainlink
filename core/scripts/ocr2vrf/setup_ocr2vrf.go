@@ -58,8 +58,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		os.Exit(1)
 	}
 
-	configureEnvironmentVariables()
-
 	var link common.Address
 	if *linkAddress == "" {
 		link = helpers.DeployLinkToken(e)
@@ -107,11 +105,10 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 			forwarderAddresses = append(forwarderAddresses, f)
 			forwarderAddressesStrings = append(forwarderAddressesStrings, f.String())
 		}
+		fmt.Printf("ForwarderAddresses : %v", forwarderAddressesStrings)
 	}
 
-	fmt.Printf("ForwarderAddresses : %v", forwarderAddressesStrings)
-
-  fmt.Println("Deploying batch beacon consumer...")
+	fmt.Println("Deploying batch beacon consumer...")
 	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
@@ -165,6 +162,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		ctx := cli.NewContext(app, flagSet, nil)
 
 		resetDatabase(client, ctx, i, *databasePrefix, *databaseSuffixes)
+		configureEnvironmentVariables((*useForwarder) && (i > 0))
 
 		payload := setupOCR2VRFNodeFromClient(client, ctx)
 
@@ -179,7 +177,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	var nodesToFund []string
-	copy(nodesToFund, transmitters)
 
 	// If using the forwarder, set up a forwarder for each node.
 	if *useForwarder {
@@ -201,6 +198,10 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 			// Set the authorized forwarder as the OCR transmitter.
 			transmitters[i+1] = f.String()
+		}
+	} else {
+		for _, t := range transmitters[1:] {
+			nodesToFund = append(nodesToFund, t)
 		}
 	}
 
