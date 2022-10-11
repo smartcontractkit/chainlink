@@ -2084,11 +2084,26 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#withdrawFunds', () => {
+    let upkeepId2: BigNumber
+
     beforeEach(async () => {
+      const tx = await registry
+        .connect(owner)
+        .registerUpkeep(
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          randomBytes,
+          emptyBytes,
+        )
+      upkeepId2 = await getUpkeepID(tx)
+
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      await registry.connect(admin).addFunds(upkeepId2, toWei('100'))
 
       // Do a perform so that upkeep is charged some amount
       await getTransmitTx(registry, keeper1, [upkeepId.toString()], f + 1)
+      await getTransmitTx(registry, keeper1, [upkeepId2.toString()], f + 1)
     })
 
     it('reverts if called on a non existing ID', async () => {
@@ -2128,6 +2143,16 @@ describe('KeeperRegistry2_0', () => {
     describe('after the registration is cancelled', () => {
       beforeEach(async () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
+        await registry.connect(owner).cancelUpkeep(upkeepId2)
+      })
+
+      it('can be called successively on two upkeeps', async () => {
+        await registry
+          .connect(admin)
+          .withdrawFunds(upkeepId, await payee1.getAddress())
+        await registry
+          .connect(admin)
+          .withdrawFunds(upkeepId2, await payee1.getAddress())
       })
 
       it('moves the funds out and updates the balance and emits an event', async () => {

@@ -216,7 +216,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function withdrawFunds(uint256 id, address to) external {
+  function withdrawFunds(uint256 id, address to) external nonReentrant {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     Upkeep memory upkeep = s_upkeep[id];
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
