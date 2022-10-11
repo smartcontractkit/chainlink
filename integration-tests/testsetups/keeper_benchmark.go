@@ -56,7 +56,6 @@ type KeeperBenchmarkTestInputs struct {
 	FirstEligibleBuffer    int64                             // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 	RegistryVersions       []ethereum.KeeperRegistryVersion  // Registry version to use
 	PreDeployedConsumers   []string                          // PreDeployed consumer contracts to re-use in test
-	ResetUpkeeps           bool                              // Set to true to reset predeployedContracts first
 	UpkeepResetterAddress  string
 }
 
@@ -119,7 +118,6 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			inputs.PerformGasToBurn,
 			inputs.FirstEligibleBuffer,
 			inputs.PreDeployedConsumers,
-			inputs.ResetUpkeeps,
 			inputs.UpkeepResetterAddress,
 		)
 	}
@@ -155,22 +153,27 @@ func (k *KeeperBenchmarkTest) Run() {
 		"FirstEligibleBuffer": k.Inputs.FirstEligibleBuffer,
 		"NumberOfRegistries":  len(k.keeperRegistries),
 	}
+	contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
+	Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
+	inputs := k.Inputs
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli() - (90 * time.Second.Milliseconds())
 
-	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
+	//rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
 
 	for rIndex := range k.keeperRegistries {
 		// Send keeper jobs to registry and chainlink nodes
 		actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex)
+		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
+			inputs.PerformGasToBurn, 0, inputs.PreDeployedConsumers, inputs.UpkeepResetterAddress)
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
 					keeperConsumer,
 					k.keeperRegistries[rIndex],
 					k.upkeepIDs[rIndex][index],
-					k.Inputs.BlockRange+rampUpBlocks,
-					rampUpBlocks,
+					k.Inputs.BlockRange+k.Inputs.UpkeepSLA,
+					//rampUpBlocks,
 					k.Inputs.UpkeepSLA,
 					&k.TestReporter,
 					int64(index),
@@ -190,7 +193,7 @@ func (k *KeeperBenchmarkTest) Run() {
 	for rIndex := range k.keeperRegistries {
 		k.subscribeToUpkeepPerformedEvent(logSubscriptionStop, &k.TestReporter, rIndex)
 	}
-	err := k.chainClient.WaitForEvents()
+	err = k.chainClient.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for keeper subscriptions")
 	close(logSubscriptionStop)
 

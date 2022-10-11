@@ -29,7 +29,6 @@ func DeployBenchmarkKeeperContracts(
 	performGasToBurn, // How much gas should be burned on performUpkeep() calls
 	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 	predeployedContracts []string, // Array of addresses of predeployed consumer addresses to load
-	resetUpkeeps bool, // Set to true to reset predeployedContracts
 	upkeepResetterAddress string,
 ) (contracts.KeeperRegistry, []contracts.KeeperConsumerBenchmark, []*big.Int) {
 	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
@@ -63,7 +62,7 @@ func DeployBenchmarkKeeperContracts(
 	}
 	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
 
-	upkeeps := DeployKeeperConsumersBenchmark(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn, firstEligibleBuffer, predeployedContracts, resetUpkeeps, upkeepResetterAddress)
+	upkeeps := DeployKeeperConsumersBenchmark(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn, firstEligibleBuffer, predeployedContracts, upkeepResetterAddress)
 
 	upkeepsAddresses := []string{}
 	for _, upkeep := range upkeeps {
@@ -85,6 +84,52 @@ func DeployBenchmarkKeeperContracts(
 	return registry, upkeeps, upkeepIds
 }
 
+func ResetUpkeeps(
+	contractDeployer contracts.ContractDeployer,
+	client blockchain.EVMClient,
+	numberOfContracts int,
+	blockRange, // How many blocks to run the test for
+	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
+	performGasToBurn, // How much gas should be burned on performUpkeep() calls
+	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block
+	predeployedContracts []string,
+	upkeepResetterAddr string,
+) {
+	contractLoader, err := contracts.NewContractLoader(client)
+	upkeepChunkSize := 500
+	upkeepChunks := make([][]string, int(math.Ceil(float64(numberOfContracts)/float64(upkeepChunkSize))))
+	upkeepResetter, err := contractLoader.LoadUpkeepResetter(common.HexToAddress(upkeepResetterAddr))
+	log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Loaded UpkeepResetter")
+	if err != nil {
+		upkeepResetter, err = contractDeployer.DeployUpkeepResetter()
+		log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Deployed UpkeepResetter")
+		if err != nil {
+			Expect(err).ShouldNot(HaveOccurred(), "Deploying Upkeep Resetter shouldn't fail")
+		}
+	}
+	iter := 0
+	upkeepChunks[iter] = make([]string, 0)
+	for count := 0; count < numberOfContracts; count++ {
+		if count != 0 && count%upkeepChunkSize == 0 {
+			iter++
+			upkeepChunks[iter] = make([]string, 0)
+		}
+		upkeepChunks[iter] = append(upkeepChunks[iter], predeployedContracts[count])
+	}
+	log.Debug().Int("UpkeepChunk length", len(upkeepChunks))
+	for it, upkeepChunk := range upkeepChunks {
+		err := upkeepResetter.ResetManyConsumerBenchmark(context.Background(), upkeepChunk, big.NewInt(blockRange),
+			big.NewInt(blockInterval), big.NewInt(firstEligibleBuffer), big.NewInt(checkGasToBurn), big.NewInt(performGasToBurn))
+		log.Info().Int("Number of Contracts", len(upkeepChunk)).Int("Batch", it).Msg("Resetting batch of Contracts")
+		if err != nil {
+			Expect(err).ShouldNot(HaveOccurred(), "Resetting upkeeps shouldn't fail")
+		}
+		err = client.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for resetting upkeeps")
+	}
+}
+
 func DeployKeeperConsumersBenchmark(
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
@@ -95,12 +140,11 @@ func DeployKeeperConsumersBenchmark(
 	performGasToBurn, // How much gas should be burned on performUpkeep() calls
 	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block
 	predeployedContracts []string,
-	resetUpkeeps bool,
 	upkeepResetterAddr string,
 ) []contracts.KeeperConsumerBenchmark {
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
 
-	if len(predeployedContracts) > 0 && len(predeployedContracts) >= numberOfContracts {
+	if len(predeployedContracts) >= numberOfContracts {
 		contractLoader, err := contracts.NewContractLoader(client)
 		if err != nil {
 			log.Error().Err(err).Msg("Loading Contract Loader shouldn't fail")
@@ -110,48 +154,13 @@ func DeployKeeperConsumersBenchmark(
 				keeperConsumerInstance, err := contractLoader.LoadKeeperConsumerBenchmark(common.HexToAddress(address))
 				if err != nil {
 					log.Error().Err(err).Int("count", count+1).Str("UpkeepAddress", address).Msg("Loading KeeperConsumerBenchmark instance shouldn't fail")
-					keeperConsumerInstance, err = contractLoader.LoadKeeperConsumerBenchmark(common.HexToAddress(address))
-					if err != nil {
-						Expect(err).ShouldNot(HaveOccurred(), "Failed to load KeeperConsumerBenchmark after retrying 1 time")
-					}
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to load KeeperConsumerBenchmark")
 				}
 				upkeeps = append(upkeeps, keeperConsumerInstance)
 			}
 		}
-
-		if resetUpkeeps {
-			upkeepChunkSize := 500
-			upkeepChunks := make([][]string, int(math.Ceil(float64(numberOfContracts)/float64(upkeepChunkSize))))
-			upkeepResetter, err := contractLoader.LoadUpkeepResetter(common.HexToAddress(upkeepResetterAddr))
-			log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Loaded UpkeepResetter")
-			if err != nil {
-				upkeepResetter, err = contractDeployer.DeployUpkeepResetter()
-				log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Deployed UpkeepResetter")
-				if err != nil {
-					Expect(err).ShouldNot(HaveOccurred(), "Deploying Upkeep Resetter shouldn't fail")
-				}
-			}
-			iter := 0
-			upkeepChunks[iter] = make([]string, 0)
-			for count, _ := range upkeeps {
-				if count != 0 && count%upkeepChunkSize == 0 {
-					iter++
-					upkeepChunks[iter] = make([]string, 0)
-				}
-				upkeepChunks[iter] = append(upkeepChunks[iter], predeployedContracts[count])
-			}
-			log.Debug().Int("UpkeepChunk length", len(upkeepChunks))
-			for it, upkeepChunk := range upkeepChunks {
-				err := upkeepResetter.ResetManyConsumerBenchmark(context.Background(), upkeepChunk, big.NewInt(blockRange),
-					big.NewInt(blockInterval), big.NewInt(10000), big.NewInt(checkGasToBurn), big.NewInt(performGasToBurn))
-				log.Info().Int("Number of Contracts", len(upkeepChunk)).Int("Batch", it).Msg("Resetting batch of Contracts")
-				if err != nil {
-					Expect(err).ShouldNot(HaveOccurred(), "Resetting upkeeps shouldn't fail")
-				}
-				err = client.WaitForEvents()
-				Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for resetting upkeeps")
-			}
-		}
+		ResetUpkeeps(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn,
+			performGasToBurn, 10000, predeployedContracts, upkeepResetterAddr)
 		return upkeeps
 	}
 

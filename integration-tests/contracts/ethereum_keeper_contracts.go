@@ -1035,7 +1035,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	registry KeeperRegistry,
 	upkeepID *big.Int,
 	blockRange int64,
-	rampUpBlocks int64,
+	//rampUpBlocks int64,
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
@@ -1059,8 +1059,8 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		lastBlockNum:            0,
 		upkeepIndex:             upkeepIndex,
 		upkeepReset:             false,
-		rampUpBlocks:            rampUpBlocks,
-		firstBlockNum:           0,
+		//rampUpBlocks:            rampUpBlocks,
+		firstBlockNum: 0,
 	}
 }
 
@@ -1166,34 +1166,34 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		return nil
 	}
 
-	if (o.blocksSinceSubscription%o.rampUpBlocks == o.upkeepIndex%o.rampUpBlocks) && !o.upkeepReset {
-		err := o.instance.SetFirstEligibleBuffer(context.Background(), big.NewInt(1))
-		if err != nil {
-			log.Error().
-				Err(err).
-				Uint64("Block_Number", receivedHeader.Number.Uint64()).
-				Int64("Upkeep_Index", o.upkeepIndex).
-				Str("Upkeep_ID", o.upkeepID.String()).
-				Msg("Error setting first eligible buffer of consumer contract")
-			return err
-		}
-		err = o.instance.Reset(context.Background())
-		if err != nil {
-			log.Error().
-				Err(err).
-				Uint64("Block_Number", receivedHeader.Number.Uint64()).
-				Int64("Upkeep_Index", o.upkeepIndex).
-				Str("Upkeep_ID", o.upkeepID.String()).
-				Msg("Error resetting consumer contract")
-			return err
-		}
-		o.upkeepReset = true
-		log.Info().
-			Uint64("Block_Number", receivedHeader.Number.Uint64()).
-			Int64("Upkeep_Index", o.upkeepIndex).
-			Str("Upkeep_ID", o.upkeepID.String()).
-			Msg("Upkeep Reset")
-	}
+	//if (o.blocksSinceSubscription%o.rampUpBlocks == o.upkeepIndex%o.rampUpBlocks) && !o.upkeepReset {
+	//	err := o.instance.SetFirstEligibleBuffer(context.Background(), big.NewInt(1))
+	//	if err != nil {
+	//		log.Error().
+	//			Err(err).
+	//			Uint64("Block_Number", receivedHeader.Number.Uint64()).
+	//			Int64("Upkeep_Index", o.upkeepIndex).
+	//			Str("Upkeep_ID", o.upkeepID.String()).
+	//			Msg("Error setting first eligible buffer of consumer contract")
+	//		return err
+	//	}
+	//	err = o.instance.Reset(context.Background())
+	//	if err != nil {
+	//		log.Error().
+	//			Err(err).
+	//			Uint64("Block_Number", receivedHeader.Number.Uint64()).
+	//			Int64("Upkeep_Index", o.upkeepIndex).
+	//			Str("Upkeep_ID", o.upkeepID.String()).
+	//			Msg("Error resetting consumer contract")
+	//		return err
+	//	}
+	//	o.upkeepReset = true
+	//	log.Info().
+	//		Uint64("Block_Number", receivedHeader.Number.Uint64()).
+	//		Int64("Upkeep_Index", o.upkeepIndex).
+	//		Str("Upkeep_ID", o.upkeepID.String()).
+	//		Msg("Upkeep Reset")
+	//}
 	return nil
 }
 
