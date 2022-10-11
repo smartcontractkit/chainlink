@@ -218,7 +218,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 			gasLimit,
 			effectiveTransmitterAddress,
 			strategy,
-			txm.TransmitCheckerSpec{},
+			checker,
 			pr,
 			spec,
 			configWatcher.chain.ID().String(),

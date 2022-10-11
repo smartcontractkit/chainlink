@@ -20,7 +20,8 @@ const txObservationSource = `
                  from="[$(jobSpec.fromAddress)]"
                  evmChainID="$(jobSpec.evmChainID)"
                  data="$(jobSpec.data)"
-                 gasLimit="$(jobSpec.gasLimit)"]
+                 gasLimit="$(jobSpec.gasLimit)"
+                 transmitChecker="$(jobSpec.transmitChecker)"]
     transmit_tx
 `
 
@@ -62,6 +63,7 @@ func NewPipelineTransmitter(
 }
 
 func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+	// t.strategy is ignored currently as pipeline does not support passing this (sc-55115)
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"contractAddress": toAddress.String(),
@@ -69,6 +71,7 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 			"gasLimit":        t.gasLimit,
 			"evmChainID":      t.chainID,
 			"data":            payload,
+			"transmitChecker": t.checker,
 		},
 	})
 
