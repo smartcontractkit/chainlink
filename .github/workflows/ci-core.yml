@@ -100,7 +100,9 @@ jobs:
         run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout
         if: github.event.schedule != ''
-        run: echo "TIMEOUT=5m" >> $GITHUB_ENV
+        run: |
+          echo "TIMEOUT=10m" >> $GITHUB_ENV
+          echo "COUNT=50" >> $GITHUB_ENV
       - name: Run tests
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.shard.pkgs }}"
       - name: Store logs artifacts on failure
