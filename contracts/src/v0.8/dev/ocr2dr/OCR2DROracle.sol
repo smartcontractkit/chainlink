@@ -30,9 +30,6 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
   function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
     s_nonce++;
     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, s_nonce));
-    if (s_commitments[requestId].client != address(0)) {
-      revert NonceMustBeUnique();
-    }
     s_commitments[requestId] = Commitment(msg.sender, subscriptionId);
     emit OracleRequest(requestId, data);
     return requestId;

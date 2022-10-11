@@ -1,31 +1,36 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.6;
 
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./interfaces/AuthorizedReceiverInterface.sol";
 
 abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
-  mapping(address => bool) private s_authorizedSenders;
-  address[] private s_authorizedSenderList;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   event AuthorizedSendersChanged(address[] senders, address changedBy);
+
+  error EmptySendersList();
+  error UnauthorizedSender();
+  error NotAllowedToSetSenders();
+
+  EnumerableSet.AddressSet private s_authorizedSenders;
+  address[] private s_authorizedSendersList;
 
   /**
    * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
    * @param senders The addresses of the authorized Chainlink node
    */
   function setAuthorizedSenders(address[] calldata senders) external override validateAuthorizedSenderSetter {
-    require(senders.length > 0, "Must have at least 1 authorized sender");
-    // Set previous authorized senders to false
-    uint256 authorizedSendersLength = s_authorizedSenderList.length;
-    for (uint256 i = 0; i < authorizedSendersLength; i++) {
-      s_authorizedSenders[s_authorizedSenderList[i]] = false;
+    if (senders.length == 0) {
+      revert EmptySendersList();
     }
-    // Set new to true
+    for (uint256 i = 0; i < s_authorizedSendersList.length; i++) {
+      s_authorizedSenders.remove(s_authorizedSendersList[i]);
+    }
     for (uint256 i = 0; i < senders.length; i++) {
-      s_authorizedSenders[senders[i]] = true;
+      s_authorizedSenders.add(senders[i]);
     }
-    // Replace list
-    s_authorizedSenderList = senders;
+    s_authorizedSendersList = senders;
     emit AuthorizedSendersChanged(senders, msg.sender);
   }
 
@@ -34,7 +39,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
    * @return array of addresses
    */
   function getAuthorizedSenders() external view override returns (address[] memory) {
-    return s_authorizedSenderList;
+    return s_authorizedSendersList;
   }
 
   /**
@@ -43,7 +48,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
    * @return The authorization status of the node
    */
   function isAuthorizedSender(address sender) public view override returns (bool) {
-    return s_authorizedSenders[sender];
+    return s_authorizedSenders.contains(sender);
   }
 
   /**
@@ -56,7 +61,9 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
    * @notice validates the sender is an authorized sender
    */
   function _validateIsAuthorizedSender() internal view {
-    require(isAuthorizedSender(msg.sender), "Not authorized sender");
+    if (!isAuthorizedSender(msg.sender)) {
+      revert UnauthorizedSender();
+    }
   }
 
   /**
@@ -71,7 +78,9 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
    * @notice prevents non-authorized addresses from calling this method
    */
   modifier validateAuthorizedSenderSetter() {
-    require(_canSetAuthorizedSenders(), "Cannot set authorized senders");
+    if (!_canSetAuthorizedSenders()) {
+      revert NotAllowedToSetSenders();
+    }
     _;
   }
 }
