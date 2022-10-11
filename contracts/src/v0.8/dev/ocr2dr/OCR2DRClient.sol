@@ -34,11 +34,11 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
-   * @notice User defined function to handle a response.
-   * @param requestId The request ID, returned by sendRequest().
-   * @param response Aggregated response from the user code.
-   * @param err Aggregated error from the user code, or an error string returned from the execution pipeline.
-   * Either response or error parameter will be set, but never both.
+   * @notice User defined function to handle a response
+   * @param requestId The request ID, returned by sendRequest()
+   * @param response Aggregated response from the user code
+   * @param err Aggregated error from the user code or from the execution pipeline
+   * Either response or error parameter will be set, but never both
    */
   function fulfillRequest(
     bytes32 requestId,
@@ -47,12 +47,12 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   ) internal virtual;
 
   /**
-   * @notice OCR2DR response handler called by the designated oracle.
+   * @notice OCR2DR response handler called by the designated oracle
    * @dev This is a proxy function to user-defined fulfillRequest(),
-   * used to validate and record a fulfillment before calling the user's callback.
-   * @param requestId Same as for fulfillRequest().
-   * @param response Same as for fulfillRequest().
-   * @param err Same as for fulfillRequest().
+   * used to validate and record a fulfillment before calling the user's callback
+   * @param requestId Same as for fulfillRequest()
+   * @param response Same as for fulfillRequest()
+   * @param err Same as for fulfillRequest()
    */
   function handleOracleFulfillment(
     bytes32 requestId,

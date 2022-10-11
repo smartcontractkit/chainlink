@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-...
+- Added OCR2DR interfaces and contracts (initial version for PoC)
 
 ## 0.5.1 - 2022-09-27
 
