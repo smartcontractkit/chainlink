@@ -898,7 +898,15 @@ describe('KeeperRegistrar2_0', () => {
       await evmRevert(tx, errorMsgs.requestNotFound)
     })
 
-    it('refunds the total request balance to the admin address', async () => {
+    it('refunds the total request balance to the admin address if owner cancels', async () => {
+      const before = await linkToken.balanceOf(await admin.getAddress())
+      const tx = await registrar.connect(registrarOwner).cancel(hash)
+      const after = await linkToken.balanceOf(await admin.getAddress())
+      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(2))))
+      await expect(tx).to.emit(registrar, 'RegistrationRejected')
+    })
+
+    it('refunds the total request balance to the admin address if admin cancels', async () => {
       const before = await linkToken.balanceOf(await admin.getAddress())
       const tx = await registrar.connect(admin).cancel(hash)
       const after = await linkToken.balanceOf(await admin.getAddress())

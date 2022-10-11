@@ -218,7 +218,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   }
 
   /**
-   * @notice cancel will remove a registration request and return the refunds to the msg.sender
+   * @notice cancel will remove a registration request and return the refunds to the request.admin
    * @param hash the request hash
    */
   function cancel(bytes32 hash) external {
@@ -230,9 +230,9 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       revert RequestNotFound();
     }
     delete s_pendingRequests[hash];
-    bool success = LINK.transfer(msg.sender, request.balance);
+    bool success = LINK.transfer(request.admin, request.balance);
     if (!success) {
-      revert LinkTransferFailed(msg.sender);
+      revert LinkTransferFailed(request.admin);
     }
     emit RegistrationRejected(hash);
   }
