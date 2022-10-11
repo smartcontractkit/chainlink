@@ -2,7 +2,6 @@ package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
 
@@ -17,13 +16,12 @@ import (
 
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	bootstrappers []commontypes.BootstrapperLocator
-	db            *sqlx.DB
-	jobORM        job.ORM
-	peerWrapper   *ocrcommon.SingletonPeerWrapper
-	cfg           validate.Config
-	lggr          logger.Logger
-	relayers      map[relay.Network]types.Relayer
+	db          *sqlx.DB
+	jobORM      job.ORM
+	peerWrapper *ocrcommon.SingletonPeerWrapper
+	cfg         validate.Config
+	lggr        logger.Logger
+	relayers    map[relay.Network]types.Relayer
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -59,7 +57,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 	if d.peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
 	} else if !d.peerWrapper.IsStarted() {
-		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {

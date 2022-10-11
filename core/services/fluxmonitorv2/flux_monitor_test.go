@@ -479,7 +479,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-			fm.SetOracleAddress()
+			require.NoError(t, fm.SetOracleAddress())
 			fm.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
 		})
 	}
@@ -688,7 +688,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once().
 		Run(func(mock.Arguments) { readyToAssert.ItHappened() })
 
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.Start(testutils.Context(t)))
 
 	var logBroadcasts []*logmocks.Broadcast
 
@@ -767,7 +767,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				})
 			}
 
-			fm.Start(testutils.Context(t))
+			require.NoError(t, fm.Start(testutils.Context(t)))
 			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
 
 			if tc.expectedToSubmit {
@@ -1046,7 +1046,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	idleDurationOccured := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.Start(testutils.Context(t)))
 	t.Cleanup(func() { fm.Close() })
 
 	// Initial Poll
@@ -1165,9 +1165,9 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
-	fm.SetOracleAddress()
-	fm.ExportedRoundState()
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.SetOracleAddress())
+	fm.ExportedRoundState(t)
+	require.NoError(t, fm.Start(testutils.Context(t)))
 
 	g.Eventually(ch).Should(gomega.BeClosed())
 
@@ -1512,7 +1512,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Return(nil)
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		fm.SetOracleAddress()
+		require.NoError(t, fm.SetOracleAddress())
 
 		tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
 			Answer:    big.NewInt(10),

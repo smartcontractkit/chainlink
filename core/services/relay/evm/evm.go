@@ -15,11 +15,14 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -106,6 +109,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
+
 	contractAddress := common.HexToAddress(args.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	if err != nil {
@@ -133,21 +137,77 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
+	var relayConfig RelayConfig
+	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+		return nil, err
+	}
+
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
+
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
+
 	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
 	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
+
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, rargs.ForwardingAllowed, strategy, txm.TransmitCheckerSpec{}),
+		ocrcommon.NewDefaultTransmitter(
+			configWatcher.chain.TxManager(),
+			transmitterAddress,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			txm.TransmitCheckerSpec{},
+		),
+		configWatcher.chain.LogPoller(),
+		lggr,
+	)
+}
+
+func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, spec job.Job, pr pipeline.Runner) (*ContractTransmitter, error) {
+	var relayConfig RelayConfig
+	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+		return nil, err
+	}
+
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	transmitterAddress := common.HexToAddress(transmitterID)
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
+
+	var checker txm.TransmitCheckerSpec
+	if configWatcher.chain.Config().OCRSimulateTransactions() {
+		checker.CheckerType = txm.TransmitCheckerTypeSimulate
+	}
+
+	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
+	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
+		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	}
+
+	return NewOCRContractTransmitter(
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		configWatcher.contractABI,
+		ocrcommon.NewPipelineTransmitter(
+			lggr,
+			transmitterAddress,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			txm.TransmitCheckerSpec{},
+			pr,
+			spec,
+			configWatcher.chain.ID().String(),
+		),
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)
@@ -175,7 +235,8 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 }
 
 type RelayConfig struct {
-	ChainID *utils.Big `json:"chainID"`
+	ChainID                     *utils.Big  `json:"chainID"`
+	EffectiveTransmitterAddress null.String `json:"effectiveTransmitterAddress"`
 }
 
 var _ relaytypes.MedianProvider = (*medianProvider)(nil)

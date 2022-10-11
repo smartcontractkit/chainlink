@@ -320,7 +320,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	// confirm we now contain the latest restart data merged with local task data
 	ds1 := run.ByDotID("ds1")
-	require.Equal(t, ds1.Output.Val, float64(2))
+	require.Equal(t, ds1.Output.Val, int64(2))
 	require.True(t, ds1.FinishedAt.Valid)
 
 }
@@ -330,9 +330,18 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 
 	run := mustInsertAsyncRun(t, orm)
 
-	now := time.Now()
-
 	ds1_id := uuid.NewV4()
+	now := time.Now()
+	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
+	require.NoError(t, err)
+	cborOutput := map[string]interface{}{
+		"blockNum":        "0x13babbd",
+		"confirmations":   int64(10),
+		"contractAddress": address,
+		"libraryVersion":  int64(1),
+		"remoteChainId":   int64(106),
+	}
+
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
@@ -342,6 +351,16 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 			DotID:         "ds1",
 			CreatedAt:     now,
 			FinishedAt:    null.Time{},
+		},
+		// finished task with json output
+		{
+			ID:            uuid.NewV4(),
+			PipelineRunID: run.ID,
+			Type:          "cbor_parse",
+			DotID:         "ds2",
+			Output:        pipeline.JSONSerializable{Val: cborOutput, Valid: true},
+			CreatedAt:     now,
+			FinishedAt:    null.TimeFrom(now),
 		},
 		// finished task
 		{
@@ -370,7 +389,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	assert.Greater(t, run.ID, int64(0))
 	assert.Greater(t, run.PipelineSpec.ID, int32(0)) // Make sure it actually loaded everything
 
-	require.Len(t, run.PipelineTaskRuns, 2)
+	require.Len(t, run.PipelineTaskRuns, 3)
 	// assert that run should be in "running" state
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 	// assert that we get the start signal
@@ -380,6 +399,11 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	task := run.ByDotID("ds1")
 	require.True(t, task.FinishedAt.Valid)
 	require.Equal(t, pipeline.JSONSerializable{Val: "foo", Valid: true}, task.Output)
+
+	// assert correct task run serialization
+	task2 := run.ByDotID("ds2")
+	cborOutput["contractAddress"] = "0x8bd112d3f8f92e41c861939545ad387307af9703"
+	require.Equal(t, pipeline.JSONSerializable{Val: cborOutput, Valid: true}, task2.Output)
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {

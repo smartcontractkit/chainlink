@@ -19,10 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//
 // Return types:
-//     nil
 //
+//	nil
 type ETHTxTask struct {
 	BaseTask         `mapstructure:",squash"`
 	From             string `json:"from"`
@@ -129,15 +128,24 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
 	strategy := txmgr.NewSendEveryStrategy()
 
+	forwarderAddress := common.Address{}
+	if t.forwardingAllowed {
+		var fwderr error
+		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(fromAddr)
+		if fwderr != nil {
+			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
+		}
+	}
+
 	newTx := txmgr.NewTx{
-		FromAddress:    fromAddr,
-		ToAddress:      common.Address(toAddr),
-		EncodedPayload: []byte(data),
-		GasLimit:       uint32(gasLimit),
-		Meta:           txMeta,
-		Forwardable:    t.forwardingAllowed,
-		Strategy:       strategy,
-		Checker:        transmitChecker,
+		FromAddress:      fromAddr,
+		ToAddress:        common.Address(toAddr),
+		EncodedPayload:   []byte(data),
+		GasLimit:         uint32(gasLimit),
+		Meta:             txMeta,
+		ForwarderAddress: forwarderAddress,
+		Strategy:         strategy,
+		Checker:          transmitChecker,
 	}
 
 	if minOutgoingConfirmations > 0 {
@@ -229,11 +237,11 @@ func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EthTxMeta) {
 	if err != nil {
 		return
 	}
-	jobIDF, is := jobID.(float64) // JSON decoder default numeric type
-	if is {
-		jobIDInt := int32(jobIDF)
-		meta.JobID = &jobIDInt
-	} else {
+	switch v := jobID.(type) {
+	case int64:
+		vv := int32(v)
+		meta.JobID = &vv
+	default:
 		logger.Sugared(lggr).AssumptionViolationf("expected type int32 for vars.jobSpec.databaseID; got: %T (value: %v)", jobID, jobID)
 	}
 }

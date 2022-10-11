@@ -66,6 +66,7 @@ type EnvPrinter struct {
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
 	KeeperRegistryCheckGasOverhead             uint32          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint32          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
+	KeeperRegistryMaxPerformDataSize           uint32          `json:"KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
 	KeeperCheckUpkeepGasPriceFeatureEnabled    bool            `json:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED"`
@@ -181,6 +182,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperMaximumGracePeriod:                cfg.KeeperMaximumGracePeriod(),
 			KeeperRegistryCheckGasOverhead:          cfg.KeeperRegistryCheckGasOverhead(),
 			KeeperRegistryPerformGasOverhead:        cfg.KeeperRegistryPerformGasOverhead(),
+			KeeperRegistryMaxPerformDataSize:        cfg.KeeperRegistryMaxPerformDataSize(),
 			KeeperRegistrySyncInterval:              cfg.KeeperRegistrySyncInterval(),
 			KeeperRegistrySyncUpkeepQueueSize:       cfg.KeeperRegistrySyncUpkeepQueueSize(),
 			KeeperCheckUpkeepGasPriceFeatureEnabled: cfg.KeeperCheckUpkeepGasPriceFeatureEnabled(),

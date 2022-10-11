@@ -3,7 +3,7 @@ package web_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -60,7 +60,7 @@ func TestSessionsController_Create(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
 
-				b, err := ioutil.ReadAll(resp.Body)
+				b, err := io.ReadAll(resp.Body)
 				assert.NoError(t, err)
 				assert.Contains(t, string(b), `"attributes":{"authenticated":true}`)
 			} else {

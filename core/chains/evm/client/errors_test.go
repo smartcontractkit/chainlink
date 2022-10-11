@@ -1,16 +1,12 @@
 package client_test
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func newSendErrorWrapped(s string) *evmclient.SendError {
@@ -295,6 +291,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"forbidden sender address", true, "Arbitrum"},
 		{"tx dropped due to L2 congestion", false, "Arbitrum"},
 		{"execution reverted: error code", true, "Arbitrum"},
+		{"execution reverted: stale report", true, "Arbitrum"},
 		{"execution reverted", true, "Arbitrum"},
 		{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 
@@ -316,57 +313,4 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 			assert.Equal(t, test.expect, err.Fatal())
 		})
 	}
-}
-
-func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
-	t.Parallel()
-
-	message := "important revert reason"
-	messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
-	sigHash := "12345678"
-	var jsonErr error = &evmclient.JsonError{
-		Code:    1,
-		Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
-		Message: "something different",
-	}
-
-	t.Run("it extracts revert reasons when present", func(tt *testing.T) {
-		revertReason, err := evmclient.ExtractRevertReasonFromRPCError(jsonErr)
-		require.NoError(t, err)
-		require.Equal(t, message, revertReason)
-	})
-
-	t.Run("it unwraps wrapped errors", func(tt *testing.T) {
-		wrappedErr := errors.Wrap(jsonErr, "wrapped message")
-		revertReason, err := evmclient.ExtractRevertReasonFromRPCError(wrappedErr)
-		require.NoError(t, err)
-		require.Equal(t, message, revertReason)
-	})
-
-	t.Run("it unwraps multi-wrapped errors", func(tt *testing.T) {
-		wrappedErr := errors.Wrap(jsonErr, "wrapped message")
-		wrappedErr = errors.Wrap(wrappedErr, "wrapped again!!")
-		revertReason, err := evmclient.ExtractRevertReasonFromRPCError(wrappedErr)
-		require.NoError(t, err)
-		require.Equal(t, message, revertReason)
-	})
-
-	t.Run("it gracefully errors when no data present", func(tt *testing.T) {
-		var jsonErr error = &evmclient.JsonError{
-			Code:    1,
-			Message: "something different",
-		}
-		_, err := evmclient.ExtractRevertReasonFromRPCError(jsonErr)
-		require.Error(t, err)
-	})
-
-	t.Run("gracefully errors when given a normal error", func(tt *testing.T) {
-		_, err := evmclient.ExtractRevertReasonFromRPCError(errors.New("normal error"))
-		require.Error(tt, err)
-	})
-
-	t.Run("gracefully errors when given no error", func(tt *testing.T) {
-		_, err := evmclient.ExtractRevertReasonFromRPCError(nil)
-		require.Error(tt, err)
-	})
 }

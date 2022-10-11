@@ -3,7 +3,7 @@ package fluxmonitorv2_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -392,7 +392,7 @@ func assertNoSubmission(t *testing.T,
 
 // assertPipelineRunCreated checks that a pipeline exists for a given round and
 // verifies the answer
-func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result float64) pipeline.Run {
+func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result int64) pipeline.Run {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
 	require.NoError(t, db.Get(&stats, "SELECT * FROM flux_monitor_round_stats_v2 WHERE round_id = $1", roundID))
@@ -465,7 +465,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
 				generatePriceResponseFn(reportPrice),
 				func(r *http.Request) {
-					b, err1 := ioutil.ReadAll(r.Body)
+					b, err1 := io.ReadAll(r.Body)
 					require.NoError(t, err1)
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
@@ -481,10 +481,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			t.Cleanup(mockServer.Close)
 			u, _ := url.Parse(mockServer.URL)
-			app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 				Name: "bridge",
 				URL:  models.WebURL(*u),
-			})
+			}))
 
 			// When event appears on submissionReceived, flux monitor job run is complete
 			submissionReceived := fa.WatchSubmissionReceived(t,
@@ -556,7 +556,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, float64(100))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, int64(100))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
@@ -585,7 +585,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance-fee,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, float64(103))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, int64(103))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause

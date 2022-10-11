@@ -24,28 +24,33 @@ func FallbackDefaultsAsV2() v2.Chain {
 
 func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	c := v2.Chain{
-		BlockBackfillDepth:       nil,
-		BlockBackfillSkip:        nil,
+		// moved from global, so setting that default here
+		BlockBackfillDepth: ptr[uint32](10),
+		BlockBackfillSkip:  ptr(false),
+
 		ChainType:                ptr(string(set.chainType)),
 		FinalityDepth:            ptr(set.finalityDepth),
 		FlagsContractAddress:     asEIP155Address(set.flagsContractAddress),
 		LinkContractAddress:      asEIP155Address(set.linkContractAddress),
 		LogBackfillBatchSize:     ptr(set.logBackfillBatchSize),
 		LogPollInterval:          models.MustNewDuration(set.logPollInterval),
-		MaxInFlightTransactions:  ptr(set.maxInFlightTransactions),
-		MaxQueuedTransactions:    ptr(uint32(set.maxQueuedTransactions)),
 		MinIncomingConfirmations: ptr(set.minIncomingConfirmations),
-		MinimumContractPayment:   set.minimumContractPayment,
+		MinContractPayment:       set.minimumContractPayment,
 		NonceAutoSync:            ptr(set.nonceAutoSync),
+		NoNewHeadsThreshold:      models.MustNewDuration(set.nodeDeadAfterNoNewHeadersThreshold),
 		OperatorFactoryAddress:   asEIP155Address(set.operatorFactoryAddress),
 		RPCDefaultBatchSize:      ptr(set.rpcDefaultBatchSize),
-		TxReaperInterval:         models.MustNewDuration(set.ethTxReaperInterval),
-		TxReaperThreshold:        models.MustNewDuration(set.ethTxReaperThreshold),
-		TxResendAfterThreshold:   models.MustNewDuration(set.ethTxResendAfterThreshold),
-		UseForwarders:            ptr(set.useForwarders),
+		RPCBlockQueryDelay:       ptr(set.blockHistoryEstimatorBlockDelay),
+		Transactions: &v2.Transactions{
+			ForwardersEnabled:    ptr(set.useForwarders),
+			MaxInFlight:          ptr(set.maxInFlightTransactions),
+			MaxQueued:            ptr(uint32(set.maxQueuedTransactions)),
+			ReaperInterval:       models.MustNewDuration(set.ethTxReaperInterval),
+			ReaperThreshold:      models.MustNewDuration(set.ethTxReaperThreshold),
+			ResendAfterThreshold: models.MustNewDuration(set.ethTxResendAfterThreshold),
+		},
 		BalanceMonitor: &v2.BalanceMonitor{
-			Enabled:    ptr(set.balanceMonitorEnabled),
-			BlockDelay: ptr(set.balanceMonitorBlockDelay),
+			Enabled: ptr(set.balanceMonitorEnabled),
 		},
 		GasEstimator: &v2.GasEstimator{
 			Mode:               ptr(set.gasEstimatorMode),
@@ -59,33 +64,31 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			LimitMax:           ptr(uint32(set.gasLimitMax)),
 			LimitMultiplier:    ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
 			LimitTransfer:      ptr(uint32(set.gasLimitTransfer)),
-			LimitOCRJobType:    set.gasLimitOCRJobType,
-			LimitDRJobType:     set.gasLimitDRJobType,
-			LimitVRFJobType:    set.gasLimitVRFJobType,
-			LimitFMJobType:     set.gasLimitFMJobType,
-			LimitKeeperJobType: set.gasLimitKeeperJobType,
 			TipCapDefault:      utils.NewWei(&set.gasTipCapDefault),
-			TipCapMinimum:      utils.NewWei(&set.gasTipCapMinimum),
+			TipCapMin:          utils.NewWei(&set.gasTipCapMinimum),
 			PriceDefault:       utils.NewWei(&set.gasPriceDefault),
 			PriceMax:           utils.NewWei(&set.maxGasPriceWei),
 			PriceMin:           utils.NewWei(&set.minGasPriceWei),
+			LimitJobType: &v2.GasLimitJobType{
+				OCR:    set.gasLimitOCRJobType,
+				DR:     set.gasLimitDRJobType,
+				VRF:    set.gasLimitVRFJobType,
+				FM:     set.gasLimitFMJobType,
+				Keeper: set.gasLimitKeeperJobType,
+			},
 			BlockHistory: &v2.BlockHistoryEstimator{
-				BatchSize:                 ptr(set.blockHistoryEstimatorBatchSize),
-				BlockDelay:                ptr(set.blockHistoryEstimatorBlockDelay),
-				BlockHistorySize:          ptr(set.blockHistoryEstimatorBlockHistorySize),
-				EIP1559FeeCapBufferBlocks: set.blockHistoryEstimatorEIP1559FeeCapBufferBlocks,
-				TransactionPercentile:     ptr(set.blockHistoryEstimatorTransactionPercentile),
+				BatchSize:             ptr(set.blockHistoryEstimatorBatchSize),
+				BlockHistorySize:      ptr(set.blockHistoryEstimatorBlockHistorySize),
+				TransactionPercentile: ptr(set.blockHistoryEstimatorTransactionPercentile),
 			},
 		},
 		HeadTracker: &v2.HeadTracker{
-			BlockEmissionIdleWarningThreshold: models.MustNewDuration(set.blockEmissionIdleWarningThreshold),
-			HistoryDepth:                      ptr(set.headTrackerHistoryDepth),
-			MaxBufferSize:                     ptr(set.headTrackerMaxBufferSize),
-			SamplingInterval:                  models.MustNewDuration(set.headTrackerSamplingInterval),
+			HistoryDepth:     ptr(set.headTrackerHistoryDepth),
+			MaxBufferSize:    ptr(set.headTrackerMaxBufferSize),
+			SamplingInterval: models.MustNewDuration(set.headTrackerSamplingInterval),
 		},
 		KeySpecific: nil,
 		NodePool: &v2.NodePool{
-			NoNewHeadsThreshold:  models.MustNewDuration(set.nodeDeadAfterNoNewHeadersThreshold),
 			PollFailureThreshold: ptr(set.nodePollFailureThreshold),
 			PollInterval:         models.MustNewDuration(set.nodePollInterval),
 			SelectionMode:        ptr(set.nodeSelectionMode),
@@ -94,7 +97,6 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			ContractConfirmations:              ptr(set.ocrContractConfirmations),
 			ContractTransmitterTransmitTimeout: models.MustNewDuration(set.ocrContractTransmitterTransmitTimeout),
 			DatabaseTimeout:                    models.MustNewDuration(set.ocrDatabaseTimeout),
-			ObservationTimeout:                 nil,
 			ObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
 		},
 	}
@@ -103,6 +105,9 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	}
 	if isZeroPtr(c.BalanceMonitor) {
 		c.BalanceMonitor = nil
+	}
+	if isZeroPtr(c.GasEstimator.LimitJobType) {
+		c.GasEstimator.LimitJobType = nil
 	}
 	if isZeroPtr(c.GasEstimator.BlockHistory) {
 		c.GasEstimator.BlockHistory = nil
