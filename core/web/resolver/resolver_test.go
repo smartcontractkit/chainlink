@@ -115,7 +115,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		auditLogger: &audit.AuditLoggerService{},
 	}
 
-	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(audit.NopLogger).Maybe()
+	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(audit.NoopLogger).Maybe()
 
 	f := &gqlTestFramework{
 		t:          t,
