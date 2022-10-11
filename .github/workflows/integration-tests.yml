@@ -57,7 +57,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build Image
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@369e110c686017bcec5445deacf3f2b842003c99 # 2.0.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@2665473f649495562accac183f58af8f026bac11 # 2.0.21
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -96,7 +96,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@369e110c686017bcec5445deacf3f2b842003c99 # v2.0.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2665473f649495562accac183f58af8f026bac11 # v2.0.21
         with:
           test_command_to_run: make test_smoke_simulated args="-nodes=30"
           test_download_vendor_packages_command: make gomod
@@ -115,7 +115,7 @@ jobs:
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@369e110c686017bcec5445deacf3f2b842003c99 # v2.0.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@2665473f649495562accac183f58af8f026bac11 # v2.0.21
         with:
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
@@ -127,7 +127,7 @@ jobs:
       ## Run Cleanup regardless
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@369e110c686017bcec5445deacf3f2b842003c99 # v2.0.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@2665473f649495562accac183f58af8f026bac11 # v2.0.21
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
@@ -199,7 +199,7 @@ jobs:
           ref: ${{ env.solana_sha }}
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@369e110c686017bcec5445deacf3f2b842003c99 # v2.0.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2665473f649495562accac183f58af8f026bac11 # v2.0.21
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -214,7 +214,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@369e110c686017bcec5445deacf3f2b842003c99 # v2.0.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@2665473f649495562accac183f58af8f026bac11 # v2.0.21
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
