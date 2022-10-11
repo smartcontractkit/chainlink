@@ -297,7 +297,6 @@ pluginType = "ocr2keeper"
 relay = "evm"
 name = "ocr2"
 schemaVersion = 1
-maxTaskDuration = "1s"
 contractID = "%s"
 ocrKeyBundleID = "%s"
 transmitterID = "%s"
