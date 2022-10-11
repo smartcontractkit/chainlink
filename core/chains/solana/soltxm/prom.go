@@ -31,16 +31,4 @@ var (
 		Name: "solana_txm_tx_error_reject",
 		Help: "Number of transactions that the RPC immediately rejected",
 	}, []string{"chainID"})
-	promSolTxmDropTxs = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "solana_txm_tx_error_drop",
-		Help: "Number of transactions that timed out during confirmation. Note: tx is likely dropped from the chain, but may still be included.",
-	}, []string{"chainID"})
-	promSolTxmSimRevertTxs = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "solana_txm_tx_error_sim_revert",
-		Help: "Number of transactions that reverted during simulation. Note: tx may still be included onchain",
-	}, []string{"chainID"})
-	promSolTxmSimOtherTxs = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "solana_txm_tx_error_sim_other",
-		Help: "Number of transactions that failed simulation with an unrecognized error. Note: tx may still be included onchain",
-	}, []string{"chainID"})
 )

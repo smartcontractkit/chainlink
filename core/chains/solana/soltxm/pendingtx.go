@@ -1,34 +1,37 @@
 package soltxm
 
 import (
-	"context"
-	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"golang.org/x/exp/maps"
 )
 
-type pendingTx struct {
-	tx        *solana.Transaction
-	timeout   time.Duration
-	key       solkey.Key
-	signature solana.Signature // tx signature
-	feeAdded  bool             // track if fee instruction has been added or not
+type PendingTx struct {
+	key        solkey.Key
+	baseTx     *solana.Transaction // original transaction (should not contain fee information)
+	timestamp  time.Time           // when the current tx is broadcast
+	signatures []solana.Signature
+	currentFee uint64 // current fee for inflight tx
+	broadcast  bool   // check to indicate if already broadcast
 }
 
-// SetComputeUnitPrice sets the compute unit price in micro-lamports
+// SetComputeUnitPrice sets the compute unit price in micro-lamports, returns new tx
 // add fee as the last instruction
 // add fee program as last account key
 // recreates some of the logic from: https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L313
-func (tx *pendingTx) SetComputeUnitPrice(price ComputeUnitPrice) error {
+func (tx *PendingTx) SetComputeUnitPrice(price ComputeUnitPrice) (*solana.Transaction, error) {
+	txWithFee := *tx.baseTx // make copy
+
 	// find ComputeBudget program to accounts if it exists
 	// reimplements HasAccount to retrieve index: https://github.com/gagliardetto/solana-go/blob/main/message.go#L228
 	var exists bool
 	var programIdx uint16
-	for i, a := range tx.tx.Message.AccountKeys {
+	for i, a := range txWithFee.Message.AccountKeys {
 		if a.Equals(price.ProgramID()) {
 			exists = true
 			programIdx = uint16(i)
@@ -36,185 +39,203 @@ func (tx *pendingTx) SetComputeUnitPrice(price ComputeUnitPrice) error {
 	}
 	// if it doesn't exist, add to account keys
 	if !exists {
-		tx.tx.Message.AccountKeys = append(tx.tx.Message.AccountKeys, price.ProgramID())
-		programIdx = uint16(len(tx.tx.Message.AccountKeys) - 1) // last index of account keys
+		txWithFee.Message.AccountKeys = append(txWithFee.Message.AccountKeys, price.ProgramID())
+		programIdx = uint16(len(txWithFee.Message.AccountKeys) - 1) // last index of account keys
 
 		// https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L291
-		tx.tx.Message.Header.NumReadonlyUnsignedAccounts++
+		txWithFee.Message.Header.NumReadonlyUnsignedAccounts++
+	}
+
+	// double fee if already broadcast and this is a retry
+	if tx.broadcast {
+		price = ComputeUnitPrice(tx.currentFee * tx.currentFee)
+
+		// handle 0 case
+		if tx.currentFee == 0 {
+			price = 1
+		}
 	}
 
 	// get instruction data
 	data, err := price.Data()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// if this is the first time adding a fee, add prepend space for the instruction
-	if !tx.feeAdded {
-		tx.tx.Message.Instructions = append([]solana.CompiledInstruction{{}}, tx.tx.Message.Instructions...)
-	}
-	tx.tx.Message.Instructions[0] = solana.CompiledInstruction{
+	// build tx
+	txWithFee.Message.Instructions = append([]solana.CompiledInstruction{{
 		ProgramIDIndex: programIdx,
 		Data:           data,
-	}
-	tx.feeAdded = true
-	return nil
+	}}, txWithFee.Message.Instructions...)
+
+	// track current fee
+	tx.currentFee = uint64(price)
+	return &txWithFee, nil
 }
 
-type PendingTxContext interface {
-	Add(sig solana.Signature, cancel context.CancelFunc) error
-	Remove(sig solana.Signature)
-	ListAll() []solana.Signature
-	Expired(sig solana.Signature, lifespan time.Duration) bool
+type PendingTxs interface {
+	New(tx PendingTx) uuid.UUID                   // save pendingTx
+	Add(id uuid.UUID, sig solana.Signature) error // save signature after broadcasting
+	Remove(id uuid.UUID)
+	ListSignatures() []solana.Signature                    // get all signatures for pending txs
+	Get(sig solana.Signature) (uuid.UUID, PendingTx, bool) // get tx from signature
 	// state change hooks
 	OnSuccess(sig solana.Signature)
 	OnError(sig solana.Signature, errType int) // match err type using enum
 }
 
-var _ PendingTxContext = &pendingTxContext{}
+var _ PendingTxs = &pendingTxMemory{}
 
-type pendingTxContext struct {
-	cancelBy  map[solana.Signature]context.CancelFunc
-	timestamp map[solana.Signature]time.Time
-	lock      sync.RWMutex
+// in memory version of PendingTxs
+type pendingTxMemory struct {
+	idMap  map[uuid.UUID]PendingTx        // map id to transaction data
+	sigMap map[solana.Signature]uuid.UUID // map tx signature to id
+	lock   sync.RWMutex
 }
 
-func newPendingTxContext() *pendingTxContext {
-	return &pendingTxContext{
-		cancelBy:  map[solana.Signature]context.CancelFunc{},
-		timestamp: map[solana.Signature]time.Time{},
+func newPendingTxMemory() *pendingTxMemory {
+	return &pendingTxMemory{
+		idMap:  map[uuid.UUID]PendingTx{},
+		sigMap: map[solana.Signature]uuid.UUID{},
 	}
 }
 
-func (c *pendingTxContext) Add(sig solana.Signature, cancel context.CancelFunc) error {
-	// already exists
-	c.lock.RLock()
-	if c.cancelBy[sig] != nil {
-		c.lock.RUnlock()
-		return errors.New("signature already exists")
-	}
-	c.lock.RUnlock()
+func (txs *pendingTxMemory) New(tx PendingTx) uuid.UUID {
+	id := uuid.New()
 
-	// upgrade to write lock if sig does not exist
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.cancelBy[sig] != nil {
-		return errors.New("signature already exists")
+	txs.lock.Lock()
+	defer txs.lock.Unlock()
+
+	txs.idMap[id] = tx
+	return id
+}
+
+func (txs *pendingTxMemory) Add(id uuid.UUID, sig solana.Signature) error {
+	var tx PendingTx
+	var exists bool
+
+	// check exists
+	txs.lock.RLock()
+	if tx, exists = txs.idMap[id]; !exists {
+		txs.lock.RUnlock()
+		return fmt.Errorf("ID does not exist: %s", id)
 	}
-	// save cancel func
-	c.cancelBy[sig] = cancel
-	c.timestamp[sig] = time.Now()
+	txs.lock.RUnlock()
+
+	// save signatures
+	tx.signatures = append(tx.signatures, sig)
+
+	// upgrade to write lock
+	txs.lock.Lock()
+	defer txs.lock.Unlock()
+	txs.idMap[id] = tx
+	txs.sigMap[sig] = id
 	return nil
 }
 
-func (c *pendingTxContext) Remove(sig solana.Signature) {
-	// already cancelled
-	c.lock.RLock()
-	if c.cancelBy[sig] == nil {
-		c.lock.RUnlock()
+func (txs *pendingTxMemory) Remove(id uuid.UUID) {
+	// check if already removed
+	txs.lock.RLock()
+	if _, exists := txs.idMap[id]; !exists {
+		txs.lock.RUnlock()
 		return
 	}
-	c.lock.RUnlock()
+	txs.lock.RUnlock()
 
-	// upgrade to write lock if sig does not exist
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.cancelBy[sig] == nil {
-		return
+	// upgrade to write lock if ID exists
+	txs.lock.Lock()
+	defer txs.lock.Unlock()
+	for _, s := range txs.idMap[id].signatures {
+		delete(txs.sigMap, s)
 	}
-	// call cancel func + remove from map
-	c.cancelBy[sig]() // cancel context
-	delete(c.cancelBy, sig)
-	delete(c.timestamp, sig)
+	delete(txs.idMap, id)
 }
 
-func (c *pendingTxContext) ListAll() []solana.Signature {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return maps.Keys(c.cancelBy)
+func (txs *pendingTxMemory) ListSignatures() []solana.Signature {
+	txs.lock.RLock()
+	defer txs.lock.RUnlock()
+	return maps.Keys(txs.sigMap)
 }
 
-// Expired returns if the timeout for trying to confirm a signature has been reached
-func (c *pendingTxContext) Expired(sig solana.Signature, lifespan time.Duration) bool {
-	c.lock.RLock()
-	timestamp, exists := c.timestamp[sig]
-	c.lock.RUnlock()
+func (txs *pendingTxMemory) Get(sig solana.Signature) (uuid.UUID, PendingTx, bool) {
+	txs.lock.RLock()
+	defer txs.lock.RUnlock()
 
-	if !exists {
-		return true // return expired = true if timestamp doesn't exist
+	if id, idExists := txs.sigMap[sig]; idExists {
+		if tx, txExists := txs.idMap[id]; txExists {
+			return id, tx, true
+		}
 	}
-
-	return time.Since(timestamp) > lifespan
+	return uuid.UUID{}, PendingTx{}, false
 }
 
-func (c *pendingTxContext) OnSuccess(sig solana.Signature) {
-	c.Remove(sig)
+func (txs *pendingTxMemory) OnSuccess(sig solana.Signature) {
+	if id, _, exists := txs.Get(sig); exists {
+		txs.Remove(id)
+	}
 }
 
-func (c *pendingTxContext) OnError(sig solana.Signature, _ int) {
-	c.Remove(sig)
+func (txs *pendingTxMemory) OnError(sig solana.Signature, _ int) {
+	if id, _, exists := txs.Get(sig); exists {
+		txs.Remove(id)
+	}
 }
 
-var _ PendingTxContext = &pendingTxContextWithProm{}
+var _ PendingTxs = &pendingTxMemoryWithProm{}
 
-type pendingTxContextWithProm struct {
-	pendingTx *pendingTxContext
+type pendingTxMemoryWithProm struct {
+	pendingTx *pendingTxMemory
 	chainID   string
 }
 
 const (
-	TxFailRevert = iota
-	TxFailReject
-	TxFailDrop
-	TxFailSimRevert
-	TxFailSimOther
+	TxFailRevert = iota // execution revert
+	TxFailReject        // rpc rejected transaction
 )
 
-func newPendingTxContextWithProm(id string) *pendingTxContextWithProm {
-	return &pendingTxContextWithProm{
+func newPendingTxMemoryWithProm(id string) *pendingTxMemoryWithProm {
+	return &pendingTxMemoryWithProm{
 		chainID:   id,
-		pendingTx: newPendingTxContext(),
+		pendingTx: newPendingTxMemory(),
 	}
 }
 
-func (c *pendingTxContextWithProm) Add(sig solana.Signature, cancel context.CancelFunc) error {
-	return c.pendingTx.Add(sig, cancel)
+func (txs *pendingTxMemoryWithProm) New(tx PendingTx) uuid.UUID {
+	return txs.pendingTx.New(tx)
 }
 
-func (c *pendingTxContextWithProm) Remove(sig solana.Signature) {
-	c.pendingTx.Remove(sig)
+func (txs *pendingTxMemoryWithProm) Add(id uuid.UUID, sig solana.Signature) error {
+	return txs.pendingTx.Add(id, sig)
 }
 
-func (c *pendingTxContextWithProm) ListAll() []solana.Signature {
-	sigs := c.pendingTx.ListAll()
-	promSolTxmPendingTxs.WithLabelValues(c.chainID).Set(float64(len(sigs)))
+func (txs *pendingTxMemoryWithProm) Remove(id uuid.UUID) {
+	txs.pendingTx.Remove(id)
+}
+
+func (txs *pendingTxMemoryWithProm) ListSignatures() []solana.Signature {
+	sigs := txs.pendingTx.ListSignatures()
+	promSolTxmPendingTxs.WithLabelValues(txs.chainID).Set(float64(len(sigs)))
 	return sigs
 }
 
-func (c *pendingTxContextWithProm) Expired(sig solana.Signature, lifespan time.Duration) bool {
-	return c.pendingTx.Expired(sig, lifespan)
+func (txs *pendingTxMemoryWithProm) Get(sig solana.Signature) (uuid.UUID, PendingTx, bool) {
+	return txs.pendingTx.Get(sig)
 }
 
 // Success - tx included in block and confirmed
-func (c *pendingTxContextWithProm) OnSuccess(sig solana.Signature) {
-	promSolTxmSuccessTxs.WithLabelValues(c.chainID).Add(1)
-	c.pendingTx.OnSuccess(sig)
+func (txs *pendingTxMemoryWithProm) OnSuccess(sig solana.Signature) {
+	promSolTxmSuccessTxs.WithLabelValues(txs.chainID).Add(1)
+	txs.pendingTx.OnSuccess(sig)
 }
 
-func (c *pendingTxContextWithProm) OnError(sig solana.Signature, errType int) {
+func (txs *pendingTxMemoryWithProm) OnError(sig solana.Signature, errType int) {
 	switch errType {
 	case TxFailRevert:
-		promSolTxmRevertTxs.WithLabelValues(c.chainID).Add(1)
+		promSolTxmRevertTxs.WithLabelValues(txs.chainID).Add(1)
 	case TxFailReject:
-		promSolTxmRejectTxs.WithLabelValues(c.chainID).Add(1)
-	case TxFailDrop:
-		promSolTxmDropTxs.WithLabelValues(c.chainID).Add(1)
-	case TxFailSimRevert:
-		promSolTxmSimRevertTxs.WithLabelValues(c.chainID).Add(1)
-	case TxFailSimOther:
-		promSolTxmSimOtherTxs.WithLabelValues(c.chainID).Add(1)
+		promSolTxmRejectTxs.WithLabelValues(txs.chainID).Add(1)
 	}
 	// increment total errors
-	promSolTxmErrorTxs.WithLabelValues(c.chainID).Add(1)
-	c.pendingTx.OnError(sig, errType)
+	promSolTxmErrorTxs.WithLabelValues(txs.chainID).Add(1)
+	txs.pendingTx.OnError(sig, errType)
 }
