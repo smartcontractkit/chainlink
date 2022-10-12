@@ -455,10 +455,16 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	}
 }
 
-func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorContracts OperatorContracts) (app *cltest.TestApplication, sendingAddress common.Address, o *observer.ObservedLogs) {
+func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *cltest.TestApplication, sendingAddress common.Address, o *observer.ObservedLogs) {
 	b := operatorContracts.sim
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	app = cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
+
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		cltest.TestOverrides(c, s)
+		cltest.OverrideSimulated(c, s)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+	})
+	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()
 
 	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
@@ -484,13 +490,11 @@ func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorC
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim
 
 	t.Run("with FailOnRevert enabled, run succeeds when transaction is successful", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
 type            = "webhook"
 schemaVersion   = 1
@@ -535,7 +539,7 @@ observationSource   = """
 	})
 
 	t.Run("with FailOnRevert enabled, run fails with transaction reverted error", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
 type            = "webhook"
 schemaVersion   = 1
@@ -572,7 +576,7 @@ observationSource   = """
 	})
 
 	t.Run("with FailOnRevert disabled, run succeeds with output being reverted receipt", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
 type            = "webhook"
 schemaVersion   = 1

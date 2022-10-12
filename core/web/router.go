@@ -443,7 +443,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, config config.BasicConfig, lggr logger.Logger) {
 	// Serve static files
 	var assetsRouterHandlers []gin.HandlerFunc
 	if !config.Dev() {

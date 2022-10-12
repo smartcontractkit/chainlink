@@ -28,7 +28,7 @@ var (
 
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
-	Config           coreconfig.GeneralConfig
+	Config           coreconfig.BasicConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Terra

@@ -18,7 +18,7 @@ import (
 )
 
 type ChainSetOpts struct {
-	Config   coreconfig.GeneralConfig
+	Config   coreconfig.BasicConfig
 	Logger   logger.Logger
 	KeyStore keystore.StarkNet
 	ORM      types.ORM

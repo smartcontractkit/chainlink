@@ -20,7 +20,7 @@ type LockedDB interface {
 }
 
 type lockedDb struct {
-	cfg          config.GeneralConfig
+	cfg          config.BasicConfig
 	lggr         logger.Logger
 	db           *sqlx.DB
 	leaseLock    LeaseLock
@@ -28,7 +28,7 @@ type lockedDb struct {
 }
 
 // NewLockedDB creates a new instance of LockedDB.
-func NewLockedDB(cfg config.GeneralConfig, lggr logger.Logger) LockedDB {
+func NewLockedDB(cfg config.BasicConfig, lggr logger.Logger) LockedDB {
 	return &lockedDb{
 		cfg:  cfg,
 		lggr: lggr.Named("LockedDB"),
@@ -38,7 +38,7 @@ func NewLockedDB(cfg config.GeneralConfig, lggr logger.Logger) LockedDB {
 // OpenUnlockedDB just opens DB connection, without any DB locks.
 // This should be used carefully, when we know we don't need any locks.
 // Currently this is used by RebroadcastTransactions command only.
-func OpenUnlockedDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
+func OpenUnlockedDB(cfg config.BasicConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
 	return openDB(cfg, lggr)
 }
 
@@ -123,7 +123,7 @@ func (l lockedDb) DB() *sqlx.DB {
 	return l.db
 }
 
-func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
+func openDB(cfg config.BasicConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
 	uri := cfg.DatabaseURL()
 	appid := cfg.AppID()
 	static.SetConsumerName(&uri, "App", &appid)

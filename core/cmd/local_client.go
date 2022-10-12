@@ -719,7 +719,7 @@ func downAndUpDB(cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
 	return db.Close()
 }
 
-func dumpSchema(cfg config.GeneralConfig) (string, error) {
+func dumpSchema(cfg config.BasicConfig) (string, error) {
 	dbURL := cfg.DatabaseURL()
 	args := []string{
 		dbURL.String(),
@@ -736,7 +736,7 @@ func dumpSchema(cfg config.GeneralConfig) (string, error) {
 	return string(schema), nil
 }
 
-func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
+func checkSchema(cfg config.BasicConfig, prevSchema string) error {
 	newSchema, err := dumpSchema(cfg)
 	if err != nil {
 		return err
@@ -749,7 +749,7 @@ func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
 	return nil
 }
 
-func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err error) {
+func insertFixtures(config config.BasicConfig, pathToFixtures string) (err error) {
 	dbURL := config.DatabaseURL()
 	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
 	if err != nil {
