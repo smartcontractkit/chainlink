@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -62,6 +63,12 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 	}
 
 	headers := string(input)
+	// We act slightly more strictly than the HTTP specifications
+	// technically allow instead following the guidelines of
+	// cloudflare transforms.
+	// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
+	headerNameRegex, _ := regexp.Compile("^[A-Za-z\\-]+$")
+	headerValueRegex, _ := regexp.Compile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 
 	parsed_headers := []ServiceHeader{}
 	if headers != "" {
@@ -71,9 +78,19 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 			if len(keyValue) != 2 {
 				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
+			header := keyValue[0]
+			value := keyValue[1]
+
+			if !headerNameRegex.MatchString(header) {
+				return errors.Errorf("invalid header name: %s", header)
+			}
+
+			if !headerValueRegex.MatchString(value) {
+				return errors.Errorf("invalid header value: %s", value)
+			}
 			parsed_headers = append(parsed_headers, ServiceHeader{
-				Header: keyValue[0],
-				Value:  keyValue[1],
+				Header: header,
+				Value:  value,
 			})
 		}
 	}
