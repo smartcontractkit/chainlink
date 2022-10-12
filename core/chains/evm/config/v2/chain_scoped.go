@@ -154,38 +154,23 @@ func (c *ChainScoped) EvmGasLimitTransfer() uint32 {
 }
 
 func (c *ChainScoped) EvmGasLimitOCRJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.OCR
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.OCR
 }
 
 func (c *ChainScoped) EvmGasLimitDRJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.DR
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.DR
 }
 
 func (c *ChainScoped) EvmGasLimitVRFJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.VRF
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.VRF
 }
 
 func (c *ChainScoped) EvmGasLimitFMJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.FM
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.FM
 }
 
 func (c *ChainScoped) EvmGasLimitKeeperJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.Keeper
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.Keeper
 }
 
 func (c *ChainScoped) EvmGasPriceDefault() *big.Int {

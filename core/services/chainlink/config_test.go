@@ -425,7 +425,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
 					PriceMin:           utils.NewBigI(13).Wei(),
 
-					LimitJobType: &evmcfg.GasLimitJobType{
+					LimitJobType: evmcfg.GasLimitJobType{
 						OCR:    ptr[uint32](1001),
 						DR:     ptr[uint32](1002),
 						VRF:    ptr[uint32](1003),
