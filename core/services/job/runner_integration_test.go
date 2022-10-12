@@ -72,7 +72,7 @@ func TestRunner(t *testing.T) {
 	defer runner.Close()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
