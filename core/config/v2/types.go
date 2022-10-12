@@ -9,7 +9,9 @@ import (
 	"net/url"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -19,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,6 +31,8 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
+	AppID               uuid.UUID `toml:"-"`
+	DevMode             bool      `toml:"-"`
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string
@@ -78,6 +83,7 @@ func init() {
 
 func CoreDefaults() (c Core) {
 	c.SetFrom(&defaults)
+	c.Database.Dialect = dialects.Postgres // not user visible - overridden for tests only
 	return
 }
 
@@ -275,6 +281,7 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *models.Duration
 	DefaultLockTimeout            *models.Duration
 	DefaultQueryTimeout           *models.Duration
+	Dialect                       dialects.DialectName `toml:"-"`
 	MaxIdleConns                  *int64
 	MaxOpenConns                  *int64
 	MigrateOnStartup              *bool
@@ -284,6 +291,13 @@ type Database struct {
 	Listener *DatabaseListener
 
 	Lock *DatabaseLock
+}
+
+func (d *Database) LockingMode() string {
+	if d.Lock.Mode == "" {
+		return "lease"
+	}
+	return d.Lock.Mode
 }
 
 func (d *Database) setFrom(f *Database) {
@@ -346,6 +360,7 @@ func (d *DatabaseListener) setFrom(f *DatabaseListener) {
 }
 
 type DatabaseLock struct {
+	Mode                 string `toml:"-"`
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
 }
@@ -436,7 +451,9 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 
 type Log struct {
 	DatabaseQueries *bool
+	Level           zapcore.Level `toml:"-"`
 	JSONConsole     *bool
+	SQL             bool `toml:"-"`
 	UnixTS          *bool
 
 	File *LogFile

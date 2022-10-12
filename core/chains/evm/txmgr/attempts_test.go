@@ -15,21 +15,23 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	addr := testutils.NewAddress()
-	gcfg := cltest.NewTestGeneralConfig(t)
-	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	kst := ksmocks.NewEth(t)
 	tx := types.NewTx(&types.DynamicFeeTx{})
+	kst := ksmocks.NewEth(t)
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
 	var n int64
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
+		gcfg := cltest.NewTestGeneralConfigV2(t)
+		cfg := evmtest.NewChainScopedConfig(t, gcfg)
 		cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
 		a, err := cks.NewDynamicFeeAttempt(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}, 100)
 		require.NoError(t, err)
@@ -46,38 +48,34 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			name        string
 			tipcap      *big.Int
 			feecap      *big.Int
-			setCfg      func(cfg *configtest.TestGeneralConfig)
+			setCfg      func(*chainlink.Config, *chainlink.Secrets)
 			expectError string
 		}{
 			{"gas tip = fee cap", assets.GWei(5), assets.GWei(5), nil, ""},
 			{"gas tip < fee cap", assets.GWei(4), assets.GWei(5), nil, ""},
 			{"gas tip > fee cap", assets.GWei(6), assets.GWei(5), nil, "gas fee cap must be greater than or equal to gas tip cap (fee cap: 5000000000, tip cap: 6000000000)"},
-			{"fee cap exceeds max allowed", assets.GWei(5), assets.GWei(5), func(cfg *configtest.TestGeneralConfig) {
-				cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(4)
+			{"fee cap exceeds max allowed", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.EVM[0].GasEstimator.PriceMax = (*utils.Wei)(assets.GWei(4))
 			}, "specified gas fee cap of 5000000000 would exceed max configured gas price of 4000000000"},
-			{"ignores global min gas price", assets.GWei(5), assets.GWei(5), func(cfg *configtest.TestGeneralConfig) {
-				cfg.Overrides.GlobalEvmMinGasPriceWei = assets.GWei(6)
+			{"ignores global min gas price", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.EVM[0].GasEstimator.PriceMin = (*utils.Wei)(assets.GWei(6))
 			}, ""},
-			{"tip cap below min allowed", assets.GWei(5), assets.GWei(5), func(cfg *configtest.TestGeneralConfig) {
-				cfg.Overrides.GlobalEvmGasTipCapMinimum = assets.GWei(6)
+			{"tip cap below min allowed", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.EVM[0].GasEstimator.TipCapMin = (*utils.Wei)(assets.GWei(6))
 			}, "specified gas tip cap of 5000000000 is below min configured gas tip of 6000000000"},
 		}
 
 		for _, tt := range tests {
 			test := tt
 			t.Run(test.name, func(t *testing.T) {
-				gcfg := configtest.NewTestGeneralConfig(t)
-				if test.setCfg != nil {
-					test.setCfg(gcfg)
-				}
+				gcfg := configtest.NewGeneralConfig(t, test.setCfg)
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
 				cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
 				_, err := cks.NewDynamicFeeAttempt(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}, 100)
 				if test.expectError == "" {
 					require.NoError(t, err)
 				} else {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), test.expectError)
+					require.ErrorContains(t, err, test.expectError)
 				}
 			})
 		}

@@ -403,9 +403,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
-			}
 			c.EVM[i].GasEstimator.LimitJobType.OCR = e
 		}
 	}
@@ -413,9 +410,6 @@ func (c *Config) loadLegacyEVMEnv() {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
 			}
 			c.EVM[i].GasEstimator.LimitJobType.DR = e
 		}
@@ -425,9 +419,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
-			}
 			c.EVM[i].GasEstimator.LimitJobType.VRF = e
 		}
 	}
@@ -436,9 +427,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
-			}
 			c.EVM[i].GasEstimator.LimitJobType.FM = e
 		}
 	}
@@ -446,9 +434,6 @@ func (c *Config) loadLegacyEVMEnv() {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
 			}
 			c.EVM[i].GasEstimator.LimitJobType.Keeper = e
 		}
@@ -635,9 +620,6 @@ func (c *Config) loadLegacyEVMEnv() {
 		if c.EVM[i].GasEstimator != nil {
 			if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
 				c.EVM[i].GasEstimator.BlockHistory = nil
-			}
-			if isZeroPtr(c.EVM[i].GasEstimator.LimitJobType) {
-				c.EVM[i].GasEstimator.LimitJobType = nil
 			}
 			if isZeroPtr(c.EVM[i].GasEstimator) {
 				c.EVM[i].GasEstimator = nil

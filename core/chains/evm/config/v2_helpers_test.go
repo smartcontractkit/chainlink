@@ -70,7 +70,7 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			PriceDefault:       utils.NewWei(&set.gasPriceDefault),
 			PriceMax:           utils.NewWei(&set.maxGasPriceWei),
 			PriceMin:           utils.NewWei(&set.minGasPriceWei),
-			LimitJobType: &v2.GasLimitJobType{
+			LimitJobType: v2.GasLimitJobType{
 				OCR:    set.gasLimitOCRJobType,
 				DR:     set.gasLimitDRJobType,
 				VRF:    set.gasLimitVRFJobType,
@@ -106,9 +106,6 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	}
 	if isZeroPtr(c.BalanceMonitor) {
 		c.BalanceMonitor = nil
-	}
-	if isZeroPtr(c.GasEstimator.LimitJobType) {
-		c.GasEstimator.LimitJobType = nil
 	}
 	if isZeroPtr(c.GasEstimator.BlockHistory) {
 		c.GasEstimator.BlockHistory = nil

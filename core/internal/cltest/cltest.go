@@ -59,6 +59,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
@@ -243,6 +244,7 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 	return server.WSURL().String()
 }
 
+// Deprecated: use NewTestGeneralConfigV2
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	reaperInterval := time.Duration(0) // disable reaper
@@ -256,9 +258,32 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
 
+// NewTestGeneralConfigV2 is like NewTestGeneralConfig but uses configtest/v2.
+func NewTestGeneralConfigV2(t testing.TB) config.GeneralConfig {
+	return configtest2.NewGeneralConfig(t, TestOverrides)
+}
+
+// TestOverrides are the default overrides used by NewTestGeneralConfigV2.
+func TestOverrides(c *chainlink.Config, s *chainlink.Secrets) {
+	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
+	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
+	enabled := false
+	c.P2P.V1.Enabled = &enabled
+	c.P2P.V2.Enabled = &enabled
+}
+
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
 // Useful for testing controllers
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
+	t.Helper()
+
+	c := NewTestGeneralConfigV2(t)
+
+	return NewApplicationWithConfig(t, c)
+}
+
+// Deprecated: use NewApplicationEVMDisabled
+func NewLegacyApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
@@ -300,6 +325,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsA
 			app.Key = v
 		case evmtypes.DBChain:
 			chainID = v.ID
+		case *utils.Big:
+			chainID = *v
 		}
 	}
 	if app.Key.Address == utils.ZeroAddress {
@@ -349,7 +376,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
 	url := cfg.DatabaseURL()
-	db, err := pg.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), pg.Config{
+	db, err := pg.NewConnection(url.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), pg.Config{
 		Logger:       lggr,
 		MaxOpenConns: cfg.ORMMaxOpenConns(),
 		MaxIdleConns: cfg.ORMMaxIdleConns(),
@@ -1605,7 +1632,7 @@ func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := NewTestGeneralConfig(t)
+	cfg := NewTestGeneralConfigV2(t)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 

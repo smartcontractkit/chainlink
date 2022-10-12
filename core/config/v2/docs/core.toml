@@ -329,7 +329,7 @@ TraceLogging = false # Default
 
 [P2P.V1]
 # Enabled enables P2P V1.
-Enabled = false # Default
+Enabled = true # Default
 # AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
 AnnounceIP = '1.2.3.4' # Example
 # AnnouncePort should be set as the externally reachable port of the Chainlink node.

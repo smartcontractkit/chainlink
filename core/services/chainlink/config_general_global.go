@@ -8,8 +8,6 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
-func (g *generalConfig) EVMRPCEnabled() bool { panic(v2.ErrUnsupported) }
-
 func (g *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
 	panic(v2.ErrUnsupported)

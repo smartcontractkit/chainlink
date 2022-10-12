@@ -1,21 +1,13 @@
 package ocrcommon_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/networking"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -28,54 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-func setupV2Networking(
-	t *testing.T,
-	port int64,
-	dbName string,
-	nodeKey ethkey.KeyV2,
-	backend *backends.SimulatedBackend,
-) (chainlink.Application, string, common.Address, ocr2key.KeyBundle, *configtest.TestGeneralConfig) {
-	p2paddresses := []string{
-		fmt.Sprintf("127.0.0.1:%d", port),
-	}
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
-	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
-	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
-	config.Overrides.FeatureLogPoller = null.BoolFrom(true)
-	config.Overrides.GlobalGasEstimatorMode = null.NewString("FixedPrice", true)
-	config.Overrides.P2PEnabled = null.BoolFrom(true)
-	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
-	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
-	config.Overrides.P2PListenPort = null.NewInt(0, true)
-	config.Overrides.P2PV2ListenAddresses = p2paddresses
-	config.Overrides.P2PV2AnnounceAddresses = p2paddresses
-	config.Overrides.P2PNetworkingStack = networking.NetworkingStackV2
-	config.Overrides.GlobalEvmGasLimitOCRJobType = null.IntFrom(5300000)
-
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
-
-	require.NoError(t, app.GetKeyStore().Unlock(testutils.Password))
-	_, err := app.GetKeyStore().P2P().Create()
-	require.NoError(t, err)
-	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
-	require.NoError(t, err)
-	require.Len(t, p2pIDs, 1)
-	peerID := p2pIDs[0].PeerID()
-	config.Overrides.P2PPeerID = peerID
-
-	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
-	require.NoError(t, err)
-
-	err = app.Start(testutils.Context(t))
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		err := app.Stop()
-		require.NoError(t, err)
-	})
-	return app, peerID.Raw(), nodeKey.Address, kb, config
-}
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Parallel()
