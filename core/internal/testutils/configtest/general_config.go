@@ -40,6 +40,7 @@ type GeneralConfigOverrides struct {
 	AdvisoryLockCheckInterval               *time.Duration
 	AdvisoryLockID                          null.Int
 	AllowOrigins                            null.String
+	AutomationPerformGasLimit               null.Int
 	BlockBackfillDepth                      null.Int
 	BlockBackfillSkip                       null.Bool
 	DatabaseURL                             null.String
@@ -486,6 +487,13 @@ func (c *TestGeneralConfig) KeeperTurnFlagEnabled() bool {
 		return c.Overrides.KeeperTurnFlagEnabled.Bool
 	}
 	return c.GeneralConfig.KeeperTurnFlagEnabled()
+}
+
+func (c *TestGeneralConfig) AutomationPerformGasLimit() uint32 {
+	if c.Overrides.AutomationPerformGasLimit.Valid {
+		return uint32(c.Overrides.AutomationPerformGasLimit.Int64)
+	}
+	return c.GeneralConfig.AutomationPerformGasLimit()
 }
 
 func (c *TestGeneralConfig) BlockBackfillSkip() bool {

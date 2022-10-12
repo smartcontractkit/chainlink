@@ -122,6 +122,10 @@ func TestResolver_Config(t *testing.T) {
         "value": "test"
       },
       {
+        "key": "AUTOMATION_PERFORM_GAS_LIMIT",
+        "value": "530000"
+      },
+      {
         "key": "BLOCK_BACKFILL_DEPTH",
         "value": "1"
       },

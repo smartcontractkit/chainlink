@@ -368,6 +368,9 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxPerformDataSize:  ptr[uint32](5000),
 		},
 	}
+	full.Automation = &config.Automation{
+		PerformGasLimit: ptr[uint32](18),
+	}
 	full.AutoPprof = &config.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
@@ -737,6 +740,9 @@ PerformGasOverhead = 4294967295
 MaxPerformDataSize = 5000
 SyncInterval = '1h0m0s'
 SyncUpkeepQueueSize = 31
+`},
+		{"Automation", Config{Core: config.Core{Automation: full.Automation}}, `[Automation]
+PerformGasOverhead = 18
 `},
 		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true

@@ -110,7 +110,6 @@ func setupNode(
 	config.Overrides.P2PV2ListenAddresses = p2paddresses
 	config.Overrides.P2PV2AnnounceAddresses = p2paddresses
 	config.Overrides.P2PNetworkingStack = networking.NetworkingStackV2
-	config.Overrides.GlobalEvmGasLimitOCRJobType = null.IntFrom(5300000)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 

@@ -31,6 +31,7 @@ type EnvPrinter struct {
 	AdvisoryLockCheckInterval                  time.Duration   `json:"ADVISORY_LOCK_CHECK_INTERVAL"`
 	AdvisoryLockID                             int64           `json:"ADVISORY_LOCK_ID"`
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
+	AutomationPerformGasLimit                  uint32          `json:"AUTOMATION_PERFORM_GAS_LIMIT"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
@@ -188,6 +189,9 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperCheckUpkeepGasPriceFeatureEnabled: cfg.KeeperCheckUpkeepGasPriceFeatureEnabled(),
 			KeeperTurnLookBack:                      cfg.KeeperTurnLookBack(),
 			KeeperTurnFlagEnabled:                   cfg.KeeperTurnFlagEnabled(),
+
+			// Automation
+			AutomationPerformGasLimit: cfg.AutomationPerformGasLimit(),
 
 			LeaseLockDuration:        cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval: cfg.LeaseLockRefreshInterval(),

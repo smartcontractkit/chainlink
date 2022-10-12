@@ -20,6 +20,7 @@ var (
 	AutoPprofPollInterval             = NewDuration("AutoPprofPollInterval")
 	AutoPprofGatherDuration           = NewDuration("AutoPprofGatherDuration")
 	AutoPprofGatherTraceDuration      = NewDuration("AutoPprofGatherTraceDuration")
+	AutomationPerformGasLimit         = NewUint32("AutomationPerformGasLimit")
 	DatabaseURL                       = New("DatabaseURL", parse.DatabaseURL) //TODO move to v2.CL*?
 	BlockBackfillDepth                = NewUint64("BlockBackfillDepth")
 	HTTPServerWriteTimeout            = NewDuration("HTTPServerWriteTimeout")

@@ -59,6 +59,8 @@ type Core struct {
 
 	Keeper *Keeper
 
+	Automation *Automation
+
 	AutoPprof *AutoPprof
 
 	Pyroscope *Pyroscope
@@ -961,6 +963,16 @@ func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
 	}
 	if v := f.SyncUpkeepQueueSize; v != nil {
 		k.SyncUpkeepQueueSize = v
+	}
+}
+
+type Automation struct {
+	PerformGasLimit *uint32
+}
+
+func (a *Automation) setFrom(f *Automation) {
+	if v := f.PerformGasLimit; v != nil {
+		a.PerformGasLimit = v
 	}
 }
 

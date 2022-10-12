@@ -289,6 +289,9 @@ type ConfigSchema struct {
 	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
 	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
 
+	// Automation
+	AutomationPerformGasLimit uint32 `env:"AUTOMATION_PERFORM_GAS_LIMIT"`
+
 	// Debugging
 	AutoPprofEnabled              bool            `env:"AUTO_PPROF_ENABLED" default:"false"`            //nodoc
 	AutoPprofProfileRoot          string          `env:"AUTO_PPROF_PROFILE_ROOT"`                       //nodoc (defaults to $CHAINLINK_ROOT)

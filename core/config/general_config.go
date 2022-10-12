@@ -136,6 +136,7 @@ type BasicConfig interface {
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
 	KeeperTurnFlagEnabled() bool
+	AutomationPerformGasLimit() uint32
 	KeyFile() string
 	KeystorePassword() string
 	LeaseLockDuration() time.Duration
@@ -916,6 +917,11 @@ func (c *generalConfig) KeeperTurnLookBack() int64 {
 // KeeperTurnFlagEnabled enables new turn taking algo for keepers
 func (c *generalConfig) KeeperTurnFlagEnabled() bool {
 	return getEnvWithFallback(c, envvar.NewBool("KeeperTurnFlagEnabled"))
+}
+
+// AutomationPerformGasLimit sets the gas limit for automation
+func (c *generalConfig) AutomationPerformGasLimit() uint32 {
+	return getEnvWithFallback(c, envvar.AutomationPerformGasLimit)
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format
