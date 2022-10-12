@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 	"gopkg.in/guregu/null.v4"
@@ -129,7 +130,7 @@ func setupNode(
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		app.Stop()
+		assert.NoError(t, app.Stop())
 	})
 
 	return app, peerID.Raw(), nodeKey.Address, kb, config
@@ -261,7 +262,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	for i, node := range nodes {
 		node.AddJob(t, fmt.Sprintf(`
 		type = "offchainreporting2"
-		pluginType = "ocr2keeper"
+		pluginType = "ocr2automation"
 		relay = "evm"
 		name = "ocr2keepers-%d"
 		schemaVersion = 1

@@ -38,7 +38,7 @@ func Test_EthKeyStore(t *testing.T) {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 	const statesTableName = "evm_key_states"
 
@@ -297,7 +297,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 
 	t.Run("initializes with an empty state", func(t *testing.T) {
