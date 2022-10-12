@@ -401,7 +401,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			OnchainKeyring:               kb,
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
-			PerformLogProvider:           coordinator.PerformLogProvider(),
+			PerformLogProvider:           coordinator,
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {
@@ -420,7 +420,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 
 		return []job.ServiceCtx{
 			runResultSaver,
-			coordinator,
 			keeperProvider,
 			pluginService,
 		}, nil

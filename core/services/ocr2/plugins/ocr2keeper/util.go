@@ -83,7 +83,10 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 
 	encoder = kchain.NewEVMReportEncoder()
 
-	coordinator, err := NewLogCoordinator(lggr, chain.LogPoller(), rAddr, chain.Client(), 100)
+	// lookback blocks is hard coded and should provide ample time for logs
+	// to be detected in most cases
+	var lookbackBlocks int64 = 100
+	coordinator, err := NewLogCoordinator(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
 	return keeperProvider, registry, encoder, coordinator, err
 }
