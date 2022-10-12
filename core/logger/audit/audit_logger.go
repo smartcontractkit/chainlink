@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -70,7 +71,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 	headerNameRegex, _ := regexp.Compile(`^[A-Za-z\-]+$`)
 	headerValueRegex, _ := regexp.Compile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 
-	parsed_headers := []ServiceHeader{}
+	var parsedHeaders []ServiceHeader
 	if headers != "" {
 		headerLines := strings.Split(headers, "\\")
 		for _, header := range headerLines {
@@ -88,14 +89,14 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 			if !headerValueRegex.MatchString(value) {
 				return errors.Errorf("invalid header value: %s", value)
 			}
-			parsed_headers = append(parsed_headers, ServiceHeader{
+			parsedHeaders = append(parsedHeaders, ServiceHeader{
 				Header: header,
 				Value:  value,
 			})
 		}
 	}
 
-	*sh = parsed_headers
+	*sh = parsedHeaders
 	return nil
 }
 
@@ -120,6 +121,15 @@ func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 
 	return []byte(serialized), nil
 }
+
+var AuditLoggerHeaders = envvar.New("AuditLoggerHeaders", func(s string) (ServiceHeaders, error) {
+	sh := make(ServiceHeaders, 0)
+	err := sh.UnmarshalText([]byte(s))
+	if err != nil {
+		return nil, err
+	}
+	return sh, nil
+})
 
 type Config interface {
 	AuditLoggerEnabled() bool

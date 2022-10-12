@@ -517,11 +517,11 @@ func (c *generalConfig) AuditLoggerJsonWrapperKey() string {
 }
 
 func (c *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	headers := c.viper.GetString(envvar.Name("AuditLoggerHeaders"))
-	serviceHeaders := audit.ServiceHeaders{}
-	err := serviceHeaders.UnmarshalText([]byte(headers))
-
-	return serviceHeaders, err
+	sh, invalid := audit.AuditLoggerHeaders.Parse()
+	if invalid != "" {
+		return nil, errors.New(invalid)
+	}
+	return sh, nil
 }
 
 // AuthenticatedRateLimit defines the threshold to which authenticated requests

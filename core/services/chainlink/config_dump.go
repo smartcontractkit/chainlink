@@ -680,7 +680,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
 		ForwardToUrl:   envURL("AuditLoggerForwardToUrl"),
 		JsonWrapperKey: envvar.NewString("AuditLoggerJsonWrapperKey").ParsePtr(),
-		Headers:        serviceHeaders("AuditLoggerHeaders"),
+		Headers:        audit.AuditLoggerHeaders.ParsePtr(),
 	}
 
 	if isZeroPtr(c.AuditLogger) {
@@ -1008,17 +1008,6 @@ func envURL(s string) *models.URL {
 		return *p
 	}
 	return nil
-}
-
-func serviceHeaders(s string) *audit.ServiceHeaders {
-	return envvar.New(s, func(s string) (audit.ServiceHeaders, error) {
-		sh := make(audit.ServiceHeaders, 0)
-		err := sh.UnmarshalText([]byte(s))
-		if err != nil {
-			return nil, err
-		}
-		return sh, nil
-	}).ParsePtr()
 }
 
 func envIP(s string) *net.IP {
