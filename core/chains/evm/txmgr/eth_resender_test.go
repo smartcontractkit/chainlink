@@ -8,27 +8,29 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	logCfg := pgtest.NewPGCfg(true)
+	borm := cltest.NewTxmORM(t, db, logCfg)
 
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
@@ -99,14 +101,14 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		// This can be anything as long as it isn't zero
+		c.EVM[0].Transactions.ResendAfterThreshold = models.MustNewDuration(42 * time.Hour)
+		// Set batch size low to test batching
+		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
+	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	// This can be anything as long as it isn't zero
-	d := 42 * time.Hour
-	cfg.Overrides.GlobalEthTxResendAfterThreshold = &d
-	// Set batch size low to test batching
-	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(1)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	lggr := logger.TestLogger(t)

@@ -519,6 +519,14 @@ func ParseURL(s string) (*URL, error) {
 	return (*URL)(u), nil
 }
 
+func MustParseURL(s string) *URL {
+	u, err := ParseURL(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
 func (u *URL) String() string {
 	return (*url.URL)(u).String()
 }

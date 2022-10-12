@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	gencfg "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func NewTOMLChainScopedConfig(genCfg gencfg.BasicConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
@@ -153,38 +154,23 @@ func (c *ChainScoped) EvmGasLimitTransfer() uint32 {
 }
 
 func (c *ChainScoped) EvmGasLimitOCRJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.OCR
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.OCR
 }
 
 func (c *ChainScoped) EvmGasLimitDRJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.DR
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.DR
 }
 
 func (c *ChainScoped) EvmGasLimitVRFJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.VRF
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.VRF
 }
 
 func (c *ChainScoped) EvmGasLimitFMJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.FM
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.FM
 }
 
 func (c *ChainScoped) EvmGasLimitKeeperJobType() *uint32 {
-	if t := c.cfg.GasEstimator.LimitJobType; t != nil {
-		return t.Keeper
-	}
-	return nil
+	return c.cfg.GasEstimator.LimitJobType.Keeper
 }
 
 func (c *ChainScoped) EvmGasPriceDefault() *big.Int {
@@ -262,13 +248,21 @@ func (c *ChainScoped) GasEstimatorMode() string {
 	return *c.cfg.GasEstimator.Mode
 }
 func (c *ChainScoped) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
+	var keySpecific *utils.Big
 	for i := range c.cfg.KeySpecific {
 		ks := c.cfg.KeySpecific[i]
 		if ks.Key.Address() == addr {
-			return (*big.Int)(ks.GasEstimator.PriceMax)
+			keySpecific = (*utils.Big)(ks.GasEstimator.PriceMax)
+			break
 		}
 	}
-	return (*big.Int)(c.cfg.GasEstimator.PriceMax)
+
+	chainSpecific := utils.NewBig(c.EvmMaxGasPriceWei())
+	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) && keySpecific.Cmp(chainSpecific) < 0 {
+		return keySpecific.ToInt()
+	}
+
+	return c.EvmMaxGasPriceWei()
 }
 
 func (c *ChainScoped) LinkContractAddress() string {
