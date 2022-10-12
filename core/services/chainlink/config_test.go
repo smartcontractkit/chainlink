@@ -52,16 +52,16 @@ var (
 			RootDir: ptr("my/root/dir"),
 
 			AuditLogger: &audit.AuditLoggerConfig{
-				Enabled:      ptr(false),
+				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
 				Headers: ptr(audit.ServiceHeaders{
 					audit.ServiceHeader{
 						Header: "Authorization",
-						Value:  "a token here",
+						Value:  "token",
 					},
 					audit.ServiceHeader{
-						Header: "Some-Other-Header",
-						Value:  "other header data here",
+						Header: "X-SomeOther-Header",
+						Value:  "value with spaces | and a bar+*",
 					},
 				}),
 				JsonWrapperKey: ptr("event"),
@@ -226,12 +226,15 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 
-	serviceHeaders := make(audit.ServiceHeaders, 0)
+	serviceHeaders := audit.ServiceHeaders{
+		{"Authorization", "token"},
+		{"X-SomeOther-Header", "value with spaces | and a bar+*"},
+	}
 	full.AuditLogger = &audit.AuditLoggerConfig{
-		Enabled:        ptr(false),
+		Enabled:        ptr(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Headers:        ptr(serviceHeaders),
-		JsonWrapperKey: ptr(""),
+		JsonWrapperKey: ptr("event"),
 	}
 
 	full.Feature = &config.Feature{
@@ -611,8 +614,8 @@ ShutdownGracePeriod = '10s'
 		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
-JsonWrapperKey = ''
-Headers = ''
+JsonWrapperKey = 'event'
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
 `},
 		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
