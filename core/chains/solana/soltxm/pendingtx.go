@@ -15,9 +15,9 @@ type PendingTx struct {
 	key        solkey.Key
 	baseTx     *solana.Transaction // original transaction (should not contain fee information)
 	timestamp  time.Time           // when the current tx is broadcast
-	signatures []solana.Signature
-	currentFee uint64 // current fee for inflight tx
-	broadcast  bool   // check to indicate if already broadcast
+	signatures []solana.Signature  // broadcasted tx signatures
+	currentFee uint64              // current fee for inflight tx
+	broadcast  bool                // check to indicate if already broadcast
 }
 
 // SetComputeUnitPrice sets the compute unit price in micro-lamports, returns new tx
@@ -111,23 +111,35 @@ func (txs *pendingTxMemory) New(tx PendingTx) uuid.UUID {
 }
 
 func (txs *pendingTxMemory) Add(id uuid.UUID, sig solana.Signature) error {
-	var tx PendingTx
-	var exists bool
+	checkExists := func() error {
+		if _, exists := txs.idMap[id]; !exists {
+			return fmt.Errorf("ID does not exist: %s", id)
+		}
+		if _, exists := txs.sigMap[sig]; exists {
+			return fmt.Errorf("signature already exists: %s", sig)
+		}
+		return nil
+	}
 
 	// check exists
 	txs.lock.RLock()
-	if tx, exists = txs.idMap[id]; !exists {
-		txs.lock.RUnlock()
-		return fmt.Errorf("ID does not exist: %s", id)
+	if err := checkExists(); err != nil {
+		return err
 	}
+	tx := txs.idMap[id]
 	txs.lock.RUnlock()
 
 	// save signatures
 	tx.signatures = append(tx.signatures, sig)
+	tx.broadcast = true
 
 	// upgrade to write lock
 	txs.lock.Lock()
 	defer txs.lock.Unlock()
+	// redo check within write lock
+	if err := checkExists(); err != nil {
+		return err
+	}
 	txs.idMap[id] = tx
 	txs.sigMap[sig] = id
 	return nil
@@ -145,6 +157,10 @@ func (txs *pendingTxMemory) Remove(id uuid.UUID) {
 	// upgrade to write lock if ID exists
 	txs.lock.Lock()
 	defer txs.lock.Unlock()
+	// redo check within write lock
+	if _, exists := txs.idMap[id]; !exists {
+		return
+	}
 	for _, s := range txs.idMap[id].signatures {
 		delete(txs.sigMap, s)
 	}

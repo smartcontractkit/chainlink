@@ -3,12 +3,12 @@ package soltxm
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -85,41 +85,55 @@ func (txm *Txm) run() {
 	for {
 		select {
 		case msg := <-txm.chSend:
-			// Set compute unit price for transaction
-			// TODO: build compute unit price estimator
-			if err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee())); err != nil {
+			var id uuid.UUID
+			// check if tx has been broadcast before and fetch or create UUID
+			if msg.broadcast {
+				// this should never happen
+				if len(msg.signatures) == 0 {
+					txm.lggr.Criticalw("tx was already broadcast but has no signatures - dropping from queue", "tx", msg)
+					continue
+				}
+				// this should never happen
+				var exists bool
+				if id, _, exists = txm.txs.Get(msg.signatures[0]); !exists {
+					txm.lggr.Criticalw("tx has signatures but could not find UUID", "signatures", msg.signatures)
+					// TODO: requeue or drop?
+					continue
+				}
+			} else {
+				id = txm.txs.New(msg)
+			}
+
+			// Set compute unit price for transaction, returns a copy of the base tx
+			tx, err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee()))
+			if err != nil {
 				txm.lggr.Errorw("failed to set compute unit price in tx", "error", err)
+				// TODO: requeue tx?
 				continue
 			}
+
 			// marshal + sign transaction
-			txMsg, err := msg.tx.Message.MarshalBinary()
+			txMsg, err := tx.Message.MarshalBinary()
 			if err != nil {
 				txm.lggr.Errorw("failed to marshal transaction message", "error", err)
 				continue
 			}
-			sigBytes, err := msg.key.Sign(txMsg)
+			sigBytes, err := msg.key.Sign(txMsg) // sign with stored key
 			if err != nil {
 				txm.lggr.Errorw("failed to sign transaction", "error", err)
 				continue
 			}
 			var finalSig [64]byte
 			copy(finalSig[:], sigBytes)
-			msg.tx.Signatures = append(msg.tx.Signatures, finalSig) // TODO: how to handle signing tx is being retried (if only 1 sig, clear it and resign)
+			tx.Signatures = append(tx.Signatures, finalSig)
 
 			// process tx
-			sig, err := txm.sendWithExpBackoff(ctx, msg.tx, msg.timeout)
+			sig, err := txm.send(ctx, id, tx)
 			if err != nil {
 				txm.lggr.Errorw("failed to send transaction", "error", err)
 				txm.client.Reset() // clear client if tx fails immediately (potentially bad RPC)
-				continue           // skip remainining
-			}
-
-			// send tx + signature to simulation queue
-			msg.signature = sig
-			select {
-			case txm.chSim <- msg:
-			default:
-				txm.lggr.Warnw("failed to enqeue tx for simulation", "queueFull", len(txm.chSend) == MaxQueueLen, "tx", msg)
+				// TODO: don't give up on tx
+				continue // skip remainining
 			}
 
 			txm.lggr.Debugw("transaction sent", "signature", sig.String())
@@ -130,7 +144,7 @@ func (txm *Txm) run() {
 }
 
 // sendWithExpBackoff broadcasts a transaction at an exponential backoff rate to increase chances of inclusion by the next validator by rebroadcasting more tx packets
-func (txm *Txm) sendWithExpBackoff(chanCtx context.Context, tx *solanaGo.Transaction, timeout time.Duration) (solanaGo.Signature, error) {
+func (txm *Txm) send(chanCtx context.Context, id uuid.UUID, tx *solanaGo.Transaction) (solanaGo.Signature, error) {
 	// fetch client
 	client, err := txm.client.Get()
 	if err != nil {
@@ -138,60 +152,20 @@ func (txm *Txm) sendWithExpBackoff(chanCtx context.Context, tx *solanaGo.Transac
 	}
 
 	// create timeout context
-	ctx, cancel := context.WithTimeout(chanCtx, timeout)
+	ctx, cancel := context.WithTimeout(chanCtx, txm.cfg.TxTimeout())
+	defer cancel()
 
 	// send initial tx (do not retry and exit early if fails)
 	sig, err := client.SendTx(ctx, tx)
 	if err != nil {
-		cancel()                           // cancel context when exiting early
-		txm.txs.OnError(sig, TxFailReject) // increment failed metric
+		txm.txs.OnError(sig, TxFailReject) // increment RPC reject metric
 		return solanaGo.Signature{}, errors.Wrap(err, "tx failed initial transmit")
 	}
 
 	// store tx signature + cancel function
-	if err := txm.txs.Add(sig, cancel); err != nil {
-		cancel() // cancel context when exiting early
+	if err := txm.txs.Add(id, sig); err != nil {
 		return solanaGo.Signature{}, errors.Wrapf(err, "failed to save tx signature (%s) to inflight txs", sig)
 	}
-
-	// retry with exponential backoff
-	// until context cancelled by timeout or called externally
-	go func() {
-		deltaT := 1 // ms
-		tick := time.After(0)
-		for {
-			select {
-			case <-ctx.Done():
-				// stop sending tx after retry tx ctx times out (does not stop confirmation polling for tx)
-				txm.lggr.Debugw("stopped tx retry", "signature", sig)
-				return
-			case <-tick:
-				go func() {
-					retrySig, err := client.SendTx(ctx, tx)
-					// this could occur if endpoint goes down or if ctx cancelled
-					if err != nil {
-						if strings.Contains(err.Error(), "context canceled") || strings.Contains(err.Error(), "context deadline exceeded") {
-							txm.lggr.Debugw("ctx error on send retry transaction", "error", err, "signature", sig)
-						} else {
-							txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", sig)
-						}
-						return
-					}
-					// this should never happen
-					if retrySig != sig {
-						txm.lggr.Criticalw("original signature does not match retry signature", "expectedSignature", sig, "receivedSignature", retrySig)
-					}
-				}()
-			}
-
-			// exponential increase in wait time, capped at 500ms
-			deltaT *= 2
-			if deltaT > MaxRetryTimeMs {
-				deltaT = MaxRetryTimeMs
-			}
-			tick = time.After(time.Duration(deltaT) * time.Millisecond)
-		}
-	}()
 
 	// return signature for use in simulation
 	return sig, nil
@@ -209,7 +183,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 			return
 		case <-tick:
 			// get list of tx signatures to confirm
-			sigs := txm.txs.ListAll()
+			sigs := txm.txs.ListSignatures()
 
 			// exit switch if not txs to confirm
 			if len(sigs) == 0 {
@@ -241,9 +215,12 @@ func (txm *Txm) confirm(ctx context.Context) {
 						)
 
 						// check confirm timeout exceeded -> rebroadcast with new bumped fee
-						if txm.txs.Expired(s[i], txm.cfg.TxConfirmTimeout()) {
-							txm.txs.OnError(s[i], TxFailDrop)
-							txm.lggr.Warnw("failed to find transaction within confirm timeout", "signature", s[i], "timeoutSeconds", txm.cfg.TxConfirmTimeout())
+						if _, tx, exists := txm.txs.Get(s[i]); exists && time.Since(tx.timestamp) > txm.cfg.TxConfirmTimeout() {
+							select {
+							case txm.chSend <- tx:
+							default:
+								txm.lggr.Errorw("failed to enqeue tx", "queueFull", len(txm.chSend) == MaxQueueLen, "tx", tx)
+							}
 						}
 						continue
 					}
@@ -259,18 +236,11 @@ func (txm *Txm) confirm(ctx context.Context) {
 						continue
 					}
 
-					// TODO: optimistically assume that processed == confirmed?
-					// if signature is processed, keep polling
+					// if signature is processed, keep polling, don't retry yet (either will become confirmed or dropped)
 					if res[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
 						txm.lggr.Debugw("tx state: processed",
 							"signature", s[i],
 						)
-
-						// check confirm timeout exceeded
-						if txm.txs.Expired(s[i], txm.cfg.TxConfirmTimeout()) {
-							txm.txs.OnError(s[i], TxFailDrop)
-							txm.lggr.Warnw("tx failed to move beyond 'processed' within confirm timeout", "signature", s[i], "timeoutSeconds", txm.cfg.TxConfirmTimeout())
-						}
 						continue
 					}
 
@@ -345,7 +315,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 }
 
 func (txm *Txm) InflightTxs() int {
-	return len(txm.txs.ListAll())
+	return len(txm.txs.ListSignatures())
 }
 
 func (txm *Txm) SetFee(v uint64) {
