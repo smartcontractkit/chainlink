@@ -67,7 +67,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 	// technically allow instead following the guidelines of
 	// cloudflare transforms.
 	// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
-	headerNameRegex, _ := regexp.Compile("^[A-Za-z\\-]+$")
+	headerNameRegex, _ := regexp.Compile(`^[A-Za-z\-]+$`)
 	headerValueRegex, _ := regexp.Compile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 
 	parsed_headers := []ServiceHeader{}
