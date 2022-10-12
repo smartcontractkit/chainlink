@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 	"gopkg.in/guregu/null.v4"
@@ -129,7 +130,7 @@ func setupNode(
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		app.Stop()
+		assert.NoError(t, app.Stop())
 	})
 
 	return app, peerID.Raw(), nodeKey.Address, kb, config
