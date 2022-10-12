@@ -227,8 +227,8 @@ func TestConfig_Marshal(t *testing.T) {
 	full := global
 
 	serviceHeaders := audit.ServiceHeaders{
-		{"Authorization", "token"},
-		{"X-SomeOther-Header", "value with spaces | and a bar+*"},
+		{Header: "Authorization", Value: "token"},
+		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
 	full.AuditLogger = &audit.AuditLoggerConfig{
 		Enabled:        ptr(true),
