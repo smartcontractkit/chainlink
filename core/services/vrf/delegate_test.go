@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	corecfg "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -55,7 +56,7 @@ type vrfUniverse struct {
 	cid       big.Int
 }
 
-func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, db *sqlx.DB, cfg corecfg.GeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()

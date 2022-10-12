@@ -55,9 +55,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
@@ -348,12 +350,15 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			t.Parallel()
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
-			config := cltest.NewTestGeneralConfig(t)
-			config.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
+			config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				cltest.TestOverrides(c, s)
+				cltest.OverrideSimulated(c, s)
+				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			})
 			operatorContracts := setupOperatorContracts(t)
 			b := operatorContracts.sim
-			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b)
 
 			sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 			require.NoError(t, err)
@@ -1402,3 +1407,5 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 	require.NoError(t, err)
 	assert.True(t, jpy.Cmp(haveJpy) == 0)
 }
+
+func ptr[T any](v T) *T { return &v }

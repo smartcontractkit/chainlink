@@ -5,10 +5,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // LockedDB bounds DB connection and DB locks.
@@ -127,7 +128,7 @@ func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err erro
 	appid := cfg.AppID()
 	static.SetConsumerName(&uri, "App", &appid)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, err = NewConnection(uri.String(), string(dialect), Config{
+	db, err = NewConnection(uri.String(), dialect, Config{
 		Logger:       lggr,
 		MaxOpenConns: cfg.ORMMaxOpenConns(),
 		MaxIdleConns: cfg.ORMMaxIdleConns(),
