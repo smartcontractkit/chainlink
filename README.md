@@ -244,31 +244,31 @@ yarn test
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
 
-### Nix Flake
+### Nix
 
-A [flake](https://nixos.wiki/wiki/Flakes) is provided for use with the [Nix
-package manager](https://nixos.org/). It defines a declarative, reproducible
-development environment.
+A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/), with optional [flakes](https://nixos.wiki/wiki/Flakes) support. It defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies, while non-flakes shell will use your channel's packages versions.
 
 To use it:
 
-1. [Nix has to be installed with flake support](https://nixos.wiki/wiki/Flakes#Installing_flakes).
-2. Run `nix develop`. You will be put in shell containing all the dependencies.
-   Alternatively, a `direnv` integration exists to automatically change the
-   environment when `cd`-ing into the folder.
+1. Install [nix package manager](https://nixos.org/download.html) in your system.
+  - Optionally, enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
+2. Run `nix-shell`. You will be put in shell containing all the dependencies.
+  - To use the flakes version, run `nix develop` instead of `nix-shell`. Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
+  - You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use nix` or `use flake` on it.
 3. Create a local postgres database:
 
-```
-cd $PGDATA/
+```sh
+mkdir -p $PGDATA && cd $PGDATA/
 initdb
-pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start
+pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start
 createdb chainlink_test -h localhost
-createuser --superuser --no-password chainlink -h localhost
+createuser --superuser --password chainlink -h localhost
+# then type a test password, e.g.: chainlink, and set it in shell.nix DATABASE_URL
 ```
 
-4. Start postgres, `pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start`
-
-Now you can run tests or compile code as usual.
+4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`
+  Now you can run tests or compile code as usual.
+5. When you're done, stop it: `cd $PGDATA; pg_ctl -o "--unix_socket_directories='$PWD'" stop`
 
 ### Tips
 
