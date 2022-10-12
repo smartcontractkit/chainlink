@@ -1,0 +1,151 @@
+# Builds external repositories that use this so we can create tickets to update them before their ci pipelines break.
+# NOTE: This is not a required check to merge, merely a check so you know to create tickets to update the products that rely on this.
+name: Build External Repositories
+on:
+  pull_request:
+
+# Only run 1 of this workflow at a time per PR
+concurrency:
+  group: integration-build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Build the image
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@v2.0.21
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          push_tag: ""
+          cl_repo: smartcontractkit/chainlink
+          cl_ref: develop
+          dep_relay_sha: ${{ github.event.pull_request.head.sha }}
+  solana-build-relay:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Solana Build Relay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Build Relay
+        continue-on-error: true
+      - name: Checkout the solana repo
+        uses: actions/checkout@v3
+        with:
+          repository: smartcontractkit/chainlink-solana
+          ref: relay_ci_updates
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+      - name: Replace chainlink-relay deps
+        run: |
+          go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+          go mod tidy
+      - name: Install Solana CLI
+        run: make test_install_ci
+      - name: Build & Test
+        run: make test_relay_unit
+  starknet-build-relay:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Starknet Build Relay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Starknet Build Relay
+        continue-on-error: true
+      - name: Checkout the starknet repo
+        uses: actions/checkout@v3
+        with:
+          repository: smartcontractkit/chainlink-starknet
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: ./relayer/go.mod
+      - name: Replace chainlink-relay deps
+        run: | 
+            cd relayer
+            go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+            go mod tidy
+      - name: Install Nix
+        uses: cachix/install-nix-action@d64e0553100205688c0fb2fa16edb0fc8663c590 # v17
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - name: Build
+        run: nix develop -c make build-go-relayer
+      - name: Test
+        run: nix develop -c make test-unit-go
+  terra-build-relay:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Terra Build Relay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Terra Build Relay
+        continue-on-error: true
+      - name: Checkout the terra repo
+        uses: actions/checkout@v3
+        with:
+          repository: smartcontractkit/chainlink-terra
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+      - name: Replace chainlink-relay deps
+        run: |
+          go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+          go mod tidy
+      - name: Install Nix
+        uses: cachix/install-nix-action@v14
+        with:
+          install_url: https://nixos-nix-install-tests.cachix.org/serve/vij683ly7sl95nnhb67bdjjfabclr85m/install
+          install_options: "--tarball-url-prefix https://nixos-nix-install-tests.cachix.org/serve"
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+      - name: Compile relay
+        run: nix develop -c go build -v ./pkg/terra/...
+      - name: Run unit tests
+        run: nix develop -c go test -v ./pkg/terra/...
