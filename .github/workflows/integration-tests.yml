@@ -23,7 +23,7 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
-      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+      - uses: dorny/paths-filter@737cb1986a0ab3e9b76e4306075223d1a2b2467b # v2.10.2
         id: changes
         with:
           filters: |
