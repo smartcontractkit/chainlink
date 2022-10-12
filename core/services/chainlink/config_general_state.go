@@ -7,9 +7,12 @@ import (
 
 func (g *generalConfig) AppID() uuid.UUID {
 	g.appIDOnce.Do(func() {
-		g.appID = uuid.NewV4()
+		if g.c.AppID != (uuid.UUID{}) {
+			return // already set (e.g. test override)
+		}
+		g.c.AppID = uuid.NewV4() // randomize
 	})
-	return g.appID
+	return g.c.AppID
 }
 
 func (g *generalConfig) DefaultLogLevel() zapcore.Level {
@@ -18,27 +21,27 @@ func (g *generalConfig) DefaultLogLevel() zapcore.Level {
 
 func (g *generalConfig) LogLevel() (ll zapcore.Level) {
 	g.logMu.RLock()
-	ll = g.logLevelDefault
+	ll = g.c.Log.Level
 	g.logMu.RUnlock()
 	return
 }
 
 func (g *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	g.logMu.Lock()
-	g.logLevel = lvl
+	g.c.Log.Level = lvl
 	g.logMu.Unlock()
 	return nil
 }
 
 func (g *generalConfig) LogSQL() (sql bool) {
 	g.logMu.RLock()
-	sql = g.logSQL
+	sql = g.c.Log.SQL
 	g.logMu.RUnlock()
 	return
 }
 
 func (g *generalConfig) SetLogSQL(logSQL bool) {
 	g.logMu.Lock()
-	g.logSQL = logSQL
+	g.c.Log.SQL = logSQL
 	g.logMu.Unlock()
 }
