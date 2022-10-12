@@ -61,7 +61,7 @@ func TestDoc(t *testing.T) {
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.Keeper)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.VRF)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.FM)
-		docDefaults.GasEstimator.LimitJobType = nil
+		docDefaults.GasEstimator.LimitJobType = evmcfg.GasLimitJobType{}
 
 		// EIP1559FeeCapBufferBlocks doesn't have a constant default - it is derived from another field
 		require.Zero(t, *docDefaults.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks)

@@ -14,7 +14,6 @@ import (
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -43,51 +43,95 @@ type generalConfig struct {
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
 
-	c       *Config // all fields non-nil
+	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
 	secrets *Secrets
 
-	// state
-	appID     uuid.UUID
+	logLevelDefault zapcore.Level
+
 	appIDOnce sync.Once
 
 	randomP2PPort     uint16
 	randomP2PPortOnce sync.Once
 
-	logLevelDefault zapcore.Level
-	logLevel        zapcore.Level
-	logSQL          bool
-	logMu           sync.RWMutex
+	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
 }
 
-func NewTOMLGeneralConfig(lggr logger.Logger, configToml string, secretsToml string, keystorePasswordFileName, vrfPasswordFileName *string) (coreconfig.GeneralConfig, error) {
-	var c Config
-	err := v2.DecodeTOML(strings.NewReader(configToml), &c)
+// GeneralConfigTOML holds TOML configuration options for creating a coreconfig.GeneralConfig via New().
+//
+// See GeneralConfigOpts to initilize from go types.
+type GeneralConfigTOML struct {
+	Config, Secrets string
+
+	KeystorePasswordFileName, VRFPasswordFileName *string
+
+	OverrideFn func(*Config, *Secrets) // tests only
+}
+
+// New returns a coreconfig.GeneralConfig from the parsed TOML.
+func (t GeneralConfigTOML) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	o := GeneralConfigOpts{
+		KeystorePasswordFileName: t.KeystorePasswordFileName,
+		VRFPasswordFileName:      t.VRFPasswordFileName,
+		OverrideFn:               t.OverrideFn,
+	}
+	err := v2.DecodeTOML(strings.NewReader(t.Config), &o.Config)
 	if err != nil {
 		return nil, err
 	}
-	input, err := c.TOMLString()
+	err = v2.DecodeTOML(strings.NewReader(t.Secrets), &o.Secrets)
+	if err != nil {
+		return nil, err
+	}
+	return o.New(lggr)
+}
+
+// GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
+//
+// See GeneralConfigTOML to inialize from TOML.
+type GeneralConfigOpts struct {
+	Config
+	Secrets
+
+	KeystorePasswordFileName, VRFPasswordFileName *string
+
+	// OverrideFn is a *test-only* hook to override effective values.
+	OverrideFn func(*Config, *Secrets)
+}
+
+// New returns a coreconfig.GeneralConfig for the given options.
+func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
 	}
 
-	c.setDefaults()
+	o.Config.setDefaults()
 
-	effective, err := c.TOMLString()
+	//TODO setEnv() helper; https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
+	o.Config.DevMode = v2.CLDev
+	if p := envvar.LogLevel.ParsePtr(); p != nil {
+		o.Config.Log.Level = *p
+	}
+
+	err = o.Secrets.SetOverrides(o.KeystorePasswordFileName, o.VRFPasswordFileName)
 	if err != nil {
 		return nil, err
 	}
 
-	var s Secrets
-	err = v2.DecodeTOML(strings.NewReader(secretsToml), &s)
-	if err != nil {
-		return nil, err
+	if fn := o.OverrideFn; fn != nil {
+		fn(&o.Config, &o.Secrets)
 	}
-	err = s.SetOverrides(keystorePasswordFileName, vrfPasswordFileName)
+
+	effective, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
 	}
 
-	return &generalConfig{lggr: lggr, c: &c, inputTOML: input, effectiveTOML: effective, secrets: &s}, nil
+	return &generalConfig{
+		lggr:      lggr,
+		inputTOML: input, effectiveTOML: effective,
+		c: &o.Config, secrets: &o.Secrets,
+		logLevelDefault: o.Config.Log.Level}, nil
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
@@ -116,7 +160,7 @@ func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
 }
 
 func (g *generalConfig) Dev() bool {
-	return v2.CLDev
+	return g.c.DevMode
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -154,6 +198,67 @@ func (g *generalConfig) EVMEnabled() bool {
 		}
 	}
 	return false
+}
+
+func (g *generalConfig) EVMRPCEnabled() bool {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			if len(c.Nodes) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) DefaultChainID() *big.Int {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			return (*big.Int)(c.ChainID)
+		}
+	}
+	return nil
+}
+
+func (g *generalConfig) EthereumHTTPURL() *url.URL {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.SendOnly == nil || !*n.SendOnly {
+					return (*url.URL)(n.HTTPURL)
+				}
+			}
+		}
+	}
+	return nil
+
+}
+func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.HTTPURL != nil {
+					us = append(us, (url.URL)(*n.HTTPURL))
+				}
+			}
+		}
+	}
+	return nil
+
+}
+func (g *generalConfig) EthereumURL() string {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.SendOnly == nil || !*n.SendOnly {
+					if n.WSURL != nil {
+						return n.WSURL.String()
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
@@ -325,7 +430,7 @@ func (g *generalConfig) FMSimulateTransactions() bool {
 }
 
 func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	panic(v2.ErrUnsupported)
+	return g.c.Database.Dialect
 }
 
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {

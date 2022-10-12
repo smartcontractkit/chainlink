@@ -427,7 +427,7 @@ type GasEstimator struct {
 	LimitMax        *uint32
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
-	LimitJobType    *GasLimitJobType
+	LimitJobType    GasLimitJobType `toml:",omitempty"`
 
 	BumpMin       *utils.Wei
 	BumpPercent   *uint16
@@ -530,12 +530,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	if v := f.PriceMin; v != nil {
 		e.PriceMin = v
 	}
-	if v := f.LimitJobType; v != nil {
-		if e.LimitJobType == nil {
-			e.LimitJobType = &GasLimitJobType{}
-		}
-		e.LimitJobType.setFrom(f.LimitJobType)
-	}
+	e.LimitJobType.setFrom(&f.LimitJobType)
 	if f.BlockHistory != nil {
 		if e.BlockHistory == nil {
 			e.BlockHistory = &BlockHistoryEstimator{}
@@ -832,18 +827,12 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
-		}
 		v := uint32(cfg.EvmGasLimitOCRJobType.Int64)
 		c.GasEstimator.LimitJobType.OCR = &v
 	}
 	if cfg.EvmGasLimitDRJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
-		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
 		}
 		v := uint32(cfg.EvmGasLimitDRJobType.Int64)
 		c.GasEstimator.LimitJobType.DR = &v
@@ -852,9 +841,6 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
-		}
 		v := uint32(cfg.EvmGasLimitVRFJobType.Int64)
 		c.GasEstimator.LimitJobType.VRF = &v
 	}
@@ -862,18 +848,12 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
-		}
 		v := uint32(cfg.EvmGasLimitFMJobType.Int64)
 		c.GasEstimator.LimitJobType.FM = &v
 	}
 	if cfg.EvmGasLimitKeeperJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
-		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
 		}
 		v := uint32(cfg.EvmGasLimitKeeperJobType.Int64)
 		c.GasEstimator.LimitJobType.Keeper = &v

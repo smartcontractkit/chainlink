@@ -413,7 +413,7 @@ type ChainSetOpts struct {
 }
 
 func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
-	if err := checkOpts(&opts); err != nil {
+	if err := opts.check(); err != nil {
 		return nil, err
 	}
 	if h, ok := opts.Config.(v2.HasEVMConfigs); ok {
@@ -439,7 +439,7 @@ func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 // NewDBChainSet returns a new ChainSet from legacy configuration.
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewDBChainSet(ctx context.Context, opts ChainSetOpts, dbchains []types.DBChain, nodes map[string][]types.Node) (ChainSet, error) {
-	if err := checkOpts(&opts); err != nil {
+	if err := opts.check(); err != nil {
 		return nil, err
 	}
 	opts.Logger = opts.Logger.Named("EVM")
@@ -471,12 +471,20 @@ func NewDBChainSet(ctx context.Context, opts ChainSetOpts, dbchains []types.DBCh
 
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
 func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts, chains []*v2.EVMConfig) (ChainSet, error) {
-	if err := checkOpts(&opts); err != nil {
+	if err := opts.check(); err != nil {
 		return nil, err
 	}
 	opts.Logger = opts.Logger.Named("EVM")
+	defaultChainID := opts.Config.DefaultChainID()
+	if defaultChainID == nil && len(chains) >= 1 {
+		defaultChainID = chains[0].ChainID.ToInt()
+		if len(chains) > 1 {
+			opts.Logger.Debugf("Multiple chains present, default chain: %s", defaultChainID.String())
+		}
+	}
 	var err error
 	cll := newChainSet(opts)
+	cll.defaultID = defaultChainID
 	cll.immutable = true
 	for i := range chains {
 		cid := chains[i].ChainID.String()
@@ -503,7 +511,7 @@ func newChainSet(opts ChainSetOpts) *chainSet {
 	}
 }
 
-func checkOpts(opts *ChainSetOpts) error {
+func (opts *ChainSetOpts) check() error {
 	if opts.Logger == nil {
 		return errors.New("logger must be non-nil")
 	}
@@ -512,9 +520,6 @@ func checkOpts(opts *ChainSetOpts) error {
 	}
 
 	if tomlConfig, ok := opts.Config.(v2.HasEVMConfigs); ok {
-		if opts.ORM != nil {
-			return errors.New("cannot pre-set ORM with TOML config")
-		}
 		opts.ORM = chains.NewORMImmut[utils.Big, *types.ChainCfg, types.Node](tomlConfig.EVMConfigs())
 	} else if opts.ORM == nil {
 		// legacy config only
