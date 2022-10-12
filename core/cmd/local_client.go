@@ -652,7 +652,7 @@ func newConnection(cfg dbConfig, lggr logger.Logger) (*sqlx.DB, error) {
 		MaxOpenConns: cfg.ORMMaxOpenConns(),
 		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	}
-	db, err := pg.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
+	db, err := pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), config)
 	return db, err
 }
 

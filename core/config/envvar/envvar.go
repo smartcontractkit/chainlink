@@ -13,13 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 )
 
-//nolint
+// nolint
 var (
 	AdvisoryLockID                    = NewInt64("AdvisoryLockID")
 	AuthenticatedRateLimitPeriod      = NewDuration("AuthenticatedRateLimitPeriod")
 	AutoPprofPollInterval             = NewDuration("AutoPprofPollInterval")
 	AutoPprofGatherDuration           = NewDuration("AutoPprofGatherDuration")
 	AutoPprofGatherTraceDuration      = NewDuration("AutoPprofGatherTraceDuration")
+	DatabaseURL                       = New("DatabaseURL", parse.DatabaseURL) //TODO move to v2.CL*?
 	BlockBackfillDepth                = NewUint64("BlockBackfillDepth")
 	HTTPServerWriteTimeout            = NewDuration("HTTPServerWriteTimeout")
 	JobPipelineMaxRunDuration         = NewDuration("JobPipelineMaxRunDuration")

@@ -862,7 +862,7 @@ TraceLogging enables trace level logging.
 ## P2P.V1<a id='P2P-V1'></a>
 ```toml
 [P2P.V1]
-Enabled = false # Default
+Enabled = true # Default
 AnnounceIP = '1.2.3.4' # Example
 AnnouncePort = 1337 # Example
 BootstrapCheckInterval = '20s' # Default
@@ -879,7 +879,7 @@ PeerstoreWriteInterval = '5m' # Default
 
 ### Enabled<a id='P2P-V1-Enabled'></a>
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables P2P V1.
 
