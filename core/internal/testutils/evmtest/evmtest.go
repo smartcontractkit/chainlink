@@ -29,7 +29,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -37,14 +36,20 @@ import (
 )
 
 func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {
-	if _, ok := cfg.(v2.HasEVMConfigs); ok {
-		chainID := utils.NewBigI(0)
-		newChain, _ := v2.Defaults(chainID)
-		evmCfg := v2.EVMConfig{
-			ChainID: chainID,
-			Chain:   newChain,
+	if cfgs, ok := cfg.(v2.HasEVMConfigs); ok {
+		var evmCfg *v2.EVMConfig
+		if len(cfgs.EVMConfigs()) > 0 {
+			evmCfg = cfgs.EVMConfigs()[0]
+		} else {
+			chainID := utils.NewBigI(0)
+			newChain, _ := v2.Defaults(chainID)
+			evmCfg = &v2.EVMConfig{
+				ChainID: chainID,
+				Chain:   newChain,
+			}
 		}
-		return v2.NewTOMLChainScopedConfig(cfg, &evmCfg, logger.TestLogger(t))
+
+		return v2.NewTOMLChainScopedConfig(cfg, evmCfg, logger.TestLogger(t))
 	}
 	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.TestLogger(t), cfg)
 }
@@ -306,17 +311,6 @@ func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts
 // NodesForChain implements evmtypes.ORM
 func (mo *MockORM) SetupNodes([]evmtypes.Node, []utils.Big) error {
 	panic("not implemented")
-}
-
-func ChainEthMainnet(t *testing.T) evmconfig.ChainScopedConfig      { return scopedConfig(t, 1) }
-func ChainOptimismMainnet(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 10) }
-func ChainOptimismKovan(t *testing.T) evmconfig.ChainScopedConfig   { return scopedConfig(t, 69) }
-func ChainArbitrumMainnet(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 42161) }
-func ChainArbitrumRinkeby(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 421611) }
-
-func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
-	return evmconfig.NewChainScopedConfig(big.NewInt(chainID), evmtypes.ChainCfg{}, nil,
-		logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 }
 
 func NewEthClientMock(t *testing.T) *evmMocks.Client {
