@@ -1015,7 +1015,7 @@ func serviceHeaders(s string) *audit.ServiceHeaders {
 		sh := make(audit.ServiceHeaders, 0)
 		err := sh.UnmarshalText([]byte(s))
 		if err != nil {
-			return nil, nil
+			return nil, err
 		}
 		return sh, nil
 	}).ParsePtr()
