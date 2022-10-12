@@ -52,10 +52,19 @@ var (
 			RootDir: ptr("my/root/dir"),
 
 			AuditLogger: &audit.AuditLoggerConfig{
-				Enabled:        ptr(false),
-				ForwardToUrl:   mustURL("http://localhost:9898"),
-				Headers:        ptr(make(audit.ServiceHeaders, 0)),
-				JsonWrapperKey: ptr(""),
+				Enabled:      ptr(false),
+				ForwardToUrl: mustURL("http://localhost:9898"),
+				Headers: ptr(audit.ServiceHeaders{
+					audit.ServiceHeader{
+						Header: "Authorization",
+						Value:  "a token here",
+					},
+					audit.ServiceHeader{
+						Header: "Some-Other-Header",
+						Value:  "other header data here",
+					},
+				}),
+				JsonWrapperKey: ptr("event"),
 			},
 
 			Database: &config.Database{
@@ -600,7 +609,7 @@ RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 `},
 		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
-Enabled = false
+Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = ''
 Headers = ''

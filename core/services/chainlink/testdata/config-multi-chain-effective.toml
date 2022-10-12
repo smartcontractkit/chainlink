@@ -45,7 +45,7 @@ UseBatchSend = true
 [AuditLogger]
 Enabled = false
 ForwardToUrl = 'http://localhost:9898'
-JsonWrapperKey = ''
+JsonWrapperKey = 'event'
 Headers = ''
 
 [Log]

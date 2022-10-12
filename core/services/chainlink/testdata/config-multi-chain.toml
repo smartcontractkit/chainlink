@@ -5,10 +5,10 @@ RootDir = 'my/root/dir'
 FallbackPollInterval = '2m0s'
 
 [AuditLogger]
-Enabled = false
+Enabled = true
 ForwardToUrl = 'http://localhost:9898'
-JsonWrapperKey = ''
-Headers = ''
+JsonWrapperKey = 'event'
+Headers = 'Authorization||a token here\Some-Other-Header||other header data here'
 
 [Log]
 JSONConsole = true

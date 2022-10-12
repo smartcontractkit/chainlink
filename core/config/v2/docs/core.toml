@@ -113,7 +113,7 @@ ForwardToUrl = 'http://localhost:9898' # Example
 # JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
 JsonWrapperKey = 'event' # Example
 # Headers is the set of headers you wish to pass along with each request
-Headers = 'Authorization||token\\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
 
 [Log]
 # DatabaseQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
