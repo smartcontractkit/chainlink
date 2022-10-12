@@ -51,11 +51,10 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
 
 	chainID := utils.NewBigI(evmclient.NullClientChainID)
-	chain, _ := evmcfg.Defaults(chainID)
 	enabled := true
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   chain,
+		Chain:   evmcfg.DefaultsFrom(chainID, nil),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	})

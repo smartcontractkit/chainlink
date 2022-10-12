@@ -254,7 +254,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	app := cltest.NewApplication(t, ethClient)
+	app := cltest.NewLegacyApplication(t, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// set up user

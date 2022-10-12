@@ -95,11 +95,10 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 // or replaces the null chain (client.NullClientChainID) if that is the only entry.
 func OverrideSimulated(c *chainlink.Config, s *chainlink.Secrets) {
 	chainID := utils.NewBig(testutils.SimulatedChainID)
-	chain, _ := evmcfg.Defaults(chainID)
 	enabled := true
 	cfg := evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   chain,
+		Chain:   evmcfg.DefaultsFrom(chainID, nil),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	}
