@@ -1,107 +1,137 @@
 package soltxm
 
 import (
-	"context"
 	"crypto/rand"
+	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
-func TestPendingTxContext(t *testing.T) {
-	// setup
-	var wg sync.WaitGroup
-	ctx := testutils.Context(t)
-	newProcess := func(i int) (solana.Signature, context.CancelFunc) {
-		// make random signature
-		sig := make([]byte, 64)
-		_, err := rand.Read(sig)
-		require.NoError(t, err)
+// testing only
+func XXXNewSignature(t *testing.T) solana.Signature {
+	// make random signature
+	sig := make([]byte, 64)
+	_, err := rand.Read(sig)
+	require.NoError(t, err)
 
-		// start subprocess to wait for context
-		ctx, cancel := context.WithCancel(ctx)
-		wg.Add(1)
-		go func() {
-			<-ctx.Done()
-			wg.Done()
-		}()
-		return solana.SignatureFromBytes(sig), cancel
-	}
-
-	// init inflight txs map + store some signatures and cancelFunc
-	txs := newPendingTxContext()
-	n := 5
-	for i := 0; i < n; i++ {
-		sig, cancel := newProcess(i)
-		err := txs.Add(sig, cancel)
-		assert.NoError(t, err)
-	}
-
-	// return list of signatures
-	list := txs.ListAll()
-	assert.Equal(t, n, len(list))
-
-	// stop all sub processes
-	for i := 0; i < len(list); i++ {
-		txs.Remove(list[i])
-		assert.Equal(t, n-i-1, len(txs.ListAll()))
-	}
-	wg.Wait()
+	return solana.SignatureFromBytes(sig)
 }
 
-func TestPendingTxContext_expired(t *testing.T) {
-	_, cancel := context.WithCancel(testutils.Context(t))
-	sig := solana.Signature{}
-	txs := newPendingTxContext()
+func TestPendingTxMemory(t *testing.T) {
+	t.Run("happyPath", func(t *testing.T) {
+		// init inflight txs map + store some signatures and cancelFunc
+		txs := newPendingTxMemory()
+		n := 5
+		for i := 0; i < n; i++ {
+			// 1 tx, 1 signature
+			idTemp := txs.New(PendingTx{})
+			sigTemp := XXXNewSignature(t)
+			assert.NoError(t, txs.Add(idTemp, sigTemp))
 
-	err := txs.Add(sig, cancel)
-	assert.NoError(t, err)
+			// validate get method
+			idGet, txGet, exists := txs.Get(sigTemp)
+			assert.True(t, exists)
+			assert.Equal(t, idTemp, idGet)
+			assert.Equal(t, 1, len(txGet.signatures))
+			assert.Equal(t, sigTemp, txGet.signatures[0])
+		}
 
-	assert.True(t, txs.Expired(sig, 0*time.Second))   // expired for 0s lifetime
-	assert.False(t, txs.Expired(sig, 60*time.Second)) // not expired for 60s lifetime
+		// return list of signatures
+		list := txs.ListSignatures()
+		assert.Equal(t, n, len(list))
 
-	txs.Remove(sig)
-	assert.True(t, txs.Expired(sig, 60*time.Second)) // no longer exists, should be expired
+		// stop all sub processes
+		for i := 0; i < len(list); i++ {
+			txs.OnSuccess(list[i])
+			assert.Equal(t, n-i-1, len(txs.ListSignatures()))
+
+			_, _, exists := txs.Get(list[i])
+			assert.False(t, exists)
+		}
+	})
+
+	t.Run("oneTxManySig", func(t *testing.T) {
+		// init inflight txs map + store some signatures and cancelFunc
+		txs := newPendingTxMemory()
+		n := 5
+		var tx0 PendingTx
+		id := txs.New(tx0) // store 1 tx
+		for i := 0; i < n; i++ {
+			// 1 tx, many signatures
+			sigTemp := XXXNewSignature(t)
+			err := txs.Add(id, sigTemp)
+			assert.NoError(t, err)
+
+			// validate get method
+			idGet, txGet, exists := txs.Get(sigTemp)
+			assert.True(t, exists)
+			assert.Equal(t, id, idGet)
+			assert.Equal(t, i+1, len(txGet.signatures))
+			assert.Equal(t, sigTemp, txGet.signatures[len(txGet.signatures)-1])
+		}
+
+		// return list of signatures
+		list := txs.ListSignatures()
+		assert.Equal(t, n, len(list))
+
+		// stop all sub processes by completing 1 signature
+		txs.OnSuccess(list[0])
+		assert.Equal(t, 0, len(txs.ListSignatures()))
+		for i := 0; i < len(list); i++ {
+			_, _, exists := txs.Get(list[i])
+			assert.False(t, exists)
+		}
+	})
+
+	t.Run("duplicateSignatures", func(t *testing.T) {
+		// TODO
+		// duplicate for same tx
+		// duplicate for different txs
+	})
+
+	t.Run("stateMachine", func(t *testing.T) {
+		// TODO
+	})
 }
 
-func TestPendingTxContext_race(t *testing.T) {
+func TestPendingTxMemory_race(t *testing.T) {
 	t.Run("add", func(t *testing.T) {
-		txCtx := newPendingTxContext()
+		txCtx := newPendingTxMemory()
+		id := txCtx.New(PendingTx{})
 		var wg sync.WaitGroup
 		wg.Add(2)
 		var err [2]error
 
 		go func() {
-			err[0] = txCtx.Add(solana.Signature{}, func() {})
+			err[0] = txCtx.Add(id, solana.Signature{})
 			wg.Done()
 		}()
 		go func() {
-			err[1] = txCtx.Add(solana.Signature{}, func() {})
+			err[1] = txCtx.Add(id, solana.Signature{})
 			wg.Done()
 		}()
 
 		wg.Wait()
+		fmt.Println(err)
 		assert.True(t, (err[0] != nil && err[1] == nil) || (err[0] == nil && err[1] != nil), "one and only one 'add' should have errored")
 	})
 
 	t.Run("remove", func(t *testing.T) {
-		txCtx := newPendingTxContext()
-		require.NoError(t, txCtx.Add(solana.Signature{}, func() {}))
+		txCtx := newPendingTxMemory()
+		id := txCtx.New(PendingTx{})
 		var wg sync.WaitGroup
 		wg.Add(2)
 
 		go func() {
-			assert.NotPanics(t, func() { txCtx.Remove(solana.Signature{}) })
+			assert.NotPanics(t, func() { txCtx.Remove(id) })
 			wg.Done()
 		}()
 		go func() {
-			assert.NotPanics(t, func() { txCtx.Remove(solana.Signature{}) })
+			assert.NotPanics(t, func() { txCtx.Remove(id) })
 			wg.Done()
 		}()
 
