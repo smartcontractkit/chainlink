@@ -1025,7 +1025,7 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	upkeepCount             int64   // The count of upkeeps done so far
 	allCheckDelays          []int64 // Tracks the amount of blocks missed before an upkeep since it became eligible
 	complete                bool
-	upkeepReset             bool
+	upkeepReset             bool // Tracks if upkeep was already reset during setup or during the test
 }
 
 // NewKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a KeeperConsumerBenchmarkRoundConfirmer
@@ -1039,6 +1039,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
+	upkeepsReset bool, // set if upkeeps were reset during setup
 ) *KeeperConsumerBenchmarkRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &KeeperConsumerBenchmarkRoundConfirmer{
@@ -1058,7 +1059,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		complete:                false,
 		lastBlockNum:            0,
 		upkeepIndex:             upkeepIndex,
-		upkeepReset:             false,
+		upkeepReset:             upkeepsReset,
 		rampUpBlocks:            rampUpBlocks,
 		firstBlockNum:           0,
 	}
@@ -1167,7 +1168,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 	}
 
 	if (o.blocksSinceSubscription%o.rampUpBlocks == o.upkeepIndex%o.rampUpBlocks) && !o.upkeepReset {
-		err := o.instance.SetFirstEligibleBuffer(context.Background(), big.NewInt(0))
+		err := o.instance.SetFirstEligibleBuffer(context.Background(), big.NewInt(1))
 		if err != nil {
 			log.Error().
 				Err(err).
