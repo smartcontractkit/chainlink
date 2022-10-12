@@ -41,10 +41,13 @@ func NewLogCoordinator(
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need.
-	err = logPoller.MergeFilter([]common.Hash{
-		registry.KeeperRegistryUpkeepPerformed{}.Topic(),
-	}, []common.Address{registryAddress})
+	// we need. Not unregistering the filter later so we ignore the id
+	_, err = logPoller.RegisterFilter(logpoller.Filter{
+		EventSigs: []common.Hash{
+			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
+		},
+		Addresses: []common.Address{registryAddress},
+	})
 	if err != nil {
 		return nil, err
 	}

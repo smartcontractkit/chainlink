@@ -96,7 +96,7 @@ func setupTerraKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keys
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.Terra().Add(cltest.DefaultTerraKey)
+	require.NoError(t, app.KeyStore.Terra().Add(cltest.DefaultTerraKey))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 

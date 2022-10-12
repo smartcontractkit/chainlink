@@ -87,6 +87,7 @@ func TestConfigSchema(t *testing.T) {
 		"EvmHeadTrackerSamplingInterval":                 "ETH_HEAD_TRACKER_SAMPLING_INTERVAL",
 		"EvmLogBackfillBatchSize":                        "ETH_LOG_BACKFILL_BATCH_SIZE",
 		"EvmLogPollInterval":                             "ETH_LOG_POLL_INTERVAL",
+		"EvmLogKeepBlocksDepth":                          "ETH_LOG_KEEP_BLOCKS_DEPTH",
 		"EvmMaxGasPriceWei":                              "ETH_MAX_GAS_PRICE_WEI",
 		"EvmMaxInFlightTransactions":                     "ETH_MAX_IN_FLIGHT_TRANSACTIONS",
 		"EvmMaxQueuedTransactions":                       "ETH_MAX_QUEUED_TRANSACTIONS",
