@@ -18,6 +18,7 @@ const { AddressZero } = ethers.constants
 
 const OWNABLE_ERR = 'Only callable by owner'
 const CALL_FAILED_ERR = 'CallFailed'
+const CRON_NOT_FOUND_ERR = 'CronJobIDNotFound'
 
 let cron: CronUpkeepTestHelper
 let cronFactory: CronUpkeepTestHelperFactory // the typechain factory that deploys cron upkeep contracts
@@ -66,7 +67,7 @@ async function createBasicCron() {
   )
 }
 
-describe('CronUpkeep 1/2', () => {
+describe('CronUpkeep', () => {
   beforeEach(async () => {
     const accounts = await ethers.getSigners()
     admin = accounts[0]
@@ -401,6 +402,109 @@ describe('CronUpkeep 1/2', () => {
         await createBasicCron()
       }
       await expect(createBasicCron()).to.be.revertedWith('ExceedsMaxJobs')
+    })
+  })
+
+  describe('updateCronJob()', () => {
+    const newCronString = '0 0 1 1 1'
+    let newEncodedSpec: string
+    beforeEach(async () => {
+      await createBasicCron()
+      newEncodedSpec = await cronFactoryContract.encodeCronString(newCronString)
+    })
+
+    it('updates a cron job', async () => {
+      let cron1 = await cron.getCronJob(1)
+      assert.equal(cron1.target, cronReceiver1.address)
+      assert.equal(cron1.handler, handler1Sig)
+      assert.equal(cron1.cronString, basicCronString)
+      await cron.updateCronJob(
+        1,
+        cronReceiver2.address,
+        handler2Sig,
+        newEncodedSpec,
+      )
+      cron1 = await cron.getCronJob(1)
+      assert.equal(cron1.target, cronReceiver2.address)
+      assert.equal(cron1.handler, handler2Sig)
+      assert.equal(cron1.cronString, newCronString)
+    })
+
+    it('emits an event', async () => {
+      await expect(
+        await cron.updateCronJob(
+          1,
+          cronReceiver2.address,
+          handler2Sig,
+          newEncodedSpec,
+        ),
+      ).to.emit(cron, 'CronJobUpdated')
+    })
+
+    it('is only callable by the owner', async () => {
+      await expect(
+        cron
+          .connect(stranger)
+          .updateCronJob(1, cronReceiver2.address, handler2Sig, newEncodedSpec),
+      ).to.be.revertedWith(OWNABLE_ERR)
+    })
+
+    it('reverts if trying to update a non-existent ID', async () => {
+      await expect(
+        cron.updateCronJob(
+          2,
+          cronReceiver2.address,
+          handler2Sig,
+          newEncodedSpec,
+        ),
+      ).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+    })
+  })
+
+  describe('deleteCronJob()', () => {
+    it("deletes a jobs by it's ID", async () => {
+      await createBasicCron()
+      await createBasicCron()
+      await createBasicCron()
+      await createBasicCron()
+      await assertJobIDsEqual([1, 2, 3, 4])
+      await cron.deleteCronJob(2)
+      await expect(cron.getCronJob(2)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+      await expect(cron.deleteCronJob(2)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+      await assertJobIDsEqual([1, 3, 4])
+      await cron.deleteCronJob(1)
+      await assertJobIDsEqual([3, 4])
+      await cron.deleteCronJob(4)
+      await assertJobIDsEqual([3])
+      await cron.deleteCronJob(3)
+      await assertJobIDsEqual([])
+    })
+
+    it('emits an event', async () => {
+      await createBasicCron()
+      await expect(cron.deleteCronJob(1)).to.emit(cron, 'CronJobDeleted')
+    })
+
+    it('reverts if trying to delete a non-existent ID', async () => {
+      await createBasicCron()
+      await createBasicCron()
+      await expect(cron.deleteCronJob(0)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+      await expect(cron.deleteCronJob(3)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+    })
+  })
+
+  describe('pause() / unpause()', () => {
+    it('is only callable by the owner', async () => {
+      await expect(cron.connect(stranger).pause()).to.be.reverted
+      await expect(cron.connect(stranger).unpause()).to.be.reverted
+    })
+
+    it('pauses / unpauses the contract', async () => {
+      expect(await cron.paused()).to.be.false
+      await cron.pause()
+      expect(await cron.paused()).to.be.true
+      await cron.unpause()
+      expect(await cron.paused()).to.be.false
     })
   })
 })
