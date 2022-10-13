@@ -397,6 +397,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
+			keyStore.Eth(),
 			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
