@@ -15,16 +15,27 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
 
   error EmptyRequestData();
   error InvalidRequestID();
+  error LowGasForConsumer();
 
   struct Commitment {
     address client;
     uint256 subscriptionId;
   }
 
+  uint256 private constant MINIMUM_CONSUMER_GAS_LIMIT = 400000;
+
   uint256 private s_nonce;
   mapping(bytes32 => Commitment) private s_commitments;
 
   constructor(address owner) ConfirmedOwner(owner) {}
+
+  /**
+   * @notice The type and version of this contract
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure virtual returns (string memory) {
+    return "OCR2DROracle 1.0.0";
+  }
 
   function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
     if (data.length == 0) {
@@ -44,6 +55,9 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
   ) external override validateRequestId(requestId) validateAuthorizedSender {
     OCR2DRClientInterface client = OCR2DRClientInterface(s_commitments[requestId].client);
     emit OracleResponse(requestId);
+    if (gasleft() < MINIMUM_CONSUMER_GAS_LIMIT) {
+      revert LowGasForConsumer();
+    }
     client.handleOracleFulfillment(requestId, response, err);
     delete s_commitments[requestId];
   }

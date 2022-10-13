@@ -41,6 +41,14 @@ describe('OCR2DROracle', () => {
       .deploy(oracle.address)
   })
 
+  describe('General', () => {
+    it('#typeAndVersion', async () => {
+      expect(await oracle.callStatic.typeAndVersion()).to.be.equal(
+        'OCR2DROracle 1.0.0',
+      )
+    })
+  })
+
   describe('Sending requests', () => {
     it('#sendRequest emits OracleRequest event', async () => {
       const data = stringToHex('some data')
@@ -112,6 +120,22 @@ describe('OCR2DROracle', () => {
           stringToHex(''),
         ),
       ).to.be.revertedWith('UnauthorizedSender')
+    })
+
+    it('#fulfillRequest reverts on low consumer gas', async () => {
+      const { roles } = await getUsers()
+      const sender = await roles.oracleNode.getAddress()
+      const requestId = await placeTestRequest()
+
+      await setAuthorizedSender(sender)
+
+      await expect(
+        oracle
+          .connect(roles.oracleNode)
+          .fulfillRequest(requestId, stringToHex('response'), stringToHex(''), {
+            gasLimit: 300000,
+          }),
+      ).to.be.revertedWith('LowGasForConsumer')
     })
 
     it('#fulfillRequest emits OracleResponse', async () => {
