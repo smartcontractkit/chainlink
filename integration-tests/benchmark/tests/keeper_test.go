@@ -176,7 +176,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					UpkeepSLA:             testEntry.upkeepSLA,
 					FirstEligibleBuffer:   1,
 					PreDeployedConsumers:  testEntry.predeployedConsumers,
-					ResetUpkeeps:          testEntry.resetUpkeeps,
 					UpkeepResetterAddress: testEntry.upkeepResetterAddress,
 				},
 			)

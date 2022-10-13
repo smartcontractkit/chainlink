@@ -159,6 +159,7 @@ func DeployKeeperConsumersBenchmark(
 				upkeeps = append(upkeeps, keeperConsumerInstance)
 			}
 		}
+		// Reset upkeeps so that they are not eligible when being registered
 		ResetUpkeeps(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn,
 			performGasToBurn, 10000, predeployedContracts, upkeepResetterAddr)
 		return upkeeps

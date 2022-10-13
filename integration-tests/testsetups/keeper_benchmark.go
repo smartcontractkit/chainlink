@@ -161,28 +161,24 @@ func (k *KeeperBenchmarkTest) Run() {
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli() - (90 * time.Second.Milliseconds())
 
 	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
-	testRange := inputs.BlockRange + rampUpBlocks
 
 	for rIndex := range k.keeperRegistries {
 		// Send keeper jobs to registry and chainlink nodes
 		actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex)
-		if inputs.InitialBatchReset {
-			actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
-				inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, inputs.PreDeployedConsumers, inputs.UpkeepResetterAddress)
-			testRange = inputs.BlockRange + inputs.UpkeepSLA
-		}
+		// Reset upkeeps so that they become eligible gradually after the test starts
+		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
+			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, inputs.PreDeployedConsumers, inputs.UpkeepResetterAddress)
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
 					keeperConsumer,
 					k.keeperRegistries[rIndex],
 					k.upkeepIDs[rIndex][index],
-					testRange,
+					inputs.BlockRange+inputs.UpkeepSLA,
 					rampUpBlocks,
 					inputs.UpkeepSLA,
 					&k.TestReporter,
 					int64(index),
-					inputs.InitialBatchReset,
 				),
 			)
 		}
