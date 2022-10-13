@@ -137,7 +137,7 @@ func (cs EVMConfigs) NodesByID(chainIDs ...utils.Big) (ns []types.Node) {
 	for i := range cs {
 		var match bool
 		for _, chainID := range chainIDs {
-			if chainID.Cmp(cs[i].ChainID) != 0 {
+			if chainID.Cmp(cs[i].ChainID) == 0 {
 				match = true
 				break
 			}
