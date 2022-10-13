@@ -21,56 +21,57 @@ var (
 
 type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	chainSpecificConfigDefaultSet struct {
-		balanceMonitorEnabled                          bool
-		blockEmissionIdleWarningThreshold              time.Duration
-		blockHistoryEstimatorBatchSize                 uint32
-		blockHistoryEstimatorBlockDelay                uint16
-		blockHistoryEstimatorBlockHistorySize          uint16
-		blockHistoryEstimatorEIP1559FeeCapBufferBlocks *uint16
-		blockHistoryEstimatorTransactionPercentile     uint16
-		chainType                                      config.ChainType
-		eip1559DynamicFees                             bool
-		ethTxReaperInterval                            time.Duration
-		ethTxReaperThreshold                           time.Duration
-		ethTxResendAfterThreshold                      time.Duration
-		finalityDepth                                  uint32
-		flagsContractAddress                           string
-		gasBumpPercent                                 uint16
-		gasBumpThreshold                               uint64
-		gasBumpTxDepth                                 uint16
-		gasBumpWei                                     big.Int
-		gasEstimatorMode                               string
-		gasFeeCapDefault                               big.Int
-		gasLimitDefault                                uint32
-		gasLimitMax                                    uint32
-		gasLimitMultiplier                             float32
-		gasLimitTransfer                               uint32
-		gasLimitOCRJobType                             *uint32
-		gasLimitDRJobType                              *uint32
-		gasLimitVRFJobType                             *uint32
-		gasLimitFMJobType                              *uint32
-		gasLimitKeeperJobType                          *uint32
-		gasPriceDefault                                big.Int
-		gasTipCapDefault                               big.Int
-		gasTipCapMinimum                               big.Int
-		headTrackerHistoryDepth                        uint32
-		headTrackerMaxBufferSize                       uint32
-		headTrackerSamplingInterval                    time.Duration
-		linkContractAddress                            string
-		operatorFactoryAddress                         string
-		logBackfillBatchSize                           uint32
-		logPollInterval                                time.Duration
-		maxGasPriceWei                                 big.Int
-		maxInFlightTransactions                        uint32
-		maxQueuedTransactions                          uint64
-		minGasPriceWei                                 big.Int
-		minIncomingConfirmations                       uint32
-		minimumContractPayment                         *assets.Link
-		nodeDeadAfterNoNewHeadersThreshold             time.Duration
-		nodePollFailureThreshold                       uint32
-		nodePollInterval                               time.Duration
-		nodeSelectionMode                              string
+		balanceMonitorEnabled                      bool
+		blockEmissionIdleWarningThreshold          time.Duration
+		blockHistoryEstimatorBatchSize             uint32
+		blockHistoryEstimatorBlockDelay            uint16
+		blockHistoryEstimatorBlockHistorySize      uint16
+		blockHistoryEstimatorTransactionPercentile uint16
+		chainType                                  config.ChainType
+		eip1559DynamicFees                         bool
+		ethTxReaperInterval                        time.Duration
+		ethTxReaperThreshold                       time.Duration
+		ethTxResendAfterThreshold                  time.Duration
+		finalityDepth                              uint32
+		flagsContractAddress                       string
+		gasBumpPercent                             uint16
+		gasBumpThreshold                           uint64
+		gasBumpTxDepth                             uint16
+		gasBumpWei                                 big.Int
+		gasEstimatorMode                           string
+		gasFeeCapDefault                           big.Int
+		gasLimitDefault                            uint32
+		gasLimitMax                                uint32
+		gasLimitMultiplier                         float32
+		gasLimitTransfer                           uint32
+		gasLimitOCRJobType                         *uint32
+		gasLimitDRJobType                          *uint32
+		gasLimitVRFJobType                         *uint32
+		gasLimitFMJobType                          *uint32
+		gasLimitKeeperJobType                      *uint32
+		gasPriceDefault                            big.Int
+		gasTipCapDefault                           big.Int
+		gasTipCapMinimum                           big.Int
+		headTrackerHistoryDepth                    uint32
+		headTrackerMaxBufferSize                   uint32
+		headTrackerSamplingInterval                time.Duration
+		linkContractAddress                        string
+		operatorFactoryAddress                     string
+		logBackfillBatchSize                       uint32
+		logPollInterval                            time.Duration
+		logKeepBlocksDepth                         uint32
+		maxGasPriceWei                             big.Int
+		maxInFlightTransactions                    uint32
+		maxQueuedTransactions                      uint64
+		minGasPriceWei                             big.Int
+		minIncomingConfirmations                   uint32
+		minimumContractPayment                     *assets.Link
+		nodeDeadAfterNoNewHeadersThreshold         time.Duration
+		nodePollFailureThreshold                   uint32
+		nodePollInterval                           time.Duration
+		nodeSelectionMode                          string
 
 		nonceAutoSync       bool
 		useForwarders       bool
@@ -139,6 +140,7 @@ func setChainSpecificConfigDefaultSets() {
 		operatorFactoryAddress:                "",
 		logBackfillBatchSize:                  100,
 		logPollInterval:                       15 * time.Second,
+		logKeepBlocksDepth:                    100_000,
 		maxGasPriceWei:                        *assets.GWei(100000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
@@ -301,7 +303,7 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
 	arbitrumGoerli := arbitrumRinkeby
-	arbitrumGoerli.linkContractAddress = "" //TODO
+	arbitrumGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet

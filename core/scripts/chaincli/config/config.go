@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/viper"
@@ -10,17 +11,23 @@ import (
 
 // Config represents configuration fields
 type Config struct {
-	NodeURL         string   `mapstructure:"NODE_URL"`
-	ChainID         int64    `mapstructure:"CHAIN_ID"`
-	PrivateKey      string   `mapstructure:"PRIVATE_KEY"`
-	LinkTokenAddr   string   `mapstructure:"LINK_TOKEN_ADDR"`
-	Keepers         []string `mapstructure:"KEEPERS"`
-	KeeperURLs      []string `mapstructure:"KEEPER_URLS"`
-	KeeperEmails    []string `mapstructure:"KEEPER_EMAILS"`
-	KeeperPasswords []string `mapstructure:"KEEPER_PASSWORDS"`
-	ApproveAmount   string   `mapstructure:"APPROVE_AMOUNT"`
-	GasLimit        uint64   `mapstructure:"GAS_LIMIT"`
-	FundNodeAmount  string   `mapstructure:"FUND_CHAINLINK_NODE"`
+	NodeURL              string   `mapstructure:"NODE_URL"`
+	ChainID              int64    `mapstructure:"CHAIN_ID"`
+	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
+	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
+	Keepers              []string `mapstructure:"KEEPERS"`
+	KeeperURLs           []string `mapstructure:"KEEPER_URLS"`
+	KeeperEmails         []string `mapstructure:"KEEPER_EMAILS"`
+	KeeperPasswords      []string `mapstructure:"KEEPER_PASSWORDS"`
+	ApproveAmount        string   `mapstructure:"APPROVE_AMOUNT"`
+	GasLimit             uint64   `mapstructure:"GAS_LIMIT"`
+	FundNodeAmount       string   `mapstructure:"FUND_CHAINLINK_NODE"`
+	ChainlinkDockerImage string   `mapstructure:"CHAINLINK_DOCKER_IMAGE"`
+	PostgresDockerImage  string   `mapstructure:"POSTGRES_DOCKER_IMAGE"`
+
+	// OCR Config
+	BootstrapNodeAddr string `mapstructure:"BOOTSTRAP_NODE_ADDR"`
+	OCR2Keepers       bool   `mapstructure:"KEEPER_OCR2"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
@@ -33,12 +40,14 @@ type Config struct {
 	GasCeilingMultiplier uint16 `mapstructure:"GAS_CEILING_MULTIPLIER"`
 	MinUpkeepSpend       int64  `mapstructure:"MIN_UPKEEP_SPEND"`
 	MaxPerformGas        uint32 `mapstructure:"MAX_PERFORM_GAS"`
+	MaxCheckDataSize     uint32 `mapstructure:"MAX_CHECK_DATA_SIZE"`
+	MaxPerformDataSize   uint32 `mapstructure:"MAX_PERFORM_DATA_SIZE"`
 	FallbackGasPrice     int64  `mapstructure:"FALLBACK_GAS_PRICE"`
 	FallbackLinkPrice    int64  `mapstructure:"FALLBACK_LINK_PRICE"`
 	Transcoder           string `mapstructure:"TRANSCODER"`
 	Registrar            string `mapstructure:"REGISTRAR"`
 
-	// Keepers Config
+	// Upkeep Config
 	RegistryVersion                 keeper.RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
 	RegistryAddress                 string                 `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
 	RegistryConfigUpdate            bool                   `mapstructure:"KEEPER_CONFIG_UPDATE"`
@@ -80,6 +89,16 @@ func New() *Config {
 	return &cfg
 }
 
+// Validate validates the given config
+func (c *Config) Validate() error {
+	// OCR2Keeper job could be ran only with the registry 2.0
+	if c.OCR2Keepers && c.RegistryVersion != keeper.RegistryVersion_2_0 {
+		return fmt.Errorf("ocr2keeper job could be ran only with the registry 2.0, but %s specified", c.RegistryVersion)
+	}
+
+	return nil
+}
+
 func init() {
 	// Represented in WEI, which is 1000 Ether
 	viper.SetDefault("APPROVE_AMOUNT", "100000000000000000000000")
@@ -92,6 +111,9 @@ func init() {
 	viper.SetDefault("GAS_CEILING_MULTIPLIER", 1)
 	viper.SetDefault("FALLBACK_GAS_PRICE", 200000000000)
 	viper.SetDefault("FALLBACK_LINK_PRICE", 20000000000000000)
+	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.8.0-root")
+	viper.SetDefault("POSTGRES_DOCKER_IMAGE", "postgres:latest")
+
 	// Represented in WEI, which is 100 Ether
 	viper.SetDefault("UPKEEP_ADD_FUNDS_AMOUNT", "100000000000000000000")
 	viper.SetDefault("UPKEEP_TEST_RANGE", 1)

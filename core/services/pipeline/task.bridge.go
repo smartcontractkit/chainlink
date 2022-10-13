@@ -15,10 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//
 // Return types:
-//     string
 //
+//	string
 type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 
@@ -88,10 +87,14 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	if t.Async == "true" {
 		responseURL := t.config.BridgeResponseURL()
-		if *responseURL != *zeroURL {
+		if responseURL != nil && *responseURL != *zeroURL {
 			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
 		}
-		requestData["responseURL"] = responseURL.String()
+		var s string
+		if responseURL != nil {
+			s = responseURL.String()
+		}
+		requestData["responseURL"] = s
 	}
 
 	requestDataJSON, err := json.Marshal(requestData)

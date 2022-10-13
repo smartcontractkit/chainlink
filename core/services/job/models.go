@@ -283,6 +283,11 @@ const (
 	DKG OCR2PluginType = "dkg"
 
 	OCR2VRF OCR2PluginType = "ocr2vrf"
+
+	// Keeper was rebranded to automation. For now the plugin type required in job spec points
+	// to the new name (automation) but in code we refer it to keepers
+	// TODO: sc-55296 to rename ocr2keeper to ocr2automation in code
+	OCR2Keeper OCR2PluginType = "ocr2automation"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.

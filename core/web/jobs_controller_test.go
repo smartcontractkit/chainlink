@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -86,7 +86,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-			b, err := ioutil.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 			assert.Contains(t, string(b), tc.expectedErr.Error())
 		})
@@ -95,8 +95,8 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	n := 10
 
@@ -130,7 +130,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
@@ -386,7 +386,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 
-	b, err := ioutil.ReadAll(response.Body)
+	b, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.Contains(t, string(b), "syntax is not supported. Please use \\\"{}\\\" instead")
 }

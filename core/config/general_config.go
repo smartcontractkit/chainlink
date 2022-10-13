@@ -34,8 +34,8 @@ import (
 
 // nolint
 var (
-	ErrUnset   = errors.New("env var unset")
-	ErrInvalid = errors.New("env var invalid")
+	ErrEnvUnset   = errors.New("env var unset")
+	ErrEnvInvalid = errors.New("env var invalid")
 
 	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 )
@@ -62,7 +62,7 @@ type FeatureFlags interface {
 
 type LogFn func(...any)
 
-type GeneralOnlyConfig interface {
+type BasicConfig interface {
 	Validate() error
 	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
@@ -183,6 +183,13 @@ type GeneralOnlyConfig interface {
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	VRFPassword() string
+
+	OCR1Config
+	OCR2Config
+
+	P2PNetworking
+	P2PV1Networking
+	P2PV2Networking
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -224,6 +231,7 @@ type GlobalConfig interface {
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
 	GlobalEvmLogBackfillBatchSize() (uint32, bool)
 	GlobalEvmLogPollInterval() (time.Duration, bool)
+	GlobalEvmLogKeepBlocksDepth() (uint32, bool)
 	GlobalEvmMaxGasPriceWei() (*big.Int, bool)
 	GlobalEvmMaxInFlightTransactions() (uint32, bool)
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
@@ -234,6 +242,10 @@ type GlobalConfig interface {
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
+	GlobalOCRContractConfirmations() (uint16, bool)
+	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
+	GlobalOCRDatabaseTimeout() (time.Duration, bool)
+	GlobalOCRObservationGracePeriod() (time.Duration, bool)
 	GlobalOperatorFactoryAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
@@ -241,16 +253,10 @@ type GlobalConfig interface {
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
 	GlobalNodeSelectionMode() (string, bool)
-
-	OCR1Config
-	OCR2Config
-	P2PNetworking
-	P2PV1Networking
-	P2PV2Networking
 }
 
 type GeneralConfig interface {
-	GeneralOnlyConfig
+	BasicConfig
 	GlobalConfig
 }
 
@@ -276,6 +282,7 @@ type generalConfig struct {
 
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewGeneralConfig(lggr logger.Logger) GeneralConfig {
 	v := viper.New()
 	c := newGeneralConfigWithViper(v, lggr.Named("GeneralConfig"))
@@ -356,10 +363,10 @@ EVM_ENABLED=false
 `)
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrEnvInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrEnvInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {
@@ -384,19 +391,19 @@ EVM_ENABLED=false
 		return errors.Errorf("It is not permitted to set both ETH_URL (got %s) and EVM_NODES (got %s). Please set either one or the other", c.EthereumURL(), c.EthereumNodes())
 	}
 	// Warn on legacy OCR env vars
-	if c.OCRDHTLookupInterval() != 0 {
+	if c.ocrDHTLookupInterval() != 0 {
 		c.lggr.Error("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
-	if c.OCRBootstrapCheckInterval() != 0 {
+	if c.ocrBootstrapCheckInterval() != 0 {
 		c.lggr.Error("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
-	if c.OCRIncomingMessageBufferSize() != 0 {
+	if c.ocrIncomingMessageBufferSize() != 0 {
 		c.lggr.Error("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
-	if c.OCROutgoingMessageBufferSize() != 0 {
+	if c.ocrOutgoingMessageBufferSize() != 0 {
 		c.lggr.Error("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
-	if c.OCRNewStreamTimeout() != 0 {
+	if c.ocrNewStreamTimeout() != 0 {
 		c.lggr.Error("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 
@@ -1329,6 +1336,9 @@ func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 }
 func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	return lookupEnv(c, envvar.Name("EvmLogPollInterval"), time.ParseDuration)
+}
+func (c *generalConfig) GlobalEvmLogKeepBlocksDepth() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("EvmLogKeepBlocksDepth"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)

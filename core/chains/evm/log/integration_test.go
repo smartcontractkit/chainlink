@@ -1591,10 +1591,10 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 
 	chRawLogs := <-helper.chchRawLogs
 
+	ctx := testutils.Context(t)
 	for _, event := range events {
 		switch x := event.(type) {
 		case *evmtypes.Head:
-			ctx, _ := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
 			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
 			chRawLogs.TrySend(x)

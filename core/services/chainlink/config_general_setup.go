@@ -1,16 +1,10 @@
 package chainlink
 
 import (
-	"math/big"
-	"net/url"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
-func (g *generalConfig) DefaultChainID() *big.Int         { panic("unimplemented") }
-func (g *generalConfig) EthereumHTTPURL() *url.URL        { panic("unimplemented") }
-func (g *generalConfig) EthereumNodes() string            { panic("unimplemented") }
-func (g *generalConfig) EthereumSecondaryURLs() []url.URL { panic("unimplemented") }
-func (g *generalConfig) EthereumURL() string              { panic("unimplemented") }
-
-func (g *generalConfig) SolanaNodes() string   { panic("unimplemented") }
-func (g *generalConfig) TerraNodes() string    { panic("unimplemented") }
-func (g *generalConfig) StarkNetNodes() string { panic("unimplemented") }
+func (g *generalConfig) EthereumNodes() string { panic(v2.ErrUnsupported) }
+func (g *generalConfig) SolanaNodes() string   { panic(v2.ErrUnsupported) }
+func (g *generalConfig) TerraNodes() string    { panic(v2.ErrUnsupported) }
+func (g *generalConfig) StarkNetNodes() string { panic(v2.ErrUnsupported) }

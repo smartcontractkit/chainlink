@@ -8,7 +8,7 @@ MinIncomingConfirmations = 1
 # Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
-TxResendAfterThreshold = '15s'
+Transactions.ResendAfterThreshold = '15s'
 
 [BalanceMonitor]
 Enabled = true

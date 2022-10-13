@@ -3,11 +3,12 @@ package pipeline_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -70,7 +71,7 @@ func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 func mustReadFile(t testing.TB, file string) string {
 	t.Helper()
 
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	require.NoError(t, err)
 	return string(content)
 }
@@ -87,7 +88,7 @@ func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
-		payload, err := ioutil.ReadAll(r.Body)
+		payload, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
@@ -162,7 +163,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
-		payload, err := ioutil.ReadAll(r.Body)
+		payload, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		defer r.Body.Close()
 
@@ -402,7 +403,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	var httpCalled atomic.Bool
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req adapterRequest
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		err := json.Unmarshal(body, &req)
 		require.NoError(t, err)
 		require.Equal(t, float64(10), req.Meta["latestAnswer"])

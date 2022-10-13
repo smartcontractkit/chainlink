@@ -3,7 +3,7 @@ package fluxmonitorv2_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -465,7 +465,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
 				generatePriceResponseFn(reportPrice),
 				func(r *http.Request) {
-					b, err1 := ioutil.ReadAll(r.Body)
+					b, err1 := io.ReadAll(r.Body)
 					require.NoError(t, err1)
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
@@ -481,10 +481,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			t.Cleanup(mockServer.Close)
 			u, _ := url.Parse(mockServer.URL)
-			app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 				Name: "bridge",
 				URL:  models.WebURL(*u),
-			})
+			}))
 
 			// When event appears on submissionReceived, flux monitor job run is complete
 			submissionReceived := fa.WatchSubmissionReceived(t,

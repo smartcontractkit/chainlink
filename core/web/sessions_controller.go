@@ -49,7 +49,6 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	// required for successful WebAuthn authentication
 	if len(userWebAuthnTokens) > 0 {
 		sr.SessionStore = sc.sessions
-		sr.RequestContext = c
 		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 	}
 
