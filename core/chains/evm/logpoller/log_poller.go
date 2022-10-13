@@ -412,11 +412,11 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 // 1. Find the LCA by following parent hashes.
 // 2. Delete all logs and blocks after the LCA
 // 3. Return the LCA+1, i.e. our new current (unprocessed) block.
-func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *types.Header) (*types.Header, error) {
+func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *evmtypes.Head) (*evmtypes.Head, error) {
 	var err1 error
 	if currentBlock == nil {
 		// If we don't have the current block already, lets get it.
-		currentBlock, err1 = lp.ec.HeaderByNumber(ctx, big.NewInt(currentBlockNumber))
+		currentBlock, err1 = lp.ec.HeadByNumber(ctx, big.NewInt(currentBlockNumber))
 		if err1 != nil {
 			lp.lggr.Warnw("Unable to get currentBlock", "err", err1, "currentBlockNumber", currentBlockNumber)
 			return nil, err1
@@ -426,9 +426,9 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
 			return nil, errors.Errorf("Got nil block for %d", currentBlockNumber)
 		}
-		if currentBlock.Number.Int64() != currentBlockNumber {
-			lp.lggr.Warnw("Unable to get currentBlock, rpc returned incorrect block", "currentBlockNumber", currentBlockNumber, "got", currentBlock.Number.Int64())
-			return nil, errors.Errorf("Block mismatch have %d want %d", currentBlock.Number.Int64(), currentBlockNumber)
+		if currentBlock.Number != currentBlockNumber {
+			lp.lggr.Warnw("Unable to get currentBlock, rpc returned incorrect block", "currentBlockNumber", currentBlockNumber, "got", currentBlock.Number)
+			return nil, errors.Errorf("Block mismatch have %d want %d", currentBlock.Number, currentBlockNumber)
 		}
 	}
 	// Does this currentBlock point to the same parent that we have saved?
@@ -456,7 +456,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			return nil, errors.New("Unable to find LCA after reorg, retrying")
 		}
 
-		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number.Int64(), "currentBlockNumber", currentBlockNumber)
+		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number, "currentBlockNumber", currentBlockNumber)
 		// We truncate all the blocks and logs after the LCA.
 		// We could preserve the logs for forensics, since its possible
 		// that applications see them and take action upon it, however that
@@ -467,12 +467,12 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			// These deletes are bounded by reorg depth, so they are
 			// fast and should not slow down the log readers.
-			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
+			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number, pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
 				return err3
 			}
-			err3 = lp.orm.DeleteLogsAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
+			err3 = lp.orm.DeleteLogsAfter(blockAfterLCA.Number, pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err3)
 				return err3
@@ -495,19 +495,19 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 // conditions this would be equal to lastProcessed.BlockNumber + 1.
 func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
 	lp.lggr.Infow("Polling for logs", "currentBlockNumber", currentBlockNumber)
-	latestBlock, err := lp.ec.HeaderByNumber(ctx, nil)
+	latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "currentBlockNumber", currentBlockNumber)
 		return
 	}
-	latestBlockNumber := latestBlock.Number.Int64()
+	latestBlockNumber := latestBlock.Number
 	if currentBlockNumber > latestBlockNumber {
 		// Note there can also be a reorg "shortening" i.e. chain height decreases but TDD increases. In that case
 		// we also just wait until the new tip is longer and then detect the reorg.
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
 		return
 	}
-	var currentBlock *types.Header
+	var currentBlock *evmtypes.Head
 	if currentBlockNumber == latestBlockNumber {
 		// Can re-use our currentBlock and avoid an extra RPC call.
 		currentBlock = latestBlock
@@ -521,7 +521,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		lp.lggr.Errorw("Unable to get current block, retrying", "err", err)
 		return
 	}
-	currentBlockNumber = currentBlock.Number.Int64()
+	currentBlockNumber = currentBlock.Number
 
 	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs.
 	// Log insertion is idempotent so this is ok.
@@ -546,18 +546,18 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			lp.lggr.Errorw("Unable to get current block", "err", err)
 			return
 		}
-		currentBlockNumber = currentBlock.Number.Int64()
+		currentBlockNumber = currentBlock.Number
 	}
 
 	for {
-		h := currentBlock.Hash()
+		h := currentBlock.Hash
 		var logs []types.Log
 		logs, err = lp.ec.FilterLogs(ctx, lp.filter(nil, nil, &h))
 		if err != nil {
 			lp.lggr.Warnw("Unable to query for logs, retrying", "err", err, "block", currentBlockNumber)
 			return
 		}
-		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
+		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, pg.WithQueryer(tx)); err2 != nil {
 				return err2
@@ -584,37 +584,37 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			lp.lggr.Errorw("Unable to get current block", "err", err)
 			return
 		}
-		currentBlockNumber = currentBlock.Number.Int64()
+		currentBlockNumber = currentBlock.Number
 	}
 }
 
 // Find the first place where our chain and their chain have the same block,
 // that block number is the LCA. Return the block after that, where we want to resume polling.
-func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Header) (*types.Header, error) {
+func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.Head) (*evmtypes.Head, error) {
 	// Current is where the mismatch starts.
 	// Check its parent to see if its the same as ours saved.
-	parent, err := lp.ec.HeaderByHash(ctx, current.ParentHash)
+	parent, err := lp.ec.HeadByHash(ctx, current.ParentHash)
 	if err != nil {
 		return nil, err
 	}
 	blockAfterLCA := *current
-	reorgStart := parent.Number.Int64()
+	reorgStart := parent.Number
 	// We expect reorgs up to the block after (current - finalityDepth),
 	// since the block at (current - finalityDepth) is finalized.
 	// We loop via parent instead of current so current always holds the LCA+1.
 	// If the parent block number becomes < the first finalized block our reorg is too deep.
-	for parent.Number.Int64() >= (reorgStart - lp.finalityDepth) {
-		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number.Int64(), pg.WithParentCtx(ctx))
+	for parent.Number >= (reorgStart - lp.finalityDepth) {
+		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number, pg.WithParentCtx(ctx))
 		if err != nil {
 			return nil, err
 		}
-		if parent.Hash() == ourParentBlockHash.BlockHash {
+		if parent.Hash == ourParentBlockHash.BlockHash {
 			// If we do have the blockhash, return blockAfterLCA
 			return &blockAfterLCA, nil
 		}
 		// Otherwise get a new parent and update blockAfterLCA.
 		blockAfterLCA = *parent
-		parent, err = lp.ec.HeaderByHash(ctx, parent.ParentHash)
+		parent, err = lp.ec.HeadByHash(ctx, parent.ParentHash)
 		if err != nil {
 			return nil, err
 		}

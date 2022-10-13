@@ -48,9 +48,10 @@ type Client interface {
 
 	// HeadByNumber is a reimplemented version of HeaderByNumber due to a
 	// difference in how block header hashes are calculated by Parity nodes
-	// running on Kovan. We have to return our own wrapper type to capture the
+	// running on Kovan and avalanche. We have to return our own wrapper type to capture the
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
@@ -251,6 +252,19 @@ func (client *client) BlockByHash(ctx context.Context, hash common.Hash) (*types
 func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
 	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
+	if err != nil {
+		return nil, err
+	}
+	if head == nil {
+		err = ethereum.NotFound
+		return
+	}
+	head.EVMChainID = utils.NewBig(client.ChainID())
+	return
+}
+
+func (client *client) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
+	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", hash.Hex(), false)
 	if err != nil {
 		return nil, err
 	}
