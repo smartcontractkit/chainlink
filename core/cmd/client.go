@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -144,8 +145,20 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
-		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
-			return nil, err
+		if h, ok := cfg.(v2.HasEVMConfigs); ok {
+			var ids []utils.Big
+			for _, c := range h.EVMConfigs() {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup EVM chains")
+				}
+			}
+		} else {
+			if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -165,9 +178,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	if cfg.TerraEnabled() {
 		terraLggr := appLggr.Named("Terra")
-		if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
-			return nil, errors.Wrap(err, "failed to setup Terra nodes")
-		}
 		opts := terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
@@ -177,10 +187,22 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		}
 		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
 			cfgs := newCfg.TerraConfigs()
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup Terra chains")
+				}
+			}
 			opts.ORM = terra.NewORMImmut(cfgs)
 			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
 
 		} else {
+			if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Terra nodes")
+			}
 			opts.ORM = terra.NewORM(db, terraLggr, cfg)
 			chains.Terra, err = terra.NewChainSet(opts)
 		}
@@ -191,9 +213,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
-			return nil, errors.Wrap(err, "failed to setup Solana nodes")
-		}
 		opts := solana.ChainSetOpts{
 			Logger:   solLggr,
 			DB:       db,
@@ -203,9 +222,21 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			SolanaConfigs() solana.SolanaConfigs
 		}); ok {
 			cfgs := newCfg.SolanaConfigs()
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup Solana chains")
+				}
+			}
 			opts.ORM = solana.NewORMImmut(cfgs)
 			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
 		} else {
+			if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Solana nodes")
+			}
 			opts.ORM = solana.NewORM(db, solLggr, cfg)
 			chains.Solana, err = solana.NewChainSet(opts)
 		}
@@ -216,9 +247,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	if cfg.StarkNetEnabled() {
 		starkLggr := appLggr.Named("StarkNet")
-		if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
-			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
-		}
 		opts := starknet.ChainSetOpts{
 			Config:   cfg,
 			Logger:   starkLggr,
@@ -228,9 +256,21 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			StarknetConfigs() starknet.StarknetConfigs
 		}); ok {
 			cfgs := newCfg.StarknetConfigs()
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup StarkNet chains")
+				}
+			}
 			opts.ORM = starknet.NewORMImmut(cfgs)
 			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
 		} else {
+			if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
+				return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
+			}
 			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
 			chains.StarkNet, err = starknet.NewChainSet(opts)
 		}

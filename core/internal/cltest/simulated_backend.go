@@ -69,7 +69,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 }
 
 // NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain is like NewApplicationWithConfigAndKeyOnSimulatedBlockchain
-// but cfg should be v2, and cltest.OverrideSimulated used.
+// but cfg should be v2, and cltest.OverrideSimulated used to include the simulated chain (testutils.SimulatedChainID).
 func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg coreconfig.GeneralConfig,
@@ -91,14 +91,14 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 }
 
-// OverrideSimulated is a config override func that appends the simulated chain, or replaces the null chain if that is the only entry.
+// OverrideSimulated is a config override func that appends the simulated chain (testutils.SimulatedChainID),
+// or replaces the null chain (client.NullClientChainID) if that is the only entry.
 func OverrideSimulated(c *chainlink.Config, s *chainlink.Secrets) {
 	chainID := utils.NewBig(testutils.SimulatedChainID)
-	chain, _ := evmcfg.Defaults(chainID)
 	enabled := true
 	cfg := evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   chain,
+		Chain:   evmcfg.DefaultsFrom(chainID, nil),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	}
