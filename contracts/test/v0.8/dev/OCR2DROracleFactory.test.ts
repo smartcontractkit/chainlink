@@ -75,7 +75,9 @@ describe('OCR2DROracleFactory', () => {
 
     it('records that it deployed that address', async () => {
       assert.isTrue(await factory.created(emittedOracle))
-      assert.isFalse(await factory.created(await roles.oracleNode1.getAddress()))
+      assert.isFalse(
+        await factory.created(await roles.oracleNode1.getAddress()),
+      )
     })
   })
 })
