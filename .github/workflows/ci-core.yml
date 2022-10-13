@@ -3,7 +3,7 @@ name: CI Core
 on:
   push:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 
 jobs:
   core:
@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests"]
-    name: Core Tests
+    name: Core Tests (${{ matrix.cmd }})
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
@@ -33,34 +33,32 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Core Tests (${{ matrix.cmd }})
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          cache: yarn
+      - name: Install contract dependencies
+        run: yarn install --prod --frozen-lockfile
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-#      - name: Install terrad
-#        run: ./tools/ci/install_terrad
       - name: Install solana cli
         run: ./tools/ci/install_solana
       - name: Setup DB

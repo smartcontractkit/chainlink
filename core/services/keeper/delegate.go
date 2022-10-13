@@ -77,6 +77,18 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}
 
+	// effectiveKeeperAddress is the keeper address registered on the registry. This is by default the EOA account on the node.
+	// In the case of forwarding, the keeper address is the forwarder contract deployed onchain between EOA and Registry.
+	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
+	if spec.ForwardingAllowed {
+		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
+		if fwderr == nil {
+			effectiveKeeperAddress = fwdrAddress
+		} else {
+			svcLogger.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", spec.Name, "err", fwderr)
+		}
+	}
+
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
 		RegistryWrapper:          *registryWrapper,
@@ -87,6 +99,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+		EffectiveKeeperAddress:   effectiveKeeperAddress,
 		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 	})
 	upkeepExecuter := NewUpkeepExecuter(
@@ -98,6 +111,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		chain.TxManager().GetGasEstimator(),
 		svcLogger,
 		chain.Config(),
+		effectiveKeeperAddress,
 	)
 
 	return []job.ServiceCtx{

@@ -1,3 +1,7 @@
+[Database.Lock]
+LeaseRefreshInterval='6s'
+LeaseDuration='10s'
+
 [[EVM]]
 ChainID = '1'
 
@@ -10,6 +14,7 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '1'
+ChainType = 'Foo'
 
 [[EVM.KeySpecific]]
 Key = '0xde709f2102306220921060314715629080e2fb77'
@@ -29,6 +34,16 @@ Name = 'bar'
 
 [[Solana.Nodes]]
 Name = 'bar'
+
+[[Starknet]]
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://second.stark.node'
 
 [[Terra]]
 ChainID = 'Bombay-12'

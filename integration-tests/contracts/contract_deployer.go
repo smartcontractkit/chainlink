@@ -63,6 +63,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.ArbitrumClient:
 		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.OptimismClient:
+		return &OptimismContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -84,6 +86,11 @@ type MetisContractDeployer struct {
 
 // ArbitrumContractDeployer wraps for Arbitrum
 type ArbitrumContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+// OptimismContractDeployer wraps for Optimism
+type OptimismContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -371,14 +378,14 @@ func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockE
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployMockV3AggregatorContract(auth, backend, 18, answer)
+		return ethereum.DeployMockETHLINKAggregator(auth, backend, answer)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumMockETHLINKFeed{
 		client:  e.client,
-		feed:    instance.(*ethereum.MockV3AggregatorContract),
+		feed:    instance.(*ethereum.MockETHLINKAggregator),
 		address: address,
 	}, err
 }
@@ -477,17 +484,17 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			address:     address,
 		}, err
 	case ethereum.RegistryVersion_1_2:
-		address, _, instance, err := e.client.DeployContract("KeeperRegistry", func(
+		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_2", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistry(
+			return ethereum.DeployKeeperRegistry12(
 				auth,
 				backend,
 				common.HexToAddress(opts.LinkAddr),
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
-				ethereum.Config{
+				ethereum.Config1_2{
 					PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
 					FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
 					BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
@@ -510,7 +517,66 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			client:      e.client,
 			version:     ethereum.RegistryVersion_1_2,
 			registry1_1: nil,
-			registry1_2: instance.(*ethereum.KeeperRegistry),
+			registry1_2: instance.(*ethereum.KeeperRegistry12),
+			registry1_3: nil,
+			address:     address,
+		}, err
+	case ethereum.RegistryVersion_1_3:
+		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic1_3", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistryLogic13(
+				auth,
+				backend,
+				uint8(0),          // Default payment model
+				big.NewInt(80000), // Registry gas overhead
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = e.client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+
+		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_3", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistry13(
+				auth,
+				backend,
+				*logicAddress,
+				ethereum.Config1_3{
+					PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
+					FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
+					BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
+					CheckGasLimit:        opts.Settings.CheckGasLimit,
+					StalenessSeconds:     opts.Settings.StalenessSeconds,
+					GasCeilingMultiplier: opts.Settings.GasCeilingMultiplier,
+					MinUpkeepSpend:       opts.Settings.MinUpkeepSpend,
+					MaxPerformGas:        opts.Settings.MaxPerformGas,
+					FallbackGasPrice:     opts.Settings.FallbackGasPrice,
+					FallbackLinkPrice:    opts.Settings.FallbackLinkPrice,
+					Transcoder:           common.HexToAddress(opts.TranscoderAddr),
+					Registrar:            common.HexToAddress(opts.RegistrarAddr),
+				},
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistry{
+			client:      e.client,
+			version:     ethereum.RegistryVersion_1_3,
+			registry1_1: nil,
+			registry1_2: nil,
+			registry1_3: instance.(*ethereum.KeeperRegistry13),
 			address:     address,
 		}, err
 

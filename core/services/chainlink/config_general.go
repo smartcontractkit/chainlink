@@ -154,7 +154,11 @@ func (g *generalConfig) TerraEnabled() bool {
 }
 
 func (g *generalConfig) StarkNetEnabled() bool {
-	//TODO https://app.shortcut.com/chainlinklabs/story/43210/include-starknet
+	for _, c := range g.c.Starknet {
+		if e := c.Enabled; e != nil && *e {
+			return true
+		}
+	}
 	return false
 }
 
@@ -212,6 +216,18 @@ func (g *generalConfig) AutoPprofPollInterval() models.Duration {
 
 func (g *generalConfig) AutoPprofProfileRoot() string {
 	return *g.c.AutoPprof.ProfileRoot
+}
+
+func (g *generalConfig) PyroscopeAuthToken() string {
+	return *g.c.Pyroscope.AuthToken
+}
+
+func (g *generalConfig) PyroscopeServerAddress() string {
+	return *g.c.Pyroscope.ServerAddress
+}
+
+func (g *generalConfig) PyroscopeEnvironment() string {
+	return *g.c.Pyroscope.Environment
 }
 
 func (g *generalConfig) BlockBackfillDepth() uint64 {
@@ -339,6 +355,10 @@ func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
 
 func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
 	return *g.c.Keeper.RegistryPerformGasOverhead
+}
+
+func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
+	return *g.c.Keeper.RegistryMaxPerformDataSize
 }
 
 func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {

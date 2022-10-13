@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/gin-gonic/contrib/sessions"
@@ -32,7 +34,11 @@ func AuthenticateGQL(authenticator Authenticator, lggr logger.Logger) gin.Handle
 
 		user, err := authenticator.AuthorizedUserWithSession(sessionID)
 		if err != nil {
-			lggr.Errorw("Failed call to AuthorizedUserWithSession, unable to get user", "err", err)
+			if errors.Is(err, clsessions.ErrUserSessionExpired) {
+				lggr.Warnw("Failed to authenticate session", "err", err)
+			} else {
+				lggr.Errorw("Failed call to AuthorizedUserWithSession, unable to get user", "err", err)
+			}
 			return
 		}
 

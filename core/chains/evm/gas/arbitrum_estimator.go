@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -187,7 +188,7 @@ const (
 //
 // https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol#L69
 func (a *arbitrumEstimator) callGetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
-	ctx, cancel := utils.ContextFromChan(a.chStop)
+	ctx, cancel := evmclient.ContextWithDefaultTimeoutFromChan(a.chStop)
 	defer cancel()
 
 	precompile := common.HexToAddress(ArbGasInfoAddress)

@@ -84,7 +84,7 @@ func eoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.V
 	bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 	helpers.PanicErr(err)
 	fmt.Println("Initial account balance:", bal, e.Owner.From.String(), "Funding amount:", amount.String())
-	b, err := utils.GenericEncode([]string{"uint64"}, subID)
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
 	helpers.PanicErr(err)
 	e.Owner.GasLimit = 500000
 	tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
@@ -179,10 +179,12 @@ func getRlpHeaders(env helpers.Environment, blockNumbers []*big.Int) (headers []
 				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
 			}
 
-			bh := crypto.Keccak256Hash(rlpHeader)
-			fmt.Println("Calculated BH:", bh.String(),
-				"fetched BH:", h.Hash(),
-				"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
+			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
+			// blockhash.
+			//bh := crypto.Keccak256Hash(rlpHeader)
+			//fmt.Println("Calculated BH:", bh.String(),
+			//	"fetched BH:", h.Hash(),
+			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
 
 			headers = append(headers, rlpHeader)
 		} else {

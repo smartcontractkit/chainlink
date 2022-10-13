@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -169,7 +170,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 }
 
 // Start is a comment to appease the linter
-func (ec *EthConfirmer) Start() error {
+func (ec *EthConfirmer) Start(_ context.Context) error {
 	return ec.StartOnce("EthConfirmer", func() error {
 		if ec.config.EvmGasBumpThreshold() == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
@@ -573,7 +574,24 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		if receipt.Status == 0 {
-			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			// Do an eth call to obtain the revert reason.
+			_, errCall := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
+				From:       attempt.EthTx.FromAddress,
+				To:         &attempt.EthTx.ToAddress,
+				Gas:        uint64(attempt.EthTx.GasLimit),
+				GasPrice:   attempt.GasPrice.ToInt(),
+				GasFeeCap:  attempt.GasFeeCap.ToInt(),
+				GasTipCap:  attempt.GasTipCap.ToInt(),
+				Value:      nil,
+				Data:       attempt.EthTx.EncodedPayload,
+				AccessList: nil,
+			}, receipt.BlockNumber)
+			rpcError, errExtract := evmclient.ExtractRPCError(errCall)
+			if errExtract == nil {
+				l.Warnw("transaction reverted on-chain", "hash", receipt.TxHash, "rpcError", rpcError.String())
+			} else {
+				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.TxHash, "err", err)
+			}
 			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
 		} else {
