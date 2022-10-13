@@ -223,17 +223,16 @@ func setupNodeOCR2(
 	transmitter := sendingKeys[0].Address
 
 	if useForwarders {
-		// Add 4 new sending keys.
-		var sendingKeysAddresses []common.Address
-		for i := 0; i < 4; i++ {
-			k, err := app.KeyStore.Eth().Create()
-			require.NoError(t, err)
-			app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID)
-			sendingKeys = append(sendingKeys, k)
-			sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
-		}
+		sendingKeysAddresses := []common.Address{sendingKeys[0].Address}
 
-		require.Len(t, sendingKeys, 5)
+		// Add new sending key.
+		k, err := app.KeyStore.Eth().Create()
+		require.NoError(t, err)
+		app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID)
+		sendingKeys = append(sendingKeys, k)
+		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
+
+		require.Len(t, sendingKeys, 2)
 
 		// Deploy a forwarder.
 		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.Address{}, owner.From, common.Address{}, []byte{})
