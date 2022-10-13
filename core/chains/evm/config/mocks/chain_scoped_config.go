@@ -1164,6 +1164,20 @@ func (_m *ChainScopedConfig) EvmLogBackfillBatchSize() uint32 {
 	return r0
 }
 
+// EvmLogKeepBlocksDepth provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmLogKeepBlocksDepth() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // EvmLogPollInterval provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmLogPollInterval() time.Duration {
 	ret := _m.Called()
@@ -2194,20 +2208,6 @@ func (_m *ChainScopedConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// OCRBootstrapCheckInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRBootstrapCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRContractConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRContractConfirmations() uint16 {
 	ret := _m.Called()
@@ -2264,20 +2264,6 @@ func (_m *ChainScopedConfig) OCRContractTransmitterTransmitTimeout() time.Durati
 	return r0
 }
 
-// OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRDHTLookupInterval() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
 // OCRDatabaseTimeout provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRDatabaseTimeout() time.Duration {
 	ret := _m.Called()
@@ -2306,20 +2292,6 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
-// OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRIncomingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
 // OCRKeyBundleID provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRKeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -2339,20 +2311,6 @@ func (_m *ChainScopedConfig) OCRKeyBundleID() (string, error) {
 	}
 
 	return r0, r1
-}
-
-// OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
 }
 
 // OCRObservationGracePeriod provides a mock function with given fields:
@@ -2378,20 +2336,6 @@ func (_m *ChainScopedConfig) OCRObservationTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCROutgoingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0

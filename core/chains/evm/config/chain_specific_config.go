@@ -61,6 +61,7 @@ type (
 		operatorFactoryAddress                     string
 		logBackfillBatchSize                       uint32
 		logPollInterval                            time.Duration
+		logKeepBlocksDepth                         uint32
 		maxGasPriceWei                             big.Int
 		maxInFlightTransactions                    uint32
 		maxQueuedTransactions                      uint64
@@ -139,6 +140,7 @@ func setChainSpecificConfigDefaultSets() {
 		operatorFactoryAddress:                "",
 		logBackfillBatchSize:                  100,
 		logPollInterval:                       15 * time.Second,
+		logKeepBlocksDepth:                    100_000,
 		maxGasPriceWei:                        *assets.GWei(100000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 )
 
 type Config struct {
@@ -18,8 +19,8 @@ type Config struct {
 	MaxIdleConns int
 }
 
-func NewConnection(uri string, dialect string, config Config) (db *sqlx.DB, err error) {
-	if dialect == "txdb" {
+func NewConnection(uri string, dialect dialects.DialectName, config Config) (db *sqlx.DB, err error) {
+	if dialect == dialects.TransactionWrappedPostgres {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
 		// unique id.
@@ -31,7 +32,7 @@ func NewConnection(uri string, dialect string, config Config) (db *sqlx.DB, err 
 	}
 
 	// Initialize sql/sqlx
-	db, err = sqlx.Open(dialect, uri)
+	db, err = sqlx.Open(string(dialect), uri)
 	if err != nil {
 		return nil, err
 	}
