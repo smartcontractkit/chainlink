@@ -6,13 +6,14 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/chain"
+	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	registry "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/chain"
-	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 )
 
 type LogProvider struct {
