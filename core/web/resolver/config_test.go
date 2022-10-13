@@ -47,7 +47,7 @@ func TestResolver_Config(t *testing.T) {
 					EVMRPCEnabled:                        null.BoolFrom(false),
 					EthereumURL:                          null.StringFrom(""),
 					FeatureExternalInitiators:            null.BoolFrom(true),
-					GlobalAutomationPerformGasLimit:      null.IntFrom(10),
+					GlobalAutomationTransmitGasLimit:     null.IntFrom(10),
 					GlobalBalanceMonitorEnabled:          null.BoolFrom(true),
 					GlobalChainType:                      null.StringFrom(""),
 					GlobalEthTxReaperThreshold:           nil,
@@ -123,7 +123,7 @@ func TestResolver_Config(t *testing.T) {
         "value": "test"
       },
       {
-        "key": "AUTOMATION_PERFORM_GAS_LIMIT",
+        "key": "AUTOMATION_TRANSMIT_GAS_LIMIT",
         "value": "50"
       },
       {

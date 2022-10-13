@@ -409,12 +409,12 @@ func (t *Transactions) setFrom(f *Transactions) {
 }
 
 type Automation struct {
-	PerformGasLimit *uint32
+	TransmitGasLimit *uint32
 }
 
 func (a *Automation) setFrom(f *Automation) {
-	if v := f.PerformGasLimit; v != nil {
-		a.PerformGasLimit = v
+	if v := f.TransmitGasLimit; v != nil {
+		a.TransmitGasLimit = v
 	}
 }
 

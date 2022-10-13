@@ -23,7 +23,7 @@ type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
 	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	chainSpecificConfigDefaultSet struct {
-		automationPerformGasLimit                  uint32
+		automationTransmitGasLimit                 uint32
 		balanceMonitorEnabled                      bool
 		blockEmissionIdleWarningThreshold          time.Duration
 		blockHistoryEstimatorBatchSize             uint32
@@ -109,7 +109,7 @@ func setChainSpecificConfigDefaultSets() {
 	// See: https://app.clubhouse.io/chainlinklabs/story/11091/chain-chainSpecificConfigDefaultSets-should-move-to-toml-json-files
 
 	fallbackDefaultSet = chainSpecificConfigDefaultSet{
-		automationPerformGasLimit:                  5300000, // 5.3M: 5M upkeep gas limit + 300K overhead
+		automationTransmitGasLimit:                 5300000, // 5.3M: 5M upkeep gas limit + 300K overhead
 		balanceMonitorEnabled:                      true,
 		blockEmissionIdleWarningThreshold:          1 * time.Minute,
 		blockHistoryEstimatorBatchSize:             4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
@@ -309,7 +309,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
-	optimismMainnet.automationPerformGasLimit = 6500000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
+	optimismMainnet.automationTransmitGasLimit = 6500000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	optimismMainnet.blockEmissionIdleWarningThreshold = 0
 	optimismMainnet.nodeDeadAfterNoNewHeadersThreshold = 0    // Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism

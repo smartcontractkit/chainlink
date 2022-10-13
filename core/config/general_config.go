@@ -196,7 +196,7 @@ type BasicConfig interface {
 // If set the global ENV will override everything
 // The second bool indicates if it is set or not
 type GlobalConfig interface {
-	GlobalAutomationPerformGasLimit() (uint32, bool)
+	GlobalAutomationTransmitGasLimit() (uint32, bool)
 	GlobalBalanceMonitorEnabled() (bool, bool)
 	GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool)
 	GlobalBlockHistoryEstimatorBatchSize() (uint32, bool)
@@ -1245,8 +1245,8 @@ func lookupEnv[T any](c *generalConfig, k string, parse func(string) (T, error))
 
 // EVM methods
 
-func (c *generalConfig) GlobalAutomationPerformGasLimit() (uint32, bool) {
-	return lookupEnv(c, envvar.Name("AUTOMATION_PERFORM_GAS_LIMIT"), parse.Uint32)
+func (c *generalConfig) GlobalAutomationTransmitGasLimit() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("AUTOMATION_TRANSMIT_GAS_LIMIT"), parse.Uint32)
 }
 
 func (c *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) {

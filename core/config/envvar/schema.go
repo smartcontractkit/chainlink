@@ -290,7 +290,7 @@ type ConfigSchema struct {
 	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
 
 	// Automation
-	AutomationPerformGasLimit uint32 `env:"AUTOMATION_PERFORM_GAS_LIMIT"`
+	AutomationTransmitGasLimit uint32 `env:"AUTOMATION_TRANSMIT_GAS_LIMIT"`
 
 	// Debugging
 	AutoPprofEnabled              bool            `env:"AUTO_PPROF_ENABLED" default:"false"`            //nodoc

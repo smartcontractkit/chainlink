@@ -159,9 +159,6 @@ MaxPerformDataSize = 5000
 SyncInterval = '1h0m0s'
 SyncUpkeepQueueSize = 31
 
-[Automation]
-PerformGasOverhead = 5300000
-
 [AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'

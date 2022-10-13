@@ -25,7 +25,6 @@
 	- [V2](#P2P-V2)
 - [Keeper](#Keeper)
 	- [Registry](#Keeper-Registry)
-- [Automation](#Automation)
 - [AutoPprof](#AutoPprof)
 - [Pyroscope](#Pyroscope)
 - [Sentry](#Sentry)
@@ -1127,20 +1126,6 @@ MaxPerformDataSize is the max size of perform data.
 SyncUpkeepQueueSize = 10 # Default
 ```
 SyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
-
-## Automation<a id='Automation'></a>
-```toml
-[Automation]
-PerformGasLimit = 5300000 # Default
-```
-
-
-### PerformGasLimit<a id='Automation-PerformGasLimit'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-PerformGasLimit = 5300000 # Default
-```
-PerformGasLimit controls the gas limit for performUpkeep transactions transmitted from ocr2automation job.
 
 ## AutoPprof<a id='AutoPprof'></a>
 ```toml

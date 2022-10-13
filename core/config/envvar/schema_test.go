@@ -16,7 +16,7 @@ func TestConfigSchema(t *testing.T) {
 		"AllowOrigins":                                   "ALLOW_ORIGINS",
 		"AuthenticatedRateLimit":                         "AUTHENTICATED_RATE_LIMIT",
 		"AuthenticatedRateLimitPeriod":                   "AUTHENTICATED_RATE_LIMIT_PERIOD",
-		"AutomationPerformGasLimit":                      "AUTOMATION_PERFORM_GAS_LIMIT",
+		"AutomationTransmitGasLimit":                     "AUTOMATION_TRANSMIT_GAS_LIMIT",
 		"AutoPprofBlockProfileRate":                      "AUTO_PPROF_BLOCK_PROFILE_RATE",
 		"AutoPprofCPUProfileRate":                        "AUTO_PPROF_CPU_PROFILE_RATE",
 		"AutoPprofEnabled":                               "AUTO_PPROF_ENABLED",

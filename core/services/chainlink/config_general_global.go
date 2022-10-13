@@ -8,8 +8,8 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
-func (g *generalConfig) GlobalAutomationPerformGasLimit() (uint32, bool) { panic(v2.ErrUnsupported) }
-func (g *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool)       { panic(v2.ErrUnsupported) }
+func (g *generalConfig) GlobalAutomationTransmitGasLimit() (uint32, bool) { panic(v2.ErrUnsupported) }
+func (g *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool)        { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
 	panic(v2.ErrUnsupported)
 }

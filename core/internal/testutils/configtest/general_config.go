@@ -40,7 +40,6 @@ type GeneralConfigOverrides struct {
 	AdvisoryLockCheckInterval               *time.Duration
 	AdvisoryLockID                          null.Int
 	AllowOrigins                            null.String
-	AutomationPerformGasLimit               null.Int
 	BlockBackfillDepth                      null.Int
 	BlockBackfillSkip                       null.Bool
 	DatabaseURL                             null.String
@@ -52,7 +51,7 @@ type GeneralConfigOverrides struct {
 	ShutdownGracePeriod                     *time.Duration
 	Dialect                                 dialects.DialectName
 	EthereumURL                             null.String
-	GlobalAutomationPerformGasLimit         null.Int
+	GlobalAutomationTransmitGasLimit        null.Int
 	GlobalBalanceMonitorEnabled             null.Bool
 	GlobalBlockEmissionIdleWarningThreshold *time.Duration
 	GlobalChainType                         null.String
@@ -541,11 +540,11 @@ func (c *TestGeneralConfig) P2PEnabled() bool {
 	return c.GeneralConfig.P2PEnabled()
 }
 
-func (c *TestGeneralConfig) GlobalAutomationPerformGasLimit() (uint32, bool) {
-	if c.Overrides.GlobalBalanceMonitorEnabled.Valid {
-		return uint32(c.Overrides.GlobalAutomationPerformGasLimit.Int64), true
+func (c *TestGeneralConfig) GlobalAutomationTransmitasLimit() (uint32, bool) {
+	if c.Overrides.GlobalAutomationTransmitGasLimit.Valid {
+		return uint32(c.Overrides.GlobalAutomationTransmitGasLimit.Int64), true
 	}
-	return c.GeneralConfig.GlobalAutomationPerformGasLimit()
+	return c.GeneralConfig.GlobalAutomationTransmitGasLimit()
 }
 
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {

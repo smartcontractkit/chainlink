@@ -301,8 +301,8 @@ func (_m *ChainScopedConfig) AutoPprofProfileRoot() string {
 	return r0
 }
 
-// AutomationPerformGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutomationPerformGasLimit() uint32 {
+// AutomationTransmitGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutomationTransmitGasLimit() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32

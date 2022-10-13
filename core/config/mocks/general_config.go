@@ -827,8 +827,8 @@ func (_m *GeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dialec
 	return r0
 }
 
-// GlobalAutomationPerformGasLimit provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalAutomationPerformGasLimit() (uint32, bool) {
+// GlobalAutomationTransmitGasLimit provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalAutomationTransmitGasLimit() (uint32, bool) {
 	ret := _m.Called()
 
 	var r0 uint32

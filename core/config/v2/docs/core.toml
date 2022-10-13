@@ -414,11 +414,6 @@ MaxPerformDataSize = 5_000 # Default
 # SyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
 SyncUpkeepQueueSize = 10 # Default
 
-[Automation]
-# **ADVANCED**
-# PerformGasLimit controls the gas limit for performUpkeep transactions transmitted from ocr2automation job.
-PerformGasLimit = 5300000 # Default
-
 # The Chainlink node is equipped with an internal "nurse" service that can perform automatic `pprof` profiling when the certain resource thresholds are exceeded, such as memory and goroutine count. These profiles are saved to disk to facilitate fine-grained debugging of performance-related issues. In general, if you notice that your node has begun to accumulate profiles, forward them to the Chainlink team.
 #
 # To learn more about these profiles, read the [Profiling Go programs with pprof](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) guide.

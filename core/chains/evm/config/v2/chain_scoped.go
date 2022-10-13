@@ -57,8 +57,8 @@ func (c *ChainScoped) Validate() (err error) {
 	return
 }
 
-func (c *ChainScoped) AutomationPerformGasLimit() uint32 {
-	return uint32(*c.cfg.Automation.PerformGasLimit)
+func (c *ChainScoped) AutomationTransmitGasLimit() uint32 {
+	return uint32(*c.cfg.Automation.TransmitGasLimit)
 }
 
 func (c *ChainScoped) BlockBackfillDepth() uint64 {
