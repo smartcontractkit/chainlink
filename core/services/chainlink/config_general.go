@@ -309,10 +309,6 @@ func (g *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.AuthenticatedPeriod
 }
 
-func (g *generalConfig) AutomationPerformGasLimit() uint32 {
-	return *g.c.Automation.PerformGasLimit
-}
-
 func (g *generalConfig) AutoPprofBlockProfileRate() int {
 	return int(*g.c.AutoPprof.BlockProfileRate)
 }

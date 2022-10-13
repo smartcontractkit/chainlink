@@ -253,6 +253,8 @@ type Chain struct {
 	NodePool *NodePool
 
 	OCR *OCR
+
+	Automation *Automation
 }
 
 func (c Chain) ValidateConfig() (err error) {
@@ -403,6 +405,16 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 	if v := f.ResendAfterThreshold; v != nil {
 		t.ResendAfterThreshold = v
+	}
+}
+
+type Automation struct {
+	PerformGasLimit *uint32
+}
+
+func (a *Automation) setFrom(f *Automation) {
+	if v := f.PerformGasLimit; v != nil {
+		a.PerformGasLimit = v
 	}
 }
 

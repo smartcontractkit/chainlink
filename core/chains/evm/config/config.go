@@ -28,6 +28,7 @@ import (
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
 
+	AutomationPerformGasLimit() uint32
 	BalanceMonitorEnabled() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	BlockHistoryEstimatorBatchSize() (size uint32)
@@ -1142,6 +1143,16 @@ func (c *chainScopedConfig) FlagsContractAddress() string {
 		return p.String
 	}
 	return c.defaultSet.flagsContractAddress
+}
+
+// AutomationPerformGasLimit is the gas limit
+func (c *chainScopedConfig) AutomationPerformGasLimit() uint32 {
+	val, ok := c.GeneralConfig.GlobalAutomationPerformGasLimit()
+	if ok {
+		c.logEnvOverrideOnce("AutomationPerformGasLimit", val)
+		return val
+	}
+	return c.defaultSet.automationPerformGasLimit
 }
 
 // BalanceMonitorEnabled enables the balance monitor

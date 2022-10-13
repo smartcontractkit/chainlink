@@ -190,9 +190,6 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperTurnLookBack:                      cfg.KeeperTurnLookBack(),
 			KeeperTurnFlagEnabled:                   cfg.KeeperTurnFlagEnabled(),
 
-			// Automation
-			AutomationPerformGasLimit: cfg.AutomationPerformGasLimit(),
-
 			LeaseLockDuration:        cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval: cfg.LeaseLockRefreshInterval(),
 			LogFileDir:               cfg.LogFileDir(),

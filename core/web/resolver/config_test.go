@@ -35,7 +35,6 @@ func TestResolver_Config(t *testing.T) {
 				cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
 					AdvisoryLockID:                       null.IntFrom(1),
 					AllowOrigins:                         null.StringFrom("test"),
-					AutomationPerformGasLimit:            null.IntFrom(50),
 					BlockBackfillDepth:                   null.IntFrom(1),
 					BlockBackfillSkip:                    null.BoolFrom(false),
 					DatabaseURL:                          null.StringFrom("test"),
@@ -48,6 +47,7 @@ func TestResolver_Config(t *testing.T) {
 					EVMRPCEnabled:                        null.BoolFrom(false),
 					EthereumURL:                          null.StringFrom(""),
 					FeatureExternalInitiators:            null.BoolFrom(true),
+					GlobalAutomationPerformGasLimit:      null.IntFrom(10),
 					GlobalBalanceMonitorEnabled:          null.BoolFrom(true),
 					GlobalChainType:                      null.StringFrom(""),
 					GlobalEthTxReaperThreshold:           nil,

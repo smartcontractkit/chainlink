@@ -929,13 +929,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		c.Keeper = nil
 	}
 
-	c.Automation = &config.Automation{
-		PerformGasLimit: envvar.NewUint32("AutomationPerformGasLimit").ParsePtr(),
-	}
-	if isZeroPtr(c.Automation) {
-		c.Automation = nil
-	}
-
 	c.AutoPprof = &config.AutoPprof{
 		Enabled:              envvar.NewBool("AutoPprofEnabled").ParsePtr(),
 		ProfileRoot:          envvar.NewString("AutoPprofProfileRoot").ParsePtr(),
