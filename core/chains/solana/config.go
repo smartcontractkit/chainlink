@@ -53,15 +53,17 @@ func (cs SolanaConfigs) Chains(ids ...string) (chains []DBChain) {
 		if ch == nil {
 			continue
 		}
-		var match bool
-		for _, id := range ids {
-			if id == *ch.ChainID {
-				match = true
-				break
+		if len(ids) > 0 {
+			var match bool
+			for _, id := range ids {
+				if id == *ch.ChainID {
+					match = true
+					break
+				}
 			}
-		}
-		if !match {
-			continue
+			if !match {
+				continue
+			}
 		}
 		chains = append(chains, ch.AsV1())
 	}

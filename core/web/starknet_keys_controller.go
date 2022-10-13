@@ -7,6 +7,6 @@ import (
 )
 
 func NewStarkNetKeysController(app chainlink.Application) KeysController {
-	return NewKeysController[starkkey.Key, presenters.StarkNetKeyResource](app.GetKeyStore().StarkNet(), app.GetLogger(),
+	return NewKeysController[starkkey.Key, presenters.StarkNetKeyResource](app.GetKeyStore().StarkNet(), app.GetLogger(), app.GetAuditLogger(),
 		"starknetKey", presenters.NewStarkNetKeyResource, presenters.NewStarkNetKeyResources)
 }
