@@ -264,7 +264,7 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 }
 
 func (client *client) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
-	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", hash.Hex(), false)
+	err = client.pool.CallContext(ctx, &head, "eth_getBlockByHash", hash.Hex(), false)
 	if err != nil {
 		return nil, err
 	}
