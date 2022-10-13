@@ -41,7 +41,6 @@ type dkgTemplateArgs struct {
 	p2pv2BootstrapperPeerID string
 	p2pv2BootstrapperPort   string
 	transmitterID           string
-	useForwarder            bool
 	chainID                 int64
 	encryptionPublicKey     string
 	keyID                   string
@@ -234,7 +233,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 			p2pv2BootstrapperPeerID: peerID,
 			p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 			transmitterID:           transmitterID,
-			useForwarder:            useForwarder,
 			chainID:                 chainID,
 			encryptionPublicKey:     dkgEncryptKey,
 			keyID:                   keyID,
@@ -249,7 +247,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 				p2pv2BootstrapperPeerID: peerID,
 				p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 				transmitterID:           transmitterID,
-				useForwarder:            useForwarder,
 				chainID:                 chainID,
 				encryptionPublicKey:     dkgEncryptKey,
 				keyID:                   keyID,
