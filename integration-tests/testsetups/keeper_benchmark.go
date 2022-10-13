@@ -158,7 +158,6 @@ func (k *KeeperBenchmarkTest) Run() {
 	Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
 	inputs := k.Inputs
 	startTime := time.Now()
-	k.TestReporter.Summary.StartTime = startTime.UnixMilli() - (90 * time.Second.Milliseconds())
 
 	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
 
