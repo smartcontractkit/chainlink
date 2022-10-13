@@ -387,16 +387,12 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}
 	require.GreaterOrEqual(t, len(allRuns), 1)
 
-	/*
-		TODO(@EasterTheBunny): Add test for second upkeep once listening to perform logs is implemented
+	// change payload
+	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
+	require.NoError(t, err)
+	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
+	require.NoError(t, err)
 
-		// change payload
-		_, err = upkeepContract.SetBytesToSend(carrol, payload2)
-		require.NoError(t, err)
-		_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
-		require.NoError(t, err)
-
-		// observe 2nd job run and received payload changes
-		g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
-	*/
+	// observe 2nd job run and received payload changes
+	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 }
