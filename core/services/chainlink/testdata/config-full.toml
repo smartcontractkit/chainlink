@@ -268,6 +268,9 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
 ObservationGracePeriod = '1s'
 
+[EVM.Automation]
+TransmitGasLimit = 540
+
 [[EVM.Nodes]]
 Name = 'foo'
 WSURL = 'wss://web.socket/test'
