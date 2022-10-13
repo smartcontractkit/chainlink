@@ -16,7 +16,8 @@ import (
 )
 
 type avaClient struct {
-	aec *avaclient.EthClient
+	chainID *big.Int
+	aec     *avaclient.EthClient
 }
 
 func (a *avaClient) HeaderByNumber(ctx context.Context, number *big.Int) (*Header, error) {
@@ -68,17 +69,18 @@ func (a *avaClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 }
 
 func (a *avaClient) ChainID() *big.Int {
-	return big.NewInt(43113)
+	return a.chainID
 }
 
-func NewAvaClient(rpcURL string) *avaClient {
+func NewAvaClient(rpcURL string, chainID *big.Int) (*avaClient, error) {
 	aec, err := avaclient.NewEthClient(context.Background(), rpcURL)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &avaClient{
-		aec: aec,
-	}
+		aec:     aec,
+		chainID: chainID,
+	}, nil
 }
 
 type ethClient struct {
@@ -123,16 +125,16 @@ func (e *ethClient) ChainID() *big.Int {
 	return e.chainID
 }
 
-func NewEthClient(rpcURL string, chainID *big.Int) *ethClient {
+func NewEthClient(rpcURL string, chainID *big.Int) (*ethClient, error) {
 	rc, err := rpc.DialHTTP(rpcURL)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &ethClient{
 		ec:      ethclient.NewClient(rc),
 		rc:      rc,
 		chainID: chainID,
-	}
+	}, nil
 }
 
 type simClient struct {

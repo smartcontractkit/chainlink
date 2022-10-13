@@ -133,11 +133,15 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	}
 
 	var ec logpoller.Client
+	var err error
 	switch chainID.String() {
 	case "43113": // avalanche
-		ec = logpoller.NewAvaClient(nodes[0].HTTPURL.String())
+		ec, err = logpoller.NewAvaClient(nodes[0].HTTPURL.String(), chainID)
 	default:
-		ec = logpoller.NewEthClient(nodes[0].HTTPURL.String(), chainID)
+		ec, err = logpoller.NewEthClient(nodes[0].HTTPURL.String(), chainID)
+	}
+	if err != nil {
+		return nil, err
 	}
 	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), ec, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
 	if opts.GenLogPoller != nil {
