@@ -57,7 +57,7 @@ type chain struct {
 	keyStore        keystore.Eth
 }
 
-func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
+func newChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !dbchain.Enabled {
@@ -94,7 +94,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()))
 	if opts.GenLogPoller != nil {
 		logPoller = opts.GenLogPoller(dbchain)
 	}
@@ -112,7 +112,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headSaver.LatestHeadFromDB(context.Background())
+	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 }
 
 func (c *chain) Start(ctx context.Context) error {
-	return c.StartOnce("Chain", func() (merr error) {
+	return c.StartOnce("Chain", func() error {
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
@@ -165,17 +165,17 @@ func (c *chain) Start(ctx context.Context) error {
 		}
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
-		merr = multierr.Combine(
-			c.txm.Start(ctx),
-			c.headBroadcaster.Start(ctx),
-			c.headTracker.Start(ctx),
-			c.logBroadcaster.Start(ctx),
-		)
+		var ms services.MultiStart
+		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
+			return err
+		}
 		if c.balanceMonitor != nil {
-			merr = multierr.Combine(merr, c.balanceMonitor.Start(ctx))
+			if err := ms.Start(ctx, c.balanceMonitor); err != nil {
+				return err
+			}
 		}
 
-		return merr
+		return nil
 	})
 }
 

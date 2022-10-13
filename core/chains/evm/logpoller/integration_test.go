@@ -1,14 +1,18 @@
 package logpoller_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -22,9 +26,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func logRuntime(t *testing.T) func() {
-	s := time.Now()
-	return func() { t.Log("runtime", time.Since(s)) }
+var (
+	EmitterABI, _ = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
+)
+
+func logRuntime(t *testing.T, start time.Time) {
+	t.Log("runtime", time.Since(start))
 }
 
 func TestPopulateLoadedDB(t *testing.T) {
@@ -63,20 +70,20 @@ func TestPopulateLoadedDB(t *testing.T) {
 		require.NoError(t, o.InsertLogs(logs))
 	}
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		_, err := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1[:])
 		require.NoError(t, err)
 	}()
 	func() {
-		defer logRuntime(t)()
-		_, err = o.LatestLogEventSigsAddrs(0, []common.Address{address1}, []common.Hash{event1})
+		defer logRuntime(t, time.Now())
+		_, err = o.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{address1}, []common.Hash{event1}, 0)
 		require.NoError(t, err)
 	}()
 
 	// Confirm all the logs.
 	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000))
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectDataWordRange(address1, event1[:], 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err)
 		// 10 since every other log is for address1
@@ -84,14 +91,14 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}()
 
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectIndexedLogs(address2, event1[:], 1, []common.Hash{logpoller.EvmWord(500000), logpoller.EvmWord(500020)}, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 2, len(lgs))
 	}()
 
 	func() {
-		defer logRuntime(t)()
+		defer logRuntime(t, time.Now())
 		lgs, err := o.SelectIndexLogsTopicRange(address1, event1[:], 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err)
 		assert.Equal(t, 10, len(lgs))
@@ -120,9 +127,9 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
-		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
+		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3, 2)
 	// Only filter for log1 events.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1})
+	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1}))
 	require.NoError(t, lp.Start(testutils.Context(t)))
 
 	// Emit some logs in blocks 3->7.
@@ -135,28 +142,26 @@ func TestLogPoller_Integration(t *testing.T) {
 	// replay to ensure we get all the logs.
 	require.NoError(t, lp.Replay(testutils.Context(t), 1))
 
-	// We should eventually receive all those Log1 logs.
-	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log1"].ID, emitterAddress1)
-		require.NoError(t, err)
-		t.Logf("Received %d/%d logs\n", len(logs), 5)
-		return len(logs) == 5
-	})
+	// We should immediately have all those Log1 logs.
+	logs, err := lp.Logs(2, 7, EmitterABI.Events["Log1"].ID, emitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 5, len(logs))
 	// Now let's update the filter and replay to get Log2 logs.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1})
+	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1}))
 	// Replay an invalid block should error
 	assert.Error(t, lp.Replay(testutils.Context(t), 0))
 	assert.Error(t, lp.Replay(testutils.Context(t), 20))
 	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
 	require.NoError(t, lp.Replay(testutils.Context(t), 4))
 
-	// We should eventually see 4 logs2 logs.
-	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log2"].ID, emitterAddress1)
-		require.NoError(t, err)
-		t.Logf("Received %d/%d logs\n", len(logs), 4)
-		return len(logs) == 4
-	})
+	// We should immediately see 4 logs2 logs.
+	logs, err = lp.Logs(2, 7, EmitterABI.Events["Log2"].ID, emitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 4, len(logs))
 
+	// Cancelling a replay should return an error synchronously.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	assert.True(t, errors.Is(lp.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient))
 	require.NoError(t, lp.Close())
 }

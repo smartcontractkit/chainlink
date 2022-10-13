@@ -67,6 +67,17 @@ func TestORM_GetBlocks(t *testing.T) {
 	lpBlocks, err := o1.GetBlocks(blockNumbers)
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks, len(blocks))
+
+	// Ignores non-existent block
+	blockNumbers = append(blockNumbers, 15)
+	lpBlocks2, err := o1.GetBlocks(blockNumbers)
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks2, len(blocks))
+
+	// Only non-existent blocks
+	lpBlocks3, err := o1.GetBlocks([]uint64{15})
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks3, 0)
 }
 
 func TestORM(t *testing.T) {
@@ -217,27 +228,41 @@ func TestORM(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
+	// Required for confirmations to work
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 13))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 14))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 15))
 	// Latest log for topic for addr "0x1234" is @ block 11
-	lgs, err := o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic})
+	lgs, err := o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic}, 0)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(lgs))
 	require.Equal(t, int64(11), lgs[0].BlockNumber)
 
 	// should return two entries one for each address with the latest update
-	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic})
+	lgs, err = o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic}, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 
 	// should return two entries one for each topic for addr 0x1234
-	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic, topic2})
+	lgs, err = o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic, topic2}, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 
 	// should return 4 entries one for each (address,topic) combination
-	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic, topic2})
+	lgs, err = o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic, topic2}, 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(lgs))
+
+	// should return 3 entries of logs with atleast 1 confirmation
+	lgs, err = o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic, topic2}, 1)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(lgs))
+
+	// should return 2 entries of logs with atleast 2 confirmation
+	lgs, err = o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic, topic2}, 2)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(lgs))
 }
 
 func insertLogsTopicValueRange(t *testing.T, o *ORM, addr common.Address, blockNumber int, eventSig []byte, start, stop int) {

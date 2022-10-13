@@ -17,7 +17,7 @@ install-git-hooks: ## Install git hooks.
 .PHONY: install-chainlink-autoinstall
 install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlink.
 .PHONY: operator-ui-autoinstall
-operator-ui-autoinstall: | yarndep operator-ui ## Autoinstall frontend UI.
+operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
@@ -25,10 +25,6 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 		go install github.com/smartcontractkit/gencodec@latest; \
 	fi || true
 	go mod download
-
-.PHONY: yarndep
-yarndep: ## Ensure all yarn dependencies are installed.
-	yarn install --frozen-lockfile --prefer-offline
 
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
@@ -39,6 +35,12 @@ install-chainlink: chainlink ## Install the chainlink binary.
 chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) -o $@ ./core/
 
+.PHONY: docker ## Build the chainlink docker image
+docker: operator-ui
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f core/chainlink.Dockerfile .
+
 .PHONY: chainlink-build
 chainlink-build: ## Build & install the chainlink binary.
 	go build $(GOFLAGS) -o chainlink ./core/
@@ -46,14 +48,8 @@ chainlink-build: ## Build & install the chainlink binary.
 	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
-operator-ui: ## Build the static frontend UI.
-	yarn setup:chainlink
-	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
-
-.PHONY: contracts-operator-ui-build
-contracts-operator-ui-build: # Only compiles tsc and builds contracts and operator-ui.
-	yarn setup:chainlink
-	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
+operator-ui: ## Fetch the frontend
+	./operator_ui/install.sh	
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -102,16 +98,22 @@ test_install_ginkgo: ## Install ginkgo executable to run tests
 	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
 
 .PHONY: test_smoke
-test_smoke: ## Run all integration smoke tests, including on live testnets
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/smoke
-
-.PHONY: test_smoke_simulated
-test_smoke_simulated: ## Run integration smoke tests, only using simulated networks
+test_smoke: ## Run all integration smoke tests, using only simulated networks, default behavior
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
+
+.PHONY: test_smoke_simulated
+test_smoke_simulated: ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
+	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress --focus @simulated $(args) ./integration-tests/smoke
+
+.PHONY: test_smoke_raw
+test_smoke_raw: ## Run ALL integration smoke tests, only used for when focusing a specific suite or test
+	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress $(args) ./integration-tests/smoke
 
 .PHONY: test_soak_ocr
 test_soak_ocr: ## Run the OCR soak test
@@ -129,7 +131,7 @@ test_perf: ## Run core node performance tests.
 
 .PHONY: test_chaos
 test_chaos: # run core node chaos tests.
-	ginkgo -r --focus @chaos --nodes 3 ./integration-tests/chaos
+	ginkgo -r --focus @chaos --nodes 5 ./integration-tests/chaos
 
 .PHONY: config-docs
 config-docs: # Generate core node configuration documentation

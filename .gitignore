@@ -8,10 +8,6 @@ tools/bin/abigen
 /chainlink
 core/chainlink
 
-# GUI
-operator_ui/dist
-operator_ui/artifacts
-
 # SQLite
 tools/clroot/db.sqlite3-shm
 tools/clroot/db.sqlite3-wal

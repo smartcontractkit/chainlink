@@ -45,25 +45,5 @@ module.exports = {
         jest: true,
       },
     },
-    // add react linting for all of our react projects
-    {
-      files: ['operator_ui/**/*'],
-      plugins: ['react-hooks'],
-      extends: ['plugin:react/recommended'],
-      env: {
-        node: true,
-        browser: true,
-      },
-      settings: {
-        react: {
-          version: 'detect',
-        },
-      },
-      rules: {
-        'react/prop-types': 'off',
-        'react-hooks/rules-of-hooks': 'error',
-        'react-hooks/exhaustive-deps': 'error',
-      },
-    },
   ],
 }

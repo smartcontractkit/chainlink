@@ -126,6 +126,7 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperMaximumGracePeriod":                       "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperRegistryCheckGasOverhead":                 "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
 		"KeeperRegistryPerformGasOverhead":               "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
+		"KeeperRegistryMaxPerformDataSize":               "KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE",
 		"KeeperRegistrySyncInterval":                     "KEEPER_REGISTRY_SYNC_INTERVAL",
 		"KeeperRegistrySyncUpkeepQueueSize":              "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
 		"KeeperTurnLookBack":                             "KEEPER_TURN_LOOK_BACK",
@@ -236,6 +237,11 @@ func TestConfigSchema(t *testing.T) {
 		"P2PV2DeltaDial":         "P2PV2_DELTA_DIAL",
 		"P2PV2DeltaReconcile":    "P2PV2_DELTA_RECONCILE",
 		"P2PV2ListenAddresses":   "P2PV2_LISTEN_ADDRESSES",
+
+		// Pyroscope profiling
+		"PyroscopeAuthToken":     "PYROSCOPE_AUTH_TOKEN",
+		"PyroscopeServerAddress": "PYROSCOPE_SERVER_ADDRESS",
+		"PyroscopeEnvironment":   "PYROSCOPE_ENVIRONMENT",
 
 		// P2P deprecated
 		"OCRNewStreamTimeout":          "OCR_NEW_STREAM_TIMEOUT",

@@ -71,7 +71,7 @@ func (m *Median) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
 			m.runResults,
 		),
 		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(m.pipelineRunner, m.jb, juelsPerFeeCoinPipelineSpec, m.lggr),
-		OnchainConfigCodec:        median.StandardOnchainConfigCodec{},
+		OnchainConfigCodec:        m.ocr2Provider.OnchainConfigCodec(),
 		ReportCodec:               m.ocr2Provider.ReportCodec(),
 		Logger:                    m.ocrLogger,
 	}, nil

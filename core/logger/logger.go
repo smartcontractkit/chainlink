@@ -40,18 +40,18 @@ func init() {
 // Loggers should be injected (and usually Named as well): e.g. lggr.Named("<service name>")
 //
 // Tests
-//  - Tests should use a TestLogger, with NewLogger being reserved for actual
-//    runtime and limited direct testing.
+//   - Tests should use a TestLogger, with NewLogger being reserved for actual
+//     runtime and limited direct testing.
 //
 // Levels
-//  - Fatal: Logs and then calls os.Exit(1). Be careful about using this since it does NOT unwind the stack and may exit uncleanly.
-//  - Panic: Unrecoverable error. Example: invariant violation, programmer error
-//  - Critical: Requires quick action from the node op, obviously these should happen extremely rarely. Example: failed to listen on TCP port
-//  - Error: Something bad happened, and it was clearly on the node op side. No need for immediate action though. Example: database write timed out
-//  - Warn: Something bad happened, not clear who/what is at fault. Node ops should have a rough look at these once in a while to see whether anything stands out. Example: connection to peer was closed unexpectedly. observation timed out.
-//  - Info: High level information. First level we’d expect node ops to look at. Example: entered new epoch with leader, made an observation with value, etc.
-//  - Debug: Useful for forensic debugging, but we don't expect nops to look at this. Example: Got a message, dropped a message, ...
-//  - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
+//   - Fatal: Logs and then calls os.Exit(1). Be careful about using this since it does NOT unwind the stack and may exit uncleanly.
+//   - Panic: Unrecoverable error. Example: invariant violation, programmer error
+//   - Critical: Requires quick action from the node op, obviously these should happen extremely rarely. Example: failed to listen on TCP port
+//   - Error: Something bad happened, and it was clearly on the node op side. No need for immediate action though. Example: database write timed out
+//   - Warn: Something bad happened, not clear who/what is at fault. Node ops should have a rough look at these once in a while to see whether anything stands out. Example: connection to peer was closed unexpectedly. observation timed out.
+//   - Info: High level information. First level we’d expect node ops to look at. Example: entered new epoch with leader, made an observation with value, etc.
+//   - Debug: Useful for forensic debugging, but we don't expect nops to look at this. Example: Got a message, dropped a message, ...
+//   - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
 //
 // Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
 type Logger interface {
@@ -128,18 +128,7 @@ func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
 }
 
 func verShaNameStatic() string {
-	return verShaName(static.Version, static.Sha)
-}
-
-func verShaName(ver, sha string) string {
-	if sha == "" {
-		sha = "unset"
-	} else if len(sha) > 7 {
-		sha = sha[:7]
-	}
-	if ver == "" {
-		ver = "unset"
-	}
+	sha, ver := static.Short()
 	return fmt.Sprintf("%s@%s", ver, sha)
 }
 

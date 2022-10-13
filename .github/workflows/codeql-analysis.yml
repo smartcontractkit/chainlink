@@ -15,7 +15,7 @@ on:
 
 jobs:
   analyze:
-    name: Analyze
+    name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -27,6 +27,15 @@ jobs:
         # https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#changing-the-languages-that-are-analyzed
 
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Analyze ${{ matrix.language }}
+        continue-on-error: true
+
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 

@@ -26,62 +26,54 @@ jobs:
     name: Solidity Coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Setup node
-        uses: actions/setup-node@v2
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
         with:
-          node-version: "16"
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity Coverage
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
+      - name: Setup node
+        uses: actions/setup-node@v3
         with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          node-version: "16"
+          cache: yarn
       - run: yarn install --frozen-lockfile
       - name: Run coverage
         env:
-          NODE_OPTIONS: "--max-old-space-size=6144"
+          NODE_OPTIONS: "--max-old-space-size=8192"
         run: ./tools/ci/solidity_coverage
 
   solidity:
     name: Solidity
     runs-on: ubuntu-latest
     steps:
-      - name: Setup node
-        uses: actions/setup-node@v2
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
         with:
-          node-version: "16"
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
+      - name: Setup node
+        uses: actions/setup-node@v3
         with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          node-version: "16"
+          cache: 'yarn'
       - run: yarn install --frozen-lockfile
       - name: Compile all contracts
         run: ./contracts/scripts/native_solc_compile_all
       - name: Verify local solc binaries
         run: ./tools/ci/check_solc_hashes
       - name: Run tests
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
         run: ./tools/ci/solidity_test_hardhat
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test

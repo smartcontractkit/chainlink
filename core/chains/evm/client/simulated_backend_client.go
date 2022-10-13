@@ -164,13 +164,13 @@ func init() {
 
 // GetERC20Balance returns the balance of the given address for the token
 // contract address.
-func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
+func (c *SimulatedBackendClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
 	callData, err := balanceOfABI.Pack("balanceOf", address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while seeking the ERC20 balance of %s on %s",
 			address, contractAddress)
 	}
-	b, err := c.b.CallContract(context.Background(), ethereum.CallMsg{
+	b, err := c.b.CallContract(ctx, ethereum.CallMsg{
 		To: &contractAddress, Data: callData},
 		c.currentBlockNumber())
 	if err != nil {
@@ -185,7 +185,7 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contrac
 }
 
 // GetLINKBalance get link balance.
-func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+func (c *SimulatedBackendClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	panic("not implemented")
 }
 
@@ -361,14 +361,41 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	return err
 }
 
-// Call makes a call.
-func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{}) error {
-	return c.CallContext(context.Background(), result, method, args)
+type revertError struct {
+	error
+	reason string
 }
+
+func (e *revertError) ErrorCode() int {
+	return 3
+}
+
+// ErrorData returns the hex encoded revert reason.
+func (e *revertError) ErrorData() interface{} {
+	return e.reason
+}
+
+var _ rpc.DataError = &revertError{}
 
 // CallContract calls a contract.
 func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return c.b.CallContract(ctx, msg, blockNumber)
+	// Expected error is
+	// type JsonError struct {
+	//	Code    int         `json:"code"`
+	//	Message string      `json:"message"`
+	//	Data    interface{} `json:"data,omitempty"`
+	//}
+	res, err := c.b.CallContract(ctx, msg, blockNumber)
+	if err != nil {
+		dataErr := revertError{}
+		isCustomRevert := errors.As(err, &dataErr)
+		if isCustomRevert {
+			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
+		}
+		// Generic revert, no data
+		return nil, &JsonError{Data: []byte{}, Message: err.Error(), Code: 3}
+	}
+	return res, nil
 }
 
 // CodeAt gets the code associated with an account as of a specified block.
@@ -393,12 +420,22 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 
 // BatchCallContext makes a batch rpc call.
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("context canceled")
+	default:
+		//do nothing
+	}
+
 	for i, elem := range b {
-		if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
-			return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
-		}
-		switch v := elem.Result.(type) {
-		case *evmtypes.Receipt:
+		switch elem.Method {
+		case "eth_getTransactionReceipt":
+			if _, ok := elem.Result.(*evmtypes.Receipt); !ok {
+				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", elem.Result)
+			}
+			if len(elem.Args) != 1 {
+				return errors.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getTransactionReceipt", len(elem.Args))
+			}
 			hash, is := elem.Args[0].(common.Hash)
 			if !is {
 				return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
@@ -406,8 +443,39 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			receipt, err := c.b.TransactionReceipt(ctx, hash)
 			b[i].Result = evmtypes.FromGethReceipt(receipt)
 			b[i].Error = err
+		case "eth_getBlockByNumber":
+			if _, ok := elem.Result.(*evmtypes.Head); !ok {
+				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Head for eth_getBlockByNumber, got type %T", elem.Result)
+			}
+			if len(elem.Args) != 2 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
+			}
+			blockNum, is := elem.Args[0].(string)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", elem.Args[0])
+			}
+			isFullTx, is := elem.Args[1].(bool)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", elem.Args[1])
+			}
+			if isFullTx {
+				return errors.New("SimulatedBackendClient doesn't support full transactions for eth_getBlockByNumber")
+			}
+			n, ok := new(big.Int).SetString(blockNum, 0)
+			if !ok {
+				return errors.Errorf("error while converting block number string: %s to big.Int ", blockNum)
+			}
+			header, err := c.b.HeaderByNumber(ctx, n)
+			if err != nil {
+				return err
+			}
+			b[i].Result = &evmtypes.Head{
+				Number: header.Number.Int64(),
+				Hash:   header.Hash(),
+			}
+			b[i].Error = err
 		default:
-			return errors.Errorf("SimulatedBackendClient unsupported elem.Result type %T", v)
+			return errors.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
 	}
 	return nil

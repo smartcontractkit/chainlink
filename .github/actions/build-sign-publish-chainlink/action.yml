@@ -85,6 +85,12 @@ runs:
       echo "$SHARED_BUILD_ARGS" >> $GITHUB_ENV
       echo "EOF" >> $GITHUB_ENV
 
+  - name: Fetch operator-ui
+    shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: make operator-ui 
+
   - if: inputs.publish == 'true'
     # Log in to AWS for publish to ECR
     name: Configure AWS Credentials
@@ -108,7 +114,7 @@ runs:
     uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
     with:
       flavor: |
-        suffix=-root
+        suffix=-root,onlatest=true
       # list of Docker images to use as base name for tags
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
@@ -118,6 +124,7 @@ runs:
     uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      context: .
       load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-root.outputs.tags }}
       labels: ${{ steps.meta-root.outputs.labels }}
@@ -140,7 +147,7 @@ runs:
       flavor: |
         latest=auto
         prefix=
-        suffix=-nonroot,onlatest=true
+        suffix=
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
 
@@ -149,6 +156,7 @@ runs:
     uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      context: .
       load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-nonroot.outputs.tags }}
       labels: ${{ steps.meta-nonroot.outputs.labels }}
