@@ -2,7 +2,7 @@ package soltxm
 
 import (
 	"crypto/rand"
-	"fmt"
+	"math"
 	"sync"
 	"testing"
 
@@ -21,6 +21,29 @@ func XXXNewSignature(t *testing.T) solana.Signature {
 	return solana.SignatureFromBytes(sig)
 }
 
+func TestPendingTx_FeeBumping(t *testing.T) {
+	tx := PendingTx{baseTx: &solana.Transaction{}}
+	n := 10
+	init := true
+
+	for i := 0; i < n; i++ {
+		// initial tx should use the default price arg
+		_, fee, err := tx.SetComputeUnitPrice(0)
+		require.NoError(t, err)
+
+		if init {
+			assert.Equal(t, uint64(0), fee)
+			init = false
+		} else {
+			assert.Equal(t, uint64(math.Pow(2, float64(i-1))), fee)
+		}
+
+		// if tx has been broadcast should begin X^2 increases
+		tx.broadcast = true
+		tx.currentFee = fee // track current fee
+	}
+}
+
 func TestPendingTxMemory(t *testing.T) {
 	t.Run("happyPath", func(t *testing.T) {
 		// init inflight txs map + store some signatures and cancelFunc
@@ -30,12 +53,12 @@ func TestPendingTxMemory(t *testing.T) {
 			// 1 tx, 1 signature
 			idTemp := txs.New(PendingTx{})
 			sigTemp := XXXNewSignature(t)
-			assert.NoError(t, txs.Add(idTemp, sigTemp))
+			assert.NoError(t, txs.Add(idTemp, sigTemp, 0))
 
 			// validate get method
-			idGet, txGet, exists := txs.Get(sigTemp)
+			txGet, exists := txs.Get(sigTemp)
 			assert.True(t, exists)
-			assert.Equal(t, idTemp, idGet)
+			assert.Equal(t, idTemp, txGet.id)
 			assert.Equal(t, 1, len(txGet.signatures))
 			assert.Equal(t, sigTemp, txGet.signatures[0])
 		}
@@ -49,7 +72,7 @@ func TestPendingTxMemory(t *testing.T) {
 			txs.OnSuccess(list[i])
 			assert.Equal(t, n-i-1, len(txs.ListSignatures()))
 
-			_, _, exists := txs.Get(list[i])
+			_, exists := txs.Get(list[i])
 			assert.False(t, exists)
 		}
 	})
@@ -63,13 +86,13 @@ func TestPendingTxMemory(t *testing.T) {
 		for i := 0; i < n; i++ {
 			// 1 tx, many signatures
 			sigTemp := XXXNewSignature(t)
-			err := txs.Add(id, sigTemp)
+			err := txs.Add(id, sigTemp, 0)
 			assert.NoError(t, err)
 
 			// validate get method
-			idGet, txGet, exists := txs.Get(sigTemp)
+			txGet, exists := txs.Get(sigTemp)
 			assert.True(t, exists)
-			assert.Equal(t, id, idGet)
+			assert.Equal(t, id, txGet.id)
 			assert.Equal(t, i+1, len(txGet.signatures))
 			assert.Equal(t, sigTemp, txGet.signatures[len(txGet.signatures)-1])
 		}
@@ -78,23 +101,26 @@ func TestPendingTxMemory(t *testing.T) {
 		list := txs.ListSignatures()
 		assert.Equal(t, n, len(list))
 
-		// stop all sub processes by completing 1 signature
+		// clear transaction by completing 1 signature
 		txs.OnSuccess(list[0])
 		assert.Equal(t, 0, len(txs.ListSignatures()))
 		for i := 0; i < len(list); i++ {
-			_, _, exists := txs.Get(list[i])
+			_, exists := txs.Get(list[i])
 			assert.False(t, exists)
 		}
 	})
 
 	t.Run("duplicateSignatures", func(t *testing.T) {
-		// TODO
-		// duplicate for same tx
-		// duplicate for different txs
-	})
+		txs := newPendingTxMemory()
+		id := txs.New(PendingTx{})
 
-	t.Run("stateMachine", func(t *testing.T) {
-		// TODO
+		// duplicate for same tx
+		sig := XXXNewSignature(t)
+		assert.NoError(t, txs.Add(id, sig, 0))
+		assert.Error(t, txs.Add(id, sig, 0))
+
+		// duplicate for different txs
+		assert.Error(t, txs.Add(txs.New(PendingTx{}), sig, 0))
 	})
 }
 
@@ -107,16 +133,15 @@ func TestPendingTxMemory_race(t *testing.T) {
 		var err [2]error
 
 		go func() {
-			err[0] = txCtx.Add(id, solana.Signature{})
+			err[0] = txCtx.Add(id, solana.Signature{}, 0)
 			wg.Done()
 		}()
 		go func() {
-			err[1] = txCtx.Add(id, solana.Signature{})
+			err[1] = txCtx.Add(id, solana.Signature{}, 0)
 			wg.Done()
 		}()
 
 		wg.Wait()
-		fmt.Println(err)
 		assert.True(t, (err[0] != nil && err[1] == nil) || (err[0] == nil && err[1] != nil), "one and only one 'add' should have errored")
 	})
 
@@ -125,16 +150,18 @@ func TestPendingTxMemory_race(t *testing.T) {
 		id := txCtx.New(PendingTx{})
 		var wg sync.WaitGroup
 		wg.Add(2)
+		var err [2]error
 
 		go func() {
-			assert.NotPanics(t, func() { txCtx.Remove(id) })
+			err[0] = txCtx.Remove(id)
 			wg.Done()
 		}()
 		go func() {
-			assert.NotPanics(t, func() { txCtx.Remove(id) })
+			err[1] = txCtx.Remove(id)
 			wg.Done()
 		}()
 
 		wg.Wait()
+		assert.True(t, (err[0] != nil && err[1] == nil) || (err[0] == nil && err[1] != nil), "one and only one 'add' should have errored")
 	})
 }
