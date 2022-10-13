@@ -33,7 +33,6 @@ type BenchmarkTestEntry struct {
 	funding               *big.Float
 	upkeepSLA             int64
 	predeployedConsumers  []string
-	resetUpkeeps          bool
 	upkeepResetterAddress string
 }
 
@@ -53,7 +52,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(100000),
 					int64(20),
 					predeployedConsumersEmpty,
-					false,
 					upkeepResetterContractEmpty},
 			),
 			Entry("Keeper benchmark suite on Goerli Network @goerli-registry-1-3",
@@ -61,7 +59,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(0.5),
 					int64(4),
 					predeployedConsumersGoerli,
-					true,
 					upkeepResetterContractGoerli},
 			),
 			Entry("Keeper benchmark suite on Arbitrum Goerli Network @arbitrum-goerli-registry-1-3",
@@ -69,7 +66,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(0.5),
 					int64(20),
 					predeployedConsumersEmpty,
-					false,
 					upkeepResetterContractEmpty},
 			),
 			Entry("Keeper benchmark suite on Optimistic Goerli Network @optimistic-goerli-registry-1-3",
@@ -77,7 +73,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(0.5),
 					int64(20),
 					predeployedConsumersEmpty,
-					false,
 					upkeepResetterContractEmpty},
 			),
 			Entry("Keeper benchmark suite on Simulated Network with Multiple Registries @simulated-multiple-registries",
@@ -85,7 +80,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(100000),
 					int64(20),
 					predeployedConsumersEmpty,
-					false,
 					upkeepResetterContractEmpty},
 			),
 			Entry("Keeper benchmark suite on Goerli Network with Multiple Registries @goerli-multiple-registries",
@@ -93,7 +87,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(0.5),
 					int64(4),
 					predeployedConsumersGoerli,
-					true,
 					upkeepResetterContractGoerli},
 			),
 			Entry("Keeper benchmark suite on Simulated Network with 1.2 registry @simulated-registry1-2",
@@ -101,7 +94,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(100000),
 					int64(20),
 					predeployedConsumersEmpty,
-					false,
 					upkeepResetterContractEmpty},
 			),
 			Entry("Keeper benchmark suite on Goerli Network with 1.2 registry @goerli-registry1-2",
@@ -109,7 +101,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
 					predeployedConsumersGoerli,
-					true,
 					upkeepResetterContractGoerli},
 			),
 		}
