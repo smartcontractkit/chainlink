@@ -58,7 +58,7 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, ktypes.Registry, ktypes.ReportEncoder, *LogCoordinator, error) {
+func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, ktypes.Registry, ktypes.ReportEncoder, *LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -87,7 +87,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var lookbackBlocks int64 = 100
-	coordinator, err := NewLogCoordinator(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
+	logProvider, err := NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, coordinator, err
+	return keeperProvider, registry, encoder, logProvider, err
 }

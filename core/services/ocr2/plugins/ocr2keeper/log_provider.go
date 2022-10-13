@@ -15,7 +15,7 @@ import (
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 )
 
-type LogCoordinator struct {
+type LogProvider struct {
 	logger          logger.Logger
 	logPoller       logpoller.LogPoller
 	registryAddress common.Address
@@ -23,15 +23,15 @@ type LogCoordinator struct {
 	registry        *registry.KeeperRegistry
 }
 
-var _ plugintypes.PerformLogProvider = (*LogCoordinator)(nil)
+var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
 
-func NewLogCoordinator(
+func NewLogProvider(
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
 	client evmclient.Client,
 	lookbackBlocks int64,
-) (*LogCoordinator, error) {
+) (*LogProvider, error) {
 	var err error
 
 	contract, err := registry.NewKeeperRegistry(common.HexToAddress("0x"), client)
@@ -51,7 +51,7 @@ func NewLogCoordinator(
 		return nil, err
 	}
 
-	return &LogCoordinator{
+	return &LogProvider{
 		logger:          logger,
 		logPoller:       logPoller,
 		registryAddress: registryAddress,
@@ -60,7 +60,7 @@ func NewLogCoordinator(
 	}, nil
 }
 
-func (c *LogCoordinator) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog, error) {
+func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -105,7 +105,7 @@ func (c *LogCoordinator) PerformLogs(ctx context.Context) ([]plugintypes.Perform
 	return vals, nil
 }
 
-func (c *LogCoordinator) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
+func (c *LogProvider) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
 	results := []performed{}
 
 	for _, log := range logs {
