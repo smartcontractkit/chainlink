@@ -39,8 +39,9 @@ type OCRSoakTest struct {
 	chainClient     blockchain.EVMClient
 	mockServer      *ctfClient.MockserverClient
 
-	ocrInstances   []contracts.OffchainAggregator
-	ocrInstanceMap map[string]contracts.OffchainAggregator // address : instance
+	ocrInstances          []contracts.OffchainAggregator
+	ocrInstanceMap        map[string]contracts.OffchainAggregator // address : instance
+	OperatorForwarderFlow bool
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -71,7 +72,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 }
 
 // Setup sets up the test environment, deploying contracts and funding chainlink nodes
-func (t *OCRSoakTest) Setup(env *environment.Environment, forwarderFlow bool) {
+func (t *OCRSoakTest) Setup(env *environment.Environment) {
 	t.ensureInputValues()
 	t.testEnvironment = env
 	var err error
@@ -92,7 +93,7 @@ func (t *OCRSoakTest) Setup(env *environment.Environment, forwarderFlow bool) {
 	err = actions.FundChainlinkNodes(t.chainlinkNodes[1:], t.chainClient, t.Inputs.ChainlinkNodeFunding)
 	Expect(err).ShouldNot(HaveOccurred(), "Error funding Chainlink nodes")
 
-	if forwarderFlow {
+	if t.OperatorForwarderFlow {
 		contractLoader, err := contracts.NewContractLoader(t.chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Loading contracts shouldn't fail")
 
@@ -141,12 +142,12 @@ func (t *OCRSoakTest) Setup(env *environment.Environment, forwarderFlow bool) {
 }
 
 // Run starts the OCR soak test
-func (t *OCRSoakTest) Run(forwarderFlow bool) {
+func (t *OCRSoakTest) Run() {
 	// Set initial value and create jobs
 	By("Setting adapter responses",
 		actions.SetAllAdapterResponsesToTheSameValue(t.Inputs.StartingAdapterValue, t.ocrInstances, t.chainlinkNodes, t.mockServer))
-	if forwarderFlow {
-		By("Creating OCR jobs forwarder flow", actions.CreateOCRJobsWithForwarder(t.ocrInstances, t.chainlinkNodes, t.mockServer))
+	if t.OperatorForwarderFlow {
+		By("Creating OCR jobs operator forwarder flow", actions.CreateOCRJobsWithForwarder(t.ocrInstances, t.chainlinkNodes, t.mockServer))
 	} else {
 		By("Creating OCR jobs", actions.CreateOCRJobs(t.ocrInstances, t.chainlinkNodes, t.mockServer))
 	}

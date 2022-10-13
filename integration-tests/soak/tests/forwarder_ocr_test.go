@@ -64,13 +64,14 @@ var _ = Describe("OCR Forwarder flow Soak Test - each node got one pair of opera
 				TimeBetweenRounds:    time.Minute * 1,
 				StartingAdapterValue: 5,
 			})
-			ocrSoakTest.Setup(testEnvironment, true)
+			ocrSoakTest.OperatorForwarderFlow = true
+			ocrSoakTest.Setup(testEnvironment)
 		})
 	})
 
 	Describe("With soak test contracts deployed", func() {
 		It("runs the soak test until error or timeout", func() {
-			ocrSoakTest.Run(true)
+			ocrSoakTest.Run()
 		})
 	})
 

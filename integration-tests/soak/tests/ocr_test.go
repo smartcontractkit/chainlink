@@ -64,13 +64,13 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 				TimeBetweenRounds:    time.Minute * 1,
 				StartingAdapterValue: 5,
 			})
-			ocrSoakTest.Setup(testEnvironment, false)
+			ocrSoakTest.Setup(testEnvironment)
 		})
 	})
 
 	Describe("With soak test contracts deployed", func() {
 		It("runs the soak test until error or timeout", func() {
-			ocrSoakTest.Run(false)
+			ocrSoakTest.Run()
 		})
 	})
 
