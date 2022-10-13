@@ -540,7 +540,7 @@ func (c *TestGeneralConfig) P2PEnabled() bool {
 	return c.GeneralConfig.P2PEnabled()
 }
 
-func (c *TestGeneralConfig) GlobalAutomationTransmitasLimit() (uint32, bool) {
+func (c *TestGeneralConfig) GlobalAutomationTransmitGasLimit() (uint32, bool) {
 	if c.Overrides.GlobalAutomationTransmitGasLimit.Valid {
 		return uint32(c.Overrides.GlobalAutomationTransmitGasLimit.Int64), true
 	}

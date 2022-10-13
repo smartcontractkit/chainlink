@@ -39,6 +39,7 @@
 	- [NodePool](#EVM-NodePool)
 	- [OCR](#EVM-OCR)
 	- [Nodes](#EVM-Nodes)
+	- [Automation](#EVM-Automation)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
 - [Starknet](#Starknet)
@@ -4045,6 +4046,19 @@ HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Re
 SendOnly = false # Default
 ```
 SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
+
+## EVM.Automation<a id='EVM-Automation'></a>
+```toml
+[EVM.Automation]
+TransmitGasLimit = 5300000 # Default
+```
+
+
+### TransmitGasLimit<a id='EVM-Automation-TransmitGasLimit'></a>
+```toml
+TransmitGasLimit = 5300000 # Default
+```
+TransmitGasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
 ## Solana<a id='Solana'></a>
 ```toml

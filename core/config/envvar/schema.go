@@ -141,6 +141,7 @@ type ConfigSchema struct {
 	// Global
 	DefaultChainID *big.Int `env:"ETH_CHAIN_ID"`
 	// Per-chain overrides
+	AutomationTransmitGasLimit        uint32        `env:"AUTOMATION_TRANSMIT_GAS_LIMIT"`
 	BalanceMonitorEnabled             bool          `env:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                uint64        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BlockBackfillSkip                 bool          `env:"BLOCK_BACKFILL_SKIP" default:"false"`
@@ -288,9 +289,6 @@ type ConfigSchema struct {
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
 	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
-
-	// Automation
-	AutomationTransmitGasLimit uint32 `env:"AUTOMATION_TRANSMIT_GAS_LIMIT"`
 
 	// Debugging
 	AutoPprofEnabled              bool            `env:"AUTO_PPROF_ENABLED" default:"false"`            //nodoc

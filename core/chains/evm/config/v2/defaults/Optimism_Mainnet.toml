@@ -27,3 +27,6 @@ BlockHistorySize = 0
 [HeadTracker]
 HistoryDepth = 10
 SamplingInterval = '1s'
+
+[Automation]
+TransmitGasLimit = 6500000

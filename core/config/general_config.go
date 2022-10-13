@@ -1246,7 +1246,7 @@ func lookupEnv[T any](c *generalConfig, k string, parse func(string) (T, error))
 // EVM methods
 
 func (c *generalConfig) GlobalAutomationTransmitGasLimit() (uint32, bool) {
-	return lookupEnv(c, envvar.Name("AUTOMATION_TRANSMIT_GAS_LIMIT"), parse.Uint32)
+	return lookupEnv(c, envvar.Name("AutomationTransmitGasLimit"), parse.Uint32)
 }
 
 func (c *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
