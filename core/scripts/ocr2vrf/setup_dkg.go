@@ -33,7 +33,7 @@ func setupDKGNodes(e helpers.Environment) {
 	}
 
 	// Set environment variables needed to set up DKG jobs.
-	configureEnvironmentVariables()
+	configureEnvironmentVariables(false)
 
 	//Deploy DKG contract.
 	// uncomment for faster txs
