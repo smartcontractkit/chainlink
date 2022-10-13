@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -68,7 +69,7 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 // Start subscribes to queuing channel and processes them.
 func (txm *Txm) Start(context.Context) error {
 	return txm.starter.StartOnce("solana_txm", func() error {
-		txm.done.Add(4) // waitgroup: tx retry, simulator
+		txm.done.Add(2) // waitgroup: broadcaster, simulator
 		go txm.run()
 		return nil
 	})
@@ -93,21 +94,21 @@ func (txm *Txm) run() {
 					txm.lggr.Criticalw("tx was already broadcast but has no signatures - dropping from queue", "tx", msg)
 					continue
 				}
-				// this should never happen
-				var exists bool
-				if id, _, exists = txm.txs.Get(msg.signatures[0]); !exists {
-					txm.lggr.Criticalw("tx has signatures but could not find UUID", "signatures", msg.signatures)
-					// TODO: requeue or drop?
+				// this can happen if multiple txs are broadcast for 1 base tx, and a signature is confirmed but others are not
+				tx, exists := txm.txs.Get(msg.signatures[0])
+				if !exists {
+					txm.lggr.Warnw("signature does not match a tx ID - it may have already been confirmed", "signatures", msg.signatures)
 					continue
 				}
+				id = tx.id
 			} else {
 				id = txm.txs.New(msg)
 			}
 
 			// Set compute unit price for transaction, returns a copy of the base tx
-			tx, err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee()))
-			if err != nil {
-				txm.lggr.Errorw("failed to set compute unit price in tx", "error", err)
+			tx, price, err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee()))
+			if err != nil { // should never happen
+				txm.lggr.Criticalw("failed to set compute unit price in tx", "error", err)
 				// TODO: requeue tx?
 				continue
 			}
@@ -132,11 +133,23 @@ func (txm *Txm) run() {
 			if err != nil {
 				txm.lggr.Errorw("failed to send transaction", "error", err)
 				txm.client.Reset() // clear client if tx fails immediately (potentially bad RPC)
+
+				// TODO: incrementing metric will fail because of 0... signature
+				if _, storeErr := txm.txs.OnError(sig, TxFailReject); storeErr != nil {
+					txm.lggr.Errorw("failed to mark tx as errored", "id", id, "signature", sig, "error", storeErr)
+				}
 				// TODO: don't give up on tx
+				// TODO: don't bump fee if RPC failed
+				// TODO: handle failed b/c blockhash expired or invalid
 				continue // skip remainining
 			}
 
 			txm.lggr.Debugw("transaction sent", "signature", sig.String())
+
+			// store tx signature
+			if err := txm.txs.Add(id, sig, price); err != nil {
+				txm.lggr.Errorw("failed to save tx signature to inflight txs", "signature", sig, "error", err)
+			}
 		case <-txm.chStop:
 			return
 		}
@@ -155,16 +168,10 @@ func (txm *Txm) send(chanCtx context.Context, id uuid.UUID, tx *solanaGo.Transac
 	ctx, cancel := context.WithTimeout(chanCtx, txm.cfg.TxTimeout())
 	defer cancel()
 
-	// send initial tx (do not retry and exit early if fails)
-	sig, err := client.SendTx(ctx, tx)
+	// send tx
+	sig, err := client.SendTx(ctx, tx) // returns 000.. signature if errors
 	if err != nil {
-		txm.txs.OnError(sig, TxFailReject) // increment RPC reject metric
-		return solanaGo.Signature{}, errors.Wrap(err, "tx failed initial transmit")
-	}
-
-	// store tx signature + cancel function
-	if err := txm.txs.Add(id, sig); err != nil {
-		return solanaGo.Signature{}, errors.Wrapf(err, "failed to save tx signature (%s) to inflight txs", sig)
+		return solanaGo.Signature{}, errors.Wrap(err, "tx failed transmit")
 	}
 
 	// return signature for use in simulation
@@ -204,9 +211,20 @@ func (txm *Txm) confirm(ctx context.Context) {
 				break // exit switch
 			}
 
+			// track which signatures need to be rebroadcast
+			// signature used to look up transaction, UUID used to coalesce many sigs => 1 base tx
+			needsRebroadcast := map[uuid.UUID]solanaGo.Signature{}
+
 			// process signatures
 			processSigs := func(s []solanaGo.Signature, res []*rpc.SignatureStatusesResult) {
-				for i := 0; i < len(res); i++ {
+				for i := 0; i < len(s); i++ {
+					// defensive: if len(res) < len(s), exit processing to prevent panic
+					// this should never happen
+					if i > len(res)-1 {
+						txm.lggr.Criticalw("mismatch requested signatures and responses length: %d > %d", len(s), len(res))
+						return
+					}
+
 					// if status is nil (sig not found), continue polling
 					// sig not found could mean invalid tx or not picked up yet
 					if res[i] == nil {
@@ -214,12 +232,11 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"signature", s[i],
 						)
 
-						// check confirm timeout exceeded -> rebroadcast with new bumped fee
-						if _, tx, exists := txm.txs.Get(s[i]); exists && time.Since(tx.timestamp) > txm.cfg.TxConfirmTimeout() {
-							select {
-							case txm.chSend <- tx:
-							default:
-								txm.lggr.Errorw("failed to enqeue tx", "queueFull", len(txm.chSend) == MaxQueueLen, "tx", tx)
+						// check confirm timeout exceeded, store for queuing again
+						if tx, exists := txm.txs.Get(s[i]); exists && time.Since(tx.timestamp) > txm.cfg.TxConfirmTimeout() {
+							// only set if it hasn't been set yet, coalesce signatures => tx ID (deduplication)
+							if _, exists := needsRebroadcast[tx.id]; !exists {
+								needsRebroadcast[tx.id] = s[i]
 							}
 						}
 						continue
@@ -227,29 +244,32 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 					// if signature has an error, end polling
 					if res[i].Err != nil {
-						txm.lggr.Errorw("tx state: failed",
+						txm.lggr.Errorw("tx state: errored",
 							"signature", s[i],
 							"error", res[i].Err,
 							"status", res[i].ConfirmationStatus,
 						)
-						txm.txs.OnError(s[i], TxFailRevert)
+						tx, err := txm.txs.OnError(s[i], TxFailRevert)
+						if err != nil {
+							txm.lggr.Warnw("failed to mark tx as errored - tx likely completed by another signature", "error", err)
+							continue
+						}
+						txm.lggr.Debugw("tx marked as errored", "id", tx.id, "signatures", tx.signatures)
 						continue
 					}
 
 					// if signature is processed, keep polling, don't retry yet (either will become confirmed or dropped)
-					if res[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
-						txm.lggr.Debugw("tx state: processed",
-							"signature", s[i],
-						)
-						continue
-					}
-
 					// if signature is confirmed/finalized, end polling
 					if res[i].ConfirmationStatus == rpc.ConfirmationStatusConfirmed || res[i].ConfirmationStatus == rpc.ConfirmationStatusFinalized {
 						txm.lggr.Debugw(fmt.Sprintf("tx state: %s", res[i].ConfirmationStatus),
 							"signature", s[i],
 						)
-						txm.txs.OnSuccess(s[i])
+						tx, err := txm.txs.OnSuccess(s[i])
+						if err != nil {
+							txm.lggr.Warnw("failed to mark tx as successful - tx likely completed by another signature", "error", err)
+							continue
+						}
+						txm.lggr.Debugw("tx marked as success", "id", tx.id, "signatures", tx.signatures)
 						continue
 					}
 				}
@@ -261,21 +281,31 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 			// loop through batch
 			for i := 0; i < len(sigsBatch); i++ {
-				// fetch signature statuses
-				statuses, err := client.SignatureStatuses(ctx, sigsBatch[i])
-				if err != nil {
-					txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "error", err)
-					wg.Done() // don't block if exit early
-					break     // exit for loop
-				}
-
-				// nonblocking: process batches as soon as they come in
+				// nonblocking: process batches in parallel as soon as they come in
 				go func(index int) {
 					defer wg.Done()
+
+					// fetch signature statuses
+					statuses, err := client.SignatureStatuses(ctx, sigsBatch[index])
+					if err != nil {
+						txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "error", err)
+						return
+					}
 					processSigs(sigsBatch[index], statuses)
 				}(i)
 			}
 			wg.Wait() // wait for processing to finish
+
+			// check to make sure tx still exists after all signatures are processed, then rebroadcast
+			for _, sig := range maps.Values(needsRebroadcast) {
+				if tx, exists := txm.txs.Get(sig); exists {
+					select {
+					case txm.chSend <- tx:
+					default:
+						txm.lggr.Errorw("failed to enqeue tx", "queueFull", len(txm.chSend) == MaxQueueLen, "tx", tx)
+					}
+				}
+			}
 		}
 		tick = time.After(utils.WithJitter(txm.cfg.ConfirmPollPeriod()))
 	}
