@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -69,6 +70,7 @@ type BasicConfig interface {
 	SetLogSQL(logSQL bool)
 
 	FeatureFlags
+	audit.Config
 
 	AdvisoryLockCheckInterval() time.Duration
 	AdvisoryLockID() int64
@@ -489,6 +491,37 @@ func (c *generalConfig) AppID() uuid.UUID {
 		c.appID = uuid.NewV4()
 	})
 	return c.appID
+}
+
+func (c *generalConfig) AuditLoggerEnabled() bool {
+	return c.viper.GetBool(envvar.Name("AuditLoggerEnabled"))
+}
+
+func (c *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	url, err := models.ParseURL(c.viper.GetString(envvar.Name("AuditLoggerForwardToUrl")))
+	if err != nil {
+		return models.URL{}, err
+	}
+	return *url, nil
+}
+
+func (c *generalConfig) AuditLoggerEnvironment() string {
+	if c.Dev() {
+		return "develop"
+	}
+	return "production"
+}
+
+func (c *generalConfig) AuditLoggerJsonWrapperKey() string {
+	return c.viper.GetString(envvar.Name("AuditLoggerJsonWrapperKey"))
+}
+
+func (c *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	sh, invalid := audit.AuditLoggerHeaders.Parse()
+	if invalid != "" {
+		return nil, errors.New(invalid)
+	}
+	return sh, nil
 }
 
 // AuthenticatedRateLimit defines the threshold to which authenticated requests

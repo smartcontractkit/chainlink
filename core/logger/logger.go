@@ -230,6 +230,7 @@ func (c *Config) New() (Logger, func() error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	l = newSentryLogger(l)
 	return newPrometheusLogger(l), closeLogger
 }
