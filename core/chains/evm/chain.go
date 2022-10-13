@@ -136,9 +136,9 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	var err error
 	switch chainID.String() {
 	case "43113": // avalanche
-		ec, err = logpoller.NewAvaClient(nodes[0].HTTPURL.String(), chainID)
+		ec, err = logpoller.NewAvaClient(nodes[0].WSURL.String(), chainID)
 	default:
-		ec, err = logpoller.NewEthClient(nodes[0].HTTPURL.String(), chainID)
+		ec, err = logpoller.NewEthClient(nodes[0].WSURL.String(), chainID)
 	}
 	if err != nil {
 		return nil, err

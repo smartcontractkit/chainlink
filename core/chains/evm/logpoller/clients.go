@@ -72,8 +72,8 @@ func (a *avaClient) ChainID() *big.Int {
 	return a.chainID
 }
 
-func NewAvaClient(rpcURL string, chainID *big.Int) (*avaClient, error) {
-	aec, err := avaclient.NewEthClient(context.Background(), rpcURL)
+func NewAvaClient(wsURL string, chainID *big.Int) (*avaClient, error) {
+	aec, err := avaclient.NewEthClient(context.Background(), wsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +125,8 @@ func (e *ethClient) ChainID() *big.Int {
 	return e.chainID
 }
 
-func NewEthClient(rpcURL string, chainID *big.Int) (*ethClient, error) {
-	rc, err := rpc.DialHTTP(rpcURL)
+func NewEthClient(wsURL string, chainID *big.Int) (*ethClient, error) {
+	rc, err := rpc.DialWebsocket(context.Background(), wsURL, "")
 	if err != nil {
 		return nil, err
 	}
