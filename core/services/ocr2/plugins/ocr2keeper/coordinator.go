@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	registry "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -110,7 +109,7 @@ func (c *LogCoordinator) unmarshalLogs(logs []logpoller.Log) ([]performed, error
 	results := []performed{}
 
 	for _, log := range logs {
-		rawLog := toGethLog(log)
+		rawLog := log.ToGethLog()
 		abilog, err := c.registry.ParseLog(rawLog)
 		if err != nil {
 			return results, err
@@ -139,20 +138,4 @@ type performed struct {
 	logpoller.Log
 	registry.KeeperRegistryUpkeepPerformed
 	Confirmations int64
-}
-
-func toGethLog(lg logpoller.Log) types.Log {
-	var topics []common.Hash
-	for _, b := range lg.Topics {
-		topics = append(topics, common.BytesToHash(b))
-	}
-	return types.Log{
-		Data:        lg.Data,
-		Address:     lg.Address,
-		BlockHash:   lg.BlockHash,
-		BlockNumber: uint64(lg.BlockNumber),
-		Topics:      topics,
-		TxHash:      lg.TxHash,
-		Index:       uint(lg.LogIndex),
-	}
 }
