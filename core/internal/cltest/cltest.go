@@ -370,7 +370,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	}
 
 	if auditLogger == nil {
-		auditLogger = &audit.AuditLoggerService{}
+		auditLogger = audit.NoopLogger
 	}
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
