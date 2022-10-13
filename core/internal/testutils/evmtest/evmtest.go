@@ -42,10 +42,9 @@ func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.Chai
 			evmCfg = cfgs.EVMConfigs()[0]
 		} else {
 			chainID := utils.NewBigI(0)
-			newChain, _ := v2.Defaults(chainID)
 			evmCfg = &v2.EVMConfig{
 				ChainID: chainID,
-				Chain:   newChain,
+				Chain:   v2.DefaultsFrom(chainID, nil),
 			}
 		}
 
@@ -310,6 +309,10 @@ func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts
 
 // NodesForChain implements evmtypes.ORM
 func (mo *MockORM) SetupNodes([]evmtypes.Node, []utils.Big) error {
+	panic("not implemented")
+}
+
+func (mo *MockORM) EnsureChains([]utils.Big, ...pg.QOpt) error {
 	panic("not implemented")
 }
 
