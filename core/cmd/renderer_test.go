@@ -2,7 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"testing"
 
@@ -20,7 +20,7 @@ import (
 func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	t.Parallel()
 
-	r := cmd.RendererJSON{Writer: ioutil.Discard}
+	r := cmd.RendererJSON{Writer: io.Discard}
 	keys := []cmd.VRFKeyPresenter{
 		{
 			VRFKeyResource: webpresenters.VRFKeyResource{
@@ -36,7 +36,7 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 func TestRendererTable_RenderConfiguration(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewLegacyApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
@@ -45,7 +45,7 @@ func TestRendererTable_RenderConfiguration(t *testing.T) {
 	cp := config.ConfigPrinter{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cp))
 
-	r := cmd.RendererTable{Writer: ioutil.Discard}
+	r := cmd.RendererTable{Writer: io.Discard}
 	assert.NoError(t, r.Render(&cp))
 }
 
@@ -116,7 +116,7 @@ func TestRendererTable_PatchResponse(t *testing.T) {
 
 func TestRendererTable_RenderUnknown(t *testing.T) {
 	t.Parallel()
-	r := cmd.RendererTable{Writer: ioutil.Discard}
+	r := cmd.RendererTable{Writer: io.Discard}
 	anon := struct{ Name string }{"Romeo"}
 	assert.Error(t, r.Render(&anon))
 }

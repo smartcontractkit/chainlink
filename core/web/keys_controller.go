@@ -1,7 +1,7 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -88,7 +88,7 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 func (kc *keysController[K, R]) Import(c *gin.Context) {
 	defer kc.lggr.ErrorIfClosing(c.Request.Body, "Import ")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

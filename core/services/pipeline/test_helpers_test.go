@@ -3,7 +3,7 @@ package pipeline_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -24,7 +24,7 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) ht
 
 		defer r.Body.Close()
 
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 
 		expectedBody := &bytes.Buffer{}

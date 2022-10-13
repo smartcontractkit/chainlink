@@ -61,6 +61,10 @@ func NewWei(i *big.Int) *Wei {
 	return (*Wei)(i)
 }
 
+func (w *Wei) Cmp(w2 *Wei) int {
+	return (*big.Int)(w).Cmp((*big.Int)(w2))
+}
+
 func (w Wei) Text(suffix string) string {
 	switch suffix {
 	default: // empty or unknown
@@ -109,7 +113,7 @@ var (
 	bigTeth = new(big.Int).Mul(big.NewInt(u64Eth), big.NewInt(1_000_000_000_000))
 )
 
-func (w Wei) MarshalText() ([]byte, error) {
+func (w *Wei) MarshalText() ([]byte, error) {
 	return []byte(w.String()), nil
 }
 

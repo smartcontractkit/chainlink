@@ -112,8 +112,8 @@ func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keysto
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 

@@ -34,9 +34,9 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 				defaultVRFv2Env(networks.SimulatedEVM),
 			),
 			Entry("VRFv2 suite on General EVM @general",
-				networks.GeneralEVM(),
+				networks.GeneralEVM,
 				big.NewFloat(.05),
-				defaultVRFv2Env(networks.GeneralEVM()),
+				defaultVRFv2Env(networks.GeneralEVM),
 			),
 			Entry("VRFv2 suite on Metis Stardust @metis",
 				networks.MetisStardust,
@@ -59,9 +59,14 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 				defaultVRFv2Env(networks.KlaytnBaobab),
 			),
 			Entry("VRFv2 suite on Optimism Goerli @optimism",
-				networks.KlaytnBaobab,
+				networks.OptimismGoerli,
 				big.NewFloat(.05),
-				defaultVRFv2Env(networks.KlaytnBaobab),
+				defaultVRFv2Env(networks.OptimismGoerli),
+			),
+			Entry("VRFv2 suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				big.NewFloat(.05),
+				defaultVRFv2Env(networks.ArbitrumGoerli),
 			),
 		}
 
@@ -86,7 +91,6 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	) {
 		By("Deploying the environment")
 		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -220,7 +224,9 @@ func defaultVRFv2Env(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"env": network.ChainlinkValuesMap(),
