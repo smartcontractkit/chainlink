@@ -132,7 +132,14 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), nodes[0].HTTPURL.String(), l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
+	var ec logpoller.Client
+	switch chainID.String() {
+	case "43113": // avalanche
+		ec = logpoller.NewAvaClient(nodes[0].HTTPURL.String())
+	default:
+		ec = logpoller.NewEthClient(nodes[0].HTTPURL.String(), chainID)
+	}
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), ec, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
 	if opts.GenLogPoller != nil {
 		logPoller = opts.GenLogPoller(chainID)
 	}

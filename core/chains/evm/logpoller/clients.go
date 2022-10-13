@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 )
 
 type avaClient struct {
@@ -130,5 +132,51 @@ func NewEthClient(rpcURL string, chainID *big.Int) *ethClient {
 		ec:      ethclient.NewClient(rc),
 		rc:      rc,
 		chainID: chainID,
+	}
+}
+
+type simClient struct {
+	b *evmclient.SimulatedBackendClient
+}
+
+func (s simClient) HeaderByNumber(ctx context.Context, number *big.Int) (*Header, error) {
+	h, err := s.b.HeaderByNumber(ctx, number)
+	if err != nil {
+		return nil, err
+	}
+	return &Header{
+		Hash:       h.Hash(),
+		ParentHash: h.ParentHash,
+		Number:     h.Number,
+	}, nil
+}
+
+func (s simClient) HeaderByHash(ctx context.Context, hash common.Hash) (*Header, error) {
+	h, err := s.b.HeaderByHash(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	return &Header{
+		Hash:       h.Hash(),
+		ParentHash: h.ParentHash,
+		Number:     h.Number,
+	}, nil
+}
+
+func (s simClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	return s.b.FilterLogs(ctx, q)
+}
+
+func (s simClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	return s.b.BatchCallContext(ctx, b)
+}
+
+func (s simClient) ChainID() *big.Int {
+	return s.b.ChainID()
+}
+
+func NewEthClientFromSim(b *evmclient.SimulatedBackendClient) *simClient {
+	return &simClient{
+		b: b,
 	}
 }

@@ -107,15 +107,7 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, rpcURL string, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
-	var ec Client
-	switch orm.chainID.String() {
-	case "43113": // avalanche
-		ec = NewAvaClient(rpcURL)
-	default:
-		ec = NewEthClient(rpcURL, orm.chainID)
-	}
-
+func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -131,10 +123,6 @@ func NewLogPoller(orm *ORM, rpcURL string, lggr logger.Logger, pollPeriod time.D
 		filters:           make(map[int]Filter),
 		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
-}
-
-func (lp *logPoller) isAvalanche() bool {
-	return lp.orm.chainID.String() == "43113"
 }
 
 type Filter struct {

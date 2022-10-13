@@ -109,7 +109,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		}, 10e6)
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
-		lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3, 2, 1000)
+		lp := NewLogPoller(orm, NewEthClientFromSim(client.NewSimulatedBackendClient(t, ec, chainID)), lggr, 15*time.Second, int64(finalityDepth), 3, 2, 1000)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
