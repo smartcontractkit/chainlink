@@ -393,19 +393,19 @@ EVM_ENABLED=false
 		return errors.Errorf("It is not permitted to set both ETH_URL (got %s) and EVM_NODES (got %s). Please set either one or the other", c.EthereumURL(), c.EthereumNodes())
 	}
 	// Warn on legacy OCR env vars
-	if c.OCRDHTLookupInterval() != 0 {
+	if c.ocrDHTLookupInterval() != 0 {
 		c.lggr.Error("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
-	if c.OCRBootstrapCheckInterval() != 0 {
+	if c.ocrBootstrapCheckInterval() != 0 {
 		c.lggr.Error("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
-	if c.OCRIncomingMessageBufferSize() != 0 {
+	if c.ocrIncomingMessageBufferSize() != 0 {
 		c.lggr.Error("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
-	if c.OCROutgoingMessageBufferSize() != 0 {
+	if c.ocrOutgoingMessageBufferSize() != 0 {
 		c.lggr.Error("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
-	if c.OCRNewStreamTimeout() != 0 {
+	if c.ocrNewStreamTimeout() != 0 {
 		c.lggr.Error("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 

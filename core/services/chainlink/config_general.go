@@ -584,10 +584,6 @@ func (g *generalConfig) ORMMaxOpenConns() int {
 	return int(*g.c.Database.MaxOpenConns)
 }
 
-func (g *generalConfig) OCRBootstrapCheckInterval() time.Duration {
-	return g.c.P2P.V1.BootstrapCheckInterval.Duration()
-}
-
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
 	return g.c.OCR.BlockchainTimeout.Duration()
 }
@@ -599,13 +595,6 @@ func (g *generalConfig) OCRContractPollInterval() time.Duration {
 func (g *generalConfig) OCRContractSubscribeInterval() time.Duration {
 	return g.c.OCR.ContractSubscribeInterval.Duration()
 }
-func (g *generalConfig) OCRDHTLookupInterval() int {
-	return int(*g.c.P2P.V1.DHTLookupInterval)
-}
-
-func (g *generalConfig) OCRIncomingMessageBufferSize() int {
-	return int(*g.c.P2P.IncomingMessageBufferSize)
-}
 
 func (g *generalConfig) OCRKeyBundleID() (string, error) {
 	b := g.c.OCR.KeyBundleID
@@ -613,14 +602,6 @@ func (g *generalConfig) OCRKeyBundleID() (string, error) {
 		return "", nil
 	}
 	return b.String(), nil
-}
-
-func (g *generalConfig) OCRNewStreamTimeout() time.Duration {
-	return g.c.P2P.V1.NewStreamTimeout.Duration()
-}
-
-func (g *generalConfig) OCROutgoingMessageBufferSize() int {
-	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
 func (g *generalConfig) OCRObservationTimeout() time.Duration {

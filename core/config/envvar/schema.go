@@ -274,11 +274,11 @@ type ConfigSchema struct {
 	P2PV2DeltaReconcile    models.Duration `env:"P2PV2_DELTA_RECONCILE" default:"1m"` //nodoc
 	P2PV2ListenAddresses   []string        `env:"P2PV2_LISTEN_ADDRESSES"`
 	// DEPRECATED
-	OCROutgoingMessageBufferSize int           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"` //nodoc
-	OCRIncomingMessageBufferSize int           `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"` //nodoc
-	OCRDHTLookupInterval         int           `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`          //nodoc
-	OCRBootstrapCheckInterval    time.Duration `env:"OCR_BOOTSTRAP_CHECK_INTERVAL" default:"20s"`    //nodoc
-	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`          //nodoc
+	OCROutgoingMessageBufferSize int           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"` //nodoc
+	OCRIncomingMessageBufferSize int           `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"` //nodoc
+	OCRDHTLookupInterval         int           `env:"OCR_DHT_LOOKUP_INTERVAL"`          //nodoc
+	OCRBootstrapCheckInterval    time.Duration `env:"OCR_BOOTSTRAP_CHECK_INTERVAL"`     //nodoc
+	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT"`           //nodoc
 
 	// Keeper
 	KeeperCheckUpkeepGasPriceFeatureEnabled bool          `env:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED" default:"false"` //nodoc

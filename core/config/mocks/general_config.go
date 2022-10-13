@@ -2713,20 +2713,6 @@ func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// OCRBootstrapCheckInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRBootstrapCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRContractPollInterval provides a mock function with given fields:
 func (_m *GeneralConfig) OCRContractPollInterval() time.Duration {
 	ret := _m.Called()
@@ -2755,20 +2741,6 @@ func (_m *GeneralConfig) OCRContractSubscribeInterval() time.Duration {
 	return r0
 }
 
-// OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRDHTLookupInterval() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
 // OCRDefaultTransactionQueueDepth provides a mock function with given fields:
 func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	ret := _m.Called()
@@ -2778,20 +2750,6 @@ func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCRIncomingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2818,20 +2776,6 @@ func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
 	return r0, r1
 }
 
-// OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRObservationTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 	ret := _m.Called()
@@ -2841,20 +2785,6 @@ func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCROutgoingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
