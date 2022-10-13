@@ -35,6 +35,7 @@ func TestResolver_Config(t *testing.T) {
 				cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
 					AdvisoryLockID:                       null.IntFrom(1),
 					AllowOrigins:                         null.StringFrom("test"),
+					AutomationPerformGasLimit:            null.IntFrom(50),
 					BlockBackfillDepth:                   null.IntFrom(1),
 					BlockBackfillSkip:                    null.BoolFrom(false),
 					DatabaseURL:                          null.StringFrom("test"),
@@ -123,7 +124,7 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "AUTOMATION_PERFORM_GAS_LIMIT",
-        "value": "530000"
+        "value": "50"
       },
       {
         "key": "BLOCK_BACKFILL_DEPTH",

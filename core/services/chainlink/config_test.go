@@ -742,7 +742,7 @@ SyncInterval = '1h0m0s'
 SyncUpkeepQueueSize = 31
 `},
 		{"Automation", Config{Core: config.Core{Automation: full.Automation}}, `[Automation]
-PerformGasOverhead = 18
+PerformGasLimit = 18
 `},
 		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true

@@ -25,7 +25,7 @@
 	- [V2](#P2P-V2)
 - [Keeper](#Keeper)
 	- [Registry](#Keeper-Registry)
-- [Automation] (#Automation)
+- [Automation](#Automation)
 - [AutoPprof](#AutoPprof)
 - [Pyroscope](#Pyroscope)
 - [Sentry](#Sentry)
@@ -1134,7 +1134,8 @@ SyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced 
 PerformGasLimit = 5300000 # Default
 ```
 
-### PerformGasLimit <a id='Automation-PerformGasLimit'></a>
+
+### PerformGasLimit<a id='Automation-PerformGasLimit'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 PerformGasLimit = 5300000 # Default
