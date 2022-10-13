@@ -1352,6 +1352,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1422,6 +1425,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1492,6 +1498,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1562,6 +1571,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1633,6 +1645,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 6500000
 ```
 
 </p></details>
@@ -1703,6 +1718,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1773,6 +1791,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1844,6 +1865,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1914,6 +1938,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
 ObservationGracePeriod = '500ms'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -1983,6 +2010,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2052,6 +2082,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2123,6 +2156,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 6500000
 ```
 
 </p></details>
@@ -2194,6 +2230,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2264,6 +2303,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
 ObservationGracePeriod = '500ms'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2334,6 +2376,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2404,6 +2449,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2475,6 +2523,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 6500000
 ```
 
 </p></details>
@@ -2545,6 +2596,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2615,6 +2669,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2684,6 +2741,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2754,6 +2814,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2825,6 +2888,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2895,6 +2961,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -2965,6 +3034,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -3035,6 +3107,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -3106,6 +3181,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -3177,6 +3255,9 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -3247,6 +3328,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -3317,6 +3401,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
@@ -3387,6 +3474,9 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[Automation]
+TransmitGasLimit = 5300000
 ```
 
 </p></details>
