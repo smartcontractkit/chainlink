@@ -431,12 +431,14 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		for _, c := range h.EVMConfigs() {
 			ids = append(ids, *c.ChainID)
 		}
-		o := chainORM
-		if o == nil {
-			o = evm.NewORM(db, lggr, cfg)
-		}
-		if err = o.EnsureChains(ids); err != nil {
-			t.Fatal(err)
+		if len(ids) > 0 {
+			o := chainORM
+			if o == nil {
+				o = evm.NewORM(db, lggr, cfg)
+			}
+			if err = o.EnsureChains(ids); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	var chains chainlink.Chains
@@ -474,8 +476,10 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			for _, c := range cfgs {
 				ids = append(ids, *c.ChainID)
 			}
-			if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
-				t.Fatal(err)
+			if len(ids) > 0 {
+				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
 			}
 		} else {
 			opts.ORM = terra.NewORM(db, terraLggr, cfg)
@@ -502,8 +506,10 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			for _, c := range cfgs {
 				ids = append(ids, *c.ChainID)
 			}
-			if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
-				t.Fatal(err)
+			if len(ids) > 0 {
+				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
 			}
 		} else {
 			opts.ORM = solana.NewORM(db, solLggr, cfg)
@@ -530,8 +536,10 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			for _, c := range cfgs {
 				ids = append(ids, *c.ChainID)
 			}
-			if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
-				t.Fatal(err)
+			if len(ids) > 0 {
+				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
 			}
 		} else {
 			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
