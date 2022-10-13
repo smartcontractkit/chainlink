@@ -50,6 +50,7 @@ type Delegate struct {
 	ks                    keystore.OCR2
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
+	ethKs                 keystore.Eth
 	relayers              map[relay.Network]types.Relayer
 }
 
@@ -67,6 +68,7 @@ func NewDelegate(
 	ks keystore.OCR2,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
+	ethKs keystore.Eth,
 	relayers map[relay.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
@@ -81,6 +83,7 @@ func NewDelegate(
 		ks,
 		dkgSignKs,
 		dkgEncryptKs,
+		ethKs,
 		relayers,
 	}
 }
@@ -128,6 +131,18 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
+
+		var sendingKeys []string
+		ethSendingKeys, err2 := d.ethKs.GetAll()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get eth sending keys")
+		}
+
+		// Automatically provide the node's local sending keys to the job spec.
+		for _, s := range ethSendingKeys {
+			sendingKeys = append(sendingKeys, s.Address.String())
+		}
+		spec.RelayConfig["sendingKeys"] = sendingKeys
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
