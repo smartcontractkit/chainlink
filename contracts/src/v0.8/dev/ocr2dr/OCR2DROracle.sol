@@ -7,15 +7,14 @@ import "../AuthorizedReceiver.sol";
 import "../../ConfirmedOwner.sol";
 
 /**
- * @title OCR2DR oracle contract (stub for now)
+ * @title OCR2DR oracle contract
  */
 contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwner {
   event OracleRequest(bytes32 requestId, bytes data);
   event OracleResponse(bytes32 requestId);
 
+  error EmptyRequestData();
   error InvalidRequestID();
-  error Unauthorized();
-  error NonceMustBeUnique();
 
   struct Commitment {
     address client;
@@ -28,6 +27,9 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
   constructor(address owner) ConfirmedOwner(owner) {}
 
   function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
+    if (data.length == 0) {
+      revert EmptyRequestData();
+    }
     s_nonce++;
     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, s_nonce));
     s_commitments[requestId] = Commitment(msg.sender, subscriptionId);
