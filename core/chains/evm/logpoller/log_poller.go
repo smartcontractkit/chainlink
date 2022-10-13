@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -25,6 +24,20 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
+
+type Header struct {
+	Hash       common.Hash
+	ParentHash common.Hash
+	Number     *big.Int
+}
+
+type Client interface {
+	HeaderByNumber(ctx context.Context, number *big.Int) (*Header, error)
+	HeaderByHash(ctx context.Context, hash common.Hash) (*Header, error)
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	ChainID() *big.Int
+}
 
 //go:generate mockery --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
@@ -57,7 +70,7 @@ var (
 
 type logPoller struct {
 	utils.StartStopOnce
-	ec                client.Client
+	ec                Client
 	orm               *ORM
 	lggr              logger.Logger
 	pollPeriod        time.Duration // poll period set by block production rate
@@ -94,7 +107,15 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
+func NewLogPoller(orm *ORM, rpcURL string, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
+	var ec Client
+	switch orm.chainID.String() {
+	case "43113": // avalanche
+		ec = NewAvaClient(rpcURL)
+	default:
+		ec = NewEthClient(rpcURL, orm.chainID)
+	}
+
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -110,6 +131,10 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		filters:           make(map[int]Filter),
 		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
+}
+
+func (lp *logPoller) isAvalanche() bool {
+	return lp.orm.chainID.String() == "43113"
 }
 
 type Filter struct {
@@ -412,7 +437,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 // 1. Find the LCA by following parent hashes.
 // 2. Delete all logs and blocks after the LCA
 // 3. Return the LCA+1, i.e. our new current (unprocessed) block.
-func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *types.Header) (*types.Header, error) {
+func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *Header) (*Header, error) {
 	var err1 error
 	if currentBlock == nil {
 		// If we don't have the current block already, lets get it.
@@ -507,7 +532,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
 		return
 	}
-	var currentBlock *types.Header
+	var currentBlock *Header
 	if currentBlockNumber == latestBlockNumber {
 		// Can re-use our currentBlock and avoid an extra RPC call.
 		currentBlock = latestBlock
@@ -550,14 +575,14 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 
 	for {
-		h := currentBlock.Hash()
+		h := currentBlock.Hash
 		var logs []types.Log
 		logs, err = lp.ec.FilterLogs(ctx, lp.filter(nil, nil, &h))
 		if err != nil {
 			lp.lggr.Warnw("Unable to query for logs, retrying", "err", err, "block", currentBlockNumber)
 			return
 		}
-		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
+		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, pg.WithQueryer(tx)); err2 != nil {
 				return err2
@@ -590,7 +615,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 
 // Find the first place where our chain and their chain have the same block,
 // that block number is the LCA. Return the block after that, where we want to resume polling.
-func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Header) (*types.Header, error) {
+func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *Header) (*Header, error) {
 	// Current is where the mismatch starts.
 	// Check its parent to see if its the same as ours saved.
 	parent, err := lp.ec.HeaderByHash(ctx, current.ParentHash)
@@ -608,7 +633,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Heade
 		if err != nil {
 			return nil, err
 		}
-		if parent.Hash() == ourParentBlockHash.BlockHash {
+		if parent.Hash == ourParentBlockHash.BlockHash {
 			// If we do have the blockhash, return blockAfterLCA
 			return &blockAfterLCA, nil
 		}
@@ -625,20 +650,20 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Heade
 
 // pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.
 func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
-	latest, err := lp.ec.BlockByNumber(ctx, nil)
+	latest, err := lp.ec.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return err
 	}
 	if latest == nil {
 		return errors.Errorf("received nil block from RPC")
 	}
-	if latest.Number().Int64() <= lp.keepBlocksDepth {
+	if latest.Number.Int64() <= lp.keepBlocksDepth {
 		// No-op, keep all blocks
 		return nil
 	}
 	// 1-2-3-4-5(latest), keepBlocksDepth=3
 	// Remove <= 2
-	return lp.orm.DeleteBlocksBefore(latest.Number().Int64()-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
+	return lp.orm.DeleteBlocksBefore(latest.Number.Int64()-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,
