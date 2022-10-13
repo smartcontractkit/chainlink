@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 )
 
 type ChainsController interface {
@@ -31,6 +34,8 @@ type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struc
 	errNotEnabled error
 	parseChainID  func(string) (I, error)
 	newResource   func(chains.DBChain[I, C]) R
+	lggr          logger.Logger
+	auditLogger   audit.AuditLogger
 }
 
 type errChainDisabled struct {
@@ -43,13 +48,15 @@ func (e errChainDisabled) Error() string {
 }
 
 func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.DBChainSet[I, C], errNotEnabled error,
-	parseChainID func(string) (I, error), newResource func(chains.DBChain[I, C]) R) *chainsController[I, C, R] {
+	parseChainID func(string) (I, error), newResource func(chains.DBChain[I, C]) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[I, C, R] {
 	return &chainsController[I, C, R]{
 		resourceName:  prefix + "_chain",
 		chainSet:      chainSet,
 		errNotEnabled: errNotEnabled,
 		parseChainID:  parseChainID,
 		newResource:   newResource,
+		lggr:          lggr,
+		auditLogger:   auditLogger,
 	}
 }
 
@@ -99,6 +106,14 @@ func (cc *chainsController[I, C, R]) Create(c *gin.Context) {
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
+	}
+
+	chainj, err := json.Marshal(chain)
+	if err != nil {
+		cc.lggr.Errorf("Unable to marshal chain to json", "err", err)
+		cc.auditLogger.Audit(audit.ChainAdded, map[string]interface{}{"chain": nil})
+	} else {
+		cc.auditLogger.Audit(audit.ChainAdded, map[string]interface{}{"chain": chainj})
 	}
 
 	jsonAPIResponseWithStatus(c, cc.newResource(chain), cc.resourceName, http.StatusCreated)
@@ -155,6 +170,13 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 		return
 	}
 
+	chainj, err := json.Marshal(chain)
+	if err != nil {
+		cc.lggr.Errorf("Unable to marshal chain to json", "err", err)
+	} else {
+		cc.auditLogger.Audit(audit.ChainSpecUpdated, map[string]interface{}{"chain": chainj})
+	}
+
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
 }
 
@@ -176,6 +198,8 @@ func (cc *chainsController[I, C, R]) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	cc.auditLogger.Audit(audit.ChainDeleted, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, cc.resourceName, http.StatusNoContent)
 }

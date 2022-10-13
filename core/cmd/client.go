@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
@@ -238,6 +239,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		}
 	}
 
+	// Configure and optionally start the audit log forwarder service
+	auditLogger, err := audit.NewAuditLogger(appLggr, cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg, appLggr)
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg)
@@ -248,6 +255,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
+		AuditLogger:              auditLogger,
 		CloseLogger:              closeLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,

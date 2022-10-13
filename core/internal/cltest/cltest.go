@@ -64,6 +64,7 @@ import (
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -359,6 +360,19 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		lggr = logger.TestLogger(t)
 	}
 
+	var auditLogger audit.AuditLogger
+	for _, dep := range flagsAndDeps {
+		audLgger, is := dep.(audit.AuditLogger)
+		if is {
+			auditLogger = audLgger
+			break
+		}
+	}
+
+	if auditLogger == nil {
+		auditLogger = audit.NoopLogger
+	}
+
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
 	url := cfg.DatabaseURL()
@@ -491,6 +505,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		Logger:                   lggr,
+		AuditLogger:              auditLogger,
 		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
 		RestrictedHTTPClient:     c,

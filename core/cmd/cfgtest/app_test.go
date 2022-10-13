@@ -47,6 +47,7 @@ func TestDefaultConfig(t *testing.T) {
 			"LogFileDir",
 			"RootDir",
 			"TLSDir",
+			"AuditLoggerEnvironment", // same problem being derived from Dev()
 		}
 		assertMethodsReturnEqual[config.GeneralConfig](t, configtest.NewTestGeneralConfig(t), configtest2.NewTestGeneralConfig(t), testRoot)
 	})
