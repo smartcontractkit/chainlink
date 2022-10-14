@@ -68,7 +68,7 @@ func TestChainScopedConfig(t *testing.T) {
 	t.Run("KeySpecificMaxGasPriceWei", func(t *testing.T) {
 		addr := testutils.NewAddress()
 		randomOtherAddr := testutils.NewAddress()
-		otherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: assets.ItoGWei(850)}
+		otherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: assets.GWei(850)}
 		evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 			cfg.KeySpecific[randomOtherAddr.Hex()] = otherKeySpecific
 		})
@@ -86,7 +86,7 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set", func(t *testing.T) {
-			val := assets.ItoGWei(250)
+			val := assets.GWei(250)
 			keySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: val}
 			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.KeySpecific[addr.Hex()] = keySpecific
@@ -95,8 +95,8 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set and lower than chain specific config", func(t *testing.T) {
-			keySpecificPrice := assets.ItoGWei(900)
-			chainSpecificPrice := assets.ItoGWei(1200)
+			keySpecificPrice := assets.GWei(900)
+			chainSpecificPrice := assets.GWei(1200)
 			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.EvmMaxGasPriceWei = chainSpecificPrice
 				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
@@ -105,8 +105,8 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, keySpecificPrice.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses chain-specific value when higher than key-specific value", func(t *testing.T) {
-			keySpecificPrice := assets.ItoGWei(1400)
-			chainSpecificPrice := assets.ItoGWei(1200)
+			keySpecificPrice := assets.GWei(1400)
+			chainSpecificPrice := assets.GWei(1200)
 			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.EvmMaxGasPriceWei = chainSpecificPrice
 				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
@@ -115,8 +115,8 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, chainSpecificPrice.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set and lower than global config", func(t *testing.T) {
-			keySpecificPrice := assets.ItoGWei(900)
-			gcfg.Overrides.GlobalEvmMaxGasPriceWei = assets.ItoGWei(1200)
+			keySpecificPrice := assets.GWei(900)
+			gcfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1200)
 			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
 			})
@@ -124,8 +124,8 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, keySpecificPrice.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses global value when higher than key-specific value", func(t *testing.T) {
-			keySpecificPrice := assets.ItoGWei(1400)
-			gcfg.Overrides.GlobalEvmMaxGasPriceWei = assets.ItoGWei(1200)
+			keySpecificPrice := assets.GWei(1400)
+			gcfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1200)
 			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
 			})

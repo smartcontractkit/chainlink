@@ -293,7 +293,7 @@ func setMaxGasPriceGWei(fromAddresses []common.Address, maxGasPriceGWei *uint32,
 	}
 
 	for _, addr := range fromAddresses {
-		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.ItoGWei(uint64(*maxGasPriceGWei)))
+		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.GWei(int64(*maxGasPriceGWei)))
 		err := keyUpdater.UpdateConfig(chainID, updater)
 		if err != nil {
 			return errors.Wrap(err, "update key specific max gas price")

@@ -43,7 +43,7 @@ func TestMarshaledProof(t *testing.T) {
 	ethereumKey, _ := crypto.GenerateKey()
 	auth, err := bind.NewKeyedTransactorWithChainID(ethereumKey, big.NewInt(1337))
 	require.NoError(t, err)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.ItoEther(100).ToInt()}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)

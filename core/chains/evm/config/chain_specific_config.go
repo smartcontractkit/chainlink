@@ -12,9 +12,9 @@ import (
 
 var (
 	// DefaultGasFeeCap is the default value to use for Fee Cap in EIP-1559 transactions
-	DefaultGasFeeCap                     = assets.ItoGWei(100)
+	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint32 = 500000
-	DefaultGasPrice                      = assets.ItoGWei(20)
+	DefaultGasPrice                      = assets.GWei(20)
 	DefaultGasTip                        = assets.NewWeiI(1)                           // go-ethereum requires the tip to be at least 1 wei
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
 
@@ -132,7 +132,7 @@ func setChainSpecificConfigDefaultSets() {
 		gasBumpPercent:                        20,
 		gasBumpThreshold:                      3,
 		gasBumpTxDepth:                        10,
-		gasBumpWei:                            *assets.ItoGWei(5),
+		gasBumpWei:                            *assets.GWei(5),
 		gasEstimatorMode:                      "BlockHistory",
 		gasFeeCapDefault:                      *DefaultGasFeeCap,
 		gasLimitDefault:                       DefaultGasLimit,
@@ -152,7 +152,7 @@ func setChainSpecificConfigDefaultSets() {
 		maxGasPriceWei:                        *MaxLegalGasPrice,
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
-		minGasPriceWei:                        *assets.ItoGWei(1),
+		minGasPriceWei:                        *assets.GWei(1),
 		minIncomingConfirmations:              3,
 		minimumContractPayment:                DefaultMinimumContractPayment,
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
@@ -212,10 +212,10 @@ func setChainSpecificConfigDefaultSets() {
 	simulated.blockEmissionIdleWarningThreshold = 0
 	simulated.nodeDeadAfterNoNewHeadersThreshold = 0 // Assume simulated chain can never die
 	simulated.ethTxResendAfterThreshold = 0
-	simulated.gasFeeCapDefault = *assets.ItoGWei(100000)
-	simulated.maxGasPriceWei = *assets.ItoGWei(100000) // must be the same as gasFeeCapDefault in FixedPrice mode with gas bumping disabled
-	simulated.finalityDepth = 1                        // Simulated does not have re-orgs
-	simulated.gasBumpThreshold = 0                     // Never bump gas
+	simulated.gasFeeCapDefault = *assets.GWei(100000)
+	simulated.maxGasPriceWei = *assets.GWei(100000) // must be the same as gasFeeCapDefault in FixedPrice mode with gas bumping disabled
+	simulated.finalityDepth = 1                     // Simulated does not have re-orgs
+	simulated.gasBumpThreshold = 0                  // Never bump gas
 	simulated.gasEstimatorMode = "FixedPrice"
 	simulated.headTrackerHistoryDepth = 10
 	simulated.headTrackerSamplingInterval = 1 * time.Second
@@ -237,9 +237,9 @@ func setChainSpecificConfigDefaultSets() {
 	xDaiMainnet := fallbackDefaultSet
 	xDaiMainnet.chainType = config.ChainXDai
 	xDaiMainnet.gasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
-	xDaiMainnet.gasPriceDefault = *assets.ItoGWei(1)
-	xDaiMainnet.minGasPriceWei = *assets.ItoGWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
-	xDaiMainnet.maxGasPriceWei = *assets.ItoGWei(500)
+	xDaiMainnet.gasPriceDefault = *assets.GWei(1)
+	xDaiMainnet.minGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
+	xDaiMainnet.maxGasPriceWei = *assets.GWei(500)
 	xDaiMainnet.linkContractAddress = "0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2"
 	xDaiMainnet.logPollInterval = 5 * time.Second
 
@@ -254,12 +254,12 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.ethTxResendAfterThreshold = 1 * time.Minute
 	bscMainnet.finalityDepth = 50   // Keeping this >> 11 because it's not expensive and gives us a safety margin
 	bscMainnet.gasBumpThreshold = 5 // 15s delay since feeds update every minute in volatile situations
-	bscMainnet.gasBumpWei = *assets.ItoGWei(5)
-	bscMainnet.gasPriceDefault = *assets.ItoGWei(5)
+	bscMainnet.gasBumpWei = *assets.GWei(5)
+	bscMainnet.gasPriceDefault = *assets.GWei(5)
 	bscMainnet.headTrackerHistoryDepth = 100
 	bscMainnet.headTrackerSamplingInterval = 1 * time.Second
 	bscMainnet.linkContractAddress = "0x404460c6a5ede2d891e8297795264fde62adbb75"
-	bscMainnet.minGasPriceWei = *assets.ItoGWei(1)
+	bscMainnet.minGasPriceWei = *assets.GWei(1)
 	bscMainnet.minIncomingConfirmations = 3
 	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
 	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
@@ -275,13 +275,13 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	polygonMainnet.finalityDepth = 500  // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
 	polygonMainnet.gasBumpThreshold = 5 // 10s delay since feeds update every minute in volatile situations
-	polygonMainnet.gasBumpWei = *assets.ItoGWei(20)
+	polygonMainnet.gasBumpWei = *assets.GWei(20)
 	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	polygonMainnet.maxQueuedTransactions = 5000                // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
-	polygonMainnet.gasPriceDefault = *assets.ItoGWei(30)       // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
-	polygonMainnet.minGasPriceWei = *assets.ItoGWei(30)        // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
+	polygonMainnet.gasPriceDefault = *assets.GWei(30)          // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
+	polygonMainnet.minGasPriceWei = *assets.GWei(30)           // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
 	polygonMainnet.ethTxResendAfterThreshold = 1 * time.Minute // Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
 	polygonMainnet.blockHistoryEstimatorBlockDelay = 10        // Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
 	polygonMainnet.blockHistoryEstimatorBlockHistorySize = 24
@@ -289,8 +289,8 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.minIncomingConfirmations = 5
 	polygonMainnet.logPollInterval = 1 * time.Second
 	polygonMumbai := polygonMainnet
-	polygonMumbai.gasPriceDefault = *assets.ItoGWei(1)
-	polygonMumbai.minGasPriceWei = *assets.ItoGWei(1)
+	polygonMumbai.gasPriceDefault = *assets.GWei(1)
+	polygonMumbai.minGasPriceWei = *assets.GWei(1)
 	polygonMumbai.linkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
@@ -303,7 +303,7 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.gasLimitMax = 1_000_000_000
 	arbitrumMainnet.minGasPriceWei = *assets.NewWeiI(0)          // Arbitrum uses the suggested gas price so we don't want to place any limits on the minimum
 	arbitrumMainnet.gasPriceDefault = *assets.NewWeiI(100000000) // 0.1 gwei
-	arbitrumMainnet.gasFeeCapDefault = *assets.ItoGWei(1000)
+	arbitrumMainnet.gasFeeCapDefault = *assets.GWei(1000)
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.ocrContractConfirmations = 1
@@ -338,7 +338,7 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet := fallbackDefaultSet
 	fantomMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	fantomMainnet.blockHistoryEstimatorBlockDelay = 2
-	fantomMainnet.gasPriceDefault = *assets.ItoGWei(15)
+	fantomMainnet.gasPriceDefault = *assets.GWei(15)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomMainnet.minIncomingConfirmations = 3
@@ -368,8 +368,8 @@ func setChainSpecificConfigDefaultSets() {
 	avalancheMainnet.linkContractAddress = "0x5947BB275c521040051D82396192181b413227A3"
 	avalancheMainnet.finalityDepth = 1
 	avalancheMainnet.gasEstimatorMode = "BlockHistory"
-	avalancheMainnet.gasPriceDefault = *assets.ItoGWei(25)
-	avalancheMainnet.minGasPriceWei = *assets.ItoGWei(25)
+	avalancheMainnet.gasPriceDefault = *assets.GWei(25)
+	avalancheMainnet.minGasPriceWei = *assets.GWei(25)
 	avalancheMainnet.blockHistoryEstimatorBlockHistorySize = 24 // Average block time of 2s
 	avalancheMainnet.blockHistoryEstimatorBlockDelay = 2
 	avalancheMainnet.minIncomingConfirmations = 1
@@ -384,7 +384,7 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	harmonyMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	harmonyMainnet.linkContractAddress = "0x218532a12a389a4a92fC0C5Fb22901D1c19198aA"
-	harmonyMainnet.gasPriceDefault = *assets.ItoGWei(5)
+	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
 	harmonyMainnet.minIncomingConfirmations = 1
 	harmonyMainnet.logPollInterval = 2 * time.Second
 	harmonyTestnet := harmonyMainnet

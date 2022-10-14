@@ -26,9 +26,9 @@ func main() {
 	lggr.SetLogLevel(zapcore.DebugLevel)
 
 	withEstimator(context.Background(), lggr, url, func(e gas.Estimator) {
-		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.ItoGWei(1))
-		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.ItoGWei(1), gas.OptForceRefetch)
-		printGetLegacyGas(e, make([]byte, 10), max, assets.ItoGWei(1))
+		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.GWei(1))
+		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.GWei(1), gas.OptForceRefetch)
+		printGetLegacyGas(e, make([]byte, 10), max, assets.GWei(1))
 	})
 }
 

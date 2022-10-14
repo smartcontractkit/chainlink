@@ -965,7 +965,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 }
 
 func newBlockWithBaseFee() gas.Block {
-	return gas.Block{BaseFeePerGas: assets.ItoGWei(5)}
+	return gas.Block{BaseFeePerGas: assets.GWei(5)}
 }
 
 func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {

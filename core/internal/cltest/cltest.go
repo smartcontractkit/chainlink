@@ -1127,7 +1127,7 @@ func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
 func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
 	txs := make([]gas.Transaction, len(tipCaps))
 	for i, tipCap := range tipCaps {
-		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.ItoGWei(5000)}
+		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }

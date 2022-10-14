@@ -189,5 +189,5 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	chain, err := app.Chains.EVM.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
-	require.Equal(t, assets.ItoGWei(777), chain.Config().KeySpecificMaxGasPriceWei(key.Address))
+	require.Equal(t, assets.GWei(777), chain.Config().KeySpecificMaxGasPriceWei(key.Address))
 }

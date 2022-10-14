@@ -17,10 +17,10 @@ func TestAssets_Units(t *testing.T) {
 		fn     func(int64) *assets.Wei
 		factor *big.Int
 	}{
-		{name: "Wei", fn: assets.ItoWei[int64], factor: big.NewInt(params.Wei)},
-		{name: "GWei", fn: assets.ItoGWei[int64], factor: big.NewInt(params.GWei)},
-		{name: "UEther", fn: assets.ItoUEther[int64], factor: big.NewInt(params.GWei * 1000)},
-		{name: "Ether", fn: assets.ItoEther[int64], factor: big.NewInt(params.Ether)},
+		{name: "Wei", fn: assets.NewWeiI[int64], factor: big.NewInt(params.Wei)},
+		{name: "GWei", fn: assets.GWei[int64], factor: big.NewInt(params.GWei)},
+		{name: "UEther", fn: assets.UEther[int64], factor: big.NewInt(params.GWei * 1000)},
+		{name: "Ether", fn: assets.Ether[int64], factor: big.NewInt(params.Ether)},
 	}
 
 	for _, test := range tests {

@@ -45,10 +45,10 @@ func newHead() evmtypes.Head {
 
 func mockEstimator(t *testing.T) (estimator *gasmocks.Estimator) {
 	estimator = gasmocks.NewEstimator(t)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.ItoGWei(60), uint32(0), nil)
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint32(0), nil)
 	estimator.On("GetDynamicFee", mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
-		FeeCap: assets.ItoGWei(60),
-		TipCap: assets.ItoGWei(60),
+		FeeCap: assets.GWei(60),
+		TipCap: assets.GWei(60),
 	}, uint32(60), nil)
 	return
 }
@@ -128,7 +128,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t))
 
 		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-		gasPrice := bigmath.Div(bigmath.Mul(assets.ItoGWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
+		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
@@ -172,7 +172,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(eip1559)
 
 			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.ItoGWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
+			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
 			baseFeePerGas := gasPrice.Mul(big.NewInt(2))
 
 			ethTxCreated := cltest.NewAwaiter()
@@ -235,7 +235,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		_, err = keyStore.Eth().Delete(job.KeeperSpec.FromAddress.Hex())
 		require.NoError(t, err)
 
-		gasPrice := bigmath.Div(bigmath.Mul(assets.ItoGWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
+		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
@@ -318,7 +318,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(eip1559)
 
 			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.ItoGWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
+			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
 			baseFeePerGas := gasPrice.Mul(big.NewInt(2))
 
 			ethTxCreated := cltest.NewAwaiter()
@@ -368,8 +368,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 			estimator := gasmocks.NewEstimator(t)
 			estimator.On("GetDynamicFee", mock.Anything, evmconfig.MaxLegalGasPrice).Return(gas.DynamicFee{
-				FeeCap: assets.ItoGWei(60),
-				TipCap: assets.ItoGWei(60),
+				FeeCap: assets.GWei(60),
+				TipCap: assets.GWei(60),
 			}, uint32(60), nil)
 			runTest(t, estimator, true)
 		})
@@ -378,7 +378,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			testutils.SkipShort(t, "db dependency")
 
 			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(assets.ItoGWei(60), uint32(0), nil)
+			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(assets.GWei(60), uint32(0), nil)
 			runTest(t, estimator, false)
 		})
 	})

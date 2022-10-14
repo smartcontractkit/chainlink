@@ -180,7 +180,7 @@ func TestClient_UpdateETHKey(t *testing.T) {
 	chain, err := app.Chains.EVM.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	price := chain.Config().KeySpecificMaxGasPriceWei(key.Address)
-	require.Equal(t, assets.ItoGWei(12345), price)
+	require.Equal(t, assets.GWei(12345), price)
 }
 
 func TestClient_DeleteETHKey(t *testing.T) {

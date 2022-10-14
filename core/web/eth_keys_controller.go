@@ -109,7 +109,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 	if maxGasPriceGWei > 0 {
-		maxGasPriceWei := assets.ItoGWei(maxGasPriceGWei)
+		maxGasPriceWei := assets.GWei(maxGasPriceGWei)
 		updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
 		if err = ekc.App.GetChains().EVM.UpdateConfig(chain.ID(), updateMaxGasPrice); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -179,7 +179,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		return
 	}
 
-	maxGasPriceWei := assets.ItoGWei(maxGasPriceGWei)
+	maxGasPriceWei := assets.GWei(maxGasPriceGWei)
 	updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
 	if err = ekc.App.GetChains().EVM.UpdateConfig((*big.Int)(&state.EVMChainID), updateMaxGasPrice); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
