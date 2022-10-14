@@ -3,9 +3,10 @@
 package mocks
 
 import (
-	big "math/big"
-
 	assets "github.com/smartcontractkit/chainlink/core/assets"
+	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+
+	big "math/big"
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
@@ -96,6 +97,92 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(uuid.UUID)
 		}
+	}
+
+	return r0
+}
+
+// AuditLoggerEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// AuditLoggerEnvironment provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// AuditLoggerForwardToUrl provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	ret := _m.Called()
+
+	var r0 models.URL
+	if rf, ok := ret.Get(0).(func() models.URL); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.URL)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AuditLoggerHeaders provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	ret := _m.Called()
+
+	var r0 audit.ServiceHeaders
+	if rf, ok := ret.Get(0).(func() audit.ServiceHeaders); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(audit.ServiceHeaders)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AuditLoggerJsonWrapperKey provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerJsonWrapperKey() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

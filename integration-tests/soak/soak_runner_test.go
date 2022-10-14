@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 )
 
@@ -66,6 +67,47 @@ func TestOCRSoak(t *testing.T) {
 	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
 
 	soakTestHelper(t, "@soak-ocr", testEnvironment, activeEVMNetwork)
+}
+
+// Run the OCR soak test defined in ./tests/ocr_test.go
+func TestForwarderOCRSoak(t *testing.T) {
+	activeEVMNetwork := networks.GoerliTestnet // Environment currently being used to soak test on
+
+	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
+		"soak-forwarder-ocr-%s",
+		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
+	)
+	testEnvironment := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil))
+
+	// Values you want each node to have the exact same of (e.g. eth_chain_id)
+	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	staticValues["ETH_USE_FORWARDERS"] = "true"
+	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
+	dynamicValues := []map[string]interface{}{
+		{
+			"dynamic_value": "0",
+		},
+		{
+			"dynamic_value": "1",
+		},
+		{
+			"dynamic_value": "2",
+		},
+		{
+			"dynamic_value": "3",
+		},
+		{
+			"dynamic_value": "4",
+		},
+		{
+			"dynamic_value": "5",
+		},
+	}
+	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+
+	soakTestHelper(t, "@soak-forwarder-ocr", testEnvironment, activeEVMNetwork)
 }
 
 // Run the keeper soak test defined in ./tests/keeper_test.go

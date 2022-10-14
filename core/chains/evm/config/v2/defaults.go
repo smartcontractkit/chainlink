@@ -81,6 +81,15 @@ func Defaults(chainID *utils.Big) (c Chain, name string) {
 	return
 }
 
+// DefaultsFrom returns a Chain based on the defaults for chainID and fields from with.
+func DefaultsFrom(chainID *utils.Big, with *Chain) Chain {
+	c, _ := Defaults(chainID)
+	if with != nil {
+		c.SetFrom(with)
+	}
+	return c
+}
+
 func ChainTypeForID(chainID *utils.Big) (config.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
