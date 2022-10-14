@@ -316,7 +316,7 @@ func MustInsertUnstartedEthTx(t *testing.T, borm txmgr.ORM, fromAddress common.A
 }
 
 func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
-	gasPrice := utils.NewBig(big.NewInt(1))
+	gasPrice := assets.NewWeiI(1)
 	return txmgr.EthTxAttempt{
 		ChainSpecificGasLimit: 42,
 		EthTxID:               etxID,
@@ -330,8 +330,8 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 }
 
 func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
-	gasTipCap := utils.NewBig(big.NewInt(1))
-	gasFeeCap := utils.NewBig(big.NewInt(1))
+	gasTipCap := assets.NewWeiI(1)
+	gasFeeCap := assets.NewWeiI(1)
 	return txmgr.EthTxAttempt{
 		TxType:    0x2,
 		EthTxID:   etxID,

@@ -46,7 +46,7 @@ type Config interface {
 	EvmFinalityDepth() uint32
 	EvmGasLimitDefault() uint32
 	EvmGasLimitVRFJobType() *uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
 }
 

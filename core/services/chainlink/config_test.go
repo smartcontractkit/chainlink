@@ -92,7 +92,7 @@ var (
 				IncomingMessageBufferSize: ptr[int64](999),
 			},
 			Keeper: &config.Keeper{
-				GasPriceBufferPercent: ptr[uint32](10),
+				GasPriceBufferPercent: ptr[uint16](10),
 			},
 			AutoPprof: &config.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
@@ -119,7 +119,7 @@ var (
 				ChainID: utils.NewBigI(42),
 				Chain: evmcfg.Chain{
 					GasEstimator: &evmcfg.GasEstimator{
-						PriceDefault: utils.NewBigI(math.MaxInt64).Wei(),
+						PriceDefault: assets.NewWeiI(math.MaxInt64),
 					},
 				},
 				Nodes: []*evmcfg.Node{
@@ -382,9 +382,9 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Keeper = &config.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint32](12),
-		GasTipCapBufferPercent:       ptr[uint32](43),
-		BaseFeeBufferPercent:         ptr[uint32](89),
+		GasPriceBufferPercent:        ptr[uint16](12),
+		GasTipCapBufferPercent:       ptr[uint16](43),
+		BaseFeeBufferPercent:         ptr[uint16](89),
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
 		TurnFlagEnabled:              ptr(true),
@@ -442,17 +442,17 @@ func TestConfig_Marshal(t *testing.T) {
 					BumpPercent:        ptr[uint16](10),
 					BumpThreshold:      ptr[uint32](6),
 					BumpTxDepth:        ptr[uint16](6),
-					BumpMin:            utils.NewBigI(100).Wei(),
-					FeeCapDefault:      utils.NewBigI(math.MaxInt64).Wei(),
+					BumpMin:            assets.NewWeiI(100),
+					FeeCapDefault:      assets.NewWeiI(math.MaxInt64),
 					LimitDefault:       ptr[uint32](12),
 					LimitMax:           ptr[uint32](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint32](100),
-					TipCapDefault:      utils.NewBigI(2).Wei(),
-					TipCapMin:          utils.NewBigI(1).Wei(),
-					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
-					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
-					PriceMin:           utils.NewBigI(13).Wei(),
+					TipCapDefault:      assets.NewWeiI(2),
+					TipCapMin:          assets.NewWeiI(1),
+					PriceDefault:       assets.NewWeiI(math.MaxInt64),
+					PriceMax:           assets.NewWei(utils.HexToBig("FFFFFFFFFFFF")),
+					PriceMin:           assets.NewWeiI(13),
 
 					LimitJobType: evmcfg.GasLimitJobType{
 						OCR:    ptr[uint32](1001),
@@ -465,6 +465,8 @@ func TestConfig_Marshal(t *testing.T) {
 					BlockHistory: &evmcfg.BlockHistoryEstimator{
 						BatchSize:                 ptr[uint32](17),
 						BlockHistorySize:          ptr[uint16](12),
+						CheckInclusionBlocks:      ptr[uint16](18),
+						CheckInclusionPercentile:  ptr[uint16](19),
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
 					},
@@ -474,7 +476,7 @@ func TestConfig_Marshal(t *testing.T) {
 					{
 						Key: mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
 						GasEstimator: &evmcfg.KeySpecificGasEstimator{
-							PriceMax: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
+							PriceMax: assets.NewWei(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
 						},
 					},
 				},
@@ -857,6 +859,8 @@ Keeper = 1005
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
 BlockHistorySize = 12
+CheckInclusionBlocks = 18
+CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 

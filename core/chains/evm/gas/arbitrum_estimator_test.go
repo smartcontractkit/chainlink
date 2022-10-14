@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -23,7 +24,7 @@ import (
 func TestArbitrumEstimator(t *testing.T) {
 	t.Parallel()
 
-	maxGasPrice := big.NewInt(100)
+	maxGasPrice := assets.NewWeiI(100)
 	const maxGasLimit uint32 = 500_000
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	const gasLimit uint32 = 80000
@@ -63,7 +64,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(42), gasPrice)
+		assert.Equal(t, assets.NewWeiI(42), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
 	})
 
@@ -87,9 +88,9 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, big.NewInt(40))
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, assets.NewWeiI(40))
 		require.Error(t, err)
-		assert.EqualError(t, err, "estimated gas price: 42 is greater than the maximum gas price configured: 40")
+		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
 		assert.Nil(t, gasPrice)
 		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
@@ -114,8 +115,8 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, big.NewInt(110))
-		assert.EqualError(t, err, "estimated gas price: 120 is greater than the maximum gas price configured: 110")
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, assets.NewWeiI(110))
+		assert.EqualError(t, err, "estimated gas price: 120 wei is greater than the maximum gas price configured: 110 wei")
 		assert.Nil(t, gasPrice)
 		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
@@ -125,7 +126,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, rpcClient, ethClient)
-		_, _, err := o.BumpLegacyGas(big.NewInt(42), gasLimit, big.NewInt(10))
+		_, _, err := o.BumpLegacyGas(assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
 		assert.EqualError(t, err, "bump gas is not supported for this l2")
 	})
 
@@ -184,7 +185,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		require.NotNil(t, gasPrice)
-		assert.Equal(t, "42", gasPrice.String())
+		assert.Equal(t, "42 wei", gasPrice.String())
 		assert.Equal(t, expLimit, chainSpecificGasLimit, "expected %d but got %d", expLimit, chainSpecificGasLimit)
 	})
 
