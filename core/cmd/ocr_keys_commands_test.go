@@ -66,7 +66,7 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 func TestClient_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	key, err := app.GetKeyStore().OCR().Create()
@@ -83,7 +83,7 @@ func TestClient_ListOCRKeyBundles(t *testing.T) {
 func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	requireOCRKeyCount(t, app, 0)
@@ -102,7 +102,7 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	key, err := app.GetKeyStore().OCR().Create()
@@ -126,7 +126,7 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 func TestClient_ImportExportOCRKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))

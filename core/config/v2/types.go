@@ -17,6 +17,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -42,6 +43,8 @@ type Core struct {
 	Database *Database
 
 	TelemetryIngress *TelemetryIngress
+
+	AuditLogger *audit.AuditLoggerConfig
 
 	Log *Log
 
@@ -97,6 +100,13 @@ func (c *Core) SetFrom(f *Core) {
 	}
 	if v := f.ShutdownGracePeriod; v != nil {
 		c.ShutdownGracePeriod = v
+	}
+
+	if f.AuditLogger != nil {
+		if c.AuditLogger == nil {
+			c.AuditLogger = &audit.AuditLoggerConfig{}
+		}
+		c.AuditLogger.SetFrom(f.AuditLogger)
 	}
 
 	if f.Feature != nil {

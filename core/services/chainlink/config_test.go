@@ -31,6 +31,7 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -49,6 +50,22 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
+
+			AuditLogger: &audit.AuditLoggerConfig{
+				Enabled:      ptr(true),
+				ForwardToUrl: mustURL("http://localhost:9898"),
+				Headers: ptr(audit.ServiceHeaders{
+					audit.ServiceHeader{
+						Header: "Authorization",
+						Value:  "token",
+					},
+					audit.ServiceHeader{
+						Header: "X-SomeOther-Header",
+						Value:  "value with spaces | and a bar+*",
+					},
+				}),
+				JsonWrapperKey: ptr("event"),
+			},
 
 			Database: &config.Database{
 				Listener: &config.DatabaseListener{
@@ -208,6 +225,18 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full := global
+
+	serviceHeaders := audit.ServiceHeaders{
+		{Header: "Authorization", Value: "token"},
+		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
+	}
+	full.AuditLogger = &audit.AuditLoggerConfig{
+		Enabled:        ptr(true),
+		ForwardToUrl:   mustURL("http://localhost:9898"),
+		Headers:        ptr(serviceHeaders),
+		JsonWrapperKey: ptr("event"),
+	}
+
 	full.Feature = &config.Feature{
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
@@ -581,6 +610,12 @@ func TestConfig_Marshal(t *testing.T) {
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
+`},
+		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
 `},
 		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
