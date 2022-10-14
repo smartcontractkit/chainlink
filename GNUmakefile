@@ -128,6 +128,10 @@ test_smoke_raw: test_need_operator_assets ## Run ALL integration smoke tests, on
 test_soak_ocr: test_need_operator_assets ## Run the OCR soak test
 	cd ./integration-tests && go test -v -run ^TestOCRSoak$$ ./soak -count=1 && cd ..
 
+.PHONY: test_soak_forwarder_ocr
+test_soak_forwarder_ocr: test_need_operator_assets ## Run the Forwarder OCR soak test
+	cd ./integration-tests && go test -v -run ^TestForwarderOCRSoak$$ ./soak -count=1 && cd ..
+
 .PHONY: test_soak_keeper
 test_soak_keeper: test_need_operator_assets ## Run the OCR soak test
 	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
