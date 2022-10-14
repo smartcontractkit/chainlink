@@ -7,6 +7,6 @@ import (
 )
 
 func NewSolanaKeysController(app chainlink.Application) KeysController {
-	return NewKeysController[solkey.Key, presenters.SolanaKeyResource](app.GetKeyStore().Solana(), app.GetLogger(),
+	return NewKeysController[solkey.Key, presenters.SolanaKeyResource](app.GetKeyStore().Solana(), app.GetLogger(), app.GetAuditLogger(),
 		"solanaKey", presenters.NewSolanaKeyResource, presenters.NewSolanaKeyResources)
 }

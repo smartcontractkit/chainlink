@@ -9,6 +9,7 @@
 	- [Listener](#Database-Listener)
 	- [Lock](#Database-Lock)
 - [TelemetryIngress](#TelemetryIngress)
+- [AuditLogger](#AuditLogger)
 - [Log](#Log)
 	- [File](#Log-File)
 - [WebServer](#WebServer)
@@ -332,6 +333,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## AuditLogger<a id='AuditLogger'></a>
+```toml
+[AuditLogger]
+Enabled = false # Default
+ForwardToUrl = 'http://localhost:9898' # Example
+JsonWrapperKey = 'event' # Example
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+```
+
+
+### Enabled<a id='AuditLogger-Enabled'></a>
+```toml
+Enabled = false # Default
+```
+Enabled determines if this logger should be configured at all
+
+### ForwardToUrl<a id='AuditLogger-ForwardToUrl'></a>
+```toml
+ForwardToUrl = 'http://localhost:9898' # Example
+```
+ForwardToUrl is where you want to forward logs to
+
+### JsonWrapperKey<a id='AuditLogger-JsonWrapperKey'></a>
+```toml
+JsonWrapperKey = 'event' # Example
+```
+JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+
+### Headers<a id='AuditLogger-Headers'></a>
+```toml
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+```
+Headers is the set of headers you wish to pass along with each request
 
 ## Log<a id='Log'></a>
 ```toml

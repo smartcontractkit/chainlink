@@ -330,6 +330,22 @@ func TestResolver_Config(t *testing.T) {
         "value": "30s"
       },
       {
+        "key": "AUDIT_LOGGER_ENABLED",
+        "value": "false"
+      },
+      {
+        "key": "AUDIT_LOGGER_FORWARD_TO_URL",
+        "value": ""
+      },
+      {
+        "key": "AUDIT_LOGGER_JSON_WRAPPER_KEY",
+        "value": ""
+      },
+      {
+        "key": "AUDIT_LOGGER_HEADERS",
+        "value": ""
+      },
+      {
         "key": "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",
         "value": "1"
       },

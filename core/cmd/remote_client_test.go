@@ -27,11 +27,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
@@ -49,7 +52,7 @@ type startOptions struct {
 	WithKey bool
 }
 
-func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
+func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets), setup ...func(opts *startOptions)) *cltest.TestApplication {
 	t.Helper()
 
 	sopts := &startOptions{
@@ -59,10 +62,37 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 		fn(sopts)
 	}
 
+	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		cltest.TestOverrides(c, s)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
+		f := false
+		c.EVM[0].Enabled = &f
+		c.P2P.V1.Enabled = &f
+		c.P2P.V2.Enabled = &f
+
+		if overrideFn != nil {
+			overrideFn(c, s)
+		}
+	})
+
+	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	return app
+}
+
+func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
+	t.Helper()
+
+	sopts := &startOptions{
+		FlagsAndDeps: []interface{}{},
+	}
+	for _, fn := range setup {
+		fn(sopts)
+	}
 	// Setup config
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.Overrides.SetHTTPServerWriteTimeout(10 * time.Second)
 
 	// Generally speaking, most tests that use startNewApplication don't
 	// actually need ChainSets loaded. We can greatly reduce test

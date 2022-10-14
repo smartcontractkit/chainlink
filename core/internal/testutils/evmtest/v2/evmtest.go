@@ -18,7 +18,6 @@ func ChainArbitrumRinkeby(t *testing.T) config.ChainScopedConfig { return scoped
 
 func scopedConfig(t *testing.T, chainID int64) config.ChainScopedConfig {
 	id := utils.NewBigI(chainID)
-	def, _ := v2.Defaults(id)
-	evmCfg := v2.EVMConfig{ChainID: id, Chain: def}
+	evmCfg := v2.EVMConfig{ChainID: id, Chain: v2.DefaultsFrom(id, nil)}
 	return v2.NewTOMLChainScopedConfig(configtest.NewTestGeneralConfig(t), &evmCfg, logger.TestLogger(t))
 }

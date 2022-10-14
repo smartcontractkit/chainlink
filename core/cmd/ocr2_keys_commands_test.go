@@ -7,15 +7,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
@@ -67,7 +68,7 @@ func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 func TestClient_OCR2Keys(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().OCR2()
 	cleanup := func() {
 		keys, err := app.GetKeyStore().OCR2().GetAll()

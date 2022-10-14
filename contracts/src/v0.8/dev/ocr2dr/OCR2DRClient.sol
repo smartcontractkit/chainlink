@@ -58,7 +58,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     bytes32 requestId,
     bytes memory response,
     bytes memory err
-  ) external recordChainlinkFulfillment(requestId) {
+  ) external override recordChainlinkFulfillment(requestId) {
     fulfillRequest(requestId, response, err);
   }
 

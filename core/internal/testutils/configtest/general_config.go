@@ -46,7 +46,6 @@ type GeneralConfigOverrides struct {
 	DatabaseLockingMode                     null.String
 	DefaultChainID                          *big.Int
 	DefaultHTTPTimeout                      *time.Duration
-	HTTPServerWriteTimeout                  *time.Duration
 	Dev                                     null.Bool
 	ShutdownGracePeriod                     *time.Duration
 	Dialect                                 dialects.DialectName
@@ -171,11 +170,6 @@ func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 // SetDefaultHTTPTimeout sets test override value for DefaultHTTPTimeout
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
-}
-
-// SetHTTPServerWriteTimeout sets test override value for HTTPServerWriteTimeout
-func (o *GeneralConfigOverrides) SetHTTPServerWriteTimeout(d time.Duration) {
-	o.HTTPServerWriteTimeout = &d
 }
 
 // SetP2PV2DeltaDial sets test override value for P2PV2DeltaDial
