@@ -135,7 +135,7 @@ func soakTestHelper(
 	remoteRunnerValues := actions.BasicRunnerValuesSetup(
 		testTag,
 		testEnvironment.Cfg.Namespace,
-		"./integration-tests/soak",
+		"./integration-tests/soak/tests",
 	)
 	// Set evm network connection for remote runner
 	for key, value := range activeEVMNetwork.ToMap() {
@@ -152,6 +152,6 @@ func soakTestHelper(
 		})).
 		Run()
 	require.NoError(t, err, "Error launching test environment")
-	err = actions.TriggerRemoteTest("../", testEnvironment)
+	err = actions.TriggerRemoteTest("../../", testEnvironment)
 	require.NoError(t, err, "Error activating remote test")
 }
