@@ -76,21 +76,26 @@ func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.DBChain) {
 		if ch == nil {
 			continue
 		}
-		var match bool
-		for _, id := range ids {
-			if id.Cmp(ch.ChainID) == 0 {
-				match = true
-				break
+		if len(ids) > 0 {
+			var match bool
+			for _, id := range ids {
+				if id.Cmp(ch.ChainID) == 0 {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
 			}
 		}
-		if !match {
-			continue
+		dbc := types.DBChain{
+			ID:  *ch.ChainID,
+			Cfg: ch.asV1(),
 		}
-		chains = append(chains, types.DBChain{
-			ID:      *ch.ChainID,
-			Enabled: *ch.Enabled,
-			Cfg:     ch.asV1(),
-		})
+		if ch.Enabled != nil && *ch.Enabled {
+			dbc.Enabled = true
+		}
+		chains = append(chains, dbc)
 	}
 	return
 }
@@ -132,7 +137,7 @@ func (cs EVMConfigs) NodesByID(chainIDs ...utils.Big) (ns []types.Node) {
 	for i := range cs {
 		var match bool
 		for _, chainID := range chainIDs {
-			if chainID.Cmp(cs[i].ChainID) != 0 {
+			if chainID.Cmp(cs[i].ChainID) == 0 {
 				match = true
 				break
 			}
@@ -231,6 +236,7 @@ type Chain struct {
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *models.Duration
+	LogKeepBlocksDepth       *uint32
 	MinIncomingConfirmations *uint32
 	MinContractPayment       *assets.Link
 	NonceAutoSync            *bool
@@ -302,9 +308,9 @@ func (c Chain) ValidateConfig() (err error) {
 
 func (c *Chain) asV1() *types.ChainCfg {
 	cfg := types.ChainCfg{
-		BlockHistoryEstimatorBlockDelay:                null.Int{},
-		BlockHistoryEstimatorBlockHistorySize:          null.Int{},
-		BlockHistoryEstimatorEIP1559FeeCapBufferBlocks: null.Int{},
+		BlockHistoryEstimatorBlockDelay:                nullIntFromPtr(c.RPCBlockQueryDelay),
+		BlockHistoryEstimatorBlockHistorySize:          nullIntFromPtr(c.GasEstimator.BlockHistory.BlockHistorySize),
+		BlockHistoryEstimatorEIP1559FeeCapBufferBlocks: nullIntFromPtr(c.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks),
 		ChainType:                      null.StringFromPtr(c.ChainType),
 		EthTxReaperThreshold:           c.Transactions.ReaperThreshold,
 		EthTxResendAfterThreshold:      c.Transactions.ResendAfterThreshold,
@@ -330,6 +336,7 @@ func (c *Chain) asV1() *types.ChainCfg {
 		EvmHeadTrackerSamplingInterval: c.HeadTracker.SamplingInterval,
 		EvmLogBackfillBatchSize:        nullInt(c.LogBackfillBatchSize),
 		EvmLogPollInterval:             c.LogPollInterval,
+		EvmLogKeepBlocksDepth:          nullInt(c.LogKeepBlocksDepth),
 		EvmMaxGasPriceWei:              (*utils.Big)(c.GasEstimator.PriceMax),
 		EvmNonceAutoSync:               null.BoolFromPtr(c.NonceAutoSync),
 		EvmUseForwarders:               null.BoolFromPtr(c.Transactions.ForwardersEnabled),
@@ -425,7 +432,7 @@ type GasEstimator struct {
 	LimitMax        *uint32
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
-	LimitJobType    *GasLimitJobType
+	LimitJobType    GasLimitJobType `toml:",omitempty"`
 
 	BumpMin       *utils.Wei
 	BumpPercent   *uint16
@@ -528,12 +535,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	if v := f.PriceMin; v != nil {
 		e.PriceMin = v
 	}
-	if v := f.LimitJobType; v != nil {
-		if e.LimitJobType == nil {
-			e.LimitJobType = &GasLimitJobType{}
-		}
-		e.LimitJobType.setFrom(f.LimitJobType)
-	}
+	e.LimitJobType.setFrom(&f.LimitJobType)
 	if f.BlockHistory != nil {
 		if e.BlockHistory == nil {
 			e.BlockHistory = &BlockHistoryEstimator{}
@@ -830,18 +832,12 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
-		}
 		v := uint32(cfg.EvmGasLimitOCRJobType.Int64)
 		c.GasEstimator.LimitJobType.OCR = &v
 	}
 	if cfg.EvmGasLimitDRJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
-		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
 		}
 		v := uint32(cfg.EvmGasLimitDRJobType.Int64)
 		c.GasEstimator.LimitJobType.DR = &v
@@ -850,9 +846,6 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
-		}
 		v := uint32(cfg.EvmGasLimitVRFJobType.Int64)
 		c.GasEstimator.LimitJobType.VRF = &v
 	}
@@ -860,18 +853,12 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
-		}
 		v := uint32(cfg.EvmGasLimitFMJobType.Int64)
 		c.GasEstimator.LimitJobType.FM = &v
 	}
 	if cfg.EvmGasLimitKeeperJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
-		}
-		if c.GasEstimator.LimitJobType == nil {
-			c.GasEstimator.LimitJobType = &GasLimitJobType{}
 		}
 		v := uint32(cfg.EvmGasLimitKeeperJobType.Int64)
 		c.GasEstimator.LimitJobType.Keeper = &v
@@ -1005,4 +992,11 @@ func (n *Node) SetFromDB(db types.Node) (err error) {
 		n.SendOnly = &db.SendOnly
 	}
 	return
+}
+
+func nullIntFromPtr[I constraints.Integer](i *I) null.Int {
+	if i == nil {
+		return null.Int{}
+	}
+	return null.IntFrom(int64(*i))
 }

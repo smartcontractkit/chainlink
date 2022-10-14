@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -69,6 +70,7 @@ type BasicConfig interface {
 	SetLogSQL(logSQL bool)
 
 	FeatureFlags
+	audit.Config
 
 	AdvisoryLockCheckInterval() time.Duration
 	AdvisoryLockID() int64
@@ -231,6 +233,7 @@ type GlobalConfig interface {
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
 	GlobalEvmLogBackfillBatchSize() (uint32, bool)
 	GlobalEvmLogPollInterval() (time.Duration, bool)
+	GlobalEvmLogKeepBlocksDepth() (uint32, bool)
 	GlobalEvmMaxGasPriceWei() (*big.Int, bool)
 	GlobalEvmMaxInFlightTransactions() (uint32, bool)
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
@@ -390,19 +393,19 @@ EVM_ENABLED=false
 		return errors.Errorf("It is not permitted to set both ETH_URL (got %s) and EVM_NODES (got %s). Please set either one or the other", c.EthereumURL(), c.EthereumNodes())
 	}
 	// Warn on legacy OCR env vars
-	if c.OCRDHTLookupInterval() != 0 {
+	if c.ocrDHTLookupInterval() != 0 {
 		c.lggr.Error("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
-	if c.OCRBootstrapCheckInterval() != 0 {
+	if c.ocrBootstrapCheckInterval() != 0 {
 		c.lggr.Error("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
-	if c.OCRIncomingMessageBufferSize() != 0 {
+	if c.ocrIncomingMessageBufferSize() != 0 {
 		c.lggr.Error("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
-	if c.OCROutgoingMessageBufferSize() != 0 {
+	if c.ocrOutgoingMessageBufferSize() != 0 {
 		c.lggr.Error("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
-	if c.OCRNewStreamTimeout() != 0 {
+	if c.ocrNewStreamTimeout() != 0 {
 		c.lggr.Error("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 
@@ -488,6 +491,37 @@ func (c *generalConfig) AppID() uuid.UUID {
 		c.appID = uuid.NewV4()
 	})
 	return c.appID
+}
+
+func (c *generalConfig) AuditLoggerEnabled() bool {
+	return c.viper.GetBool(envvar.Name("AuditLoggerEnabled"))
+}
+
+func (c *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	url, err := models.ParseURL(c.viper.GetString(envvar.Name("AuditLoggerForwardToUrl")))
+	if err != nil {
+		return models.URL{}, err
+	}
+	return *url, nil
+}
+
+func (c *generalConfig) AuditLoggerEnvironment() string {
+	if c.Dev() {
+		return "develop"
+	}
+	return "production"
+}
+
+func (c *generalConfig) AuditLoggerJsonWrapperKey() string {
+	return c.viper.GetString(envvar.Name("AuditLoggerJsonWrapperKey"))
+}
+
+func (c *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	sh, invalid := audit.AuditLoggerHeaders.Parse()
+	if invalid != "" {
+		return nil, errors.New(invalid)
+	}
+	return sh, nil
 }
 
 // AuthenticatedRateLimit defines the threshold to which authenticated requests
@@ -1335,6 +1369,9 @@ func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 }
 func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	return lookupEnv(c, envvar.Name("EvmLogPollInterval"), time.ParseDuration)
+}
+func (c *generalConfig) GlobalEvmLogKeepBlocksDepth() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("EvmLogKeepBlocksDepth"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)

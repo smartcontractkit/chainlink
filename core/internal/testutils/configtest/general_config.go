@@ -46,7 +46,6 @@ type GeneralConfigOverrides struct {
 	DatabaseLockingMode                     null.String
 	DefaultChainID                          *big.Int
 	DefaultHTTPTimeout                      *time.Duration
-	HTTPServerWriteTimeout                  *time.Duration
 	Dev                                     null.Bool
 	ShutdownGracePeriod                     *time.Duration
 	Dialect                                 dialects.DialectName
@@ -173,11 +172,6 @@ func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
 }
 
-// SetHTTPServerWriteTimeout sets test override value for HTTPServerWriteTimeout
-func (o *GeneralConfigOverrides) SetHTTPServerWriteTimeout(d time.Duration) {
-	o.HTTPServerWriteTimeout = &d
-}
-
 // SetP2PV2DeltaDial sets test override value for P2PV2DeltaDial
 func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 	o.P2PV2DeltaDial = &d
@@ -201,6 +195,7 @@ func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
+// Deprecated: see v2.TOML
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{
@@ -330,7 +325,7 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	}
 	// Always return txdb for tests, if you want a non-transactional database
 	// you must set an override explicitly
-	return "txdb"
+	return dialects.TransactionWrappedPostgres
 }
 
 func (c *TestGeneralConfig) DatabaseURL() url.URL {

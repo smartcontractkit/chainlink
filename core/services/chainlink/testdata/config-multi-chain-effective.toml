@@ -42,6 +42,12 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 
+[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
+
 [Log]
 DatabaseQueries = false
 JSONConsole = true
@@ -121,7 +127,7 @@ OutgoingMessageBufferSize = 10
 TraceLogging = false
 
 [P2P.V1]
-Enabled = false
+Enabled = true
 AnnounceIP = ''
 AnnouncePort = 0
 BootstrapCheckInterval = '20s'
@@ -192,6 +198,7 @@ FinalityDepth = 26
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -267,6 +274,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -337,6 +345,7 @@ FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true

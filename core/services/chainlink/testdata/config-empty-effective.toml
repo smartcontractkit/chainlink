@@ -42,6 +42,12 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 
+[AuditLogger]
+Enabled = false
+ForwardToUrl = ''
+JsonWrapperKey = ''
+Headers = ''
+
 [Log]
 DatabaseQueries = false
 JSONConsole = false
@@ -121,7 +127,7 @@ OutgoingMessageBufferSize = 10
 TraceLogging = false
 
 [P2P.V1]
-Enabled = false
+Enabled = true
 AnnounceIP = ''
 AnnouncePort = 0
 BootstrapCheckInterval = '20s'

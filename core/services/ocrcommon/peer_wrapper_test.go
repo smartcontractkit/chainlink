@@ -2,10 +2,13 @@ package ocrcommon_test
 
 import (
 	"testing"
+	"time"
+
+	"github.com/smartcontractkit/libocr/networking"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"gopkg.in/guregu/null.v4"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
@@ -90,4 +93,45 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
+}
+
+func Test_SingletonPeerWrapper_Close(t *testing.T) {
+	t.Parallel()
+
+	cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
+		P2PEnabled: null.BoolFrom(true),
+	})
+	db := pgtest.NewSqlxDB(t)
+
+	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
+
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	k, err := keyStore.P2P().Create()
+	require.NoError(t, err)
+
+	p2paddresses := []string{
+		"127.0.0.1:17193",
+	}
+
+	cfg.Overrides.P2PPeerID = k.PeerID()
+	cfg.Overrides.P2PNetworkingStack = networking.NetworkingStackV2
+	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
+	cfg.Overrides.SetP2PV2DeltaDial(100 * time.Millisecond)
+	cfg.Overrides.SetP2PV2DeltaReconcile(1 * time.Second)
+	cfg.Overrides.P2PListenPort = null.NewInt(0, true)
+	cfg.Overrides.P2PV2ListenAddresses = p2paddresses
+	cfg.Overrides.P2PV2AnnounceAddresses = p2paddresses
+
+	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+
+	require.NoError(t, pw.Start(testutils.Context(t)))
+	require.True(t, pw.IsStarted(), "Should have started successfully")
+	pw.Close()
+
+	/* If peer is still stuck in listenLoop, we will get a bind error trying to start on the same port */
+	require.False(t, pw.IsStarted())
+	pw = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+	require.NoError(t, pw.Start(testutils.Context(t)), "Should have shut down gracefully, and be able to re-use same port")
+	require.True(t, pw.IsStarted(), "Should have started successfully")
+	pw.Close()
 }

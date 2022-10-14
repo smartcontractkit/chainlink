@@ -13,7 +13,7 @@ import (
 )
 
 func TestClient_CreateUser(t *testing.T) {
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 	client.PasswordPrompter = cltest.MockPasswordPrompter{
 		Password: cltest.Password,
@@ -50,7 +50,7 @@ func TestClient_CreateUser(t *testing.T) {
 }
 
 func TestClient_ChangeRole(t *testing.T) {
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))

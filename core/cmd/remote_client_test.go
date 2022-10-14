@@ -27,11 +27,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
@@ -49,7 +52,7 @@ type startOptions struct {
 	WithKey bool
 }
 
-func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
+func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets), setup ...func(opts *startOptions)) *cltest.TestApplication {
 	t.Helper()
 
 	sopts := &startOptions{
@@ -59,10 +62,37 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 		fn(sopts)
 	}
 
+	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		cltest.TestOverrides(c, s)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
+		f := false
+		c.EVM[0].Enabled = &f
+		c.P2P.V1.Enabled = &f
+		c.P2P.V2.Enabled = &f
+
+		if overrideFn != nil {
+			overrideFn(c, s)
+		}
+	})
+
+	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	return app
+}
+
+func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
+	t.Helper()
+
+	sopts := &startOptions{
+		FlagsAndDeps: []interface{}{},
+	}
+	for _, fn := range setup {
+		fn(sopts)
+	}
 	// Setup config
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.Overrides.SetHTTPServerWriteTimeout(10 * time.Second)
 
 	// Generally speaking, most tests that use startNewApplication don't
 	// actually need ChainSets loaded. We can greatly reduce test
@@ -127,14 +157,12 @@ func deleteKeyExportFile(t *testing.T) {
 
 func TestClient_ReplayBlocks(t *testing.T) {
 	t.Parallel()
-
-	app := startNewApplication(t,
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-			c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
-		}))
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	})
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("flagset", 0)
@@ -158,7 +186,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app := startNewApplication(t)
+			app := startNewApplicationV2(t, nil)
 			client, _ := app.NewClientAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
@@ -194,7 +222,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app := startNewApplication(t)
+			app := startNewApplicationV2(t, nil)
 			client, _ := app.NewClientAndRenderer()
 
 			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
@@ -215,7 +243,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 func TestClient_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	token := auth.NewToken()
@@ -236,7 +264,7 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
@@ -248,7 +276,7 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 
 func TestClient_RemoteLogin(t *testing.T) {
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 
 	tests := []struct {
 		name, file string
@@ -286,7 +314,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: append(enteredStrings, enteredStrings...)}
 	client := app.NewAuthenticatingClient(prompter)
@@ -320,7 +348,7 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 func TestClient_CheckRemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	tests := []struct {
 		name                         string
 		remoteVersion, remoteSha     string
@@ -395,7 +423,7 @@ func (h *mockHTTPClient) Delete(path string) (*http.Response, error) {
 func TestClient_ChangePassword(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
@@ -431,7 +459,7 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
@@ -454,7 +482,7 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 func TestClient_Profile(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
@@ -582,16 +610,15 @@ func TestClient_ConfigDump(t *testing.T) {
 
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
-
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-		c.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
-	}))
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.OCR.Enabled = ptr(true)
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	})
 	client, _ := app.NewClientAndRenderer()
 
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
@@ -622,7 +649,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
@@ -636,7 +663,7 @@ func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
@@ -652,7 +679,7 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 func TestClient_AutoLogin(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))
@@ -678,7 +705,7 @@ func TestClient_AutoLogin(t *testing.T) {
 func TestClient_AutoLogin_AuthFails(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))
@@ -715,7 +742,7 @@ func (FailingAuthenticator) Logout() error {
 func TestClient_SetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	logLevel := "warn"

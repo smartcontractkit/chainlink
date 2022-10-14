@@ -54,7 +54,7 @@ func TestCSAKeyPresenter_RenderTable(t *testing.T) {
 func TestClient_ListCSAKeys(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	key, err := app.GetKeyStore().CSA().Create()
 	require.NoError(t, err)
 
@@ -71,7 +71,7 @@ func TestClient_ListCSAKeys(t *testing.T) {
 func TestClient_CreateCSAKey(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	requireCSAKeyCount(t, app, 0)
@@ -86,7 +86,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 
 	defer deleteKeyExportFile(t)
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 	_, err := app.GetKeyStore().CSA().Create()
 	require.NoError(t, err)

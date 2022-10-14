@@ -53,6 +53,7 @@ type ORM interface {
 	ChainConfigORM
 
 	SetupNodes([]Node, []utils.Big) error
+	EnsureChains([]utils.Big, ...pg.QOpt) error
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
@@ -85,6 +86,7 @@ type ChainCfg struct {
 	EvmHeadTrackerSamplingInterval                 *models.Duration
 	EvmLogBackfillBatchSize                        null.Int
 	EvmLogPollInterval                             *models.Duration
+	EvmLogKeepBlocksDepth                          null.Int
 	EvmMaxGasPriceWei                              *utils.Big
 	EvmNonceAutoSync                               null.Bool
 	EvmUseForwarders                               null.Bool

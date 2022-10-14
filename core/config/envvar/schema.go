@@ -61,6 +61,12 @@ type ConfigSchema struct {
 	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
 	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
+	// Audit Logger
+	AuditLoggerEnabled        bool   `env:"AUDIT_LOGGER_ENABLED" default:"false"`
+	AuditLoggerForwardToUrl   string `env:"AUDIT_LOGGER_FORWARD_TO_URL" default:""`
+	AuditLoggerHeaders        string `env:"AUDIT_LOGGER_HEADERS" default:""`
+	AuditLoggerJsonWrapperKey string `env:"AUDIT_LOGGER_JSON_WRAPPER_KEY" default:""`
+
 	// Database
 	DatabaseListenerMaxReconnectDuration time.Duration `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"` //nodoc
 	DatabaseListenerMinReconnectInterval time.Duration `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`  //nodoc
@@ -154,6 +160,7 @@ type ConfigSchema struct {
 	EvmHeadTrackerSamplingInterval    time.Duration `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL"`
 	EvmLogBackfillBatchSize           uint32        `env:"ETH_LOG_BACKFILL_BATCH_SIZE"`
 	EvmLogPollInterval                time.Duration `env:"ETH_LOG_POLL_INTERVAL"`
+	EvmLogKeepBlocksDepth             uint32        `env:"ETH_LOG_KEEP_BLOCKS_DEPTH"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
 	OperatorFactoryAddress            string        `env:"OPERATOR_FACTORY_ADDRESS"`
@@ -267,11 +274,11 @@ type ConfigSchema struct {
 	P2PV2DeltaReconcile    models.Duration `env:"P2PV2_DELTA_RECONCILE" default:"1m"` //nodoc
 	P2PV2ListenAddresses   []string        `env:"P2PV2_LISTEN_ADDRESSES"`
 	// DEPRECATED
-	OCROutgoingMessageBufferSize int           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"` //nodoc
-	OCRIncomingMessageBufferSize int           `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"` //nodoc
-	OCRDHTLookupInterval         int           `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`          //nodoc
-	OCRBootstrapCheckInterval    time.Duration `env:"OCR_BOOTSTRAP_CHECK_INTERVAL" default:"20s"`    //nodoc
-	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`          //nodoc
+	OCROutgoingMessageBufferSize int           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"` //nodoc
+	OCRIncomingMessageBufferSize int           `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"` //nodoc
+	OCRDHTLookupInterval         int           `env:"OCR_DHT_LOOKUP_INTERVAL"`          //nodoc
+	OCRBootstrapCheckInterval    time.Duration `env:"OCR_BOOTSTRAP_CHECK_INTERVAL"`     //nodoc
+	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT"`           //nodoc
 
 	// Keeper
 	KeeperCheckUpkeepGasPriceFeatureEnabled bool          `env:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED" default:"false"` //nodoc

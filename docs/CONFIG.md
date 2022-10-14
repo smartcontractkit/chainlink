@@ -9,6 +9,7 @@
 	- [Listener](#Database-Listener)
 	- [Lock](#Database-Lock)
 - [TelemetryIngress](#TelemetryIngress)
+- [AuditLogger](#AuditLogger)
 - [Log](#Log)
 	- [File](#Log-File)
 - [WebServer](#WebServer)
@@ -332,6 +333,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## AuditLogger<a id='AuditLogger'></a>
+```toml
+[AuditLogger]
+Enabled = false # Default
+ForwardToUrl = 'http://localhost:9898' # Example
+JsonWrapperKey = 'event' # Example
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+```
+
+
+### Enabled<a id='AuditLogger-Enabled'></a>
+```toml
+Enabled = false # Default
+```
+Enabled determines if this logger should be configured at all
+
+### ForwardToUrl<a id='AuditLogger-ForwardToUrl'></a>
+```toml
+ForwardToUrl = 'http://localhost:9898' # Example
+```
+ForwardToUrl is where you want to forward logs to
+
+### JsonWrapperKey<a id='AuditLogger-JsonWrapperKey'></a>
+```toml
+JsonWrapperKey = 'event' # Example
+```
+JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+
+### Headers<a id='AuditLogger-Headers'></a>
+```toml
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+```
+Headers is the set of headers you wish to pass along with each request
 
 ## Log<a id='Log'></a>
 ```toml
@@ -862,7 +897,7 @@ TraceLogging enables trace level logging.
 ## P2P.V1<a id='P2P-V1'></a>
 ```toml
 [P2P.V1]
-Enabled = false # Default
+Enabled = true # Default
 AnnounceIP = '1.2.3.4' # Example
 AnnouncePort = 1337 # Example
 BootstrapCheckInterval = '20s' # Default
@@ -879,7 +914,7 @@ PeerstoreWriteInterval = '5m' # Default
 
 ### Enabled<a id='P2P-V1-Enabled'></a>
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables P2P V1.
 
@@ -1293,6 +1328,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1363,6 +1399,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1432,6 +1469,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1501,6 +1539,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1571,6 +1610,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1640,6 +1680,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -1709,6 +1750,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -1778,6 +1820,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1848,6 +1891,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1916,6 +1960,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1984,6 +2029,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2054,6 +2100,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2124,6 +2171,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogBackfillBatchSize = 100
 LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2193,6 +2241,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2262,6 +2311,7 @@ FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2331,6 +2381,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2401,6 +2452,7 @@ FinalityDepth = 1
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2470,6 +2522,7 @@ ChainType = 'metis'
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2539,6 +2592,7 @@ ChainType = 'metis'
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2607,6 +2661,7 @@ BlockBackfillSkip = false
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '100'
 NonceAutoSync = true
@@ -2676,6 +2731,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2746,6 +2802,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2815,6 +2872,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2884,6 +2942,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2953,6 +3012,7 @@ FinalityDepth = 500
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3023,6 +3083,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3093,6 +3154,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3162,6 +3224,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -3231,6 +3294,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x218532a12a389a4a92fC0C5Fb22901D1c19198aA'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3300,6 +3364,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3443,6 +3508,13 @@ LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill
 LogPollInterval = '15s' # Default
 ```
 LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
+
+### LogKeepBlocksDepth<a id='EVM-LogKeepBlocksDepth'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+LogKeepBlocksDepth = 100000 # Default
+```
+LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
 
 ### MinContractPayment<a id='EVM-MinContractPayment'></a>
 ```toml

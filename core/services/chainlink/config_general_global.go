@@ -8,8 +8,6 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 )
 
-func (g *generalConfig) EVMRPCEnabled() bool { panic(v2.ErrUnsupported) }
-
 func (g *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
 	panic(v2.ErrUnsupported)
@@ -64,6 +62,9 @@ func (g *generalConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duration, b
 }
 func (g *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	panic(v2.ErrUnsupported)
+}
+func (g *generalConfig) GlobalEvmLogKeepBlocksDepth() (uint32, bool) {
 	panic(v2.ErrUnsupported)
 }
 func (g *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) { panic(v2.ErrUnsupported) }

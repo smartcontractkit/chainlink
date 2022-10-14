@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -49,6 +50,7 @@ type Delegate struct {
 	ks                    keystore.OCR2
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
+	ethKs                 keystore.Eth
 	relayers              map[relay.Network]types.Relayer
 }
 
@@ -66,6 +68,7 @@ func NewDelegate(
 	ks keystore.OCR2,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
+	ethKs keystore.Eth,
 	relayers map[relay.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
@@ -80,6 +83,7 @@ func NewDelegate(
 		ks,
 		dkgSignKs,
 		dkgEncryptKs,
+		ethKs,
 		relayers,
 	}
 }
@@ -119,11 +123,26 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if !ok {
 			return nil, errors.New("chainID must be provided in relay config")
 		}
-		chainID := int64(chainIDInterface.(float64))
-		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		chainID, ok := chainIDInterface.(float64)
+		if !ok {
+			return nil, errors.Errorf("invalid chain type got %T want float64", chainIDInterface)
+		}
+		chain, err2 := d.chainSet.Get(big.NewInt(int64(chainID)))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
+
+		var sendingKeys []string
+		ethSendingKeys, err2 := d.ethKs.GetAll()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get eth sending keys")
+		}
+
+		// Automatically provide the node's local sending keys to the job spec.
+		for _, s := range ethSendingKeys {
+			sendingKeys = append(sendingKeys, s.Address.String())
+		}
+		spec.RelayConfig["sendingKeys"] = sendingKeys
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
@@ -382,7 +401,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		keeperProvider, rgstry, encoder, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet)
+		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet, d.pipelineRunner)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
@@ -401,6 +420,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			OnchainKeyring:               kb,
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
+			PerformLogProvider:           logProvider,
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {

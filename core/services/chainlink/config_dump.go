@@ -17,9 +17,11 @@ import (
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	stktyp "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -261,6 +263,11 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].LogPollInterval = d
 		}
 	}
+	if e := envvar.NewUint32("EvmLogKeepBlocksDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].LogKeepBlocksDepth = e
+		}
+	}
 	if e := envvar.NewUint32("EvmRPCDefaultBatchSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].RPCDefaultBatchSize = e
@@ -396,9 +403,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
-			}
 			c.EVM[i].GasEstimator.LimitJobType.OCR = e
 		}
 	}
@@ -406,9 +410,6 @@ func (c *Config) loadLegacyEVMEnv() {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
 			}
 			c.EVM[i].GasEstimator.LimitJobType.DR = e
 		}
@@ -418,9 +419,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
-			}
 			c.EVM[i].GasEstimator.LimitJobType.VRF = e
 		}
 	}
@@ -429,9 +427,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
-			}
 			c.EVM[i].GasEstimator.LimitJobType.FM = e
 		}
 	}
@@ -439,9 +434,6 @@ func (c *Config) loadLegacyEVMEnv() {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-			}
-			if c.EVM[i].GasEstimator.LimitJobType == nil {
-				c.EVM[i].GasEstimator.LimitJobType = &evmcfg.GasLimitJobType{}
 			}
 			c.EVM[i].GasEstimator.LimitJobType.Keeper = e
 		}
@@ -629,9 +621,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
 				c.EVM[i].GasEstimator.BlockHistory = nil
 			}
-			if isZeroPtr(c.EVM[i].GasEstimator.LimitJobType) {
-				c.EVM[i].GasEstimator.LimitJobType = nil
-			}
 			if isZeroPtr(c.EVM[i].GasEstimator) {
 				c.EVM[i].GasEstimator = nil
 			}
@@ -685,6 +674,17 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 	if isZeroPtr(c.Feature) {
 		c.Feature = nil
+	}
+
+	c.AuditLogger = &audit.AuditLoggerConfig{
+		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
+		ForwardToUrl:   envURL("AuditLoggerForwardToUrl"),
+		JsonWrapperKey: envvar.NewString("AuditLoggerJsonWrapperKey").ParsePtr(),
+		Headers:        audit.AuditLoggerHeaders.ParsePtr(),
+	}
+
+	if isZeroPtr(c.AuditLogger) {
+		c.AuditLogger = nil
 	}
 
 	c.Database = &config.Database{

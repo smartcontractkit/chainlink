@@ -20,6 +20,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -30,6 +31,7 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -48,6 +50,22 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
+
+			AuditLogger: &audit.AuditLoggerConfig{
+				Enabled:      ptr(true),
+				ForwardToUrl: mustURL("http://localhost:9898"),
+				Headers: ptr(audit.ServiceHeaders{
+					audit.ServiceHeader{
+						Header: "Authorization",
+						Value:  "token",
+					},
+					audit.ServiceHeader{
+						Header: "X-SomeOther-Header",
+						Value:  "value with spaces | and a bar+*",
+					},
+				}),
+				JsonWrapperKey: ptr("event"),
+			},
 
 			Database: &config.Database{
 				Listener: &config.DatabaseListener{
@@ -207,6 +225,18 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full := global
+
+	serviceHeaders := audit.ServiceHeaders{
+		{Header: "Authorization", Value: "token"},
+		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
+	}
+	full.AuditLogger = &audit.AuditLoggerConfig{
+		Enabled:        ptr(true),
+		ForwardToUrl:   mustURL("http://localhost:9898"),
+		Headers:        ptr(serviceHeaders),
+		JsonWrapperKey: ptr("event"),
+	}
+
 	full.Feature = &config.Feature{
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
@@ -424,7 +454,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
 					PriceMin:           utils.NewBigI(13).Wei(),
 
-					LimitJobType: &evmcfg.GasLimitJobType{
+					LimitJobType: evmcfg.GasLimitJobType{
 						OCR:    ptr[uint32](1001),
 						DR:     ptr[uint32](1002),
 						VRF:    ptr[uint32](1003),
@@ -452,6 +482,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
 				LogBackfillBatchSize:     ptr[uint32](17),
 				LogPollInterval:          &minute,
+				LogKeepBlocksDepth:       ptr[uint32](100000),
 				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
 				NonceAutoSync:            ptr(true),
@@ -579,6 +610,12 @@ func TestConfig_Marshal(t *testing.T) {
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
+`},
+		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
 `},
 		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
@@ -772,6 +809,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 13
 MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
@@ -1105,7 +1143,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewTOMLGeneralConfig(lggr, tt.inputConfig, secretsTOML, nil, nil)
+			c, err := GeneralConfigTOML{Config: tt.inputConfig, Secrets: secretsTOML}.New(lggr)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
@@ -1124,14 +1162,14 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
+	_, err := GeneralConfigTOML{Config: invalidTOML, Secrets: secretsTOML}.New(logger.TestLogger(t))
 	assert.EqualError(t, err, "toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
+	_, err := GeneralConfigTOML{Config: invalidTOML, Secrets: secretsTOML}.New(logger.TestLogger(t))
 	assert.EqualError(t, err, "toml: key Dev is already defined")
 }
 
@@ -1151,7 +1189,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	t.Setenv("DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	c, err := NewTOMLGeneralConfig(logger.TestLogger(t), fullTOML, secretsTOML, &filename, nil)
+	c, err := GeneralConfigTOML{Config: fullTOML, Secrets: secretsTOML, KeystorePasswordFileName: &filename}.New(logger.TestLogger(t))
 	assert.NoError(t, err)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()
