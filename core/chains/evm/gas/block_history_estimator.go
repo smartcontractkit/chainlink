@@ -106,24 +106,17 @@ type (
 func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) Estimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
-		utils.StartStopOnce{},
-		ethClient,
-		chainID,
-		cfg,
-		make([]Block, 0),
-		sync.RWMutex{},
+		ethClient: ethClient,
+		chainID:   chainID,
+		config:    cfg,
+		blocks:    make([]Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
-		int64(mathutil.Max(cfg.BlockHistoryEstimatorBlockHistorySize(), cfg.BlockHistoryEstimatorCheckInclusionBlocks())),
-		utils.NewMailbox[*evmtypes.Head](1),
-		new(sync.WaitGroup),
-		ctx,
-		cancel,
-		nil,
-		nil,
-		sync.RWMutex{},
-		nil,
-		sync.RWMutex{},
-		logger.Sugared(lggr.Named("BlockHistoryEstimator")),
+		size:      int64(mathutil.Max(cfg.BlockHistoryEstimatorBlockHistorySize(), cfg.BlockHistoryEstimatorCheckInclusionBlocks())),
+		mb:        utils.NewMailbox[*evmtypes.Head](1),
+		wg:        new(sync.WaitGroup),
+		ctx:       ctx,
+		ctxCancel: cancel,
+		logger:    logger.Sugared(lggr.Named("BlockHistoryEstimator")),
 	}
 
 	return b
@@ -699,21 +692,21 @@ func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []Block, percen
 	if f != nil {
 		f(gasPrices)
 	}
-	idx := ((len(gasPrices) - 1) * percentile) / 100
-	gasPrice = gasPrices[idx]
+	gasPrice = gasPrices[((len(gasPrices)-1)*percentile)/100]
 
 	if !eip1559 {
 		return
 	}
 	if len(tipCaps) == 0 {
 		return nil, nil, ErrNoSuitableTransactions
-	} 
+	}
 	sort.Slice(tipCaps, func(i, j int) bool { return tipCaps[i].Cmp(tipCaps[j]) < 0 })
 	if f2 != nil {
 		f2(tipCaps)
 	}
-	idx := ((len(tipCaps) - 1) * percentile) / 100
-	tipCap = tipCaps[idx]
+	tipCap = tipCaps[((len(tipCaps)-1)*percentile)/100]
+
+	return
 }
 
 func (b *BlockHistoryEstimator) getPercentilePricesFromBlocks(blocks []Block, percentile int, eip1559 bool) (gasPrices, tipCaps []*assets.Wei) {
