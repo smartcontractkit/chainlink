@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -49,6 +48,14 @@ type LogPoller interface {
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 }
 
+type Client interface {
+	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
+	ChainID() *big.Int
+}
+
 var (
 	_                          LogPoller = &logPoller{}
 	ErrReplayAbortedByClient             = errors.New("replay aborted by client")
@@ -57,7 +64,7 @@ var (
 
 type logPoller struct {
 	utils.StartStopOnce
-	ec                client.Client
+	ec                Client
 	orm               *ORM
 	lggr              logger.Logger
 	pollPeriod        time.Duration // poll period set by block production rate
@@ -94,7 +101,7 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
+func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -123,8 +130,8 @@ type Filter struct {
 // the log poller will pick those up and save them. For topic specific queries see content based querying.
 // Clients may choose to MergeFilter and then Replay in order to ensure desired logs are present.
 // NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
-// MergeFilter(event1, addr1)
-// MergeFilter(event2, addr2)
+// RegisterFilter(event1, addr1)
+// RegisterFilter(event2, addr2)
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
@@ -215,11 +222,11 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
-	latest, err := lp.ec.HeaderByNumber(ctx, nil)
+	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if fromBlock < 1 || fromBlock > latest.Number.Int64() {
+	if fromBlock < 1 || fromBlock > latest.Number {
 		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
 	}
 	// Block until replay notification accepted or cancelled.
@@ -321,12 +328,12 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latest, err := lp.ec.HeaderByNumber(lp.ctx, nil)
+				latest, err := lp.ec.HeadByNumber(lp.ctx, nil)
 				if err != nil {
 					lp.lggr.Warnw("unable to get latest for first poll", "err", err)
 					continue
 				}
-				latestNum := latest.Number.Int64()
+				latestNum := latest.Number
 				// Do not support polling chains with don't even have finality depth worth of blocks.
 				// Could conceivably support this but not worth the effort.
 				// Need finality depth + 1, no block 0.
@@ -625,20 +632,20 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 
 // pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.
 func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
-	latest, err := lp.ec.BlockByNumber(ctx, nil)
+	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
 	}
 	if latest == nil {
 		return errors.Errorf("received nil block from RPC")
 	}
-	if latest.Number().Int64() <= lp.keepBlocksDepth {
+	if latest.Number <= lp.keepBlocksDepth {
 		// No-op, keep all blocks
 		return nil
 	}
 	// 1-2-3-4-5(latest), keepBlocksDepth=3
 	// Remove <= 2
-	return lp.orm.DeleteBlocksBefore(latest.Number().Int64()-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
+	return lp.orm.DeleteBlocksBefore(latest.Number-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,

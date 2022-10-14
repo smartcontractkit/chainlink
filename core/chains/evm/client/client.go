@@ -46,7 +46,7 @@ type Client interface {
 	// might have unexpected effects to use it for anything else.
 	BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 
-	// HeadByNumber is a reimplemented version of HeaderByNumber due to a
+	// HeadByNumber and HeadByHash is a reimplemented version due to a
 	// difference in how block header hashes are calculated by Parity nodes
 	// running on Kovan and avalanche. We have to return our own wrapper type to capture the
 	// correct hash from the RPC response.
