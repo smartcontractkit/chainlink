@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -918,7 +919,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 func (lsn *listenerV2) runPipelines(
 	ctx context.Context,
 	l logger.Logger,
-	maxGasPriceWei *big.Int,
+	maxGasPriceWei *assets.Wei,
 	reqs []pendingRequest,
 ) []vrfPipelineResult {
 	var (
@@ -944,7 +945,7 @@ func (lsn *listenerV2) runPipelines(
 func (lsn *listenerV2) estimateFeeJuels(
 	ctx context.Context,
 	req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested,
-	maxGasPriceWei *big.Int,
+	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
 	// Don't use up too much time to get this info, it's not critical for operating vrf.
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
@@ -956,7 +957,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 
 	juelsNeeded, err := EstimateFeeJuels(
 		req.CallbackGasLimit,
-		maxGasPriceWei,
+		maxGasPriceWei.ToInt(),
 		roundData.Answer,
 	)
 	if err != nil {
@@ -969,7 +970,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 // then simulate the transaction at the max gas price to determine its maximum link cost.
 func (lsn *listenerV2) simulateFulfillment(
 	ctx context.Context,
-	maxGasPriceWei *big.Int,
+	maxGasPriceWei *assets.Wei,
 	req pendingRequest,
 	lg logger.Logger,
 ) vrfPipelineResult {
@@ -993,7 +994,7 @@ func (lsn *listenerV2) simulateFulfillment(
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
-			"maxGasPrice":   maxGasPriceWei.String(),
+			"maxGasPrice":   maxGasPriceWei.ToInt().String(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw.BlockHash[:],

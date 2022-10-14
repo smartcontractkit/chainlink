@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/big"
 	"os"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -15,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func main() {
@@ -34,13 +32,13 @@ func main() {
 	})
 }
 
-func printGetLegacyGas(e gas.Estimator, calldata []byte, l2GasLimit uint32, maxGasPrice *big.Int, opts ...gas.Opt) {
+func printGetLegacyGas(e gas.Estimator, calldata []byte, l2GasLimit uint32, maxGasPrice *assets.Wei, opts ...gas.Opt) {
 	price, limit, err := e.GetLegacyGas(calldata, l2GasLimit, maxGasPrice, opts...)
 	if err != nil {
 		log.Println("failed to get legacy gas:", err)
 		return
 	}
-	fmt.Println("Price:", (*utils.Wei)(price))
+	fmt.Println("Price:", (*assets.Wei)(price))
 	fmt.Println("Limit:", limit)
 }
 

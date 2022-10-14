@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -171,8 +172,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(eip1559)
 
 			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-			gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
-			baseFeePerGas := utils.NewBig(big.NewInt(0).Mul(gasPrice, big.NewInt(2)))
+			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
+			baseFeePerGas := gasPrice.Mul(big.NewInt(2))
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
@@ -317,8 +318,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(eip1559)
 
 			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-			gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
-			baseFeePerGas := utils.NewBig(big.NewInt(0).Mul(gasPrice, big.NewInt(2)))
+			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
+			baseFeePerGas := gasPrice.Mul(big.NewInt(2))
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
@@ -366,7 +367,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			testutils.SkipShort(t, "db dependency")
 
 			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetDynamicFee", mock.Anything, big.NewInt(100000000000000)).Return(gas.DynamicFee{
+			estimator.On("GetDynamicFee", mock.Anything, evmconfig.MaxLegalGasPrice).Return(gas.DynamicFee{
 				FeeCap: assets.GWei(60),
 				TipCap: assets.GWei(60),
 			}, uint32(60), nil)
@@ -377,7 +378,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			testutils.SkipShort(t, "db dependency")
 
 			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint32(0), nil)
+			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(assets.GWei(60), uint32(0), nil)
 			runTest(t, estimator, false)
 		})
 	})

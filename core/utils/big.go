@@ -185,6 +185,3 @@ func (b *Big) Sub(c interface{}) *Big {
 func (b *Big) Mod(c interface{}) *Big {
 	return NewBig(bigmath.Mod(b, c))
 }
-
-// Wei converts b to *Wei. Notice that nil is supported.
-func (b *Big) Wei() *Wei { return (*Wei)(b) }

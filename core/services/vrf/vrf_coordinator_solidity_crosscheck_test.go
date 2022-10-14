@@ -100,14 +100,14 @@ func newVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) coordinatorUn
 		carol  = testutils.MustNewSimTransactor(t)
 	)
 	genesisData := core.GenesisAlloc{
-		sergey.From: {Balance: assets.Ether(1000)},
-		neil.From:   {Balance: assets.Ether(1000)},
-		ned.From:    {Balance: assets.Ether(1000)},
-		carol.From:  {Balance: assets.Ether(1000)},
+		sergey.From: {Balance: assets.Ether(1000).ToInt()},
+		neil.From:   {Balance: assets.Ether(1000).ToInt()},
+		ned.From:    {Balance: assets.Ether(1000).ToInt()},
+		carol.From:  {Balance: assets.Ether(1000).ToInt()},
 	}
 
 	for _, t := range oracleTransactors {
-		genesisData[t.From] = core.GenesisAccount{Balance: assets.Ether(1000)}
+		genesisData[t.From] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
 	}
 
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)

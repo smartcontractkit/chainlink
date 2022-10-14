@@ -892,7 +892,7 @@ func main() {
 			}
 		}
 
-		result := binarySearch(assets.Ether(int64(*start*2)), big.NewInt(0), isWithdrawable)
+		result := binarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
 
 		fmt.Printf("Withdrawable amount for oracle %s is %s\n", oracleAddress.String(), result.String())
 

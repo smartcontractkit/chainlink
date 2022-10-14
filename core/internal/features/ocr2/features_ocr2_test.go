@@ -147,9 +147,9 @@ func setupNodeOCR2(
 
 	tx := types.NewTransaction(
 		n, transmitter,
-		assets.Ether(1),
+		assets.Ether(1).ToInt(),
 		21000,
-		assets.GWei(1),
+		assets.GWei(1).ToInt(),
 		nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)

@@ -186,12 +186,12 @@ func TestKeeperEthIntegration(t *testing.T) {
 			nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 			nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 			genesisData := core.GenesisAlloc{
-				sergey.From: {Balance: assets.Ether(1000)},
-				steve.From:  {Balance: assets.Ether(1000)},
-				carrol.From: {Balance: assets.Ether(1000)},
-				nelly.From:  {Balance: assets.Ether(1000)},
-				nick.From:   {Balance: assets.Ether(1000)},
-				nodeAddress: {Balance: assets.Ether(1000)},
+				sergey.From: {Balance: assets.Ether(1000).ToInt()},
+				steve.From:  {Balance: assets.Ether(1000).ToInt()},
+				carrol.From: {Balance: assets.Ether(1000).ToInt()},
+				nelly.From:  {Balance: assets.Ether(1000).ToInt()},
+				nick.From:   {Balance: assets.Ether(1000).ToInt()},
+				nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 			}
 
 			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
@@ -343,12 +343,12 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 		genesisData := core.GenesisAlloc{
-			sergey.From: {Balance: assets.Ether(1000)},
-			steve.From:  {Balance: assets.Ether(1000)},
-			carrol.From: {Balance: assets.Ether(1000)},
-			nelly.From:  {Balance: assets.Ether(1000)},
-			nick.From:   {Balance: assets.Ether(1000)},
-			nodeAddress: {Balance: assets.Ether(1000)},
+			sergey.From: {Balance: assets.Ether(1000).ToInt()},
+			steve.From:  {Balance: assets.Ether(1000).ToInt()},
+			carrol.From: {Balance: assets.Ether(1000).ToInt()},
+			nelly.From:  {Balance: assets.Ether(1000).ToInt()},
+			nick.From:   {Balance: assets.Ether(1000).ToInt()},
+			nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 		}
 
 		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
@@ -502,12 +502,12 @@ func TestMaxPerformDataSize(t *testing.T) {
 		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 		genesisData := core.GenesisAlloc{
-			sergey.From: {Balance: assets.Ether(1000)},
-			steve.From:  {Balance: assets.Ether(1000)},
-			carrol.From: {Balance: assets.Ether(1000)},
-			nelly.From:  {Balance: assets.Ether(1000)},
-			nick.From:   {Balance: assets.Ether(1000)},
-			nodeAddress: {Balance: assets.Ether(1000)},
+			sergey.From: {Balance: assets.Ether(1000).ToInt()},
+			steve.From:  {Balance: assets.Ether(1000).ToInt()},
+			carrol.From: {Balance: assets.Ether(1000).ToInt()},
+			nelly.From:  {Balance: assets.Ether(1000).ToInt()},
+			nick.From:   {Balance: assets.Ether(1000).ToInt()},
+			nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 		}
 
 		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
