@@ -16,11 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// NewTestGeneralConfig returns a new config.GeneralConfig with default test overrides.
+// NewTestGeneralConfig returns a new config.GeneralConfig with default test overrides and one chain with evmclient.NullClientChainID.
 func NewTestGeneralConfig(t testing.TB) config.GeneralConfig { return NewGeneralConfig(t, nil) }
 
 // NewGeneralConfig returns a new config.GeneralConfig with overrides.
-// The default test overrides are applied before overrideFn.
+// The default test overrides are applied before overrideFn, and include one chain with evmclient.NullClientChainID.
 func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) config.GeneralConfig {
 	tempDir := t.TempDir()
 	g, err := chainlink.GeneralConfigOpts{
@@ -36,6 +36,7 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 	return g
 }
 
+// overrides applies some test config settings and adds a default chain with evmclient.NullClientChainID.
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.DevMode = true
 	c.InsecureFastScrypt = ptr(true)
@@ -50,11 +51,10 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
 
 	chainID := utils.NewBigI(evmclient.NullClientChainID)
-	chain, _ := evmcfg.Defaults(chainID)
 	enabled := true
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   chain,
+		Chain:   evmcfg.DefaultsFrom(chainID, nil),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	})

@@ -48,7 +48,7 @@ type Client interface {
 
 	// HeadByNumber and HeadByHash is a reimplemented version due to a
 	// difference in how block header hashes are calculated by Parity nodes
-	// running on Kovan and avalanche. We have to return our own wrapper type to capture the
+	// running on Kovan, Avalanche and potentially others. We have to return our own wrapper type to capture the
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)

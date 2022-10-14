@@ -18,7 +18,7 @@ type TerminalKeyStoreAuthenticator struct {
 	Prompter Prompter
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keyStore keystore.Master, cfg config.GeneralConfig) error {
+func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keyStore keystore.Master, cfg config.BasicConfig) error {
 	isEmpty, err := keyStore.IsEmpty()
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")

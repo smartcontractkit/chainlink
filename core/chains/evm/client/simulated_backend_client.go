@@ -241,7 +241,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	}, nil
 }
 
-// HeadByNumber returns our own header type.
+// HeadByHash returns our own header type.
 func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
 	header, err := c.b.HeaderByHash(ctx, h)
 	if err != nil {

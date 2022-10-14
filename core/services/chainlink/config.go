@@ -57,12 +57,9 @@ func (c *Config) setDefaults() {
 
 	for i := range c.EVM {
 		if input := c.EVM[i]; input == nil {
-			ch, _ := evmcfg.Defaults(nil)
-			c.EVM[i] = &evmcfg.EVMConfig{Chain: ch}
+			c.EVM[i] = &evmcfg.EVMConfig{Chain: evmcfg.DefaultsFrom(nil, nil)}
 		} else {
-			ch, _ := evmcfg.Defaults(input.ChainID)
-			ch.SetFrom(&input.Chain)
-			input.Chain = ch
+			input.Chain = evmcfg.DefaultsFrom(input.ChainID, &input.Chain)
 		}
 	}
 

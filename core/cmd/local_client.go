@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -487,7 +486,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if err := migrateDB(cfg, lggr); err != nil {
 		return cli.errorOut(err)
 	}
-	schema, err := dumpSchema(cfg)
+	schema, err := dumpSchema(parsed)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -496,7 +495,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if err := downAndUpDB(cfg, lggr, baseVersionID); err != nil {
 		return cli.errorOut(err)
 	}
-	if err := checkSchema(cfg, schema); err != nil {
+	if err := checkSchema(parsed, schema); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -526,7 +525,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if userOnly {
 		fixturePath = "../store/fixtures/users_only_fixture.sql"
 	}
-	if err := insertFixtures(cfg, fixturePath); err != nil {
+	if err := insertFixtures(dbUrl, fixturePath); err != nil {
 		return cli.errorOut(err)
 	}
 
@@ -540,7 +539,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
-	if err := insertFixtures(cfg, "../store/fixtures/users_only_fixtures.sql"); err != nil {
+	if err := insertFixtures(cfg.DatabaseURL(), "../store/fixtures/users_only_fixtures.sql"); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -719,8 +718,7 @@ func downAndUpDB(cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
 	return db.Close()
 }
 
-func dumpSchema(cfg config.GeneralConfig) (string, error) {
-	dbURL := cfg.DatabaseURL()
+func dumpSchema(dbURL url.URL) (string, error) {
 	args := []string{
 		dbURL.String(),
 		"--schema-only",
@@ -736,8 +734,8 @@ func dumpSchema(cfg config.GeneralConfig) (string, error) {
 	return string(schema), nil
 }
 
-func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
-	newSchema, err := dumpSchema(cfg)
+func checkSchema(dbURL url.URL, prevSchema string) error {
+	newSchema, err := dumpSchema(dbURL)
 	if err != nil {
 		return err
 	}
@@ -749,8 +747,7 @@ func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
 	return nil
 }
 
-func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err error) {
-	dbURL := config.DatabaseURL()
+func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
