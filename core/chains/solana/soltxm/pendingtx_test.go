@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,7 +57,7 @@ func TestPendingTxMemory(t *testing.T) {
 			assert.NoError(t, txs.Add(idTemp, sigTemp, 0))
 
 			// validate get method
-			txGet, exists := txs.Get(sigTemp)
+			txGet, exists := txs.GetBySignature(sigTemp)
 			assert.True(t, exists)
 			assert.Equal(t, idTemp, txGet.id)
 			assert.Equal(t, 1, len(txGet.signatures))
@@ -72,7 +73,7 @@ func TestPendingTxMemory(t *testing.T) {
 			txs.OnSuccess(list[i])
 			assert.Equal(t, n-i-1, len(txs.ListSignatures()))
 
-			_, exists := txs.Get(list[i])
+			_, exists := txs.GetBySignature(list[i])
 			assert.False(t, exists)
 		}
 	})
@@ -90,7 +91,7 @@ func TestPendingTxMemory(t *testing.T) {
 			assert.NoError(t, err)
 
 			// validate get method
-			txGet, exists := txs.Get(sigTemp)
+			txGet, exists := txs.GetBySignature(sigTemp)
 			assert.True(t, exists)
 			assert.Equal(t, id, txGet.id)
 			assert.Equal(t, i+1, len(txGet.signatures))
@@ -105,7 +106,7 @@ func TestPendingTxMemory(t *testing.T) {
 		txs.OnSuccess(list[0])
 		assert.Equal(t, 0, len(txs.ListSignatures()))
 		for i := 0; i < len(list); i++ {
-			_, exists := txs.Get(list[i])
+			_, exists := txs.GetBySignature(list[i])
 			assert.False(t, exists)
 		}
 	})
@@ -122,22 +123,32 @@ func TestPendingTxMemory(t *testing.T) {
 		// duplicate for different txs
 		assert.Error(t, txs.Add(txs.New(PendingTx{}), sig, 0))
 	})
+
+	t.Run("zeroID_zeroSignature", func(t *testing.T) {
+		txs := newPendingTxMemory()
+		id := txs.New(PendingTx{})
+		assert.True(t, id != uuid.Nil)
+
+		assert.Error(t, txs.Add(id, solana.Signature{}, 0))
+		assert.Error(t, txs.Add(uuid.Nil, XXXNewSignature(t), 0))
+	})
 }
 
 func TestPendingTxMemory_race(t *testing.T) {
 	t.Run("add", func(t *testing.T) {
 		txCtx := newPendingTxMemory()
 		id := txCtx.New(PendingTx{})
+		sig := XXXNewSignature(t)
 		var wg sync.WaitGroup
 		wg.Add(2)
 		var err [2]error
 
 		go func() {
-			err[0] = txCtx.Add(id, solana.Signature{}, 0)
+			err[0] = txCtx.Add(id, sig, 0)
 			wg.Done()
 		}()
 		go func() {
-			err[1] = txCtx.Add(id, solana.Signature{}, 0)
+			err[1] = txCtx.Add(id, sig, 0)
 			wg.Done()
 		}()
 

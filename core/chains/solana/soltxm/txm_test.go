@@ -78,11 +78,7 @@ func TestTxm_Integration(t *testing.T) {
 	// already started
 	assert.Error(t, txm.Start(ctx))
 
-	createTx := func(signer solana.PublicKey, sender solana.PublicKey, receiver solana.PublicKey, amt uint64) *solana.Transaction {
-		// create transfer tx
-		hash, err := client.LatestBlockhash()
-		require.NoError(t, err)
-
+	createTxWithBlockhash := func(signer solana.PublicKey, sender solana.PublicKey, receiver solana.PublicKey, amt uint64, hash solana.Hash) *solana.Transaction {
 		tx, err := solana.NewTransaction(
 			[]solana.Instruction{
 				system.NewTransferInstruction(
@@ -91,20 +87,32 @@ func TestTxm_Integration(t *testing.T) {
 					receiver,
 				).Build(),
 			},
-			hash.Value.Blockhash,
+			hash,
 			solana.TransactionPayer(signer),
 		)
 		require.NoError(t, err)
 		return tx
 	}
+	createTx := func(signer solana.PublicKey, sender solana.PublicKey, receiver solana.PublicKey, amt uint64) *solana.Transaction {
+		// create transfer tx
+		hash, err := client.LatestBlockhash()
+		require.NoError(t, err)
+		return createTxWithBlockhash(signer, sender, receiver, amt, hash.Value.Blockhash)
+
+	}
 
 	// enqueue txs (must pass to move on to load test)
-	require.NoError(t, txm.Enqueue("test_success_0", createTx(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL)))
+	tx := createTx(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL)
+	require.NoError(t, txm.Enqueue("test_success_0", tx))
+	require.NoError(t, txm.Enqueue("test_success_0_duplicate", tx))
 	time.Sleep(500 * time.Millisecond) // wait for balance to change
 	balance0, err := client.Balance(pubKey)
 	require.NoError(t, err)
 	fee0 := initBal - balance0 - solana.LAMPORTS_PER_SOL // fee used for first tx
 	txm.SetFee(10)                                       // change fee
+
+	// invalid or outdated blockhash is simply dropped by network and can never be confirmed
+	// require.NoError(t, txm.Enqueue("test_invalidBlockhash", createTxWithBlockhash(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL, solana.Hash{})))
 
 	require.Error(t, txm.Enqueue("test_invalidSigner", createTx(pubKeyReceiver, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL))) // cannot sign tx before enqueuing
 	require.NoError(t, txm.Enqueue("test_invalidReceiver", createTx(pubKey, pubKey, solana.PublicKey{}, solana.LAMPORTS_PER_SOL)))
@@ -125,7 +133,7 @@ func TestTxm_Integration(t *testing.T) {
 	}
 
 	// check to make sure all txs are closed out from inflight list (longest should last MaxConfirmTimeout)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second) // closes test after 30s
 	t.Cleanup(cancel)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -133,10 +141,14 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			assert.Equal(t, 0, txm.InflightTxs())
+			idCount, sigCount := txm.InflightTxs()
+			assert.Equal(t, 0, idCount)  // no unique TXs pending
+			assert.Equal(t, 0, sigCount) // no signatures pending confirmation
 			break loop
 		case <-ticker.C:
-			if txm.InflightTxs() == 0 {
+			id, sig := txm.InflightTxs()
+			t.Logf("tx count: IDs - %d, sigs - %d", id, sig)
+			if id == 0 && sig == 0 {
 				cancel() // exit for loop
 			}
 		}
