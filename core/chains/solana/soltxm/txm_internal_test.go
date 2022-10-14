@@ -16,7 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -58,6 +60,14 @@ func (p soltxmProm) getInflight() float64 {
 	return testutil.ToFloat64(promSolTxmPendingTxs.WithLabelValues(p.id))
 }
 
+func (p *soltxmProm) Reset() {
+	promSolTxmSuccessTxs.Reset()
+	promSolTxmPendingTxs.Reset()
+	promSolTxmErrorTxs.Reset()
+	promSolTxmRevertTxs.Reset()
+	promSolTxmRejectTxs.Reset()
+}
+
 // create placeholder transaction
 func getTx(t *testing.T, pubkey solana.PublicKey) *solana.Transaction {
 	// create transfer tx
@@ -83,13 +93,14 @@ func newReaderWriterMock(t *testing.T) *mocks.ReaderWriter {
 	return m
 }
 
-// TODO: test mismatched signatures + responses in confirmer
-
 func TestTxm(t *testing.T) {
 	// set up configs needed in txm
 	id := "mocknet"
 	lggr := logger.TestLogger(t)
-	cfg := config.NewConfig(db.ChainCfg{}, lggr)
+	cfg := config.NewConfig(db.ChainCfg{ // reduce time for faster test execution 17-18s => 7s
+		ConfirmPollPeriod: utils.MustNewDuration(5 * time.Millisecond),
+		TxConfirmTimeout:  utils.MustNewDuration(10 * time.Millisecond),
+	}, lggr)
 	mTx := mock.AnythingOfType("*solana.Transaction")
 	mSig := mock.AnythingOfType("[]solana.Signature")
 
@@ -103,6 +114,8 @@ func TestTxm(t *testing.T) {
 
 	// tracking prom metrics
 	prom := soltxmProm{id: id}
+	prom.Reset()          // clear previous state
+	t.Cleanup(prom.Reset) // clean up existing state
 
 	// create new to limit the scope of each txm test
 	initTxm := func() (*Txm, *mocks.ReaderWriter, func() bool) {
@@ -115,9 +128,10 @@ func TestTxm(t *testing.T) {
 
 		// provide function to check if cached transaction is cleared
 		empty := func() bool {
-			count := txm.InflightTxs()
-			assert.Equal(t, float64(count), prom.getInflight()) // validate prom metric and txs length
-			return count == 0
+			idCount, sigCount := txm.InflightTxs()
+			assert.Equal(t, float64(sigCount), prom.getInflight()) // validate prom metric and txs length
+			t.Logf("tx count: IDs - %d, sigs - %d", idCount, sigCount)
+			return idCount == 0 && sigCount == 0
 		}
 
 		return txm, mc, empty
@@ -149,7 +163,7 @@ func TestTxm(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(3)
 
-		mc.On("SendTx", mock.Anything, mTx).After(100*time.Millisecond).Return(sig, nil).Once()
+		mc.On("SendTx", mock.Anything, mTx).Return(sig, nil).Once()
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return([]*rpc.SignatureStatusesResult{nil}, nil).Once()
@@ -174,31 +188,47 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 	})
 
-	// // TODO: txm should handle RPC rejection properly
-	// // TODO: RPC rejection should not trigger a fee bump
-	// // fail on initial transmit (RPC immediate rejects)
-	// t.Run("fail_initialTx", func(t *testing.T) {
-	// 	tx := getTx(t, pubkey)
-	// 	var wg sync.WaitGroup
-	// 	wg.Add(1)
+	// txm should handle RPC rejection properly
+	// RPC rejection should not trigger a fee bump
+	// fail on initial transmit (RPC immediate rejects)
+	t.Run("success_rpcFail_retry", func(t *testing.T) {
+		txm, mc, empty := initTxm()
+		tx := getTx(t, pubkey)
+		sig := getSig()
+		var wg sync.WaitGroup
+		wg.Add(3)
+		var fee uint64
+		txm.SetFee(100)
 
-	// 	// should only be called once
-	// 	mc.On("SendTx", mock.Anything, mTx).Run(func(mock.Arguments) {
-	// 		wg.Done()
-	// 	}).Return(solana.Signature{}, errors.New("FAIL")).Once()
+		// immediate fail initial send (should retry without fee bump)
+		mc.On("SendTx", mock.Anything, mTx).Run(func(args mock.Arguments) {
+			rawTx := args.Get(1).(*solana.Transaction)
+			fee = binary.LittleEndian.Uint64([]byte(rawTx.Message.Instructions[0].Data)[1:])
+			wg.Done()
+		}).Return(solana.Signature{}, errors.New("FAIL")).Once()
+		mc.On("SendTx", mock.Anything, mTx).Run(func(args mock.Arguments) {
+			rawTx := args.Get(1).(*solana.Transaction)
+			val := binary.LittleEndian.Uint64([]byte(rawTx.Message.Instructions[0].Data)[1:])
+			assert.Equal(t, fee, val)
+			wg.Done()
+		}).Return(sig, nil).Once()
+		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
+			wg.Done()
+		}).Return([]*rpc.SignatureStatusesResult{confirmedStatus}, nil).Once()
 
-	// 	// tx should be able to queue
-	// 	assert.NoError(t, txm.Enqueue(t.Name(), tx))
-	// 	wg.Wait() // wait to be picked up and processed
+		// tx should be able to queue
+		assert.NoError(t, txm.Enqueue(t.Name(), tx))
+		wg.Wait() // wait to be picked up and processed
 
-	// 	// no transactions stored inflight txs list
-	// 	waitFor(empty)
+		// no transactions stored inflight txs list
+		waitFor(empty)
 
-	// 	// check prom metric
-	// 	prom.error++
-	// 	prom.reject++
-	// 	prom.assertEqual(t)
-	// })
+		// check prom metric
+		prom.success++
+		prom.reject++
+		prom.error++
+		prom.assertEqual(t)
+	})
 
 	// initial tx is sent, tx was dropped
 	// second tx sent with higher fee, tx was dropped
@@ -349,7 +379,9 @@ func TestTxm(t *testing.T) {
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return(
 			[]*rpc.SignatureStatusesResult{nil}, nil) // drop tx (reorg)
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig, sigRetry}).Return(
-			[]*rpc.SignatureStatusesResult{nil, confirmedStatus}, nil)
+			[]*rpc.SignatureStatusesResult{nil, confirmedStatus}, nil).Maybe()
+		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sigRetry, sig}).Return(
+			[]*rpc.SignatureStatusesResult{confirmedStatus, nil}, nil).Maybe()
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
@@ -402,4 +434,41 @@ func TestTxm_Enqueue(t *testing.T) {
 			assert.Error(t, txm.Enqueue(run.name, run.tx))
 		})
 	}
+}
+
+// test mismatched signatures + responses in confirmer
+func TestTxm_Confirmer(t *testing.T) {
+	lggr, logs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	cfg := config.NewConfig(db.ChainCfg{}, lggr)
+	mc := newReaderWriterMock(t)
+	var wg sync.WaitGroup
+	wg.Add(4)
+
+	txm := NewTxm("enqueue_test", func() (client.ReaderWriter, error) {
+		return mc, nil
+	}, cfg, keyMocks.NewSolana(t), lggr)
+
+	id := txm.txs.New(PendingTx{})
+	assert.NoError(t, txm.txs.Add(id, XXXNewSignature(t), 0))
+
+	i := 0
+	mc.On("SignatureStatuses", mock.Anything, mock.AnythingOfType("[]solana.Signature")).Run(
+		func(args mock.Arguments) { wg.Done() },
+	).Return(
+		func(_ context.Context, _ []solana.Signature) (out []*rpc.SignatureStatusesResult) {
+			for j := 0; j < 2-i; j++ {
+				out = append(out, nil)
+			}
+
+			i++
+			return out
+		}, nil).Times(3) // return 2, 1, 0 results
+	mc.On("SignatureStatuses", mock.Anything, mock.AnythingOfType("[]solana.Signature")).Run(
+		func(args mock.Arguments) { wg.Done() },
+	).Return([]*rpc.SignatureStatusesResult{confirmedStatus}, nil).Once()
+
+	go txm.confirm(context.Background()) // start only confirmer
+	wg.Wait()
+	assert.Equal(t, 1, len(logs.All())) // extra results and equal results do not trigger error
+	assert.Equal(t, "mismatch requested signatures and responses length: 1 > 0", logs.All()[0].Entry.Message)
 }

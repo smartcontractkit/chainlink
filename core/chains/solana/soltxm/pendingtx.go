@@ -47,7 +47,7 @@ func (tx *PendingTx) SetComputeUnitPrice(price ComputeUnitPrice) (*solana.Transa
 		txWithFee.Message.Header.NumReadonlyUnsignedAccounts++
 	}
 
-	// double fee if already broadcast and this is a retry
+	// double fee if already successfully broadcast and this is a retry
 	if tx.broadcast {
 		price = ComputeUnitPrice(2 * tx.currentFee)
 
@@ -82,8 +82,10 @@ type PendingTxs interface {
 	New(tx PendingTx) uuid.UUID                                   // save pendingTx
 	Add(id uuid.UUID, sig solana.Signature, txprice uint64) error // save signature after broadcasting
 	Remove(id uuid.UUID) error
-	ListSignatures() []solana.Signature         // get all signatures for pending txs
-	Get(sig solana.Signature) (PendingTx, bool) // get tx from signature
+	ListSignatures() []solana.Signature // get all signatures for pending txs
+	ListIDs() []uuid.UUID
+	GetBySignature(sig solana.Signature) (PendingTx, bool) // get tx from signature
+	GetByID(id uuid.UUID) (PendingTx, bool)
 	// state change hooks
 	OnSuccess(sig solana.Signature) (PendingTx, error)
 	OnError(sig solana.Signature, errType int) (PendingTx, error) // match err type using enum
@@ -116,6 +118,14 @@ func (txs *pendingTxMemory) New(tx PendingTx) uuid.UUID {
 }
 
 func (txs *pendingTxMemory) Add(id uuid.UUID, sig solana.Signature, price uint64) error {
+	if id == uuid.Nil {
+		return fmt.Errorf("uuid is nil")
+	}
+
+	if sig.IsZero() {
+		return fmt.Errorf("signature is zero")
+	}
+
 	checkExists := func() error {
 		if _, exists := txs.idMap[id]; !exists {
 			return fmt.Errorf("ID does not exist: %s", id)
@@ -183,27 +193,41 @@ func (txs *pendingTxMemory) ListSignatures() []solana.Signature {
 	return maps.Keys(txs.sigMap)
 }
 
-func (txs *pendingTxMemory) Get(sig solana.Signature) (PendingTx, bool) {
+func (txs *pendingTxMemory) ListIDs() []uuid.UUID {
+	txs.lock.RLock()
+	defer txs.lock.RUnlock()
+	return maps.Keys(txs.idMap)
+}
+
+func (txs *pendingTxMemory) GetBySignature(sig solana.Signature) (PendingTx, bool) {
+	txs.lock.RLock()
+	id, exists := txs.sigMap[sig]
+	txs.lock.RUnlock()
+
+	if !exists {
+		return PendingTx{}, false
+	}
+
+	return txs.GetByID(id)
+}
+
+func (txs *pendingTxMemory) GetByID(id uuid.UUID) (PendingTx, bool) {
 	txs.lock.RLock()
 	defer txs.lock.RUnlock()
 
-	if id, idExists := txs.sigMap[sig]; idExists {
-		if tx, txExists := txs.idMap[id]; txExists {
-			return tx, true
-		}
-	}
-	return PendingTx{}, false
+	tx, exists := txs.idMap[id]
+	return tx, exists
 }
 
 func (txs *pendingTxMemory) OnSuccess(sig solana.Signature) (PendingTx, error) {
-	if tx, exists := txs.Get(sig); exists {
+	if tx, exists := txs.GetBySignature(sig); exists {
 		return tx, txs.Remove(tx.id)
 	}
 	return PendingTx{}, fmt.Errorf("tx signature does not exist: %s", sig)
 }
 
 func (txs *pendingTxMemory) OnError(sig solana.Signature, _ int) (PendingTx, error) {
-	if tx, exists := txs.Get(sig); exists {
+	if tx, exists := txs.GetBySignature(sig); exists {
 		return tx, txs.Remove(tx.id)
 	}
 	return PendingTx{}, fmt.Errorf("tx signature does not exist: %s", sig)
@@ -218,7 +242,7 @@ type pendingTxMemoryWithProm struct {
 
 const (
 	TxFailRevert = iota // execution revert
-	TxFailReject        // rpc rejected transaction
+	TxRPCReject         // rpc rejected transaction
 )
 
 func newPendingTxMemoryWithProm(id string) *pendingTxMemoryWithProm {
@@ -246,8 +270,16 @@ func (txs *pendingTxMemoryWithProm) ListSignatures() []solana.Signature {
 	return sigs
 }
 
-func (txs *pendingTxMemoryWithProm) Get(sig solana.Signature) (PendingTx, bool) {
-	return txs.pendingTx.Get(sig)
+func (txs *pendingTxMemoryWithProm) ListIDs() []uuid.UUID {
+	return txs.pendingTx.ListIDs()
+}
+
+func (txs *pendingTxMemoryWithProm) GetBySignature(sig solana.Signature) (PendingTx, bool) {
+	return txs.pendingTx.GetBySignature(sig)
+}
+
+func (txs *pendingTxMemoryWithProm) GetByID(id uuid.UUID) (PendingTx, bool) {
+	return txs.pendingTx.GetByID(id)
 }
 
 // Success - tx included in block and confirmed
@@ -262,16 +294,18 @@ func (txs *pendingTxMemoryWithProm) OnSuccess(sig solana.Signature) (PendingTx, 
 }
 
 func (txs *pendingTxMemoryWithProm) OnError(sig solana.Signature, errType int) (PendingTx, error) {
-	// don't increment prom metrics if tx no longer exists
-	tx, err := txs.pendingTx.OnError(sig, errType)
-	if err != nil {
-		return tx, err
-	}
-
+	var tx PendingTx
+	var err error
 	switch errType {
 	case TxFailRevert:
+		// don't increment prom metrics if tx no longer exists
+		tx, err = txs.pendingTx.OnError(sig, errType)
+		if err != nil {
+			return tx, err
+		}
 		promSolTxmRevertTxs.WithLabelValues(txs.chainID).Add(1)
-	case TxFailReject:
+	case TxRPCReject:
+		// reject called when RPC rejects a tx, no valid signature to check
 		promSolTxmRejectTxs.WithLabelValues(txs.chainID).Add(1)
 	}
 	// increment total errors
