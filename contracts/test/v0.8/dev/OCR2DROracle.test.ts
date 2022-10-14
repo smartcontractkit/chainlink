@@ -28,6 +28,8 @@ before(async () => {
 })
 
 describe('OCR2DROracle', () => {
+  const donPublicKey =
+    '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
   let oracle: Contract
   let client: Contract
 
@@ -35,7 +37,7 @@ describe('OCR2DROracle', () => {
     const { roles } = await getUsers()
     oracle = await ocr2drOracleFactory
       .connect(roles.defaultAccount)
-      .deploy(await roles.defaultAccount.getAddress())
+      .deploy(await roles.defaultAccount.getAddress(), donPublicKey)
     client = await clientTestHelperFactory
       .connect(roles.consumer)
       .deploy(oracle.address)
@@ -44,7 +46,13 @@ describe('OCR2DROracle', () => {
   describe('General', () => {
     it('#typeAndVersion', async () => {
       expect(await oracle.callStatic.typeAndVersion()).to.be.equal(
-        'OCR2DROracle 1.0.0',
+        'OCR2DROracle 0.0.0',
+      )
+    })
+
+    it('returns DON public key set on this Oracle', async () => {
+      expect(await oracle.callStatic.getDONPublicKey()).to.be.equal(
+        donPublicKey,
       )
     })
   })

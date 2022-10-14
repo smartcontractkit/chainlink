@@ -20,14 +20,15 @@ contract OCR2DROracleFactory {
    * @return Type and version string
    */
   function typeAndVersion() external pure virtual returns (string memory) {
-    return "OCR2DROracleFactory 1.0.0";
+    return "OCR2DROracleFactory 0.0.0";
   }
 
   /**
    * @notice creates a new Oracle contract with the msg.sender as owner
+   * @param donPublicKey DON's public key used to encrypt user secrets
    */
-  function deployNewOracle() external returns (address) {
-    OCR2DROracle oracle = new OCR2DROracle(msg.sender);
+  function deployNewOracle(bytes32 donPublicKey) external returns (address) {
+    OCR2DROracle oracle = new OCR2DROracle(msg.sender, donPublicKey);
 
     s_created.add(address(oracle));
     emit OracleCreated(address(oracle), msg.sender, msg.sender);

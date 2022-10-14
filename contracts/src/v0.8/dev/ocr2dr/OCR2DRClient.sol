@@ -20,6 +20,14 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   error RequestIsAlreadyPending();
   error RequestIsNotPending();
 
+  constructor(address oracle) {
+    setOracle(oracle);
+  }
+
+  function getDONPublicKey() external view returns (bytes32) {
+    return s_oracle.getDONPublicKey();
+  }
+
   /**
    * @notice Sends OCR2DR request to the stored oracle address
    * @param req The initialized OCR2DR.Request

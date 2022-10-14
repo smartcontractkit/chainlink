@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { evmWordToAddress, publicAbi } from '../../test-helpers/helpers'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { Contract, ContractFactory, ContractReceipt } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 
@@ -23,6 +23,9 @@ before(async () => {
 })
 
 describe('OCR2DROracleFactory', () => {
+  const donPublicKey =
+    '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
+
   let factory: Contract
   let oracle: Contract
   let receipt: ContractReceipt
@@ -40,13 +43,15 @@ describe('OCR2DROracleFactory', () => {
 
   describe('#typeAndVersion', () => {
     it('describes the authorized forwarder', async () => {
-      assert.equal(await factory.typeAndVersion(), 'OCR2DROracleFactory 1.0.0')
+      assert.equal(await factory.typeAndVersion(), 'OCR2DROracleFactory 0.0.0')
     })
   })
 
   describe('#deployNewOracle', () => {
     beforeEach(async () => {
-      const tx = await factory.connect(roles.oracleNode).deployNewOracle()
+      const tx = await factory
+        .connect(roles.oracleNode)
+        .deployNewOracle(donPublicKey)
 
       receipt = await tx.wait()
       emittedOracle = evmWordToAddress(receipt.logs?.[0].topics?.[1])
@@ -77,6 +82,15 @@ describe('OCR2DROracleFactory', () => {
       assert.isTrue(await factory.created(emittedOracle))
       assert.isFalse(
         await factory.created(await roles.oracleNode1.getAddress()),
+      )
+    })
+
+    it('returns DON public key set on this Oracle', async () => {
+      oracle = await oracleFactory
+        .connect(roles.defaultAccount)
+        .attach(emittedOracle)
+      expect(await oracle.callStatic.getDONPublicKey()).to.be.equal(
+        donPublicKey,
       )
     })
   })
