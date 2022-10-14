@@ -84,6 +84,12 @@ type EnvPrinter struct {
 	LogFileMaxBackups                          int64           `json:"LOG_FILE_MAX_BACKUPS"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 
+	// AuditLogger
+	AuditLoggerEnabled        bool   `json:"AUDIT_LOGGER_ENABLED"`
+	AuditLoggerForwardToUrl   string `json:"AUDIT_LOGGER_FORWARD_TO_URL"`
+	AuditLoggerJsonWrapperKey string `json:"AUDIT_LOGGER_JSON_WRAPPER_KEY"`
+	AuditLoggerHeaders        string `json:"AUDIT_LOGGER_HEADERS"`
+
 	// OCR1
 	OCRContractTransmitterTransmitTimeout time.Duration `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
 	OCRDatabaseTimeout                    time.Duration `json:"OCR_DATABASE_TIMEOUT"`
@@ -147,6 +153,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 	ocrDatabaseTimeout, _ := cfg.GlobalOCRDatabaseTimeout()
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
+			AuditLoggerEnabled:             cfg.AuditLoggerEnabled(),
 			AdvisoryLockCheckInterval:      cfg.AdvisoryLockCheckInterval(),
 			AdvisoryLockID:                 cfg.AdvisoryLockID(),
 			AllowOrigins:                   cfg.AllowOrigins(),

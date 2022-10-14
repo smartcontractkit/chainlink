@@ -92,9 +92,10 @@ func (cll *chainSet) Start(ctx context.Context) error {
 			cll.startedChains = append(cll.startedChains, c)
 		}
 	} else {
-		for id, c := range cll.Chains() {
+		for _, c := range cll.Chains() {
 			if err := c.Start(ctx); err != nil {
-				cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %d failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", id, err), "evmChainID", id, "err", err)
+				id := c.ID().String()
+				cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", id, err), "evmChainID", id, "err", err)
 				continue
 			}
 			cll.startedChains = append(cll.startedChains, c)
@@ -474,11 +475,17 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts, chains []*v2.EVMCon
 	if err := opts.check(); err != nil {
 		return nil, err
 	}
+	var enabled []*v2.EVMConfig
+	for i := range chains {
+		if e := chains[i].Enabled; e != nil && *e {
+			enabled = append(enabled, chains[i])
+		}
+	}
 	opts.Logger = opts.Logger.Named("EVM")
 	defaultChainID := opts.Config.DefaultChainID()
-	if defaultChainID == nil && len(chains) >= 1 {
-		defaultChainID = chains[0].ChainID.ToInt()
-		if len(chains) > 1 {
+	if defaultChainID == nil && len(enabled) >= 1 {
+		defaultChainID = enabled[0].ChainID.ToInt()
+		if len(enabled) > 1 {
 			opts.Logger.Debugf("Multiple chains present, default chain: %s", defaultChainID.String())
 		}
 	}
@@ -486,10 +493,10 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts, chains []*v2.EVMCon
 	cll := newChainSet(opts)
 	cll.defaultID = defaultChainID
 	cll.immutable = true
-	for i := range chains {
-		cid := chains[i].ChainID.String()
+	for i := range enabled {
+		cid := enabled[i].ChainID.String()
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := newTOMLChain(ctx, chains[i], opts)
+		chain, err2 := newTOMLChain(ctx, enabled[i], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
 			continue

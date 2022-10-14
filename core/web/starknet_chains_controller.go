@@ -9,5 +9,5 @@ import (
 
 func NewStarkNetChainsController(app chainlink.Application) ChainsController {
 	return newChainsController[string, *db.ChainCfg]("starknet", app.GetChains().StarkNet, ErrStarkNetNotEnabled,
-		func(s string) (string, error) { return s, nil }, presenters.NewStarkNetChainResource)
+		func(s string) (string, error) { return s, nil }, presenters.NewStarkNetChainResource, app.GetLogger(), app.GetAuditLogger())
 }
