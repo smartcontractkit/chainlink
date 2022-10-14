@@ -1,9 +1,13 @@
 package networks
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
@@ -12,92 +16,147 @@ import (
 // Some networks with public RPC endpoints are already filled out, but make use of environment variables to use info like
 // private RPC endpoints and private keys.
 var (
+	// SelectedNetwork uses the SELECTED_NETWORK env var to determine which network to run the test on
+	SelectedNetwork *blockchain.EVMNetwork = determineSelectedNetwork()
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM *blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
+	// generalEVM is a customizable network through environment variables
+	generalEVM *blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
 
-	GeneralEVM *blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
-
-	// SepoliaTestnet https://sepolia.dev/
-	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// sepoliaTestnet https://sepolia.dev/
+	sepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Sepolia Testnet",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   11155111,
-		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
-		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
 
-	// GoerliTestnet https://goerli.net/
-	GoerliTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// goerliTestnet https://goerli.net/
+	goerliTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Goerli Testnet",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   5,
-		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
-		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute * 5,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
 
-	// KlaytnBaobab https://klaytn.foundation/
-	KlaytnBaobab *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// klaytnBaobab https://klaytn.foundation/
+	klaytnBaobab *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Klaytn Baobab",
 		ClientImplementation:      blockchain.KlaytnClientImplementation,
 		ChainID:                   1001,
-		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
-		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 	}
 
-	// MetisStardust https://www.metis.io/
-	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// metisStardust https://www.metis.io/
+	metisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Metis Stardust",
 		ClientImplementation:      blockchain.MetisClientImplementation,
 		ChainID:                   588,
-		URLs:                      []string{"wss://stardust-ws.metis.io/"},
 		Simulated:                 false,
-		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
 
-	// ArbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
-	ArbitrumGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// arbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
+	arbitrumGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Arbitrum Goerli",
 		ClientImplementation:      blockchain.ArbitrumClientImplementation,
 		ChainID:                   421613,
-		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
-		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
 
-	// OptimismGoerli https://dev.optimism.io/kovan-to-goerli/
-	OptimismGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// optimismGoerli https://dev.optimism.io/kovan-to-goerli/
+	optimismGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Optimism Goerli",
 		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   420,
-		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
-		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
+
+	mappedNetworks = map[string]*blockchain.EVMNetwork{
+		"SIMULATED":       SimulatedEVM,
+		"GENERAL":         generalEVM,
+		"GOERLI":          goerliTestnet,
+		"SEPOLIA":         sepoliaTestnet,
+		"KLAYTN_BAOBAB":   klaytnBaobab,
+		"METIS_STARDUST":  metisStardust,
+		"ARBITRUM_GOERLI": arbitrumGoerli,
+		"OPTIMISM_GOERLI": optimismGoerli,
+	}
 )
+
+// DetermineNetwork determines which network
+func determineSelectedNetwork() *blockchain.EVMNetwork {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	setNetwork := strings.ToUpper(os.Getenv("SELECTED_NETWORK"))
+	if chosenNetwork, valid := mappedNetworks[setNetwork]; valid {
+		log.Info().
+			Str("SELECTED_NETWORK", setNetwork).
+			Str("Network Name", chosenNetwork.Name).
+			Msg("Read network choice from 'SELECTED_NETWORK'")
+		chosenNetwork.URLs = getURLs(setNetwork)
+		chosenNetwork.PrivateKeys = getKeys(setNetwork)
+		return chosenNetwork
+	}
+	validNetworks := make([]string, 0)
+	for validNetwork := range mappedNetworks {
+		validNetworks = append(validNetworks, validNetwork)
+	}
+	log.Fatal().
+		Str("SELECTED_NETWORK", setNetwork).
+		Str("Valid Networks", strings.Join(validNetworks, ", ")).
+		Msg("SELECTED_NETWORK value of is invalid. Use a listed valid one")
+	return nil
+}
+
+func getURLs(prefix string) []string {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	prefix = strings.Trim(prefix, "_")
+	envVar := fmt.Sprintf("%s_URLS", prefix)
+	if os.Getenv(envVar) == "" {
+		urls := strings.Split(os.Getenv("EVM_URLS"), ",")
+		log.Warn().
+			Interface("EVM_URLS", urls).
+			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_URLS'", envVar))
+		return urls
+	}
+	urls := strings.Split(os.Getenv(envVar), ",")
+	log.Info().Interface(envVar, urls).Msg("Read network URLs")
+	return urls
+}
+
+func getKeys(prefix string) []string {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	strings.Trim(prefix, "_")
+	envVar := fmt.Sprintf("%s_KEYS", prefix)
+	if os.Getenv(envVar) == "" {
+		keys := strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ",")
+		log.Warn().Interface("EVM_PRIVATE_KEYS", keys).Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_PRIVATE_KEYS'", envVar))
+		return keys
+	}
+	keys := strings.Split(os.Getenv(envVar), ",")
+	log.Info().Interface(envVar, keys).Msg("Read network Keys")
+	return keys
+}
