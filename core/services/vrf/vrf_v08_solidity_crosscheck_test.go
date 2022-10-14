@@ -27,7 +27,7 @@ import (
 // except we are testing against the v0.8 implementation of VRF.sol.
 func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRFV08TestHelper {
 	auth := testutils.MustNewSimTransactor(t)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend)

@@ -1,12 +1,17 @@
-package utils
+package assets
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"golang.org/x/exp/constraints"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const (
@@ -53,19 +58,25 @@ func suffixExp(suf string) int32 {
 	}
 }
 
-// Wei extends Big to implement encoding.TextMarshaler and encoding.TextUnmarshaler with support for unit suffixes.
-type Wei Big
+// Wei extends utils.Big to implement encoding.TextMarshaler and
+// encoding.TextUnmarshaler with support for unit suffixes, as well as
+// additional functions
+type Wei utils.Big
+
+func MaxWei(w, x *Wei) *Wei {
+	return NewWei(bigmath.Max(w.ToInt(), x.ToInt()))
+}
 
 // NewWei constructs a Wei from *big.Int.
 func NewWei(i *big.Int) *Wei {
 	return (*Wei)(i)
 }
 
-func (w *Wei) Cmp(w2 *Wei) int {
-	return (*big.Int)(w).Cmp((*big.Int)(w2))
+func NewWeiI[T constraints.Signed](i T) *Wei {
+	return NewWei(big.NewInt(int64(i)))
 }
 
-func (w Wei) Text(suffix string) string {
+func (w *Wei) Text(suffix string) string {
 	switch suffix {
 	default: // empty or unknown
 		fallthrough
@@ -95,8 +106,8 @@ func (w Wei) Text(suffix string) string {
 }
 
 // text formats w with the given suffix and exponent. As a special case, the suffix is omitted for `0`.
-func (w Wei) text(suf string, exp int32) string {
-	d := decimal.NewFromBigInt((*big.Int)(&w), -exp)
+func (w *Wei) text(suf string, exp int32) string {
+	d := decimal.NewFromBigInt((*big.Int)(w), -exp)
 	if d.IsZero() {
 		return "0"
 	}
@@ -117,8 +128,8 @@ func (w *Wei) MarshalText() ([]byte, error) {
 	return []byte(w.String()), nil
 }
 
-func (w Wei) String() string {
-	b := (*big.Int)(&w)
+func (w *Wei) String() string {
+	b := (*big.Int)(w)
 	if b.IsUint64() {
 		// <= math.MaxUint64 = 9.223_372_036_854_775_808 eth
 		u := b.Uint64()
@@ -197,4 +208,68 @@ func (w *Wei) UnmarshalText(b []byte) error {
 		return nil
 	}
 	return errors.Errorf("unable to parse %q", s)
+}
+
+func (w *Wei) ToInt() *big.Int {
+	return (*big.Int)(w)
+}
+
+func (w *Wei) Int64() int64 {
+	return w.ToInt().Int64()
+}
+
+func (w *Wei) Cmp(y *Wei) int {
+	return w.ToInt().Cmp(y.ToInt())
+}
+
+func (w *Wei) IsNegative() bool {
+	return w.Cmp(NewWeiI(0)) < 0
+}
+
+func (w *Wei) IsZero() bool {
+	return w.Cmp(NewWeiI(0)) == 0
+}
+
+func (w *Wei) Equal(y *Wei) bool {
+	return w.Cmp(y) == 0
+}
+
+func WeiMax(x, y *Wei) *Wei {
+	return NewWei(bigmath.Max(x.ToInt(), y.ToInt()))
+}
+
+func WeiMin(x, y *Wei) *Wei {
+	return NewWei(bigmath.Min(x.ToInt(), y.ToInt()))
+}
+
+// NOTE: Maths functions always return newly allocated number and do not mutate
+
+func (w *Wei) Sub(y *Wei) *Wei {
+	result := big.NewInt(0).Sub(w.ToInt(), y.ToInt())
+	return NewWei(result)
+}
+
+func (w *Wei) Add(y *Wei) *Wei {
+	return NewWei(big.NewInt(0).Add(w.ToInt(), y.ToInt()))
+}
+
+func (w *Wei) Mul(y *big.Int) *Wei {
+	return NewWei(big.NewInt(0).Mul(w.ToInt(), y))
+}
+
+func (w *Wei) AddPercentage(percentage uint16) *Wei {
+	bumped := new(big.Int)
+	bumped.Mul(w.ToInt(), big.NewInt(int64(100+percentage)))
+	bumped.Div(bumped, big.NewInt(100))
+	return NewWei(bumped)
+}
+
+// Scan reads the database value and returns an instance.
+func (w *Wei) Scan(value interface{}) error {
+	return (*utils.Big)(w).Scan(value)
+}
+
+// Value returns this instance serialized for database storage.
+func (w Wei) Value() (driver.Value, error) {
+	return (utils.Big)(w).Value()
 }

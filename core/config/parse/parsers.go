@@ -95,6 +95,12 @@ func BigInt(str string) (*big.Int, error) {
 	return i, nil
 }
 
+func Wei(str string) (w *assets.Wei, err error) {
+	w = new(assets.Wei)
+	err = w.UnmarshalText([]byte(str))
+	return w, err
+}
+
 func HomeDir(str string) (string, error) {
 	exp, err := homedir.Expand(str)
 	if err != nil {

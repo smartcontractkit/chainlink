@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"os"
 	"strconv"
@@ -19,6 +18,7 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -527,7 +527,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
-		assert.Equal(t, big.NewInt(8616460799), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(8616460799), cfg.EvmGasPriceDefault())
 
 		client, _ = app.NewClientAndRenderer()
 		set = flag.NewFlagSet("setgasprice", 0)
@@ -537,7 +537,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 
 		c = cli.NewContext(nil, set, nil)
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(861646079900), cfg.EvmGasPriceDefault())
 	})
 
 	t.Run("specifying wrong chain id", func(t *testing.T) {
@@ -554,7 +554,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
-		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(861646079900), cfg.EvmGasPriceDefault())
 	})
 
 	t.Run("specifying correct chain id", func(t *testing.T) {
@@ -569,7 +569,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		require.NoError(t, err)
 		cfg := ch.Config()
 
-		assert.Equal(t, big.NewInt(12345678900), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(12345678900), cfg.EvmGasPriceDefault())
 	})
 }
 

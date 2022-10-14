@@ -74,7 +74,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},
@@ -130,7 +130,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -258,7 +258,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -343,7 +343,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTxAttempt{
 					{
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 						EthTx:                   txmgr.EthTx{},
@@ -374,7 +374,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTxAttempt{
 					{
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						GasPrice:                assets.NewWeiI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},

@@ -486,6 +486,34 @@ func (_m *ChainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	return r0
 }
 
+// BlockHistoryEstimatorCheckInclusionBlocks provides a mock function with given fields:
+func (_m *ChainScopedConfig) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// BlockHistoryEstimatorCheckInclusionPercentile provides a mock function with given fields:
+func (_m *ChainScopedConfig) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
 // BlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
 func (_m *ChainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
 	ret := _m.Called()
@@ -980,15 +1008,15 @@ func (_m *ChainScopedConfig) EvmGasBumpTxDepth() uint16 {
 }
 
 // EvmGasBumpWei provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasBumpWei() *big.Int {
+func (_m *ChainScopedConfig) EvmGasBumpWei() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -996,15 +1024,15 @@ func (_m *ChainScopedConfig) EvmGasBumpWei() *big.Int {
 }
 
 // EvmGasFeeCapDefault provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasFeeCapDefault() *big.Int {
+func (_m *ChainScopedConfig) EvmGasFeeCapDefault() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1148,15 +1176,15 @@ func (_m *ChainScopedConfig) EvmGasLimitVRFJobType() *uint32 {
 }
 
 // EvmGasPriceDefault provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasPriceDefault() *big.Int {
+func (_m *ChainScopedConfig) EvmGasPriceDefault() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1164,15 +1192,15 @@ func (_m *ChainScopedConfig) EvmGasPriceDefault() *big.Int {
 }
 
 // EvmGasTipCapDefault provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasTipCapDefault() *big.Int {
+func (_m *ChainScopedConfig) EvmGasTipCapDefault() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1180,15 +1208,15 @@ func (_m *ChainScopedConfig) EvmGasTipCapDefault() *big.Int {
 }
 
 // EvmGasTipCapMinimum provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasTipCapMinimum() *big.Int {
+func (_m *ChainScopedConfig) EvmGasTipCapMinimum() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1280,15 +1308,15 @@ func (_m *ChainScopedConfig) EvmLogPollInterval() time.Duration {
 }
 
 // EvmMaxGasPriceWei provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmMaxGasPriceWei() *big.Int {
+func (_m *ChainScopedConfig) EvmMaxGasPriceWei() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1324,15 +1352,15 @@ func (_m *ChainScopedConfig) EvmMaxQueuedTransactions() uint64 {
 }
 
 // EvmMinGasPriceWei provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmMinGasPriceWei() *big.Int {
+func (_m *ChainScopedConfig) EvmMinGasPriceWei() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1692,14 +1720,14 @@ func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
 }
 
 // KeeperBaseFeeBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperBaseFeeBufferPercent() uint32 {
+func (_m *ChainScopedConfig) KeeperBaseFeeBufferPercent() uint16 {
 	ret := _m.Called()
 
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint16)
 	}
 
 	return r0
@@ -1734,28 +1762,28 @@ func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 }
 
 // KeeperGasPriceBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint32 {
+func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint16 {
 	ret := _m.Called()
 
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint16)
 	}
 
 	return r0
 }
 
 // KeeperGasTipCapBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint32 {
+func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint16 {
 	ret := _m.Called()
 
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint16)
 	}
 
 	return r0
@@ -1888,15 +1916,15 @@ func (_m *ChainScopedConfig) KeyFile() string {
 }
 
 // KeySpecificMaxGasPriceWei provides a mock function with given fields: addr
-func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
+func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 	ret := _m.Called(addr)
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func(common.Address) *assets.Wei); ok {
 		r0 = rf(addr)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
