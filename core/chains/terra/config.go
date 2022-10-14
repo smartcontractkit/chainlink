@@ -100,7 +100,7 @@ func (cs TerraConfigs) NodesByID(chainIDs ...string) (ns []db.Node) {
 	for i := range cs {
 		var match bool
 		for _, id := range chainIDs {
-			if id != *cs[i].ChainID {
+			if id == *cs[i].ChainID {
 				match = true
 				break
 			}

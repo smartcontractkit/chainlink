@@ -125,7 +125,7 @@ func TestVRF_ImportExport(t *testing.T) {
 	t.Parallel()
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 	t.Log(client, r)
 
