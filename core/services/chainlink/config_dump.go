@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	stktyp "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -673,6 +674,17 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 	if isZeroPtr(c.Feature) {
 		c.Feature = nil
+	}
+
+	c.AuditLogger = &audit.AuditLoggerConfig{
+		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
+		ForwardToUrl:   envURL("AuditLoggerForwardToUrl"),
+		JsonWrapperKey: envvar.NewString("AuditLoggerJsonWrapperKey").ParsePtr(),
+		Headers:        audit.AuditLoggerHeaders.ParsePtr(),
+	}
+
+	if isZeroPtr(c.AuditLogger) {
+		c.AuditLogger = nil
 	}
 
 	c.Database = &config.Database{

@@ -47,13 +47,13 @@ func TestDefaultConfig(t *testing.T) {
 			"LogFileDir",
 			"RootDir",
 			"TLSDir",
+			"AuditLoggerEnvironment", // same problem being derived from Dev()
 		}
 		assertMethodsReturnEqual[config.GeneralConfig](t, configtest.NewTestGeneralConfig(t), configtest2.NewTestGeneralConfig(t), testRoot)
 	})
-	newChain, _ := evmcfg2.Defaults(chainID)
 	evmCfg := evmcfg2.EVMConfig{
 		ChainID: chainID,
-		Chain:   newChain,
+		Chain:   evmcfg2.DefaultsFrom(chainID, nil),
 	}
 	newConfig := evmcfg2.NewTOMLChainScopedConfig(newGeneral, &evmCfg, lggr)
 	legacyConfig := evmcfg.NewChainScopedConfig(chainID.ToInt(), evmtypes.ChainCfg{}, nil, lggr, legacyGeneral)

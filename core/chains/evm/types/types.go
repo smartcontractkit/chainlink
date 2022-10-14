@@ -53,6 +53,7 @@ type ORM interface {
 	ChainConfigORM
 
 	SetupNodes([]Node, []utils.Big) error
+	EnsureChains([]utils.Big, ...pg.QOpt) error
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config

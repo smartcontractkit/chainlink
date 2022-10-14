@@ -1584,8 +1584,8 @@ github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886/go.mod h1:4b37Z1FVslnJ1TLo1r1XtuB9ym1uF/minZFcZlIBAV0=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCKJwt0AY15bAaorscflOcBs/FnmO7NoCh8Tons=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
-github.com/smartcontractkit/ocr2keepers v0.3.11 h1:yyRGbAyUFAHHTMs0IqBjjp8Gj90rz4SYFK6pcGPk6i0=
-github.com/smartcontractkit/ocr2keepers v0.3.11/go.mod h1:sLZOycz11j1Z+sqZQSqUVnBTDY8zCfbBmg6Ge9+LHnM=
+github.com/smartcontractkit/ocr2keepers v0.4.2 h1:pBy2ma1dFpeBK9o9SMQOv943li5aW+tWTolIA3lrgTs=
+github.com/smartcontractkit/ocr2keepers v0.4.2/go.mod h1:sLZOycz11j1Z+sqZQSqUVnBTDY8zCfbBmg6Ge9+LHnM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc h1:ROWOiJINb4fdWH3YmdJjTgHxqW5UML6oXk9aXUzDZok=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc/go.mod h1:xmQS1SK8bJg0ai/HMVMOfg9d+sCPAMa8xhB5RTbv7hY=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=

@@ -765,7 +765,7 @@ github.com/smartcontractkit/chainlink-testing-framework v1.7.1 h1:rlKH1eHifmPzCl
 github.com/smartcontractkit/chainlink-testing-framework v1.7.1/go.mod h1:/H8r5XnmJ9eustpJYQzMxyoC8+6ZgLqh1OGKr/nHBDo=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCKJwt0AY15bAaorscflOcBs/FnmO7NoCh8Tons=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
-github.com/smartcontractkit/ocr2keepers v0.3.11 h1:yyRGbAyUFAHHTMs0IqBjjp8Gj90rz4SYFK6pcGPk6i0=
+github.com/smartcontractkit/ocr2keepers v0.4.2 h1:pBy2ma1dFpeBK9o9SMQOv943li5aW+tWTolIA3lrgTs=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc h1:ROWOiJINb4fdWH3YmdJjTgHxqW5UML6oXk9aXUzDZok=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 h1:k+E0RKzVSG1QpxXakNUtcGUhq4ZMe0MAJ5Awg/l9oSc=

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -238,7 +239,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewDefaultTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, effectiveTransmitterAddress, strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), []common.Address{concreteSpec.TransmitterAddress.Address()}, gasLimit, effectiveTransmitterAddress, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),

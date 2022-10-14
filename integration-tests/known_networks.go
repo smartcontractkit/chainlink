@@ -24,7 +24,7 @@ var (
 	generalEVM *blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
 
 	// sepoliaTestnet https://sepolia.dev/
-	sepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Sepolia Testnet",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   11155111,
@@ -36,7 +36,7 @@ var (
 	}
 
 	// goerliTestnet https://goerli.net/
-	goerliTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	GoerliTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Goerli Testnet",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   5,
@@ -48,7 +48,7 @@ var (
 	}
 
 	// klaytnBaobab https://klaytn.foundation/
-	klaytnBaobab *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	KlaytnBaobab *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Klaytn Baobab",
 		ClientImplementation:      blockchain.KlaytnClientImplementation,
 		ChainID:                   1001,
@@ -60,7 +60,7 @@ var (
 	}
 
 	// metisStardust https://www.metis.io/
-	metisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Metis Stardust",
 		ClientImplementation:      blockchain.MetisClientImplementation,
 		ChainID:                   588,
@@ -72,7 +72,7 @@ var (
 	}
 
 	// arbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
-	arbitrumGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	ArbitrumGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Arbitrum Goerli",
 		ClientImplementation:      blockchain.ArbitrumClientImplementation,
 		ChainID:                   421613,
@@ -84,7 +84,7 @@ var (
 	}
 
 	// optimismGoerli https://dev.optimism.io/kovan-to-goerli/
-	optimismGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	OptimismGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Optimism Goerli",
 		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   420,
@@ -98,12 +98,12 @@ var (
 	mappedNetworks = map[string]*blockchain.EVMNetwork{
 		"SIMULATED":       SimulatedEVM,
 		"GENERAL":         generalEVM,
-		"GOERLI":          goerliTestnet,
-		"SEPOLIA":         sepoliaTestnet,
-		"KLAYTN_BAOBAB":   klaytnBaobab,
-		"METIS_STARDUST":  metisStardust,
-		"ARBITRUM_GOERLI": arbitrumGoerli,
-		"OPTIMISM_GOERLI": optimismGoerli,
+		"GOERLI":          GoerliTestnet,
+		"SEPOLIA":         SepoliaTestnet,
+		"KLAYTN_BAOBAB":   KlaytnBaobab,
+		"METIS_STARDUST":  MetisStardust,
+		"ARBITRUM_GOERLI": ArbitrumGoerli,
+		"OPTIMISM_GOERLI": OptimismGoerli,
 	}
 )
 
