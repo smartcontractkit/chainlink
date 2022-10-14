@@ -7,15 +7,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func TestP2PKeyPresenter_RenderTable(t *testing.T) {
@@ -60,7 +61,7 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 func TestClient_ListP2PKeys(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	key, err := app.GetKeyStore().P2P().Create()
 	require.NoError(t, err)
 
@@ -77,7 +78,7 @@ func TestClient_ListP2PKeys(t *testing.T) {
 func TestClient_CreateP2PKey(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	require.NoError(t, client.CreateP2PKey(nilContext))
@@ -91,7 +92,7 @@ func TestClient_CreateP2PKey(t *testing.T) {
 func TestClient_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	key, err := app.GetKeyStore().P2P().Create()
@@ -115,7 +116,7 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 
 	defer deleteKeyExportFile(t)
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 	_, err := app.GetKeyStore().P2P().Create()
 	require.NoError(t, err)

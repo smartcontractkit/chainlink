@@ -1,10 +1,11 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -35,6 +36,11 @@ func (ocrkc *OCRKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleCreated, map[string]interface{}{
+		"ocrKeyBundleID":                      key.ID(),
+		"ocrKeyBundlePublicKeyAddressOnChain": key.PublicKeyAddressOnChain(),
+	})
 	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(key), "offChainReportingKeyBundle")
 }
 
@@ -54,6 +60,8 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleDeleted, map[string]interface{}{"id": id})
 	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(key), "offChainReportingKeyBundle")
 }
 
@@ -63,7 +71,7 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 	defer ocrkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -74,6 +82,12 @@ func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleImported, map[string]interface{}{
+		"OCRID":                      encryptedOCRKeyBundle.GetID(),
+		"OCRPublicKeyAddressOnChain": encryptedOCRKeyBundle.PublicKeyAddressOnChain(),
+		"OCRPublicKeyOffChain":       encryptedOCRKeyBundle.PublicKeyOffChain(),
+	})
 
 	jsonAPIResponse(c, encryptedOCRKeyBundle, "offChainReportingKeyBundle")
 }
@@ -92,5 +106,6 @@ func (ocrkc *OCRKeysController) Export(c *gin.Context) {
 		return
 	}
 
+	ocrkc.App.GetAuditLogger().Audit(audit.OCRKeyBundleExported, map[string]interface{}{"keyID": stringID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

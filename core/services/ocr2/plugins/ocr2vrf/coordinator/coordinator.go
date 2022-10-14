@@ -120,12 +120,13 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	err = logPoller.MergeFilter([]common.Hash{
-		t.randomnessRequestedTopic,
-		t.randomnessFulfillmentRequestedTopic,
-		t.randomWordsFulfilledTopic,
-		t.configSetTopic,
-		t.newTransmissionTopic}, []common.Address{beaconAddress, coordinatorAddress, dkgAddress})
+	_, err = logPoller.RegisterFilter(logpoller.Filter{
+		EventSigs: []common.Hash{
+			t.randomnessRequestedTopic,
+			t.randomnessFulfillmentRequestedTopic,
+			t.randomWordsFulfilledTopic,
+			t.configSetTopic,
+			t.newTransmissionTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +152,9 @@ func New(
 // ReportIsOnchain returns true iff a report for the given OCR epoch/round is
 // present onchain.
 func (c *coordinator) ReportIsOnchain(ctx context.Context, epoch uint32, round uint8) (presentOnchain bool, err error) {
+	now := time.Now().UTC()
+	defer c.logDurationOfFunction("ReportIsOnchain", now)
+
 	// Check if a NewTransmission event was emitted on-chain with the
 	// provided epoch and round.
 
@@ -204,6 +208,9 @@ func (c *coordinator) ReportBlocks(
 	maxBlocks, // TODO: unused for now
 	maxCallbacks int, // TODO: unused for now
 ) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
+	now := time.Now().UTC()
+	defer c.logDurationOfFunction("ReportBlocks", now)
+
 	// Instantiate the gas used by this batch.
 	currentBatchGasLimit := coordinatorOverhead
 
@@ -213,8 +220,6 @@ func (c *coordinator) ReportBlocks(
 		err = errors.Wrap(err, "header by number")
 		return
 	}
-
-	now := time.Now().UTC()
 
 	// Evict expired items from the cache.
 	c.toBeTransmittedBlocks.EvictExpiredItems(now)
@@ -251,7 +256,7 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	logs = append(logs, beaconLogs...)
-	c.lggr.Info(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
+	c.lggr.Trace(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
@@ -263,7 +268,7 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Info(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
+	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
 		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
 
 	// Get blockhashes that pertain to requested blocks.
@@ -283,7 +288,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
+	c.lggr.Trace(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
 
 	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
@@ -294,7 +299,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Info(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
+	c.lggr.Trace(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -303,7 +308,7 @@ func (c *coordinator) ReportBlocks(
 		delete(blocksRequested, f)
 	}
 
-	c.lggr.Info(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
+	c.lggr.Trace(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
@@ -320,13 +325,13 @@ func (c *coordinator) ReportBlocks(
 		}
 	}
 
-	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
+	c.lggr.Trace(fmt.Sprintf("got blocks: %+v", blocks))
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
 
-	c.lggr.Info(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
+	c.lggr.Trace(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
 	return
 }
@@ -606,8 +611,8 @@ func (c *coordinator) unmarshalLogs(
 ) {
 	for _, lg := range logs {
 		rawLog := toGethLog(lg)
-		switch {
-		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
+		switch lg.EventSig {
+		case c.randomnessRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -621,7 +626,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
-		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
+		case c.randomnessFulfillmentRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -635,7 +640,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, rfr)
-		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
+		case c.randomWordsFulfilledTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -649,7 +654,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
-		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
+		case c.newTransmissionTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -663,7 +668,7 @@ func (c *coordinator) unmarshalLogs(
 			}
 			newTransmissionLogs = append(newTransmissionLogs, nt)
 		default:
-			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
+			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", lg.EventSig))
 			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
 				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
 				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
@@ -676,8 +681,8 @@ func (c *coordinator) unmarshalLogs(
 // local node has accepted the AbstractReport for transmission, so that its
 // blocks and callbacks can be tracked for possible later retransmission
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
-
 	now := time.Now().UTC()
+	defer c.logDurationOfFunction("ReportWillBeTransmitted", now)
 
 	// Evict expired items from the cache.
 	c.toBeTransmittedBlocks.EvictExpiredItems(now)
@@ -747,6 +752,9 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 // for the DKG and VRF OCR committees. On ethereum, these can be retrieved
 // from the most recent ConfigSet events for each contract.
 func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCommittee ocr2vrftypes.OCRCommittee, err error) {
+	startTime := time.Now().UTC()
+	defer c.logDurationOfFunction("DKGVRFCommittees", startTime)
+
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.beaconAddress,
@@ -901,4 +909,9 @@ func getBlockCacheKey(blockNumber uint64, confDelay uint64) common.Hash {
 // against the log poller's current state.
 func getCallbackCacheKey(requestID int64) common.Hash {
 	return common.BigToHash(big.NewInt(requestID))
+}
+
+// logDurationOfFunction logs the time in milliseconds a function took to execute.
+func (c *coordinator) logDurationOfFunction(funcName string, startTime time.Time) {
+	c.lggr.Debugf("%s took %d milliseconds to complete", funcName, time.Now().UTC().Sub(startTime).Milliseconds())
 }

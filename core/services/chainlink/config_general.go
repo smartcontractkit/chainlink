@@ -1,26 +1,35 @@
 package chainlink
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"net"
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/contrib/sessions"
-	"github.com/pelletier/go-toml/v2"
-	uuid "github.com/satori/go.uuid"
-	"github.com/urfave/cli"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -30,50 +39,116 @@ import (
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
+	lggr logger.Logger
+
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
-	c             *Config
-	secrets       *Secrets
 
-	// state
-	appID     uuid.UUID
-	appIDOnce sync.Once
+	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
+	secrets *Secrets
 
 	logLevelDefault zapcore.Level
-	logLevel        zapcore.Level
-	logSQL          bool
-	logMu           sync.RWMutex
+
+	appIDOnce sync.Once
+
+	randomP2PPort     uint16
+	randomP2PPortOnce sync.Once
+
+	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
 }
 
-func NewGeneralConfig(configToml string, secretsToml string, context *cli.Context) (coreconfig.GeneralConfig, error) {
-	var c Config
-	err := toml.Unmarshal([]byte(configToml), &c)
+// GeneralConfigTOML holds TOML configuration options for creating a coreconfig.GeneralConfig via New().
+//
+// See GeneralConfigOpts to initilize from go types.
+type GeneralConfigTOML struct {
+	Config, Secrets string
+
+	KeystorePasswordFileName, VRFPasswordFileName *string
+
+	OverrideFn func(*Config, *Secrets) // tests only
+}
+
+// New returns a coreconfig.GeneralConfig from the parsed TOML.
+func (t GeneralConfigTOML) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	o := GeneralConfigOpts{
+		KeystorePasswordFileName: t.KeystorePasswordFileName,
+		VRFPasswordFileName:      t.VRFPasswordFileName,
+		OverrideFn:               t.OverrideFn,
+	}
+	err := v2.DecodeTOML(strings.NewReader(t.Config), &o.Config)
 	if err != nil {
 		return nil, err
 	}
-	input, err := c.TOMLString()
+	err = v2.DecodeTOML(strings.NewReader(t.Secrets), &o.Secrets)
+	if err != nil {
+		return nil, err
+	}
+	return o.New(lggr)
+}
+
+// GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
+//
+// See GeneralConfigTOML to inialize from TOML.
+type GeneralConfigOpts struct {
+	Config
+	Secrets
+
+	KeystorePasswordFileName, VRFPasswordFileName *string
+
+	// OverrideFn is a *test-only* hook to override effective values.
+	OverrideFn func(*Config, *Secrets)
+}
+
+// New returns a coreconfig.GeneralConfig for the given options.
+func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
 	}
 
-	c.SetDefaults()
+	o.Config.setDefaults()
 
-	effective, err := c.TOMLString()
+	//TODO setEnv() helper; https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
+	o.Config.DevMode = v2.CLDev
+	if p := envvar.LogLevel.ParsePtr(); p != nil {
+		o.Config.Log.Level = *p
+	}
+
+	err = o.Secrets.SetOverrides(o.KeystorePasswordFileName, o.VRFPasswordFileName)
 	if err != nil {
 		return nil, err
 	}
 
-	var s Secrets
-	err = toml.Unmarshal([]byte(secretsToml), &s)
-	if err != nil {
-		return nil, err
+	if fn := o.OverrideFn; fn != nil {
+		fn(&o.Config, &o.Secrets)
 	}
-	err = s.SetOverrides(context)
+
+	effective, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
 	}
 
-	return &generalConfig{c: &c, inputTOML: input, effectiveTOML: effective, secrets: &s}, nil
+	return &generalConfig{
+		lggr:      lggr,
+		inputTOML: input, effectiveTOML: effective,
+		c: &o.Config, secrets: &o.Secrets,
+		logLevelDefault: o.Config.Log.Level}, nil
+}
+
+func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
+	return g.c.EVM
+}
+
+func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
+	return g.c.Solana
+}
+
+func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
+	return g.c.Starknet
+}
+
+func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
+	return g.c.Terra
 }
 
 func (g *generalConfig) Validate() error {
@@ -86,7 +161,7 @@ func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
 }
 
 func (g *generalConfig) Dev() bool {
-	return v2.CLDev
+	return g.c.DevMode
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -126,13 +201,74 @@ func (g *generalConfig) EVMEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) EVMRPCEnabled() bool {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			if len(c.Nodes) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) DefaultChainID() *big.Int {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			return (*big.Int)(c.ChainID)
+		}
+	}
+	return nil
+}
+
+func (g *generalConfig) EthereumHTTPURL() *url.URL {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.SendOnly == nil || !*n.SendOnly {
+					return (*url.URL)(n.HTTPURL)
+				}
+			}
+		}
+	}
+	return nil
+
+}
+func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.HTTPURL != nil {
+					us = append(us, (url.URL)(*n.HTTPURL))
+				}
+			}
+		}
+	}
+	return nil
+
+}
+func (g *generalConfig) EthereumURL() string {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.SendOnly == nil || !*n.SendOnly {
+					if n.WSURL != nil {
+						return n.WSURL.String()
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	return *g.c.Keeper.UpkeepCheckGasPriceEnabled
 }
 
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
-	return p.V1 != nil || p.V2 != nil //TODO or Disabled off switch?
+	return *p.V1.Enabled || *p.V2.Enabled
 }
 
 func (g *generalConfig) SolanaEnabled() bool {
@@ -164,6 +300,29 @@ func (g *generalConfig) StarkNetEnabled() bool {
 
 func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
+}
+
+func (g *generalConfig) AuditLoggerEnabled() bool {
+	return *g.c.AuditLogger.Enabled
+}
+
+func (g *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	return *g.c.AuditLogger.ForwardToUrl, nil
+}
+
+func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	return *g.c.AuditLogger.Headers, nil
+}
+
+func (g *generalConfig) AuditLoggerEnvironment() string {
+	if g.Dev() {
+		return "develop"
+	}
+	return "production"
+}
+
+func (g *generalConfig) AuditLoggerJsonWrapperKey() string {
+	return *g.c.AuditLogger.JsonWrapperKey
 }
 
 func (g *generalConfig) AuthenticatedRateLimit() int64 {
@@ -215,37 +374,31 @@ func (g *generalConfig) AutoPprofPollInterval() models.Duration {
 }
 
 func (g *generalConfig) AutoPprofProfileRoot() string {
-	return *g.c.AutoPprof.ProfileRoot
+	s := *g.c.AutoPprof.ProfileRoot
+	if s == "" {
+		s = g.RootDir()
+	}
+	return s
 }
 
-func (g *generalConfig) PyroscopeAuthToken() string {
-	return *g.c.Pyroscope.AuthToken
-}
+func (g *generalConfig) BlockBackfillDepth() uint64 { panic(v2.ErrUnsupported) }
 
-func (g *generalConfig) PyroscopeServerAddress() string {
-	return *g.c.Pyroscope.ServerAddress
-}
-
-func (g *generalConfig) PyroscopeEnvironment() string {
-	return *g.c.Pyroscope.Environment
-}
-
-func (g *generalConfig) BlockBackfillDepth() uint64 {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (g *generalConfig) BlockBackfillSkip() bool {
-	//TODO implement me
-	panic("implement me")
-}
+func (g *generalConfig) BlockBackfillSkip() bool { panic(v2.ErrUnsupported) }
 
 func (g *generalConfig) BridgeResponseURL() *url.URL {
-	return (*url.URL)(g.c.WebServer.BridgeResponseURL)
+	u := (*url.URL)(g.c.WebServer.BridgeResponseURL)
+	if *u == zeroURL {
+		u = nil
+	}
+	return u
 }
 
 func (g *generalConfig) CertFile() string {
-	return *g.c.WebServer.TLS.CertPath
+	s := *g.c.WebServer.TLS.CertPath
+	if s == "" {
+		s = filepath.Join(g.TLSDir(), "server.crt")
+	}
+	return s
 }
 
 func (g *generalConfig) DatabaseBackupDir() string {
@@ -273,11 +426,11 @@ func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 }
 
 func (g *generalConfig) DefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequestMaxSize)
+	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
 
 func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.DefaultHTTPRequestTimeout
+	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -285,7 +438,11 @@ func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 }
 
 func (g *generalConfig) ExplorerURL() *url.URL {
-	return (*url.URL)(g.c.ExplorerURL)
+	u := (*url.URL)(g.c.ExplorerURL)
+	if *u == zeroURL {
+		u = nil
+	}
+	return u
 }
 
 func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
@@ -297,8 +454,7 @@ func (g *generalConfig) FMSimulateTransactions() bool {
 }
 
 func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	//TODO implement me
-	panic("implement me")
+	return g.c.Database.Dialect
 }
 
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
@@ -346,27 +502,27 @@ func (g *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
 }
 
 func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaximumGracePeriod
+	return *g.c.Keeper.MaxGracePeriod
 }
 
 func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryCheckGasOverhead
+	return *g.c.Keeper.Registry.CheckGasOverhead
 }
 
 func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryPerformGasOverhead
+	return *g.c.Keeper.Registry.PerformGasOverhead
 }
 
 func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.RegistryMaxPerformDataSize
+	return *g.c.Keeper.Registry.MaxPerformDataSize
 }
 
 func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.RegistrySyncInterval.Duration()
+	return g.c.Keeper.Registry.SyncInterval.Duration()
 }
 
 func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.RegistrySyncUpkeepQueueSize
+	return *g.c.Keeper.Registry.SyncUpkeepQueueSize
 }
 
 func (g *generalConfig) KeeperTurnLookBack() int64 {
@@ -393,19 +549,23 @@ func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
 }
 
 func (g *generalConfig) LogFileDir() string {
-	return *g.c.Log.FileDir
+	s := *g.c.Log.File.Dir
+	if s == "" {
+		s = g.RootDir()
+	}
+	return s
 }
 
 func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.FileMaxSize
+	return *g.c.Log.File.MaxSize
 }
 
 func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.FileMaxAgeDays
+	return *g.c.Log.File.MaxAgeDays
 }
 
 func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.FileMaxBackups
+	return *g.c.Log.File.MaxBackups
 }
 
 func (g *generalConfig) LogUnixTimestamps() bool {
@@ -417,119 +577,11 @@ func (g *generalConfig) MigrateDatabase() bool {
 }
 
 func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.ORMMaxIdleConns)
+	return int(*g.c.Database.MaxIdleConns)
 }
 
 func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.ORMMaxOpenConns)
-}
-
-func (g *generalConfig) Port() uint16 {
-	return *g.c.WebServer.HTTPPort
-}
-
-func (g *generalConfig) RPID() string {
-	return *g.c.WebServer.MFA.RPID
-}
-
-func (g *generalConfig) RPOrigin() string {
-	return *g.c.WebServer.MFA.RPOrigin
-}
-
-func (g *generalConfig) ReaperExpiration() models.Duration {
-	return *g.c.WebServer.SessionReaperExpiration
-}
-
-func (g *generalConfig) RootDir() string {
-	return *g.c.RootDir
-}
-
-func (g *generalConfig) SecureCookies() bool {
-	return *g.c.WebServer.SecureCookies
-}
-
-func (g *generalConfig) SessionOptions() sessions.Options {
-	return sessions.Options{
-		Secure:   g.SecureCookies(),
-		HttpOnly: true,
-		MaxAge:   86400 * 30,
-	}
-}
-
-func (g *generalConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
-}
-
-func (g *generalConfig) TLSCertPath() string {
-	return *g.c.WebServer.TLS.CertPath
-}
-
-func (g *generalConfig) TLSDir() string {
-	return filepath.Join(*g.c.RootDir, "tls")
-}
-
-func (g *generalConfig) TLSHost() string {
-	return *g.c.WebServer.TLS.Host
-}
-
-func (g *generalConfig) TLSKeyPath() string {
-	return *g.c.WebServer.TLS.KeyPath
-}
-
-func (g *generalConfig) TLSPort() uint16 {
-	return *g.c.WebServer.TLS.HTTPSPort
-}
-
-func (g *generalConfig) TLSRedirect() bool {
-	return *g.c.WebServer.TLS.ForceRedirect
-}
-
-func (g *generalConfig) TelemetryIngressLogging() bool {
-	return *g.c.TelemetryIngress.Logging
-}
-
-func (g *generalConfig) TelemetryIngressUniConn() bool {
-	return *g.c.TelemetryIngress.UniConn
-}
-
-func (g *generalConfig) TelemetryIngressServerPubKey() string {
-	return *g.c.TelemetryIngress.ServerPubKey
-}
-
-func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	return (*url.URL)(g.c.TelemetryIngress.URL)
-}
-
-func (g *generalConfig) TelemetryIngressBufferSize() uint {
-	return uint(*g.c.TelemetryIngress.BufferSize)
-}
-
-func (g *generalConfig) TelemetryIngressMaxBatchSize() uint {
-	return uint(*g.c.TelemetryIngress.MaxBatchSize)
-}
-
-func (g *generalConfig) TelemetryIngressSendInterval() time.Duration {
-	return g.c.TelemetryIngress.SendInterval.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
-	return g.c.TelemetryIngress.SendTimeout.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
-	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Unauthenticated
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+	return int(*g.c.Database.MaxOpenConns)
 }
 
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -545,7 +597,11 @@ func (g *generalConfig) OCRContractSubscribeInterval() time.Duration {
 }
 
 func (g *generalConfig) OCRKeyBundleID() (string, error) {
-	return g.c.OCR.KeyBundleID.String(), nil
+	b := g.c.OCR.KeyBundleID
+	if *b == zeroSha256Hash {
+		return "", nil
+	}
+	return b.String(), nil
 }
 
 func (g *generalConfig) OCRObservationTimeout() time.Duration {
@@ -557,7 +613,11 @@ func (g *generalConfig) OCRSimulateTransactions() bool {
 }
 
 func (g *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	return *g.c.OCR.TransmitterAddress, nil
+	a := *g.c.OCR.TransmitterAddress
+	if a.IsZero() {
+		return a, errors.Wrap(coreconfig.ErrEnvUnset, "OCRTransmitterAddress is not set")
+	}
+	return a, nil
 }
 
 func (g *generalConfig) OCRTraceLogging() bool {
@@ -593,7 +653,11 @@ func (g *generalConfig) OCR2ContractSubscribeInterval() time.Duration {
 }
 
 func (g *generalConfig) OCR2KeyBundleID() (string, error) {
-	return g.c.OCR2.KeyBundleID.String(), nil
+	b := g.c.OCR2.KeyBundleID
+	if *b == zeroSha256Hash {
+		return "", nil
+	}
+	return b.String(), nil
 }
 
 func (g *generalConfig) OCR2TraceLogging() bool {
@@ -624,26 +688,6 @@ func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-func (g *generalConfig) OCRNewStreamTimeout() time.Duration {
-	return g.c.P2P.V1.NewStreamTimeout.Duration()
-}
-
-func (g *generalConfig) OCRBootstrapCheckInterval() time.Duration {
-	return g.c.P2P.V1.BootstrapCheckInterval.Duration()
-}
-
-func (g *generalConfig) OCRDHTLookupInterval() int {
-	return int(*g.c.P2P.V1.DHTLookupInterval)
-}
-
-func (g *generalConfig) OCRIncomingMessageBufferSize() int {
-	return int(*g.c.P2P.IncomingMessageBufferSize)
-}
-
-func (g *generalConfig) OCROutgoingMessageBufferSize() int {
-	return int(*g.c.P2P.OutgoingMessageBufferSize)
-}
-
 func (g *generalConfig) P2PAnnounceIP() net.IP {
 	return *g.c.P2P.V1.AnnounceIP
 }
@@ -653,7 +697,11 @@ func (g *generalConfig) P2PAnnouncePort() uint16 {
 }
 
 func (g *generalConfig) P2PBootstrapPeers() ([]string, error) {
-	return *g.c.P2P.V1.DefaultBootstrapPeers, nil
+	p := *g.c.P2P.V1.DefaultBootstrapPeers
+	if p == nil {
+		p = []string{}
+	}
+	return p, nil
 }
 
 func (g *generalConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
@@ -665,11 +713,28 @@ func (g *generalConfig) P2PListenIP() net.IP {
 }
 
 func (g *generalConfig) P2PListenPort() uint16 {
-	return *g.c.P2P.V1.ListenPort
+	v1 := g.c.P2P.V1
+	p := *v1.ListenPort
+	if p == 0 && *v1.Enabled {
+		g.randomP2PPortOnce.Do(func() {
+			r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
+			if err != nil {
+				panic(fmt.Errorf("unexpected error generating random P2PListenPort: %w", err))
+			}
+			g.randomP2PPort = uint16(r.Int64() + 1024)
+			g.lggr.Warnw(fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", g.randomP2PPort), "p2pPort", g.randomP2PPort)
+		})
+		return g.randomP2PPort
+	}
+	return p
 }
 
 func (g *generalConfig) P2PListenPortRaw() string {
-	return strconv.Itoa(int(*g.c.P2P.V1.ListenPort))
+	p := *g.c.P2P.V1.ListenPort
+	if p == 0 {
+		return ""
+	}
+	return strconv.Itoa(int(p))
 }
 
 func (g *generalConfig) P2PNewStreamTimeout() time.Duration {
@@ -760,3 +825,137 @@ func (g *generalConfig) P2PV2ListenAddresses() []string {
 	}
 	return nil
 }
+
+func (g *generalConfig) PyroscopeAuthToken() string {
+	return *g.c.Pyroscope.AuthToken
+}
+
+func (g *generalConfig) PyroscopeServerAddress() string {
+	return *g.c.Pyroscope.ServerAddress
+}
+
+func (g *generalConfig) PyroscopeEnvironment() string {
+	return *g.c.Pyroscope.Environment
+}
+func (g *generalConfig) Port() uint16 {
+	return *g.c.WebServer.HTTPPort
+}
+
+func (g *generalConfig) RPID() string {
+	return *g.c.WebServer.MFA.RPID
+}
+
+func (g *generalConfig) RPOrigin() string {
+	return *g.c.WebServer.MFA.RPOrigin
+}
+
+func (g *generalConfig) ReaperExpiration() models.Duration {
+	return *g.c.WebServer.SessionReaperExpiration
+}
+
+func (g *generalConfig) RootDir() string {
+	d := *g.c.RootDir
+	h, err := parse.HomeDir(d)
+	if err != nil {
+		g.lggr.Error("Failed to expand RootDir. You may need to set an explicit path", "err", err)
+		return d
+	}
+	return h
+}
+
+func (g *generalConfig) SecureCookies() bool {
+	return *g.c.WebServer.SecureCookies
+}
+
+func (g *generalConfig) SessionOptions() sessions.Options {
+	return sessions.Options{
+		Secure:   g.SecureCookies(),
+		HttpOnly: true,
+		MaxAge:   86400 * 30,
+	}
+}
+
+func (g *generalConfig) SessionTimeout() models.Duration {
+	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
+}
+
+func (g *generalConfig) TLSCertPath() string {
+	return *g.c.WebServer.TLS.CertPath
+}
+
+func (g *generalConfig) TLSDir() string {
+	return filepath.Join(g.RootDir(), "tls")
+}
+
+func (g *generalConfig) TLSHost() string {
+	return *g.c.WebServer.TLS.Host
+}
+
+func (g *generalConfig) TLSKeyPath() string {
+	return *g.c.WebServer.TLS.KeyPath
+}
+
+func (g *generalConfig) TLSPort() uint16 {
+	return *g.c.WebServer.TLS.HTTPSPort
+}
+
+func (g *generalConfig) TLSRedirect() bool {
+	return *g.c.WebServer.TLS.ForceRedirect
+}
+
+func (g *generalConfig) TelemetryIngressLogging() bool {
+	return *g.c.TelemetryIngress.Logging
+}
+
+func (g *generalConfig) TelemetryIngressUniConn() bool {
+	return *g.c.TelemetryIngress.UniConn
+}
+
+func (g *generalConfig) TelemetryIngressServerPubKey() string {
+	return *g.c.TelemetryIngress.ServerPubKey
+}
+
+func (g *generalConfig) TelemetryIngressURL() *url.URL {
+	u := (*url.URL)(g.c.TelemetryIngress.URL)
+	if *u == zeroURL {
+		u = nil
+	}
+	return u
+}
+
+func (g *generalConfig) TelemetryIngressBufferSize() uint {
+	return uint(*g.c.TelemetryIngress.BufferSize)
+}
+
+func (g *generalConfig) TelemetryIngressMaxBatchSize() uint {
+	return uint(*g.c.TelemetryIngress.MaxBatchSize)
+}
+
+func (g *generalConfig) TelemetryIngressSendInterval() time.Duration {
+	return g.c.TelemetryIngress.SendInterval.Duration()
+}
+
+func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
+	return g.c.TelemetryIngress.SendTimeout.Duration()
+}
+
+func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
+	return *g.c.TelemetryIngress.UseBatchSend
+}
+
+func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
+	return g.c.Database.Listener.FallbackPollInterval.Duration()
+}
+
+func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
+	return *g.c.WebServer.RateLimit.Unauthenticated
+}
+
+func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
+	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+}
+
+var (
+	zeroURL        = url.URL{}
+	zeroSha256Hash = models.Sha256Hash{}
+)

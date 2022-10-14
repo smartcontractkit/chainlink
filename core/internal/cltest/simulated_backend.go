@@ -8,14 +8,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -30,6 +34,7 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32)
 	return backend
 }
 
+// Deprecated: use NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg *configtest.TestGeneralConfig,
@@ -61,6 +66,47 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 
 	//  app.Stop() will call client.Close on the simulated backend
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
+}
+
+// NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain is like NewApplicationWithConfigAndKeyOnSimulatedBlockchain
+// but cfg should be v2, and cltest.OverrideSimulated used to include the simulated chain (testutils.SimulatedChainID).
+func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
+	t testing.TB,
+	cfg coreconfig.GeneralConfig,
+	backend *backends.SimulatedBackend,
+	flagsAndDeps ...interface{},
+) *TestApplication {
+	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
+		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
+	}
+	defID := cfg.DefaultChainID()
+	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
+	chainID := utils.NewBig(testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
+
+	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
+
+	//  app.Stop() will call client.Close on the simulated backend
+	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
+}
+
+// OverrideSimulated is a config override func that appends the simulated chain (testutils.SimulatedChainID),
+// or replaces the null chain (client.NullClientChainID) if that is the only entry.
+func OverrideSimulated(c *chainlink.Config, s *chainlink.Secrets) {
+	chainID := utils.NewBig(testutils.SimulatedChainID)
+	enabled := true
+	cfg := evmcfg.EVMConfig{
+		ChainID: chainID,
+		Chain:   evmcfg.DefaultsFrom(chainID, nil),
+		Enabled: &enabled,
+		Nodes:   evmcfg.EVMNodes{{}},
+	}
+	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(utils.NewBigI(client.NullClientChainID)) == 0 {
+		c.EVM[0] = &cfg
+	} else {
+		c.EVM = append(c.EVM, &cfg)
+	}
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds

@@ -3,9 +3,10 @@
 package mocks
 
 import (
-	big "math/big"
-
 	assets "github.com/smartcontractkit/chainlink/core/assets"
+	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+
+	big "math/big"
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
@@ -96,6 +97,92 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(uuid.UUID)
 		}
+	}
+
+	return r0
+}
+
+// AuditLoggerEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// AuditLoggerEnvironment provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// AuditLoggerForwardToUrl provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	ret := _m.Called()
+
+	var r0 models.URL
+	if rf, ok := ret.Get(0).(func() models.URL); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.URL)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AuditLoggerHeaders provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	ret := _m.Called()
+
+	var r0 audit.ServiceHeaders
+	if rf, ok := ret.Get(0).(func() audit.ServiceHeaders); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(audit.ServiceHeaders)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AuditLoggerJsonWrapperKey provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerJsonWrapperKey() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -1551,6 +1638,27 @@ func (_m *GeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmLogKeepBlocksDepth provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmLogKeepBlocksDepth() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmLogPollInterval provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	ret := _m.Called()
@@ -2605,20 +2713,6 @@ func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// OCRBootstrapCheckInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRBootstrapCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRContractPollInterval provides a mock function with given fields:
 func (_m *GeneralConfig) OCRContractPollInterval() time.Duration {
 	ret := _m.Called()
@@ -2647,20 +2741,6 @@ func (_m *GeneralConfig) OCRContractSubscribeInterval() time.Duration {
 	return r0
 }
 
-// OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRDHTLookupInterval() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
 // OCRDefaultTransactionQueueDepth provides a mock function with given fields:
 func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	ret := _m.Called()
@@ -2670,20 +2750,6 @@ func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCRIncomingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2710,20 +2776,6 @@ func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
 	return r0, r1
 }
 
-// OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRObservationTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 	ret := _m.Called()
@@ -2733,20 +2785,6 @@ func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCROutgoingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0

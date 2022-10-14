@@ -188,5 +188,5 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		Strategy:       strategy,
 	}).Return(txmgr.EthTx{}, nil).Once()
 
-	orm.CreateEthTransaction(from, to, payload, gasLimit)
+	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
 }

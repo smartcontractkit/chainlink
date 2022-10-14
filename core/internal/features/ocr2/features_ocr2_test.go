@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -55,7 +55,6 @@ type ocr2Node struct {
 	app         *cltest.TestApplication
 	peerID      string
 	transmitter common.Address
-	forwarder   common.Address
 	keybundle   ocr2key.KeyBundle
 	config      *configtest.TestGeneralConfig
 }
@@ -161,7 +160,6 @@ func setupNodeOCR2(
 	kb, err := app.GetKeyStore().OCR2().Create("evm")
 	require.NoError(t, err)
 
-	forwarder := common.Address{}
 	if useForwarder {
 		// deploy a forwarder
 		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.Address{}, owner.From, common.Address{}, []byte{})
@@ -178,13 +176,12 @@ func setupNodeOCR2(
 		_, err = forwarderORM.CreateForwarder(faddr, chainID)
 		require.NoError(t, err)
 
-		forwarder = faddr
+		transmitter = faddr
 	}
 	return &ocr2Node{
 		app:         app,
 		peerID:      peerID.Raw(),
 		transmitter: transmitter,
-		forwarder:   forwarder,
 		keybundle:   kb,
 		config:      config,
 	}
@@ -274,7 +271,6 @@ func TestIntegration_OCR2(t *testing.T) {
 
 	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer bootstrapNode.app.Stop()
 
 	chainSet := bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
@@ -306,7 +302,6 @@ chainID 			= 1337
 	for i := 0; i < 4; i++ {
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
-		defer apps[i].Stop()
 
 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -316,7 +311,7 @@ chainID 			= 1337
 		}))
 		defer slowServers[i].Close()
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := ioutil.ReadAll(req.Body)
+			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
 			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
@@ -481,13 +476,13 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
-		forwarderContracts = append(forwarderContracts, node.forwarder)
+		forwarderContracts = append(forwarderContracts, node.transmitter)
 		transmitters = append(transmitters, node.transmitter)
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  node.keybundle.PublicKey(),
-				TransmitAccount:   ocrtypes2.Account(node.forwarder.String()),
+				TransmitAccount:   ocrtypes2.Account(node.transmitter.String()),
 				OffchainPublicKey: node.keybundle.OffchainPublicKey(),
 				PeerID:            node.peerID,
 			},
@@ -541,7 +536,6 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 
 	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer bootstrapNode.app.Stop()
 
 	chainSet := bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
@@ -574,7 +568,6 @@ chainID 			= 1337
 	for i := 0; i < 4; i++ {
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
-		defer apps[i].Stop()
 
 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -582,9 +575,9 @@ chainID 			= 1337
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer slowServers[i].Close()
+		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := ioutil.ReadAll(req.Body)
+			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
 			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
@@ -596,7 +589,7 @@ chainID 			= 1337
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer servers[i].Close()
+		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
 		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),

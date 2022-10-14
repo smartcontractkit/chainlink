@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -56,9 +55,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
@@ -253,7 +254,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	app := cltest.NewApplication(t, ethClient)
+	app := cltest.NewLegacyApplication(t, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// set up user
@@ -349,12 +350,15 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			t.Parallel()
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
-			config := cltest.NewTestGeneralConfig(t)
-			config.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
+			config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				cltest.TestOverrides(c, s)
+				cltest.OverrideSimulated(c, s)
+				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			})
 			operatorContracts := setupOperatorContracts(t)
 			b := operatorContracts.sim
-			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b)
 
 			sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 			require.NoError(t, err)
@@ -451,10 +455,16 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	}
 }
 
-func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorContracts OperatorContracts) (app *cltest.TestApplication, sendingAddress common.Address, o *observer.ObservedLogs) {
+func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *cltest.TestApplication, sendingAddress common.Address, o *observer.ObservedLogs) {
 	b := operatorContracts.sim
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	app = cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
+
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		cltest.TestOverrides(c, s)
+		cltest.OverrideSimulated(c, s)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+	})
+	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()
 
 	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
@@ -480,13 +490,11 @@ func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorC
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim
 
 	t.Run("with FailOnRevert enabled, run succeeds when transaction is successful", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
 type            = "webhook"
 schemaVersion   = 1
@@ -531,7 +539,7 @@ observationSource   = """
 	})
 
 	t.Run("with FailOnRevert enabled, run fails with transaction reverted error", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
 type            = "webhook"
 schemaVersion   = 1
@@ -568,7 +576,7 @@ observationSource   = """
 	})
 
 	t.Run("with FailOnRevert disabled, run succeeds with output being reverted receipt", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
 type            = "webhook"
 schemaVersion   = 1
@@ -937,9 +945,9 @@ isBootstrapPeer    = true
 					res.WriteHeader(http.StatusOK)
 					res.Write([]byte(`{"data":10}`))
 				}))
-				defer slowServers[i].Close()
+				t.Cleanup(slowServers[i].Close)
 				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-					b, err := ioutil.ReadAll(req.Body)
+					b, err := io.ReadAll(req.Body)
 					require.NoError(t, err)
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
@@ -951,7 +959,7 @@ isBootstrapPeer    = true
 					res.WriteHeader(http.StatusOK)
 					res.Write([]byte(`{"data":10}`))
 				}))
-				defer servers[i].Close()
+				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
 				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
@@ -1168,9 +1176,9 @@ isBootstrapPeer    = true
 				res.WriteHeader(http.StatusOK)
 				res.Write([]byte(`{"data":10}`))
 			}))
-			defer slowServers[i].Close()
+			t.Cleanup(slowServers[i].Close)
 			servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-				b, err := ioutil.ReadAll(req.Body)
+				b, err := io.ReadAll(req.Body)
 				require.NoError(t, err)
 				var m bridges.BridgeMetaDataJSON
 				require.NoError(t, json.Unmarshal(b, &m))
@@ -1182,7 +1190,7 @@ isBootstrapPeer    = true
 				res.WriteHeader(http.StatusOK)
 				res.Write([]byte(`{"data":10}`))
 			}))
-			defer servers[i].Close()
+			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)
 			err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 				Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
@@ -1403,3 +1411,5 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 	require.NoError(t, err)
 	assert.True(t, jpy.Cmp(haveJpy) == 0)
 }
+
+func ptr[T any](v T) *T { return &v }

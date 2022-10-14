@@ -6,14 +6,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/urfave/cli"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestVRFKeyPresenter_RenderTable(t *testing.T) {
@@ -69,7 +71,7 @@ func TestClientVRF_CRUD(t *testing.T) {
 
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
@@ -123,7 +125,7 @@ func TestVRF_ImportExport(t *testing.T) {
 	t.Parallel()
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 	t.Log(client, r)
 

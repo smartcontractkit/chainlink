@@ -3,19 +3,19 @@ module github.com/smartcontractkit/chainlink/integration-tests
 go 1.19
 
 require (
-	github.com/avast/retry-go v3.0.0+incompatible
-	github.com/ethereum/go-ethereum v1.10.23
+	github.com/ethereum/go-ethereum v1.10.25
 	github.com/go-resty/resty/v2 v2.7.0
-	github.com/lib/pq v1.10.6
+	github.com/imdario/mergo v0.3.13
+	github.com/lib/pq v1.10.7
 	github.com/onsi/ginkgo/v2 v2.2.0
 	github.com/onsi/gomega v1.20.2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.28.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/slack-go/slack v0.11.2
+	github.com/slack-go/slack v0.11.3
 	github.com/smartcontractkit/chainlink v1.8.0
 	github.com/smartcontractkit/chainlink-env v0.2.41
-	github.com/smartcontractkit/chainlink-testing-framework v1.6.8
+	github.com/smartcontractkit/chainlink-testing-framework v1.7.1
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/atomic v1.9.0
@@ -53,13 +53,12 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
-	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
@@ -100,7 +99,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/shirou/gopsutil/v3 v3.22.2 // indirect
+	github.com/shirou/gopsutil/v3 v3.22.9 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -169,4 +168,5 @@ replace github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 
+// Test our local version
 replace github.com/smartcontractkit/chainlink => ../../chainlink

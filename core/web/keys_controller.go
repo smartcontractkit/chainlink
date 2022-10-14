@@ -1,13 +1,15 @@
 package web
 
 import (
-	"io/ioutil"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 )
 
@@ -36,16 +38,25 @@ type KeysController interface {
 type keysController[K keystore.Key, R jsonapi.EntityNamer] struct {
 	ks           Keystore[K]
 	lggr         logger.Logger
+	auditLogger  audit.AuditLogger
+	typ          string
 	resourceName string
 	newResource  func(K) *R
 	newResources func([]K) []R
 }
 
-func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lggr logger.Logger, resourceName string,
+func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lggr logger.Logger, auditLogger audit.AuditLogger, resourceName string,
 	newResource func(K) *R, newResources func([]K) []R) KeysController {
+	var k K
+	typ, err := keystore.GetFieldNameForKey(k)
+	if err != nil {
+		panic(fmt.Errorf("unable to create keys controller: %v", err))
+	}
 	return &keysController[K, R]{
 		ks:           ks,
 		lggr:         lggr,
+		auditLogger:  auditLogger,
+		typ:          typ,
 		resourceName: resourceName,
 		newResource:  newResource,
 		newResources: newResources,
@@ -67,6 +78,12 @@ func (kc *keysController[K, R]) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	kc.auditLogger.Audit(audit.KeyCreated, map[string]interface{}{
+		"type": kc.typ,
+		"id":   key.ID(),
+	})
+
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
 }
 
@@ -82,13 +99,19 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	kc.auditLogger.Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": kc.typ,
+		"id":   key.ID(),
+	})
+
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
 }
 
 func (kc *keysController[K, R]) Import(c *gin.Context) {
 	defer kc.lggr.ErrorIfClosing(c.Request.Body, "Import ")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -99,6 +122,11 @@ func (kc *keysController[K, R]) Import(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	kc.auditLogger.Audit(audit.KeyImported, map[string]interface{}{
+		"type": kc.typ,
+		"id":   key.ID(),
+	})
 
 	jsonAPIResponse(c, kc.newResource(key), kc.resourceName)
 }
@@ -113,6 +141,11 @@ func (kc *keysController[K, R]) Export(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	kc.auditLogger.Audit(audit.KeyExported, map[string]interface{}{
+		"type": kc.typ,
+		"id":   keyID,
+	})
 
 	c.Data(http.StatusOK, MediaType, bytes)
 }

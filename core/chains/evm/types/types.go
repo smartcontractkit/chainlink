@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type NewNode struct {
 	Name       string      `json:"name"`
 	EVMChainID utils.Big   `json:"evmChainId"`
@@ -27,6 +28,7 @@ type NewNode struct {
 	SendOnly   bool        `json:"sendOnly"`
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type ChainConfigORM interface {
 	StoreString(chainID utils.Big, key, val string) error
 	Clear(chainID utils.Big, key string) error
@@ -44,15 +46,17 @@ type ORM interface {
 	CreateNode(data Node, qopts ...pg.QOpt) (Node, error)
 	DeleteNode(id int32, qopts ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
-	Node(id int32, qopts ...pg.QOpt) (Node, error)
+	NodeNamed(string, ...pg.QOpt) (Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 
 	ChainConfigORM
 
 	SetupNodes([]Node, []utils.Big) error
+	EnsureChains([]utils.Big, ...pg.QOpt) error
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type ChainCfg struct {
 	BlockHistoryEstimatorBlockDelay                null.Int
 	BlockHistoryEstimatorBlockHistorySize          null.Int
@@ -82,6 +86,7 @@ type ChainCfg struct {
 	EvmHeadTrackerSamplingInterval                 *models.Duration
 	EvmLogBackfillBatchSize                        null.Int
 	EvmLogPollInterval                             *models.Duration
+	EvmLogKeepBlocksDepth                          null.Int
 	EvmMaxGasPriceWei                              *utils.Big
 	EvmNonceAutoSync                               null.Bool
 	EvmUseForwarders                               null.Bool
@@ -112,6 +117,7 @@ func (c *ChainCfg) Value() (driver.Value, error) {
 
 type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type Node struct {
 	ID         int32
 	Name       string

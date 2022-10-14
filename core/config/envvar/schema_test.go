@@ -13,6 +13,10 @@ func TestConfigSchema(t *testing.T) {
 	items := map[string]string{
 		"AdvisoryLockCheckInterval":                      "ADVISORY_LOCK_CHECK_INTERVAL",
 		"AdvisoryLockID":                                 "ADVISORY_LOCK_ID",
+		"AuditLoggerEnabled":                             "AUDIT_LOGGER_ENABLED",
+		"AuditLoggerForwardToUrl":                        "AUDIT_LOGGER_FORWARD_TO_URL",
+		"AuditLoggerHeaders":                             "AUDIT_LOGGER_HEADERS",
+		"AuditLoggerJsonWrapperKey":                      "AUDIT_LOGGER_JSON_WRAPPER_KEY",
 		"AllowOrigins":                                   "ALLOW_ORIGINS",
 		"AuthenticatedRateLimit":                         "AUTHENTICATED_RATE_LIMIT",
 		"AuthenticatedRateLimitPeriod":                   "AUTHENTICATED_RATE_LIMIT_PERIOD",
@@ -87,6 +91,7 @@ func TestConfigSchema(t *testing.T) {
 		"EvmHeadTrackerSamplingInterval":                 "ETH_HEAD_TRACKER_SAMPLING_INTERVAL",
 		"EvmLogBackfillBatchSize":                        "ETH_LOG_BACKFILL_BATCH_SIZE",
 		"EvmLogPollInterval":                             "ETH_LOG_POLL_INTERVAL",
+		"EvmLogKeepBlocksDepth":                          "ETH_LOG_KEEP_BLOCKS_DEPTH",
 		"EvmMaxGasPriceWei":                              "ETH_MAX_GAS_PRICE_WEI",
 		"EvmMaxInFlightTransactions":                     "ETH_MAX_IN_FLIGHT_TRANSACTIONS",
 		"EvmMaxQueuedTransactions":                       "ETH_MAX_QUEUED_TRANSACTIONS",

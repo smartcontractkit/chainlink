@@ -40,7 +40,7 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 		LogIndex:    logIndex,
 		BlockHash:   common.HexToHash(blockHash),
 		BlockNumber: blockNum,
-		EventSig:    topic1,
+		EventSig:    common.BytesToHash(topic1),
 		Topics:      [][]byte{topic1},
 		Address:     address,
 		TxHash:      common.HexToHash("0x1234"),
@@ -66,7 +66,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 }
 
 func TestLogPoller_Batching(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 	var logs []Log
 	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
 	// a maximum of 6553 log inserts per tx. As inserting more than 6553 would result in
@@ -109,7 +109,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		}, 10e6)
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
-		lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3, 2)
+		lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3, 2, 1000)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
@@ -171,13 +171,14 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 }
 
 func TestLogPoller_PollAndSaveLogs(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 
 	// Set up a log poller listening for log emitter logs.
-	lp := NewLogPoller(th.ORM, client.NewSimulatedBackendClient(t, th.Client, th.ChainID), th.Lggr, 15*time.Second, 2, 3, 2)
-	require.NoError(t, lp.MergeFilter([]common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2},
-	))
+	_, err := th.LogPoller.RegisterFilter(Filter{
+		[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
+		[]common.Address{th.EmitterAddress1, th.EmitterAddress2},
+	})
+	require.NoError(t, err)
 
 	b, err := th.Client.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
@@ -186,7 +187,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
 	// DB: empty
-	newStart := lp.PollAndSaveLogs(testutils.Context(t), 1)
+	newStart := th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
 	assert.Equal(t, int64(2), newStart)
 
 	// We expect to have saved block 1.
@@ -203,7 +204,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assertHaveCanonical(t, 1, 1, th.Client, th.ORM)
 
 	// Polling again should be a noop, since we are at the latest.
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(2), newStart)
 	latest, err := th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -218,7 +219,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th.Client.Commit()
 
 	// Polling should get us the L1 log.
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(3), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -252,7 +253,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 3 (we need a new block for us to do any polling and detect the reorg).
 	th.Client.Commit()
 
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(4), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -273,7 +274,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th.Client.Commit()
 	// Create 4
 	th.Client.Commit()
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(5), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -307,7 +308,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 5
 	th.Client.Commit()
 
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(7), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
@@ -334,7 +335,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(11), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
@@ -360,7 +361,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(18), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(11, 17)
 	require.NoError(t, err)
@@ -370,7 +371,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 }
 
 func TestLogPoller_Logs(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
@@ -386,7 +387,7 @@ func TestLogPoller_Logs(t *testing.T) {
 		GenLog(th.ChainID, 2, 3, "0x5", event2[:], address2),
 	}))
 
-	// Select for all addresses
+	// Select for all Addresses
 	lgs, err := th.ORM.SelectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(lgs))
@@ -398,7 +399,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[5].BlockHash.String())
 
 	// Filter by Address and topic
-	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(1, 3, address1, event1[:])
+	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(1, 3, address1, event1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[0].BlockHash.String())
@@ -408,7 +409,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, address1, lgs[1].Address)
 
 	// Filter by block
-	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(2, 2, address2, event1[:])
+	lgs, err = th.ORM.SelectLogsByBlockRangeFilter(2, 2, address2, event1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[0].BlockHash.String())
@@ -417,36 +418,63 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, event1.Bytes(), lgs[0].Topics[0])
 }
 
-func TestLogPoller_MergeFilter(t *testing.T) {
-	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2)
+func TestLogPoller_RegisterFilter(t *testing.T) {
+	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2, 1000)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
-	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}))
+
+	// We expect a zero filter if nothing registered yet.
+	f := lp.filter(nil, nil, nil)
+	require.Equal(t, 1, len(f.Addresses))
+	assert.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), f.Addresses[0])
+
+	_, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}})
+	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter().Topics)
 
-	// Should de-dupe eventSigs
-	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}))
+	// Should de-dupe EventSigs
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 
-	// Should de-dupe addresses
-	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}))
+	// Should de-dupe Addresses
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 
-	require.Error(t, lp.assertInFilter([]common.Hash{common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65")}, []common.Address{a1}))
-	require.Error(t, lp.assertInFilter([]common.Hash{common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65")}, []common.Address{a1}))
-	_, err := lp.Logs(1, 1, EmitterABI.Events["Log1"].ID, common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbd"))
+	// Address required.
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{}})
 	require.Error(t, err)
+	// Event required
+	_, err = lp.RegisterFilter(Filter{[]common.Hash{}, []common.Address{a1}})
+	require.Error(t, err)
+	// ID should increment
+	id1, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
+	id2, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
+	assert.Equal(t, id1+1, id2)
+	// Removing non-existence filterID should error.
+	err = lp.UnregisterFilter(id1)
+	require.NoError(t, err)
+	err = lp.UnregisterFilter(id1)
+	require.Error(t, err)
+	// Continues to increment fine after removing.
+	id3, err := lp.RegisterFilter(Filter{[]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	require.NoError(t, err)
+	assert.Equal(t, id2+1, id3)
 }
 
 func TestLogPoller_GetBlocks(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 
-	require.NoError(t, th.LogPoller.MergeFilter([]common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2},
-	))
+	_, err := th.LogPoller.RegisterFilter(Filter{[]common.Hash{
+		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}},
+	)
+	require.NoError(t, err)
 
 	// LP retrieves block 1
 	blockNums := []uint64{1}
@@ -524,7 +552,7 @@ func TestLogPoller_GetBlocks(t *testing.T) {
 }
 
 func TestGetReplayFromBlock(t *testing.T) {
-	th := SetupTH(t)
+	th := SetupTH(t, 2, 3, 2)
 	// Commit a few blocks
 	for i := 0; i < 10; i++ {
 		th.Client.Commit()
@@ -554,4 +582,35 @@ func TestGetReplayFromBlock(t *testing.T) {
 	fromBlock, err = th.LogPoller.getReplayFromBlock(testutils.Context(t), requested)
 	require.NoError(t, err)
 	assert.Equal(t, requested, fromBlock)
+}
+
+func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
+	lggr := logger.TestLogger(b)
+	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2, 1000)
+	for i := 0; i < nFilters; i++ {
+		var addresses []common.Address
+		var events []common.Hash
+		for j := 0; j < nAddresses; j++ {
+			addresses = append(addresses, common.BigToAddress(big.NewInt(int64(j+1))))
+		}
+		for j := 0; j < nEvents; j++ {
+			events = append(events, common.BigToHash(big.NewInt(int64(j+1))))
+		}
+		_, err := lp.RegisterFilter(Filter{EventSigs: events, Addresses: addresses})
+		require.NoError(b, err)
+	}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		lp.filter(nil, nil, nil)
+	}
+}
+
+func BenchmarkFilter10_1(b *testing.B) {
+	benchmarkFilter(b, 10, 1, 1)
+}
+func BenchmarkFilter100_10(b *testing.B) {
+	benchmarkFilter(b, 100, 10, 10)
+}
+func BenchmarkFilter1000_100(b *testing.B) {
+	benchmarkFilter(b, 1000, 100, 100)
 }

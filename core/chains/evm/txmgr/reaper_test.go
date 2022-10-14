@@ -51,7 +51,6 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	// Confirmed in block number 5
 	cltest.MustInsertConfirmedEthTxWithReceipt(t, borm, from, nonce, 5)
-	nonce++
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)

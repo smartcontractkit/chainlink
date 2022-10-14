@@ -25,7 +25,7 @@ func TestMarshaledProof(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	key := cltest.DefaultVRFKey
-	keyStore.VRF().Add(key)
+	require.NoError(t, keyStore.VRF().Add(key))
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)

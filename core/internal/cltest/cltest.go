@@ -39,6 +39,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -59,10 +60,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -186,7 +189,7 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, cfg)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
@@ -242,6 +245,7 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 	return server.WSURL().String()
 }
 
+// Deprecated: use NewTestGeneralConfigV2
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	reaperInterval := time.Duration(0) // disable reaper
@@ -255,9 +259,32 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
 
+// NewTestGeneralConfigV2 is like NewTestGeneralConfig but uses configtest/v2.
+func NewTestGeneralConfigV2(t testing.TB) config.GeneralConfig {
+	return configtest2.NewGeneralConfig(t, TestOverrides)
+}
+
+// TestOverrides are the default overrides used by NewTestGeneralConfigV2.
+func TestOverrides(c *chainlink.Config, s *chainlink.Secrets) {
+	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
+	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
+	enabled := false
+	c.P2P.V1.Enabled = &enabled
+	c.P2P.V2.Enabled = &enabled
+}
+
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
 // Useful for testing controllers
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
+	t.Helper()
+
+	c := NewTestGeneralConfigV2(t)
+
+	return NewApplicationWithConfig(t, c)
+}
+
+// Deprecated: use NewApplicationEVMDisabled
+func NewLegacyApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
@@ -266,12 +293,22 @@ func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	return NewApplicationWithConfig(t, c)
 }
 
+// NewLegacyApplication creates a New TestApplication along with a (legacy) NewConfig
+// It mocks the keystore with no keys or accounts by default
+func NewLegacyApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
+	t.Helper()
+
+	c := NewTestGeneralConfig(t)
+
+	return NewApplicationWithConfig(t, c, flagsAndDeps...)
+}
+
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	c := NewTestGeneralConfig(t)
+	c := NewTestGeneralConfigV2(t)
 
 	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
@@ -281,24 +318,26 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	config := NewTestGeneralConfig(t)
+	config := NewTestGeneralConfigV2(t)
 	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	require.NoError(t, app.KeyStore.Unlock(Password))
-	var chainID utils.Big = *utils.NewBig(&FixtureChainID)
+	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
 			app.Key = v
 		case evmtypes.DBChain:
 			chainID = v.ID
+		case *utils.Big:
+			chainID = *v
 		}
 	}
 	if app.Key.Address == utils.ZeroAddress {
@@ -315,8 +354,8 @@ const (
 )
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
-// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
-func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
+func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
 
@@ -332,10 +371,23 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		lggr = logger.TestLogger(t)
 	}
 
+	var auditLogger audit.AuditLogger
+	for _, dep := range flagsAndDeps {
+		audLgger, is := dep.(audit.AuditLogger)
+		if is {
+			auditLogger = audLgger
+			break
+		}
+	}
+
+	if auditLogger == nil {
+		auditLogger = audit.NoopLogger
+	}
+
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
 	url := cfg.DatabaseURL()
-	db, err := pg.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), pg.Config{
+	db, err := pg.NewConnection(url.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), pg.Config{
 		Logger:       lggr,
 		MaxOpenConns: cfg.ORMMaxOpenConns(),
 		MaxIdleConns: cfg.ORMMaxIdleConns(),
@@ -370,13 +422,25 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if ethClient == nil {
-		ethClient = evmclient.NewNullClient(nil, lggr)
-	}
-	if chainORM == nil {
-		chainORM = evm.NewORM(db, lggr, cfg)
+		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	if h, ok := cfg.(v2.HasEVMConfigs); ok {
+		var ids []utils.Big
+		for _, c := range h.EVMConfigs() {
+			ids = append(ids, *c.ChainID)
+		}
+		if len(ids) > 0 {
+			o := chainORM
+			if o == nil {
+				o = evm.NewORM(db, lggr, cfg)
+			}
+			if err = o.EnsureChains(ids); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
@@ -385,7 +449,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(c evmtypes.DBChain) evmclient.Client {
+		GenEthClient: func(_ *big.Int) evmclient.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}
@@ -397,42 +461,90 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 	if cfg.TerraEnabled() {
 		terraLggr := lggr.Named("Terra")
-		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		opts := terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
 			DB:               db,
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
-			ORM:              terra.NewORM(db, terraLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
+			cfgs := newCfg.TerraConfigs()
+			opts.ORM = terra.NewORMImmut(cfgs)
+			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
+			}
+		} else {
+			opts.ORM = terra.NewORM(db, terraLggr, cfg)
+			chains.Terra, err = terra.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
 	}
 	if cfg.SolanaEnabled() {
 		solLggr := lggr.Named("Solana")
-		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
-			Config:           cfg,
-			Logger:           solLggr,
-			DB:               db,
-			KeyStore:         keyStore.Solana(),
-			EventBroadcaster: eventBroadcaster,
-			ORM:              solana.NewORM(db, solLggr, cfg),
-		})
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			DB:       db,
+			KeyStore: keyStore.Solana(),
+		}
+		if newCfg, ok := cfg.(interface {
+			SolanaConfigs() solana.SolanaConfigs
+		}); ok {
+			cfgs := newCfg.SolanaConfigs()
+			opts.ORM = solana.NewORMImmut(cfgs)
+			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
+			}
+		} else {
+			opts.ORM = solana.NewORM(db, solLggr, cfg)
+			chains.Solana, err = solana.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")
-		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+		opts := starknet.ChainSetOpts{
 			Config:   cfg,
 			Logger:   starkLggr,
-			DB:       db,
 			KeyStore: keyStore.StarkNet(),
-			// EventBroadcaster: eventBroadcaster,
-			ORM: starknet.NewORM(db, starkLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface {
+			StarknetConfigs() starknet.StarknetConfigs
+		}); ok {
+			cfgs := newCfg.StarknetConfigs()
+			opts.ORM = starknet.NewORMImmut(cfgs)
+			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
+			}
+		} else {
+			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
+			chains.StarkNet, err = starknet.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
@@ -445,6 +557,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		Logger:                   lggr,
+		AuditLogger:              auditLogger,
 		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
 		RestrictedHTTPClient:     c,
@@ -1571,7 +1684,7 @@ func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := NewTestGeneralConfig(t)
+	cfg := NewTestGeneralConfigV2(t)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 

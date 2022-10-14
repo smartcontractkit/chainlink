@@ -33,11 +33,11 @@ require (
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/hdevalence/ed25519consensus v0.0.0-20220222234857-c00d1f31bab3
 	github.com/jackc/pgconn v1.13.0
-	github.com/jackc/pgx/v4 v4.17.0
+	github.com/jackc/pgx/v4 v4.17.2
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a
-	github.com/lib/pq v1.10.6
+	github.com/lib/pq v1.10.7
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.7
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
@@ -57,13 +57,14 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
-	github.com/shirou/gopsutil/v3 v3.22.2
+	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595
-	github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220928184023-bca2ca7457a6
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220913010951-94dd0368b953
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220824174951-d1e2bcd51e46
+	github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220930034647-edd5a863b876
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
+	github.com/smartcontractkit/ocr2keepers v0.4.1
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -76,8 +77,9 @@ require (
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.14.3
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
+	github.com/umbracle/ethgo v0.1.3
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
-	github.com/urfave/cli v1.22.9
+	github.com/urfave/cli v1.22.10
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.13
 	go.uber.org/atomic v1.9.0
@@ -93,6 +95,13 @@ require (
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+)
+
+require (
+	github.com/cosmos/gorocksdb v1.2.0 // indirect
+	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
+	github.com/valyala/fastjson v1.4.1 // indirect
 )
 
 require (
@@ -124,7 +133,6 @@ require (
 	github.com/confio/ics23/go v0.6.6 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
-	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.17.3 // indirect
 	github.com/cosmos/ibc-go v1.1.5 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
@@ -173,7 +181,7 @@ require (
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/certificate-transparency-go v1.0.21 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
@@ -312,8 +320,8 @@ require (
 	github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
-	github.com/tklauser/go-sysconf v0.3.9 // indirect
-	github.com/tklauser/numcpus v0.3.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.10 // indirect
+	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/urfave/cli/v2 v2.10.2 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -234,16 +235,19 @@ func TestORM(t *testing.T) {
 
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
-	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	gcfg := cltest.NewTestGeneralConfigV2(t)
+	config := evmtest.NewChainScopedConfig(t, gcfg)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: gcfg,
+		Client: client.NewNullClient(gcfg.DefaultChainID(), lggr)})
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
-	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
+	korm := keeper.NewORM(db, lggr, nil, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -330,7 +334,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 }
 
 func TestORM_CreateJob_VRFV2(t *testing.T) {
-	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	config := evmtest.NewLegacyChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -405,10 +409,10 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
-	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	config := evmtest.NewLegacyChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -425,16 +429,16 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	require.NoError(t, db.Get(&relay, `SELECT relay FROM bootstrap_specs LIMIT 1`))
 	require.Equal(t, "evm", relay)
 
-	jobORM.DeleteJob(jb.ID)
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "bootstrap_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
-	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	config := evmtest.NewLegacyChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
