@@ -3,9 +3,10 @@ package contracts
 import (
 	"errors"
 	"fmt"
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"math/big"
 	"time"
+
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

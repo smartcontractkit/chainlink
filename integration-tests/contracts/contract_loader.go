@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 

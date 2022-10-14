@@ -3,11 +3,12 @@ package actions
 //revive:disable:dot-imports
 import (
 	"context"
+	"math"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
-	"math"
-	"math/big"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
