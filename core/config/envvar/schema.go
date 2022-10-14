@@ -141,7 +141,6 @@ type ConfigSchema struct {
 	// Global
 	DefaultChainID *big.Int `env:"ETH_CHAIN_ID"`
 	// Per-chain overrides
-	AutomationTransmitGasLimit        uint32        `env:"AUTOMATION_TRANSMIT_GAS_LIMIT"`
 	BalanceMonitorEnabled             bool          `env:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                uint64        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BlockBackfillSkip                 bool          `env:"BLOCK_BACKFILL_SKIP" default:"false"`
@@ -158,6 +157,7 @@ type ConfigSchema struct {
 	EvmLogKeepBlocksDepth             uint32        `env:"ETH_LOG_KEEP_BLOCKS_DEPTH"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
+	OCR2AutomationGasLimit            uint32        `env:"OCR2_AUTOMATION_GAS_LIMIT"`
 	OperatorFactoryAddress            string        `env:"OPERATOR_FACTORY_ADDRESS"`
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`

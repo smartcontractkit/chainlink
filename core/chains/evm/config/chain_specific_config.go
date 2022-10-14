@@ -23,7 +23,6 @@ type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
 	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	chainSpecificConfigDefaultSet struct {
-		automationTransmitGasLimit                 uint32
 		balanceMonitorEnabled                      bool
 		blockEmissionIdleWarningThreshold          time.Duration
 		blockHistoryEstimatorBatchSize             uint32
@@ -85,6 +84,9 @@ type (
 		ocrContractTransmitterTransmitTimeout time.Duration
 		ocrDatabaseTimeout                    time.Duration
 		ocrObservationGracePeriod             time.Duration
+
+		// Chain specific OCR2 config
+		ocr2AutomationGasLimit uint32
 	}
 )
 
@@ -109,7 +111,6 @@ func setChainSpecificConfigDefaultSets() {
 	// See: https://app.clubhouse.io/chainlinklabs/story/11091/chain-chainSpecificConfigDefaultSets-should-move-to-toml-json-files
 
 	fallbackDefaultSet = chainSpecificConfigDefaultSet{
-		automationTransmitGasLimit:                 5300000, // 5.3M: 5M upkeep gas limit + 300K overhead
 		balanceMonitorEnabled:                      true,
 		blockEmissionIdleWarningThreshold:          1 * time.Minute,
 		blockHistoryEstimatorBatchSize:             4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
@@ -159,6 +160,7 @@ func setChainSpecificConfigDefaultSets() {
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
 		ocrObservationGracePeriod:             1 * time.Second,
+		ocr2AutomationGasLimit:                5300000, // 5.3M: 5M upkeep gas limit + 300K overhead
 		rpcDefaultBatchSize:                   100,
 		complete:                              true,
 	}
@@ -309,7 +311,6 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
-	optimismMainnet.automationTransmitGasLimit = 6500000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	optimismMainnet.blockEmissionIdleWarningThreshold = 0
 	optimismMainnet.nodeDeadAfterNoNewHeadersThreshold = 0    // Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
@@ -324,6 +325,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.ocrContractConfirmations = 1
+	optimismMainnet.ocr2AutomationGasLimit = 6500000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"

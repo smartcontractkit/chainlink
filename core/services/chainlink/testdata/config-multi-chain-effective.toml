@@ -251,8 +251,8 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
 
-[EVM.Automation]
-TransmitGasLimit = 5300000
+[EVM.OCR2.Automation]
+GasLimit = 5300000
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -330,8 +330,8 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
 
-[EVM.Automation]
-TransmitGasLimit = 5300000
+[EVM.OCR2.Automation]
+GasLimit = 5300000
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -403,8 +403,8 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
 
-[EVM.Automation]
-TransmitGasLimit = 5300000
+[EVM.OCR2.Automation]
+GasLimit = 5300000
 
 [[EVM.Nodes]]
 Name = 'primary'

@@ -301,20 +301,6 @@ func (_m *ChainScopedConfig) AutoPprofProfileRoot() string {
 	return r0
 }
 
-// AutomationTransmitGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutomationTransmitGasLimit() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
 // BalanceMonitorEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) BalanceMonitorEnabled() bool {
 	ret := _m.Called()
@@ -2084,6 +2070,20 @@ func (_m *ChainScopedConfig) NodeSelectionMode() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// OCR2AutomationGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2AutomationGasLimit() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0

@@ -100,8 +100,10 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			DatabaseTimeout:                    models.MustNewDuration(set.ocrDatabaseTimeout),
 			ObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
 		},
-		Automation: &v2.Automation{
-			TransmitGasLimit: ptr(set.automationTransmitGasLimit),
+		OCR2: &v2.OCR2{
+			Automation: &v2.Automation{
+				GasLimit: ptr(set.ocr2AutomationGasLimit),
+			},
 		},
 	}
 	if *c.ChainType == "" {
@@ -125,8 +127,8 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	if isZeroPtr(c.OCR) {
 		c.OCR = nil
 	}
-	if isZeroPtr(c.Automation) {
-		c.Automation = nil
+	if isZeroPtr(c.OCR2) {
+		c.OCR2 = nil
 	}
 	return c
 }

@@ -61,5 +61,5 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
 
-[Automation]
-TransmitGasLimit = 5300000
+[OCR2.Automation]
+GasLimit = 5300000

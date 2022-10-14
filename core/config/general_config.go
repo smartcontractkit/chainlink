@@ -196,7 +196,6 @@ type BasicConfig interface {
 // If set the global ENV will override everything
 // The second bool indicates if it is set or not
 type GlobalConfig interface {
-	GlobalAutomationTransmitGasLimit() (uint32, bool)
 	GlobalBalanceMonitorEnabled() (bool, bool)
 	GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool)
 	GlobalBlockHistoryEstimatorBatchSize() (uint32, bool)
@@ -247,6 +246,7 @@ type GlobalConfig interface {
 	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
 	GlobalOCRDatabaseTimeout() (time.Duration, bool)
 	GlobalOCRObservationGracePeriod() (time.Duration, bool)
+	GlobalOCR2AutomationGasLimit() (uint32, bool)
 	GlobalOperatorFactoryAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
@@ -1245,10 +1245,6 @@ func lookupEnv[T any](c *generalConfig, k string, parse func(string) (T, error))
 
 // EVM methods
 
-func (c *generalConfig) GlobalAutomationTransmitGasLimit() (uint32, bool) {
-	return lookupEnv(c, envvar.Name("AutomationTransmitGasLimit"), parse.Uint32)
-}
-
 func (c *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
 	return lookupEnv(c, envvar.Name("BalanceMonitorEnabled"), strconv.ParseBool)
 }
@@ -1414,6 +1410,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 
 func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
 	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
+func (c *generalConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("OCR2AutomationGasLimit"), parse.Uint32)
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

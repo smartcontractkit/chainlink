@@ -254,7 +254,7 @@ type Chain struct {
 
 	OCR *OCR
 
-	Automation *Automation
+	OCR2 *OCR2
 }
 
 func (c Chain) ValidateConfig() (err error) {
@@ -408,13 +408,26 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 }
 
+type OCR2 struct {
+	Automation *Automation
+}
+
+func (o *OCR2) setFrom(f *OCR2) {
+	if f.Automation != nil {
+		if o.Automation == nil {
+			o.Automation = &Automation{}
+		}
+		o.Automation.setFrom(f.Automation)
+	}
+}
+
 type Automation struct {
-	TransmitGasLimit *uint32
+	GasLimit *uint32
 }
 
 func (a *Automation) setFrom(f *Automation) {
-	if v := f.TransmitGasLimit; v != nil {
-		a.TransmitGasLimit = v
+	if v := f.GasLimit; v != nil {
+		a.GasLimit = v
 	}
 }
 

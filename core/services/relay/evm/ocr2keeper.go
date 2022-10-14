@@ -67,8 +67,8 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		return nil, err
 	}
 
-	gasLimit := cfgWatcher.chain.Config().AutomationTransmitGasLimit()
-	contractTransmitter, err := newPipelineContractTransmitter(r.lggr, rargs, pargs.TransmitterID, gasLimit, cfgWatcher, r.spec, r.pr)
+	gasLimit := cfgWatcher.chain.Config().OCR2AutomationGasLimit()
+	contractTransmitter, err := newPipelineContractTransmitter(r.lggr, rargs, pargs.TransmitterID, &gasLimit, cfgWatcher, r.spec, r.pr)
 	if err != nil {
 		return nil, err
 	}

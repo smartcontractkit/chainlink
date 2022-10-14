@@ -51,7 +51,6 @@ type GeneralConfigOverrides struct {
 	ShutdownGracePeriod                     *time.Duration
 	Dialect                                 dialects.DialectName
 	EthereumURL                             null.String
-	GlobalAutomationTransmitGasLimit        null.Int
 	GlobalBalanceMonitorEnabled             null.Bool
 	GlobalBlockEmissionIdleWarningThreshold *time.Duration
 	GlobalChainType                         null.String
@@ -89,6 +88,7 @@ type GeneralConfigOverrides struct {
 	GlobalMinIncomingConfirmations          null.Int
 	GlobalMinimumContractPayment            *assets.Link
 	GlobalOCRObservationGracePeriod         time.Duration
+	GlobalOCR2AutomationGasLimit            null.Int
 	KeeperCheckUpkeepGasPriceFeatureEnabled null.Bool
 	KeeperRegistryMaxPerformDataSize        null.Int
 	KeeperMaximumGracePeriod                null.Int
@@ -540,13 +540,6 @@ func (c *TestGeneralConfig) P2PEnabled() bool {
 	return c.GeneralConfig.P2PEnabled()
 }
 
-func (c *TestGeneralConfig) GlobalAutomationTransmitGasLimit() (uint32, bool) {
-	if c.Overrides.GlobalAutomationTransmitGasLimit.Valid {
-		return uint32(c.Overrides.GlobalAutomationTransmitGasLimit.Int64), true
-	}
-	return c.GeneralConfig.GlobalAutomationTransmitGasLimit()
-}
-
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
 	if c.Overrides.GlobalGasEstimatorMode.Valid {
 		return c.Overrides.GlobalGasEstimatorMode.String, true
@@ -826,6 +819,13 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 		return c.Overrides.LinkContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalLinkContractAddress()
+}
+
+func (c *TestGeneralConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
+	if c.Overrides.GlobalOCR2AutomationGasLimit.Valid {
+		return uint32(c.Overrides.GlobalOCR2AutomationGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalOCR2AutomationGasLimit()
 }
 
 // GlobalOperatorFactoryAddress allows to override the OperatorFactory contract address

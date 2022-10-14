@@ -189,10 +189,10 @@ func (c *Chain) SetFrom(f *Chain) {
 		}
 		c.OCR.setFrom(f.OCR)
 	}
-	if f.Automation != nil {
-		if c.Automation == nil {
-			c.Automation = &Automation{}
+	if f.OCR2 != nil {
+		if c.OCR2 == nil {
+			c.OCR2 = &OCR2{}
 		}
-		c.Automation.setFrom(f.Automation)
+		c.OCR2.setFrom(f.OCR2)
 	}
 }

@@ -57,10 +57,6 @@ func (c *ChainScoped) Validate() (err error) {
 	return
 }
 
-func (c *ChainScoped) AutomationTransmitGasLimit() uint32 {
-	return uint32(*c.cfg.Automation.TransmitGasLimit)
-}
-
 func (c *ChainScoped) BlockBackfillDepth() uint64 {
 	return uint64(*c.cfg.BlockBackfillDepth)
 }
@@ -321,4 +317,8 @@ func (c *ChainScoped) OCRObservationGracePeriod() time.Duration {
 
 func (c *ChainScoped) OCRDatabaseTimeout() time.Duration {
 	return c.cfg.OCR.DatabaseTimeout.Duration()
+}
+
+func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
+	return uint32(*c.cfg.OCR2.Automation.GasLimit)
 }

@@ -28,7 +28,6 @@ import (
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
 
-	AutomationTransmitGasLimit() uint32
 	BalanceMonitorEnabled() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	BlockHistoryEstimatorBatchSize() (size uint32)
@@ -86,6 +85,9 @@ type ChainScopedOnlyConfig interface {
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
 	OCRDatabaseTimeout() time.Duration
+
+	// OCR2 chain specific config
+	OCR2AutomationGasLimit() uint32
 
 	SetEvmGasPriceDefault(value *big.Int) error
 }
@@ -1145,16 +1147,6 @@ func (c *chainScopedConfig) FlagsContractAddress() string {
 	return c.defaultSet.flagsContractAddress
 }
 
-// AutomationTransmitGasLimit is the gas limit
-func (c *chainScopedConfig) AutomationTransmitGasLimit() uint32 {
-	val, ok := c.GeneralConfig.GlobalAutomationTransmitGasLimit()
-	if ok {
-		c.logEnvOverrideOnce("AutomationTransmitGasLimit", val)
-		return val
-	}
-	return c.defaultSet.automationTransmitGasLimit
-}
-
 // BalanceMonitorEnabled enables the balance monitor
 func (c *chainScopedConfig) BalanceMonitorEnabled() bool {
 	val, ok := c.GeneralConfig.GlobalBalanceMonitorEnabled()
@@ -1279,6 +1271,16 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 		return val
 	}
 	return c.defaultSet.nodeSelectionMode
+}
+
+// OCR2AutomationGasLimit is the gas limit for automation OCR2 plugin
+func (c *chainScopedConfig) OCR2AutomationGasLimit() uint32 {
+	val, ok := c.GeneralConfig.GlobalOCR2AutomationGasLimit()
+	if ok {
+		c.logEnvOverrideOnce("OCR2AutomationGasLimit", val)
+		return val
+	}
+	return c.defaultSet.ocr2AutomationGasLimit
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config

@@ -22,5 +22,5 @@ BlockHistorySize = 0
 HistoryDepth = 10
 SamplingInterval = '1s'
 
-[Automation]
-TransmitGasLimit = 6500000
+[OCR2.Automation]
+GasLimit = 6500000
