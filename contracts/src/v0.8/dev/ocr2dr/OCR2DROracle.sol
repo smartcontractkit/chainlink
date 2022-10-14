@@ -40,7 +40,7 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
     return "OCR2DROracle 0.0.0";
   }
 
-  function getDONPublicKey() external view returns (bytes32) {
+  function getDONPublicKey() external view override returns (bytes32) {
     return s_donPublicKey;
   }
 

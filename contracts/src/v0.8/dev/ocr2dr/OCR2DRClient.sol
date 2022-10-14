@@ -24,7 +24,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     setOracle(oracle);
   }
 
-  function getDONPublicKey() external view returns (bytes32) {
+  function getDONPublicKey() external view override returns (bytes32) {
     return s_oracle.getDONPublicKey();
   }
 
