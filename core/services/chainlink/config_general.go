@@ -489,15 +489,15 @@ func (g *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return *g.c.Keeper.DefaultTransactionQueueDepth
 }
 
-func (g *generalConfig) KeeperGasPriceBufferPercent() uint32 {
+func (g *generalConfig) KeeperGasPriceBufferPercent() uint16 {
 	return *g.c.Keeper.GasPriceBufferPercent
 }
 
-func (g *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
+func (g *generalConfig) KeeperGasTipCapBufferPercent() uint16 {
 	return *g.c.Keeper.GasTipCapBufferPercent
 }
 
-func (g *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
+func (g *generalConfig) KeeperBaseFeeBufferPercent() uint16 {
 	return *g.c.Keeper.BaseFeeBufferPercent
 }
 

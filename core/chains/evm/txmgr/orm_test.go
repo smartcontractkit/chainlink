@@ -1,9 +1,9 @@
 package txmgr_test
 
 import (
-	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -28,7 +28,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgr.EthTxAttemptBroadcast
-	attempt.GasPrice = utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = assets.NewWeiI(3)
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
@@ -76,7 +76,7 @@ func TestORM_EthTransactions(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgr.EthTxAttemptBroadcast
-	attempt.GasPrice = utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = assets.NewWeiI(3)
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
@@ -130,7 +130,7 @@ func TestORM(t *testing.T) {
 
 		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgr.EthTxAttemptBroadcast
-		attemptL.GasPrice = utils.NewBigI(42)
+		attemptL.GasPrice = assets.NewWeiI(42)
 		err = orm.InsertEthTxAttempt(&attemptL)
 		require.NoError(t, err)
 		assert.Greater(t, int(attemptL.ID), 0)

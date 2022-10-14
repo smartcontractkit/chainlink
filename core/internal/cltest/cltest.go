@@ -1117,7 +1117,7 @@ func Head(val interface{}) *evmtypes.Head {
 func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
 	txs := make([]gas.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gas.Transaction{Type: 0x0, GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+		txs[i] = gas.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
 	}
 	return txs
 }
@@ -1127,7 +1127,7 @@ func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
 func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
 	txs := make([]gas.Transaction, len(tipCaps))
 	for i, tipCap := range tipCaps {
-		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
+		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }
