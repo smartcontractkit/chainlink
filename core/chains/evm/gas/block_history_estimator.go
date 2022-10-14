@@ -702,18 +702,18 @@ func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []Block, percen
 	idx := ((len(gasPrices) - 1) * percentile) / 100
 	gasPrice = gasPrices[idx]
 
-	if eip1559 && len(tipCaps) == 0 {
-		return nil, nil, ErrNoSuitableTransactions
-	} else if eip1559 {
-		sort.Slice(tipCaps, func(i, j int) bool { return tipCaps[i].Cmp(tipCaps[j]) < 0 })
-		if f2 != nil {
-			f2(tipCaps)
-		}
-		idx := ((len(tipCaps) - 1) * percentile) / 100
-		tipCap = tipCaps[idx]
+	if !eip1559 {
+		return
 	}
-
-	return
+	if len(tipCaps) == 0 {
+		return nil, nil, ErrNoSuitableTransactions
+	} 
+	sort.Slice(tipCaps, func(i, j int) bool { return tipCaps[i].Cmp(tipCaps[j]) < 0 })
+	if f2 != nil {
+		f2(tipCaps)
+	}
+	idx := ((len(tipCaps) - 1) * percentile) / 100
+	tipCap = tipCaps[idx]
 }
 
 func (b *BlockHistoryEstimator) getPercentilePricesFromBlocks(blocks []Block, percentile int, eip1559 bool) (gasPrices, tipCaps []*assets.Wei) {
