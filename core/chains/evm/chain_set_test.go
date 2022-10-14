@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -24,7 +25,7 @@ func TestUpdateKeySpecificMaxGasPrice_NewEntry(t *testing.T) {
 	t.Parallel()
 
 	address := common.HexToAddress("0x1234567890")
-	price := big.NewInt(12345)
+	price := assets.NewWeiI(12345)
 	updater := evm.UpdateKeySpecificMaxGasPrice(address, price)
 	config := types.ChainCfg{}
 
@@ -32,20 +33,20 @@ func TestUpdateKeySpecificMaxGasPrice_NewEntry(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, config.KeySpecific)
-	require.Equal(t, (*utils.Big)(price), config.KeySpecific[address.Hex()].EvmMaxGasPriceWei)
+	require.Equal(t, price, config.KeySpecific[address.Hex()].EvmMaxGasPriceWei)
 }
 
 func TestUpdateKeySpecificMaxGasPrice_ExistingEntry(t *testing.T) {
 	t.Parallel()
 
 	address := common.HexToAddress("0x1234567890")
-	price1 := big.NewInt(12345)
-	price2 := big.NewInt(54321)
+	price1 := assets.NewWeiI(12345)
+	price2 := assets.NewWeiI(54321)
 	updater := evm.UpdateKeySpecificMaxGasPrice(address, price2)
 	config := types.ChainCfg{
 		KeySpecific: map[string]types.ChainCfg{
 			"0x1234567890": {
-				EvmMaxGasPriceWei: (*utils.Big)(price1),
+				EvmMaxGasPriceWei: (*assets.Wei)(price1),
 			},
 		},
 	}
@@ -54,7 +55,7 @@ func TestUpdateKeySpecificMaxGasPrice_ExistingEntry(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, config.KeySpecific)
-	require.Equal(t, (*utils.Big)(price2), config.KeySpecific[address.Hex()].EvmMaxGasPriceWei)
+	require.Equal(t, price2, config.KeySpecific[address.Hex()].EvmMaxGasPriceWei)
 }
 
 func TestUpdateConfig(t *testing.T) {
@@ -69,7 +70,7 @@ func TestUpdateConfig(t *testing.T) {
 
 	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
 	address := common.HexToAddress("0x1234567890")
-	price := big.NewInt(12345)
+	price := assets.NewWeiI(12345)
 	updater := evm.UpdateKeySpecificMaxGasPrice(address, price)
 
 	chain, err := chainSet.Get(&cltest.FixtureChainID)
