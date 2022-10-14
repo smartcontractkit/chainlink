@@ -39,6 +39,7 @@ func TestClient_IndexTerraChains(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateTerraChain(t *testing.T) {
 	t.Parallel()
 
@@ -66,6 +67,7 @@ func TestClient_CreateTerraChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveTerraChain(t *testing.T) {
 	t.Parallel()
 
@@ -97,6 +99,7 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigureTerraChain(t *testing.T) {
 	t.Parallel()
 

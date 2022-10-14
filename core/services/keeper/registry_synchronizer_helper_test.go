@@ -14,6 +14,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -37,7 +38,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	keyStore := cltest.NewKeyStore(t, db, cfg)

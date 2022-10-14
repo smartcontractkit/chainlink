@@ -14,7 +14,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -29,10 +29,7 @@ type TestEVMForwardersController struct {
 func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) *TestEVMForwardersController {
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
-	app := cltest.NewApplicationWithConfig(t, configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cltest.TestOverrides(c, s)
-		overrideFn(c, s)
-	}))
+	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)

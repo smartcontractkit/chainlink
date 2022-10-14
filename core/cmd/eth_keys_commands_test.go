@@ -146,6 +146,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.Equal(t, 3, len(keys))
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_UpdateETHKey(t *testing.T) {
 	t.Parallel()
 
