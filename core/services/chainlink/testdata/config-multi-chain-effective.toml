@@ -46,7 +46,7 @@ UseBatchSend = true
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = 'event'
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 
 [Log]
 DatabaseQueries = false
