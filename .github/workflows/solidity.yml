@@ -7,6 +7,22 @@ env:
   NODE_OPTIONS: --max_old_space_size=5120
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - 'contracts/**/*'
+              - '.github/workflows/solidity.yml'
+
   split-tests:
     name: Split Solidity Tests
     runs-on: ubuntu-latest
@@ -30,8 +46,8 @@ jobs:
           config: ./contracts/ci.json
 
   solidity-coverage-splits:
-    needs: [split-tests]
-    name: Solidity Coverage ${{ matrix.split.id }}
+    needs: [changes, split-tests]
+    name: Solidity Coverage ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     strategy:
       fail-fast: false
       matrix:
@@ -39,6 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
@@ -49,52 +66,63 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Setup Hardhat
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-hardhat
         with:
           namespace: coverage
       - name: Run coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         env:
           SPLIT: ${{ matrix.split.coverageTests }}
         shell: bash
         run: pnpm coverage --testfiles "$SPLIT"
         working-directory: contracts
       - name: Push coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ./tools/bin/codecov -f ./contracts/coverage.json
       - name: Rename coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.split.idx }}.json
       - name: Upload coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: actions/upload-artifact@v3
         with:
           name: solidity-coverage-${{ matrix.split.idx }}
           path: ./contracts/coverage-${{ matrix.split.idx }}.json
 
   solidity-coverage:
-    needs: [solidity-coverage-splits]
-    name: Solidity Coverage
+    needs: [changes, solidity-coverage-splits]
+    name: Solidity Coverage ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Make coverage directory
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: mkdir ./contracts/coverage-reports
       - name: Download coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: actions/download-artifact@v3
         with:
           path: ./contracts/coverage-reports
       - name: Display structure of downloaded files
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ls -R coverage-reports
         working-directory: contracts
       - name: Generate merged report
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: pnpm istanbul report text text-summary
         working-directory: contracts
 
   solidity-splits:
-    needs: [split-tests]
-    name: Solidity ${{ matrix.split.id }}
+    needs: [changes, split-tests]
+    name: Solidity ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     strategy:
       fail-fast: false
       matrix:
@@ -102,6 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
@@ -112,29 +141,34 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Setup Hardhat
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-hardhat
         with:
           namespace: coverage
       - name: Run tests
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         env:
           SPLIT: ${{ matrix.split.tests }}
         working-directory: contracts
         run: pnpm test -- $SPLIT
 
   solidity:
-    needs: [solidity-splits]
+    needs: [changes, solidity-splits]
     name: Solidity
     runs-on: ubuntu-latest
     steps:
       - run: echo 'Solidity tests finished!'
 
   prepublish-test:
-    name: Prepublish Test
+    needs: [changes]
+    name: Prepublish Test ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
@@ -145,16 +179,20 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Run Prepublish test
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
         run: pnpm prepublishOnly
 
   native-compile:
-    name: Native Compilation
+    needs: [changes]
+    name: Native Compilation ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
@@ -165,26 +203,33 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
       - name: Setup Go
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
       - name: Run native compile and generate wrappers
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: make go-solidity-wrappers
       - name: Verify local solc binaries
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ./tools/ci/check_solc_hashes
       - name: Display git diff
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: git diff --minimal
 
   lint:
     defaults:
       run:
         working-directory: contracts
-    name: Lint
+    needs: [changes]
+    name: Lint ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
@@ -195,18 +240,22 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: pnpm lint
 
   prettier:
     defaults:
       run:
         working-directory: contracts
+    needs: [changes]
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
@@ -217,6 +266,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Run prettier check
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: pnpm prettier:check
