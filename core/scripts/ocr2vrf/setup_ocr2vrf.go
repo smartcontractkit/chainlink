@@ -94,7 +94,14 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	fmt.Println("Deploying beacon consumer...")
 	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
+	fmt.Println("Creating subscription...")
+	createSubscription(e, vrfCoordinatorAddress.String())
+
+	fmt.Println("Adding consumer to subscription...")
+	addConsumer(e, vrfCoordinatorAddress.String(), consumerAddress.String(), big.NewInt(1))
+
 	var forwarderAddresses []common.Address
+	var payees []common.Address
 	var forwarderAddressesStrings []string
 	// If using the forwarder, set up a forwarder for each node.
 	if *useForwarder {
@@ -104,9 +111,13 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 			f := deployAuthorizedForwarder(e, link, e.Owner.From)
 			forwarderAddresses = append(forwarderAddresses, f)
 			forwarderAddressesStrings = append(forwarderAddressesStrings, f.String())
+			payees = append(payees, e.Owner.From)
 		}
 		fmt.Printf("ForwarderAddresses : %v", forwarderAddressesStrings)
 	}
+
+	fmt.Printf("Setting EOA: %s as payee for forwarder addresses: %v", e.Owner.From, forwarderAddressesStrings)
+	setPayees(e, vrfBeaconAddress.String(), forwarderAddresses, payees)
 
 	fmt.Println("Deploying batch beacon consumer...")
 	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
