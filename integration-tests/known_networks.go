@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 )
 
 // Pre-configured test networks and their connections
@@ -109,7 +109,7 @@ var (
 
 // DetermineNetwork determines which network
 func determineSelectedNetwork() *blockchain.EVMNetwork {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	logging.Init()
 	setNetwork := strings.ToUpper(os.Getenv("SELECTED_NETWORK"))
 	if chosenNetwork, valid := mappedNetworks[setNetwork]; valid {
 		log.Info().
@@ -127,12 +127,11 @@ func determineSelectedNetwork() *blockchain.EVMNetwork {
 	log.Fatal().
 		Str("SELECTED_NETWORK", setNetwork).
 		Str("Valid Networks", strings.Join(validNetworks, ", ")).
-		Msg("SELECTED_NETWORK value of is invalid. Use a listed valid one")
+		Msg("SELECTED_NETWORK value is invalid. Use a valid one")
 	return nil
 }
 
 func getURLs(prefix string) []string {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	prefix = strings.Trim(prefix, "_")
 	envVar := fmt.Sprintf("%s_URLS", prefix)
 	if os.Getenv(envVar) == "" {
@@ -148,12 +147,13 @@ func getURLs(prefix string) []string {
 }
 
 func getKeys(prefix string) []string {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	strings.Trim(prefix, "_")
 	envVar := fmt.Sprintf("%s_KEYS", prefix)
 	if os.Getenv(envVar) == "" {
 		keys := strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ",")
-		log.Warn().Interface("EVM_PRIVATE_KEYS", keys).Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_PRIVATE_KEYS'", envVar))
+		log.Warn().
+			Interface("EVM_PRIVATE_KEYS", keys).
+			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_PRIVATE_KEYS'", envVar))
 		return keys
 	}
 	keys := strings.Split(os.Getenv(envVar), ",")
