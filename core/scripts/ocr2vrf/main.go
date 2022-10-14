@@ -262,6 +262,18 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "consumer-address")
 		addConsumer(e, *coordinatorAddress, *consumerAddress, big.NewInt(*subId))
 
+	case "coordinator-get-sub":
+		cmd := flag.NewFlagSet("coordinator-get-sub", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+		subId := cmd.Int64("sub-id", 1, "subscription ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+		sub := getSubscription(e, *coordinatorAddress, uint64(*subId))
+		fmt.Println("subscription ID:", subId)
+		fmt.Println("balance:", sub.Balance)
+		fmt.Println("consumers:", sub.Consumers)
+		fmt.Println("owner:", sub.Owner)
+		fmt.Println("request count:", sub.ReqCount)
+
 	case "beacon-set-payees":
 		cmd := flag.NewFlagSet("beacon-set-payees", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")

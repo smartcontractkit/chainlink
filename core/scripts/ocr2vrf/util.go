@@ -230,6 +230,14 @@ func createSubscription(e helpers.Environment, vrfCoordinatorAddr string) {
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
+func getSubscription(e helpers.Environment, vrfCoordinatorAddr string, subId uint64) vrf_coordinator.GetSubscription {
+	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
+
+	sub, err := coordinator.GetSubscription(nil, subId)
+	helpers.PanicErr(err)
+	return sub
+}
+
 func addConsumer(e helpers.Environment, vrfCoordinatorAddr, consumerAddr string, subId *big.Int) {
 	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
 
