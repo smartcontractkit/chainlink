@@ -55,7 +55,7 @@ func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestClient_SolanaKeys(t *testing.T) {
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Solana()
 	cleanup := func() {
 		keys, err := ks.GetAll()
