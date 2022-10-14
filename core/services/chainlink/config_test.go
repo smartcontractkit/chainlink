@@ -852,6 +852,7 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
 ObservationGracePeriod = '1s'
 
+[EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 540
 

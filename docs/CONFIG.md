@@ -39,6 +39,7 @@
 	- [NodePool](#EVM-NodePool)
 	- [OCR](#EVM-OCR)
 	- [Nodes](#EVM-Nodes)
+	- [OCR2](#EVM-OCR2)
 		- [Automation](#EVM-OCR2-Automation)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
@@ -4166,6 +4167,12 @@ HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Re
 SendOnly = false # Default
 ```
 SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
+
+## EVM.OCR2<a id='EVM-OCR2'></a>
+```toml
+[EVM.OCR2]
+```
+
 
 ## EVM.OCR2.Automation<a id='EVM-OCR2-Automation'></a>
 ```toml
