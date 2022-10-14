@@ -42,6 +42,12 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 
+[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
+
 [Log]
 DatabaseQueries = true
 JSONConsole = true

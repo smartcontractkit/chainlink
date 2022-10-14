@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -51,7 +52,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	pCfg := cltest.NewTestGeneralConfig(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg, audit.NoopLogger)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -167,6 +168,10 @@ LOG_FILE_MAX_SIZE: 5.12gb
 LOG_FILE_MAX_AGE: 0
 LOG_FILE_MAX_BACKUPS: 1
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
+AUDIT_LOGGER_ENABLED: false
+AUDIT_LOGGER_FORWARD_TO_URL: 
+AUDIT_LOGGER_JSON_WRAPPER_KEY: 
+AUDIT_LOGGER_HEADERS: 
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 
 OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
@@ -220,7 +225,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t), audit.NoopLogger)
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
@@ -282,7 +287,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and

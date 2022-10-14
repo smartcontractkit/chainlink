@@ -42,6 +42,12 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 
+[AuditLogger]
+Enabled = false
+ForwardToUrl = ''
+JsonWrapperKey = ''
+Headers = ''
+
 [Log]
 DatabaseQueries = false
 JSONConsole = false
