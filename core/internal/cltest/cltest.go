@@ -422,7 +422,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		}
 	}
 	if ethClient == nil {
-		ethClient = evmclient.NewNullClient(nil, lggr)
+		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
