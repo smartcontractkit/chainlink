@@ -97,7 +97,7 @@ func (cs SolanaConfigs) NodesByID(chainIDs ...string) (ns []soldb.Node) {
 	for i := range cs {
 		var match bool
 		for _, id := range chainIDs {
-			if id != *cs[i].ChainID {
+			if id == *cs[i].ChainID {
 				match = true
 				break
 			}
