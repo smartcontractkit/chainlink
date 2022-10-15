@@ -43,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: make operator-ui 
       - name: Build and Push
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
         with:
           context: .
           file: core/chainlink.Dockerfile
