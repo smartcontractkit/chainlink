@@ -66,6 +66,11 @@ func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.H
 	return nil, nil
 }
 
+func (nc *NullClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
+	nc.lggr.Debug("HeadByHash")
+	return nil, nil
+}
+
 type nullSubscription struct {
 	lggr logger.Logger
 }
