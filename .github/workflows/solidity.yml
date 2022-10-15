@@ -20,7 +20,8 @@ jobs:
         with:
           filters: |
             src:
-              - '.github/workflows/README.md'
+              - 'contracts/**/*'
+              - '.github/workflows/solidity.yml'
 
   split-tests:
     name: Split Solidity Tests
