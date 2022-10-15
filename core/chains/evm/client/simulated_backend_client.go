@@ -241,6 +241,22 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	}, nil
 }
 
+// HeadByHash returns our own header type.
+func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
+	header, err := c.b.HeaderByHash(ctx, h)
+	if err != nil {
+		return nil, err
+	} else if header == nil {
+		return nil, ethereum.NotFound
+	}
+	return &evmtypes.Head{
+		EVMChainID: utils.NewBigI(c.chainId.Int64()),
+		Hash:       header.Hash(),
+		Number:     header.Number.Int64(),
+		ParentHash: header.ParentHash,
+	}, nil
+}
+
 // BlockByNumber returns a geth block type.
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
 	return c.b.BlockByNumber(ctx, n)
