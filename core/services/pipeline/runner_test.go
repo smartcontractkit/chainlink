@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	bridgesMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -40,12 +41,13 @@ func newRunner(t testing.TB, db *sqlx.DB, cfg config.GeneralConfig) (pipeline.Ru
 	lggr := logger.TestLogger(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := mocks.NewORM(t)
+	btORM := bridgesMocks.NewORM(t)
 	q := pg.NewQ(db, lggr, cfg)
 
 	orm.On("GetQ").Return(q).Maybe()
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
+	r := pipeline.NewRunner(orm, btORM, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
 	return r, orm
 }
 
@@ -455,6 +457,7 @@ answer1 [type=median                      index=0];
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
+	btORM := bridgesMocks.NewORM(t)
 	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 	orm.On("GetQ").Return(q).Maybe()
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
@@ -466,7 +469,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
+	r := pipeline.NewRunner(orm, btORM, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
 
 	spec := pipeline.Spec{DotDagSource: `
 fail_but_i_dont_care [type=fail]
