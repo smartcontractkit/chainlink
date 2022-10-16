@@ -904,9 +904,9 @@ func (p *P2PV2) setFrom(f *P2PV2) {
 
 type Keeper struct {
 	DefaultTransactionQueueDepth *uint32
-	GasPriceBufferPercent        *uint32
-	GasTipCapBufferPercent       *uint32
-	BaseFeeBufferPercent         *uint32
+	GasPriceBufferPercent        *uint16
+	GasTipCapBufferPercent       *uint16
+	BaseFeeBufferPercent         *uint16
 	MaxGracePeriod               *int64
 	TurnLookBack                 *int64
 	TurnFlagEnabled              *bool

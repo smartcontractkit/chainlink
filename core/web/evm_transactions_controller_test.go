@@ -2,14 +2,13 @@ package web_test
 
 import (
 	"fmt"
-	"math/big"
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -38,7 +37,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgr.EthTxAttemptBroadcast
-	attempt.GasPrice = utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = assets.NewWeiI(3)
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 

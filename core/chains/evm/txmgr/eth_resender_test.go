@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
@@ -48,26 +47,26 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, borm, 3, fromAddress, time.Unix(1616509400, 0)),
 	}
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etxs[0].ID)
-	attempt1_2.GasPrice = utils.NewBig(big.NewInt(10))
+	attempt1_2.GasPrice = assets.NewWeiI(10)
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt1_2))
 
 	attempt3_2 := newInProgressLegacyEthTxAttempt(t, etxs[2].ID)
-	attempt3_2.GasPrice = utils.NewBig(big.NewInt(10))
+	attempt3_2.GasPrice = assets.NewWeiI(10)
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt3_2))
 
 	attempt4_2 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_2.GasTipCap = utils.NewBig(big.NewInt(10))
-	attempt4_2.GasFeeCap = utils.NewBig(big.NewInt(20))
+	attempt4_2.GasTipCap = assets.NewWeiI(10)
+	attempt4_2.GasFeeCap = assets.NewWeiI(20)
 	attempt4_2.State = txmgr.EthTxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_2))
 	attempt4_4 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_4.GasTipCap = utils.NewBig(big.NewInt(30))
-	attempt4_4.GasFeeCap = utils.NewBig(big.NewInt(40))
+	attempt4_4.GasTipCap = assets.NewWeiI(30)
+	attempt4_4.GasFeeCap = assets.NewWeiI(40)
 	attempt4_4.State = txmgr.EthTxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_4))
 	attempt4_3 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_3.GasTipCap = utils.NewBig(big.NewInt(20))
-	attempt4_3.GasFeeCap = utils.NewBig(big.NewInt(30))
+	attempt4_3.GasTipCap = assets.NewWeiI(20)
+	attempt4_3.GasFeeCap = assets.NewWeiI(30)
 	attempt4_3.State = txmgr.EthTxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_3))
 

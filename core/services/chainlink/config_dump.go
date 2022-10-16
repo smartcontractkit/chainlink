@@ -371,7 +371,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.BumpMin = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.BumpMin = assets.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasFeeCapDefault", parse.BigInt).ParsePtr(); e != nil {
@@ -379,7 +379,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.FeeCapDefault = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.FeeCapDefault = assets.NewWei(*e)
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitDefault").ParsePtr(); e != nil {
@@ -459,7 +459,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.PriceDefault = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.PriceDefault = assets.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapDefault", parse.BigInt).ParsePtr(); e != nil {
@@ -467,7 +467,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.TipCapDefault = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.TipCapDefault = assets.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapMinimum", parse.BigInt).ParsePtr(); e != nil {
@@ -475,7 +475,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.TipCapMin = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.TipCapMin = assets.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMaxGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
@@ -483,7 +483,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.PriceMax = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.PriceMax = assets.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMinGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
@@ -491,7 +491,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].GasEstimator.PriceMin = utils.NewWei(*e)
+			c.EVM[i].GasEstimator.PriceMin = assets.NewWei(*e)
 		}
 	}
 	if e := envvar.NewString("GasEstimatorMode").ParsePtr(); e != nil {
@@ -919,9 +919,9 @@ func (c *Config) loadLegacyCoreEnv() {
 
 	c.Keeper = &config.Keeper{
 		DefaultTransactionQueueDepth: envvar.NewUint32("KeeperDefaultTransactionQueueDepth").ParsePtr(),
-		GasPriceBufferPercent:        envvar.NewUint32("KeeperGasPriceBufferPercent").ParsePtr(),
-		GasTipCapBufferPercent:       envvar.NewUint32("KeeperGasTipCapBufferPercent").ParsePtr(),
-		BaseFeeBufferPercent:         envvar.NewUint32("KeeperBaseFeeBufferPercent").ParsePtr(),
+		GasPriceBufferPercent:        envvar.NewUint16("KeeperGasPriceBufferPercent").ParsePtr(),
+		GasTipCapBufferPercent:       envvar.NewUint16("KeeperGasTipCapBufferPercent").ParsePtr(),
+		BaseFeeBufferPercent:         envvar.NewUint16("KeeperBaseFeeBufferPercent").ParsePtr(),
 		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
 		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),

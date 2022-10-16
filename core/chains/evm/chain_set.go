@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -535,13 +536,13 @@ func (opts *ChainSetOpts) check() error {
 	return nil
 }
 
-func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *big.Int) ChainConfigUpdater {
+func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *assets.Wei) ChainConfigUpdater {
 	return func(config *types.ChainCfg) error {
 		keyChainConfig, ok := config.KeySpecific[addr.Hex()]
 		if !ok {
 			keyChainConfig = types.ChainCfg{}
 		}
-		keyChainConfig.EvmMaxGasPriceWei = (*utils.Big)(maxGasPriceWei)
+		keyChainConfig.EvmMaxGasPriceWei = maxGasPriceWei
 		if config.KeySpecific == nil {
 			config.KeySpecific = map[string]types.ChainCfg{}
 		}

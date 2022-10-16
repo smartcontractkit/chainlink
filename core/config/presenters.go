@@ -60,9 +60,9 @@ type EnvPrinter struct {
 	JobPipelineReaperInterval                  time.Duration   `json:"JOB_PIPELINE_REAPER_INTERVAL"`
 	JobPipelineReaperThreshold                 time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
-	KeeperGasPriceBufferPercent                uint32          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
-	KeeperGasTipCapBufferPercent               uint32          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
-	KeeperBaseFeeBufferPercent                 uint32          `json:"KEEPER_BASE_FEE_BUFFER_PERCENT"`
+	KeeperGasPriceBufferPercent                uint16          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
+	KeeperGasTipCapBufferPercent               uint16          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
+	KeeperBaseFeeBufferPercent                 uint16          `json:"KEEPER_BASE_FEE_BUFFER_PERCENT"`
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
 	KeeperRegistryCheckGasOverhead             uint32          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint32          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`

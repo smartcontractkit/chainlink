@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -29,7 +30,7 @@ type Head struct {
 	EVMChainID       *utils.Big
 	Timestamp        time.Time
 	CreatedAt        time.Time
-	BaseFeePerGas    *utils.Big
+	BaseFeePerGas    *assets.Wei
 	ReceiptsRoot     common.Hash
 	TransactionsRoot common.Hash
 	StateRoot        common.Hash
@@ -204,7 +205,7 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Number = (*big.Int)(jsonHead.Number).Int64()
 	h.ParentHash = jsonHead.ParentHash
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
-	h.BaseFeePerGas = (*utils.Big)(jsonHead.BaseFeePerGas)
+	h.BaseFeePerGas = assets.NewWei((*big.Int)(jsonHead.BaseFeePerGas))
 	if jsonHead.L1BlockNumber != nil {
 		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
 	}
