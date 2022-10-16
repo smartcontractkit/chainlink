@@ -65,6 +65,9 @@ func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
 // Errors unless all bridges successfully found. Requires at least one bridge.
 // Expects all bridges to be unique
 func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
+	if len(names) == 0 {
+		return nil, errors.Errorf("at least one bridge name is required")
+	}
 	o.bridgeTypesMapMu.Lock()
 	defer o.bridgeTypesMapMu.Unlock()
 
