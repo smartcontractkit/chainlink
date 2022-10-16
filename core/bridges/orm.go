@@ -2,6 +2,7 @@ package bridges
 
 import (
 	"database/sql"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -30,20 +31,33 @@ type ORM interface {
 
 type orm struct {
 	q pg.Q
+
+	bridgeTypesCache map[BridgeName]BridgeType
+	bridgeTypesMapMu sync.RWMutex
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	namedLogger := lggr.Named("BridgeORM")
-	return &orm{pg.NewQ(db, namedLogger, cfg)}
+	return &orm{q: pg.NewQ(db, namedLogger, cfg), bridgeTypesCache: map[BridgeName]BridgeType{}}
 }
 
 // FindBridge looks up a Bridge by its Name.
 // Returns sql.ErrNoRows if name not present
 func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
-	sql := "SELECT * FROM bridge_types WHERE name = $1"
-	err = o.q.Get(&bt, sql, name.String())
+	o.bridgeTypesMapMu.Lock()
+	defer o.bridgeTypesMapMu.Unlock()
+
+	if bridgeType, ok := o.bridgeTypesCache[name]; ok {
+		return bridgeType, nil
+	}
+
+	stmt := "SELECT * FROM bridge_types WHERE name = $1"
+	err = o.q.Get(&bt, stmt, name.String())
+	if err == nil {
+		o.bridgeTypesCache[bt.Name] = bt
+	}
 	return
 }
 
@@ -51,8 +65,25 @@ func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
 // Errors unless all bridges successfully found. Requires at least one bridge.
 // Expects all bridges to be unique
 func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
-	sql := "SELECT * FROM bridge_types WHERE name IN (?)"
-	query, args, err := sqlx.In(sql, names)
+	o.bridgeTypesMapMu.Lock()
+	defer o.bridgeTypesMapMu.Unlock()
+
+	var allFoundBts []BridgeType
+	var searchNames []BridgeName
+	for _, n := range names {
+		if bridgeType, ok := o.bridgeTypesCache[n]; ok {
+			allFoundBts = append(allFoundBts, bridgeType)
+		} else {
+			searchNames = append(searchNames, n)
+		}
+	}
+
+	if len(allFoundBts) == len(names) {
+		return allFoundBts, nil
+	}
+
+	stmt := "SELECT * FROM bridge_types WHERE name IN (?)"
+	query, args, err := sqlx.In(stmt, searchNames)
 	if err != nil {
 		return nil, err
 	}
@@ -60,14 +91,21 @@ func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(bts) != len(names) {
-		return nil, errors.Errorf("not all bridges exist, asked for %v, exists %v", names, bts)
+	for _, bt := range bts {
+		o.bridgeTypesCache[bt.Name] = bt
 	}
-	return
+	allFoundBts = append(allFoundBts, bts...)
+	if len(allFoundBts) != len(names) {
+		return nil, errors.Errorf("not all bridges exist, asked for %v, exists %v", names, allFoundBts)
+	}
+	return allFoundBts, nil
 }
 
 // DeleteBridgeType removes the bridge type
 func (o *orm) DeleteBridgeType(bt *BridgeType) error {
+	o.bridgeTypesMapMu.Lock()
+	defer o.bridgeTypesMapMu.Unlock()
+
 	query := "DELETE FROM bridge_types WHERE name = $1"
 	result, err := o.q.Exec(query, bt.Name)
 	if err != nil {
@@ -80,6 +118,9 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
+
+	delete(o.bridgeTypesCache, bt.Name)
+
 	return err
 }
 
@@ -102,6 +143,9 @@ func (o *orm) BridgeTypes(offset int, limit int) (bridges []BridgeType, count in
 
 // CreateBridgeType saves the bridge type.
 func (o *orm) CreateBridgeType(bt *BridgeType) error {
+	o.bridgeTypesMapMu.Lock()
+	defer o.bridgeTypesMapMu.Unlock()
+
 	stmt := `INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, minimum_contract_payment, created_at, updated_at)
 	VALUES (:name, :url, :confirmations, :incoming_token_hash, :salt, :outgoing_token, :minimum_contract_payment, now(), now())
 	RETURNING *;`
@@ -112,14 +156,25 @@ func (o *orm) CreateBridgeType(bt *BridgeType) error {
 		}
 		return stmt.Get(bt, bt)
 	})
+	if err == nil {
+		o.bridgeTypesCache[bt.Name] = *bt
+	}
+
 	return errors.Wrap(err, "CreateBridgeType failed")
 }
 
 // UpdateBridgeType updates the bridge type.
-func (o *orm) UpdateBridgeType(bt *BridgeType,
-	btr *BridgeTypeRequest) error {
-	sql := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
-	return o.q.Get(bt, sql, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
+func (o *orm) UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error {
+	o.bridgeTypesMapMu.Lock()
+	defer o.bridgeTypesMapMu.Unlock()
+
+	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
+	err := o.q.Get(bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
+	if err == nil {
+		o.bridgeTypesCache[bt.Name] = *bt
+	}
+
+	return err
 }
 
 // --- External Initiator
