@@ -755,74 +755,51 @@ func (g *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 func (g *generalConfig) P2PV2AnnounceAddresses() []string {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.AnnounceAddresses; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.AnnounceAddresses; v != nil {
+		return *v
 	}
 	return nil
 }
 
 func (g *generalConfig) P2PV2Bootstrappers() (locators []commontypes.BootstrapperLocator) {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DefaultBootstrappers; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
+		return *v
 	}
 	return nil
 }
 
 func (g *generalConfig) P2PV2BootstrappersRaw() (s []string) {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DefaultBootstrappers; v != nil {
-				for _, b := range *v {
-					t, err := b.MarshalText()
-					if err != nil {
-						// log panic matches old behavior - only called for UI presentation
-						panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
-					}
-					s = append(s, string(t))
-				}
+	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
+		for _, b := range *v {
+			t, err := b.MarshalText()
+			if err != nil {
+				// log panic matches old behavior - only called for UI presentation
+				panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
 			}
+			s = append(s, string(t))
 		}
 	}
 	return
 }
 
 func (g *generalConfig) P2PV2DeltaDial() models.Duration {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DeltaDial; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.DeltaDial; v != nil {
+		return *v
 	}
 	return models.Duration{}
 }
 
 func (g *generalConfig) P2PV2DeltaReconcile() models.Duration {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DeltaReconcile; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.DeltaReconcile; v != nil {
+		return *v
+
 	}
 	return models.Duration{}
 }
 
 func (g *generalConfig) P2PV2ListenAddresses() []string {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.ListenAddresses; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.ListenAddresses; v != nil {
+		return *v
 	}
 	return nil
 }

@@ -41,7 +41,7 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 		OperatorFactoryAddress:   asEIP155Address(set.operatorFactoryAddress),
 		RPCDefaultBatchSize:      ptr(set.rpcDefaultBatchSize),
 		RPCBlockQueryDelay:       ptr(set.blockHistoryEstimatorBlockDelay),
-		Transactions: &v2.Transactions{
+		Transactions: v2.Transactions{
 			ForwardersEnabled:    ptr(set.useForwarders),
 			MaxInFlight:          ptr(set.maxInFlightTransactions),
 			MaxQueued:            ptr(uint32(set.maxQueuedTransactions)),
@@ -49,10 +49,10 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			ReaperThreshold:      models.MustNewDuration(set.ethTxReaperThreshold),
 			ResendAfterThreshold: models.MustNewDuration(set.ethTxResendAfterThreshold),
 		},
-		BalanceMonitor: &v2.BalanceMonitor{
+		BalanceMonitor: v2.BalanceMonitor{
 			Enabled: ptr(set.balanceMonitorEnabled),
 		},
-		GasEstimator: &v2.GasEstimator{
+		GasEstimator: v2.GasEstimator{
 			Mode:               ptr(set.gasEstimatorMode),
 			EIP1559DynamicFees: ptr(set.eip1559DynamicFees),
 			BumpMin:            &set.gasBumpWei,
@@ -76,7 +76,7 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 				FM:     set.gasLimitFMJobType,
 				Keeper: set.gasLimitKeeperJobType,
 			},
-			BlockHistory: &v2.BlockHistoryEstimator{
+			BlockHistory: v2.BlockHistoryEstimator{
 				BatchSize:                ptr(set.blockHistoryEstimatorBatchSize),
 				BlockHistorySize:         ptr(set.blockHistoryEstimatorBlockHistorySize),
 				CheckInclusionBlocks:     ptr(set.blockHistoryEstimatorCheckInclusionBlocks),
@@ -84,25 +84,25 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 				TransactionPercentile:    ptr(set.blockHistoryEstimatorTransactionPercentile),
 			},
 		},
-		HeadTracker: &v2.HeadTracker{
+		HeadTracker: v2.HeadTracker{
 			HistoryDepth:     ptr(set.headTrackerHistoryDepth),
 			MaxBufferSize:    ptr(set.headTrackerMaxBufferSize),
 			SamplingInterval: models.MustNewDuration(set.headTrackerSamplingInterval),
 		},
 		KeySpecific: nil,
-		NodePool: &v2.NodePool{
+		NodePool: v2.NodePool{
 			PollFailureThreshold: ptr(set.nodePollFailureThreshold),
 			PollInterval:         models.MustNewDuration(set.nodePollInterval),
 			SelectionMode:        ptr(set.nodeSelectionMode),
 		},
-		OCR: &v2.OCR{
+		OCR: v2.OCR{
 			ContractConfirmations:              ptr(set.ocrContractConfirmations),
 			ContractTransmitterTransmitTimeout: models.MustNewDuration(set.ocrContractTransmitterTransmitTimeout),
 			DatabaseTimeout:                    models.MustNewDuration(set.ocrDatabaseTimeout),
 			ObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
 		},
-		OCR2: &v2.OCR2{
-			Automation: &v2.Automation{
+		OCR2: v2.OCR2{
+			Automation: v2.Automation{
 				GasLimit: ptr(set.ocr2AutomationGasLimit),
 			},
 		},
@@ -110,37 +110,11 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	if *c.ChainType == "" {
 		c.ChainType = nil
 	}
-	if isZeroPtr(c.BalanceMonitor) {
-		c.BalanceMonitor = nil
-	}
-	if isZeroPtr(c.GasEstimator.BlockHistory) {
-		c.GasEstimator.BlockHistory = nil
-	}
-	if isZeroPtr(c.GasEstimator) {
-		c.GasEstimator = nil
-	}
-	if isZeroPtr(c.HeadTracker) {
-		c.HeadTracker = nil
-	}
-	if isZeroPtr(c.NodePool) {
-		c.NodePool = nil
-	}
-	if isZeroPtr(c.OCR) {
-		c.OCR = nil
-	}
-	if isZeroPtr(c.OCR2) {
-		c.OCR2 = nil
-	}
 	return c
 }
 
 func ptr[T any](v T) *T {
 	return &v
-}
-
-func isZeroPtr[T comparable](p *T) bool {
-	var t T
-	return p == nil || *p == t
 }
 
 func asEIP155Address(s string) *ethkey.EIP55Address {
