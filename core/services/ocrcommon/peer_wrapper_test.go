@@ -48,7 +48,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V1.PeerID = ptr(k.PeerID())
+			c.P2P.PeerID = ptr(k.PeerID())
 		})
 		keyStore = cltest.NewKeyStore(t, db, cfg)
 
@@ -61,7 +61,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Run("with one p2p key and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V1.PeerID = ptr(p2pkey.PeerID(peerID))
+			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
 		})
 		keyStore := cltest.NewKeyStore(t, db, cfg)
 
@@ -80,7 +80,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V1.PeerID = ptr(k2.PeerID())
+			c.P2P.PeerID = ptr(k2.PeerID())
 		})
 		keyStore = cltest.NewKeyStore(t, db, cfg)
 
@@ -93,7 +93,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Run("with multiple p2p keys and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V1.PeerID = ptr(p2pkey.PeerID(peerID))
+			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
 		})
 		keyStore := cltest.NewKeyStore(t, db, cfg)
 
@@ -117,7 +117,7 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 
 	cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.V1.PeerID = ptr(k.PeerID())
+		c.P2P.PeerID = ptr(k.PeerID())
 		c.P2P.V2.DeltaDial = models.MustNewDuration(100 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(1 * time.Second)
 		c.P2P.V1.ListenPort = ptr[uint16](0)

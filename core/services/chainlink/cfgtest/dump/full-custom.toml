@@ -122,6 +122,7 @@ TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 [P2P]
 IncomingMessageBufferSize = 747
 OutgoingMessageBufferSize = 42
+PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 TraceLogging = true
 
 [P2P.V1]
@@ -135,7 +136,6 @@ DHTLookupInterval = 6
 ListenIP = '4.3.2.1'
 ListenPort = 4242
 NewStreamTimeout = '1m0s'
-PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 PeerstoreWriteInterval = '10m0s'
 
 [P2P.V2]
