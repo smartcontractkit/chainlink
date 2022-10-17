@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -19,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func NewTestORM(t *testing.T, db *sqlx.DB, chainSet evm.ChainSet, pipelineORM pipeline.ORM, keyStore keystore.Master, cfg pg.LogConfig) job.ORM {
-	o := job.NewORM(db, chainSet, pipelineORM, keyStore, logger.TestLogger(t), cfg)
+func NewTestORM(t *testing.T, db *sqlx.DB, chainSet evm.ChainSet, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.LogConfig) job.ORM {
+	o := job.NewORM(db, chainSet, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
 	t.Cleanup(func() { o.Close() })
 	return o
 }
