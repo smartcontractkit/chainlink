@@ -12,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
@@ -109,7 +110,9 @@ func TestTxm_Integration(t *testing.T) {
 	balance0, err := client.Balance(pubKey)
 	require.NoError(t, err)
 	fee0 := initBal - balance0 - solana.LAMPORTS_PER_SOL // fee used for first tx
-	txm.SetFee(10)                                       // change fee
+	cfg.Update(db.ChainCfg{
+		DefaultComputeUnitPrice: null.IntFrom(10), // change fee
+	})
 
 	// invalid or outdated blockhash is simply dropped by network and can never be confirmed
 	// require.NoError(t, txm.Enqueue("test_invalidBlockhash", createTxWithBlockhash(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL, solana.Hash{})))

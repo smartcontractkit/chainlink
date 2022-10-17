@@ -2,7 +2,6 @@ package soltxm
 
 import (
 	"context"
-	"encoding/binary"
 	"math/rand"
 	"sync"
 	"testing"
@@ -17,6 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -98,8 +98,9 @@ func TestTxm(t *testing.T) {
 	id := "mocknet"
 	lggr := logger.TestLogger(t)
 	cfg := config.NewConfig(db.ChainCfg{ // reduce time for faster test execution 17-18s => 7s
-		ConfirmPollPeriod: utils.MustNewDuration(5 * time.Millisecond),
-		TxConfirmTimeout:  utils.MustNewDuration(10 * time.Millisecond),
+		ConfirmPollPeriod:       utils.MustNewDuration(5 * time.Millisecond),
+		TxConfirmTimeout:        utils.MustNewDuration(10 * time.Millisecond),
+		DefaultComputeUnitPrice: null.IntFrom(100),
 	}, lggr)
 	mTx := mock.AnythingOfType("*solana.Transaction")
 	mSig := mock.AnythingOfType("[]solana.Signature")
@@ -198,17 +199,16 @@ func TestTxm(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(3)
 		var fee uint64
-		txm.SetFee(100)
 
 		// immediate fail initial send (should retry without fee bump)
 		mc.On("SendTx", mock.Anything, mTx).Run(func(args mock.Arguments) {
 			rawTx := args.Get(1).(*solana.Transaction)
-			fee = binary.LittleEndian.Uint64([]byte(rawTx.Message.Instructions[0].Data)[1:])
+			fee = XXXGetFeePrice(t, rawTx)
 			wg.Done()
 		}).Return(solana.Signature{}, errors.New("FAIL")).Once()
 		mc.On("SendTx", mock.Anything, mTx).Run(func(args mock.Arguments) {
 			rawTx := args.Get(1).(*solana.Transaction)
-			val := binary.LittleEndian.Uint64([]byte(rawTx.Message.Instructions[0].Data)[1:])
+			val := XXXGetFeePrice(t, rawTx)
 			assert.Equal(t, fee, val)
 			wg.Done()
 		}).Return(sig, nil).Once()
@@ -239,7 +239,7 @@ func TestTxm(t *testing.T) {
 		txm, mc, empty := initTxm()
 		tx := getTx(t, pubkey)
 		sigs := []solana.Signature{getSig(), getSig(), getSig()}
-		fees := []uint64{0, 1, 2}
+		fees := []uint64{100, 200, 400} // base fee set to 100, follow progression
 		var wg sync.WaitGroup
 		wg.Add(3)
 
@@ -248,7 +248,7 @@ func TestTxm(t *testing.T) {
 		mc.On("SendTx", mock.Anything, mTx).Run(func(args mock.Arguments) {
 			wg.Done()
 			rawTx := args.Get(1).(*solana.Transaction)
-			val := binary.LittleEndian.Uint64([]byte(rawTx.Message.Instructions[0].Data)[1:])
+			val := XXXGetFeePrice(t, rawTx)
 			assert.Equal(t, fees[i], val)
 		}).Return(
 			func(_ context.Context, _ *solana.Transaction) solana.Signature {

@@ -1,0 +1,6 @@
+go test fuzz v1
+uint64(1)
+uint64(100)
+uint64(12)
+uint64(980)
+bool(true)

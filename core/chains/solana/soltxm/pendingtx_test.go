@@ -2,6 +2,7 @@ package soltxm
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"math"
 	"sync"
 	"testing"
@@ -22,6 +23,14 @@ func XXXNewSignature(t *testing.T) solana.Signature {
 	return solana.SignatureFromBytes(sig)
 }
 
+func XXXGetFeePrice(t *testing.T, tx *solana.Transaction) uint64 {
+	require.True(t, len(tx.Message.Instructions) > 0, "not enough instructions")
+	require.Equal(t, 9, len(tx.Message.Instructions[0].Data), "fee instruction should be first") // 1 byte function selector, 8 byte little-endian encoded uint64
+
+	return binary.LittleEndian.Uint64([]byte(tx.Message.Instructions[0].Data)[1:])
+}
+
+// Test doubling progression of fee
 func TestPendingTx_FeeBumping(t *testing.T) {
 	tx := PendingTx{baseTx: &solana.Transaction{}}
 	n := 10
@@ -29,20 +38,64 @@ func TestPendingTx_FeeBumping(t *testing.T) {
 
 	for i := 0; i < n; i++ {
 		// initial tx should use the default price arg
-		_, fee, err := tx.SetComputeUnitPrice(0)
+		txWithFee, fee, err := tx.SetComputeUnitPrice(0, 0, 10_000)
 		require.NoError(t, err)
 
 		if init {
-			assert.Equal(t, uint64(0), fee)
+			v := uint64(0)
+			assert.Equal(t, v, fee)
+			assert.Equal(t, v, XXXGetFeePrice(t, txWithFee))
 			init = false
 		} else {
-			assert.Equal(t, uint64(math.Pow(2, float64(i-1))), fee)
+			v := uint64(math.Pow(2, float64(i-1)))
+			assert.Equal(t, v, fee)
+			assert.Equal(t, v, XXXGetFeePrice(t, txWithFee))
 		}
 
 		// if tx has been broadcast should begin X^2 increases
 		tx.broadcast = true
 		tx.currentFee = fee // track current fee
 	}
+}
+
+// Test combination of inputs for robustness
+func FuzzPendingTx_SetComputeUnitPrice(f *testing.F) {
+	f.Add(uint64(2), uint64(0), uint64(0), uint64(0), true)
+	f.Add(uint64(0), uint64(0), uint64(0), uint64(10), false)
+	f.Add(uint64(1), uint64(100), uint64(0), uint64(1000), true)
+	f.Add(uint64(0), uint64(0), uint64(10), uint64(0), false)
+	f.Add(uint64(10), uint64(0), uint64(0), uint64(10), true)
+	f.Add(uint64(100), uint64(0), uint64(0), uint64(0), false)
+
+	f.Fuzz(func(t *testing.T, init, base, min, max uint64, broadcast bool) {
+		tx := PendingTx{
+			baseTx:     &solana.Transaction{},
+			currentFee: init,
+			broadcast:  broadcast,
+		}
+
+		txWithFee, fee, err := tx.SetComputeUnitPrice(base, min, max)
+
+		// if parameters are out of bounds, should error
+		if base < min || base > max {
+			assert.Error(t, err)
+			return
+		}
+
+		assert.Equal(t, fee, XXXGetFeePrice(t, txWithFee), "tx fee + output fee should match")
+		assert.True(t, fee >= min, "fee should be bounded by minimum")
+		assert.True(t, fee <= max, "fee should be bounded by maximum")
+
+		if !broadcast {
+			assert.Equal(t, base, fee)
+		} else {
+			if init == 0 {
+				assert.True(t, 1 == fee || fee == max || fee == min, "if starting at 0 => doubling = 1, bounded by min & max")
+			} else {
+				assert.True(t, 2*init == fee || fee == max || fee == min, "double initial fee or bounded by min & max")
+			}
+		}
+	})
 }
 
 func TestPendingTxMemory(t *testing.T) {
