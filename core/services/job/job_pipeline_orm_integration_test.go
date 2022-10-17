@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -145,10 +146,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 		cfg := cltest.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
+		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
-		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr, nil, nil)
+		runner := pipeline.NewRunner(orm, btORM, config, cc, nil, nil, lggr, nil, nil)
 		defer runner.Close()
-		jobORM := NewTestORM(t, db, cc, orm, keyStore, cfg)
+		jobORM := NewTestORM(t, db, cc, orm, btORM, keyStore, cfg)
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 

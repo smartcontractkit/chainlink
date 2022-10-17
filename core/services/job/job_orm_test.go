@@ -46,9 +46,10 @@ func TestORM(t *testing.T) {
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 	borm := bridges.NewORM(db, logger.TestLogger(t), config)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -244,8 +245,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config)
+	bridgesORM := bridges.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 	korm := keeper.NewORM(db, lggr, nil, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
@@ -341,8 +343,9 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config)
+	bridgesORM := bridges.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
@@ -417,8 +420,9 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config)
+	bridgesORM := bridges.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(testspecs.OCRBootstrapSpec)
 	require.NoError(t, err)
@@ -444,8 +448,9 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config)
+	bridgesORM := bridges.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	chain, err := cc.Default()
 	require.NoError(t, err)
@@ -530,8 +535,9 @@ func Test_FindJobs(t *testing.T) {
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -596,8 +602,9 @@ func Test_FindJob(t *testing.T) {
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -666,8 +673,9 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
@@ -705,8 +713,9 @@ func Test_FindPipelineRuns(t *testing.T) {
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -764,8 +773,9 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -823,8 +833,9 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config)
+	bridgesORM := bridges.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -910,8 +921,9 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -966,8 +978,9 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	require.NoError(t, err)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
@@ -1009,8 +1022,9 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
@@ -1046,8 +1060,9 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
@@ -1080,8 +1095,9 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)

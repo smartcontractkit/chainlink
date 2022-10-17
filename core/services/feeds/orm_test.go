@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -1013,8 +1014,9 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		keyStore    = cltest.NewKeyStore(t, db, config)
 		lggr        = logger.TestLogger(t)
 		pipelineORM = pipeline.NewORM(db, lggr, config)
+		bridgeORM   = bridges.NewORM(db, lggr, config)
 		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-		orm         = job.NewORM(db, cc, pipelineORM, keyStore, lggr, config)
+		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	)
 
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
