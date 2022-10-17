@@ -51,7 +51,7 @@ func TestDoc(t *testing.T) {
 		// clean up KeySpecific as a special case
 		require.Equal(t, 1, len(docDefaults.KeySpecific))
 		ks := evmcfg.KeySpecific{Key: new(ethkey.EIP55Address),
-			GasEstimator: &evmcfg.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
+			GasEstimator: evmcfg.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
 		require.Equal(t, ks, docDefaults.KeySpecific[0])
 		docDefaults.KeySpecific = nil
 
