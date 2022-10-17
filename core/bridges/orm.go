@@ -110,12 +110,11 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 	if err != nil {
 		return err
 	}
+	// We delete regardless of the rows affected, in case it gets out of sync
+	o.bridgeTypesCache.Delete(bt.Name)
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
-
-	o.bridgeTypesCache.Delete(bt.Name)
-
 	return err
 }
 
