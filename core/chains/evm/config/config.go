@@ -88,6 +88,9 @@ type ChainScopedOnlyConfig interface {
 	OCRObservationGracePeriod() time.Duration
 	OCRDatabaseTimeout() time.Duration
 
+	// OCR2 chain specific config
+	OCR2AutomationGasLimit() uint32
+
 	SetEvmGasPriceDefault(value *big.Int) error
 }
 
@@ -1288,6 +1291,16 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 		return val
 	}
 	return c.defaultSet.nodeSelectionMode
+}
+
+// OCR2AutomationGasLimit is the gas limit for automation OCR2 plugin
+func (c *chainScopedConfig) OCR2AutomationGasLimit() uint32 {
+	val, ok := c.GeneralConfig.GlobalOCR2AutomationGasLimit()
+	if ok {
+		c.logEnvOverrideOnce("OCR2AutomationGasLimit", val)
+		return val
+	}
+	return c.defaultSet.ocr2AutomationGasLimit
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config

@@ -321,3 +321,7 @@ WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
 # SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 SendOnly = false # Default
+
+[EVM.OCR2.Automation]
+# GasLimit controls the gas limit for transmit transactions from ocr2automation job.
+GasLimit = 5300000 # Default

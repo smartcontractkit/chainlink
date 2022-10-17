@@ -250,6 +250,7 @@ type GlobalConfig interface {
 	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
 	GlobalOCRDatabaseTimeout() (time.Duration, bool)
 	GlobalOCRObservationGracePeriod() (time.Duration, bool)
+	GlobalOCR2AutomationGasLimit() (uint32, bool)
 	GlobalOperatorFactoryAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
@@ -1450,6 +1451,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 
 func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
 	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
+func (c *generalConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("OCR2AutomationGasLimit"), parse.Uint32)
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
