@@ -100,49 +100,9 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	jobType, err := job.ValidateSpec(request.TOML)
+	jb, status, err := jc.validateJobSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
-		return
-	}
-
-	var jb job.Job
-	config := jc.App.GetConfig()
-	switch jobType {
-	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, request.TOML)
-		if !config.Dev() && !config.FeatureOffchainReporting() {
-			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
-			return
-		}
-	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
-		if !config.Dev() && !config.FeatureOffchainReporting2() {
-			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
-			return
-		}
-	case job.DirectRequest:
-		jb, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
-	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetConfig(), request.TOML)
-	case job.Keeper:
-		jb, err = keeper.ValidatedKeeperSpec(request.TOML)
-	case job.Cron:
-		jb, err = cron.ValidatedCronSpec(request.TOML)
-	case job.VRF:
-		jb, err = vrf.ValidatedVRFSpec(request.TOML)
-	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
-	case job.BlockhashStore:
-		jb, err = blockhashstore.ValidatedSpec(request.TOML)
-	case job.Bootstrap:
-		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(request.TOML)
-	default:
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
-		return
-	}
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, status, err)
 		return
 	}
 
@@ -209,50 +169,9 @@ func (jc *JobsController) Update(c *gin.Context) {
 		return
 	}
 
-	jobType, err := job.ValidateSpec(request.TOML)
+	jb, status, err := jc.validateJobSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
-		return
-	}
-
-	var jb job.Job
-
-	config := jc.App.GetConfig()
-	switch jobType {
-	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, request.TOML)
-		if !config.Dev() && !config.FeatureOffchainReporting() {
-			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
-			return
-		}
-	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
-		if !config.Dev() && !config.FeatureOffchainReporting2() {
-			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
-			return
-		}
-	case job.DirectRequest:
-		jb, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
-	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetConfig(), request.TOML)
-	case job.Keeper:
-		jb, err = keeper.ValidatedKeeperSpec(request.TOML)
-	case job.Cron:
-		jb, err = cron.ValidatedCronSpec(request.TOML)
-	case job.VRF:
-		jb, err = vrf.ValidatedVRFSpec(request.TOML)
-	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
-	case job.BlockhashStore:
-		jb, err = blockhashstore.ValidatedSpec(request.TOML)
-	case job.Bootstrap:
-		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(request.TOML)
-	default:
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
-		return
-	}
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, status, err)
 		return
 	}
 
@@ -269,12 +188,10 @@ func (jc *JobsController) Update(c *gin.Context) {
 	err = jc.App.DeleteJob(ctx, jb.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
-
 		return
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-
 		return
 	}
 
@@ -289,4 +206,48 @@ func (jc *JobsController) Update(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
+}
+
+func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, statusCode int, err error) {
+	jobType, err := job.ValidateSpec(tomlString)
+	if err != nil {
+		return jb, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML")
+	}
+
+	config := jc.App.GetConfig()
+	switch jobType {
+	case job.OffchainReporting:
+		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
+		if !config.Dev() && !config.FeatureOffchainReporting() {
+			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
+		}
+	case job.OffchainReporting2:
+		jb, err = validate.ValidatedOracleSpecToml(config, tomlString)
+		if !config.Dev() && !config.FeatureOffchainReporting2() {
+			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
+		}
+	case job.DirectRequest:
+		jb, err = directrequest.ValidatedDirectRequestSpec(tomlString)
+	case job.FluxMonitor:
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, tomlString)
+	case job.Keeper:
+		jb, err = keeper.ValidatedKeeperSpec(tomlString)
+	case job.Cron:
+		jb, err = cron.ValidatedCronSpec(tomlString)
+	case job.VRF:
+		jb, err = vrf.ValidatedVRFSpec(tomlString)
+	case job.Webhook:
+		jb, err = webhook.ValidatedWebhookSpec(tomlString, jc.App.GetExternalInitiatorManager())
+	case job.BlockhashStore:
+		jb, err = blockhashstore.ValidatedSpec(tomlString)
+	case job.Bootstrap:
+		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(tomlString)
+	default:
+		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
+	}
+
+	if err != nil {
+		return jb, http.StatusBadRequest, err
+	}
+	return jb, 0, nil
 }
