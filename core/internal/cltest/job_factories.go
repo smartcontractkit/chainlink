@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -64,7 +63,7 @@ func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.OR
 	lggr := logger.TestLogger(t)
 	pipelineORM = pipeline.NewORM(db, lggr, config)
 	bridgeORM := bridges.NewORM(db, lggr, config)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, Client: client.NewNullClient(config.DefaultChainID(), lggr)})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	t.Cleanup(func() { jobORM.Close() })
 	return

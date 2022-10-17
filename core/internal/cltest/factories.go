@@ -558,7 +558,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 		PipelineSpecID: pipelineSpec.ID,
 	}
 
-	cfg := NewTestGeneralConfigV2(t)
+	cfg := NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg)
 	btORM := bridges.NewORM(db, tlg, cfg)
