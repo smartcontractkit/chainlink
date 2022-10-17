@@ -327,5 +327,5 @@ func (c *ChainScoped) OCRDatabaseTimeout() time.Duration {
 }
 
 func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
-	return uint32(*c.cfg.OCR2.Automation.GasLimit)
+	return *c.cfg.OCR2.Automation.GasLimit
 }
