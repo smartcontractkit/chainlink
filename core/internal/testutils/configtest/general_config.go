@@ -137,7 +137,6 @@ type GeneralConfigOverrides struct {
 
 	// P2P v1 and V2
 	P2PPeerID          p2pkey.PeerID
-	P2PPeerIDError     error
 	P2PNetworkingStack ocrnetworking.NetworkingStack
 
 	// P2P v1
@@ -193,11 +192,14 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
+// NewTestGeneralConfig returns a legacy *TestGeneralConfig. Use v2.NewTestGeneralConfig instead.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
 // Deprecated: see v2.TOML
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{

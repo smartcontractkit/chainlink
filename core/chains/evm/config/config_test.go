@@ -14,12 +14,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -251,14 +254,20 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 	}
 }
 
+func configWithChain(t *testing.T, id int64, chain *v2.Chain) config.GeneralConfig {
+	return configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		chainID := utils.NewBigI(id)
+		c.EVM[0] = &v2.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: v2.DefaultsFrom(chainID, chain),
+			Nodes: v2.EVMNodes{{Name: ptr("fake"), HTTPURL: models.MustParseURL("http://foo.test")}}}
+	})
+}
+
 func Test_chainScopedConfig_Validate(t *testing.T) {
 	// Validate built-in
 	for id := range evmconfig.ChainSpecificConfigDefaultSets() {
 		id := id
 		t.Run(fmt.Sprintf("chainID-%d", id), func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(id), evmtypes.ChainCfg{}, nil, lggr, gcfg)
+			cfg := configWithChain(t, id, nil)
 			assert.NoError(t, cfg.Validate())
 		})
 	}
@@ -267,57 +276,59 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 
 	t.Run("arbitrum-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(config.ChainArbitrum)),
-				GasEstimatorMode: null.StringFrom("BlockHistory"),
-			}, nil, lggr, gcfg)
+			cfg := configWithChain(t, 0, &v2.Chain{
+				ChainType: ptr(string(config.ChainArbitrum)),
+				GasEstimator: &v2.GasEstimator{
+					Mode: ptr("BlockHistory"),
+				},
+			})
 			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(42161), evmtypes.ChainCfg{
-				GasEstimatorMode:                      null.StringFrom("BlockHistory"),
-				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(1),
-			}, nil, lggr, gcfg)
+			cfg := configWithChain(t, 42161, &v2.Chain{
+				GasEstimator: &v2.GasEstimator{
+					Mode: ptr("BlockHistory"),
+					BlockHistory: &v2.BlockHistoryEstimator{
+						BlockHistorySize: ptr[uint16](1),
+					},
+				},
+			})
 			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(421611), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("L2Suggested"),
-			}, nil, lggr, gcfg)
+			cfg := configWithChain(t, 421611, &v2.Chain{
+				GasEstimator: &v2.GasEstimator{
+					Mode: ptr("L2Suggested"),
+				},
+			})
 			assert.NoError(t, cfg.Validate())
 		})
 	})
 
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(config.ChainOptimism)),
-				GasEstimatorMode: null.StringFrom("BlockHistory"),
-			}, nil, lggr, gcfg)
+			cfg := configWithChain(t, 0, &v2.Chain{
+				ChainType: ptr(string(config.ChainOptimism)),
+				GasEstimator: &v2.GasEstimator{
+					Mode: ptr("BlockHistory"),
+				},
+			})
 			assert.Error(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(10), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("FixedPrice"),
-			}, nil, lggr, gcfg)
+			cfg := configWithChain(t, 10, &v2.Chain{
+				GasEstimator: &v2.GasEstimator{
+					Mode: ptr("FixedPrice"),
+				},
+			})
 			assert.Error(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(69), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("BlockHistory"),
-			}, nil, lggr, gcfg)
+			cfg := configWithChain(t, 69, &v2.Chain{
+				GasEstimator: &v2.GasEstimator{
+					Mode: ptr("BlockHistory"),
+				},
+			})
 			assert.Error(t, cfg.Validate())
 		})
 	})
@@ -351,3 +362,5 @@ func (f fakeChainConfigORM) Clear(chainID utils.Big, key string) error {
 	}
 	return nil
 }
+
+func ptr[T any](t T) *T { return &t }
