@@ -278,7 +278,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChain(t, 0, &v2.Chain{
 				ChainType: ptr(string(config.ChainArbitrum)),
-				GasEstimator: &v2.GasEstimator{
+				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
 			})
@@ -286,9 +286,9 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		})
 		t.Run("mainnet", func(t *testing.T) {
 			cfg := configWithChain(t, 42161, &v2.Chain{
-				GasEstimator: &v2.GasEstimator{
+				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
-					BlockHistory: &v2.BlockHistoryEstimator{
+					BlockHistory: v2.BlockHistoryEstimator{
 						BlockHistorySize: ptr[uint16](1),
 					},
 				},
@@ -297,7 +297,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		})
 		t.Run("testnet", func(t *testing.T) {
 			cfg := configWithChain(t, 421611, &v2.Chain{
-				GasEstimator: &v2.GasEstimator{
+				GasEstimator: v2.GasEstimator{
 					Mode: ptr("L2Suggested"),
 				},
 			})
@@ -309,7 +309,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChain(t, 0, &v2.Chain{
 				ChainType: ptr(string(config.ChainOptimism)),
-				GasEstimator: &v2.GasEstimator{
+				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
 			})
@@ -317,7 +317,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		})
 		t.Run("mainnet", func(t *testing.T) {
 			cfg := configWithChain(t, 10, &v2.Chain{
-				GasEstimator: &v2.GasEstimator{
+				GasEstimator: v2.GasEstimator{
 					Mode: ptr("FixedPrice"),
 				},
 			})
@@ -325,7 +325,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		})
 		t.Run("testnet", func(t *testing.T) {
 			cfg := configWithChain(t, 69, &v2.Chain{
-				GasEstimator: &v2.GasEstimator{
+				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
 			})

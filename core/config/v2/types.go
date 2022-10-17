@@ -38,35 +38,21 @@ type Core struct {
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
 
-	Feature *Feature
-
-	Database *Database
-
-	TelemetryIngress *TelemetryIngress
-
-	AuditLogger *audit.AuditLoggerConfig
-
-	Log *Log
-
-	WebServer *WebServer
-
-	JobPipeline *JobPipeline
-
-	FluxMonitor *FluxMonitor
-
-	OCR2 *OCR2
-
-	OCR *OCR
-
-	P2P *P2P
-
-	Keeper *Keeper
-
-	AutoPprof *AutoPprof
-
-	Pyroscope *Pyroscope
-
-	Sentry *Sentry
+	Feature          Feature                 `toml:",omitempty"`
+	Database         Database                `toml:",omitempty"`
+	TelemetryIngress TelemetryIngress        `toml:",omitempty"`
+	AuditLogger      audit.AuditLoggerConfig `toml:",omitempty"`
+	Log              Log                     `toml:",omitempty"`
+	WebServer        WebServer               `toml:",omitempty"`
+	JobPipeline      JobPipeline             `toml:",omitempty"`
+	FluxMonitor      FluxMonitor             `toml:",omitempty"`
+	OCR2             OCR2                    `toml:",omitempty"`
+	OCR              OCR                     `toml:",omitempty"`
+	P2P              P2P                     `toml:",omitempty"`
+	Keeper           Keeper                  `toml:",omitempty"`
+	AutoPprof        AutoPprof               `toml:",omitempty"`
+	Pyroscope        Pyroscope               `toml:",omitempty"`
+	Sentry           Sentry                  `toml:",omitempty"`
 }
 
 var (
@@ -87,7 +73,7 @@ func CoreDefaults() (c Core) {
 	return
 }
 
-// SetFrom updates c with any non-nil values from f.
+// SetFrom updates c with any non-nil values from f. (currently TOML field only!)
 func (c *Core) SetFrom(f *Core) {
 	if v := f.ExplorerURL; v != nil {
 		c.ExplorerURL = f.ExplorerURL
@@ -102,111 +88,24 @@ func (c *Core) SetFrom(f *Core) {
 		c.ShutdownGracePeriod = v
 	}
 
-	if f.AuditLogger != nil {
-		if c.AuditLogger == nil {
-			c.AuditLogger = &audit.AuditLoggerConfig{}
-		}
-		c.AuditLogger.SetFrom(f.AuditLogger)
-	}
+	c.Feature.setFrom(&f.Feature)
+	c.Database.setFrom(&f.Database)
+	c.TelemetryIngress.setFrom(&f.TelemetryIngress)
+	c.AuditLogger.SetFrom(&f.AuditLogger)
+	c.Log.setFrom(&f.Log)
 
-	if f.Feature != nil {
-		if c.Feature == nil {
-			c.Feature = &Feature{}
-		}
-		c.Feature.setFrom(f.Feature)
-	}
+	c.WebServer.setFrom(&f.WebServer)
+	c.JobPipeline.setFrom(&f.JobPipeline)
 
-	if f.Database != nil {
-		if c.Database == nil {
-			c.Database = &Database{}
-		}
-		c.Database.setFrom(f.Database)
+	c.FluxMonitor.setFrom(&f.FluxMonitor)
+	c.OCR2.setFrom(&f.OCR2)
+	c.OCR.setFrom(&f.OCR)
+	c.P2P.setFrom(&f.P2P)
+	c.Keeper.setFrom(&f.Keeper)
 
-	}
-
-	if f.TelemetryIngress != nil {
-		if c.TelemetryIngress == nil {
-			c.TelemetryIngress = &TelemetryIngress{}
-		}
-		c.TelemetryIngress.setFrom(f.TelemetryIngress)
-	}
-
-	if f.Log != nil {
-		if c.Log == nil {
-			c.Log = &Log{}
-		}
-		c.Log.setFrom(f.Log)
-	}
-
-	if f.WebServer != nil {
-		if c.WebServer == nil {
-			c.WebServer = &WebServer{}
-		}
-		c.WebServer.setFrom(f.WebServer)
-	}
-
-	if f.JobPipeline != nil {
-		if c.JobPipeline == nil {
-			c.JobPipeline = &JobPipeline{}
-		}
-		c.JobPipeline.setFrom(f.JobPipeline)
-	}
-
-	if f.FluxMonitor != nil {
-		if c.FluxMonitor == nil {
-			c.FluxMonitor = &FluxMonitor{}
-		}
-		c.FluxMonitor.setFrom(f.FluxMonitor)
-	}
-
-	if f.OCR2 != nil {
-		if c.OCR2 == nil {
-			c.OCR2 = &OCR2{}
-		}
-		c.OCR2.setFrom(f.OCR2)
-	}
-
-	if f.OCR != nil {
-		if c.OCR == nil {
-			c.OCR = &OCR{}
-		}
-		c.OCR.setFrom(f.OCR)
-	}
-
-	if f.P2P != nil {
-		if c.P2P == nil {
-			c.P2P = &P2P{}
-		}
-		c.P2P.setFrom(f.P2P)
-	}
-
-	if f.Keeper != nil {
-		if c.Keeper == nil {
-			c.Keeper = &Keeper{}
-		}
-		c.Keeper.setFrom(f.Keeper)
-	}
-
-	if f.AutoPprof != nil {
-		if c.AutoPprof == nil {
-			c.AutoPprof = &AutoPprof{}
-		}
-		c.AutoPprof.setFrom(f.AutoPprof)
-	}
-
-	if f.Pyroscope != nil {
-		if c.Pyroscope == nil {
-			c.Pyroscope = &Pyroscope{}
-		}
-		c.Pyroscope.setFrom(f.Pyroscope)
-	}
-
-	if f.Sentry != nil {
-		if c.Sentry == nil {
-			c.Sentry = &Sentry{}
-		}
-		c.Sentry.setFrom(f.Sentry)
-	}
+	c.AutoPprof.setFrom(&f.AutoPprof)
+	c.Pyroscope.setFrom(&f.Pyroscope)
+	c.Sentry.setFrom(&f.Sentry)
 }
 
 type Secrets struct {
@@ -286,11 +185,9 @@ type Database struct {
 	MaxOpenConns                  *int64
 	MigrateOnStartup              *bool
 
-	Backup *DatabaseBackup
-
-	Listener *DatabaseListener
-
-	Lock *DatabaseLock
+	Backup   DatabaseBackup   `toml:",omitempty"`
+	Listener DatabaseListener `toml:",omitempty"`
+	Lock     DatabaseLock     `toml:",omitempty"`
 }
 
 func (d *Database) LockingMode() string {
@@ -320,25 +217,9 @@ func (d *Database) setFrom(f *Database) {
 		d.MaxOpenConns = v
 	}
 
-	if f.Backup != nil {
-		if d.Backup == nil {
-			d.Backup = &DatabaseBackup{}
-		}
-		d.Backup.setFrom(f.Backup)
-	}
-	if f.Listener != nil {
-		if d.Listener == nil {
-			d.Listener = &DatabaseListener{}
-		}
-		d.Listener.setFrom(f.Listener)
-	}
-
-	if f.Lock != nil {
-		if d.Lock == nil {
-			d.Lock = &DatabaseLock{}
-		}
-		d.Lock.setFrom(f.Lock)
-	}
+	d.Backup.setFrom(&f.Backup)
+	d.Listener.setFrom(&f.Listener)
+	d.Lock.setFrom(&f.Lock)
 }
 
 type DatabaseListener struct {
@@ -456,7 +337,7 @@ type Log struct {
 	SQL             bool `toml:"-"`
 	UnixTS          *bool
 
-	File *LogFile
+	File LogFile `toml:",omitempty"`
 }
 
 func (l *Log) setFrom(f *Log) {
@@ -469,12 +350,7 @@ func (l *Log) setFrom(f *Log) {
 	if v := f.UnixTS; v != nil {
 		l.UnixTS = v
 	}
-	if f.File != nil {
-		if l.File == nil {
-			l.File = &LogFile{}
-		}
-		l.File.setFrom(f.File)
-	}
+	l.File.setFrom(&f.File)
 }
 
 type LogFile struct {
@@ -508,11 +384,9 @@ type WebServer struct {
 	SessionTimeout          *models.Duration
 	SessionReaperExpiration *models.Duration
 
-	MFA *WebServerMFA
-
-	RateLimit *WebServerRateLimit
-
-	TLS *WebServerTLS
+	MFA       WebServerMFA       `toml:",omitempty"`
+	RateLimit WebServerRateLimit `toml:",omitempty"`
+	TLS       WebServerTLS       `toml:",omitempty"`
 }
 
 func (w *WebServer) setFrom(f *WebServer) {
@@ -537,24 +411,10 @@ func (w *WebServer) setFrom(f *WebServer) {
 	if v := f.SessionReaperExpiration; v != nil {
 		w.SessionReaperExpiration = v
 	}
-	if f.MFA != nil {
-		if w.MFA == nil {
-			w.MFA = &WebServerMFA{}
-		}
-		w.MFA.setFrom(f.MFA)
-	}
-	if f.RateLimit != nil {
-		if w.RateLimit == nil {
-			w.RateLimit = &WebServerRateLimit{}
-		}
-		w.RateLimit.setFrom(f.RateLimit)
-	}
-	if f.TLS != nil {
-		if w.TLS == nil {
-			w.TLS = &WebServerTLS{}
-		}
-		w.TLS.setFrom(f.TLS)
-	}
+
+	w.MFA.setFrom(&f.MFA)
+	w.RateLimit.setFrom(&f.RateLimit)
+	w.TLS.setFrom(&f.TLS)
 }
 
 type WebServerMFA struct {
@@ -626,7 +486,7 @@ type JobPipeline struct {
 	ReaperThreshold           *models.Duration
 	ResultWriteQueueDepth     *uint32
 
-	HTTPRequest *JobPipelineHTTPRequest
+	HTTPRequest JobPipelineHTTPRequest `toml:",omitempty"`
 }
 
 func (j *JobPipeline) setFrom(f *JobPipeline) {
@@ -645,12 +505,8 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	if v := f.ResultWriteQueueDepth; v != nil {
 		j.ResultWriteQueueDepth = v
 	}
-	if f.HTTPRequest != nil {
-		if j.HTTPRequest == nil {
-			j.HTTPRequest = &JobPipelineHTTPRequest{}
-		}
-		j.HTTPRequest.setFrom(f.HTTPRequest)
-	}
+	j.HTTPRequest.setFrom(&f.HTTPRequest)
+
 }
 
 type JobPipelineHTTPRequest struct {
@@ -768,9 +624,8 @@ type P2P struct {
 	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
 
-	V1 *P2PV1
-
-	V2 *P2PV2
+	V1 P2PV1 `toml:",omitempty"`
+	V2 P2PV2 `toml:",omitempty"`
 }
 
 func (p *P2P) NetworkStack() ocrnetworking.NetworkingStack {
@@ -799,18 +654,9 @@ func (p *P2P) setFrom(f *P2P) {
 	if v := f.TraceLogging; v != nil {
 		p.TraceLogging = v
 	}
-	if f.V1 != nil {
-		if p.V1 == nil {
-			p.V1 = &P2PV1{}
-		}
-		p.V1.setFrom(f.V1)
-	}
-	if f.V2 != nil {
-		if p.V2 == nil {
-			p.V2 = &P2PV2{}
-		}
-		p.V2.setFrom(f.V2)
-	}
+
+	p.V1.setFrom(&f.V1)
+	p.V2.setFrom(&f.V2)
 }
 
 type P2PV1 struct {
@@ -911,7 +757,7 @@ type Keeper struct {
 	TurnFlagEnabled              *bool
 	UpkeepCheckGasPriceEnabled   *bool
 
-	Registry *KeeperRegistry
+	Registry KeeperRegistry `toml:",omitempty"`
 }
 
 func (k *Keeper) setFrom(f *Keeper) {
@@ -939,12 +785,9 @@ func (k *Keeper) setFrom(f *Keeper) {
 	if v := f.UpkeepCheckGasPriceEnabled; v != nil {
 		k.UpkeepCheckGasPriceEnabled = v
 	}
-	if f.Registry != nil {
-		if k.Registry == nil {
-			k.Registry = &KeeperRegistry{}
-		}
-		k.Registry.setFrom(f.Registry)
-	}
+
+	k.Registry.setFrom(&f.Registry)
+
 }
 
 type KeeperRegistry struct {
