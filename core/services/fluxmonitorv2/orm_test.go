@@ -13,6 +13,7 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -25,7 +26,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewPGCfg(true)
 	orm := newORM(t, db, cfg, nil)
 
 	address := testutils.NewAddress()
@@ -79,7 +80,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -164,7 +165,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewPGCfg(true)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	strategy := txmmocks.NewTxStrategy(t)

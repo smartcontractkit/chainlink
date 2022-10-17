@@ -124,6 +124,7 @@ TransmitterAddress = ''
 [P2P]
 IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
+PeerID = ''
 TraceLogging = false
 
 [P2P.V1]
@@ -137,7 +138,6 @@ DHTLookupInterval = 10
 ListenIP = '0.0.0.0'
 ListenPort = 0
 NewStreamTimeout = '10s'
-PeerID = ''
 PeerstoreWriteInterval = '5m0s'
 
 [P2P.V2]

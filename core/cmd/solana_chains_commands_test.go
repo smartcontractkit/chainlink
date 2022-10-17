@@ -38,6 +38,7 @@ func TestClient_IndexSolanaChains(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateSolanaChain(t *testing.T) {
 	t.Parallel()
 
@@ -65,6 +66,7 @@ func TestClient_CreateSolanaChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveSolanaChain(t *testing.T) {
 	t.Parallel()
 
@@ -96,6 +98,7 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigureSolanaChain(t *testing.T) {
 	t.Parallel()
 

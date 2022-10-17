@@ -62,3 +62,6 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2.Automation]
+GasLimit = 5300000

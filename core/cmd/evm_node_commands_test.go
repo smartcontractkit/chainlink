@@ -68,6 +68,7 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateEVMNode(t *testing.T) {
 	t.Parallel()
 
@@ -120,6 +121,7 @@ func TestClient_CreateEVMNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveEVMNode(t *testing.T) {
 	t.Parallel()
 
