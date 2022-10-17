@@ -324,6 +324,8 @@ IncomingMessageBufferSize = 10 # Default
 # IncomingMessageBufferSize to give the remote enough space to process
 # them all in case we regained connection and now send a bunch at once
 OutgoingMessageBufferSize = 10 # Default
+# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
 
@@ -366,8 +368,6 @@ ListenPort = 1337 # Example
 # it can't get a connection, but it is here anyway as a failsafe.
 # Set to 0 to disable any timeout on top of what libp2p gives us by default.
 NewStreamTimeout = '10s' # Default
-# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # **ADVANCED**
 # PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
 PeerstoreWriteInterval = '5m' # Default

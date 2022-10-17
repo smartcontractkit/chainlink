@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -79,9 +80,10 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -230,7 +232,8 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, app.KeyStore, logger.TestLogger(t), cfg)
+		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
+		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg)
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -252,9 +255,7 @@ observationSource   = """
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 
-	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-
-	app := cltest.NewLegacyApplication(t, ethClient)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// set up user
@@ -264,13 +265,12 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, orm.CreateUser(&mockUser))
 	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
-	url := app.Server.URL + "/v2/config"
+	url := app.Server.URL + "/users"
 	headers := make(map[string]string)
 	headers[webauth.APIKey] = cltest.APIKey
 	headers[webauth.APISecret] = cltest.APISecret
-	buf := bytes.NewBufferString(`{"ethGasPriceDefault":150000000000}`)
 
-	resp, cleanup := cltest.UnauthenticatedPatch(t, url, buf, headers)
+	resp, cleanup := cltest.UnauthenticatedGet(t, url, headers)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
@@ -291,7 +291,7 @@ type OperatorContracts struct {
 func setupOperatorContracts(t *testing.T) OperatorContracts {
 	user := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
-		user.From: {Balance: assets.Ether(1000)},
+		user.From: {Balance: assets.Ether(1000).ToInt()},
 	}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
@@ -350,9 +350,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			t.Parallel()
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
-			config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				cltest.TestOverrides(c, s)
-				cltest.OverrideSimulated(c, s)
+			config := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			})
@@ -371,7 +369,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Fund node account with ETH.
 			n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
-			tx = types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+			tx = types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
 			err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -459,9 +457,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	b := operatorContracts.sim
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cltest.TestOverrides(c, s)
-		cltest.OverrideSimulated(c, s)
+	cfg := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
 	})
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
@@ -473,7 +469,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	// Fund node account with ETH.
 	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
-	tx := types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -711,7 +707,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -783,7 +779,7 @@ func setupForwarderEnabledNode(
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -1282,40 +1278,43 @@ observationSource = """
 func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	t.Parallel()
 
-	var initialDefaultGasPrice int64 = 5000000000
-	maxGasPrice := big.NewInt(50000000000)
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	var initialDefaultGasPrice int64 = 5_000_000_000
+	maxGasPrice := assets.NewWeiI(10 * initialDefaultGasPrice)
 
-	ethClient := cltest.NewEthMocksWithDefaultChain(t)
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](0)
+		c.EVM[0].GasEstimator.PriceDefault = assets.NewWeiI(initialDefaultGasPrice)
+		c.EVM[0].GasEstimator.Mode = ptr("BlockHistory")
+		c.EVM[0].RPCBlockQueryDelay = ptr[uint16](0)
+		c.EVM[0].GasEstimator.BlockHistory.BlockHistorySize = ptr[uint16](2)
+		c.EVM[0].FinalityDepth = ptr[uint32](3)
+	})
+
+	ethClient := cltest.NewEthMocks(t)
+	ethClient.On("ChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg, ChainCfg: evmtypes.ChainCfg{
-		EvmGasPriceDefault:                    utils.NewBigI(initialDefaultGasPrice),
-		GasEstimatorMode:                      null.StringFrom("BlockHistory"),
-		BlockHistoryEstimatorBlockDelay:       null.IntFrom(0),
-		BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
-		EvmFinalityDepth:                      null.IntFrom(3),
-	}})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
 
 	b41 := gas.Block{
 		Number:       41,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.LegacyTransactionsFromGasPrices(41000000000, 41500000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(41_000_000_000, 41_500_000_000),
 	}
 	b42 := gas.Block{
 		Number:       42,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.LegacyTransactionsFromGasPrices(44000000000, 45000000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(44_000_000_000, 45_000_000_000),
 	}
 	b43 := gas.Block{
 		Number:       43,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.LegacyTransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
 	evmChainID := utils.NewBig(cfg.DefaultChainID())
@@ -1362,10 +1361,10 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	chain := evmtest.MustGetDefaultChain(t, cc)
 	estimator := chain.TxManager().GetGasEstimator()
-	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
+	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(500000), gasLimit)
-	assert.Equal(t, "41500000000", gasPrice.String())
+	assert.Equal(t, "41.5 gwei", gasPrice.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
 
 	// BlockHistoryEstimator new blocks
@@ -1387,7 +1386,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 		require.NoError(t, err)
 		return gasPrice.String()
-	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45 gwei"))
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {

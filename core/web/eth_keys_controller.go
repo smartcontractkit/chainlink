@@ -471,7 +471,7 @@ func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.S
 // gets the key specific max gas price from the chain config and sets it on the
 // resource.
 func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) presenters.NewETHKeyOption {
-	var price *big.Int
+	var price *assets.Wei
 	chain, err := ekc.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 	if err == nil {
 		price = chain.Config().KeySpecificMaxGasPriceWei(keyAddress)
@@ -485,7 +485,7 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddres
 			return errors.Errorf("error getting EVM Chain: %v", err)
 		}
 
-		r.MaxGasPriceWei = *utils.NewBig(price)
+		r.MaxGasPriceWei = *utils.NewBig(price.ToInt())
 
 		return nil
 	}

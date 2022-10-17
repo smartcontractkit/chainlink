@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"os"
 	"strconv"
@@ -19,6 +18,7 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -63,7 +63,6 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	}
 
 	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cltest.TestOverrides(c, s)
 		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
@@ -81,6 +80,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	return app
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
 	t.Helper()
 
@@ -502,6 +502,7 @@ func TestClient_Profile(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
@@ -527,7 +528,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
-		assert.Equal(t, big.NewInt(8616460799), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(8616460799), cfg.EvmGasPriceDefault())
 
 		client, _ = app.NewClientAndRenderer()
 		set = flag.NewFlagSet("setgasprice", 0)
@@ -537,7 +538,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 
 		c = cli.NewContext(nil, set, nil)
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(861646079900), cfg.EvmGasPriceDefault())
 	})
 
 	t.Run("specifying wrong chain id", func(t *testing.T) {
@@ -554,7 +555,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
-		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(861646079900), cfg.EvmGasPriceDefault())
 	})
 
 	t.Run("specifying correct chain id", func(t *testing.T) {
@@ -569,7 +570,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		require.NoError(t, err)
 		cfg := ch.Config()
 
-		assert.Equal(t, big.NewInt(12345678900), cfg.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(12345678900), cfg.EvmGasPriceDefault())
 	})
 }
 
@@ -593,6 +594,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigDump(t *testing.T) {
 	t.Parallel()
 

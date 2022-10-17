@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -98,7 +97,6 @@ func setupTestService(t *testing.T) *TestService {
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
-		Client:      client.NewNullClient(gcfg.DefaultChainID(), lggr),
 		HeadTracker: headtracker.NullTracker})
 	keyStore := new(ksmocks.Master)
 	keyStore.On("CSA").Return(csaKeystore)

@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
@@ -30,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -65,7 +65,7 @@ func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -157,7 +157,7 @@ func TestTxm_CountUnconfirmedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -179,7 +179,7 @@ func TestTxm_CountUnstartedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -200,7 +200,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	kst := cltest.NewKeyStore(t, db, cfg)
 
@@ -463,14 +463,14 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
 	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe()
-	cfg.On("EvmGasBumpWei").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasFeeCapDefault").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasBumpWei").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmGasFeeCapDefault").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmGasLimitMultiplier").Return(float32(42)).Maybe().Once()
-	cfg.On("EvmGasPriceDefault").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasTipCapDefault").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasPriceDefault").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmGasTipCapDefault").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmGasTipCapMinimum").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmMaxGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmMinGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmUseForwarders").Return(true).Maybe()
 	cfg.On("LogSQL").Maybe().Return(false)
 
@@ -479,7 +479,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 
 func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	etKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -764,13 +764,15 @@ func TestTxm_Reset(t *testing.T) {
 func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
 	var err error
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(true)
+	})
 
 	kst := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)
 	_, disabledAddress := cltest.MustInsertRandomKeyReturningState(t, kst, false)
 
-	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(true)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ethNodeNonce := uint64(22)

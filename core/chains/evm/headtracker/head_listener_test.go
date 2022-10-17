@@ -17,8 +17,11 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
@@ -34,9 +37,10 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	zero := time.Duration(0) // no need to test head timeouts here
-	cfg.Overrides.NodeNoNewHeadsThreshold = &zero
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		// no need to test head timeouts here
+		c.EVM[0].NoNewHeadsThreshold = &models.Duration{}
+	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
 	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, chStop)
@@ -94,9 +98,10 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	idleDuration := time.Second
-	cfg.Overrides.GlobalBlockEmissionIdleWarningThreshold = &idleDuration
+
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NoNewHeadsThreshold = models.MustNewDuration(time.Second)
+	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg.BlockEmissionIdleWarningThreshold()
 	chStop := make(chan struct{})
@@ -136,7 +141,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 
 	require.True(t, hl.ReceivingHeads())
 
-	time.Sleep(idleDuration * 2)
+	time.Sleep(time.Second * 2)
 
 	require.False(t, hl.ReceivingHeads())
 
@@ -156,10 +161,11 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			l := logger.TestLogger(t)
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewGeneralConfig(t, nil)
 			evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 			chStop := make(chan struct{})
 			hl := headtracker.NewHeadListener(l, ethClient, evmcfg, chStop)

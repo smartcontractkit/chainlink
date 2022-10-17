@@ -39,6 +39,8 @@ before(async () => {
 })
 
 describe('OCR2DRClientTestHelper', () => {
+  const donPublicKey =
+    '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
   const subscriptionId = 1
   const anyValue = () => true
 
@@ -49,10 +51,18 @@ describe('OCR2DRClientTestHelper', () => {
     const accounts = await ethers.getSigners()
     oracle = await ocr2drOracleFactory
       .connect(roles.defaultAccount)
-      .deploy(accounts[0].address)
+      .deploy(accounts[0].address, donPublicKey)
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
+  })
+
+  describe('#getDONPublicKey', () => {
+    it('returns DON public key set on Oracle', async () => {
+      expect(await client.callStatic.getDONPublicKey()).to.be.equal(
+        donPublicKey,
+      )
+    })
   })
 
   describe('#sendSimpleRequestWithJavaScript', () => {

@@ -2,12 +2,12 @@ package keeper
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -79,9 +79,9 @@ func TestBuildJobSpec(t *testing.T) {
 		UpkeepID:   upkeepID,
 		ExecuteGas: 12,
 	}
-	gasPrice := big.NewInt(24)
-	gasTipCap := big.NewInt(48)
-	gasFeeCap := big.NewInt(72)
+	gasPrice := assets.NewWeiI(24)
+	gasTipCap := assets.NewWeiI(48)
+	gasFeeCap := assets.NewWeiI(72)
 
 	m := &registryGasCheckMock{}
 	m.Mock.Test(t)
@@ -104,9 +104,9 @@ func TestBuildJobSpec(t *testing.T) {
 			},
 			"performUpkeepGasLimit": uint32(21),
 			"maxPerformDataSize":    uint32(1000),
-			"gasPrice":              gasPrice,
-			"gasTipCap":             gasTipCap,
-			"gasFeeCap":             gasFeeCap,
+			"gasPrice":              gasPrice.ToInt(),
+			"gasTipCap":             gasTipCap.ToInt(),
+			"gasFeeCap":             gasFeeCap.ToInt(),
 			"evmChainID":            "250",
 		},
 	}
