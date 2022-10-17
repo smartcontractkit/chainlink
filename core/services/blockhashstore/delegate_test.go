@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -46,7 +47,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg).Eth()
 	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
