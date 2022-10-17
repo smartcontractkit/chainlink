@@ -581,6 +581,28 @@ func (c *Config) loadLegacyEVMEnv() {
 			}
 		}
 	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorCheckInclusionBlocks").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.CheckInclusionBlocks = e
+		}
+	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorCheckInclusionPercentile").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.CheckInclusionPercentile = e
+		}
+	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
@@ -856,6 +878,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.P2P = &config.P2P{
 		IncomingMessageBufferSize: first(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
+		PeerID:                    envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
 		TraceLogging:              envvar.NewBool("OCRTraceLogging").ParsePtr(),
 	}
 	p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
@@ -880,7 +903,6 @@ func (c *Config) loadLegacyCoreEnv() {
 			ListenIP:                         envIP("P2PListenIP"),
 			ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
 			NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
-			PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
 			PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 		}
 	}

@@ -88,6 +88,9 @@ type (
 		ocrContractTransmitterTransmitTimeout time.Duration
 		ocrDatabaseTimeout                    time.Duration
 		ocrObservationGracePeriod             time.Duration
+
+		// Chain specific OCR2 config
+		ocr2AutomationGasLimit uint32
 	}
 )
 
@@ -164,6 +167,7 @@ func setChainSpecificConfigDefaultSets() {
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
 		ocrObservationGracePeriod:             1 * time.Second,
+		ocr2AutomationGasLimit:                5_300_000, // 5.3M: 5M upkeep gas limit + 300K overhead
 		operatorFactoryAddress:                "",
 		rpcDefaultBatchSize:                   100,
 		useForwarders:                         false,
@@ -328,6 +332,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minGasPriceWei = *assets.NewWeiI(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.ocrContractConfirmations = 1
+	optimismMainnet.ocr2AutomationGasLimit = 6_500_000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"

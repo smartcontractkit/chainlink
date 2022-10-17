@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -93,8 +93,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 		c.db = pgtest.NewSqlxDB(t)
 	}
 
-	globalConfig := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cltest.TestOverrides(c, s)
+	globalConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Log.SQL = true
 		finality := uint32(10)
 		c.EVM[0].FinalityDepth = &finality
@@ -251,6 +250,8 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 
 type simpleLogListener struct {
 	name                string
+	lggr                logger.Logger
+	cfg                 pg.LogConfig
 	received            *received
 	t                   *testing.T
 	db                  *sqlx.DB
@@ -274,6 +275,8 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	var rec received
 	return &simpleLogListener{
 		db:       db,
+		lggr:     logger.TestLogger(t),
+		cfg:      helper.config,
 		name:     name,
 		received: &rec,
 		t:        t,
@@ -286,20 +289,18 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 }
 
 func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
-	lggr := logger.TestLogger(listener.t)
-	cfg := cltest.NewTestGeneralConfig(listener.t)
 	listener.received.Lock()
 	defer listener.received.Unlock()
-	lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
-	consumed := listener.handleLogBroadcast(listener.t, lggr, cfg, lb)
+	consumed := listener.handleLogBroadcast(listener.t, listener.lggr, listener.cfg, lb)
 
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
 	} else {
-		lggr.Warnf("Listener %v: Log was already consumed!", listener.name)
+		listener.lggr.Warnf("Listener %v: Log was already consumed!", listener.name)
 	}
 }
 

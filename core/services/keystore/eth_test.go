@@ -149,7 +149,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethKeyStore := keyStore.Eth()

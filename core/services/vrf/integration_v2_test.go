@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -1896,8 +1897,8 @@ func TestRequestCost(t *testing.T) {
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
+	cfg := configtest.NewGeneralConfigSimulated(t, nil)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
@@ -1939,8 +1940,8 @@ func TestMaxConsumersCost(t *testing.T) {
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
+	cfg := configtest.NewGeneralConfigSimulated(t, nil)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	_, err := carolContract.TestCreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
@@ -1974,8 +1975,8 @@ func TestFulfillmentCost(t *testing.T) {
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
+	cfg := configtest.NewGeneralConfigSimulated(t, nil)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
