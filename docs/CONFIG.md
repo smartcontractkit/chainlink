@@ -861,6 +861,7 @@ TransmitterAddress is the default sending address to use for OCR. If you have an
 [P2P]
 IncomingMessageBufferSize = 10 # Default
 OutgoingMessageBufferSize = 10 # Default
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 ```
 P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
@@ -889,6 +890,12 @@ NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
 IncomingMessageBufferSize to give the remote enough space to process
 them all in case we regained connection and now send a bunch at once
 
+### PeerID<a id='P2P-PeerID'></a>
+```toml
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
+```
+PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+
 ### TraceLogging<a id='P2P-TraceLogging'></a>
 ```toml
 TraceLogging = false # Default
@@ -908,7 +915,6 @@ DHTLookupInterval = 10 # Default
 ListenIP = '0.0.0.0' # Default
 ListenPort = 1337 # Example
 NewStreamTimeout = '10s' # Default
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 PeerstoreWriteInterval = '5m' # Default
 ```
 
@@ -990,12 +996,6 @@ stream before we give up.
 We shouldn't hit this in practice since libp2p will give up fast if
 it can't get a connection, but it is here anyway as a failsafe.
 Set to 0 to disable any timeout on top of what libp2p gives us by default.
-
-### PeerID<a id='P2P-V1-PeerID'></a>
-```toml
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
 
 ### PeerstoreWriteInterval<a id='P2P-V1-PeerstoreWriteInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._

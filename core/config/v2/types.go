@@ -763,9 +763,9 @@ func (o *OCR) setFrom(f *OCR) {
 }
 
 type P2P struct {
-	// V1 and V2
 	IncomingMessageBufferSize *int64
 	OutgoingMessageBufferSize *int64
+	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
 
 	V1 *P2PV1
@@ -792,6 +792,9 @@ func (p *P2P) setFrom(f *P2P) {
 	}
 	if v := f.OutgoingMessageBufferSize; v != nil {
 		p.OutgoingMessageBufferSize = v
+	}
+	if v := f.PeerID; v != nil {
+		p.PeerID = v
 	}
 	if v := f.TraceLogging; v != nil {
 		p.TraceLogging = v
@@ -821,7 +824,6 @@ type P2PV1 struct {
 	ListenIP                         *net.IP
 	ListenPort                       *uint16
 	NewStreamTimeout                 *models.Duration
-	PeerID                           *p2pkey.PeerID
 	PeerstoreWriteInterval           *models.Duration
 }
 
@@ -863,9 +865,6 @@ func (p *P2PV1) setFrom(f *P2PV1) {
 	}
 	if v := f.NewStreamTimeout; v != nil {
 		p.NewStreamTimeout = v
-	}
-	if v := f.PeerID; v != nil {
-		p.PeerID = v
 	}
 	if v := f.PeerstoreWriteInterval; v != nil {
 		p.PeerstoreWriteInterval = v

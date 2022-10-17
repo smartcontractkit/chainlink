@@ -41,6 +41,7 @@ func terraStartNewApplication(t *testing.T, cfgs ...*terra.TerraConfig) *cltest.
 	})
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func terraStartNewLegacyApplication(t *testing.T) *cltest.TestApplication {
 	return startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.TerraEnabled = null.BoolFrom(true)
