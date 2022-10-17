@@ -674,11 +674,11 @@ func (g *generalConfig) P2PNetworkingStackRaw() string {
 }
 
 func (g *generalConfig) P2PPeerID() p2pkey.PeerID {
-	return *g.c.P2P.V1.PeerID
+	return *g.c.P2P.PeerID
 }
 
 func (g *generalConfig) P2PPeerIDRaw() string {
-	return g.c.P2P.V1.PeerID.String()
+	return g.c.P2P.PeerID.String()
 }
 
 func (g *generalConfig) P2PIncomingMessageBufferSize() int {
