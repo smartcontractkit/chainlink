@@ -40,10 +40,12 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
     return "OCR2DROracle 0.0.0";
   }
 
+  /// @inheritdoc OCR2DROracleInterface
   function getDONPublicKey() external view override returns (bytes32) {
     return s_donPublicKey;
   }
 
+  /// @inheritdoc OCR2DROracleInterface
   function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
@@ -55,6 +57,7 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
     return requestId;
   }
 
+  /// @inheritdoc OCR2DROracleInterface
   function fulfillRequest(
     bytes32 requestId,
     bytes calldata response,

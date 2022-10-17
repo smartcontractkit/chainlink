@@ -24,6 +24,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     setOracle(oracle);
   }
 
+  /// @inheritdoc OCR2DRClientInterface
   function getDONPublicKey() external view override returns (bytes32) {
     return s_oracle.getDONPublicKey();
   }
@@ -54,14 +55,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     bytes memory err
   ) internal virtual;
 
-  /**
-   * @notice OCR2DR response handler called by the designated oracle
-   * @dev This is a proxy function to user-defined fulfillRequest(),
-   * used to validate and record a fulfillment before calling the user's callback
-   * @param requestId Same as for fulfillRequest()
-   * @param response Same as for fulfillRequest()
-   * @param err Same as for fulfillRequest()
-   */
+  /// @inheritdoc OCR2DRClientInterface
   function handleOracleFulfillment(
     bytes32 requestId,
     bytes memory response,

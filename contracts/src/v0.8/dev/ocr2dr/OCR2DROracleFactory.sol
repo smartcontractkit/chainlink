@@ -26,20 +26,21 @@ contract OCR2DROracleFactory {
   /**
    * @notice creates a new Oracle contract with the msg.sender as owner
    * @param donPublicKey DON's public key used to encrypt user secrets
+   * @return address Address of a newly deployed oracle
    */
   function deployNewOracle(bytes32 donPublicKey) external returns (address) {
     OCR2DROracle oracle = new OCR2DROracle(msg.sender, donPublicKey);
-
     s_created.add(address(oracle));
     emit OracleCreated(address(oracle), msg.sender, msg.sender);
-
     return address(oracle);
   }
 
   /**
-   * @notice indicates whether this factory deployed an address
+   * @notice Verifies whether this factory deployed an address
+   * @param oracleAddress The oracle address in question
+   * @return bool True if an oracle has been created at that address
    */
-  function created(address query) external view returns (bool) {
-    return s_created.contains(query);
+  function created(address oracleAddress) external view returns (bool) {
+    return s_created.contains(oracleAddress);
   }
 }
