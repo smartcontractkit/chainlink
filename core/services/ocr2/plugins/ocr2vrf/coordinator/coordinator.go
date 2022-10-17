@@ -501,8 +501,6 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					Requester:         r.Callback.Requester,
 					Arguments:         r.Callback.Arguments,
 					GasAllowance:      r.Callback.GasAllowance,
-					RequestHeight:     r.Raw.BlockNumber,
-					RequestBlockHash:  r.Raw.BlockHash,
 				})
 				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
 			}
