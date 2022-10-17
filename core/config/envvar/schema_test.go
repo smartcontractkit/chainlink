@@ -39,6 +39,8 @@ func TestConfigSchema(t *testing.T) {
 		"BlockHistoryEstimatorBatchSize":                 "BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE",
 		"BlockHistoryEstimatorBlockDelay":                "BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY",
 		"BlockHistoryEstimatorBlockHistorySize":          "BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE",
+		"BlockHistoryEstimatorCheckInclusionBlocks":      "BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_BLOCKS",
+		"BlockHistoryEstimatorCheckInclusionPercentile":  "BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_PERCENTILE",
 		"BlockHistoryEstimatorEIP1559FeeCapBufferBlocks": "BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS",
 		"BlockHistoryEstimatorTransactionPercentile":     "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE",
 		"BridgeResponseURL":                              "BRIDGE_RESPONSE_URL",

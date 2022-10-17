@@ -27,7 +27,7 @@ jobs:
           this-job-name: Shard Go Tests 
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
@@ -78,7 +78,7 @@ jobs:
           this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.shard.id }}
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup node
         uses: actions/setup-node@v3
         with:
@@ -107,7 +107,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.shard.pkgs }}"
       - name: Store logs artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v2.3.0
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: ${{ matrix.cmd }}_${{ matrix.shard.idx }}_logs
           path: |

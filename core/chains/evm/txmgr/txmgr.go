@@ -48,7 +48,7 @@ type Config interface {
 	EvmNonceAutoSync() bool
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	TriggerFallbackDBPollInterval() time.Duration
 	LogSQL() bool
 }

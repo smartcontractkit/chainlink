@@ -121,7 +121,7 @@ runs:
 
   - name: Build and push root docker image
     id: buildpush-root
-    uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
+    uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
     with:
       push: ${{ inputs.publish }}
       context: .
@@ -159,7 +159,7 @@ runs:
 
   - name: Build and push non-root docker image
     id: buildpush-nonroot
-    uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
+    uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
     with:
       push: ${{ inputs.publish }}
       context: .

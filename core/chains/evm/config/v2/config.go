@@ -320,8 +320,8 @@ func (c *Chain) asV1() *types.ChainCfg {
 		EvmFinalityDepth:               nullInt(c.FinalityDepth),
 		EvmGasBumpPercent:              nullInt(c.GasEstimator.BumpPercent),
 		EvmGasBumpTxDepth:              nullInt(c.GasEstimator.BumpTxDepth),
-		EvmGasBumpWei:                  (*utils.Big)(c.GasEstimator.BumpMin),
-		EvmGasFeeCapDefault:            (*utils.Big)(c.GasEstimator.FeeCapDefault),
+		EvmGasBumpWei:                  c.GasEstimator.BumpMin,
+		EvmGasFeeCapDefault:            c.GasEstimator.FeeCapDefault,
 		EvmGasLimitDefault:             nullInt(c.GasEstimator.LimitDefault),
 		EvmGasLimitMax:                 nullInt(c.GasEstimator.LimitMax),
 		EvmGasLimitMultiplier:          nullFloat(c.GasEstimator.LimitMultiplier),
@@ -330,16 +330,16 @@ func (c *Chain) asV1() *types.ChainCfg {
 		EvmGasLimitVRFJobType:          nullInt(c.GasEstimator.LimitJobType.VRF),
 		EvmGasLimitFMJobType:           nullInt(c.GasEstimator.LimitJobType.FM),
 		EvmGasLimitKeeperJobType:       nullInt(c.GasEstimator.LimitJobType.Keeper),
-		EvmGasPriceDefault:             (*utils.Big)(c.GasEstimator.PriceDefault),
-		EvmGasTipCapDefault:            (*utils.Big)(c.GasEstimator.TipCapDefault),
-		EvmGasTipCapMinimum:            (*utils.Big)(c.GasEstimator.TipCapMin),
+		EvmGasPriceDefault:             c.GasEstimator.PriceDefault,
+		EvmGasTipCapDefault:            c.GasEstimator.TipCapDefault,
+		EvmGasTipCapMinimum:            c.GasEstimator.TipCapMin,
 		EvmHeadTrackerHistoryDepth:     nullInt(c.HeadTracker.HistoryDepth),
 		EvmHeadTrackerMaxBufferSize:    nullInt(c.HeadTracker.MaxBufferSize),
 		EvmHeadTrackerSamplingInterval: c.HeadTracker.SamplingInterval,
 		EvmLogBackfillBatchSize:        nullInt(c.LogBackfillBatchSize),
 		EvmLogPollInterval:             c.LogPollInterval,
 		EvmLogKeepBlocksDepth:          nullInt(c.LogKeepBlocksDepth),
-		EvmMaxGasPriceWei:              (*utils.Big)(c.GasEstimator.PriceMax),
+		EvmMaxGasPriceWei:              c.GasEstimator.PriceMax,
 		EvmNonceAutoSync:               null.BoolFromPtr(c.NonceAutoSync),
 		EvmUseForwarders:               null.BoolFromPtr(c.Transactions.ForwardersEnabled),
 		EvmRPCDefaultBatchSize:         nullInt(c.RPCDefaultBatchSize),
@@ -356,7 +356,7 @@ func (c *Chain) asV1() *types.ChainCfg {
 			cfg.KeySpecific = map[string]types.ChainCfg{}
 		}
 		cfg.KeySpecific[ks.Key.String()] = types.ChainCfg{
-			EvmMaxGasPriceWei: (*utils.Big)(ks.GasEstimator.PriceMax),
+			EvmMaxGasPriceWei: ks.GasEstimator.PriceMax,
 		}
 	}
 	return &cfg
@@ -449,9 +449,9 @@ func (m *BalanceMonitor) setFrom(f *BalanceMonitor) {
 type GasEstimator struct {
 	Mode *string
 
-	PriceDefault *utils.Wei
-	PriceMax     *utils.Wei
-	PriceMin     *utils.Wei
+	PriceDefault *assets.Wei
+	PriceMax     *assets.Wei
+	PriceMin     *assets.Wei
 
 	LimitDefault    *uint32
 	LimitMax        *uint32
@@ -459,16 +459,16 @@ type GasEstimator struct {
 	LimitTransfer   *uint32
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
 
-	BumpMin       *utils.Wei
+	BumpMin       *assets.Wei
 	BumpPercent   *uint16
 	BumpThreshold *uint32
 	BumpTxDepth   *uint16
 
 	EIP1559DynamicFees *bool
 
-	FeeCapDefault *utils.Wei
-	TipCapDefault *utils.Wei
-	TipCapMin     *utils.Wei
+	FeeCapDefault *assets.Wei
+	TipCapDefault *assets.Wei
+	TipCapMin     *assets.Wei
 
 	BlockHistory *BlockHistoryEstimator
 }
@@ -598,6 +598,8 @@ func (t *GasLimitJobType) setFrom(f *GasLimitJobType) {
 type BlockHistoryEstimator struct {
 	BatchSize                 *uint32
 	BlockHistorySize          *uint16
+	CheckInclusionBlocks      *uint16
+	CheckInclusionPercentile  *uint16
 	EIP1559FeeCapBufferBlocks *uint16
 	TransactionPercentile     *uint16
 }
@@ -608,6 +610,12 @@ func (e *BlockHistoryEstimator) setFrom(f *BlockHistoryEstimator) {
 	}
 	if v := f.BlockHistorySize; v != nil {
 		e.BlockHistorySize = v
+	}
+	if v := f.CheckInclusionBlocks; v != nil {
+		e.CheckInclusionBlocks = v
+	}
+	if v := f.CheckInclusionPercentile; v != nil {
+		e.CheckInclusionPercentile = v
 	}
 	if v := f.EIP1559FeeCapBufferBlocks; v != nil {
 		e.EIP1559FeeCapBufferBlocks = v
@@ -638,7 +646,7 @@ type KeySpecific struct {
 }
 
 type KeySpecificGasEstimator struct {
-	PriceMax *utils.Wei
+	PriceMax *assets.Wei
 }
 
 type HeadTracker struct {
@@ -783,7 +791,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.PriceMax = cfg.EvmMaxGasPriceWei.Wei()
+		c.GasEstimator.PriceMax = cfg.EvmMaxGasPriceWei
 	}
 	if cfg.EvmEIP1559DynamicFees.Valid {
 		if c.GasEstimator == nil {
@@ -795,7 +803,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.PriceDefault = cfg.EvmGasPriceDefault.Wei()
+		c.GasEstimator.PriceDefault = cfg.EvmGasPriceDefault
 	}
 	if cfg.EvmGasLimitMultiplier.Valid {
 		v := decimal.NewFromFloat(cfg.EvmGasLimitMultiplier.Float64)
@@ -805,13 +813,13 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.TipCapDefault = cfg.EvmGasTipCapDefault.Wei()
+		c.GasEstimator.TipCapDefault = cfg.EvmGasTipCapDefault
 	}
 	if cfg.EvmGasTipCapMinimum != nil {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.TipCapMin = cfg.EvmGasTipCapMinimum.Wei()
+		c.GasEstimator.TipCapMin = cfg.EvmGasTipCapMinimum
 	}
 	if cfg.EvmGasBumpPercent.Valid {
 		if c.GasEstimator == nil {
@@ -831,13 +839,13 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.BumpMin = cfg.EvmGasBumpWei.Wei()
+		c.GasEstimator.BumpMin = cfg.EvmGasBumpWei
 	}
 	if cfg.EvmGasFeeCapDefault != nil {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.FeeCapDefault = cfg.EvmGasFeeCapDefault.Wei()
+		c.GasEstimator.FeeCapDefault = cfg.EvmGasFeeCapDefault
 	}
 	if cfg.EvmGasLimitDefault.Valid {
 		if c.GasEstimator == nil {
@@ -912,7 +920,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.KeySpecific = append(c.KeySpecific, KeySpecific{
 			Key: &v,
 			GasEstimator: &KeySpecificGasEstimator{
-				PriceMax: kcfg.EvmMaxGasPriceWei.Wei(),
+				PriceMax: kcfg.EvmMaxGasPriceWei,
 			},
 		})
 	}

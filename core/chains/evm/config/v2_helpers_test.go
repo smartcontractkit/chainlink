@@ -7,7 +7,6 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func ChainSpecificConfigDefaultsAsV2() map[int64]v2.Chain {
@@ -56,20 +55,20 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 		GasEstimator: &v2.GasEstimator{
 			Mode:               ptr(set.gasEstimatorMode),
 			EIP1559DynamicFees: ptr(set.eip1559DynamicFees),
-			BumpMin:            utils.NewWei(&set.gasBumpWei),
+			BumpMin:            &set.gasBumpWei,
 			BumpPercent:        ptr(set.gasBumpPercent),
 			BumpThreshold:      ptr(uint32(set.gasBumpThreshold)),
 			BumpTxDepth:        ptr(set.gasBumpTxDepth),
-			FeeCapDefault:      utils.NewWei(&set.gasFeeCapDefault),
+			FeeCapDefault:      &set.gasFeeCapDefault,
 			LimitDefault:       ptr(uint32(set.gasLimitDefault)),
 			LimitMax:           ptr(uint32(set.gasLimitMax)),
 			LimitMultiplier:    ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
 			LimitTransfer:      ptr(uint32(set.gasLimitTransfer)),
-			TipCapDefault:      utils.NewWei(&set.gasTipCapDefault),
-			TipCapMin:          utils.NewWei(&set.gasTipCapMinimum),
-			PriceDefault:       utils.NewWei(&set.gasPriceDefault),
-			PriceMax:           utils.NewWei(&set.maxGasPriceWei),
-			PriceMin:           utils.NewWei(&set.minGasPriceWei),
+			TipCapDefault:      &set.gasTipCapDefault,
+			TipCapMin:          &set.gasTipCapMinimum,
+			PriceDefault:       &set.gasPriceDefault,
+			PriceMax:           &set.maxGasPriceWei,
+			PriceMin:           &set.minGasPriceWei,
 			LimitJobType: v2.GasLimitJobType{
 				OCR:    set.gasLimitOCRJobType,
 				DR:     set.gasLimitDRJobType,
@@ -78,9 +77,11 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 				Keeper: set.gasLimitKeeperJobType,
 			},
 			BlockHistory: &v2.BlockHistoryEstimator{
-				BatchSize:             ptr(set.blockHistoryEstimatorBatchSize),
-				BlockHistorySize:      ptr(set.blockHistoryEstimatorBlockHistorySize),
-				TransactionPercentile: ptr(set.blockHistoryEstimatorTransactionPercentile),
+				BatchSize:                ptr(set.blockHistoryEstimatorBatchSize),
+				BlockHistorySize:         ptr(set.blockHistoryEstimatorBlockHistorySize),
+				CheckInclusionBlocks:     ptr(set.blockHistoryEstimatorCheckInclusionBlocks),
+				CheckInclusionPercentile: ptr(set.blockHistoryEstimatorCheckInclusionPercentile),
+				TransactionPercentile:    ptr(set.blockHistoryEstimatorTransactionPercentile),
 			},
 		},
 		HeadTracker: &v2.HeadTracker{

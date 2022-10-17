@@ -127,9 +127,9 @@ type BasicConfig interface {
 	JobPipelineReaperThreshold() time.Duration
 	JobPipelineResultWriteQueueDepth() uint64
 	KeeperDefaultTransactionQueueDepth() uint32
-	KeeperGasPriceBufferPercent() uint32
-	KeeperGasTipCapBufferPercent() uint32
-	KeeperBaseFeeBufferPercent() uint32
+	KeeperGasPriceBufferPercent() uint16
+	KeeperGasTipCapBufferPercent() uint16
+	KeeperBaseFeeBufferPercent() uint16
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint32
 	KeeperRegistryPerformGasOverhead() uint32
@@ -204,6 +204,8 @@ type GlobalConfig interface {
 	GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool)
 	GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool)
 	GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool)
+	GlobalBlockHistoryEstimatorCheckInclusionBlocks() (uint16, bool)
+	GlobalBlockHistoryEstimatorCheckInclusionPercentile() (uint16, bool)
 	GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool)
 	GlobalChainType() (string, bool)
 	GlobalEthTxReaperInterval() (time.Duration, bool)
@@ -214,8 +216,8 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpPercent() (uint16, bool)
 	GlobalEvmGasBumpThreshold() (uint64, bool)
 	GlobalEvmGasBumpTxDepth() (uint16, bool)
-	GlobalEvmGasBumpWei() (*big.Int, bool)
-	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
+	GlobalEvmGasBumpWei() (*assets.Wei, bool)
+	GlobalEvmGasFeeCapDefault() (*assets.Wei, bool)
 	GlobalEvmGasLimitDefault() (uint32, bool)
 	GlobalEvmGasLimitMax() (uint32, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
@@ -225,19 +227,19 @@ type GlobalConfig interface {
 	GlobalEvmGasLimitVRFJobType() (uint32, bool)
 	GlobalEvmGasLimitFMJobType() (uint32, bool)
 	GlobalEvmGasLimitKeeperJobType() (uint32, bool)
-	GlobalEvmGasPriceDefault() (*big.Int, bool)
-	GlobalEvmGasTipCapDefault() (*big.Int, bool)
-	GlobalEvmGasTipCapMinimum() (*big.Int, bool)
+	GlobalEvmGasPriceDefault() (*assets.Wei, bool)
+	GlobalEvmGasTipCapDefault() (*assets.Wei, bool)
+	GlobalEvmGasTipCapMinimum() (*assets.Wei, bool)
 	GlobalEvmHeadTrackerHistoryDepth() (uint32, bool)
 	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
 	GlobalEvmLogBackfillBatchSize() (uint32, bool)
 	GlobalEvmLogPollInterval() (time.Duration, bool)
 	GlobalEvmLogKeepBlocksDepth() (uint32, bool)
-	GlobalEvmMaxGasPriceWei() (*big.Int, bool)
+	GlobalEvmMaxGasPriceWei() (*assets.Wei, bool)
 	GlobalEvmMaxInFlightTransactions() (uint32, bool)
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
-	GlobalEvmMinGasPriceWei() (*big.Int, bool)
+	GlobalEvmMinGasPriceWei() (*assets.Wei, bool)
 	GlobalEvmNonceAutoSync() (bool, bool)
 	GlobalEvmUseForwarders() (bool, bool)
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
@@ -903,20 +905,20 @@ func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 
 // KeeperGasPriceBufferPercent adds the specified percentage to the gas price
 // used for checking whether to perform an upkeep. Only applies in legacy mode.
-func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
-	return c.viper.GetUint32(envvar.Name("KeeperGasPriceBufferPercent"))
+func (c *generalConfig) KeeperGasPriceBufferPercent() uint16 {
+	return uint16(c.viper.GetUint32(envvar.Name("KeeperGasPriceBufferPercent")))
 }
 
 // KeeperGasTipCapBufferPercent adds the specified percentage to the gas price
 // used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
-func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
-	return c.viper.GetUint32(envvar.Name("KeeperGasTipCapBufferPercent"))
+func (c *generalConfig) KeeperGasTipCapBufferPercent() uint16 {
+	return uint16(c.viper.GetUint32(envvar.Name("KeeperGasTipCapBufferPercent")))
 }
 
 // KeeperBaseFeeBufferPercent adds the specified percentage to the base fee
 // used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
-func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
-	return c.viper.GetUint32(envvar.Name("KeeperBaseFeeBufferPercent"))
+func (c *generalConfig) KeeperBaseFeeBufferPercent() uint16 {
+	return uint16(c.viper.GetUint32(envvar.Name("KeeperBaseFeeBufferPercent")))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
@@ -1317,14 +1319,20 @@ func (c *generalConfig) GlobalEvmGasBumpThreshold() (uint64, bool) {
 func (c *generalConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasBumpTxDepth"), parse.Uint16)
 }
-func (c *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
-	return lookupEnv(c, envvar.Name("EvmGasBumpWei"), parse.BigInt)
+func (c *generalConfig) GlobalEvmGasBumpWei() (*assets.Wei, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasBumpWei"), parse.Wei)
 }
-func (c *generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
-	return lookupEnv(c, envvar.Name("EvmGasFeeCapDefault"), parse.BigInt)
+func (c *generalConfig) GlobalEvmGasFeeCapDefault() (*assets.Wei, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasFeeCapDefault"), parse.Wei)
 }
 func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
 	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks"), parse.Uint16)
+}
+func (c *generalConfig) GlobalBlockHistoryEstimatorCheckInclusionBlocks() (uint16, bool) {
+	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorCheckInclusionBlocks"), parse.Uint16)
+}
+func (c *generalConfig) GlobalBlockHistoryEstimatorCheckInclusionPercentile() (uint16, bool) {
+	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorCheckInclusionPercentile"), parse.Uint16)
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint32)
@@ -1338,8 +1346,8 @@ func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 func (c *generalConfig) GlobalEvmGasLimitTransfer() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitTransfer"), parse.Uint32)
 }
-func (c *generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
-	return lookupEnv(c, envvar.Name("EvmGasPriceDefault"), parse.BigInt)
+func (c *generalConfig) GlobalEvmGasPriceDefault() (*assets.Wei, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasPriceDefault"), parse.Wei)
 }
 func (c *generalConfig) GlobalEvmGasLimitOCRJobType() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitOCRJobType"), parse.Uint32)
@@ -1374,8 +1382,8 @@ func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 func (c *generalConfig) GlobalEvmLogKeepBlocksDepth() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmLogKeepBlocksDepth"), parse.Uint32)
 }
-func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
-	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)
+func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*assets.Wei, bool) {
+	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.Wei)
 }
 func (c *generalConfig) GlobalEvmMaxInFlightTransactions() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmMaxInFlightTransactions"), parse.Uint32)
@@ -1383,8 +1391,8 @@ func (c *generalConfig) GlobalEvmMaxInFlightTransactions() (uint32, bool) {
 func (c *generalConfig) GlobalEvmMaxQueuedTransactions() (uint64, bool) {
 	return lookupEnv(c, envvar.Name("EvmMaxQueuedTransactions"), parse.Uint64)
 }
-func (c *generalConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
-	return lookupEnv(c, envvar.Name("EvmMinGasPriceWei"), parse.BigInt)
+func (c *generalConfig) GlobalEvmMinGasPriceWei() (*assets.Wei, bool) {
+	return lookupEnv(c, envvar.Name("EvmMinGasPriceWei"), parse.Wei)
 }
 func (c *generalConfig) GlobalEvmNonceAutoSync() (bool, bool) {
 	return lookupEnv(c, envvar.Name("EvmNonceAutoSync"), strconv.ParseBool)
@@ -1422,11 +1430,11 @@ func (c *generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 func (c *generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
 	return lookupEnv(c, envvar.Name("EvmEIP1559DynamicFees"), strconv.ParseBool)
 }
-func (c *generalConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
-	return lookupEnv(c, envvar.Name("EvmGasTipCapDefault"), parse.BigInt)
+func (c *generalConfig) GlobalEvmGasTipCapDefault() (*assets.Wei, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasTipCapDefault"), parse.Wei)
 }
-func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
-	return lookupEnv(c, envvar.Name("EvmGasTipCapMinimum"), parse.BigInt)
+func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*assets.Wei, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasTipCapMinimum"), parse.Wei)
 }
 
 func (c *generalConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {

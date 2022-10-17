@@ -1353,7 +1353,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1371,6 +1371,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1427,7 +1429,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1445,6 +1447,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1501,7 +1505,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1519,6 +1523,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1575,7 +1581,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1593,6 +1599,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1650,7 +1658,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1668,6 +1676,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1742,6 +1752,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1816,6 +1828,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1873,7 +1887,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1891,6 +1905,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1947,7 +1963,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1965,6 +1981,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2020,7 +2038,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2038,6 +2056,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2093,7 +2113,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2111,6 +2131,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2168,7 +2190,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2186,6 +2208,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2261,6 +2285,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2317,7 +2343,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2335,6 +2361,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2391,7 +2419,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '30 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '30 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2409,6 +2437,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2465,7 +2495,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '15 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2483,6 +2513,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2540,7 +2572,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2558,6 +2590,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2614,7 +2648,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2632,6 +2666,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2688,7 +2724,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2706,6 +2742,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2779,6 +2817,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2835,7 +2875,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '15 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2853,6 +2893,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2910,7 +2952,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'Arbitrum'
 PriceDefault = '100 mwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 1000000000
@@ -2928,6 +2970,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2984,7 +3028,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '25 gwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3002,6 +3046,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3058,7 +3104,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '25 gwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3076,6 +3122,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3132,7 +3180,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '1 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3150,6 +3198,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3207,7 +3257,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'Arbitrum'
 PriceDefault = '100 mwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 1000000000
@@ -3225,6 +3275,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3282,7 +3334,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'Arbitrum'
 PriceDefault = '100 mwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 1000000000
@@ -3300,6 +3352,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3356,7 +3410,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3374,6 +3428,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -3430,7 +3486,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3448,6 +3504,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3504,7 +3562,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3522,6 +3580,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3766,7 +3826,7 @@ Enabled balance monitoring for all keys.
 [EVM.GasEstimator]
 Mode = 'BlockHistory' # Default
 PriceDefault = '20 gwei' # Default
-PriceMax = '100 micro' # Default
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
 LimitMax = 500_000 # Default
@@ -3811,9 +3871,12 @@ Can be used with the `chainlink setgasprice` to be updated while the node is sti
 
 ### PriceMax<a id='EVM-GasEstimator-PriceMax'></a>
 ```toml
-PriceMax = '100 micro' # Default
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether' # Default
 ```
 PriceMax is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
+This applies to both legacy and EIP1559 transactions.
+Note that it is impossible to disable the maximum limit. Setting this value to zero will prevent paying anything for any transaction (which can be useful in some rare cases).
+Most chains by default have the maximum set to 2**256-1 Wei which is the maximum allowed gas price on EVM-compatible chains, and is so large it may as well be unlimited.
 
 ### PriceMin<a id='EVM-GasEstimator-PriceMin'></a>
 ```toml
@@ -3906,11 +3969,11 @@ In EIP-1559 mode, the total price for the transaction is the minimum of base fee
 Chainlink's implementation of EIP-1559 works as follows:
 
 If you are using FixedPriceEstimator:
-- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=GasTipCapDefault`
+- With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=GasTipCapDefault`
 - With gas bumping enabled, it will submit all transactions initially with `feecap=GasFeeCapDefault` and `tipcap=GasTipCapDefault`.
 
 If you are using BlockHistoryEstimator (default for most chains):
-- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
+- With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=<calculated using past blocks>`
 - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 
 Bumping works as follows:
@@ -3930,8 +3993,8 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 - `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 - `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
 - `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
-- `PriceMinWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
-- `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
+- `PriceMin` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
+- `PriceMax` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
 
 ### FeeCapDefault<a id='EVM-GasEstimator-FeeCapDefault'></a>
@@ -4002,6 +4065,8 @@ Keeper overrides LimitDefault for Keeper jobs.
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4 # Default
 BlockHistorySize = 8 # Default
+CheckInclusionBlocks = 12 # Default
+CheckInclusionPercentile = 90 # Default
 EIP1559FeeCapBufferBlocks = 13 # Example
 TransactionPercentile = 60 # Default
 ```
@@ -4020,6 +4085,23 @@ If the `BatchSize` variable is set to 0, it defaults to `EVM.RPCDefaultBatchSize
 BlockHistorySize = 8 # Default
 ```
 BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
+
+### CheckInclusionBlocks<a id='EVM-GasEstimator-BlockHistory-CheckInclusionBlocks'></a>
+```toml
+CheckInclusionBlocks = 12 # Default
+```
+CheckInclusionBlocks is the number of recent blocks to use to detect if there is a transaction propagation/connectivity issue, and to prevent bumping in these cases.
+This can help avoid the situation where RPC nodes are not propagating transactions for some non-price-related reason (e.g. go-ethereum bug, networking issue etc) and bumping gas would not help.
+
+Set to zero to disable connectivity checking completely.
+
+### CheckInclusionPercentile<a id='EVM-GasEstimator-BlockHistory-CheckInclusionPercentile'></a>
+```toml
+CheckInclusionPercentile = 90 # Default
+```
+CheckInclusionPercentile controls the percentile that a transaction must have been higher than for all the blocks in the inclusion check window in order to register as a connectivity issue.
+
+For example, if CheckInclusionBlocks=12 and CheckInclusionPercentile=90 then further bumping will be prevented for any transaction with any attempt that has a higher price than the 90th percentile for the most recent 12 blocks.
 
 ### EIP1559FeeCapBufferBlocks<a id='EVM-GasEstimator-BlockHistory-EIP1559FeeCapBufferBlocks'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -4100,7 +4182,7 @@ Key is the account to apply these settings to
 ```toml
 GasEstimator.PriceMax = '79 gwei' # Example
 ```
-GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMaxWei.
+GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMax.
 
 ## EVM.NodePool<a id='EVM-NodePool'></a>
 ```toml

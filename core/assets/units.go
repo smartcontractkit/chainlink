@@ -3,22 +3,26 @@ package assets
 import (
 	"math/big"
 
+	"golang.org/x/exp/constraints"
+
 	"github.com/ethereum/go-ethereum/params"
 )
 
-func Wei(n int64) *big.Int {
-	return new(big.Int).Mul(big.NewInt(n), big.NewInt(params.Wei))
-}
-
-func GWei(n int64) *big.Int {
-	return new(big.Int).Mul(big.NewInt(n), big.NewInt(params.GWei))
+func GWei[T constraints.Signed](n T) *Wei {
+	w := big.NewInt(int64(n))
+	w.Mul(w, big.NewInt(params.GWei))
+	return NewWei(w)
 }
 
 // UEther converts units of micro-ether (terawei) into wei
-func UEther(n int64) *big.Int {
-	return new(big.Int).Mul(big.NewInt(n), big.NewInt(params.GWei*1000))
+func UEther[T constraints.Signed](n T) *Wei {
+	w := big.NewInt(int64(n))
+	w.Mul(w, big.NewInt(params.GWei*1000))
+	return NewWei(w)
 }
 
-func Ether(n int64) *big.Int {
-	return new(big.Int).Mul(big.NewInt(n), big.NewInt(params.Ether))
+func Ether[T constraints.Signed](n T) *Wei {
+	w := big.NewInt(int64(n))
+	w.Mul(w, big.NewInt(params.Ether))
+	return NewWei(w)
 }
