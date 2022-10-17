@@ -40,6 +40,7 @@
 	- [NodePool](#EVM-NodePool)
 	- [OCR](#EVM-OCR)
 	- [Nodes](#EVM-Nodes)
+		- [Automation](#EVM-OCR2-Automation)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
 - [Starknet](#Starknet)
@@ -1388,6 +1389,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1460,6 +1465,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1532,6 +1541,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1604,6 +1617,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1677,6 +1694,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 6500000
 ```
 
 </p></details>
@@ -1749,6 +1770,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1821,6 +1846,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1894,6 +1923,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1966,6 +1999,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
 ObservationGracePeriod = '500ms'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2037,6 +2074,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2108,6 +2149,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2181,6 +2226,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 6500000
 ```
 
 </p></details>
@@ -2254,6 +2303,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2326,6 +2379,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
 ObservationGracePeriod = '500ms'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2398,6 +2455,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2470,6 +2531,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2543,6 +2608,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 6500000
 ```
 
 </p></details>
@@ -2615,6 +2684,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2687,6 +2760,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2758,6 +2835,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2830,6 +2911,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2903,6 +2988,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2975,6 +3064,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3047,6 +3140,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3119,6 +3216,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3192,6 +3293,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3265,6 +3370,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3337,6 +3446,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3409,6 +3522,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3481,6 +3598,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -4162,6 +4283,19 @@ HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Re
 SendOnly = false # Default
 ```
 SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
+
+## EVM.OCR2.Automation<a id='EVM-OCR2-Automation'></a>
+```toml
+[EVM.OCR2.Automation]
+GasLimit = 5300000 # Default
+```
+
+
+### GasLimit<a id='EVM-OCR2-Automation-GasLimit'></a>
+```toml
+GasLimit = 5300000 # Default
+```
+GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
 ## Solana<a id='Solana'></a>
 ```toml
