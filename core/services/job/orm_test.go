@@ -21,7 +21,7 @@ import (
 )
 
 func NewTestORM(t *testing.T, db *sqlx.DB, chainSet evm.ChainSet, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.LogConfig) job.ORM {
-	o := NewORM(db, chainSet, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
+	o := job.NewORM(db, chainSet, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
 	t.Cleanup(func() { o.Close() })
 	return o
 }
