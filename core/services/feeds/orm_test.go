@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -42,8 +43,7 @@ func setupORM(t *testing.T) *TestORM {
 	var (
 		db   = pgtest.NewSqlxDB(t)
 		lggr = logger.TestLogger(t)
-		cfg  = cltest.NewTestGeneralConfig(t)
-		orm  = feeds.NewORM(db, lggr, cfg)
+		orm  = feeds.NewORM(db, lggr, pgtest.NewPGCfg(true))
 	)
 
 	return &TestORM{ORM: orm, db: db}
@@ -1009,7 +1009,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	t.Helper()
 
 	var (
-		config      = cltest.NewTestGeneralConfig(t)
+		config      = configtest.NewGeneralConfig(t, nil)
 		keyStore    = cltest.NewKeyStore(t, db, config)
 		lggr        = logger.TestLogger(t)
 		pipelineORM = pipeline.NewORM(db, lggr, config)

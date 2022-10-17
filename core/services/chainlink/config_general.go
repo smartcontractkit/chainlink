@@ -152,7 +152,8 @@ func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	return multierr.Combine(g.c.Validate(), g.secrets.Validate())
+	_, err := utils.MultiErrorList(multierr.Combine(g.c.Validate(), g.secrets.Validate()))
+	return err
 }
 
 func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
