@@ -856,6 +856,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.P2P = &config.P2P{
 		IncomingMessageBufferSize: first(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
+		PeerID:                    envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
 		TraceLogging:              envvar.NewBool("OCRTraceLogging").ParsePtr(),
 	}
 	p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
@@ -880,7 +881,6 @@ func (c *Config) loadLegacyCoreEnv() {
 			ListenIP:                         envIP("P2PListenIP"),
 			ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
 			NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
-			PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
 			PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 		}
 	}

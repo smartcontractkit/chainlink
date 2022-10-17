@@ -353,6 +353,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.P2P = &config.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
 		OutgoingMessageBufferSize: ptr[int64](17),
+		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
 		V1: &config.P2PV1{
 			Enabled:                          ptr(false),
@@ -365,7 +366,6 @@ func TestConfig_Marshal(t *testing.T) {
 			ListenIP:                         mustIP("4.3.2.1"),
 			ListenPort:                       ptr[uint16](9),
 			NewStreamTimeout:                 models.MustNewDuration(time.Second),
-			PeerID:                           mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
 		V2: &config.P2PV2{
@@ -734,6 +734,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
 [P2P.V1]
@@ -747,7 +748,6 @@ DHTLookupInterval = 9
 ListenIP = '4.3.2.1'
 ListenPort = 9
 NewStreamTimeout = '1s'
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
