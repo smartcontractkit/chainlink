@@ -469,6 +469,96 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
+func TestJobsController_Update_HappyPath(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+
+	var jb job.Job
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName: bridge.Name.String(),
+		DS2BridgeName: bridge2.Name.String(),
+		Name:          "old OCR job",
+	})
+	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
+	require.NoError(t, err)
+	var ocrSpec job.OCROracleSpec
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
+	require.NoError(t, err)
+	jb.OCROracleSpec = &ocrSpec
+	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
+	err = app.AddJobV2(testutils.Context(t), &jb)
+	require.NoError(t, err)
+
+	// test Calling update on the job id with changed values should succeed.
+	updatedSpec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName:      bridge2.Name.String(),
+		DS2BridgeName:      bridge.Name.String(),
+		Name:               "updated OCR job",
+		TransmitterAddress: app.Key.Address.Hex(),
+	})
+	require.NoError(t, err)
+	body, _ := json.Marshal(web.UpdateJobRequest{
+		TOML: updatedSpec.Toml(),
+	})
+	response, cleanup := client.Put("/v2/jobs/"+fmt.Sprintf("%v", jb.ID), bytes.NewReader(body))
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+}
+
+func TestJobsController_Update_NonExistentID(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+
+	var jb job.Job
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName: bridge.Name.String(),
+		DS2BridgeName: bridge2.Name.String(),
+		Name:          "old OCR job",
+	})
+	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
+	require.NoError(t, err)
+	var ocrSpec job.OCROracleSpec
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
+	require.NoError(t, err)
+	jb.OCROracleSpec = &ocrSpec
+	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
+	err = app.AddJobV2(testutils.Context(t), &jb)
+	require.NoError(t, err)
+
+	// test Calling update on the job id with changed values should succeed.
+	updatedSpec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName:      bridge2.Name.String(),
+		DS2BridgeName:      bridge.Name.String(),
+		Name:               "updated OCR job",
+		TransmitterAddress: app.Key.EIP55Address.String(),
+	})
+	require.NoError(t, err)
+	body, _ := json.Marshal(web.UpdateJobRequest{
+		TOML: updatedSpec.Toml(),
+	})
+	response, cleanup := client.Put("/v2/jobs/99999", bytes.NewReader(body))
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, response, http.StatusNotFound)
+}
+
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobSpecFromServer presenters.JobResource) {
 	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OCROracleSpec
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffChainReportingSpec.ContractAddress)

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -186,11 +187,12 @@ func (jc *JobsController) Update(c *gin.Context) {
 
 	// If the provided job id is not matching any job, delete will fail with 404 leaving state unchanged.
 	err = jc.App.DeleteJob(ctx, jb.ID)
-	if errors.Is(err, sql.ErrNoRows) {
-		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
-		return
-	}
+	// Error can be either come from ORM or from the activeJobs map.
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "job not found") {
+			jsonAPIError(c, http.StatusNotFound, errors.Wrap(err, "failed to update job"))
+			return
+		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
