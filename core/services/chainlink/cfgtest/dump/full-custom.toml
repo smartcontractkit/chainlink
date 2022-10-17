@@ -244,6 +244,8 @@ Keeper = 9905
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
 BlockHistorySize = 56
+CheckInclusionBlocks = 14
+CheckInclusionPercentile = 61
 EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 

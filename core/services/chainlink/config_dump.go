@@ -581,6 +581,28 @@ func (c *Config) loadLegacyEVMEnv() {
 			}
 		}
 	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorCheckInclusionBlocks").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.CheckInclusionBlocks = e
+		}
+	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorCheckInclusionPercentile").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.CheckInclusionPercentile = e
+		}
+	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
