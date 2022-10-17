@@ -25,13 +25,19 @@ type PendingTx struct {
 // add fee as the last instruction
 // add fee program as last account key
 // recreates some of the logic from: https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L313
-func (tx *PendingTx) SetComputeUnitPrice(price ComputeUnitPrice) (*solana.Transaction, uint64, error) {
+func (tx *PendingTx) SetComputeUnitPrice(base, min, max uint64) (*solana.Transaction, uint64, error) {
+	// input validation
+	if base < min || base > max || min > max {
+		return nil, 0, fmt.Errorf("invalid inputs: %d <= %d <= %d (not true)", min, base, max)
+	}
+
 	txWithFee := *tx.baseTx // make copy
 
 	// find ComputeBudget program to accounts if it exists
 	// reimplements HasAccount to retrieve index: https://github.com/gagliardetto/solana-go/blob/main/message.go#L228
 	var exists bool
 	var programIdx uint16
+	price := ComputeUnitPrice(base)
 	for i, a := range txWithFee.Message.AccountKeys {
 		if a.Equals(price.ProgramID()) {
 			exists = true
@@ -60,6 +66,14 @@ func (tx *PendingTx) SetComputeUnitPrice(price ComputeUnitPrice) (*solana.Transa
 		if tx.currentFee == 1 {
 			price = 2
 		}
+	}
+
+	// handle bounds
+	if uint64(price) < min {
+		price = ComputeUnitPrice(min)
+	}
+	if uint64(price) > max {
+		price = ComputeUnitPrice(max)
 	}
 
 	// get instruction data

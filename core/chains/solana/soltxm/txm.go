@@ -3,6 +3,7 @@ package soltxm
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink/core/chains/solana/fees"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -46,8 +48,7 @@ type Txm struct {
 	client  *utils.LazyLoad[solanaClient.ReaderWriter]
 
 	// compute budget unit price parameters
-	fee     uint64
-	feeLock sync.RWMutex
+	fee fees.Estimator
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
@@ -66,8 +67,28 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 }
 
 // Start subscribes to queuing channel and processes them.
-func (txm *Txm) Start(context.Context) error {
+func (txm *Txm) Start(ctx context.Context) error {
 	return txm.starter.StartOnce("solana_txm", func() error {
+
+		// determine estimator type
+		var estimator fees.Estimator
+		var err error
+		switch strings.ToLower(txm.cfg.FeeEstimatorMode()) {
+		case "fixed":
+			estimator, err = fees.NewFixedPriceEstimator(txm.cfg)
+		case "recentfees":
+			estimator, err = fees.NewRecentFeeEstimator(txm.cfg)
+		default:
+			err = fmt.Errorf("unknown solana fee estimator type: %s", txm.cfg.FeeEstimatorMode())
+		}
+		if err != nil {
+			return err
+		}
+		txm.fee = estimator
+		if err := txm.fee.Start(ctx); err != nil {
+			return err
+		}
+
 		txm.done.Add(2) // waitgroup: broadcaster, simulator
 		go txm.run()
 		return nil
@@ -110,7 +131,11 @@ func (txm *Txm) run() {
 			}
 
 			// Set compute unit price for transaction, returns a copy of the base tx
-			tx, price, err := msg.SetComputeUnitPrice(ComputeUnitPrice(txm.GetFee()))
+			tx, price, err := msg.SetComputeUnitPrice(
+				txm.fee.BaseComputeUnitPrice(),
+				txm.cfg.MinComputeUnitPrice(),
+				txm.cfg.MaxComputeUnitPrice(),
+			)
 			if err != nil { // should never happen, skip tx if this occurs
 				txm.lggr.Errorw("failed to set compute unit price in tx", "error", err, "tx", msg)
 				continue
@@ -376,24 +401,12 @@ func (txm *Txm) InflightTxs() (int, int) {
 	return len(txm.txs.ListIDs()), len(txm.txs.ListSignatures())
 }
 
-func (txm *Txm) SetFee(v uint64) {
-	txm.feeLock.Lock()
-	defer txm.feeLock.Unlock()
-	txm.fee = v
-}
-
-func (txm *Txm) GetFee() uint64 {
-	txm.feeLock.RLock()
-	defer txm.feeLock.RUnlock()
-	return txm.fee
-}
-
 // Close close service
 func (txm *Txm) Close() error {
 	return txm.starter.StopOnce("solanatxm", func() error {
 		close(txm.chStop)
 		txm.done.Wait()
-		return nil
+		return txm.fee.Close()
 	})
 }
 
