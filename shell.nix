@@ -29,6 +29,7 @@ mkShell {
     gopls
     delve
     golangci-lint
+    github-cli
 
     # gofuzz
   ] ++ lib.optionals stdenv.isLinux [
