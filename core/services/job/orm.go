@@ -87,6 +87,7 @@ func NewORM(
 	db *sqlx.DB,
 	chainSet evm.ChainSet,
 	pipelineORM pipeline.ORM,
+	bridgeORM bridges.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
 	lggr logger.Logger,
 	cfg pg.LogConfig,
@@ -97,7 +98,7 @@ func NewORM(
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
-		bridgeORM:   bridges.NewORM(db, lggr, cfg),
+		bridgeORM:   bridgeORM,
 		lggr:        namedLogger,
 	}
 }
