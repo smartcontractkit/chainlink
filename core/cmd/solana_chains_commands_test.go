@@ -5,11 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -20,29 +22,27 @@ import (
 func TestClient_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	id := solanatest.RandomChainID()
+	chain := solana.SolanaConfig{
+		ChainID: &id,
+		Enabled: ptr(true),
+	}
+	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewClientAndRenderer()
-
-	sol := app.Chains.Solana
-	_, initialCount, err := sol.Index(0, 25)
-	require.NoError(t, err)
-
-	ctx := testutils.Context(t)
-	chain, err := sol.Add(ctx, solanatest.RandomChainID(), nil)
-	require.NoError(t, err)
 
 	require.Nil(t, cmd.SolanaChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.SolanaChainPresenters)
-	require.Len(t, chains, initialCount+1)
-	c := chains[initialCount]
-	assert.Equal(t, chain.ID, c.ID)
+	require.Len(t, chains, 1)
+	c := chains[0]
+	assert.Equal(t, id, c.ID)
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateSolanaChain(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	sol := app.Chains.Solana
@@ -66,10 +66,11 @@ func TestClient_CreateSolanaChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveSolanaChain(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	sol := app.Chains.Solana
@@ -97,10 +98,11 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigureSolanaChain(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	sol := app.Chains.Solana

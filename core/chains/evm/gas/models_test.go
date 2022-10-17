@@ -1,11 +1,12 @@
 package gas
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
 )
 
 const gethSampleBlock = `
@@ -271,7 +272,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, int64(32473599), b.Number)
 		assert.Equal(t, "0x0ec62c2a397e114d84ce932387d841787d7ec5757ceba3708386da87934b7c82", b.Hash.Hex())
 		assert.Equal(t, "0x3aa1c729fb45888bc1ce777d00bad9637c0b5f7cb48b145ebacc16098e0132d4", b.ParentHash.Hex())
-		assert.Equal(t, big.NewInt(7), b.BaseFeePerGas)
+		assert.Equal(t, assets.NewWeiI(7), b.BaseFeePerGas)
 		assert.Equal(t, int64(1656602604), b.Timestamp.Unix())
 		assert.Len(t, b.Transactions, 2)
 	})
@@ -283,7 +284,7 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, int64(15051090), b.Number)
 		assert.Equal(t, "0x45eb0a650b6b0b9fd1ee676b870e43fa7614f1034f7404070327a332faed05c0", b.Hash.Hex())
 		assert.Equal(t, "0x653ea251c180d93296ef79378e64d7dc9a74f565a54df477faeb64d3330977dd", b.ParentHash.Hex())
-		assert.Equal(t, big.NewInt(39678999761), b.BaseFeePerGas)
+		assert.Equal(t, assets.NewWeiI(39678999761), b.BaseFeePerGas)
 		assert.Equal(t, int64(1656603143), b.Timestamp.Unix())
 		assert.Len(t, b.Transactions, 7)
 	})

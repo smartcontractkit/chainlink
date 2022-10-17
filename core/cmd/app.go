@@ -95,7 +95,12 @@ func NewApp(client *Client) *cli.App {
 				vrfPasswordFileName = &s
 			}
 			var err error
-			client.Config, err = chainlink.NewTOMLGeneralConfig(client.Logger, configTOML, secretsTOML, keystorePasswordFileName, vrfPasswordFileName)
+			client.Config, err = chainlink.GeneralConfigTOML{
+				Config:                   configTOML,
+				Secrets:                  secretsTOML,
+				KeystorePasswordFileName: keystorePasswordFileName,
+				VRFPasswordFileName:      vrfPasswordFileName,
+			}.New(client.Logger)
 			if err != nil {
 				return err
 			}

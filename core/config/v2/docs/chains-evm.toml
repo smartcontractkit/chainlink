@@ -45,24 +45,13 @@ LogBackfillBatchSize = 100 # Default
 # **ADVANCED**
 # LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 LogPollInterval = '15s' # Default
-# MaxInFlightTransactions controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
-#
-# The default is set conservatively at 16 because this is a pessimistic minimum that both geth and parity will hold without evicting local transactions. If your node is falling behind and you need higher throughput, you can increase this setting, but you MUST make sure that your ETH node is configured properly otherwise you can get nonce gapped and your node will get stuck.
-#
-# 0 value disables the limit. Use with caution.
-MaxInFlightTransactions = 16 # Default
-# MaxQueuedTransactions is the maximum number of unbroadcast transactions per key that are allowed to be enqueued before jobs will start failing and rejecting send of any further transactions. This represents a sanity limit and generally indicates a problem with your ETH node (transactions are not getting mined).
-#
-# Do NOT blindly increase this value thinking it will fix things if you start hitting this limit because transactions are not getting mined, you will instead only make things worse.
-#
-# In deployments with very high burst rates, or on chains with large re-orgs, you _may_ consider increasing this.
-#
-# 0 value disables any limit on queue size. Use with caution.
-MaxQueuedTransactions = 250 # Default
+# **ADVANCED**
+# LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
+LogKeepBlocksDepth = 100000 # Default
+# MinContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
+MinContractPayment = '10000000000000 juels' # Default
 # MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.
 MinIncomingConfirmations = 3 # Default
-# MinimumContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
-MinimumContractPayment = '10000000000000 juels' # Default
 # NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 NonceAutoSync = true # Default
 # NoNewHeadsThreshold controls how long to wait after receiving no new heads before `NodePool` marks rpc endpoints as
@@ -83,14 +72,30 @@ RPCDefaultBatchSize = 100 # Default
 # available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
 # "zero" blocks that are missing transactions.
 RPCBlockQueryDelay = 1 # Default
-# TxReaperInterval controls how often the EthTx reaper will run.
-TxReaperInterval = '1h' # Default
-# TxReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
-TxReaperThreshold = '168h' # Default
-# TxResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
-TxResendAfterThreshold = '1m' # Default
-# UseForwarders enables or disables sending transactions through forwarder contracts.
-UseForwarders = false # Default
+
+[EVM.Transactions]
+# ForwardersEnabled enables or disables sending transactions through forwarder contracts.
+ForwardersEnabled = false # Default
+# MaxInFlight controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
+#
+# The default is set conservatively at 16 because this is a pessimistic minimum that both geth and parity will hold without evicting local transactions. If your node is falling behind and you need higher throughput, you can increase this setting, but you MUST make sure that your ETH node is configured properly otherwise you can get nonce gapped and your node will get stuck.
+#
+# 0 value disables the limit. Use with caution.
+MaxInFlight = 16 # Default
+# MaxQueued is the maximum number of unbroadcast transactions per key that are allowed to be enqueued before jobs will start failing and rejecting send of any further transactions. This represents a sanity limit and generally indicates a problem with your ETH node (transactions are not getting mined).
+#
+# Do NOT blindly increase this value thinking it will fix things if you start hitting this limit because transactions are not getting mined, you will instead only make things worse.
+#
+# In deployments with very high burst rates, or on chains with large re-orgs, you _may_ consider increasing this.
+#
+# 0 value disables any limit on queue size. Use with caution.
+MaxQueued = 250 # Default
+# ReaperInterval controls how often the EthTx reaper will run.
+ReaperInterval = '1h' # Default
+# ReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
+ReaperThreshold = '168h' # Default
+# ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
+ResendAfterThreshold = '1m' # Default
 
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.
@@ -116,7 +121,10 @@ Mode = 'BlockHistory' # Default
 # Can be used with the `chainlink setgasprice` to be updated while the node is still running.
 PriceDefault = '20 gwei' # Default
 # PriceMax is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
-PriceMax = '100 micro' # Default
+# This applies to both legacy and EIP1559 transactions.
+# Note that it is impossible to disable the maximum limit. Setting this value to zero will prevent paying anything for any transaction (which can be useful in some rare cases).
+# Most chains by default have the maximum set to 2**256-1 Wei which is the maximum allowed gas price on EVM-compatible chains, and is so large it may as well be unlimited.
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether' # Default
 # PriceMin is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
 #
 # (Only applies to legacy transactions)
@@ -137,16 +145,6 @@ PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
 # LimitMax sets a maximum for _estimated_ gas limits. This currently only applies to `Arbitrum` `GasEstimatorMode`.
 LimitMax = 500_000 # Default
-# LimitOCRJobType overrides LimitDefault for OCR jobs.
-LimitOCRJobType = 100_000 # Example
-# LimitDRJobType overrides LimitDefault for Direct Request jobs.
-LimitDRJobType = 100_000 # Example
-# LimitVRFJobType overrides LimitDefault for VRF jobs.
-LimitVRFJobType = 100_000 # Example
-# LimitFMJobType overrides LimitDefault for Flux Monitor jobs.
-LimitFMJobType = 100_000 # Example
-# LimitKeeperJobType overrides LimitDefault for Keeper jobs.
-LimitKeeperJobType = 100_000 # Example
 # LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 #
 # This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
@@ -178,11 +176,11 @@ BumpTxDepth = 10 # Default
 # Chainlink's implementation of EIP-1559 works as follows:
 #
 # If you are using FixedPriceEstimator:
-# - With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=GasTipCapDefault`
+# - With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=GasTipCapDefault`
 # - With gas bumping enabled, it will submit all transactions initially with `feecap=GasFeeCapDefault` and `tipcap=GasTipCapDefault`.
 #
 # If you are using BlockHistoryEstimator (default for most chains):
-# - With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
+# - With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=<calculated using past blocks>`
 # - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 #
 # Bumping works as follows:
@@ -202,8 +200,8 @@ BumpTxDepth = 10 # Default
 # - `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 # - `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
 # - `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
-# - `PriceMinWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
-# - `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
+# - `PriceMin` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
+# - `PriceMax` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 # - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
 EIP1559DynamicFees = false # Default
 # FeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
@@ -215,7 +213,19 @@ TipCapDefault = '1 wei' # Default
 # TipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
 #
 # Only applies to EIP-1559 transactions)
-TipCapMinimum = '1 wei' # Default
+TipCapMin = '1 wei' # Default
+
+[EVM.GasEstimator.LimitJobType]
+# OCR overrides LimitDefault for OCR jobs.
+OCR = 100_000 # Example
+# DR overrides LimitDefault for Direct Request jobs.
+DR = 100_000 # Example
+# VRF overrides LimitDefault for VRF jobs.
+VRF = 100_000 # Example
+# FM overrides LimitDefault for Flux Monitor jobs.
+FM = 100_000 # Example
+# Keeper overrides LimitDefault for Keeper jobs.
+Keeper = 100_000 # Example
 
 
 # These settings allow you to configure how your node calculates gas prices when using the block history estimator.
@@ -226,6 +236,15 @@ TipCapMinimum = '1 wei' # Default
 BatchSize = 4 # Default
 # BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
 BlockHistorySize = 8 # Default
+# CheckInclusionBlocks is the number of recent blocks to use to detect if there is a transaction propagation/connectivity issue, and to prevent bumping in these cases.
+# This can help avoid the situation where RPC nodes are not propagating transactions for some non-price-related reason (e.g. go-ethereum bug, networking issue etc) and bumping gas would not help.
+#
+# Set to zero to disable connectivity checking completely.
+CheckInclusionBlocks = 12 # Default
+# CheckInclusionPercentile controls the percentile that a transaction must have been higher than for all the blocks in the inclusion check window in order to register as a connectivity issue.
+#
+# For example, if CheckInclusionBlocks=12 and CheckInclusionPercentile=90 then further bumping will be prevented for any transaction with any attempt that has a higher price than the 90th percentile for the most recent 12 blocks.
+CheckInclusionPercentile = 90 # Default
 # **ADVANCED**
 # EIP1559FeeCapBufferBlocks controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used.
 #
@@ -265,7 +284,7 @@ SamplingInterval = '1s' # Default
 [[EVM.KeySpecific]]
 # Key is the account to apply these settings to
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
-# GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMaxWei.
+# GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMax.
 GasEstimator.PriceMax = '79 gwei' # Example
 
 # The node pool manages multiple RPC endpoints.
@@ -302,3 +321,7 @@ WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
 # SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 SendOnly = false # Default
+
+[EVM.OCR2.Automation]
+# GasLimit controls the gas limit for transmit transactions from ocr2automation job.
+GasLimit = 5300000 # Default

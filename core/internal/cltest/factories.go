@@ -316,7 +316,7 @@ func MustInsertUnstartedEthTx(t *testing.T, borm txmgr.ORM, fromAddress common.A
 }
 
 func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
-	gasPrice := utils.NewBig(big.NewInt(1))
+	gasPrice := assets.NewWeiI(1)
 	return txmgr.EthTxAttempt{
 		ChainSpecificGasLimit: 42,
 		EthTxID:               etxID,
@@ -330,8 +330,8 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 }
 
 func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
-	gasTipCap := utils.NewBig(big.NewInt(1))
-	gasFeeCap := utils.NewBig(big.NewInt(1))
+	gasTipCap := assets.NewWeiI(1)
+	gasFeeCap := assets.NewWeiI(1)
 	return txmgr.EthTxAttempt{
 		TxType:    0x2,
 		EthTxID:   etxID,
@@ -506,7 +506,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:  pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), NewTestGeneralConfig(t))
+	jorm := job.NewORM(db, nil, nil, nil, nil, logger.TestLogger(t), NewTestGeneralConfig(t))
 	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -561,7 +561,8 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	cfg := NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg)
-	jrm := job.NewORM(db, nil, prm, nil, tlg, cfg)
+	btORM := bridges.NewORM(db, tlg, cfg)
+	jrm := job.NewORM(db, nil, prm, btORM, nil, tlg, cfg)
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb

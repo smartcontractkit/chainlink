@@ -115,7 +115,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", cfg.ChainID().String())
 		}
 	} else {
-		client = opts.GenEthClient()
+		client = opts.GenEthClient(chainID)
 	}
 
 	db := opts.DB
@@ -129,12 +129,12 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
 		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver)
 	} else {
-		headTracker = opts.GenHeadTracker(headBroadcaster)
+		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
 	if opts.GenLogPoller != nil {
-		logPoller = opts.GenLogPoller()
+		logPoller = opts.GenLogPoller(chainID)
 	}
 
 	var txm txmgr.TxManager
@@ -144,7 +144,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		checker := &txmgr.CheckerFactory{Client: client}
 		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker, logPoller)
 	} else {
-		txm = opts.GenTxManager()
+		txm = opts.GenTxManager(chainID)
 	}
 
 	headBroadcaster.Subscribe(txm)
@@ -168,7 +168,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		logORM := log.NewORM(db, l, cfg, *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead)
 	} else {
-		logBroadcaster = opts.GenLogBroadcaster()
+		logBroadcaster = opts.GenLogBroadcaster(chainID)
 	}
 
 	// AddDependent for this chain

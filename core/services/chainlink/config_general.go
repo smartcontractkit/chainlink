@@ -8,13 +8,12 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/contrib/sessions"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -26,9 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -43,51 +44,95 @@ type generalConfig struct {
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
 
-	c       *Config // all fields non-nil
+	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
 	secrets *Secrets
 
-	// state
-	appID     uuid.UUID
+	logLevelDefault zapcore.Level
+
 	appIDOnce sync.Once
 
 	randomP2PPort     uint16
 	randomP2PPortOnce sync.Once
 
-	logLevelDefault zapcore.Level
-	logLevel        zapcore.Level
-	logSQL          bool
-	logMu           sync.RWMutex
+	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
 }
 
-func NewTOMLGeneralConfig(lggr logger.Logger, configToml string, secretsToml string, keystorePasswordFileName, vrfPasswordFileName *string) (coreconfig.GeneralConfig, error) {
-	var c Config
-	err := toml.Unmarshal([]byte(configToml), &c)
+// GeneralConfigTOML holds TOML configuration options for creating a coreconfig.GeneralConfig via New().
+//
+// See GeneralConfigOpts to initilize from go types.
+type GeneralConfigTOML struct {
+	Config, Secrets string
+
+	KeystorePasswordFileName, VRFPasswordFileName *string
+
+	OverrideFn func(*Config, *Secrets) // tests only
+}
+
+// New returns a coreconfig.GeneralConfig from the parsed TOML.
+func (t GeneralConfigTOML) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	o := GeneralConfigOpts{
+		KeystorePasswordFileName: t.KeystorePasswordFileName,
+		VRFPasswordFileName:      t.VRFPasswordFileName,
+		OverrideFn:               t.OverrideFn,
+	}
+	err := v2.DecodeTOML(strings.NewReader(t.Config), &o.Config)
 	if err != nil {
 		return nil, err
 	}
-	input, err := c.TOMLString()
+	err = v2.DecodeTOML(strings.NewReader(t.Secrets), &o.Secrets)
+	if err != nil {
+		return nil, err
+	}
+	return o.New(lggr)
+}
+
+// GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
+//
+// See GeneralConfigTOML to inialize from TOML.
+type GeneralConfigOpts struct {
+	Config
+	Secrets
+
+	KeystorePasswordFileName, VRFPasswordFileName *string
+
+	// OverrideFn is a *test-only* hook to override effective values.
+	OverrideFn func(*Config, *Secrets)
+}
+
+// New returns a coreconfig.GeneralConfig for the given options.
+func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
 	}
 
-	c.setDefaults()
+	o.Config.setDefaults()
 
-	effective, err := c.TOMLString()
+	//TODO setEnv() helper; https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
+	o.Config.DevMode = v2.CLDev
+	if p := envvar.LogLevel.ParsePtr(); p != nil {
+		o.Config.Log.Level = *p
+	}
+
+	err = o.Secrets.SetOverrides(o.KeystorePasswordFileName, o.VRFPasswordFileName)
 	if err != nil {
 		return nil, err
 	}
 
-	var s Secrets
-	err = toml.Unmarshal([]byte(secretsToml), &s)
-	if err != nil {
-		return nil, err
+	if fn := o.OverrideFn; fn != nil {
+		fn(&o.Config, &o.Secrets)
 	}
-	err = s.SetOverrides(keystorePasswordFileName, vrfPasswordFileName)
+
+	effective, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
 	}
 
-	return &generalConfig{lggr: lggr, c: &c, inputTOML: input, effectiveTOML: effective, secrets: &s}, nil
+	return &generalConfig{
+		lggr:      lggr,
+		inputTOML: input, effectiveTOML: effective,
+		c: &o.Config, secrets: &o.Secrets,
+		logLevelDefault: o.Config.Log.Level}, nil
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
@@ -107,7 +152,8 @@ func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	return multierr.Combine(g.c.Validate(), g.secrets.Validate())
+	_, err := utils.MultiErrorList(multierr.Combine(g.c.Validate(), g.secrets.Validate()))
+	return err
 }
 
 func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
@@ -116,7 +162,7 @@ func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
 }
 
 func (g *generalConfig) Dev() bool {
-	return v2.CLDev
+	return g.c.DevMode
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -154,6 +200,67 @@ func (g *generalConfig) EVMEnabled() bool {
 		}
 	}
 	return false
+}
+
+func (g *generalConfig) EVMRPCEnabled() bool {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			if len(c.Nodes) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) DefaultChainID() *big.Int {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			return (*big.Int)(c.ChainID)
+		}
+	}
+	return nil
+}
+
+func (g *generalConfig) EthereumHTTPURL() *url.URL {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.SendOnly == nil || !*n.SendOnly {
+					return (*url.URL)(n.HTTPURL)
+				}
+			}
+		}
+	}
+	return nil
+
+}
+func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.HTTPURL != nil {
+					us = append(us, (url.URL)(*n.HTTPURL))
+				}
+			}
+		}
+	}
+	return nil
+
+}
+func (g *generalConfig) EthereumURL() string {
+	for _, c := range g.c.EVM {
+		if e := c.Enabled; e != nil && *e {
+			for _, n := range c.Nodes {
+				if n.SendOnly == nil || !*n.SendOnly {
+					if n.WSURL != nil {
+						return n.WSURL.String()
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
@@ -194,6 +301,29 @@ func (g *generalConfig) StarkNetEnabled() bool {
 
 func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
+}
+
+func (g *generalConfig) AuditLoggerEnabled() bool {
+	return *g.c.AuditLogger.Enabled
+}
+
+func (g *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	return *g.c.AuditLogger.ForwardToUrl, nil
+}
+
+func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	return *g.c.AuditLogger.Headers, nil
+}
+
+func (g *generalConfig) AuditLoggerEnvironment() string {
+	if g.Dev() {
+		return "develop"
+	}
+	return "production"
+}
+
+func (g *generalConfig) AuditLoggerJsonWrapperKey() string {
+	return *g.c.AuditLogger.JsonWrapperKey
 }
 
 func (g *generalConfig) AuthenticatedRateLimit() int64 {
@@ -297,11 +427,11 @@ func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 }
 
 func (g *generalConfig) DefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequestMaxSize)
+	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
 
 func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.DefaultHTTPRequestTimeout
+	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -325,7 +455,7 @@ func (g *generalConfig) FMSimulateTransactions() bool {
 }
 
 func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	panic(v2.ErrUnsupported)
+	return g.c.Database.Dialect
 }
 
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
@@ -360,40 +490,40 @@ func (g *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return *g.c.Keeper.DefaultTransactionQueueDepth
 }
 
-func (g *generalConfig) KeeperGasPriceBufferPercent() uint32 {
+func (g *generalConfig) KeeperGasPriceBufferPercent() uint16 {
 	return *g.c.Keeper.GasPriceBufferPercent
 }
 
-func (g *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
+func (g *generalConfig) KeeperGasTipCapBufferPercent() uint16 {
 	return *g.c.Keeper.GasTipCapBufferPercent
 }
 
-func (g *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
+func (g *generalConfig) KeeperBaseFeeBufferPercent() uint16 {
 	return *g.c.Keeper.BaseFeeBufferPercent
 }
 
 func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaximumGracePeriod
+	return *g.c.Keeper.MaxGracePeriod
 }
 
 func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryCheckGasOverhead
+	return *g.c.Keeper.Registry.CheckGasOverhead
 }
 
 func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryPerformGasOverhead
+	return *g.c.Keeper.Registry.PerformGasOverhead
 }
 
 func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.RegistryMaxPerformDataSize
+	return *g.c.Keeper.Registry.MaxPerformDataSize
 }
 
 func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.RegistrySyncInterval.Duration()
+	return g.c.Keeper.Registry.SyncInterval.Duration()
 }
 
 func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.RegistrySyncUpkeepQueueSize
+	return *g.c.Keeper.Registry.SyncUpkeepQueueSize
 }
 
 func (g *generalConfig) KeeperTurnLookBack() int64 {
@@ -420,7 +550,7 @@ func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
 }
 
 func (g *generalConfig) LogFileDir() string {
-	s := *g.c.Log.FileDir
+	s := *g.c.Log.File.Dir
 	if s == "" {
 		s = g.RootDir()
 	}
@@ -428,15 +558,15 @@ func (g *generalConfig) LogFileDir() string {
 }
 
 func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.FileMaxSize
+	return *g.c.Log.File.MaxSize
 }
 
 func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.FileMaxAgeDays
+	return *g.c.Log.File.MaxAgeDays
 }
 
 func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.FileMaxBackups
+	return *g.c.Log.File.MaxBackups
 }
 
 func (g *generalConfig) LogUnixTimestamps() bool {
@@ -448,15 +578,11 @@ func (g *generalConfig) MigrateDatabase() bool {
 }
 
 func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.ORMMaxIdleConns)
+	return int(*g.c.Database.MaxIdleConns)
 }
 
 func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.ORMMaxOpenConns)
-}
-
-func (g *generalConfig) OCRBootstrapCheckInterval() time.Duration {
-	return g.c.P2P.V1.BootstrapCheckInterval.Duration()
+	return int(*g.c.Database.MaxOpenConns)
 }
 
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -470,13 +596,6 @@ func (g *generalConfig) OCRContractPollInterval() time.Duration {
 func (g *generalConfig) OCRContractSubscribeInterval() time.Duration {
 	return g.c.OCR.ContractSubscribeInterval.Duration()
 }
-func (g *generalConfig) OCRDHTLookupInterval() int {
-	return int(*g.c.P2P.V1.DHTLookupInterval)
-}
-
-func (g *generalConfig) OCRIncomingMessageBufferSize() int {
-	return int(*g.c.P2P.IncomingMessageBufferSize)
-}
 
 func (g *generalConfig) OCRKeyBundleID() (string, error) {
 	b := g.c.OCR.KeyBundleID
@@ -484,14 +603,6 @@ func (g *generalConfig) OCRKeyBundleID() (string, error) {
 		return "", nil
 	}
 	return b.String(), nil
-}
-
-func (g *generalConfig) OCRNewStreamTimeout() time.Duration {
-	return g.c.P2P.V1.NewStreamTimeout.Duration()
-}
-
-func (g *generalConfig) OCROutgoingMessageBufferSize() int {
-	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
 func (g *generalConfig) OCRObservationTimeout() time.Duration {
@@ -563,11 +674,11 @@ func (g *generalConfig) P2PNetworkingStackRaw() string {
 }
 
 func (g *generalConfig) P2PPeerID() p2pkey.PeerID {
-	return *g.c.P2P.V1.PeerID
+	return *g.c.P2P.PeerID
 }
 
 func (g *generalConfig) P2PPeerIDRaw() string {
-	return g.c.P2P.V1.PeerID.String()
+	return g.c.P2P.PeerID.String()
 }
 
 func (g *generalConfig) P2PIncomingMessageBufferSize() int {
@@ -644,74 +755,51 @@ func (g *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 func (g *generalConfig) P2PV2AnnounceAddresses() []string {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.AnnounceAddresses; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.AnnounceAddresses; v != nil {
+		return *v
 	}
 	return nil
 }
 
 func (g *generalConfig) P2PV2Bootstrappers() (locators []commontypes.BootstrapperLocator) {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DefaultBootstrappers; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
+		return *v
 	}
 	return nil
 }
 
 func (g *generalConfig) P2PV2BootstrappersRaw() (s []string) {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DefaultBootstrappers; v != nil {
-				for _, b := range *v {
-					t, err := b.MarshalText()
-					if err != nil {
-						// log panic matches old behavior - only called for UI presentation
-						panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
-					}
-					s = append(s, string(t))
-				}
+	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
+		for _, b := range *v {
+			t, err := b.MarshalText()
+			if err != nil {
+				// log panic matches old behavior - only called for UI presentation
+				panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
 			}
+			s = append(s, string(t))
 		}
 	}
 	return
 }
 
 func (g *generalConfig) P2PV2DeltaDial() models.Duration {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DeltaDial; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.DeltaDial; v != nil {
+		return *v
 	}
 	return models.Duration{}
 }
 
 func (g *generalConfig) P2PV2DeltaReconcile() models.Duration {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DeltaReconcile; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.DeltaReconcile; v != nil {
+		return *v
+
 	}
 	return models.Duration{}
 }
 
 func (g *generalConfig) P2PV2ListenAddresses() []string {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.ListenAddresses; v != nil {
-				return *v
-			}
-		}
+	if v := g.c.P2P.V2.ListenAddresses; v != nil {
+		return *v
 	}
 	return nil
 }

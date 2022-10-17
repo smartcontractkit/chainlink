@@ -38,7 +38,7 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: lint
         continue-on-error: true
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v3
@@ -49,5 +49,5 @@ jobs:
         # any scheduled run or push, but skip PRs from release branches
         if: github.event.schedule != '' || github.event_name == 'push' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/'))
         with:
-          version: v1.49.0
+          version: v1.50.0
           only-new-issues: ${{github.event.schedule == ''}} # show only new issues, unless it's a scheduled run

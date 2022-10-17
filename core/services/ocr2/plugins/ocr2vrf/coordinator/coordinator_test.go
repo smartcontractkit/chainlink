@@ -102,6 +102,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 
 		c := &coordinator{
 			lp:                 lp,
+			lggr:               logger.TestLogger(t),
 			topics:             tp,
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
@@ -126,6 +127,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 
 		c := &coordinator{
 			lp:            lp,
+			lggr:          logger.TestLogger(t),
 			topics:        tp,
 			beaconAddress: beaconAddress,
 			finalityDepth: 10,
@@ -151,6 +153,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 		c := &coordinator{
 			lp:                 lp,
 			topics:             tp,
+			lggr:               logger.TestLogger(t),
 			beaconAddress:      beaconAddress,
 			coordinatorAddress: coordinatorAddress,
 			dkgAddress:         dkgAddress,
@@ -1197,13 +1200,13 @@ func newRandomnessRequestedLog(
 	}}
 	topicData, err := indexedArgs.Pack(nextBeaconOutputHeight)
 	require.NoError(t, err)
-	topic0 := vrfCoordinatorABI.Events[randomnessRequestedEvent].ID.Bytes()
+	topic0 := vrfCoordinatorABI.Events[randomnessRequestedEvent].ID
 	lg := logpoller.Log{
 		Address: coordinatorAddress,
 		Data:    logData,
 		Topics: [][]byte{
 			// first topic is the event signature
-			topic0,
+			topic0.Bytes(),
 			// second topic is nextBeaconOutputHeight since it's indexed
 			topicData,
 		},
@@ -1244,13 +1247,13 @@ func newRandomnessFulfillmentRequestedLog(
 	packed, err := vrfCoordinatorABI.Events[randomnessFulfillmentRequestedEvent].Inputs.Pack(
 		e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.Callback)
 	require.NoError(t, err)
-	topic0 := vrfCoordinatorABI.Events[randomnessFulfillmentRequestedEvent].ID.Bytes()
+	topic0 := vrfCoordinatorABI.Events[randomnessFulfillmentRequestedEvent].ID
 	return logpoller.Log{
 		Address:  coordinatorAddress,
 		Data:     packed,
 		EventSig: topic0,
 		Topics: [][]byte{
-			topic0,
+			topic0.Bytes(),
 		},
 		BlockNumber: int64(requestBlock),
 	}
@@ -1274,12 +1277,12 @@ func newRandomWordsFulfilledLog(
 	packed, err := vrfCoordinatorABI.Events[randomWordsFulfilledEvent].Inputs.Pack(
 		e.RequestIDs, e.SuccessfulFulfillment, e.TruncatedErrorData)
 	require.NoError(t, err)
-	topic0 := vrfCoordinatorABI.Events[randomWordsFulfilledEvent].ID.Bytes()
+	topic0 := vrfCoordinatorABI.Events[randomWordsFulfilledEvent].ID
 	return logpoller.Log{
 		Address:  coordinatorAddress,
 		Data:     packed,
 		EventSig: topic0,
-		Topics:   [][]byte{topic0},
+		Topics:   [][]byte{topic0.Bytes()},
 	}
 }
 
@@ -1338,12 +1341,12 @@ func newNewTransmissionLog(
 	epochAndRoundPacked, err := indexedArgs.Pack(e.EpochAndRound)
 	require.NoError(t, err)
 
-	topic0 := vrfBeaconABI.Events[newTransmissionEvent].ID.Bytes()
+	topic0 := vrfBeaconABI.Events[newTransmissionEvent].ID
 	return logpoller.Log{
 		Address: beaconAddress,
 		Data:    nonIndexedData,
 		Topics: [][]byte{
-			topic0,
+			topic0.Bytes(),
 			aggregatorPacked,
 			epochAndRoundPacked,
 		},

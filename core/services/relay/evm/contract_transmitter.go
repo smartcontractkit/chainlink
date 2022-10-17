@@ -48,7 +48,8 @@ func NewOCRContractTransmitter(
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
-	if err := lp.MergeFilter([]common.Hash{transmitted.ID}, []common.Address{address}); err != nil {
+	_, err := lp.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+	if err != nil {
 		return nil, err
 	}
 	return &ContractTransmitter{

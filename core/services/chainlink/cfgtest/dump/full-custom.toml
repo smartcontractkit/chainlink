@@ -10,9 +10,9 @@ FeedsManager = true
 DefaultIdleInTxSessionTimeout = '1h0m0s'
 DefaultLockTimeout = '1m0s'
 DefaultQueryTimeout = '1s'
+MaxIdleConns = 5
+MaxOpenConns = 12
 MigrateOnStartup = false
-ORMMaxIdleConns = 5
-ORMMaxOpenConns = 12
 
 [Database.Backup]
 Dir = 'db/backup'
@@ -40,14 +40,22 @@ SendInterval = '10s'
 SendTimeout = '1m0s'
 UseBatchSend = false
 
+[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
+
 [Log]
 DatabaseQueries = true
-FileDir = 'log/dir'
-FileMaxSize = '2.30gb'
-FileMaxAgeDays = 10
-FileMaxBackups = 15
 JSONConsole = true
 UnixTS = true
+
+[Log.File]
+Dir = 'log/dir'
+MaxSize = '2.30gb'
+MaxAgeDays = 10
+MaxBackups = 15
 
 [WebServer]
 AllowOrigins = 'allow,origins'
@@ -76,13 +84,15 @@ HTTPSPort = 6098
 KeyPath = 'tls/key'
 
 [JobPipeline]
-DefaultHTTPRequestTimeout = '1h0m0s'
 ExternalInitiatorsEnabled = true
-HTTPRequestMaxSize = '300b'
 MaxRunDuration = '1m0s'
 ReaperInterval = '5m0s'
 ReaperThreshold = '1h0m0s'
 ResultWriteQueueDepth = 20
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1h0m0s'
+MaxSize = '300b'
 
 [FluxMonitor]
 DefaultTransactionQueueDepth = 5
@@ -112,6 +122,7 @@ TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 [P2P]
 IncomingMessageBufferSize = 747
 OutgoingMessageBufferSize = 42
+PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 TraceLogging = true
 
 [P2P.V1]
@@ -125,7 +136,6 @@ DHTLookupInterval = 6
 ListenIP = '4.3.2.1'
 ListenPort = 4242
 NewStreamTimeout = '1m0s'
-PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 PeerstoreWriteInterval = '10m0s'
 
 [P2P.V2]
@@ -141,15 +151,17 @@ DefaultTransactionQueueDepth = 10
 GasPriceBufferPercent = 50
 GasTipCapBufferPercent = 12
 BaseFeeBufferPercent = 7
-MaximumGracePeriod = 42
-RegistryCheckGasOverhead = 6
-RegistryPerformGasOverhead = 900
-RegistryMaxPerformDataSize = 5000
-RegistrySyncInterval = '1m0s'
-RegistrySyncUpkeepQueueSize = 99
+MaxGracePeriod = 42
 TurnLookBack = 67
 TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
+
+[Keeper.Registry]
+CheckGasOverhead = 6
+PerformGasOverhead = 900
+MaxPerformDataSize = 5000
+SyncInterval = '1m0s'
+SyncUpkeepQueueSize = 99
 
 [AutoPprof]
 Enabled = true
@@ -187,18 +199,20 @@ FlagsContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LinkContractAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 LogBackfillBatchSize = 200
 LogPollInterval = '10s'
-MaxInFlightTransactions = 1500
 MinIncomingConfirmations = 12
-MinimumContractPayment = '123456789'
+MinContractPayment = '123456789'
 NonceAutoSync = true
 NoNewHeadsThreshold = '5m0s'
 OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 6
-TxReaperInterval = '10h0m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '5m0s'
-UseForwarders = true
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 1500
+ReaperInterval = '10h0m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '5m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -211,11 +225,6 @@ LimitDefault = 102030405
 LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
-LimitOCRJobType = 9901
-LimitDRJobType = 9902
-LimitVRFJobType = 9903
-LimitFMJobType = 9904
-LimitKeeperJobType = 9905
 BumpMin = '987.654 kwei'
 BumpPercent = 2
 BumpThreshold = 10
@@ -223,11 +232,20 @@ BumpTxDepth = 7
 EIP1559DynamicFees = true
 FeeCapDefault = '45.678912345 gwei'
 TipCapDefault = '4.321 kwei'
-TipCapMinimum = '7 wei'
+TipCapMin = '7 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
 BlockHistorySize = 56
+CheckInclusionBlocks = 14
+CheckInclusionPercentile = 61
 EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 

@@ -1,6 +1,7 @@
-GETH_VERSION: 1.10.21
-dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin d40b1573d056273199340c161d8b2db47cd096b84467852f45f30004d28e14f0
-vrf_beacon: ../../../contracts/solc/v0.8.15/VRFBeacon.abi ../../../contracts/solc/v0.8.15/VRFBeacon.bin a73668516aa207897504e9d5b8ae43571865297e58368fe8749a8eee2670c6bf
-vrf_beacon_consumer: ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin fb9fdf9591d181a39173b6966d72d63f87b67fc48037ba2253b6710816f53c86
-vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 51f61173fd85d4a77884696eaff152c30b7c771b88ab687dc806214a88943e43
-vrf_coordinator: ../../../contracts/solc/v0.8.15/VRFCoordinator.abi ../../../contracts/solc/v0.8.15/VRFCoordinator.bin 697045fc2bf4f40e4fcc3419dc7364a02c2d25cb86e20ea84d082084e20b6bd1
+GETH_VERSION: 1.10.23
+dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin 12b81183a536329d313a04729763c359f6caf29392bf60cd3c1aa8923c98aad0
+load_test_beacon_consumer: ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.bin 0948b8abfd294956c392edd9053cc47dfeb5744c807cb0a7de382b66b53c0ee1
+vrf_beacon: ../../../contracts/solc/v0.8.15/VRFBeacon.abi ../../../contracts/solc/v0.8.15/VRFBeacon.bin 358974fbebee2fc51338a4636917df2c8f590cb30f8c6f40f947b072dd84c343
+vrf_beacon_consumer: ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin 427569de616d76ca4d46760135ea7928af0fa5123aad52eefcae6c9f6bc87bf4
+vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 08da747a3488fcd318ddc0db75fd0df7c07a100b2e19061f0efcb12a7180ecde
+vrf_coordinator: ../../../contracts/solc/v0.8.15/VRFCoordinator.abi ../../../contracts/solc/v0.8.15/VRFCoordinator.bin 3ef409474a799875c8e0caf13edc4a3f3fd2ccc92ff9b3cf698e3f9268ae1dab

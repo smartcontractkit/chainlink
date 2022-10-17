@@ -84,6 +84,14 @@ func (c *ChainScoped) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	return *c.cfg.GasEstimator.BlockHistory.BlockHistorySize
 }
 
+func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
+	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionBlocks
+}
+
+func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
+	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionPercentile
+}
+
 func (c *ChainScoped) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
 	if c.cfg.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks == nil {
 		return uint16(c.EvmGasBumpThreshold()) + 1
@@ -100,15 +108,15 @@ func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
 }
 
 func (c *ChainScoped) EthTxReaperInterval() time.Duration {
-	return c.cfg.TxReaperInterval.Duration()
+	return c.cfg.Transactions.ReaperInterval.Duration()
 }
 
 func (c *ChainScoped) EthTxReaperThreshold() time.Duration {
-	return c.cfg.TxReaperThreshold.Duration()
+	return c.cfg.Transactions.ReaperThreshold.Duration()
 }
 
 func (c *ChainScoped) EthTxResendAfterThreshold() time.Duration {
-	return c.cfg.TxResendAfterThreshold.Duration()
+	return c.cfg.Transactions.ResendAfterThreshold.Duration()
 }
 
 func (c *ChainScoped) EvmFinalityDepth() uint32 {
@@ -127,12 +135,12 @@ func (c *ChainScoped) EvmGasBumpTxDepth() uint16 {
 	return *c.cfg.GasEstimator.BumpTxDepth
 }
 
-func (c *ChainScoped) EvmGasBumpWei() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.BumpMin)
+func (c *ChainScoped) EvmGasBumpWei() *assets.Wei {
+	return c.cfg.GasEstimator.BumpMin
 }
 
-func (c *ChainScoped) EvmGasFeeCapDefault() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.FeeCapDefault)
+func (c *ChainScoped) EvmGasFeeCapDefault() *assets.Wei {
+	return c.cfg.GasEstimator.FeeCapDefault
 }
 
 func (c *ChainScoped) EvmGasLimitDefault() uint32 {
@@ -153,43 +161,43 @@ func (c *ChainScoped) EvmGasLimitTransfer() uint32 {
 }
 
 func (c *ChainScoped) EvmGasLimitOCRJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitOCRJobType
+	return c.cfg.GasEstimator.LimitJobType.OCR
 }
 
 func (c *ChainScoped) EvmGasLimitDRJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitDRJobType
+	return c.cfg.GasEstimator.LimitJobType.DR
 }
 
 func (c *ChainScoped) EvmGasLimitVRFJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitVRFJobType
+	return c.cfg.GasEstimator.LimitJobType.VRF
 }
 
 func (c *ChainScoped) EvmGasLimitFMJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitFMJobType
+	return c.cfg.GasEstimator.LimitJobType.FM
 }
 
 func (c *ChainScoped) EvmGasLimitKeeperJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitKeeperJobType
+	return c.cfg.GasEstimator.LimitJobType.Keeper
 }
 
-func (c *ChainScoped) EvmGasPriceDefault() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.PriceDefault)
+func (c *ChainScoped) EvmGasPriceDefault() *assets.Wei {
+	return c.cfg.GasEstimator.PriceDefault
 }
 
-func (c *ChainScoped) EvmMinGasPriceWei() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.PriceMin)
+func (c *ChainScoped) EvmMinGasPriceWei() *assets.Wei {
+	return c.cfg.GasEstimator.PriceMin
 }
 
-func (c *ChainScoped) EvmMaxGasPriceWei() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.PriceMax)
+func (c *ChainScoped) EvmMaxGasPriceWei() *assets.Wei {
+	return c.cfg.GasEstimator.PriceMax
 }
 
-func (c *ChainScoped) EvmGasTipCapDefault() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.TipCapDefault)
+func (c *ChainScoped) EvmGasTipCapDefault() *assets.Wei {
+	return c.cfg.GasEstimator.TipCapDefault
 }
 
-func (c *ChainScoped) EvmGasTipCapMinimum() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.TipCapMinimum)
+func (c *ChainScoped) EvmGasTipCapMinimum() *assets.Wei {
+	return c.cfg.GasEstimator.TipCapMin
 }
 
 func (c *ChainScoped) EvmHeadTrackerHistoryDepth() uint32 {
@@ -212,12 +220,16 @@ func (c *ChainScoped) EvmLogPollInterval() time.Duration {
 	return c.cfg.LogPollInterval.Duration()
 }
 
+func (c *ChainScoped) EvmLogKeepBlocksDepth() uint32 {
+	return *c.cfg.LogKeepBlocksDepth
+}
+
 func (c *ChainScoped) EvmMaxInFlightTransactions() uint32 {
-	return *c.cfg.MaxInFlightTransactions
+	return *c.cfg.Transactions.MaxInFlight
 }
 
 func (c *ChainScoped) EvmMaxQueuedTransactions() uint64 {
-	return uint64(*c.cfg.MaxQueuedTransactions)
+	return uint64(*c.cfg.Transactions.MaxQueued)
 }
 
 func (c *ChainScoped) EvmNonceAutoSync() bool {
@@ -225,7 +237,7 @@ func (c *ChainScoped) EvmNonceAutoSync() bool {
 }
 
 func (c *ChainScoped) EvmUseForwarders() bool {
-	return *c.cfg.UseForwarders
+	return *c.cfg.Transactions.ForwardersEnabled
 }
 
 func (c *ChainScoped) EvmRPCDefaultBatchSize() uint32 {
@@ -242,14 +254,22 @@ func (c *ChainScoped) FlagsContractAddress() string {
 func (c *ChainScoped) GasEstimatorMode() string {
 	return *c.cfg.GasEstimator.Mode
 }
-func (c *ChainScoped) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
+func (c *ChainScoped) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
+	var keySpecific *assets.Wei
 	for i := range c.cfg.KeySpecific {
 		ks := c.cfg.KeySpecific[i]
 		if ks.Key.Address() == addr {
-			return (*big.Int)(ks.GasEstimator.PriceMax)
+			keySpecific = ks.GasEstimator.PriceMax
+			break
 		}
 	}
-	return (*big.Int)(c.cfg.GasEstimator.PriceMax)
+
+	chainSpecific := c.EvmMaxGasPriceWei()
+	if keySpecific != nil && !keySpecific.IsZero() && keySpecific.Cmp(chainSpecific) < 0 {
+		return keySpecific
+	}
+
+	return c.EvmMaxGasPriceWei()
 }
 
 func (c *ChainScoped) LinkContractAddress() string {
@@ -271,7 +291,7 @@ func (c *ChainScoped) MinIncomingConfirmations() uint32 {
 }
 
 func (c *ChainScoped) MinimumContractPayment() *assets.Link {
-	return c.cfg.MinimumContractPayment
+	return c.cfg.MinContractPayment
 }
 
 func (c *ChainScoped) NodeNoNewHeadsThreshold() time.Duration {
@@ -304,4 +324,8 @@ func (c *ChainScoped) OCRObservationGracePeriod() time.Duration {
 
 func (c *ChainScoped) OCRDatabaseTimeout() time.Duration {
 	return c.cfg.OCR.DatabaseTimeout.Duration()
+}
+
+func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
+	return *c.cfg.OCR2.Automation.GasLimit
 }

@@ -23,16 +23,16 @@ DefaultIdleInTxSessionTimeout = '1h' # Default
 DefaultLockTimeout = '15s' # Default
 # DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
 DefaultQueryTimeout = '10s' # Default
+# MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
+#
+# Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+MaxIdleConns = 10 # Default
+# MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
+#
+# Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+MaxOpenConns = 20 # Default
 # MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
 MigrateOnStartup = true # Default
-# ORMMaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
-#
-# Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
-ORMMaxIdleConns = 10 # Default
-# ORMMaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
-#
-# Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
-ORMMaxOpenConns = 20 # Default
 
 # As a best practice, take regular database backups in case of accidental data loss. This best practice is especially important when you upgrade your Chainlink node to a new version. Chainlink nodes support automated database backups to make this process easier.
 #
@@ -105,14 +105,30 @@ SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
 
+[AuditLogger]
+# Enabled determines if this logger should be configured at all
+Enabled = false # Default
+# ForwardToUrl is where you want to forward logs to
+ForwardToUrl = 'http://localhost:9898' # Example
+# JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+JsonWrapperKey = 'event' # Example
+# Headers is the set of headers you wish to pass along with each request
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+
 [Log]
 # DatabaseQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
 DatabaseQueries = false # Default
 # JSONConsole enables JSON logging. Otherwise, the log is saved in a human-friendly console format.
 JSONConsole = false # Default
-# FileDir sets the log directory. By default, Chainlink nodes write log data to `$ROOT/log.jsonl`.
-FileDir = '/my/log/directory' # Example
-# FileMaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
+# UnixTS enables legacy unix timestamps.
+#
+# Previous versions of Chainlink nodes wrote JSON logs with a unix timestamp. As of v1.1.0 and up, the default has changed to use ISO8601 timestamps for better readability.
+UnixTS = false # Default
+
+[Log.File]
+# Dir sets the log directory. By default, Chainlink nodes write log data to `$ROOT/log.jsonl`.
+Dir = '/my/log/directory' # Example
+# MaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
 #
 # Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
 #
@@ -121,15 +137,11 @@ FileDir = '/my/log/directory' # Example
 # - mb (megabytes)
 # - gb (gigabytes)
 # - tb (terabytes)
-FileMaxSize = '5120mb' # Default
-# FileMaxAgeDays determines the log file's max age in days before file rotation. Keeping this config with the default value will not remove log files based on age.
-FileMaxAgeDays = 0 # Default
-# FileMaxBackups determines the maximum number of old log files to retain. Keeping this config with the default value retains all old log files. The `FileMaxAgeDays` variable can still cause them to get deleted.
-FileMaxBackups = 1 # Default
-# UnixTS enables legacy unix timestamps.
-#
-# Previous versions of Chainlink nodes wrote JSON logs with a unix timestamp. As of v1.1.0 and up, the default has changed to use ISO8601 timestamps for better readability.
-UnixTS = false # Default
+MaxSize = '5120mb' # Default
+# MaxAgeDays determines the log file's max age in days before file rotation. Keeping this config with the default value will not remove log files based on age.
+MaxAgeDays = 0 # Default
+# MaxBackups determines the maximum number of old log files to retain. Keeping this config with the default value retains all old log files. The `MaxAgeDays` variable can still cause them to get deleted.
+MaxBackups = 1 # Default
 
 [WebServer]
 # AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` header of its API responses. The setting can be a comma-separated list with no spaces. You might experience CORS issues if this is not set correctly.
@@ -185,10 +197,6 @@ HTTPSPort = 6689 # Default
 ForceRedirect = false # Default
 
 [JobPipeline]
-# HTTPRequestMaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
-HTTPRequestMaxSize = '32768' # Default
-# DefaultHTTPRequestTimeout defines the default timeout for HTTP requests made by `http` and `bridge` adapters.
-DefaultHTTPRequestTimeout = '15s' # Default
 # ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.
 ExternalInitiatorsEnabled = false # Default
 # MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
@@ -202,6 +210,12 @@ ReaperThreshold = '24h' # Default
 # **ADVANCED**
 # ResultWriteQueueDepth controls how many writes will be buffered before subsequent writes are dropped, for jobs that write results asynchronously for performance reasons, such as OCR.
 ResultWriteQueueDepth = 100 # Default
+
+[JobPipeline.HTTPRequest]
+# DefaultTimeout defines the default timeout for HTTP requests made by `http` and `bridge` adapters.
+DefaultTimeout = '15s' # Default
+# MaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
+MaxSize = '32768' # Default
 
 [FluxMonitor]
 # **ADVANCED**
@@ -310,12 +324,14 @@ IncomingMessageBufferSize = 10 # Default
 # IncomingMessageBufferSize to give the remote enough space to process
 # them all in case we regained connection and now send a bunch at once
 OutgoingMessageBufferSize = 10 # Default
+# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
 
 [P2P.V1]
 # Enabled enables P2P V1.
-Enabled = false # Default
+Enabled = true # Default
 # AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
 AnnounceIP = '1.2.3.4' # Example
 # AnnouncePort should be set as the externally reachable port of the Chainlink node.
@@ -352,8 +368,6 @@ ListenPort = 1337 # Example
 # it can't get a connection, but it is here anyway as a failsafe.
 # Set to 0 to disable any timeout on top of what libp2p gives us by default.
 NewStreamTimeout = '10s' # Default
-# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # **ADVANCED**
 # PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
 PeerstoreWriteInterval = '5m' # Default
@@ -383,23 +397,8 @@ GasTipCapBufferPercent = 20 # Default
 # BaseFeeBufferPercent specifies the percentage to add to the base fee used for checking whether to perform an upkeep. Applies only in EIP-1559 mode.
 BaseFeeBufferPercent = 20 # Default
 # **ADVANCED**
-# MaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing an upkeep before it resumes checking that upkeep
-MaximumGracePeriod = 100 # Default
-# **ADVANCED**
-# RegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
-RegistryCheckGasOverhead = 200_000 # Default
-# **ADVANCED**
-# RegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
-RegistryPerformGasOverhead = 300_000 # Default
-# **ADVANCED**
-# RegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
-RegistrySyncInterval = '30m' # Default
-# **ADVANCED**
-# RegistryMaxPerformDataSize is the max size of perform data.
-RegistryMaxPerformDataSize = 5_000 # Default
-# **ADVANCED**
-# RegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
-RegistrySyncUpkeepQueueSize = 10 # Default
+# MaxGracePeriod is the maximum number of blocks that a keeper will wait after performing an upkeep before it resumes checking that upkeep
+MaxGracePeriod = 100 # Default
 # TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
 TurnLookBack = 1_000 # Default
 # TurnFlagEnabled enables a new algorithm for how keepers take turns.
@@ -407,6 +406,23 @@ TurnFlagEnabled = false # Default
 # **ADVANCED**
 # UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
 UpkeepCheckGasPriceEnabled = false # Default
+
+[Keeper.Registry]
+# **ADVANCED**
+# CheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
+CheckGasOverhead = 200_000 # Default
+# **ADVANCED**
+# PerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
+PerformGasOverhead = 300_000 # Default
+# **ADVANCED**
+# SyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
+SyncInterval = '30m' # Default
+# **ADVANCED**
+# MaxPerformDataSize is the max size of perform data.
+MaxPerformDataSize = 5_000 # Default
+# **ADVANCED**
+# SyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
+SyncUpkeepQueueSize = 10 # Default
 
 # The Chainlink node is equipped with an internal "nurse" service that can perform automatic `pprof` profiling when the certain resource thresholds are exceeded, such as memory and goroutine count. These profiles are saved to disk to facilitate fine-grained debugging of performance-related issues. In general, if you notice that your node has begun to accumulate profiles, forward them to the Chainlink team.
 #

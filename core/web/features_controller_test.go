@@ -6,6 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -14,7 +16,12 @@ import (
 )
 
 func Test_FeaturesController_List(t *testing.T) {
-	_, client := setupFeaturesControllerTest(t)
+	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		csa := true
+		c.Feature.UICSAKeys = &csa
+	}))
+	require.NoError(t, app.Start(testutils.Context(t)))
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Get("/v2/features")
 	t.Cleanup(cleanup)
@@ -30,14 +37,4 @@ func Test_FeaturesController_List(t *testing.T) {
 
 	assert.Equal(t, "feeds_manager", resources[1].ID)
 	assert.False(t, resources[1].Enabled)
-}
-
-func setupFeaturesControllerTest(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
-	t.Setenv("FEATURE_UI_CSA_KEYS", "true")
-
-	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-
-	return app, client
 }

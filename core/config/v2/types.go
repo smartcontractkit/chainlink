@@ -9,15 +9,19 @@ import (
 	"net/url"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -27,38 +31,28 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
+	AppID               uuid.UUID `toml:"-"`
+	DevMode             bool      `toml:"-"`
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
 
-	Feature *Feature
-
-	Database *Database
-
-	TelemetryIngress *TelemetryIngress
-
-	Log *Log
-
-	WebServer *WebServer
-
-	JobPipeline *JobPipeline
-
-	FluxMonitor *FluxMonitor
-
-	OCR2 *OCR2
-
-	OCR *OCR
-
-	P2P *P2P
-
-	Keeper *Keeper
-
-	AutoPprof *AutoPprof
-
-	Pyroscope *Pyroscope
-
-	Sentry *Sentry
+	Feature          Feature                 `toml:",omitempty"`
+	Database         Database                `toml:",omitempty"`
+	TelemetryIngress TelemetryIngress        `toml:",omitempty"`
+	AuditLogger      audit.AuditLoggerConfig `toml:",omitempty"`
+	Log              Log                     `toml:",omitempty"`
+	WebServer        WebServer               `toml:",omitempty"`
+	JobPipeline      JobPipeline             `toml:",omitempty"`
+	FluxMonitor      FluxMonitor             `toml:",omitempty"`
+	OCR2             OCR2                    `toml:",omitempty"`
+	OCR              OCR                     `toml:",omitempty"`
+	P2P              P2P                     `toml:",omitempty"`
+	Keeper           Keeper                  `toml:",omitempty"`
+	AutoPprof        AutoPprof               `toml:",omitempty"`
+	Pyroscope        Pyroscope               `toml:",omitempty"`
+	Sentry           Sentry                  `toml:",omitempty"`
 }
 
 var (
@@ -68,17 +62,18 @@ var (
 )
 
 func init() {
-	if err := cfgtest.DocDefaultsOnly(strings.NewReader(defaultsTOML), &defaults); err != nil {
+	if err := cfgtest.DocDefaultsOnly(strings.NewReader(defaultsTOML), &defaults, DecodeTOML); err != nil {
 		log.Fatalf("Failed to initialize defaults from docs: %v", err)
 	}
 }
 
 func CoreDefaults() (c Core) {
 	c.SetFrom(&defaults)
+	c.Database.Dialect = dialects.Postgres // not user visible - overridden for tests only
 	return
 }
 
-// SetFrom updates c with any non-nil values from f.
+// SetFrom updates c with any non-nil values from f. (currently TOML field only!)
 func (c *Core) SetFrom(f *Core) {
 	if v := f.ExplorerURL; v != nil {
 		c.ExplorerURL = f.ExplorerURL
@@ -93,104 +88,24 @@ func (c *Core) SetFrom(f *Core) {
 		c.ShutdownGracePeriod = v
 	}
 
-	if f.Feature != nil {
-		if c.Feature == nil {
-			c.Feature = &Feature{}
-		}
-		c.Feature.setFrom(f.Feature)
-	}
+	c.Feature.setFrom(&f.Feature)
+	c.Database.setFrom(&f.Database)
+	c.TelemetryIngress.setFrom(&f.TelemetryIngress)
+	c.AuditLogger.SetFrom(&f.AuditLogger)
+	c.Log.setFrom(&f.Log)
 
-	if f.Database != nil {
-		if c.Database == nil {
-			c.Database = &Database{}
-		}
-		c.Database.setFrom(f.Database)
+	c.WebServer.setFrom(&f.WebServer)
+	c.JobPipeline.setFrom(&f.JobPipeline)
 
-	}
+	c.FluxMonitor.setFrom(&f.FluxMonitor)
+	c.OCR2.setFrom(&f.OCR2)
+	c.OCR.setFrom(&f.OCR)
+	c.P2P.setFrom(&f.P2P)
+	c.Keeper.setFrom(&f.Keeper)
 
-	if f.TelemetryIngress != nil {
-		if c.TelemetryIngress == nil {
-			c.TelemetryIngress = &TelemetryIngress{}
-		}
-		c.TelemetryIngress.setFrom(f.TelemetryIngress)
-	}
-
-	if f.Log != nil {
-		if c.Log == nil {
-			c.Log = &Log{}
-		}
-		c.Log.setFrom(f.Log)
-	}
-
-	if f.WebServer != nil {
-		if c.WebServer == nil {
-			c.WebServer = &WebServer{}
-		}
-		c.WebServer.setFrom(f.WebServer)
-	}
-
-	if f.JobPipeline != nil {
-		if c.JobPipeline == nil {
-			c.JobPipeline = &JobPipeline{}
-		}
-		c.JobPipeline.setFrom(f.JobPipeline)
-	}
-
-	if f.FluxMonitor != nil {
-		if c.FluxMonitor == nil {
-			c.FluxMonitor = &FluxMonitor{}
-		}
-		c.FluxMonitor.setFrom(f.FluxMonitor)
-	}
-
-	if f.OCR2 != nil {
-		if c.OCR2 == nil {
-			c.OCR2 = &OCR2{}
-		}
-		c.OCR2.setFrom(f.OCR2)
-	}
-
-	if f.OCR != nil {
-		if c.OCR == nil {
-			c.OCR = &OCR{}
-		}
-		c.OCR.setFrom(f.OCR)
-	}
-
-	if f.P2P != nil {
-		if c.P2P == nil {
-			c.P2P = &P2P{}
-		}
-		c.P2P.setFrom(f.P2P)
-	}
-
-	if f.Keeper != nil {
-		if c.Keeper == nil {
-			c.Keeper = &Keeper{}
-		}
-		c.Keeper.setFrom(f.Keeper)
-	}
-
-	if f.AutoPprof != nil {
-		if c.AutoPprof == nil {
-			c.AutoPprof = &AutoPprof{}
-		}
-		c.AutoPprof.setFrom(f.AutoPprof)
-	}
-
-	if f.Pyroscope != nil {
-		if c.Pyroscope == nil {
-			c.Pyroscope = &Pyroscope{}
-		}
-		c.Pyroscope.setFrom(f.Pyroscope)
-	}
-
-	if f.Sentry != nil {
-		if c.Sentry == nil {
-			c.Sentry = &Sentry{}
-		}
-		c.Sentry.setFrom(f.Sentry)
-	}
+	c.AutoPprof.setFrom(&f.AutoPprof)
+	c.Pyroscope.setFrom(&f.Pyroscope)
+	c.Sentry.setFrom(&f.Sentry)
 }
 
 type Secrets struct {
@@ -265,15 +180,21 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *models.Duration
 	DefaultLockTimeout            *models.Duration
 	DefaultQueryTimeout           *models.Duration
+	Dialect                       dialects.DialectName `toml:"-"`
+	MaxIdleConns                  *int64
+	MaxOpenConns                  *int64
 	MigrateOnStartup              *bool
-	ORMMaxIdleConns               *int64
-	ORMMaxOpenConns               *int64
 
-	Backup *DatabaseBackup
+	Backup   DatabaseBackup   `toml:",omitempty"`
+	Listener DatabaseListener `toml:",omitempty"`
+	Lock     DatabaseLock     `toml:",omitempty"`
+}
 
-	Listener *DatabaseListener
-
-	Lock *DatabaseLock
+func (d *Database) LockingMode() string {
+	if d.Lock.Mode == "" {
+		return "lease"
+	}
+	return d.Lock.Mode
 }
 
 func (d *Database) setFrom(f *Database) {
@@ -289,32 +210,16 @@ func (d *Database) setFrom(f *Database) {
 	if v := f.MigrateOnStartup; v != nil {
 		d.MigrateOnStartup = v
 	}
-	if v := f.ORMMaxIdleConns; v != nil {
-		d.ORMMaxIdleConns = v
+	if v := f.MaxIdleConns; v != nil {
+		d.MaxIdleConns = v
 	}
-	if v := f.ORMMaxOpenConns; v != nil {
-		d.ORMMaxOpenConns = v
-	}
-
-	if f.Backup != nil {
-		if d.Backup == nil {
-			d.Backup = &DatabaseBackup{}
-		}
-		d.Backup.setFrom(f.Backup)
-	}
-	if f.Listener != nil {
-		if d.Listener == nil {
-			d.Listener = &DatabaseListener{}
-		}
-		d.Listener.setFrom(f.Listener)
+	if v := f.MaxOpenConns; v != nil {
+		d.MaxOpenConns = v
 	}
 
-	if f.Lock != nil {
-		if d.Lock == nil {
-			d.Lock = &DatabaseLock{}
-		}
-		d.Lock.setFrom(f.Lock)
-	}
+	d.Backup.setFrom(&f.Backup)
+	d.Listener.setFrom(&f.Listener)
+	d.Lock.setFrom(&f.Lock)
 }
 
 type DatabaseListener struct {
@@ -336,6 +241,7 @@ func (d *DatabaseListener) setFrom(f *DatabaseListener) {
 }
 
 type DatabaseLock struct {
+	Mode                 string `toml:"-"`
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
 }
@@ -426,35 +332,46 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 
 type Log struct {
 	DatabaseQueries *bool
-	FileDir         *string
-	FileMaxSize     *utils.FileSize
-	FileMaxAgeDays  *int64
-	FileMaxBackups  *int64
+	Level           zapcore.Level `toml:"-"`
 	JSONConsole     *bool
+	SQL             bool `toml:"-"`
 	UnixTS          *bool
+
+	File LogFile `toml:",omitempty"`
 }
 
 func (l *Log) setFrom(f *Log) {
 	if v := f.DatabaseQueries; v != nil {
 		l.DatabaseQueries = v
 	}
-	if v := f.FileDir; v != nil {
-		l.FileDir = v
-	}
-	if v := f.FileMaxSize; v != nil {
-		l.FileMaxSize = v
-	}
-	if v := f.FileMaxAgeDays; v != nil {
-		l.FileMaxAgeDays = v
-	}
-	if v := f.FileMaxBackups; v != nil {
-		l.FileMaxBackups = v
-	}
 	if v := f.JSONConsole; v != nil {
 		l.JSONConsole = v
 	}
 	if v := f.UnixTS; v != nil {
 		l.UnixTS = v
+	}
+	l.File.setFrom(&f.File)
+}
+
+type LogFile struct {
+	Dir        *string
+	MaxSize    *utils.FileSize
+	MaxAgeDays *int64
+	MaxBackups *int64
+}
+
+func (l *LogFile) setFrom(f *LogFile) {
+	if v := f.Dir; v != nil {
+		l.Dir = v
+	}
+	if v := f.MaxSize; v != nil {
+		l.MaxSize = v
+	}
+	if v := f.MaxAgeDays; v != nil {
+		l.MaxAgeDays = v
+	}
+	if v := f.MaxBackups; v != nil {
+		l.MaxBackups = v
 	}
 }
 
@@ -467,11 +384,9 @@ type WebServer struct {
 	SessionTimeout          *models.Duration
 	SessionReaperExpiration *models.Duration
 
-	MFA *WebServerMFA
-
-	RateLimit *WebServerRateLimit
-
-	TLS *WebServerTLS
+	MFA       WebServerMFA       `toml:",omitempty"`
+	RateLimit WebServerRateLimit `toml:",omitempty"`
+	TLS       WebServerTLS       `toml:",omitempty"`
 }
 
 func (w *WebServer) setFrom(f *WebServer) {
@@ -496,24 +411,10 @@ func (w *WebServer) setFrom(f *WebServer) {
 	if v := f.SessionReaperExpiration; v != nil {
 		w.SessionReaperExpiration = v
 	}
-	if f.MFA != nil {
-		if w.MFA == nil {
-			w.MFA = &WebServerMFA{}
-		}
-		w.MFA.setFrom(f.MFA)
-	}
-	if f.RateLimit != nil {
-		if w.RateLimit == nil {
-			w.RateLimit = &WebServerRateLimit{}
-		}
-		w.RateLimit.setFrom(f.RateLimit)
-	}
-	if f.TLS != nil {
-		if w.TLS == nil {
-			w.TLS = &WebServerTLS{}
-		}
-		w.TLS.setFrom(f.TLS)
-	}
+
+	w.MFA.setFrom(&f.MFA)
+	w.RateLimit.setFrom(&f.RateLimit)
+	w.TLS.setFrom(&f.TLS)
 }
 
 type WebServerMFA struct {
@@ -579,24 +480,18 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 }
 
 type JobPipeline struct {
-	DefaultHTTPRequestTimeout *models.Duration //TODO HTTPRequestTimeout/HTTPRequest.Timeout https://app.shortcut.com/chainlinklabs/story/54384/standardize-toml-field-names
 	ExternalInitiatorsEnabled *bool
-	HTTPRequestMaxSize        *utils.FileSize
 	MaxRunDuration            *models.Duration
 	ReaperInterval            *models.Duration
 	ReaperThreshold           *models.Duration
 	ResultWriteQueueDepth     *uint32
+
+	HTTPRequest JobPipelineHTTPRequest `toml:",omitempty"`
 }
 
 func (j *JobPipeline) setFrom(f *JobPipeline) {
-	if v := f.DefaultHTTPRequestTimeout; v != nil {
-		j.DefaultHTTPRequestTimeout = v
-	}
 	if v := f.ExternalInitiatorsEnabled; v != nil {
 		j.ExternalInitiatorsEnabled = v
-	}
-	if v := f.HTTPRequestMaxSize; v != nil {
-		j.HTTPRequestMaxSize = v
 	}
 	if v := f.MaxRunDuration; v != nil {
 		j.MaxRunDuration = v
@@ -609,6 +504,22 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.ResultWriteQueueDepth; v != nil {
 		j.ResultWriteQueueDepth = v
+	}
+	j.HTTPRequest.setFrom(&f.HTTPRequest)
+
+}
+
+type JobPipelineHTTPRequest struct {
+	DefaultTimeout *models.Duration
+	MaxSize        *utils.FileSize
+}
+
+func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
+	if v := f.DefaultTimeout; v != nil {
+		j.DefaultTimeout = v
+	}
+	if v := f.MaxSize; v != nil {
+		j.MaxSize = v
 	}
 }
 
@@ -708,14 +619,13 @@ func (o *OCR) setFrom(f *OCR) {
 }
 
 type P2P struct {
-	// V1 and V2
 	IncomingMessageBufferSize *int64
 	OutgoingMessageBufferSize *int64
+	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
 
-	V1 *P2PV1
-
-	V2 *P2PV2
+	V1 P2PV1 `toml:",omitempty"`
+	V2 P2PV2 `toml:",omitempty"`
 }
 
 func (p *P2P) NetworkStack() ocrnetworking.NetworkingStack {
@@ -738,21 +648,15 @@ func (p *P2P) setFrom(f *P2P) {
 	if v := f.OutgoingMessageBufferSize; v != nil {
 		p.OutgoingMessageBufferSize = v
 	}
+	if v := f.PeerID; v != nil {
+		p.PeerID = v
+	}
 	if v := f.TraceLogging; v != nil {
 		p.TraceLogging = v
 	}
-	if f.V1 != nil {
-		if p.V1 == nil {
-			p.V1 = &P2PV1{}
-		}
-		p.V1.setFrom(f.V1)
-	}
-	if f.V2 != nil {
-		if p.V2 == nil {
-			p.V2 = &P2PV2{}
-		}
-		p.V2.setFrom(f.V2)
-	}
+
+	p.V1.setFrom(&f.V1)
+	p.V2.setFrom(&f.V2)
 }
 
 type P2PV1 struct {
@@ -766,7 +670,6 @@ type P2PV1 struct {
 	ListenIP                         *net.IP
 	ListenPort                       *uint16
 	NewStreamTimeout                 *models.Duration
-	PeerID                           *p2pkey.PeerID
 	PeerstoreWriteInterval           *models.Duration
 }
 
@@ -809,9 +712,6 @@ func (p *P2PV1) setFrom(f *P2PV1) {
 	if v := f.NewStreamTimeout; v != nil {
 		p.NewStreamTimeout = v
 	}
-	if v := f.PeerID; v != nil {
-		p.PeerID = v
-	}
 	if v := f.PeerstoreWriteInterval; v != nil {
 		p.PeerstoreWriteInterval = v
 	}
@@ -849,18 +749,15 @@ func (p *P2PV2) setFrom(f *P2PV2) {
 
 type Keeper struct {
 	DefaultTransactionQueueDepth *uint32
-	GasPriceBufferPercent        *uint32
-	GasTipCapBufferPercent       *uint32
-	BaseFeeBufferPercent         *uint32
-	MaximumGracePeriod           *int64
-	RegistryCheckGasOverhead     *uint32
-	RegistryPerformGasOverhead   *uint32
-	RegistryMaxPerformDataSize   *uint32
-	RegistrySyncInterval         *models.Duration
-	RegistrySyncUpkeepQueueSize  *uint32
+	GasPriceBufferPercent        *uint16
+	GasTipCapBufferPercent       *uint16
+	BaseFeeBufferPercent         *uint16
+	MaxGracePeriod               *int64
 	TurnLookBack                 *int64
 	TurnFlagEnabled              *bool
 	UpkeepCheckGasPriceEnabled   *bool
+
+	Registry KeeperRegistry `toml:",omitempty"`
 }
 
 func (k *Keeper) setFrom(f *Keeper) {
@@ -876,23 +773,8 @@ func (k *Keeper) setFrom(f *Keeper) {
 	if v := f.BaseFeeBufferPercent; v != nil {
 		k.BaseFeeBufferPercent = v
 	}
-	if v := f.MaximumGracePeriod; v != nil {
-		k.MaximumGracePeriod = v
-	}
-	if v := f.RegistryCheckGasOverhead; v != nil {
-		k.RegistryCheckGasOverhead = v
-	}
-	if v := f.RegistryPerformGasOverhead; v != nil {
-		k.RegistryPerformGasOverhead = v
-	}
-	if v := f.RegistryMaxPerformDataSize; v != nil {
-		k.RegistryMaxPerformDataSize = v
-	}
-	if v := f.RegistrySyncInterval; v != nil {
-		k.RegistrySyncInterval = v
-	}
-	if v := f.RegistrySyncUpkeepQueueSize; v != nil {
-		k.RegistrySyncUpkeepQueueSize = v
+	if v := f.MaxGracePeriod; v != nil {
+		k.MaxGracePeriod = v
 	}
 	if v := f.TurnLookBack; v != nil {
 		k.TurnLookBack = v
@@ -902,6 +784,35 @@ func (k *Keeper) setFrom(f *Keeper) {
 	}
 	if v := f.UpkeepCheckGasPriceEnabled; v != nil {
 		k.UpkeepCheckGasPriceEnabled = v
+	}
+
+	k.Registry.setFrom(&f.Registry)
+
+}
+
+type KeeperRegistry struct {
+	CheckGasOverhead    *uint32
+	PerformGasOverhead  *uint32
+	MaxPerformDataSize  *uint32
+	SyncInterval        *models.Duration
+	SyncUpkeepQueueSize *uint32
+}
+
+func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
+	if v := f.CheckGasOverhead; v != nil {
+		k.CheckGasOverhead = v
+	}
+	if v := f.PerformGasOverhead; v != nil {
+		k.PerformGasOverhead = v
+	}
+	if v := f.MaxPerformDataSize; v != nil {
+		k.MaxPerformDataSize = v
+	}
+	if v := f.SyncInterval; v != nil {
+		k.SyncInterval = v
+	}
+	if v := f.SyncUpkeepQueueSize; v != nil {
+		k.SyncUpkeepQueueSize = v
 	}
 }
 

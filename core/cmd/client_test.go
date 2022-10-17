@@ -7,8 +7,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 
 	"github.com/stretchr/testify/assert"
@@ -135,7 +137,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), pgtest.NewPGCfg(true), audit.NoopLogger)
 
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
@@ -164,8 +166,8 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
 
 	// Clear out fixture users/users created from the other test cases
 	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -201,7 +203,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), pgtest.NewPGCfg(true), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -225,8 +227,8 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
 
 	tests := []struct {
 		name      string

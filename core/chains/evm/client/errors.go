@@ -43,7 +43,7 @@ const (
 	InsufficientEth
 	TxFeeExceedsCap
 	// Note: L2FeeTooLow/L2FeeTooHigh/L2Full have a very specific meaning specific
-	// to L2s (Arbitrum, Optimism and clones). Do not implement this for non-L2
+	// to L2s (Arbitrum and clones). Do not implement this for non-L2
 	// chains. This is potentially confusing because some RPC nodes e.g.
 	// Nethermind implement an error called `FeeTooLow` which has distinct
 	// meaning from this one.
@@ -128,6 +128,9 @@ var arbitrum = ClientErrors{
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
 }
 
+// Optimism Bedrock introduced the same errors as geth
+// https://github.com/ethereum-optimism/op-geth/blob/optimism/core/error.go
+// TODO: remove this when all Optimism networks have migrated: https://app.shortcut.com/chainlinklabs/story/55389/remove-optimism-pre-bedrock-error-messages
 var optimism = ClientErrors{
 	L2FeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
 	L2FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
