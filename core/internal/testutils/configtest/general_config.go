@@ -89,6 +89,7 @@ type GeneralConfigOverrides struct {
 	GlobalMinIncomingConfirmations                  null.Int
 	GlobalMinimumContractPayment                    *assets.Link
 	GlobalOCRObservationGracePeriod                 time.Duration
+	GlobalOCR2AutomationGasLimit                    null.Int
 	KeeperCheckUpkeepGasPriceFeatureEnabled         null.Bool
 	KeeperRegistryMaxPerformDataSize                null.Int
 	KeeperMaximumGracePeriod                        null.Int
@@ -823,6 +824,13 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 		return c.Overrides.LinkContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalLinkContractAddress()
+}
+
+func (c *TestGeneralConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
+	if c.Overrides.GlobalOCR2AutomationGasLimit.Valid {
+		return uint32(c.Overrides.GlobalOCR2AutomationGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalOCR2AutomationGasLimit()
 }
 
 // GlobalOperatorFactoryAddress allows to override the OperatorFactory contract address

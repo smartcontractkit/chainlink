@@ -106,6 +106,7 @@ func (g *generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) 
 	panic(v2.ErrUnsupported)
 }
 
+func (g *generalConfig) GlobalOCR2AutomationGasLimit() (uint32, bool)   { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalEvmGasLimitOCRJobType() (uint32, bool)    { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalEvmGasLimitDRJobType() (uint32, bool)     { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalEvmGasLimitVRFJobType() (uint32, bool)    { panic(v2.ErrUnsupported) }

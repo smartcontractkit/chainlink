@@ -519,6 +519,11 @@ func TestConfig_Marshal(t *testing.T) {
 					DatabaseTimeout:                    &second,
 					ObservationGracePeriod:             &second,
 				},
+				OCR2: &evmcfg.OCR2{
+					Automation: &evmcfg.Automation{
+						GasLimit: ptr[uint32](540),
+					},
+				},
 			},
 			Nodes: []*evmcfg.Node{
 				{
@@ -885,6 +890,10 @@ ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
 ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
