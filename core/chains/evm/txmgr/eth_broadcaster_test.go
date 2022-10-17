@@ -15,6 +15,7 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -28,10 +29,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	legacy "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -42,7 +45,7 @@ import (
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
+	cfg := legacy.NewTestGeneralConfig(t)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -619,13 +622,16 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		// Configured gas price changed
+		lm := decimal.RequireFromString("1.3")
+		c.EVM[0].GasEstimator.LimitMultiplier = &lm
+	})
 	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	cfg.Overrides.GlobalEvmGasLimitMultiplier = null.FloatFrom(1.3)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -664,7 +670,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	nextNonce := int64(916714082576372851)
 	firstNonce := nextNonce
 	secondNonce := nextNonce + 1
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	t.Run("cannot be more than one transaction per address in an unfinished state", func(t *testing.T) {
@@ -898,9 +904,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
-		cfg := cltest.NewTestGeneralConfig(t)
-		// Configured gas price changed
-		cfg.Overrides.GlobalEvmGasPriceDefault = assets.NewWeiI(500000000000)
+		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			// Configured gas price changed
+			c.EVM[0].GasEstimator.PriceDefault = assets.NewWeiI(500000000000)
+		})
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -1684,7 +1691,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	localNonce := 0
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 
 	realKeystore := cltest.NewKeyStore(t, db, cfg)
@@ -1741,7 +1748,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -1753,7 +1760,7 @@ func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 
 func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -1776,7 +1783,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	// Simple sanity check to make sure it doesn't block
 	db := pgtest.NewSqlxDB(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	eb := cltest.NewEthBroadcaster(t, db, evmtest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{})

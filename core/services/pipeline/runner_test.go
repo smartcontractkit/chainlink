@@ -20,9 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -35,10 +36,11 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
+func newRunner(t testing.TB, db *sqlx.DB, cfg config.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
+	lggr := logger.TestLogger(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
+	q := pg.NewQ(db, lggr, cfg)
 
 	orm.On("GetQ").Return(q).Maybe()
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -49,7 +51,7 @@ func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pi
 
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -211,7 +213,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			t.Parallel()
 
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
 			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
@@ -336,7 +338,7 @@ decode_log -> decode_cbor;
 
 func Test_PipelineRunner_CBORParse(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 
 	t.Run("diet mode, empty CBOR", func(t *testing.T) {
@@ -402,7 +404,7 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// and so we can still obtain a median.
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 
 	orm.On("GetQ").Return(q).Maybe()
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -430,7 +432,7 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	r, _ := newRunner(t, db, cfg)
 
@@ -453,14 +455,14 @@ answer1 [type=median                      index=0];
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 	orm.On("GetQ").Return(q).Maybe()
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			args.Get(0).(*pipeline.Run).ID = 1
 		}).
 		Return(nil)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	lggr := logger.TestLogger(t)
@@ -488,7 +490,7 @@ succeed2 -> final;
 
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{"val": 2}
 	lggr := logger.TestLogger(t)
@@ -515,7 +517,7 @@ a->b2->c;`,
 }
 
 func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), cfg)
 	input := map[string]interface{}{"val": 2}
 	lggr := logger.TestLogger(t)
@@ -563,7 +565,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
 
 	// 2. Setup success HTTP
@@ -687,7 +689,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
 
 	// 2. Setup success HTTP
@@ -774,7 +776,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{
 		"first":  "camelCase",
@@ -797,7 +799,7 @@ a [type=lowercase input="$(first)"]
 
 func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{
 		"first": "somerAnDomTEST",
@@ -819,7 +821,7 @@ a [type=uppercase input="$(first)"]
 
 func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{
 		"astring": "0x12345678",
@@ -841,7 +843,7 @@ a [type=hexdecode input="$(astring)"]
 
 func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	inputBytes := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit")
 	input := map[string]interface{}{
@@ -866,7 +868,7 @@ en->de
 
 func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{
 		"astring": "SGVsbG8sIHBsYXlncm91bmQ=",
@@ -888,7 +890,7 @@ a [type=base64decode input="$(astring)"]
 
 func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	inputBytes := []byte("[{\"add\": \"weather\", \"during\": true}, 1478647067]")
 	input := map[string]interface{}{

@@ -12,13 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -132,7 +133,7 @@ func TestORM_broadcasts(t *testing.T) {
 
 func TestORM_pending(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
 	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
@@ -158,7 +159,7 @@ func TestORM_pending(t *testing.T) {
 
 func TestORM_MarkUnconsumed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -257,7 +258,7 @@ func TestORM_Reinitialize(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewGeneralConfig(t, nil)
 			lggr := logger.TestLogger(t)
 			orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 

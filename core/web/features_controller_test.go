@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -16,8 +16,7 @@ import (
 )
 
 func Test_FeaturesController_List(t *testing.T) {
-	app := cltest.NewApplicationWithConfig(t, configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cltest.TestOverrides(c, s)
+	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		csa := true
 		c.Feature.UICSAKeys = &csa
 	}))

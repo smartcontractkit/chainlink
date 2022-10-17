@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,7 +23,7 @@ import (
 
 func TestMarshaledProof(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	key := cltest.DefaultVRFKey
 	require.NoError(t, keyStore.VRF().Add(key))
