@@ -255,9 +255,12 @@ func (txm *Txm) confirm(ctx context.Context) {
 			}
 
 			// track which signatures statuses
-			needsRebroadcast := map[uuid.UUID]solanaGo.Signature{} // map used to coalesce many sigs => 1 base tx
+			rebroadcast := map[uuid.UUID]solanaGo.Signature{} // map used to coalesce many sigs => 1 base tx
+			var rebroadcastLock sync.Mutex
 			success := []solanaGo.Signature{}
+			var successLock sync.Mutex
 			reverted := []solanaGo.Signature{}
+			var revertedLock sync.Mutex
 
 			// process signatures
 			processSigs := func(s []solanaGo.Signature, res []*rpc.SignatureStatusesResult) {
@@ -279,9 +282,11 @@ func (txm *Txm) confirm(ctx context.Context) {
 						// check confirm timeout exceeded, store for queuing again
 						if tx, exists := txm.txs.GetBySignature(s[i]); exists && time.Since(tx.timestamp) > txm.cfg.TxConfirmTimeout() {
 							// only set if it hasn't been set yet, coalesce signatures => tx ID (deduplication)
-							if _, exists := needsRebroadcast[tx.id]; !exists {
-								needsRebroadcast[tx.id] = s[i]
+							rebroadcastLock.Lock()
+							if _, exists := rebroadcast[tx.id]; !exists {
+								rebroadcast[tx.id] = s[i]
 							}
+							rebroadcastLock.Unlock()
 						}
 						continue
 					}
@@ -293,7 +298,9 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"error", res[i].Err,
 							"status", res[i].ConfirmationStatus,
 						)
+						revertedLock.Lock()
 						reverted = append(reverted, s[i])
+						revertedLock.Unlock()
 						continue
 					}
 
@@ -303,7 +310,9 @@ func (txm *Txm) confirm(ctx context.Context) {
 						txm.lggr.Debugw(fmt.Sprintf("tx state: %s", res[i].ConfirmationStatus),
 							"signature", s[i],
 						)
+						successLock.Lock()
 						success = append(success, s[i])
+						successLock.Unlock()
 						continue
 					}
 				}
@@ -349,7 +358,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 			}
 
 			// check to make sure tx still exists after all signatures are processed, then rebroadcast
-			for _, sig := range maps.Values(needsRebroadcast) {
+			for _, sig := range maps.Values(rebroadcast) {
 				if tx, exists := txm.txs.GetBySignature(sig); exists {
 					select {
 					case txm.chSend <- tx:
