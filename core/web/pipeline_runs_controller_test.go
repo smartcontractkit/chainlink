@@ -248,10 +248,11 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
+	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())

@@ -98,14 +98,6 @@ func WithLongQueryTimeout() func(q *Q) {
 	}
 }
 
-// MergeCtx allows callers to combine a ctx with a previously set parent context
-// Responsibility for cancelling the passed context lies with caller
-func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
-	return func(q *Q) {
-		q.ParentCtx = fn(q.ParentCtx)
-	}
-}
-
 var _ Queryer = Q{}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
