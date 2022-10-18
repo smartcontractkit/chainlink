@@ -462,9 +462,11 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	opts, chains, nodes := evmtest.NewChainSetOpts(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	chains = append(chains, customChain)
 	cc, err := evm.NewDBChainSet(testutils.Context(t), opts, chains, nodes)
+	require.NoError(t, err)
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
 	defaultChain, err := cc.Default()
+	require.NoError(t, err)
 	evmtest.MustInsertChain(t, db, &customChain)
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
