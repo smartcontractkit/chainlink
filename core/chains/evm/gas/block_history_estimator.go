@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -90,11 +91,12 @@ type (
 		ctx       context.Context
 		ctxCancel context.CancelFunc
 
-		gasPrice *assets.Wei
-		tipCap   *assets.Wei
-		priceMu  sync.RWMutex
-		latest   *evmtypes.Head
-		latestMu sync.RWMutex
+		gasPrice     *assets.Wei
+		tipCap       *assets.Wei
+		priceMu      sync.RWMutex
+		latest       *evmtypes.Head
+		latestMu     sync.RWMutex
+		initialFetch atomic.Bool
 
 		logger logger.SugaredLogger
 	}
@@ -223,7 +225,12 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint32, maxGasPr
 		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
 	if gasPrice == nil {
-		return nil, 0, errors.Errorf("GasPrice unset. Likely cause is that BlockHistoryEstimator failed to make the first estimation on start, or no suitable transactions are available for estimation (size=%d)", b.size)
+		if !b.initialFetch.Load() {
+			return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+		}
+		b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
+			"Using EvmGasPriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
+		gasPrice = b.config.EvmGasPriceDefault()
 	}
 	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.config)
 	return
@@ -234,6 +241,14 @@ func (b *BlockHistoryEstimator) getGasPrice() *assets.Wei {
 	defer b.priceMu.RUnlock()
 	return b.gasPrice
 }
+
+func (b *BlockHistoryEstimator) getBlockHistoryNumbers() (numsInHistory []int64) {
+	for _, b := range b.blocks {
+		numsInHistory = append(numsInHistory, b.Number)
+	}
+	return
+}
+
 func (b *BlockHistoryEstimator) getTipCap() *assets.Wei {
 	b.priceMu.RLock()
 	defer b.priceMu.RUnlock()
@@ -355,8 +370,13 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint32, maxGasPriceWei *a
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
 		if tipCap == nil {
-			err = errors.Errorf("TipCap unset. Likely cause is that BlockHistoryEstimator failed to make the first estimation on start, or no suitable transactions are available for estimation (size=%d)", b.size)
-			return
+			if !b.initialFetch.Load() {
+				err = errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+				return
+			}
+			b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
+				"Using EvmGasTipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
+			tipCap = b.config.EvmGasTipCapDefault()
 		}
 		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config)
 		if b.config.EvmGasBumpThreshold() == 0 {
@@ -445,7 +465,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 		b.logger.Warnw("Error fetching blocks", "head", head, "err", err)
 		return
 	}
-
+	b.initialFetch.Store(true)
 	b.Recalculate(head)
 }
 
