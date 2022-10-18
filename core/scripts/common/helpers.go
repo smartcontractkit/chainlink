@@ -97,8 +97,9 @@ func SetupEnv(overrideNonce bool) Environment {
 	owner, err := bind.NewKeyedTransactorWithChainID(&privateKey, big.NewInt(chainID))
 	PanicErr(err)
 	// Explicitly set gas price to ensure non-eip 1559
-	gp, err := ec.SuggestGasPrice(context.Background())
-	PanicErr(err)
+	// gp, err := ec.SuggestGasPrice(context.Background())
+	// PanicErr(err)
+	gp := big.NewInt(125452212735)
 	owner.GasPrice = gp
 	gasLimit, set := os.LookupEnv("GAS_LIMIT")
 	if set {

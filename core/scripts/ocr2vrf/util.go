@@ -10,9 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+	bn256 "github.com/ethereum/go-ethereum/crypto/bn256/google"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -24,6 +25,7 @@ import (
 	"github.com/urfave/cli"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+	"go.dedis.ch/kyber/v3/group/mod"
 	"go.dedis.ch/kyber/v3/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -500,6 +502,10 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, ke
 	helpers.PanicErr(err)
 
 	// Create VRF message based on block height and confirmation delay, then hash-to-curve
+	beacon := newVRFBeacon(common.HexToAddress(beaconAddress), e.Ec)
+	vrfConfig, err := beacon.LatestConfigDetails(nil)
+	helpers.PanicErr(err)
+
 	blockNumber := big.NewInt(0).SetUint64(height)
 	block, err := e.Ec.BlockByNumber(context.Background(), blockNumber)
 	helpers.PanicErr(err)
@@ -508,10 +514,12 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, ke
 		ConfirmationDelay: uint32(confDelay),
 		Hash:              block.Hash(),
 	}
-	h := b.VRFHash(dkgConfig.ConfigDigest, pk)
+	h := b.VRFHash(vrfConfig.ConfigDigest, pk)
 	hpoint := altbn_128.NewHashProof(h).HashPoint
 	fmt.Println("h", h)
 	fmt.Println("hpoint", hpoint)
+	negHpoint := (&altbn_128.G1{}).Point()
+	negHpoint.Neg(hpoint)
 
 	// Get VRF signature (VRF seed) from VRF Beacon contract
 	latestBlock, err := e.Ec.HeaderByNumber(context.Background(), nil)
@@ -523,15 +531,13 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, ke
 			common.HexToAddress(beaconAddress),
 		},
 		Topics: [][]common.Hash{
-			[]common.Hash{
+			{
 				vrf_beacon.VRFBeaconNewTransmission{}.Topic(),
 			},
 		},
 	}
 	logs, err := e.Ec.FilterLogs(context.Background(), query)
 	helpers.PanicErr(err)
-
-	beacon := newVRFBeacon(common.HexToAddress(beaconAddress), e.Ec)
 
 	var vrfOutput [2]*big.Int
 	for _, log := range logs {
@@ -551,6 +557,7 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, ke
 			}
 		}
 	}
+	fmt.Println(vrfOutput)
 
 	if vrfOutput[0].Uint64() == 0 || vrfOutput[1].Uint64() == 0 {
 		helpers.PanicErr(errors.New("VRFOutput seed is empty"))
@@ -559,29 +566,48 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, ke
 	// b := hashToCurve(m)
 	g2Base := g2.Point().Base()
 
-	hb, err := hpoint.MarshalBinary()
+	hb := altbn_128.LongMarshal(negHpoint)
 	helpers.PanicErr(err)
 	if len(hb) != 64 {
 		panic("wrong length of hash to curve point")
 	}
 	input := make([]byte, 384)
-	copy(input[:64], hb) // hb must be 64 bytes (32 for each ordinate)
+	copy(input[:64], hb[:]) // hb must be 64 bytes (32 for each ordinate)
 
 	pkb, err := pk.MarshalBinary()
 	helpers.PanicErr(err)
+	if len(pkb) != 128 {
+		panic("wrong length of public key")
+	}
 	copy(input[64:192], pkb) // pubkey is 128 bytes (64 for each ordinate, each ordinate a point itself)
 
 	// output is 64 bytes, 32 for each ordinate (point in G1)
+	if len(vrfOutput[0].Bytes()) != 32 {
+		panic("wrong length of VRF signature x-coordinator")
+	}
+	if len(vrfOutput[1].Bytes()) != 32 {
+		panic("wrong length of VRF signature y-coordinator")
+	}
 	copy(input[192:224], vrfOutput[0].Bytes())
 	copy(input[224:256], vrfOutput[1].Bytes())
 
 	// 128 bytes for the g2 generator, 64 for each ordinate
 	g2b, err := g2Base.MarshalBinary()
+	if len(g2b) != 128 {
+		panic("wrong length of altbn_128 base points")
+	}
 	copy(input[256:384], g2b)
 
 	contract := vm.PrecompiledContractsByzantium[common.HexToAddress("0x8")]
+
 	fmt.Println("input:", input)
-	res, _, err := contract.Run(nil, nil, common.Address{}, input, 10000000000000000, false)
+	res, err := contract.Run(input)
 	helpers.PanicErr(err)
 	fmt.Println("verification output", res)
+	g1Proof := altbn_128.CoordinatesToG1(mod.NewInt(vrfOutput[0], bn256.P), mod.NewInt(vrfOutput[1], bn256.P))
+	fmt.Println(validateSignature(&altbn_128.PairingSuite{}, hpoint, pk, g1Proof))
+}
+
+func validateSignature(p pairing.Suite, msg, publicKey, signature kyber.Point) bool {
+	return p.Pair(msg, publicKey).Equal(p.Pair(signature, p.G2().Point().Base()))
 }
