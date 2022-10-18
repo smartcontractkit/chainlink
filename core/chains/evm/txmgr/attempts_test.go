@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -29,7 +28,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	var n int64
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
-		gcfg := cltest.NewTestGeneralConfigV2(t)
+		gcfg := configtest.NewGeneralConfig(t, nil)
 		cfg := evmtest.NewChainScopedConfig(t, gcfg)
 		cks := txmgr.NewChainKeyStore(*big.NewInt(1), cfg, kst)
 		a, err := cks.NewDynamicFeeAttempt(txmgr.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}, 100)
@@ -83,10 +82,11 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 
 func TestTxm_NewLegacyAttempt(t *testing.T) {
 	addr := testutils.NewAddress()
-	gcfg := cltest.NewTestGeneralConfig(t)
+	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(50)
+		c.EVM[0].GasEstimator.PriceMin = assets.NewWeiI(10)
+	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	gcfg.Overrides.GlobalEvmMaxGasPriceWei = assets.NewWeiI(50)
-	gcfg.Overrides.GlobalEvmMinGasPriceWei = assets.NewWeiI(10)
 	kst := ksmocks.NewEth(t)
 	tx := types.NewTx(&types.LegacyTx{})
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)

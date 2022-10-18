@@ -11,7 +11,6 @@
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
 /core/services/health @samsondav
 /core/services/job @spooktheducks @connorwstein
-/core/services/keeper @smartcontractkit/keepers
 /core/services/keystore @RyanRHall
 /core/services/offchainreporting @spooktheducks @connorwstein @samsondav
 /core/services/periodicbackup @PiotrTrzpil @samsondav
@@ -25,6 +24,10 @@
 /core/services/blockhashstore @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/dkg @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/ocr2vrf @smartcontractkit/vrf-team
+
+# Keeper/Automation-related services
+/core/services/keeper @smartcontractkit/keepers
+/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/keepers
 
 /core/services/webhook @spooktheducks
 
@@ -63,8 +66,8 @@
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
 .tool-versions @smartcontractkit/prodsec-public
 .nvmrc @smartcontractkit/prodsec-public
-package.json @smartcontractkit/prodsec-public
-yarn.lock @smartcontractkit/prodsec-public
+contracts/package.json @smartcontractkit/prodsec-public
+contracts/pnpm.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public
 go.sum @smartcontractkit/prodsec-public
 integration-tests/go.mod @smartcontractkit/prodsec-public

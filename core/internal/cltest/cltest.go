@@ -192,8 +192,9 @@ type JobPipelineV2TestHelper struct {
 func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, cfg)
-	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
-	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	btORM := bridges.NewORM(db, lggr, cfg)
+	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, cfg)
+	pr := pipeline.NewRunner(prm, btORM, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -245,7 +246,8 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 	return server.WSURL().String()
 }
 
-// Deprecated: use NewTestGeneralConfigV2
+// Deprecated: use configtest/v2.NewTestGeneralConfig
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	reaperInterval := time.Duration(0) // disable reaper
@@ -259,31 +261,18 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
 
-// NewTestGeneralConfigV2 is like NewTestGeneralConfig but uses configtest/v2.
-func NewTestGeneralConfigV2(t testing.TB) config.GeneralConfig {
-	return configtest2.NewGeneralConfig(t, TestOverrides)
-}
-
-// TestOverrides are the default overrides used by NewTestGeneralConfigV2.
-func TestOverrides(c *chainlink.Config, s *chainlink.Secrets) {
-	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
-	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
-	enabled := false
-	c.P2P.V1.Enabled = &enabled
-	c.P2P.V2.Enabled = &enabled
-}
-
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
 // Useful for testing controllers
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
-	c := NewTestGeneralConfigV2(t)
+	c := configtest2.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c)
 }
 
 // Deprecated: use NewApplicationEVMDisabled
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewLegacyApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
@@ -293,22 +282,12 @@ func NewLegacyApplicationEVMDisabled(t *testing.T) *TestApplication {
 	return NewApplicationWithConfig(t, c)
 }
 
-// NewLegacyApplication creates a New TestApplication along with a (legacy) NewConfig
-// It mocks the keystore with no keys or accounts by default
-func NewLegacyApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
-	t.Helper()
-
-	c := NewTestGeneralConfig(t)
-
-	return NewApplicationWithConfig(t, c, flagsAndDeps...)
-}
-
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	c := NewTestGeneralConfigV2(t)
+	c := configtest2.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
@@ -318,7 +297,7 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	config := NewTestGeneralConfigV2(t)
+	config := configtest2.NewGeneralConfig(t, nil)
 	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
@@ -1115,9 +1094,13 @@ func Head(val interface{}) *evmtypes.Head {
 
 // LegacyTransactionsFromGasPrices returns transactions matching the given gas prices
 func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
+	return LegacyTransactionsFromGasPricesTxType(0x0, gasPrices...)
+}
+
+func LegacyTransactionsFromGasPricesTxType(code gas.TxType, gasPrices ...int64) []gas.Transaction {
 	txs := make([]gas.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gas.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
+		txs[i] = gas.Transaction{Type: code, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
 	}
 	return txs
 }
@@ -1125,9 +1108,13 @@ func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
 // DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
 // given TipCaps (FeeCap is arbitrary)
 func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
+	return DynamicFeeTransactionsFromTipCapsTxType(0x02, tipCaps...)
+}
+
+func DynamicFeeTransactionsFromTipCapsTxType(code gas.TxType, tipCaps ...int64) []gas.Transaction {
 	txs := make([]gas.Transaction, len(tipCaps))
 	for i, tipCap := range tipCaps {
-		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
+		txs[i] = gas.Transaction{Type: code, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }
@@ -1210,24 +1197,19 @@ func AssertError(t testing.TB, want bool, err error) {
 
 func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
-
-	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	request, err := http.NewRequest("POST", url, body)
-	require.NoError(t, err)
-	request.Header.Set("Content-Type", "application/json")
-	for key, value := range headers {
-		request.Header.Add(key, value)
-	}
-	resp, err := client.Do(request)
-	require.NoError(t, err)
-	return resp, func() { resp.Body.Close() }
+	return unauthenticatedHTTP(t, "POST", url, body, headers)
 }
 
-func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+func UnauthenticatedGet(t testing.TB, url string, headers map[string]string) (*http.Response, func()) {
+	t.Helper()
+	return unauthenticatedHTTP(t, "GET", url, nil, headers)
+}
+
+func unauthenticatedHTTP(t testing.TB, method string, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	request, err := http.NewRequest("PATCH", url, body)
+	request, err := http.NewRequest(method, url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
@@ -1684,7 +1666,7 @@ func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := NewTestGeneralConfigV2(t)
+	cfg := configtest2.NewGeneralConfig(t, nil)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 

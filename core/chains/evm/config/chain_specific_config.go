@@ -88,6 +88,9 @@ type (
 		ocrContractTransmitterTransmitTimeout time.Duration
 		ocrDatabaseTimeout                    time.Duration
 		ocrObservationGracePeriod             time.Duration
+
+		// Chain specific OCR2 config
+		ocr2AutomationGasLimit uint32
 	}
 )
 
@@ -164,6 +167,7 @@ func setChainSpecificConfigDefaultSets() {
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
 		ocrObservationGracePeriod:             1 * time.Second,
+		ocr2AutomationGasLimit:                5_300_000, // 5.3M: 5M upkeep gas limit + 300K overhead
 		operatorFactoryAddress:                "",
 		rpcDefaultBatchSize:                   100,
 		useForwarders:                         false,
@@ -328,11 +332,30 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minGasPriceWei = *assets.NewWeiI(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.ocrContractConfirmations = 1
+	optimismMainnet.ocr2AutomationGasLimit = 6_500_000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
 	optimismGoerli := optimismKovan
 	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
+
+	// Optimism's Bedrock upgrade uses EIP-1559.
+	optimismBedrock := fallbackDefaultSet
+	optimismBedrock.eip1559DynamicFees = true
+	optimismBedrock.blockEmissionIdleWarningThreshold = 30 * time.Second
+	optimismBedrock.nodeDeadAfterNoNewHeadersThreshold = 60 * time.Second // Bedrock produces blocks every two seconds, regardless of whether there are transactions to put in them or not.
+	optimismBedrock.blockHistoryEstimatorBlockHistorySize = 24
+	optimismBedrock.chainType = config.ChainOptimismBedrock
+	optimismBedrock.ethTxResendAfterThreshold = 30 * time.Second
+	optimismBedrock.logPollInterval = 2 * time.Second
+	// Bedrock supports a 10 block reorg resistance in L1. However, it considers a block final when it is included in a final block in L1.
+	// L1 finality with PoS: Every 32 slots(epoch) each validator on the network has the opportunity to vote in favor of the epoch.
+	// It takes two justified epochs for those epochs, and all the blocks inside of them, to be considered finalized.
+	// (The proper way to consider finalization would be to mark an L2 block final when it gets included in a final L1 block, which requires special handling (new txm))
+	optimismBedrock.finalityDepth = 200
+	optimismBedrock.headTrackerHistoryDepth = 300
+	// TODO: remove this testnet when all Optimism networks have migrated: https://app.shortcut.com/chainlinklabs/story/55389/remove-optimism-pre-bedrock-error-messages
+	optimismAlpha := optimismBedrock
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -440,6 +463,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[66] = okxMainnet
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
+	chainSpecificConfigDefaultSets[28528] = optimismAlpha
 
 	chainSpecificConfigDefaultSets[1337] = simulated
 

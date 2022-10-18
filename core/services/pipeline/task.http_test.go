@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
@@ -162,6 +163,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
+			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
@@ -170,7 +172,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 				RequestData: test.requestData,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 			err = test.vars.Set("meta", test.meta)
 			require.NoError(t, err)

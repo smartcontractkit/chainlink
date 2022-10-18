@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -553,7 +551,6 @@ func TestETHTxTask(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
-				Client:    client.NewNullClient(big.NewInt(0), lggr),
 				TxManager: txManager, KeyStore: keyStore})
 
 			test.setupClientMocks(keyStore, txManager)

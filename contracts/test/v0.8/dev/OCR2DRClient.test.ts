@@ -1,9 +1,8 @@
-import web3 from 'web3'
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, providers } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
-import { decodeDietCBOR } from '../../test-helpers/helpers'
+import { decodeDietCBOR, stringToBytes } from '../../test-helpers/helpers'
 
 let concreteOCR2DRClientFactory: ContractFactory
 let ocr2drOracleFactory: ContractFactory
@@ -39,6 +38,8 @@ before(async () => {
 })
 
 describe('OCR2DRClientTestHelper', () => {
+  const donPublicKey =
+    '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
   const subscriptionId = 1
   const anyValue = () => true
 
@@ -49,10 +50,18 @@ describe('OCR2DRClientTestHelper', () => {
     const accounts = await ethers.getSigners()
     oracle = await ocr2drOracleFactory
       .connect(roles.defaultAccount)
-      .deploy(accounts[0].address)
+      .deploy(accounts[0].address, donPublicKey)
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
+  })
+
+  describe('#getDONPublicKey', () => {
+    it('returns DON public key set on Oracle', async () => {
+      expect(await client.callStatic.getDONPublicKey()).to.be.equal(
+        donPublicKey,
+      )
+    })
   })
 
   describe('#sendSimpleRequestWithJavaScript', () => {
@@ -101,8 +110,8 @@ describe('OCR2DRClientTestHelper', () => {
       const requestId = getEventArg(events, 'RequestSent', 0)
       await expect(tx).to.emit(client, 'RequestSent').withArgs(requestId)
 
-      const response = web3.utils.asciiToHex('response')
-      const error = web3.utils.asciiToHex('error')
+      const response = stringToBytes('response')
+      const error = stringToBytes('error')
       await expect(oracle.fulfillRequest(requestId, response, error))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)

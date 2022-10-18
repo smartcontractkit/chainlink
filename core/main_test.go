@@ -7,11 +7,11 @@ import (
 	"io"
 	"testing"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -22,9 +22,12 @@ func init() {
 
 func Run(args ...string) {
 	t := &testing.T{}
-	tc := cltest.NewTestGeneralConfig(t)
-	tc.SetRootDir("/foo")
-	tc.Overrides.Dev = null.BoolFrom(false)
+
+	tc := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = false
+		foo := "foo"
+		c.RootDir = &foo
+	})
 	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: io.Discard},

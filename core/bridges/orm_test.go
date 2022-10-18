@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -17,7 +18,7 @@ import (
 func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	t.Helper()
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 

@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,7 +25,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("returns error if PendingNonceAt fails", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		cfg := cltest.NewTestGeneralConfig(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -49,7 +50,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("does nothing if chain nonce reflects local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		cfg := cltest.NewTestGeneralConfig(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -71,7 +72,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 	t.Run("does nothing if chain nonce is behind local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		cfg := cltest.NewTestGeneralConfig(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -95,7 +96,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 	t.Run("fast forwards if chain nonce is ahead of local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		cfg := cltest.NewTestGeneralConfig(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -122,7 +123,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 	t.Run("counts 'in_progress' eth_tx as bumping the local next nonce by 1", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		cfg := cltest.NewTestGeneralConfig(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
 		borm := cltest.NewTxmORM(t, db, cfg)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
