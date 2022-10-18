@@ -546,7 +546,7 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, ke
 		fmt.Println(t)
 		for _, o := range t.OutputsServed {
 			if o.ConfirmationDelay.Uint64() == confDelay && o.Height == height {
-				vrfOutput = o.VrfOutput.P
+				vrfOutput = o.VrfOutput.VrfOutput.P
 				break
 			}
 		}
@@ -561,18 +561,23 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, ke
 
 	hb, err := hpoint.MarshalBinary()
 	helpers.PanicErr(err)
+	if len(hb) != 64 {
+		panic("wrong length of hash to curve point")
+	}
 	input := make([]byte, 384)
-	copy(input[32:], hb)
+	copy(input[:64], hb) // hb must be 64 bytes (32 for each ordinate)
 
 	pkb, err := pk.MarshalBinary()
 	helpers.PanicErr(err)
-	copy(input[64:], pkb)
+	copy(input[64:192], pkb) // pubkey is 128 bytes (64 for each ordinate, each ordinate a point itself)
 
-	copy(input[192:], vrfOutput[0].Bytes())
-	copy(input[224:], vrfOutput[1].Bytes())
+	// output is 64 bytes, 32 for each ordinate (point in G1)
+	copy(input[192:224], vrfOutput[0].Bytes())
+	copy(input[224:256], vrfOutput[1].Bytes())
 
+	// 128 bytes for the g2 generator, 64 for each ordinate
 	g2b, err := g2Base.MarshalBinary()
-	copy(input[256:], g2b)
+	copy(input[256:384], g2b)
 
 	contract := vm.PrecompiledContractsByzantium[common.HexToAddress("0x8")]
 	fmt.Println("input:", input)
