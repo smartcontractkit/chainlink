@@ -112,6 +112,7 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 	if err != nil {
 		log.Fatal("SuggestGasPrice failed: ", err)
 	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
 
 	auth, err := bind.NewKeyedTransactorWithChainID(h.privateKey, big.NewInt(h.cfg.ChainID))
 	if err != nil {

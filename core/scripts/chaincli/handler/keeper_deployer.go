@@ -132,25 +132,27 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	wg.Wait()
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
-		10*time.Second,       // deltaProgress time.Duration,
-		10*time.Second,       // deltaResend time.Duration,
-		5*time.Second,        // deltaRound time.Duration,
-		500*time.Millisecond, // deltaGrace time.Duration,
-		2*time.Second,        // deltaStage time.Duration,
-		3,                    // rMax uint8,
-		S,                    // s []int,
-		oracleIdentities,     // oracles []OracleIdentityExtra,
+		10*time.Second,        // deltaProgress time.Duration,
+		15*time.Second,        // deltaResend time.Duration,
+		3000*time.Millisecond, // deltaRound time.Duration,
+		50*time.Millisecond,   // deltaGrace time.Duration,
+		90*time.Second,        // deltaStage time.Duration,
+		20,                    // rMax uint8,
+		S,                     // s []int,
+		oracleIdentities,      // oracles []OracleIdentityExtra,
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
 			UniqueReports:        false,           // set quorum requirements
+			TargetProbability:    "0.99",
+			TargetInRounds:       4,
 		}.Encode(), // reportingPluginConfig []byte,
-		50*time.Millisecond, // maxDurationQuery time.Duration,
-		time.Second,         // maxDurationObservation time.Duration,
-		time.Second,         // maxDurationReport time.Duration,
-		time.Second,         // maxDurationShouldAcceptFinalizedReport time.Duration,
-		time.Second,         // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                   // f int,
-		nil,                 // onchainConfig []byte,
+		15*time.Millisecond,   // maxDurationQuery time.Duration,
+		1900*time.Millisecond, // maxDurationObservation time.Duration,
+		900*time.Millisecond,  // maxDurationReport time.Duration,
+		15*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		15*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                     // f int,
+		nil,                   // onchainConfig []byte,
 	)
 	if err != nil {
 		return nil, err

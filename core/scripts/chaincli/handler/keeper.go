@@ -47,11 +47,11 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 	defer closeLggr()
 
 	keepers, owners := k.keepers()
-	upkeepCount, registryAddr, deployer := k.prepareRegistry(ctx)
+	_, _, deployer := k.prepareRegistry(ctx)
 
 	// Create Keeper Jobs on Nodes for Registry
 	cls := make([]cmd.HTTPClient, len(k.cfg.Keepers))
-	for i, keeperAddr := range k.cfg.Keepers {
+	for i, _ := range k.cfg.Keepers {
 		url := k.cfg.KeeperURLs[i]
 		email := k.cfg.KeeperEmails[i]
 		if len(email) == 0 {
@@ -62,22 +62,23 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 			pwd = defaultChainlinkNodePassword
 		}
 
+		fmt.Println(i, url, email, pwd)
 		cl, err := authenticate(url, email, pwd, lggr)
 		if err != nil {
 			log.Fatal(err)
 		}
 		cls[i] = cl
 
-		if err = k.createKeeperJob(cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
+		/*if err = k.createKeeperJob(cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
 			log.Fatal(err)
-		}
+		}*/
 	}
 
 	// Approve keeper registry
-	k.approveFunds(ctx, registryAddr)
+	//k.approveFunds(ctx, registryAddr)
 
 	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
+	//k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
 	// Set Keepers on the registry
 	k.setKeepers(ctx, cls, deployer, keepers, owners)
