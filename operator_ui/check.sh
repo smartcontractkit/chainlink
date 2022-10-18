@@ -28,6 +28,10 @@ else
   if [ "$CI" ]; then
     echo "::set-output name=current_tag::$current_tag"
     echo "::set-output name=latest_tag::$latest_tag"
+    # See https://github.com/peter-evans/create-pull-request/blob/main/docs/examples.md#setting-the-pull-request-body-from-a-file
+    body="${body//'%'/'%25'}"
+    body="${body//$'\n'/'%0A'}"
+    body="${body//$'\r'/'%0D'}"
     echo "::set-output name=body::$body"
   fi
 fi
