@@ -36,7 +36,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	lookbackBlocks := fs.Int64("lookback-blocks", 1000, "lookback blocks")
 	weiPerUnitLink := fs.String("wei-per-unit-link", "6e16", "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
-	subscriptionBalanceString := fs.String("subscription-balance", assets.Ether(10).String(), "amount to fund subscription")
+	subscriptionBalanceString := fs.String("subscription-balance", "1e19", "amount to fund subscription")
 
 	apiFile := fs.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := fs.String("password", "../../../tools/secrets/password.txt", "password file")
