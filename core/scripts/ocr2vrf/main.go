@@ -341,6 +341,17 @@ func main() {
 			)
 		}
 
+	case "verify-beacon-randomness":
+		cmd := flag.NewFlagSet("verify-randomness", flag.ExitOnError)
+		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
+		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
+		keyID := cmd.String("key-id", "", "key ID")
+		height := cmd.Uint64("height", 0, "block height of VRF beacon output")
+		confDelay := cmd.Uint64("conf-delay", 0, "confirmation delay of VRF beacon output")
+		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "beacon-address", "height", "conf-delay")
+
+		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *keyID, *height, *confDelay)
+
 	case "dkg-setup":
 		setupDKGNodes(e)
 	case "ocr2vrf-setup":

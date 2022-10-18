@@ -10,8 +10,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ava-labs/coreth/core/vm"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -21,6 +24,7 @@ import (
 	"github.com/urfave/cli"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+	"go.dedis.ch/kyber/v3/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -34,6 +38,10 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
+
+var suite pairing.Suite = &altbn_128.PairingSuite{}
+var g1 = suite.G1()
+var g2 = suite.G2()
 
 func deployDKG(e helpers.Environment) common.Address {
 	_, tx, _, err := dkgContract.DeployDKG(e.Owner, e.Ec)
@@ -472,4 +480,103 @@ func requestRandomnessCallbackBatch(
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
+}
+
+func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress, keyID string, height, confDelay uint64) {
+	dkg, err := dkgContract.NewDKG(common.HexToAddress(dkgAddress), e.Ec)
+	helpers.PanicErr(err)
+
+	dkgConfig, err := dkg.LatestConfigDetails(nil)
+	helpers.PanicErr(err)
+
+	keyIDBytes := decodeHexTo32ByteArray(keyID)
+
+	// Get public key from DKG
+	keyData, err := dkg.GetKey(nil, keyIDBytes, dkgConfig.ConfigDigest)
+	helpers.PanicErr(err)
+	kg := &altbn_128.G2{}
+	pk := kg.Point()
+	err = pk.UnmarshalBinary(keyData.PublicKey)
+	helpers.PanicErr(err)
+
+	// Create VRF message based on block height and confirmation delay, then hash-to-curve
+	blockNumber := big.NewInt(0).SetUint64(height)
+	block, err := e.Ec.BlockByNumber(context.Background(), blockNumber)
+	helpers.PanicErr(err)
+	b := ocr2vrftypes.Block{
+		Height:            height,
+		ConfirmationDelay: uint32(confDelay),
+		Hash:              block.Hash(),
+	}
+	h := b.VRFHash(dkgConfig.ConfigDigest, pk)
+	hpoint := altbn_128.NewHashProof(h).HashPoint
+	fmt.Println("h", h)
+	fmt.Println("hpoint", hpoint)
+
+	// Get VRF signature (VRF seed) from VRF Beacon contract
+	latestBlock, err := e.Ec.HeaderByNumber(context.Background(), nil)
+	helpers.PanicErr(err)
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(0).SetUint64(height),
+		ToBlock:   latestBlock.Number,
+		Addresses: []common.Address{
+			common.HexToAddress(beaconAddress),
+		},
+		Topics: [][]common.Hash{
+			[]common.Hash{
+				vrf_beacon.VRFBeaconNewTransmission{}.Topic(),
+			},
+		},
+	}
+	logs, err := e.Ec.FilterLogs(context.Background(), query)
+	helpers.PanicErr(err)
+
+	beacon := newVRFBeacon(common.HexToAddress(beaconAddress), e.Ec)
+
+	var vrfOutput [2]*big.Int
+	for _, log := range logs {
+		fmt.Println(log)
+		unpacked, err := beacon.ParseLog(log)
+		helpers.PanicErr(err)
+
+		t, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
+		if !ok {
+			helpers.PanicErr(errors.New("failed to convert log to VRFBeaconNewTransmission"))
+		}
+		fmt.Println(t)
+		for _, o := range t.OutputsServed {
+			if o.ConfirmationDelay.Uint64() == confDelay && o.Height == height {
+				vrfOutput = o.VrfOutput.P
+				break
+			}
+		}
+	}
+
+	if vrfOutput[0].Uint64() == 0 || vrfOutput[1].Uint64() == 0 {
+		helpers.PanicErr(errors.New("VRFOutput seed is empty"))
+	}
+	// contract(0x8, -b_x, -b_y, pk_x, pk_y, p_x, p_y, g2_x, g2_y) == 1
+	// b := hashToCurve(m)
+	g2Base := g2.Point().Base()
+
+	hb, err := hpoint.MarshalBinary()
+	helpers.PanicErr(err)
+	input := make([]byte, 384)
+	copy(input[32:], hb)
+
+	pkb, err := pk.MarshalBinary()
+	helpers.PanicErr(err)
+	copy(input[64:], pkb)
+
+	copy(input[192:], vrfOutput[0].Bytes())
+	copy(input[224:], vrfOutput[1].Bytes())
+
+	g2b, err := g2Base.MarshalBinary()
+	copy(input[256:], g2b)
+
+	contract := vm.PrecompiledContractsByzantium[common.HexToAddress("0x8")]
+	fmt.Println("input:", input)
+	res, _, err := contract.Run(nil, nil, common.Address{}, input, 10000000000000000, false)
+	helpers.PanicErr(err)
+	fmt.Println("verification output", res)
 }
