@@ -208,7 +208,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					return errors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
 				}
 
-				return errors.Errorf("a job with contract address %s already exists for %s", jb.OCROracleSpec.ContractAddress, newChainID)
+				return errors.Errorf("a job with contract address %s already exists for chain ID %s", jb.OCROracleSpec.ContractAddress, newChainID)
 			}
 
 			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, p2pv2_bootstrappers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
