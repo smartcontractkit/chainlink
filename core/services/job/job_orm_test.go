@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -444,7 +446,17 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
-	config := configtest.NewTestGeneralConfig(t)
+	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: customChainID,
+			Chain:   evmcfg.DefaultsFrom(customChainID, nil),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -453,21 +465,16 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, config)
 	bridgesORM := bridges.NewORM(db, lggr, config)
 
-	customChain := types.DBChain{
-		ID:      *utils.NewBig(testutils.NewRandomEVMChainID()),
-		Cfg:     &types.ChainCfg{},
-		Enabled: true,
-	}
-
-	opts, chains, nodes := evmtest.NewChainSetOpts(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	chains = append(chains, customChain)
-	cc, err := evm.NewDBChainSet(testutils.Context(t), opts, chains, nodes)
-	require.NoError(t, err)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
 
-	defaultChain, err := cc.Default()
-	require.NoError(t, err)
-	evmtest.MustInsertChain(t, db, &customChain)
+	require.NoError(t, evm.NewORM(db, lggr, config).EnsureChains([]utils.Big{*customChainID}))
+
+	defaultChainID := (func() big.Int {
+		defaultChain, err := cc.Default()
+		require.NoError(t, err)
+		return *defaultChain.ID()
+	})()
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -499,7 +506,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
 	spec3 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 		Name:               "job3",
-		EVMChainID:         defaultChain.ID().String(),
+		EVMChainID:         defaultChainID.String(),
 		DS1BridgeName:      bridge.Name.String(),
 		DS2BridgeName:      bridge2.Name.String(),
 		TransmitterAddress: address.Hex(),
@@ -512,7 +519,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
 	spec4 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 		Name:               "job4",
-		EVMChainID:         customChain.ID.String(),
+		EVMChainID:         customChainID.String(),
 		DS1BridgeName:      bridge.Name.String(),
 		DS2BridgeName:      bridge2.Name.String(),
 		TransmitterAddress: address.Hex(),
@@ -534,7 +541,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		jb2.OCROracleSpec.EVMChainID = nil
 		err = jobORM.CreateJob(&jb2) // try adding job for same contract with no chain id in spec
 		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb2.OCROracleSpec.ContractAddress, defaultChain.ID().String()), err.Error())
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb2.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
 
 		err = jobORM.CreateJob(&jb3) // try adding job for same contract with default chain id
 		require.Error(t, err)
@@ -564,7 +571,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		require.NoError(t, err)
 		err = jobORM.CreateJob(&jb3a) // Try to add duplicate job with default id
 		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb3.OCROracleSpec.ContractAddress, defaultChain.ID().String()), err.Error())
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb3.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
 
 		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
 		spec4.JobID = externalJobID.UUID.String()
@@ -573,7 +580,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 		err = jobORM.CreateJob(&jb5) // Try to add duplicate job with custom id
 		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb4.OCROracleSpec.ContractAddress, customChain.ID.String()), err.Error())
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb4.OCROracleSpec.ContractAddress, customChainID), err.Error())
 	})
 }
 
