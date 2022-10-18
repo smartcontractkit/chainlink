@@ -179,11 +179,11 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100, maxGasPrice)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to make the first estimation on start, or no suitable transactions are available for estimation")
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 
 		_, _, err = bhe.GetDynamicFee(100, maxGasPrice)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to make the first estimation on start, or no suitable transactions are available for estimation")
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 	})
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
@@ -202,11 +202,11 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100, maxGasPrice)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to make the first estimation on start, or no suitable transactions are available for estimation")
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 
 		_, _, err = bhe.GetDynamicFee(100, maxGasPrice)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to make the first estimation on start, or no suitable transactions are available for estimation")
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 	})
 
 	t.Run("returns error if main context is cancelled", func(t *testing.T) {
@@ -243,11 +243,11 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100, maxGasPrice)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to make the first estimation on start, or no suitable transactions are available for estimation")
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 
 		_, _, err = bhe.GetDynamicFee(100, maxGasPrice)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to make the first estimation on start, or no suitable transactions are available for estimation")
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 	})
 }
 
@@ -1586,6 +1586,113 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 
 		assert.Equal(t, assets.NewWeiI(700), fee)
 		assert.Equal(t, 10000, int(limit))
+	})
+}
+
+func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
+	t.Parallel()
+
+	var batchSize uint32
+	var blockDelay uint16
+	var historySize uint16 = 3
+	var specialTxTypeCode gas.TxType = 0x7e
+
+	t.Run("fallbacks to EvmGasPriceDefault if there aren't any valid transactions to estimate from.", func(t *testing.T) {
+		cfg := newConfigWithEIP1559DynamicFeesDisabled(t)
+
+		cfg.BlockHistoryEstimatorBatchSizeF = batchSize
+		cfg.BlockHistoryEstimatorTransactionPercentileF = uint16(35)
+		cfg.EvmEIP1559DynamicFeesF = false
+		cfg.EvmGasLimitMultiplierF = float32(1)
+		cfg.EvmMaxGasPriceWeiF = assets.NewWeiI(1000000)
+		cfg.EvmGasPriceDefaultF = assets.NewWeiI(100)
+		cfg.BlockHistoryEstimatorBlockDelayF = blockDelay
+		cfg.BlockHistoryEstimatorBlockHistorySizeF = historySize
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg)
+
+		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: nil}
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 3 &&
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&gas.Block{})
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &gas.Block{
+				Number: 42,
+				Hash:   utils.NewHash(),
+			}
+			elems[1].Result = &gas.Block{
+				Number: 41,
+				Hash:   utils.NewHash(),
+			}
+			elems[2].Result = &gas.Block{
+				Number:       40,
+				Hash:         utils.NewHash(),
+				Transactions: cltest.LegacyTransactionsFromGasPricesTxType(specialTxTypeCode, 1),
+			}
+		}).Once()
+
+		err := bhe.Start(testutils.Context(t))
+		require.NoError(t, err)
+
+		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, assets.NewWeiI(800))
+		require.NoError(t, err)
+		require.Equal(t, cfg.EvmGasPriceDefault(), fee)
+		assert.Equal(t, 10000, int(limit))
+	})
+
+	t.Run("fallbacks to EvmGasTipCapDefault if there aren't any valid transactions to estimate from.", func(t *testing.T) {
+		cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
+		cfg.BlockHistoryEstimatorBatchSizeF = batchSize
+		cfg.BlockHistoryEstimatorTransactionPercentileF = uint16(35)
+		cfg.EvmEIP1559DynamicFeesF = true
+		cfg.EvmGasLimitMultiplierF = float32(1)
+		cfg.EvmMaxGasPriceWeiF = assets.NewWeiI(1000000)
+		cfg.EvmGasPriceDefaultF = assets.NewWeiI(100)
+		cfg.BlockHistoryEstimatorBlockDelayF = blockDelay
+		cfg.BlockHistoryEstimatorBlockHistorySizeF = historySize
+		cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocksF = uint16(4)
+		cfg.EvmGasTipCapDefaultF = assets.NewWeiI(50)
+		cfg.EvmGasBumpThresholdF = uint64(1)
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg)
+
+		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: assets.NewWeiI(40)}
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 3 &&
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&gas.Block{})
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &gas.Block{
+				Number: 42,
+				Hash:   utils.NewHash(),
+			}
+			elems[1].Result = &gas.Block{
+				Number: 41,
+				Hash:   utils.NewHash(),
+			}
+			elems[2].Result = &gas.Block{
+				Number:       40,
+				Hash:         utils.NewHash(),
+				Transactions: cltest.DynamicFeeTransactionsFromTipCapsTxType(specialTxTypeCode, 1),
+			}
+		}).Once()
+
+		err := bhe.Start(testutils.Context(t))
+		require.NoError(t, err)
+		fee, limit, err := bhe.GetDynamicFee(100000, assets.NewWeiI(200))
+		require.NoError(t, err)
+
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(114), TipCap: cfg.EvmGasTipCapDefault()}, fee)
+		assert.Equal(t, 100000, int(limit))
 	})
 }
 
