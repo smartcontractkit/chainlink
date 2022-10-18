@@ -10,7 +10,7 @@ import (
 var _ Estimator = &fixedPriceEstimator{}
 
 type fixedPriceEstimator struct {
-	price uint64
+	cfg config.Config
 }
 
 func NewFixedPriceEstimator(cfg config.Config) (Estimator, error) {
@@ -19,7 +19,7 @@ func NewFixedPriceEstimator(cfg config.Config) (Estimator, error) {
 	}
 
 	return &fixedPriceEstimator{
-		price: cfg.DefaultComputeUnitPrice(),
+		cfg: cfg,
 	}, nil
 }
 
@@ -32,5 +32,5 @@ func (est *fixedPriceEstimator) Close() error {
 }
 
 func (est *fixedPriceEstimator) BaseComputeUnitPrice() uint64 {
-	return est.price
+	return est.cfg.DefaultComputeUnitPrice()
 }

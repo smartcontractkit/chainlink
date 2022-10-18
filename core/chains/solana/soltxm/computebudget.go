@@ -29,15 +29,20 @@ const (
 	Instruction_SetComputeUnitPrice
 )
 
+const (
+	MAX_COMPUTE_UNIT_LIMIT ComputeUnitLimit = 1_400_000 //https://github.com/solana-labs/solana/blob/master/program-runtime/src/compute_budget.rs#L14
+	COMPUTE_BUDGET_PROGRAM                  = "ComputeBudget111111111111111111111111111111"
+)
+
 // https://docs.solana.com/developing/programming-model/runtime
 type ComputeUnitPrice uint64
 
 // returns the compute budget program
 func (val ComputeUnitPrice) ProgramID() solana.PublicKey {
-	return solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111") //TODO: temporary to avoid upgrading solana-go
+	return solana.MustPublicKeyFromBase58(COMPUTE_BUDGET_PROGRAM)
 }
 
-// No accoutns needed
+// No accounts needed
 func (val ComputeUnitPrice) Accounts() (accounts []*solana.AccountMeta) {
 	return accounts
 }
@@ -48,6 +53,35 @@ func (val ComputeUnitPrice) Data() ([]byte, error) {
 
 	// encode method identifier
 	if err := buf.WriteByte(Instruction_SetComputeUnitPrice); err != nil {
+		return []byte{}, err
+	}
+
+	// encode value
+	if err := binary.Write(buf, binary.LittleEndian, val); err != nil {
+		return []byte{}, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+type ComputeUnitLimit uint32
+
+// returns the compute budget program
+func (val ComputeUnitLimit) ProgramID() solana.PublicKey {
+	return solana.MustPublicKeyFromBase58(COMPUTE_BUDGET_PROGRAM)
+}
+
+// No accounts needed
+func (val ComputeUnitLimit) Accounts() (accounts []*solana.AccountMeta) {
+	return accounts
+}
+
+// simple encoding into program expected format
+func (val ComputeUnitLimit) Data() ([]byte, error) {
+	buf := new(bytes.Buffer)
+
+	// encode method identifier
+	if err := buf.WriteByte(Instruction_SetComputeUnitLimit); err != nil {
 		return []byte{}, err
 	}
 

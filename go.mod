@@ -6,6 +6,8 @@ go 1.19
 // until released upstream: https://github.com/ethereum/go-ethereum/pull/26064
 replace github.com/ethereum/go-ethereum => github.com/smartcontractkit/go-ethereum v1.10.9-0.20221031124550-ea38079ea107
 
+replace github.com/smartcontractkit/chainlink-solana => ../chainlink-solana
+
 require (
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.1.1
@@ -64,7 +66,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20221025223751-9b407cff57eb
-	github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220930034647-edd5a863b876
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20221017213136-1b99e92d17c5
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
