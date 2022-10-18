@@ -9,7 +9,6 @@ pkgs.mkShell {
     python3Packages.pip
     curl
     nodejs-16_x
-    (yarn.override { nodejs = nodejs-16_x; })
     # TODO: compiler / gcc for secp compilation
     nodePackages.ganache-cli
     # py3: web3 slither-analyzer crytic-compile
@@ -31,4 +30,3 @@ pkgs.mkShell {
 
   PGDATA="db";
 }
-
