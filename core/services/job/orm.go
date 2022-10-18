@@ -186,17 +186,18 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			var newChainID *utils.Big
 			if jb.OCROracleSpec.EVMChainID == nil {
 				// If unspecified, assume we're creating a job intended to run on default chain id
 				newChain, err := o.chainSet.Default()
 				if err != nil {
 					return err
 				}
-				newChainID = utils.NewBig(newChain.ID())
-			} else {
-				newChainID = jb.OCROracleSpec.EVMChainID
+				if newChain == nil {
+					panic("Invariant violation:  chain set has no default chain id")
+				}
+				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
 			}
+			newChainID := jb.OCROracleSpec.EVMChainID
 
 			existingSpec := new(OCROracleSpec)
 			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL OR $2 IS NULL) LIMIT 1;`,
