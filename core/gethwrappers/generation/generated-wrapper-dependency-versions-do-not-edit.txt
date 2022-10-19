@@ -28,8 +28,8 @@ ocr2dr_client: ../../contracts/solc/v0.8.6/OCR2DRClient.abi ../../contracts/solc
 ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 22860e75c817350cda3935c9a5b9273f800688dfb7d0326a6bd9fb200a6614f0
 ocr2dr_oracle: ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin 5c3295274015b912aa5d501c86afdf839a4f345f480cf63b6b775f40dfe8b263
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
-operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 065cff92e71cf0dc384bfdd6598c2c13c2290f64c26e0d18a1a326d08552e717
-operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 08965dbb26f62739c1ce4d0941f30c0dd08003648823e7d722900b48270ffc2b
+operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin e78e7231bbaceabe20a266ea596ff14e8c12bf7ec6c69e1e8fe984556d2b7df9
+operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 97dcb51158733881bfbe414d0318a57c3bba7b32bdc7aa5961db2f0ea5e993cb
 oracle_wrapper: ../../contracts/solc/v0.6/Oracle.abi ../../contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 solidity_vrf_consumer_interface: ../../contracts/solc/v0.6/VRFConsumer.abi ../../contracts/solc/v0.6/VRFConsumer.bin a79da241ca9525f6a96adc5f55651b1f91e1579b85fec7b02a51d06bd6018ee3
 solidity_vrf_consumer_interface_v08: ../../contracts/solc/v0.8.6/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer.bin 93311eeed53bc3127cfe46f906614a58dde3a95ec87b8c1caaa1be234384fefe
