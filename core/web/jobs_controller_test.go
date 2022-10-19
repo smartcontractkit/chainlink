@@ -497,6 +497,9 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
+	dbJb, err := app.JobORM().FindJob(testutils.Context(t), jb.ID)
+	require.NoError(t, err)
+	require.Equal(t, dbJb.Name.String, ocrspec.Name)
 
 	// test Calling update on the job id with changed values should succeed.
 	updatedSpec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -511,6 +514,11 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	})
 	response, cleanup := client.Put("/v2/jobs/"+fmt.Sprintf("%v", jb.ID), bytes.NewReader(body))
 	t.Cleanup(cleanup)
+
+	dbJb, err = app.JobORM().FindJob(testutils.Context(t), jb.ID)
+	require.NoError(t, err)
+	require.Equal(t, dbJb.Name.String, updatedSpec.Name)
+
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 }
 

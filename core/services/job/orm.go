@@ -391,6 +391,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		}
 
 		jb.PipelineSpecID = pipelineSpecID
+
 		err = o.InsertJob(jb, pg.WithQueryer(tx))
 		jobID = jb.ID
 		return errors.Wrap(err, "failed to insert job")
@@ -412,11 +413,22 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+	var query string
+
+	// if job has id, emplace otherwise insert with a new id.
+	if job.ID == 0 {
+		query = `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
+	} else {
+		query = `INSERT INTO jobs (id, pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+	VALUES (:id, :pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+			:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+	RETURNING *;`
+	}
 	return q.GetNamed(query, job, job)
 }
 
