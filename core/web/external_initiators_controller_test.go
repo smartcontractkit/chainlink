@@ -24,7 +24,7 @@ func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewPGCfg(true)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
 	url := cltest.WebURL(t, "https://a.web.url")
@@ -129,7 +129,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewLegacyApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -154,7 +154,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewLegacyApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -179,7 +179,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewLegacyApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)

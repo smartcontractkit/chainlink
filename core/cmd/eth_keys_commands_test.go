@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -87,14 +88,13 @@ func TestClient_ListETHKeys(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withKey(),
 		withMocks(ethClient),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
 	)
 	client, r := app.NewClientAndRenderer()
 
@@ -110,14 +110,13 @@ func TestClient_CreateETHKey(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withKey(),
 		withMocks(ethClient),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
 	)
 	db := app.GetSqlxDB()
 	client, _ := app.NewClientAndRenderer()
@@ -134,16 +133,10 @@ func TestClient_CreateETHKey(t *testing.T) {
 
 	// create the key on a specific chainID
 	id := big.NewInt(0)
-	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
-	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
-	// _, err = app.GetChains().EVM.Add(id, evmtypes.ChainCfg{})
-	// require.NoError(t, err)
 
 	set = flag.NewFlagSet("test", 0)
 	set.String("evmChainID", "", "")
-	set.Uint64("maxGasPriceGWei", 0, "")
 	c = cli.NewContext(nil, set, nil)
-	set.Set("maxGasPriceGWei", "12345")
 	set.Parse([]string{"-evmChainID", id.String()})
 	assert.NoError(t, client.CreateETHKey(c))
 
@@ -151,13 +144,9 @@ func TestClient_CreateETHKey(t *testing.T) {
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 3, len(keys))
-
-	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
-	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
-	// states, err := app.KeyStore.Eth().GetStatesForChain(id)
-	// require.Len(t, states, 1)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_UpdateETHKey(t *testing.T) {
 	t.Parallel()
 
@@ -198,13 +187,12 @@ func TestClient_UpdateETHKey(t *testing.T) {
 func TestClient_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withKey(),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
 	)
 	ethKeyStore := app.GetKeyStore().Eth()
 	client, _ := app.NewClientAndRenderer()
@@ -234,13 +222,12 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withMocks(ethClient),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
 	)
 	client, r := app.NewClientAndRenderer()
 	ethKeyStore := app.GetKeyStore().Eth()
@@ -324,13 +311,12 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
 	ethClient := newEthMock(t)
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withMocks(ethClient),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
 	)
 	client, r := app.NewClientAndRenderer()
 	ethKeyStore := app.GetKeyStore().Eth()
@@ -417,14 +403,13 @@ func TestClient_UpdateChainEVMKey(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withKey(),
 		withMocks(ethClient),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		}),
 	)
 	db := app.GetSqlxDB()
 	client, _ := app.NewClientAndRenderer()

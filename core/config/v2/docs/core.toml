@@ -105,6 +105,16 @@ SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
 
+[AuditLogger]
+# Enabled determines if this logger should be configured at all
+Enabled = false # Default
+# ForwardToUrl is where you want to forward logs to
+ForwardToUrl = 'http://localhost:9898' # Example
+# JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+JsonWrapperKey = 'event' # Example
+# Headers is the set of headers you wish to pass along with each request
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+
 [Log]
 # DatabaseQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
 DatabaseQueries = false # Default
@@ -314,12 +324,14 @@ IncomingMessageBufferSize = 10 # Default
 # IncomingMessageBufferSize to give the remote enough space to process
 # them all in case we regained connection and now send a bunch at once
 OutgoingMessageBufferSize = 10 # Default
+# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
 
 [P2P.V1]
 # Enabled enables P2P V1.
-Enabled = false # Default
+Enabled = true # Default
 # AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
 AnnounceIP = '1.2.3.4' # Example
 # AnnouncePort should be set as the externally reachable port of the Chainlink node.
@@ -356,8 +368,6 @@ ListenPort = 1337 # Example
 # it can't get a connection, but it is here anyway as a failsafe.
 # Set to 0 to disable any timeout on top of what libp2p gives us by default.
 NewStreamTimeout = '10s' # Default
-# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # **ADVANCED**
 # PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
 PeerstoreWriteInterval = '5m' # Default

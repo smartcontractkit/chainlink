@@ -53,6 +53,7 @@ type ORM interface {
 	ChainConfigORM
 
 	SetupNodes([]Node, []utils.Big) error
+	EnsureChains([]utils.Big, ...pg.QOpt) error
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
@@ -67,8 +68,8 @@ type ChainCfg struct {
 	EvmFinalityDepth                               null.Int
 	EvmGasBumpPercent                              null.Int
 	EvmGasBumpTxDepth                              null.Int
-	EvmGasBumpWei                                  *utils.Big
-	EvmGasFeeCapDefault                            *utils.Big
+	EvmGasBumpWei                                  *assets.Wei
+	EvmGasFeeCapDefault                            *assets.Wei
 	EvmGasLimitDefault                             null.Int
 	EvmGasLimitMax                                 null.Int
 	EvmGasLimitMultiplier                          null.Float
@@ -77,15 +78,16 @@ type ChainCfg struct {
 	EvmGasLimitVRFJobType                          null.Int
 	EvmGasLimitFMJobType                           null.Int
 	EvmGasLimitKeeperJobType                       null.Int
-	EvmGasPriceDefault                             *utils.Big
-	EvmGasTipCapDefault                            *utils.Big
-	EvmGasTipCapMinimum                            *utils.Big
+	EvmGasPriceDefault                             *assets.Wei
+	EvmGasTipCapDefault                            *assets.Wei
+	EvmGasTipCapMinimum                            *assets.Wei
 	EvmHeadTrackerHistoryDepth                     null.Int
 	EvmHeadTrackerMaxBufferSize                    null.Int
 	EvmHeadTrackerSamplingInterval                 *models.Duration
 	EvmLogBackfillBatchSize                        null.Int
 	EvmLogPollInterval                             *models.Duration
-	EvmMaxGasPriceWei                              *utils.Big
+	EvmLogKeepBlocksDepth                          null.Int
+	EvmMaxGasPriceWei                              *assets.Wei
 	EvmNonceAutoSync                               null.Bool
 	EvmUseForwarders                               null.Bool
 	EvmRPCDefaultBatchSize                         null.Int

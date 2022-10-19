@@ -9,6 +9,7 @@
 	- [Listener](#Database-Listener)
 	- [Lock](#Database-Lock)
 - [TelemetryIngress](#TelemetryIngress)
+- [AuditLogger](#AuditLogger)
 - [Log](#Log)
 	- [File](#Log-File)
 - [WebServer](#WebServer)
@@ -39,6 +40,7 @@
 	- [NodePool](#EVM-NodePool)
 	- [OCR](#EVM-OCR)
 	- [Nodes](#EVM-Nodes)
+		- [Automation](#EVM-OCR2-Automation)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
 - [Starknet](#Starknet)
@@ -332,6 +334,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## AuditLogger<a id='AuditLogger'></a>
+```toml
+[AuditLogger]
+Enabled = false # Default
+ForwardToUrl = 'http://localhost:9898' # Example
+JsonWrapperKey = 'event' # Example
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+```
+
+
+### Enabled<a id='AuditLogger-Enabled'></a>
+```toml
+Enabled = false # Default
+```
+Enabled determines if this logger should be configured at all
+
+### ForwardToUrl<a id='AuditLogger-ForwardToUrl'></a>
+```toml
+ForwardToUrl = 'http://localhost:9898' # Example
+```
+ForwardToUrl is where you want to forward logs to
+
+### JsonWrapperKey<a id='AuditLogger-JsonWrapperKey'></a>
+```toml
+JsonWrapperKey = 'event' # Example
+```
+JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+
+### Headers<a id='AuditLogger-Headers'></a>
+```toml
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+```
+Headers is the set of headers you wish to pass along with each request
 
 ## Log<a id='Log'></a>
 ```toml
@@ -825,6 +861,7 @@ TransmitterAddress is the default sending address to use for OCR. If you have an
 [P2P]
 IncomingMessageBufferSize = 10 # Default
 OutgoingMessageBufferSize = 10 # Default
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 ```
 P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
@@ -853,6 +890,12 @@ NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
 IncomingMessageBufferSize to give the remote enough space to process
 them all in case we regained connection and now send a bunch at once
 
+### PeerID<a id='P2P-PeerID'></a>
+```toml
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
+```
+PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+
 ### TraceLogging<a id='P2P-TraceLogging'></a>
 ```toml
 TraceLogging = false # Default
@@ -862,7 +905,7 @@ TraceLogging enables trace level logging.
 ## P2P.V1<a id='P2P-V1'></a>
 ```toml
 [P2P.V1]
-Enabled = false # Default
+Enabled = true # Default
 AnnounceIP = '1.2.3.4' # Example
 AnnouncePort = 1337 # Example
 BootstrapCheckInterval = '20s' # Default
@@ -872,14 +915,13 @@ DHTLookupInterval = 10 # Default
 ListenIP = '0.0.0.0' # Default
 ListenPort = 1337 # Example
 NewStreamTimeout = '10s' # Default
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 PeerstoreWriteInterval = '5m' # Default
 ```
 
 
 ### Enabled<a id='P2P-V1-Enabled'></a>
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables P2P V1.
 
@@ -954,12 +996,6 @@ stream before we give up.
 We shouldn't hit this in practice since libp2p will give up fast if
 it can't get a connection, but it is here anyway as a failsafe.
 Set to 0 to disable any timeout on top of what libp2p gives us by default.
-
-### PeerID<a id='P2P-V1-PeerID'></a>
-```toml
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
 
 ### PeerstoreWriteInterval<a id='P2P-V1-PeerstoreWriteInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -1293,6 +1329,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1315,7 +1352,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1333,6 +1370,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1350,6 +1389,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1363,6 +1406,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1384,7 +1428,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1402,6 +1446,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1419,6 +1465,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1432,6 +1482,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1453,7 +1504,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1471,6 +1522,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1488,6 +1541,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1501,6 +1558,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1522,7 +1580,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1540,6 +1598,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1557,6 +1617,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1571,6 +1635,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1592,7 +1657,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1610,6 +1675,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1627,6 +1694,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 6500000
 ```
 
 </p></details>
@@ -1640,6 +1711,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -1679,6 +1751,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1696,6 +1770,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1709,6 +1787,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -1748,6 +1827,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1765,6 +1846,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1778,6 +1863,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1800,7 +1886,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1818,6 +1904,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -1835,6 +1923,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1848,6 +1940,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1869,7 +1962,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1887,6 +1980,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1904,6 +1999,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
 ObservationGracePeriod = '500ms'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1916,6 +2015,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1937,7 +2037,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -1955,6 +2055,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -1972,6 +2074,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -1984,6 +2090,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2005,7 +2112,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2023,6 +2130,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2040,6 +2149,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2054,6 +2167,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2075,7 +2189,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2093,6 +2207,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2110,6 +2226,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 6500000
 ```
 
 </p></details>
@@ -2124,6 +2244,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogBackfillBatchSize = 100
 LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2163,6 +2284,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2180,6 +2303,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2193,6 +2320,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2214,7 +2342,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2232,6 +2360,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2249,6 +2379,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
 DatabaseTimeout = '2s'
 ObservationGracePeriod = '500ms'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2262,6 +2396,7 @@ FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2283,7 +2418,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '30 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '30 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2301,6 +2436,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2318,6 +2455,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2331,6 +2472,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2352,7 +2494,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '15 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2370,6 +2512,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2387,6 +2531,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2401,6 +2549,7 @@ FinalityDepth = 1
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2422,7 +2571,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2440,6 +2589,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2457,6 +2608,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 6500000
 ```
 
 </p></details>
@@ -2470,6 +2625,7 @@ ChainType = 'metis'
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2491,7 +2647,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2509,6 +2665,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2526,6 +2684,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2539,6 +2701,7 @@ ChainType = 'metis'
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2560,7 +2723,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2578,6 +2741,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2595,6 +2760,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2607,6 +2776,7 @@ BlockBackfillSkip = false
 FinalityDepth = 1
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '100'
 NonceAutoSync = true
@@ -2646,6 +2816,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2663,6 +2835,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2676,6 +2852,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2697,7 +2874,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '15 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2715,6 +2892,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2732,6 +2911,86 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Optimism Alpha (28528)<a id='EVM-28528'></a></summary><p>
+
+```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
+LogBackfillBatchSize = 100
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '30s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+BumpTxDepth = 10
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 300
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2746,6 +3005,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2767,7 +3027,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'Arbitrum'
 PriceDefault = '100 mwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 1000000000
@@ -2785,6 +3045,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2802,6 +3064,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2815,6 +3081,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2836,7 +3103,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '25 gwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2854,6 +3121,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2871,6 +3140,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2884,6 +3157,7 @@ FinalityDepth = 1
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2905,7 +3179,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '25 gwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2923,6 +3197,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -2940,6 +3216,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -2953,6 +3233,7 @@ FinalityDepth = 500
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2974,7 +3255,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '1 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -2992,6 +3273,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3009,6 +3292,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3023,6 +3310,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3044,7 +3332,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'Arbitrum'
 PriceDefault = '100 mwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 1000000000
@@ -3062,6 +3350,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3079,6 +3369,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3093,6 +3387,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3114,7 +3409,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'Arbitrum'
 PriceDefault = '100 mwei'
-PriceMax = '1 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 1000000000
@@ -3132,6 +3427,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3149,6 +3446,10 @@ ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3162,6 +3463,7 @@ FinalityDepth = 50
 LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -3183,7 +3485,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3201,6 +3503,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [HeadTracker]
@@ -3218,6 +3522,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3231,6 +3539,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x218532a12a389a4a92fC0C5Fb22901D1c19198aA'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3252,7 +3561,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3270,6 +3579,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3287,6 +3598,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3300,6 +3615,7 @@ FinalityDepth = 50
 LinkContractAddress = '0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3321,7 +3637,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -3339,6 +3655,8 @@ TipCapMin = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -3356,6 +3674,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
 ```
 
 </p></details>
@@ -3443,6 +3765,13 @@ LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill
 LogPollInterval = '15s' # Default
 ```
 LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
+
+### LogKeepBlocksDepth<a id='EVM-LogKeepBlocksDepth'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+LogKeepBlocksDepth = 100000 # Default
+```
+LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
 
 ### MinContractPayment<a id='EVM-MinContractPayment'></a>
 ```toml
@@ -3572,7 +3901,7 @@ Enabled balance monitoring for all keys.
 [EVM.GasEstimator]
 Mode = 'BlockHistory' # Default
 PriceDefault = '20 gwei' # Default
-PriceMax = '100 micro' # Default
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
 LimitMax = 500_000 # Default
@@ -3617,9 +3946,12 @@ Can be used with the `chainlink setgasprice` to be updated while the node is sti
 
 ### PriceMax<a id='EVM-GasEstimator-PriceMax'></a>
 ```toml
-PriceMax = '100 micro' # Default
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether' # Default
 ```
 PriceMax is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
+This applies to both legacy and EIP1559 transactions.
+Note that it is impossible to disable the maximum limit. Setting this value to zero will prevent paying anything for any transaction (which can be useful in some rare cases).
+Most chains by default have the maximum set to 2**256-1 Wei which is the maximum allowed gas price on EVM-compatible chains, and is so large it may as well be unlimited.
 
 ### PriceMin<a id='EVM-GasEstimator-PriceMin'></a>
 ```toml
@@ -3712,11 +4044,11 @@ In EIP-1559 mode, the total price for the transaction is the minimum of base fee
 Chainlink's implementation of EIP-1559 works as follows:
 
 If you are using FixedPriceEstimator:
-- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=GasTipCapDefault`
+- With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=GasTipCapDefault`
 - With gas bumping enabled, it will submit all transactions initially with `feecap=GasFeeCapDefault` and `tipcap=GasTipCapDefault`.
 
 If you are using BlockHistoryEstimator (default for most chains):
-- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
+- With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=<calculated using past blocks>`
 - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 
 Bumping works as follows:
@@ -3736,8 +4068,8 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 - `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 - `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
 - `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
-- `PriceMinWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
-- `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
+- `PriceMin` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
+- `PriceMax` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
 
 ### FeeCapDefault<a id='EVM-GasEstimator-FeeCapDefault'></a>
@@ -3808,6 +4140,8 @@ Keeper overrides LimitDefault for Keeper jobs.
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4 # Default
 BlockHistorySize = 8 # Default
+CheckInclusionBlocks = 12 # Default
+CheckInclusionPercentile = 90 # Default
 EIP1559FeeCapBufferBlocks = 13 # Example
 TransactionPercentile = 60 # Default
 ```
@@ -3826,6 +4160,23 @@ If the `BatchSize` variable is set to 0, it defaults to `EVM.RPCDefaultBatchSize
 BlockHistorySize = 8 # Default
 ```
 BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
+
+### CheckInclusionBlocks<a id='EVM-GasEstimator-BlockHistory-CheckInclusionBlocks'></a>
+```toml
+CheckInclusionBlocks = 12 # Default
+```
+CheckInclusionBlocks is the number of recent blocks to use to detect if there is a transaction propagation/connectivity issue, and to prevent bumping in these cases.
+This can help avoid the situation where RPC nodes are not propagating transactions for some non-price-related reason (e.g. go-ethereum bug, networking issue etc) and bumping gas would not help.
+
+Set to zero to disable connectivity checking completely.
+
+### CheckInclusionPercentile<a id='EVM-GasEstimator-BlockHistory-CheckInclusionPercentile'></a>
+```toml
+CheckInclusionPercentile = 90 # Default
+```
+CheckInclusionPercentile controls the percentile that a transaction must have been higher than for all the blocks in the inclusion check window in order to register as a connectivity issue.
+
+For example, if CheckInclusionBlocks=12 and CheckInclusionPercentile=90 then further bumping will be prevented for any transaction with any attempt that has a higher price than the 90th percentile for the most recent 12 blocks.
 
 ### EIP1559FeeCapBufferBlocks<a id='EVM-GasEstimator-BlockHistory-EIP1559FeeCapBufferBlocks'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -3906,7 +4257,7 @@ Key is the account to apply these settings to
 ```toml
 GasEstimator.PriceMax = '79 gwei' # Example
 ```
-GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMaxWei.
+GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMax.
 
 ## EVM.NodePool<a id='EVM-NodePool'></a>
 ```toml
@@ -4008,6 +4359,19 @@ HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Re
 SendOnly = false # Default
 ```
 SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
+
+## EVM.OCR2.Automation<a id='EVM-OCR2-Automation'></a>
+```toml
+[EVM.OCR2.Automation]
+GasLimit = 5300000 # Default
+```
+
+
+### GasLimit<a id='EVM-OCR2-Automation-GasLimit'></a>
+```toml
+GasLimit = 5300000 # Default
+```
+GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
 ## Solana<a id='Solana'></a>
 ```toml

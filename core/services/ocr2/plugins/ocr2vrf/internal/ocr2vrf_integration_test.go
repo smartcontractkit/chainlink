@@ -33,6 +33,8 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
@@ -44,11 +46,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type ocr2vrfUniverse struct {
@@ -89,7 +93,7 @@ func setupOCR2VRFContracts(
 	owner := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
 		owner.From: {
-			Balance: assets.Ether(100),
+			Balance: assets.Ether(100).ToInt(),
 		},
 	}
 	b := backends.NewSimulatedBackend(genesisData, ethconfig.Defaults.Miner.GasCeil*2)
@@ -107,7 +111,7 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	feedAddress, _, feed, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-		owner, b, 18, assets.GWei(1e7)) // 0.01 eth per link
+		owner, b, 18, assets.GWei(int(1e7)).ToInt()) // 0.01 eth per link
 	require.NoError(t, err)
 
 	b.Commit()
@@ -180,6 +184,7 @@ func setupNodeOCR2(
 	port uint16,
 	dbName string,
 	b *backends.SimulatedBackend,
+	useForwarders bool,
 ) *ocr2Node {
 	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
@@ -191,6 +196,7 @@ func setupNodeOCR2(
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
 	config.Overrides.P2PListenPort = null.NewInt(0, true)
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(3_500_000, true)
+	config.Overrides.GlobalEvmUseForwarders = null.BoolFrom(useForwarders)
 	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
 	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
 	p2paddresses := []string{
@@ -216,21 +222,54 @@ func setupNodeOCR2(
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address
 
-	// Fund the transmitter address with some ETH
-	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
-	require.NoError(t, err)
+	if useForwarders {
+		sendingKeysAddresses := []common.Address{sendingKeys[0].Address}
 
-	tx := types.NewTransaction(
-		n, transmitter,
-		assets.Ether(1),
-		21000,
-		assets.GWei(1),
-		nil)
-	signedTx, err := owner.Signer(owner.From, tx)
-	require.NoError(t, err)
-	err = b.SendTransaction(testutils.Context(t), signedTx)
-	require.NoError(t, err)
-	b.Commit()
+		// Add new sending key.
+		k, err := app.KeyStore.Eth().Create()
+		require.NoError(t, err)
+		app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID)
+		sendingKeys = append(sendingKeys, k)
+		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
+
+		require.Len(t, sendingKeys, 2)
+
+		// Deploy a forwarder.
+		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.Address{}, owner.From, common.Address{}, []byte{})
+		require.NoError(t, err)
+
+		// Set the node's sending keys as authorized senders.
+		_, err = authorizedForwarder.SetAuthorizedSenders(owner, sendingKeysAddresses)
+		require.NoError(t, err)
+		b.Commit()
+
+		// Add the forwarder to the node's forwarder manager.
+		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config)
+		chainID := utils.Big(*b.Blockchain().Config().ChainID)
+		_, err = forwarderORM.CreateForwarder(faddr, chainID)
+		require.NoError(t, err)
+
+		// Set the transmitter to the forwarder's address.
+		transmitter = faddr
+	}
+
+	// Fund the sending keys with some ETH.
+	for _, k := range sendingKeys {
+		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
+		require.NoError(t, err)
+
+		tx := types.NewTransaction(
+			n, k.Address,
+			assets.Ether(1).ToInt(),
+			21000,
+			assets.GWei(1).ToInt(),
+			nil)
+		signedTx, err := owner.Signer(owner.From, tx)
+		require.NoError(t, err)
+		err = b.SendTransaction(testutils.Context(t), signedTx)
+		require.NoError(t, err)
+		b.Commit()
+	}
 
 	kb, err := app.GetKeyStore().OCR2().Create("evm")
 	require.NoError(t, err)
@@ -244,14 +283,22 @@ func setupNodeOCR2(
 	}
 }
 
+func TestIntegration_OCR2VRF_ForwarderFlow(t *testing.T) {
+	runOCR2VRFTest(t, true)
+}
+
 func TestIntegration_OCR2VRF(t *testing.T) {
+	runOCR2VRFTest(t, false)
+}
+
+func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	keyID := randomKeyID(t)
 	uni := setupOCR2VRFContracts(t, 5, keyID, false)
 
 	t.Log("Creating bootstrap node")
 
 	bootstrapNodePort := getFreePort(t)
-	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend)
+	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false)
 	numNodes := 5
 
 	t.Log("Creating OCR2 nodes")
@@ -265,7 +312,7 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 		dkgSigners     []dkgsignkey.Key
 	)
 	for i := 0; i < numNodes; i++ {
-		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend)
+		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders)
 		// Supply the bootstrap IP and port as a V2 peer address
 		node.config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.peerID, Addrs: []string{

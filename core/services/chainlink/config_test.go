@@ -20,6 +20,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -30,6 +31,7 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -49,34 +51,50 @@ var (
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
 
-			Database: &config.Database{
-				Listener: &config.DatabaseListener{
+			AuditLogger: audit.AuditLoggerConfig{
+				Enabled:      ptr(true),
+				ForwardToUrl: mustURL("http://localhost:9898"),
+				Headers: ptr(audit.ServiceHeaders{
+					audit.ServiceHeader{
+						Header: "Authorization",
+						Value:  "token",
+					},
+					audit.ServiceHeader{
+						Header: "X-SomeOther-Header",
+						Value:  "value with spaces | and a bar+*",
+					},
+				}),
+				JsonWrapperKey: ptr("event"),
+			},
+
+			Database: config.Database{
+				Listener: config.DatabaseListener{
 					FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 				},
 			},
-			Log: &config.Log{
+			Log: config.Log{
 				JSONConsole: ptr(true),
 			},
-			JobPipeline: &config.JobPipeline{
-				HTTPRequest: &config.JobPipelineHTTPRequest{
+			JobPipeline: config.JobPipeline{
+				HTTPRequest: config.JobPipelineHTTPRequest{
 					DefaultTimeout: models.MustNewDuration(30 * time.Second),
 				},
 			},
-			OCR2: &config.OCR2{
+			OCR2: config.OCR2{
 				Enabled:         ptr(true),
 				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
 			},
-			OCR: &config.OCR{
+			OCR: config.OCR{
 				Enabled:           ptr(true),
 				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
 			},
-			P2P: &config.P2P{
+			P2P: config.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
 			},
-			Keeper: &config.Keeper{
-				GasPriceBufferPercent: ptr[uint32](10),
+			Keeper: config.Keeper{
+				GasPriceBufferPercent: ptr[uint16](10),
 			},
-			AutoPprof: &config.AutoPprof{
+			AutoPprof: config.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
 			},
 		},
@@ -100,8 +118,8 @@ var (
 			{
 				ChainID: utils.NewBigI(42),
 				Chain: evmcfg.Chain{
-					GasEstimator: &evmcfg.GasEstimator{
-						PriceDefault: utils.NewBigI(math.MaxInt64).Wei(),
+					GasEstimator: evmcfg.GasEstimator{
+						PriceDefault: assets.NewWeiI(math.MaxInt64),
 					},
 				},
 				Nodes: []*evmcfg.Node{
@@ -113,7 +131,7 @@ var (
 			{
 				ChainID: utils.NewBigI(137),
 				Chain: evmcfg.Chain{
-					GasEstimator: &evmcfg.GasEstimator{
+					GasEstimator: evmcfg.GasEstimator{
 						Mode: ptr("FixedPrice"),
 					},
 				},
@@ -207,12 +225,24 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full := global
-	full.Feature = &config.Feature{
+
+	serviceHeaders := audit.ServiceHeaders{
+		{Header: "Authorization", Value: "token"},
+		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
+	}
+	full.AuditLogger = audit.AuditLoggerConfig{
+		Enabled:        ptr(true),
+		ForwardToUrl:   mustURL("http://localhost:9898"),
+		Headers:        ptr(serviceHeaders),
+		JsonWrapperKey: ptr("event"),
+	}
+
+	full.Feature = config.Feature{
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
 		UICSAKeys:    ptr(true),
 	}
-	full.Database = &config.Database{
+	full.Database = config.Database{
 		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
 		DefaultLockTimeout:            models.MustNewDuration(time.Hour),
 		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
@@ -220,23 +250,23 @@ func TestConfig_Marshal(t *testing.T) {
 		MigrateOnStartup: ptr(true),
 		MaxIdleConns:     ptr[int64](7),
 		MaxOpenConns:     ptr[int64](13),
-		Listener: &config.DatabaseListener{
+		Listener: config.DatabaseListener{
 			MaxReconnectDuration: models.MustNewDuration(time.Minute),
 			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
 			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
-		Lock: &config.DatabaseLock{
+		Lock: config.DatabaseLock{
 			LeaseDuration:        &minute,
 			LeaseRefreshInterval: &second,
 		},
-		Backup: &config.DatabaseBackup{
+		Backup: config.DatabaseBackup{
 			Dir:              ptr("test/backup/dir"),
 			Frequency:        &hour,
 			Mode:             &legacy.DatabaseBackupModeFull,
 			OnVersionUpgrade: ptr(true),
 		},
 	}
-	full.TelemetryIngress = &config.TelemetryIngress{
+	full.TelemetryIngress = config.TelemetryIngress{
 		UniConn:      ptr(true),
 		Logging:      ptr(true),
 		ServerPubKey: ptr("test-pub-key"),
@@ -247,18 +277,18 @@ func TestConfig_Marshal(t *testing.T) {
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
 	}
-	full.Log = &config.Log{
+	full.Log = config.Log{
 		JSONConsole:     ptr(true),
 		DatabaseQueries: ptr(true),
 		UnixTS:          ptr(true),
-		File: &config.LogFile{
+		File: config.LogFile{
 			Dir:        ptr("log/file/dir"),
 			MaxSize:    ptr[utils.FileSize](100 * utils.GB),
 			MaxAgeDays: ptr[int64](17),
 			MaxBackups: ptr[int64](9),
 		},
 	}
-	full.WebServer = &config.WebServer{
+	full.WebServer = config.WebServer{
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
 		HTTPWriteTimeout:        models.MustNewDuration(time.Minute),
@@ -266,17 +296,17 @@ func TestConfig_Marshal(t *testing.T) {
 		SecureCookies:           ptr(true),
 		SessionTimeout:          models.MustNewDuration(time.Hour),
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
-		MFA: &config.WebServerMFA{
+		MFA: config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
 		},
-		RateLimit: &config.WebServerRateLimit{
+		RateLimit: config.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
 			AuthenticatedPeriod:   models.MustNewDuration(time.Second),
 			Unauthenticated:       ptr[int64](7),
 			UnauthenticatedPeriod: models.MustNewDuration(time.Minute),
 		},
-		TLS: &config.WebServerTLS{
+		TLS: config.WebServerTLS{
 			CertPath:      ptr("tls/cert/path"),
 			Host:          ptr("tls-host"),
 			KeyPath:       ptr("tls/key/path"),
@@ -284,22 +314,22 @@ func TestConfig_Marshal(t *testing.T) {
 			ForceRedirect: ptr(true),
 		},
 	}
-	full.JobPipeline = &config.JobPipeline{
+	full.JobPipeline = config.JobPipeline{
 		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
-		HTTPRequest: &config.JobPipelineHTTPRequest{
+		HTTPRequest: config.JobPipelineHTTPRequest{
 			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
 			DefaultTimeout: models.MustNewDuration(time.Minute),
 		},
 	}
-	full.FluxMonitor = &config.FluxMonitor{
+	full.FluxMonitor = config.FluxMonitor{
 		DefaultTransactionQueueDepth: ptr[uint32](100),
 		SimulateTransactions:         ptr(true),
 	}
-	full.OCR2 = &config.OCR2{
+	full.OCR2 = config.OCR2{
 		Enabled:                            ptr(true),
 		ContractConfirmations:              ptr[uint32](11),
 		BlockchainTimeout:                  models.MustNewDuration(3 * time.Second),
@@ -309,7 +339,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 	}
-	full.OCR = &config.OCR{
+	full.OCR = config.OCR{
 		Enabled:                      ptr(true),
 		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
 		BlockchainTimeout:            models.MustNewDuration(3 * time.Second),
@@ -320,11 +350,12 @@ func TestConfig_Marshal(t *testing.T) {
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 	}
-	full.P2P = &config.P2P{
+	full.P2P = config.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
 		OutgoingMessageBufferSize: ptr[int64](17),
+		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
-		V1: &config.P2PV1{
+		V1: config.P2PV1{
 			Enabled:                          ptr(false),
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
@@ -335,10 +366,9 @@ func TestConfig_Marshal(t *testing.T) {
 			ListenIP:                         mustIP("4.3.2.1"),
 			ListenPort:                       ptr[uint16](9),
 			NewStreamTimeout:                 models.MustNewDuration(time.Second),
-			PeerID:                           mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
-		V2: &config.P2PV2{
+		V2: config.P2PV2{
 			Enabled:           ptr(true),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
@@ -350,16 +380,16 @@ func TestConfig_Marshal(t *testing.T) {
 			ListenAddresses: &[]string{"foo", "bar"},
 		},
 	}
-	full.Keeper = &config.Keeper{
+	full.Keeper = config.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint32](12),
-		GasTipCapBufferPercent:       ptr[uint32](43),
-		BaseFeeBufferPercent:         ptr[uint32](89),
+		GasPriceBufferPercent:        ptr[uint16](12),
+		GasTipCapBufferPercent:       ptr[uint16](43),
+		BaseFeeBufferPercent:         ptr[uint16](89),
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
 		TurnFlagEnabled:              ptr(true),
 		UpkeepCheckGasPriceEnabled:   ptr(true),
-		Registry: &config.KeeperRegistry{
+		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
 			SyncInterval:        models.MustNewDuration(time.Hour),
@@ -367,7 +397,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxPerformDataSize:  ptr[uint32](5000),
 		},
 	}
-	full.AutoPprof = &config.AutoPprof{
+	full.AutoPprof = config.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
 		PollInterval:         models.MustNewDuration(time.Minute),
@@ -381,12 +411,12 @@ func TestConfig_Marshal(t *testing.T) {
 		MemThreshold:         ptr[utils.FileSize](utils.GB),
 		GoroutineThreshold:   ptr[int64](999),
 	}
-	full.Pyroscope = &config.Pyroscope{
+	full.Pyroscope = config.Pyroscope{
 		AuthToken:     ptr("pyroscope-token"),
 		ServerAddress: ptr("http://localhost:4040"),
 		Environment:   ptr("tests"),
 	}
-	full.Sentry = &config.Sentry{
+	full.Sentry = config.Sentry{
 		Debug:       ptr(true),
 		DSN:         ptr("sentry-dsn"),
 		Environment: ptr("dev"),
@@ -397,7 +427,7 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
-				BalanceMonitor: &evmcfg.BalanceMonitor{
+				BalanceMonitor: evmcfg.BalanceMonitor{
 					Enabled: ptr(true),
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
@@ -406,25 +436,25 @@ func TestConfig_Marshal(t *testing.T) {
 				FinalityDepth:        ptr[uint32](42),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
-				GasEstimator: &evmcfg.GasEstimator{
+				GasEstimator: evmcfg.GasEstimator{
 					Mode:               ptr("L2Suggested"),
 					EIP1559DynamicFees: ptr(true),
 					BumpPercent:        ptr[uint16](10),
 					BumpThreshold:      ptr[uint32](6),
 					BumpTxDepth:        ptr[uint16](6),
-					BumpMin:            utils.NewBigI(100).Wei(),
-					FeeCapDefault:      utils.NewBigI(math.MaxInt64).Wei(),
+					BumpMin:            assets.NewWeiI(100),
+					FeeCapDefault:      assets.NewWeiI(math.MaxInt64),
 					LimitDefault:       ptr[uint32](12),
 					LimitMax:           ptr[uint32](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint32](100),
-					TipCapDefault:      utils.NewBigI(2).Wei(),
-					TipCapMin:          utils.NewBigI(1).Wei(),
-					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
-					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
-					PriceMin:           utils.NewBigI(13).Wei(),
+					TipCapDefault:      assets.NewWeiI(2),
+					TipCapMin:          assets.NewWeiI(1),
+					PriceDefault:       assets.NewWeiI(math.MaxInt64),
+					PriceMax:           assets.NewWei(utils.HexToBig("FFFFFFFFFFFF")),
+					PriceMin:           assets.NewWeiI(13),
 
-					LimitJobType: &evmcfg.GasLimitJobType{
+					LimitJobType: evmcfg.GasLimitJobType{
 						OCR:    ptr[uint32](1001),
 						DR:     ptr[uint32](1002),
 						VRF:    ptr[uint32](1003),
@@ -432,9 +462,11 @@ func TestConfig_Marshal(t *testing.T) {
 						Keeper: ptr[uint32](1005),
 					},
 
-					BlockHistory: &evmcfg.BlockHistoryEstimator{
+					BlockHistory: evmcfg.BlockHistoryEstimator{
 						BatchSize:                 ptr[uint32](17),
 						BlockHistorySize:          ptr[uint16](12),
+						CheckInclusionBlocks:      ptr[uint16](18),
+						CheckInclusionPercentile:  ptr[uint16](19),
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
 					},
@@ -443,8 +475,8 @@ func TestConfig_Marshal(t *testing.T) {
 				KeySpecific: []evmcfg.KeySpecific{
 					{
 						Key: mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
-						GasEstimator: &evmcfg.KeySpecificGasEstimator{
-							PriceMax: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
+						GasEstimator: evmcfg.KeySpecificGasEstimator{
+							PriceMax: assets.NewWei(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
 						},
 					},
 				},
@@ -452,6 +484,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
 				LogBackfillBatchSize:     ptr[uint32](17),
 				LogPollInterval:          &minute,
+				LogKeepBlocksDepth:       ptr[uint32](100000),
 				MinContractPayment:       assets.NewLinkFromJuels(math.MaxInt64),
 				MinIncomingConfirmations: ptr[uint32](13),
 				NonceAutoSync:            ptr(true),
@@ -460,7 +493,7 @@ func TestConfig_Marshal(t *testing.T) {
 				RPCDefaultBatchSize:      ptr[uint32](17),
 				RPCBlockQueryDelay:       ptr[uint16](10),
 
-				Transactions: &evmcfg.Transactions{
+				Transactions: evmcfg.Transactions{
 					MaxInFlight:          ptr[uint32](19),
 					MaxQueued:            ptr[uint32](99),
 					ReaperInterval:       &minute,
@@ -469,22 +502,27 @@ func TestConfig_Marshal(t *testing.T) {
 					ForwardersEnabled:    ptr(true),
 				},
 
-				HeadTracker: &evmcfg.HeadTracker{
+				HeadTracker: evmcfg.HeadTracker{
 					HistoryDepth:     ptr[uint32](15),
 					MaxBufferSize:    ptr[uint32](17),
 					SamplingInterval: &hour,
 				},
 
-				NodePool: &evmcfg.NodePool{
+				NodePool: evmcfg.NodePool{
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
 				},
-				OCR: &evmcfg.OCR{
+				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
 					ObservationGracePeriod:             &second,
+				},
+				OCR2: evmcfg.OCR2{
+					Automation: evmcfg.Automation{
+						GasLimit: ptr[uint32](540),
+					},
 				},
 			},
 			Nodes: []*evmcfg.Node{
@@ -579,6 +617,12 @@ func TestConfig_Marshal(t *testing.T) {
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
+`},
+		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
 `},
 		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
@@ -695,6 +739,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
 [P2P.V1]
@@ -708,7 +753,6 @@ DHTLookupInterval = 9
 ListenIP = '4.3.2.1'
 ListenPort = 9
 NewStreamTimeout = '1s'
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
@@ -772,6 +816,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
+LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 13
 MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
@@ -819,6 +864,8 @@ Keeper = 1005
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
 BlockHistorySize = 12
+CheckInclusionBlocks = 18
+CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
@@ -843,6 +890,10 @@ ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
 ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -995,7 +1046,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or reater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
@@ -1004,7 +1055,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimism" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, optimism, xdai or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
@@ -1075,10 +1126,6 @@ func mustIP(s string) *net.IP {
 	return &ip
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 var (
 	//go:embed testdata/config-empty-effective.toml
 	emptyEffectiveTOML string
@@ -1105,7 +1152,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewTOMLGeneralConfig(lggr, tt.inputConfig, secretsTOML, nil, nil)
+			c, err := GeneralConfigTOML{Config: tt.inputConfig, Secrets: secretsTOML}.New(lggr)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
@@ -1124,14 +1171,14 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
+	_, err := GeneralConfigTOML{Config: invalidTOML, Secrets: secretsTOML}.New(logger.TestLogger(t))
 	assert.EqualError(t, err, "toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	_, err := NewTOMLGeneralConfig(logger.TestLogger(t), invalidTOML, secretsTOML, nil, nil)
+	_, err := GeneralConfigTOML{Config: invalidTOML, Secrets: secretsTOML}.New(logger.TestLogger(t))
 	assert.EqualError(t, err, "toml: key Dev is already defined")
 }
 
@@ -1151,7 +1198,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	t.Setenv("DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	c, err := NewTOMLGeneralConfig(logger.TestLogger(t), fullTOML, secretsTOML, &filename, nil)
+	c, err := GeneralConfigTOML{Config: fullTOML, Secrets: secretsTOML, KeystorePasswordFileName: &filename}.New(logger.TestLogger(t))
 	assert.NoError(t, err)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()

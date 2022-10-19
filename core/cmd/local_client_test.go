@@ -17,12 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -50,8 +53,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
 
 	db := pgtest.NewSqlxDB(t)
-	pCfg := cltest.NewTestGeneralConfig(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, cfg, audit.NoopLogger)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -167,6 +169,10 @@ LOG_FILE_MAX_SIZE: 5.12gb
 LOG_FILE_MAX_AGE: 0
 LOG_FILE_MAX_BACKUPS: 1
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
+AUDIT_LOGGER_ENABLED: false
+AUDIT_LOGGER_FORWARD_TO_URL: 
+AUDIT_LOGGER_JSON_WRAPPER_KEY: 
+AUDIT_LOGGER_HEADERS: 
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 
 OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
@@ -217,10 +223,14 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.KeystorePassword = ptr("dummy")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
+			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
@@ -280,9 +290,13 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.KeystorePassword = ptr("16charlengthp4SsW0rD1!@#_")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
+			})
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -323,16 +337,12 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("api", test.apiFile, "")
-			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			set.Bool("bypass-version-check", true, "")
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
 				err = client.RunNode(c)
-				assert.Error(t, err)
-				if err != nil {
-					assert.Contains(t, err.Error(), "error creating api initializer: open doesntexist.txt: no such file or directory")
-				}
+				assert.ErrorContains(t, err, "error creating api initializer: open doesntexist.txt: no such file or directory")
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}

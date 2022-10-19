@@ -3,9 +3,9 @@
 package mocks
 
 import (
-	big "math/big"
-
 	common "github.com/ethereum/go-ethereum/common"
+	assets "github.com/smartcontractkit/chainlink/core/assets"
+
 	config "github.com/smartcontractkit/chainlink/core/config"
 
 	mock "github.com/stretchr/testify/mock"
@@ -48,6 +48,34 @@ func (_m *Config) BlockHistoryEstimatorBlockDelay() uint16 {
 
 // BlockHistoryEstimatorBlockHistorySize provides a mock function with given fields:
 func (_m *Config) BlockHistoryEstimatorBlockHistorySize() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// BlockHistoryEstimatorCheckInclusionBlocks provides a mock function with given fields:
+func (_m *Config) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// BlockHistoryEstimatorCheckInclusionPercentile provides a mock function with given fields:
+func (_m *Config) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
 	ret := _m.Called()
 
 	var r0 uint16
@@ -215,15 +243,15 @@ func (_m *Config) EvmGasBumpTxDepth() uint16 {
 }
 
 // EvmGasBumpWei provides a mock function with given fields:
-func (_m *Config) EvmGasBumpWei() *big.Int {
+func (_m *Config) EvmGasBumpWei() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -231,15 +259,15 @@ func (_m *Config) EvmGasBumpWei() *big.Int {
 }
 
 // EvmGasFeeCapDefault provides a mock function with given fields:
-func (_m *Config) EvmGasFeeCapDefault() *big.Int {
+func (_m *Config) EvmGasFeeCapDefault() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -289,15 +317,15 @@ func (_m *Config) EvmGasLimitMultiplier() float32 {
 }
 
 // EvmGasPriceDefault provides a mock function with given fields:
-func (_m *Config) EvmGasPriceDefault() *big.Int {
+func (_m *Config) EvmGasPriceDefault() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -305,15 +333,15 @@ func (_m *Config) EvmGasPriceDefault() *big.Int {
 }
 
 // EvmGasTipCapDefault provides a mock function with given fields:
-func (_m *Config) EvmGasTipCapDefault() *big.Int {
+func (_m *Config) EvmGasTipCapDefault() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -321,15 +349,15 @@ func (_m *Config) EvmGasTipCapDefault() *big.Int {
 }
 
 // EvmGasTipCapMinimum provides a mock function with given fields:
-func (_m *Config) EvmGasTipCapMinimum() *big.Int {
+func (_m *Config) EvmGasTipCapMinimum() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -337,15 +365,15 @@ func (_m *Config) EvmGasTipCapMinimum() *big.Int {
 }
 
 // EvmMaxGasPriceWei provides a mock function with given fields:
-func (_m *Config) EvmMaxGasPriceWei() *big.Int {
+func (_m *Config) EvmMaxGasPriceWei() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -381,15 +409,15 @@ func (_m *Config) EvmMaxQueuedTransactions() uint64 {
 }
 
 // EvmMinGasPriceWei provides a mock function with given fields:
-func (_m *Config) EvmMinGasPriceWei() *big.Int {
+func (_m *Config) EvmMinGasPriceWei() *assets.Wei {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -453,15 +481,15 @@ func (_m *Config) GasEstimatorMode() string {
 }
 
 // KeySpecificMaxGasPriceWei provides a mock function with given fields: addr
-func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
+func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 	ret := _m.Called(addr)
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func(common.Address) *assets.Wei); ok {
 		r0 = rf(addr)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
@@ -36,5 +37,6 @@ func (psec *PipelineJobSpecErrorsController) Destroy(c *gin.Context) {
 		return
 	}
 
+	psec.App.GetAuditLogger().Audit(audit.JobErrorDismissed, map[string]interface{}{"id": jobSpec.ID})
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

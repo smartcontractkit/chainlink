@@ -81,6 +81,15 @@ func Defaults(chainID *utils.Big) (c Chain, name string) {
 	return
 }
 
+// DefaultsFrom returns a Chain based on the defaults for chainID and fields from with.
+func DefaultsFrom(chainID *utils.Big, with *Chain) Chain {
+	c, _ := Defaults(chainID)
+	if with != nil {
+		c.SetFrom(with)
+	}
+	return c
+}
+
 func ChainTypeForID(chainID *utils.Big) (config.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
@@ -118,6 +127,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.LogPollInterval; v != nil {
 		c.LogPollInterval = v
 	}
+	if v := f.LogKeepBlocksDepth; v != nil {
+		c.LogKeepBlocksDepth = v
+	}
 	if v := f.MinIncomingConfirmations; v != nil {
 		c.MinIncomingConfirmations = v
 	}
@@ -139,51 +151,23 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.RPCBlockQueryDelay; v != nil {
 		c.RPCBlockQueryDelay = v
 	}
-	if f.Transactions != nil {
-		if c.Transactions == nil {
-			c.Transactions = &Transactions{}
-		}
-		c.Transactions.setFrom(f.Transactions)
-	}
-	if f.BalanceMonitor != nil {
-		if c.BalanceMonitor == nil {
-			c.BalanceMonitor = &BalanceMonitor{}
-		}
-		c.BalanceMonitor.setFrom(f.BalanceMonitor)
-	}
-	if g := f.GasEstimator; g != nil {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
-		c.GasEstimator.setFrom(f.GasEstimator)
-	}
+
+	c.Transactions.setFrom(&f.Transactions)
+	c.BalanceMonitor.setFrom(&f.BalanceMonitor)
+	c.GasEstimator.setFrom(&f.GasEstimator)
+
 	if ks := f.KeySpecific; ks != nil {
 		for _, v := range ks {
 			if i := slices.IndexFunc(c.KeySpecific, func(k KeySpecific) bool { return k.Key == v.Key }); i == -1 {
 				c.KeySpecific = append(c.KeySpecific, v)
 			} else {
-				if v := v.GasEstimator; v != nil {
-					c.KeySpecific[i].GasEstimator = v
-				}
+				c.KeySpecific[i].GasEstimator.setFrom(&v.GasEstimator)
 			}
 		}
 	}
-	if f.HeadTracker != nil {
-		if c.HeadTracker == nil {
-			c.HeadTracker = &HeadTracker{}
-		}
-		c.HeadTracker.setFrom(f.HeadTracker)
-	}
-	if f.NodePool != nil {
-		if c.NodePool == nil {
-			c.NodePool = &NodePool{}
-		}
-		c.NodePool.setFrom(f.NodePool)
-	}
-	if f.OCR != nil {
-		if c.OCR == nil {
-			c.OCR = &OCR{}
-		}
-		c.OCR.setFrom(f.OCR)
-	}
+
+	c.HeadTracker.setFrom(&f.HeadTracker)
+	c.NodePool.setFrom(&f.NodePool)
+	c.OCR.setFrom(&f.OCR)
+	c.OCR2.setFrom(&f.OCR2)
 }

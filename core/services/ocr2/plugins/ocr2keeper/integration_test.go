@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 	"gopkg.in/guregu/null.v4"
@@ -109,7 +110,6 @@ func setupNode(
 	config.Overrides.P2PV2ListenAddresses = p2paddresses
 	config.Overrides.P2PV2AnnounceAddresses = p2paddresses
 	config.Overrides.P2PNetworkingStack = networking.NetworkingStackV2
-	config.Overrides.GlobalEvmGasLimitOCRJobType = null.IntFrom(5300000)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 
@@ -129,7 +129,7 @@ func setupNode(
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		app.Stop()
+		assert.NoError(t, app.Stop())
 	})
 
 	return app, peerID.Raw(), nodeKey.Address, kb, config
@@ -186,19 +186,19 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	steve := testutils.MustNewSimTransactor(t)  // registry owner
 	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
 	genesisData := core.GenesisAlloc{
-		sergey.From: {Balance: assets.Ether(1000)},
-		steve.From:  {Balance: assets.Ether(1000)},
-		carrol.From: {Balance: assets.Ether(1000)},
+		sergey.From: {Balance: assets.Ether(1000).ToInt()},
+		steve.From:  {Balance: assets.Ether(1000).ToInt()},
+		carrol.From: {Balance: assets.Ether(1000).ToInt()},
 	}
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
 	for i := int64(0); i < 5; i++ {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
-		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.Ether(1000)}
+		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 3*time.Second)
+	stopMining := cltest.Mine(backend, 6*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -261,11 +261,10 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	for i, node := range nodes {
 		node.AddJob(t, fmt.Sprintf(`
 		type = "offchainreporting2"
-		pluginType = "ocr2keeper"
+		pluginType = "ocr2automation"
 		relay = "evm"
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
-		maxTaskDuration = "1s"
 		contractID = "%s"
 		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
@@ -388,16 +387,12 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}
 	require.GreaterOrEqual(t, len(allRuns), 1)
 
-	/*
-		TODO(@EasterTheBunny): Add test for second upkeep once listening to perform logs is implemented
+	// change payload
+	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
+	require.NoError(t, err)
+	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
+	require.NoError(t, err)
 
-		// change payload
-		_, err = upkeepContract.SetBytesToSend(carrol, payload2)
-		require.NoError(t, err)
-		_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
-		require.NoError(t, err)
-
-		// observe 2nd job run and received payload changes
-		g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
-	*/
+	// observe 2nd job run and received payload changes
+	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 }

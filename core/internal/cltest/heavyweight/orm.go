@@ -49,15 +49,14 @@ func prepareFullTestDB(t *testing.T, name string, empty bool, loadFixtures bool)
 		t.Fatal("could not load fixtures into an empty DB")
 	}
 
-	overrides := configtest.GeneralConfigOverrides{}
-	gcfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
+	gcfg := configtest.NewTestGeneralConfig(t)
 	gcfg.Overrides.Dialect = dialects.Postgres
 
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name, empty)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	db, err := pg.NewConnection(migrationTestDBURL, string(dialects.Postgres), pg.Config{
+	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, pg.Config{
 		Logger:       lggr,
 		MaxOpenConns: gcfg.ORMMaxOpenConns(),
 		MaxIdleConns: gcfg.ORMMaxIdleConns(),

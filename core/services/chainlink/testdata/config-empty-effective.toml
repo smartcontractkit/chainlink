@@ -42,6 +42,12 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 
+[AuditLogger]
+Enabled = false
+ForwardToUrl = ''
+JsonWrapperKey = ''
+Headers = ''
+
 [Log]
 DatabaseQueries = false
 JSONConsole = false
@@ -118,10 +124,11 @@ TransmitterAddress = ''
 [P2P]
 IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
+PeerID = ''
 TraceLogging = false
 
 [P2P.V1]
-Enabled = false
+Enabled = true
 AnnounceIP = ''
 AnnouncePort = 0
 BootstrapCheckInterval = '20s'
@@ -131,7 +138,6 @@ DHTLookupInterval = 10
 ListenIP = '0.0.0.0'
 ListenPort = 0
 NewStreamTimeout = '10s'
-PeerID = ''
 PeerstoreWriteInterval = '5m0s'
 
 [P2P.V2]

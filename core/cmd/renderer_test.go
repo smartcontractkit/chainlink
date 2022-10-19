@@ -36,7 +36,7 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 func TestRendererTable_RenderConfiguration(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewLegacyApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
