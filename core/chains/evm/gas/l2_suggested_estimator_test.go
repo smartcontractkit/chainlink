@@ -30,7 +30,6 @@ func TestL2SuggestedEstimator(t *testing.T) {
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		cfg := mocks.NewConfig(t)
-		cfg.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		o := gas.NewL2SuggestedPriceEstimator(cfg, logger.TestLogger(t), client)
 		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "estimator is not started")
