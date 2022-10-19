@@ -5,6 +5,7 @@ package soltxm_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,7 +54,9 @@ func XXXTxWithBlockhash(t *testing.T, signer solana.PublicKey, sender solana.Pub
 // helper for setting up txm
 func XXXSetupTxm(t *testing.T, url string, ks keystore.Solana) (*soltxm.Txm, solanaClient.ReaderWriter, config.Config, CreateTx) {
 	lggr := logger.TestLogger(t)
-	cfg := config.NewConfig(db.ChainCfg{}, lggr)
+	cfg := config.NewConfig(db.ChainCfg{
+		MaxRetries: null.IntFrom(0),
+	}, lggr)
 	client, err := solanaClient.NewClient(url, cfg, 2*time.Second, lggr)
 	require.NoError(t, err)
 	getClient := func() (solanaClient.ReaderWriter, error) {
@@ -73,7 +76,7 @@ func XXXSetupTxm(t *testing.T, url string, ks keystore.Solana) (*soltxm.Txm, sol
 
 func XXXConfirmDone(t *testing.T, ctx context.Context, txm *soltxm.Txm) {
 	// check to make sure all txs are closed out from inflight list
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second) // closes test after 30s
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second) // closes test after 30s
 	t.Cleanup(cancel)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -82,8 +85,8 @@ loop:
 		select {
 		case <-ctx.Done():
 			idCount, sigCount := txm.InflightTxs()
-			assert.Equal(t, 0, idCount)  // no unique TXs pending
-			assert.Equal(t, 0, sigCount) // no signatures pending confirmation
+			require.Equal(t, 0, idCount)  // no unique TXs pending
+			require.Equal(t, 0, sigCount) // no signatures pending confirmation
 			break loop
 		case <-ticker.C:
 			id, sig := txm.InflightTxs()
@@ -107,14 +110,17 @@ func XXXLoadTest(t *testing.T, ctx context.Context, txm *soltxm.Txm, createTx Cr
 	return time.Since(start)
 }
 
-func XXXNetworkSpam(t *testing.T, ctx context.Context, client solanaClient.ReaderWriter, k solana.PrivateKey) {
+func XXXNetworkSpam(t *testing.T, close chan struct{}, client solanaClient.ReaderWriter, k solana.PrivateKey) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	ticker := time.NewTicker(time.Millisecond)
 	defer ticker.Stop()
 
 	key := k.PublicKey()
 
-	// data, err := soltxm.ComputeUnitPrice(1).Data()
-	data, err := soltxm.MAX_COMPUTE_UNIT_LIMIT.Data()
+	data, err := soltxm.ComputeUnitPrice(1).Data()
+	// data, err := soltxm.MAX_COMPUTE_UNIT_LIMIT.Data()
 	require.NoError(t, err)
 
 	// get initial hash
@@ -124,7 +130,7 @@ func XXXNetworkSpam(t *testing.T, ctx context.Context, client solanaClient.Reade
 	i := 0
 	for {
 		select {
-		case <-ctx.Done():
+		case <-close:
 			t.Log("NetworkSpam stopped")
 			return
 		case <-ticker.C:
@@ -134,25 +140,19 @@ func XXXNetworkSpam(t *testing.T, ctx context.Context, client solanaClient.Reade
 				require.NoError(t, err)
 			}
 
-			// instructions
-			var ins []solana.Instruction
-			baseIns := system.NewTransferInstruction(
-				uint64(i),
-				key,
-				key,
-			).Build()
-			for j := 0; j < 50; j++ {
-				ins = append(ins, baseIns)
-			}
-
 			// build tx with max compute unit limit
 			tx, err := solana.NewTransaction(
-				ins,
+				[]solana.Instruction{
+					system.NewTransferInstruction(
+						uint64(i),
+						key,
+						key,
+					).Build(),
+				},
 				hash.Value.Blockhash,
 				solana.TransactionPayer(key),
 			)
 			require.NoError(t, err)
-
 			tx.Message.AccountKeys = append(tx.Message.AccountKeys, soltxm.MAX_COMPUTE_UNIT_LIMIT.ProgramID())
 			tx.Message.Instructions = append(tx.Message.Instructions, solana.CompiledInstruction{
 				ProgramIDIndex: uint16(len(tx.Message.AccountKeys) - 1),
@@ -164,9 +164,8 @@ func XXXNetworkSpam(t *testing.T, ctx context.Context, client solanaClient.Reade
 				return &k
 			})
 
-			sig, err := client.SendTx(ctx, tx)
-			require.NoError(t, err)
-			fmt.Println(sig)
+			_, txErr := client.SendTx(ctx, tx)
+			require.NoError(t, txErr)
 		}
 		i++
 	}
@@ -282,12 +281,19 @@ func TestTxm_Congestion(t *testing.T) {
 	key, err := solkey.New()
 	require.NoError(t, err)
 
-	// spam key
-	spamKey, err := solana.NewRandomPrivateKey()
-	require.NoError(t, err)
+	// spam keys
+	spamN := 15
+	var spam []solana.PrivateKey
+	var spamFund []solana.PublicKey
+	for i := 0; i < spamN; i++ {
+		spamKey, err := solana.NewRandomPrivateKey()
+		require.NoError(t, err)
+		spam = append(spam, spamKey)
+		spamFund = append(spamFund, spamKey.PublicKey())
+	}
 
 	// fund keys
-	solanaClient.FundTestAccounts(t, []solana.PublicKey{key.PublicKey(), spamKey.PublicKey()}, url)
+	solanaClient.FundTestAccounts(t, append(spamFund, key.PublicKey()), url)
 
 	// setup mock keystore
 	mkey := mocks.NewSolana(t)
@@ -310,53 +316,51 @@ func TestTxm_Congestion(t *testing.T) {
 	var congestedNoFees time.Duration
 	var congestedWithFees time.Duration
 
+	t.Log("Benchmarking: No Congestion")
 	// load test: try to overload txs, confirm
 	// benchmark for congestion testing
-	t.Run("benchmark_noCongestion", func(t *testing.T) {
-		// set fees to no bumping
-		cfg.Update(db.ChainCfg{
-			DefaultComputeUnitPrice: null.IntFrom(0),
-			MinComputeUnitPrice:     null.IntFrom(0),
-			MaxComputeUnitPrice:     null.IntFrom(0),
-		})
-
-		noCongestion = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
+	// set fees to no bumping
+	cfg.Update(db.ChainCfg{
+		DefaultComputeUnitPrice: null.IntFrom(0),
+		MinComputeUnitPrice:     null.IntFrom(0),
+		MaxComputeUnitPrice:     null.IntFrom(0),
 	})
 
-	t.Run("benchmark_congestedNoFees", func(t *testing.T) {
-		spamCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
+	noCongestion = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
 
-		go XXXNetworkSpam(t, spamCtx, client, spamKey)
+	// start spammers
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(spamN)
+	for i := 0; i < spamN; i++ {
+		go func(ind int) {
+			go XXXNetworkSpam(t, stop, client, spam[ind])
+			wg.Done()
+		}(i)
+	}
 
-		// set fees to no bumping
-		cfg.Update(db.ChainCfg{
-			DefaultComputeUnitPrice: null.IntFrom(0),
-			MinComputeUnitPrice:     null.IntFrom(0),
-			MaxComputeUnitPrice:     null.IntFrom(0),
-		})
+	t.Log("Benchmarking: Congested + No Fee Txm")
+	// note this will show errors regarding duplicate signatures because the fee cannot be bumped so the rebroadcast tx is identical => identical signature
+	congestedNoFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
 
-		congestedNoFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
-		// time.Sleep(10 * time.Second)
+	t.Log("Benchmarking: Congested + Fee Enhanced Txm")
+	// set fees to no bumping
+	cfg.Update(db.ChainCfg{
+		DefaultComputeUnitPrice: null.IntFrom(2),
+		MinComputeUnitPrice:     null.IntFrom(0),
+		MaxComputeUnitPrice:     null.IntFrom(1_000_000),
 	})
+	congestedWithFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
 
-	// t.Run("benchmark_congestedWithFees", func(t *testing.T) {
-	// 	// set fees to no bumping
-	// 	cfg.Update(db.ChainCfg{
-	// 		DefaultComputeUnitPrice: null.IntFrom(0),
-	// 		MinComputeUnitPrice:     null.IntFrom(0),
-	// 		MaxComputeUnitPrice:     null.IntFrom(1024),
-	// 	})
-
-	// 	congestedWithFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
-	// })
-
-	t.Run("benchmark", func(t *testing.T) {
-		t.Logf("Benchmark:\n- No Congestion = %d\n- Congested (No Fees) = %d\n- Congested (With Fees) = %d", noCongestion, congestedNoFees, congestedWithFees)
-		// assert.True(t, noCongestion < congestedNoFees, "congestedNoFees should take longer than noCongestion")
-		// assert.True(t, congestedNoFees > congestedWithFees, "congestedNoFees should take longer than congestedWithFees")
-	})
-
+	// log accounts used
 	fmt.Println("Sender", key.PublicKey())
-	fmt.Println("Spammer", spamKey.PublicKey())
+	fmt.Println("Spammers", spamFund)
+
+	// stop spammers
+	close(stop)
+	wg.Wait()
+
+	t.Logf("Benchmark:\n- No Congestion = %d\n- Congested (No Fees) = %d\n- Congested (With Fees) = %d", noCongestion, congestedNoFees, congestedWithFees)
+	assert.True(t, noCongestion < congestedNoFees, "congestedNoFees should take longer than noCongestion")
+	assert.True(t, congestedNoFees > congestedWithFees, "congestedNoFees should take longer than congestedWithFees")
 }
