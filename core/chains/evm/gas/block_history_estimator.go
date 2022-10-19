@@ -126,7 +126,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
 	b.setLatest(head)
@@ -216,7 +216,7 @@ func (b *BlockHistoryEstimator) Close() error {
 	})
 }
 
-func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		gasPrice = b.getGasPrice()
@@ -255,7 +255,7 @@ func (b *BlockHistoryEstimator) getTipCap() *assets.Wei {
 	return b.tipCap
 }
 
-func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
@@ -357,7 +357,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []PriorAttempt) error
 	return nil
 }
 
-func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if !b.config.EvmEIP1559DynamicFees() {
 		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
@@ -429,7 +429,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, cfg Config, tipCap *as
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
