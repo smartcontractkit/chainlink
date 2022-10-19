@@ -71,6 +71,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	cfg.EvmGasLimitMultiplierF = float32(1)
 	cfg.EvmMinGasPriceWeiF = minGasPrice
 	cfg.EvmMaxGasPriceWeiF = maxGasPrice
+	cfg.EvmGasPriceDefaultF = maxGasPrice
 
 	t.Run("loads initial state", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -177,13 +178,15 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		assert.Nil(t, gas.GetLatestBaseFee(bhe))
 
-		_, _, err = bhe.GetLegacyGas(testutils.Context(t), make([]byte, 0), 100, maxGasPrice)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
+		fee, limit, err := bhe.GetLegacyGas(testutils.Context(t), make([]byte, 0), 100, maxGasPrice)
+		require.NoError(t, err)
+		assert.Equal(t, assets.NewWeiI(100), fee)
+		assert.Equal(t, 100, int(limit))
 
-		_, _, err = bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
+		dynamicFee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
+		require.NoError(t, err)
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: cfg.EvmGasTipCapDefault()}, dynamicFee)
+		assert.Equal(t, 100, int(limit))
 	})
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
@@ -200,13 +203,15 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		assert.Equal(t, assets.NewWeiI(420), gas.GetLatestBaseFee(bhe))
 
-		_, _, err = bhe.GetLegacyGas(testutils.Context(t), make([]byte, 0), 100, maxGasPrice)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
+		fee, limit, err := bhe.GetLegacyGas(testutils.Context(t), make([]byte, 0), 100, maxGasPrice)
+		require.NoError(t, err)
+		assert.Equal(t, assets.NewWeiI(100), fee)
+		assert.Equal(t, 100, int(limit))
 
-		_, _, err = bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
+		dynamicFee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
+		require.NoError(t, err)
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: cfg.EvmGasTipCapDefault()}, dynamicFee)
+		assert.Equal(t, 100, int(limit))
 	})
 
 	t.Run("returns error if main context is cancelled", func(t *testing.T) {
@@ -241,13 +246,15 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		assert.Equal(t, assets.NewWeiI(420), gas.GetLatestBaseFee(bhe))
 
-		_, _, err = bhe.GetLegacyGas(testutils.Context(t), make([]byte, 0), 100, maxGasPrice)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
+		fee, limit, err := bhe.GetLegacyGas(testutils.Context(t), make([]byte, 0), 100, maxGasPrice)
+		require.NoError(t, err)
+		assert.Equal(t, assets.NewWeiI(100), fee)
+		assert.Equal(t, 100, int(limit))
 
-		_, _, err = bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
+		dynamicFee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
+		require.NoError(t, err)
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: cfg.EvmGasTipCapDefault()}, dynamicFee)
+		assert.Equal(t, 100, int(limit))
 	})
 }
 
