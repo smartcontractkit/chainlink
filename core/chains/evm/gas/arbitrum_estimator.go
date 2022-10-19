@@ -92,10 +92,10 @@ func (a *arbitrumEstimator) Close() error {
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
 func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, a.cfg.DefaultHTTPTimeout().Duration())
+	ctx, cancel := context.WithTimeout(ctx, a.cfg.DefaultHTTPTimeout().Duration())
 	defer cancel()
 
-	gasPrice, _, err = a.Estimator.GetLegacyGas(timeoutCtx, calldata, l2GasLimit, maxGasPriceWei, opts...)
+	gasPrice, _, err = a.Estimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
 	}
@@ -107,8 +107,8 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			case <-a.chStop:
 				err = errors.New("estimator stopped")
 				return
-			case <-timeoutCtx.Done():
-				err = errors.New("estimator timed out getting legacy gas")
+			case <-ctx.Done():
+				err = ctx.Err()
 				return
 			}
 			select {
@@ -116,8 +116,8 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			case <-a.chStop:
 				err = errors.New("estimator stopped")
 				return
-			case <-timeoutCtx.Done():
-				err = errors.New("estimator timed out getting legacy gas")
+			case <-ctx.Done():
+				err = ctx.Err()
 				return
 			}
 		}

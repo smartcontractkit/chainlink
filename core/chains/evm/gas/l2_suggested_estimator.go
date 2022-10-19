@@ -133,10 +133,11 @@ func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee
 
 func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = l2GasLimit
-	timeoutCtx, cancel := context.WithTimeout(ctx, o.cfg.DefaultHTTPTimeout().Duration())
-	defer cancel()
 
 	ok := o.IfStarted(func() {
+		ctx, cancel := context.WithTimeout(ctx, o.cfg.DefaultHTTPTimeout().Duration())
+		defer cancel()
+
 		if slices.Contains(opts, OptForceRefetch) {
 			ch := make(chan struct{})
 			select {
@@ -144,8 +145,8 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 			case <-o.chStop:
 				err = errors.New("estimator stopped")
 				return
-			case <-timeoutCtx.Done():
-				err = errors.New("estimator timed out getting legacy gas")
+			case <-ctx.Done():
+				err = ctx.Err()
 				return
 			}
 			select {
@@ -153,8 +154,8 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 			case <-o.chStop:
 				err = errors.New("estimator stopped")
 				return
-			case <-timeoutCtx.Done():
-				err = errors.New("estimator timed out getting legacy gas")
+			case <-ctx.Done():
+				err = ctx.Err()
 				return
 			}
 		}
