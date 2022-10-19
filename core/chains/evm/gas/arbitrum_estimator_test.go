@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestArbitrumEstimator(t *testing.T) {
@@ -31,6 +33,7 @@ func TestArbitrumEstimator(t *testing.T) {
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		config := mocks.NewConfig(t)
+		config.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, rpcClient, ethClient)
@@ -45,6 +48,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	t.Run("calling GetLegacyGas on started estimator returns estimates", func(t *testing.T) {
 		config := mocks.NewConfig(t)
 		config.On("EvmGasLimitMax").Return(maxGasLimit)
+		config.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
@@ -72,6 +76,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		config := mocks.NewConfig(t)
+		config.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, client, ethClient)
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
@@ -98,6 +103,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	t.Run("gas price is lower than global max gas price", func(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)
 		config := mocks.NewConfig(t)
+		config.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		client := mocks.NewRPCClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, client, ethClient)
 
@@ -132,6 +138,7 @@ func TestArbitrumEstimator(t *testing.T) {
 
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := mocks.NewConfig(t)
+		config.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		client := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, client, ethClient)
@@ -155,6 +162,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	t.Run("limit computes", func(t *testing.T) {
 		config := mocks.NewConfig(t)
 		config.On("EvmGasLimitMax").Return(maxGasLimit)
+		config.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
@@ -192,6 +200,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	t.Run("limit exceeds max", func(t *testing.T) {
 		config := mocks.NewConfig(t)
 		config.On("EvmGasLimitMax").Return(maxGasLimit)
+		config.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second))
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
