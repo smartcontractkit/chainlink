@@ -772,6 +772,39 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 	return marshallTemplate(k, "Keeper Job", keeperTemplateString)
 }
 
+// KeeperOCRJobSpec represents a V2 keeper spec
+type KeeperOCRJobSpec struct {
+	ContractID         string `toml:"contractID"`
+	OCRKeyBundleID     string `toml:"ocrKeyBundleID"`
+	TransmitterID      string `toml:"transmitterID"`
+	P2Pv2Bootstrappers string `toml:"p2pv2Bootstrappers"`
+	ChainID            int    `toml:"chainID"`
+}
+
+// Type returns the type of the job
+func (k *KeeperOCRJobSpec) Type() string { return "keeper" }
+
+// String representation of the job
+func (k *KeeperOCRJobSpec) String() (string, error) {
+	ocr2keeperJobTemplate := `type = "offchainreporting2"
+pluginType = "ocr2automation"
+relay = "evm"
+name = "ocr2"
+schemaVersion = 1
+contractID = "{{.ContractID}}"
+ocrKeyBundleID = "{{.OCRKeyBundleID}}"
+transmitterID = "{{.TransmitterID}}"
+p2pv2Bootstrappers = [
+  "{{.P2Pv2Bootstrappers}}"
+]
+
+[relayConfig]
+chainID = {{.ChainID}}
+
+[pluginConfig]`
+	return marshallTemplate(k, "Keeper OCR Job", ocr2keeperJobTemplate)
+}
+
 // OCRBootstrapJobSpec represents the spec for bootstrapping an OCR job, given to one node that then must be linked
 // back to by others by OCRTaskJobSpecs
 type OCRBootstrapJobSpec struct {

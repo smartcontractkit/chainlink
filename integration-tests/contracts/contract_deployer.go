@@ -465,6 +465,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(linkAddr string,
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
+	paymentModel := uint8(0)
+	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_1", func(
@@ -544,8 +546,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return ethereum.DeployKeeperRegistryLogic13(
 				auth,
 				backend,
-				uint8(0),          // Default payment model
-				big.NewInt(80000), // Registry gas overhead
+				paymentModel,        // Default payment model
+				registryGasOverhead, // Registry gas overhead
 				common.HexToAddress(opts.LinkAddr),
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
@@ -592,6 +594,67 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			registry1_1: nil,
 			registry1_2: nil,
 			registry1_3: instance.(*ethereum.KeeperRegistry13),
+			address:     address,
+		}, err
+	case ethereum.RegistryVersion_2_0:
+		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic2_0", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistryLogic20(
+				auth,
+				backend,
+				paymentModel,        // Default payment model
+				registryGasOverhead, // Registry gas overhead
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = e.client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+
+		address, _, instance, err := e.client.DeployContract("KeeperRegistry2_0", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistry20(
+				auth,
+				backend,
+				paymentModel,
+				registryGasOverhead,
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+				*logicAddress,
+				ethereum.Config2_0{
+					PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
+					FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
+					BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
+					CheckGasLimit:        opts.Settings.CheckGasLimit,
+					StalenessSeconds:     opts.Settings.StalenessSeconds,
+					GasCeilingMultiplier: opts.Settings.GasCeilingMultiplier,
+					MinUpkeepSpend:       opts.Settings.MinUpkeepSpend,
+					MaxPerformGas:        opts.Settings.MaxPerformGas,
+					FallbackGasPrice:     opts.Settings.FallbackGasPrice,
+					FallbackLinkPrice:    opts.Settings.FallbackLinkPrice,
+					Transcoder:           common.HexToAddress(opts.TranscoderAddr),
+					Registrar:            common.HexToAddress(opts.RegistrarAddr),
+				},
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistry{
+			client:      e.client,
+			version:     ethereum.RegistryVersion_2_0,
+			registry2_0: instance.(*ethereum.KeeperRegistry20),
 			address:     address,
 		}, err
 
