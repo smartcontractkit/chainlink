@@ -127,7 +127,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
 
-	t.Run("calling BumpGas always returns error", func(t *testing.T) {
+	t.Run("calling BumpLegacyGas always returns error", func(t *testing.T) {
 		config := mocks.NewConfig(t)
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)

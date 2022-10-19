@@ -93,7 +93,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
 
-	t.Run("calling BumpGas always returns error", func(t *testing.T) {
+	t.Run("calling BumpLegacyGas always returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		cfg := mocks.NewConfig(t)
 		o := gas.NewL2SuggestedPriceEstimator(cfg, logger.TestLogger(t), client)
