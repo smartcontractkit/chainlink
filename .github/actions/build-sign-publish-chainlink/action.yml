@@ -107,7 +107,7 @@ runs:
       registry: ${{ inputs.ecr-hostname }}
 
   - name: Setup Docker Buildx
-    uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
+    uses: docker/setup-buildx-action@8c0edbc76e98fa90f69d9a2c020dcb50019dc325 # v2.2.1
 
   - name: Generate docker metadata for root image
     id: meta-root
