@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -24,7 +25,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 
-		gasPrice, gasLimit, err := f.GetLegacyGas(nil, 100000, maxGasPrice)
+		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 		assert.Equal(t, assets.NewWeiI(42), gasPrice)
@@ -38,7 +39,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 		config.On("EvmMaxGasPriceWei").Return(assets.NewWeiI(35))
 
-		gasPrice, gasLimit, err := f.GetLegacyGas(nil, 100000, assets.NewWeiI(30))
+		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 		assert.Equal(t, assets.NewWeiI(30), gasPrice)
@@ -52,7 +53,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 		config.On("EvmMaxGasPriceWei").Return(assets.NewWeiI(20))
 
-		gasPrice, gasLimit, err := f.GetLegacyGas(nil, 100000, assets.NewWeiI(30))
+		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 		assert.Equal(t, assets.NewWeiI(20), gasPrice)
@@ -69,7 +70,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 
-		gasPrice, gasLimit, err := f.BumpLegacyGas(assets.NewWeiI(42), 100000, maxGasPrice, nil)
+		gasPrice, gasLimit, err := f.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 		require.NoError(t, err)
 
 		expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, lggr, nil, assets.NewWeiI(42), 100000, maxGasPrice)
@@ -92,7 +93,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		// Gas bumping enabled
 		config.On("EvmGasBumpThreshold").Return(uint64(3)).Once()
 
-		fee, gasLimit, err := f.GetDynamicFee(100000, maxGasPrice)
+		fee, gasLimit, err := f.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 
@@ -102,7 +103,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		// Gas bumping disabled
 		config.On("EvmGasBumpThreshold").Return(uint64(0))
 
-		fee, gasLimit, err = f.GetDynamicFee(100000, maxGasPrice)
+		fee, gasLimit, err = f.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 
@@ -110,7 +111,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		assert.Equal(t, maxGasPrice, fee.FeeCap)
 
 		// override max gas price
-		fee, gasLimit, err = f.GetDynamicFee(100000, assets.NewWeiI(10))
+		fee, gasLimit, err = f.GetDynamicFee(testutils.Context(t), 100000, assets.NewWeiI(10))
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 
@@ -130,7 +131,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.On("EvmGasTipCapDefault").Return(assets.NewWeiI(52))
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-		fee, gasLimit, err := f.BumpDynamicFee(originalFee, 100000, maxGasPrice, nil)
+		fee, gasLimit, err := f.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
 		require.NoError(t, err)
 
 		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, lggr, nil, nil, originalFee, 100000, maxGasPrice)

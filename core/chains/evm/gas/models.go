@@ -20,6 +20,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 var (
@@ -39,6 +40,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 		"batchSize", cfg.BlockHistoryEstimatorBatchSize(),
 		"blockDelay", cfg.BlockHistoryEstimatorBlockDelay(),
 		"blockHistorySize", cfg.BlockHistoryEstimatorBlockHistorySize(),
+		"defaultHTTPTimeout", cfg.DefaultHTTPTimeout(),
 		"eip1559FeeCapBufferBlocks", cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks(),
 		"transactionPercentile", cfg.BlockHistoryEstimatorTransactionPercentile(),
 		"eip1559DynamicFees", cfg.EvmEIP1559DynamicFees(),
@@ -61,7 +63,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 	case "FixedPrice":
 		return NewFixedPriceEstimator(cfg, lggr)
 	case "Optimism2", "L2Suggested":
-		return NewL2SuggestedPriceEstimator(lggr, ethClient)
+		return NewL2SuggestedPriceEstimator(cfg, lggr, ethClient)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(cfg, lggr)
@@ -90,24 +92,24 @@ type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
 	Start(context.Context) error
 	Close() error
-	// Calculates initial gas fee for non-EIP1559 transaction
+	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetLegacyGas(calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
-	// Increases gas price and/or limit for non-EIP1559 transactions
+	GetLegacyGas(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
+	// BumpLegacyGas Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee is greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x0 or 0x1
-	BumpLegacyGas(originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
-	// Calculates initial gas fee for gas for EIP1559 transactions
+	BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
+	// GetDynamicFee Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetDynamicFee(gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error)
-	// Increases gas price and/or limit for non-EIP1559 transactions
+	GetDynamicFee(ctx context.Context, gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error)
+	// BumpDynamicFee Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
-	BumpDynamicFee(original DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
+	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
 }
 
 // Opt is an option for a gas estimator
@@ -134,6 +136,7 @@ type Config interface {
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainType() config.ChainType
+	DefaultHTTPTimeout() models.Duration
 	EvmEIP1559DynamicFees() bool
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
