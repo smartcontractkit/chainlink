@@ -277,7 +277,7 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
 
-	// TODO: setup a timeout for this context
+	// Context used on the gas estimator, a deadline/timeout is attached to it by the estimator
 	ctx := context.Background()
 
 	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
