@@ -403,6 +403,17 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
 
+		var cfg ocr2keeper.PluginConfig
+		err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "unmarshal ocr2keepers plugin config")
+		}
+
+		err2 = ocr2keeper.ValidatePluginConfig(cfg)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
+		}
+
 		conf := ocr2keepers.DelegateConfig{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -418,6 +429,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
 			PerformLogProvider:           logProvider,
+			CacheExpiration:              cfg.CacheExpiration,
+			CacheEvictionInterval:        cfg.CacheEvictionInterval,
+			MaxServiceWorkers:            cfg.MaxServiceWorkers,
+			ServiceQueueLength:           cfg.ServiceQueueLength,
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {
