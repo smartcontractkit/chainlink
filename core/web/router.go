@@ -354,6 +354,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/jobs", paginatedRequest(jc.Index))
 		authv2.GET("/jobs/:ID", jc.Show)
 		authv2.POST("/jobs", auth.RequiresEditRole(jc.Create))
+		authv2.PUT("/jobs/:ID", auth.RequiresEditRole(jc.Update))
 		authv2.DELETE("/jobs/:ID", auth.RequiresEditRole(jc.Delete))
 
 		// PipelineRunsController

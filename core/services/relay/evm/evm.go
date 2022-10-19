@@ -163,6 +163,18 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 			fromAddresses = append(fromAddresses, common.HexToAddress(s))
 		}
 	} else {
+		// Ensure the transmitter is contained in the sending keys slice.
+		var transmitterFoundLocally bool
+		for _, s := range sendingKeys {
+			if s == effectiveTransmitterAddress.String() {
+				transmitterFoundLocally = true
+				break
+			}
+		}
+		if !transmitterFoundLocally {
+			return nil, errors.New("the transmitter was not found in the list of sending keys, perhaps EvmUseForwarders needs to be enabled")
+		}
+
 		// If not using the forwarder, the effectiveTransmitterAddress (TransmitterID) is used as the from address.
 		fromAddresses = append(fromAddresses, effectiveTransmitterAddress)
 	}
