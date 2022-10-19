@@ -277,12 +277,15 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
 
+	// TODO: setup a timeout for this context
+	ctx := context.Background()
+
 	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
 	if ex.config.EvmEIP1559DynamicFees() {
-		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas, keySpecificGasPriceWei)
+		fee, _, err = ex.gasEstimator.GetDynamicFee(ctx, upkeep.ExecuteGas, keySpecificGasPriceWei)
 		fee.TipCap = fee.TipCap.AddPercentage(ex.config.KeeperGasTipCapBufferPercent())
 	} else {
-		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
+		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(ctx, performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
 		gasPrice = gasPrice.AddPercentage(ex.config.KeeperGasPriceBufferPercent())
 	}
 	if err != nil {
