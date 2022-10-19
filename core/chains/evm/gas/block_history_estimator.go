@@ -380,14 +380,24 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint32, maxGasPriceWei *a
 		}
 		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config)
 		if b.config.EvmGasBumpThreshold() == 0 {
-			// just use the max gas price if gas bumping is disabled
+			// Use the max gas price if gas bumping is disabled. Tip cap should be limited to max gas price.
 			feeCap = maxGasPrice
+			if tipCap.Cmp(maxGasPrice) >= 0 {
+				b.logger.Warnw(fmt.Sprintf("TipCap: %s exceeded MaxGasPrice: %s.Using EvmGasTipCapDefault as fallback.", tipCap, maxGasPrice))
+				tipCap = b.config.EvmGasTipCapDefault()
+			}
 		} else if b.getCurrentBaseFee() != nil {
 			// HACK: due to a flaw of how EIP-1559 is implemented we have to
 			// set a much lower FeeCap than the actual maximum we are willing
 			// to pay in order to give ourselves headroom for bumping
 			// See: https://github.com/ethereum/go-ethereum/issues/24284
 			feeCap = calcFeeCap(b.getCurrentBaseFee(), b.config, tipCap, maxGasPrice)
+			if tipCap.Cmp(maxGasPrice) >= 0 {
+				b.logger.Warnw(fmt.Sprintf("TipCap: %s exceeded MaxGasPrice: %s with LatestBaseFee: %s.Using MaxGasPrice - LatestBaseFee as fallback"+
+					"(this can't be lower than EvmGasTipCapMinimum).", tipCap, maxGasPrice, b.getCurrentBaseFee()))
+				tipCap = maxGasPrice.Sub(b.getCurrentBaseFee())
+				tipCap = assets.WeiMax(tipCap, b.config.EvmGasTipCapMinimum())
+			}
 		} else {
 			// This shouldn't happen on EIP-1559 blocks, since if the tip cap
 			// is set, Start must have succeeded and we would expect an initial

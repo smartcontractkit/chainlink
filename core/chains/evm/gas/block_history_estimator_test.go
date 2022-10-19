@@ -1707,6 +1707,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	cfg.EvmGasLimitMultiplierF = float32(1)
 	cfg.EvmMaxGasPriceWeiF = maxGasPrice
 	cfg.EvmGasTipCapMinimumF = assets.NewWeiI(0)
+	cfg.EvmGasTipCapDefaultF = assets.NewWeiI(20)
 	cfg.EvmMinGasPriceWeiF = assets.NewWeiI(0)
 
 	bhe := newBlockHistoryEstimator(t, nil, cfg)
@@ -1787,7 +1788,33 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 		fee, limit, err := bhe.GetDynamicFee(100000, assets.NewWeiI(100))
 		require.NoError(t, err)
 
-		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(6000)}, fee)
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(20)}, fee)
+		assert.Equal(t, 100000, int(limit))
+	})
+
+	t.Run("if gas bump is enabled and tip cap exceeds local max gas price", func(t *testing.T) {
+		cfg.EvmGasBumpThresholdF = uint64(1)
+		h.BaseFeePerGas = assets.NewWeiI(10)
+		maxGasPriceLocal := assets.NewWeiI(100)
+		tipCapPriceFallback := maxGasPriceLocal.Sub(h.BaseFeePerGas)
+
+		fee, limit, err := bhe.GetDynamicFee(100000, maxGasPriceLocal)
+		require.NoError(t, err)
+
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: tipCapPriceFallback}, fee)
+		assert.Equal(t, 100000, int(limit))
+	})
+
+	t.Run("if gas bump is enabled, tip cap exceeds local max gas price and fallback price is less than minimum", func(t *testing.T) {
+		cfg.EvmGasBumpThresholdF = uint64(1)
+		h.BaseFeePerGas = assets.NewWeiI(50)
+		maxGasPriceLocal := assets.NewWeiI(100)
+		cfg.EvmGasTipCapMinimumF = assets.NewWeiI(60)
+
+		fee, limit, err := bhe.GetDynamicFee(100000, maxGasPriceLocal)
+		require.NoError(t, err)
+
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: cfg.EvmGasTipCapMinimumF}, fee)
 		assert.Equal(t, 100000, int(limit))
 	})
 
