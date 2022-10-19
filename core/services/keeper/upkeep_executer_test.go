@@ -45,8 +45,8 @@ func newHead() evmtypes.Head {
 
 func mockEstimator(t *testing.T) (estimator *gasmocks.Estimator) {
 	estimator = gasmocks.NewEstimator(t)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint32(0), nil)
-	estimator.On("GetDynamicFee", mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint32(0), nil)
+	estimator.On("GetDynamicFee", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
 		FeeCap: assets.GWei(60),
 		TipCap: assets.GWei(60),
 	}, uint32(60), nil)
@@ -367,7 +367,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			testutils.SkipShort(t, "db dependency")
 
 			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetDynamicFee", mock.Anything, evmconfig.MaxLegalGasPrice).Return(gas.DynamicFee{
+			estimator.On("GetDynamicFee", mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(gas.DynamicFee{
 				FeeCap: assets.GWei(60),
 				TipCap: assets.GWei(60),
 			}, uint32(60), nil)
@@ -378,7 +378,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			testutils.SkipShort(t, "db dependency")
 
 			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(assets.GWei(60), uint32(0), nil)
+			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(assets.GWei(60), uint32(0), nil)
 			runTest(t, estimator, false)
 		})
 	})
