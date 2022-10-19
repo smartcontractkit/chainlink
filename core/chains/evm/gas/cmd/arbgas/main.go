@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func main() {
@@ -45,13 +47,20 @@ func printGetLegacyGas(ctx context.Context, e gas.Estimator, calldata []byte, l2
 
 const max = 50_000_000
 
+// timeout defaults to config's default value for DEFAULT_HTTP_TIMEOUT
+const timeout = 15 * time.Second
+
 func withEstimator(ctx context.Context, lggr logger.Logger, url string, f func(e gas.Estimator)) {
 	rc, err := rpc.Dial(url)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defaultTimeout, err := models.MakeDuration(timeout)
+	if err != nil {
+		log.Fatal(err)
+	}
 	ec := ethclient.NewClient(rc)
-	e := gas.NewArbitrumEstimator(lggr, &config{max: max}, rc, ec)
+	e := gas.NewArbitrumEstimator(lggr, &config{max: max, timeout: defaultTimeout}, rc, ec)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	err = e.Start(ctx)
@@ -66,9 +75,14 @@ func withEstimator(ctx context.Context, lggr logger.Logger, url string, f func(e
 var _ gas.ArbConfig = &config{}
 
 type config struct {
-	max uint32
+	max     uint32
+	timeout models.Duration
 }
 
 func (c *config) EvmGasLimitMax() uint32 {
 	return c.max
+}
+
+func (c *config) DefaultHTTPTimeout() models.Duration {
+	return c.timeout
 }
