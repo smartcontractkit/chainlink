@@ -519,7 +519,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
 		ForwardToUrl:   envURL("AuditLoggerForwardToUrl"),
 		JsonWrapperKey: envvar.NewString("AuditLoggerJsonWrapperKey").ParsePtr(),
-		Headers:        audit.AuditLoggerHeaders.ParsePtr(),
+		Headers:        (*[]audit.ServiceHeader)(audit.AuditLoggerHeaders.ParsePtr()),
 	}
 
 	c.Database = config.Database{
