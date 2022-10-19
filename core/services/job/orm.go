@@ -189,11 +189,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCROracleSpec.EVMChainID == nil {
 				// If unspecified, assume we're creating a job intended to run on default chain id
 				newChain, err := o.chainSet.Default()
-				if err != nil {
+				if err != nil || newChain == nil {
 					return err
-				}
-				if newChain == nil {
-					panic("Invariant violation:  chain set has no default chain id")
 				}
 				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
 			}

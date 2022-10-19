@@ -64,9 +64,15 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
 
 ### Changed
 
-The default maximum gas price on most networks is now effectively unlimited. Chainlink will bump as high as necessary to get a transaction included. The connectivity checker is relied on to prevent excessive bumping when there is a connectivity failure.
+- The default maximum gas price on most networks is now effectively unlimited.
+  - Chainlink will bump as high as necessary to get a transaction included. The connectivity checker is relied on to prevent excessive bumping when there is a connectivity failure.
+  - If you want to change this, you can manually set `ETH_MAX_GAS_PRICE_WEI`.
 
-If you want to change this, you can manually set `ETH_MAX_GAS_PRICE_WEI`.
+- EVMChainID field will be auto-added with default chain id to job specs of newly created OCR jobs, if not explicitly included.
+  - Old OCR jobs missing EVMChainID will continue to run on any chain ETH_CHAIN_ID is set to (or first chain if unset), which may be changed after a restart.
+  - Newly created OCR jobs will only run on a single fixed chain, unaffected by changes to ETH_CHAIN_ID after the job is added.
+  - It's no longer possible to end up with multiple OCR jobs for a single contract running on the same chain; one job per contract per chain is strictly enforced.
+  - If there are any existing duplicate jobs (per contract per chain), all but the job with the laetest creation date will be pruned during upgrade.
 
 <!-- unreleasedstop -->
 

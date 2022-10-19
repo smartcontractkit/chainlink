@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/big"
 	"testing"
 	"time"
 
@@ -470,11 +469,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 	require.NoError(t, evm.NewORM(db, lggr, config).EnsureChains([]utils.Big{*customChainID}))
 
-	defaultChainID := (func() big.Int {
-		defaultChain, err := cc.Default()
-		require.NoError(t, err)
-		return *defaultChain.ID()
-	})()
+	defaultChainID := config.DefaultChainID()
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
