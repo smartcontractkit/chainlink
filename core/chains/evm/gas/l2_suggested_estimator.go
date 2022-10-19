@@ -135,7 +135,8 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 	chainSpecificGasLimit = l2GasLimit
 
 	ok := o.IfStarted(func() {
-		ctx, cancel := context.WithTimeout(ctx, o.cfg.DefaultHTTPTimeout().Duration())
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, o.cfg.DefaultHTTPTimeout().Duration())
 		defer cancel()
 
 		if slices.Contains(opts, OptForceRefetch) {
