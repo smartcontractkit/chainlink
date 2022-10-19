@@ -54,12 +54,12 @@ var (
 			AuditLogger: audit.AuditLoggerConfig{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
-				Headers: ptr(audit.ServiceHeaders{
-					audit.ServiceHeader{
+				Headers: ptr([]audit.ServiceHeader{
+					{
 						Header: "Authorization",
 						Value:  "token",
 					},
-					audit.ServiceHeader{
+					{
 						Header: "X-SomeOther-Header",
 						Value:  "value with spaces | and a bar+*",
 					},
@@ -226,7 +226,7 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 
-	serviceHeaders := audit.ServiceHeaders{
+	serviceHeaders := []audit.ServiceHeader{
 		{Header: "Authorization", Value: "token"},
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
@@ -622,7 +622,7 @@ ShutdownGracePeriod = '10s'
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = 'event'
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 `},
 		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true

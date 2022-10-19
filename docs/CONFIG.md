@@ -341,7 +341,7 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 Enabled = false # Default
 ForwardToUrl = 'http://localhost:9898' # Example
 JsonWrapperKey = 'event' # Example
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
 ```
 
 
@@ -365,7 +365,7 @@ JsonWrapperKey if set wraps the map of data under another single key to make par
 
 ### Headers<a id='AuditLogger-Headers'></a>
 ```toml
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
 ```
 Headers is the set of headers you wish to pass along with each request
 
