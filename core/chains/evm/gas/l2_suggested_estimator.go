@@ -13,12 +13,17 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
 	_ Estimator = &l2SuggestedPriceEstimator{}
 )
+
+type L2SuggestedConfig interface {
+	DefaultHTTPTimeout() models.Duration
+}
 
 //go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
 type rpcClient interface {
@@ -28,6 +33,8 @@ type rpcClient interface {
 // l2SuggestedPriceEstimator is an Estimator which uses the L2 suggested gas price from eth_gasPrice.
 type l2SuggestedPriceEstimator struct {
 	utils.StartStopOnce
+
+	cfg L2SuggestedConfig
 
 	client     rpcClient
 	pollPeriod time.Duration
@@ -43,8 +50,9 @@ type l2SuggestedPriceEstimator struct {
 }
 
 // NewL2SuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
-func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) Estimator {
+func NewL2SuggestedPriceEstimator(cfg L2SuggestedConfig, lggr logger.Logger, client rpcClient) Estimator {
 	return &l2SuggestedPriceEstimator{
+		cfg:            cfg,
 		client:         client,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr.Named("L2SuggestedEstimator"),
@@ -123,8 +131,11 @@ func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = l2GasLimit
+	timeoutCtx, cancel := context.WithTimeout(ctx, o.cfg.DefaultHTTPTimeout().Duration())
+	defer cancel()
+
 	ok := o.IfStarted(func() {
 		if slices.Contains(opts, OptForceRefetch) {
 			ch := make(chan struct{})
@@ -133,11 +144,17 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, l2
 			case <-o.chStop:
 				err = errors.New("estimator stopped")
 				return
+			case <-timeoutCtx.Done():
+				err = errors.New("estimator timed out getting legacy gas")
+				return
 			}
 			select {
 			case <-ch:
 			case <-o.chStop:
 				err = errors.New("estimator stopped")
+				return
+			case <-timeoutCtx.Done():
+				err = errors.New("estimator timed out getting legacy gas")
 				return
 			}
 		}

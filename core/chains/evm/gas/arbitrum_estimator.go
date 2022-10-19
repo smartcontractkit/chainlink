@@ -56,7 +56,7 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		Estimator:      NewL2SuggestedPriceEstimator(lggr, rpcClient),
+		Estimator:      NewL2SuggestedPriceEstimator(cfg, lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
@@ -107,11 +107,17 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			case <-a.chStop:
 				err = errors.New("estimator stopped")
 				return
+			case <-timeoutCtx.Done():
+				err = errors.New("estimator timed out getting legacy gas")
+				return
 			}
 			select {
 			case <-ch:
 			case <-a.chStop:
 				err = errors.New("estimator stopped")
+				return
+			case <-timeoutCtx.Done():
+				err = errors.New("estimator timed out getting legacy gas")
 				return
 			}
 		}

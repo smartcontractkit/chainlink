@@ -220,7 +220,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	var gasPrice, gasTipCap, gasFeeCap *assets.Wei
 	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
-		price, fee, err := ex.estimateGasPrice(upkeep)
+		price, fee, err := ex.estimateGasPrice(ctxService, upkeep)
 		if err != nil {
 			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
 			return
@@ -266,7 +266,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	}
 }
 
-func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *assets.Wei, fee gas.DynamicFee, err error) {
+func (ex *UpkeepExecuter) estimateGasPrice(ctx context.Context, upkeep UpkeepRegistration) (gasPrice *assets.Wei, fee gas.DynamicFee, err error) {
 	var performTxData []byte
 	performTxData, err = Registry1_1ABI.Pack(
 		"performUpkeep", // performUpkeep is same across registry ABI versions
@@ -276,9 +276,6 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 	if err != nil {
 		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
-
-	// Context used on the gas estimator, a deadline/timeout is attached to it by the estimator
-	ctx := context.Background()
 
 	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
 	if ex.config.EvmEIP1559DynamicFees() {
