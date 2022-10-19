@@ -1007,7 +1007,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		bhe.Recalculate(cltest.Head(1))
 	})
 
-	t.Run("can set tip higher than ETH_MAX_GAS_PRICE_WEI (we rely on fee cap to limit it)", func(t *testing.T) {
+	t.Run("does not set tip higher than ETH_MAX_GAS_PRICE_WEI", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
 
@@ -1038,7 +1038,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		bhe.Recalculate(cltest.Head(1))
 
 		tipCap := gas.GetTipCap(bhe)
-		require.Greater(t, tipCap.Int64(), maxGasPrice.Int64())
+		require.Equal(t, tipCap.Int64(), maxGasPrice.Int64())
 	})
 
 	t.Run("sets tip cap to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
