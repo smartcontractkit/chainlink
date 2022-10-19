@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -91,12 +90,11 @@ type (
 		ctx       context.Context
 		ctxCancel context.CancelFunc
 
-		gasPrice     *assets.Wei
-		tipCap       *assets.Wei
-		priceMu      sync.RWMutex
-		latest       *evmtypes.Head
-		latestMu     sync.RWMutex
-		initialFetch atomic.Bool
+		gasPrice *assets.Wei
+		tipCap   *assets.Wei
+		priceMu  sync.RWMutex
+		latest   *evmtypes.Head
+		latestMu sync.RWMutex
 
 		logger logger.SugaredLogger
 	}
@@ -225,9 +223,6 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLim
 		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
 	if gasPrice == nil {
-		if !b.initialFetch.Load() {
-			return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
-		}
 		b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
 			"Using EvmGasPriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 		gasPrice = b.config.EvmGasPriceDefault()
@@ -370,10 +365,6 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
 		if tipCap == nil {
-			if !b.initialFetch.Load() {
-				err = errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
-				return
-			}
 			b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
 				"Using EvmGasTipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 			tipCap = b.config.EvmGasTipCapDefault()
@@ -465,7 +456,6 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 		b.logger.Warnw("Error fetching blocks", "head", head, "err", err)
 		return
 	}
-	b.initialFetch.Store(true)
 	b.Recalculate(head)
 }
 
