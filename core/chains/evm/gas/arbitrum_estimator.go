@@ -16,13 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type ArbConfig interface {
 	EvmGasLimitMax() uint32
-	DefaultHTTPTimeout() models.Duration
 }
 
 //go:generate mockery --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
@@ -56,7 +54,7 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		Estimator:      NewL2SuggestedPriceEstimator(cfg, lggr, rpcClient),
+		Estimator:      NewL2SuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
@@ -92,9 +90,6 @@ func (a *arbitrumEstimator) Close() error {
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
 func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	ctx, cancel := context.WithTimeout(ctx, a.cfg.DefaultHTTPTimeout().Duration())
-	defer cancel()
-
 	gasPrice, _, err = a.Estimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
