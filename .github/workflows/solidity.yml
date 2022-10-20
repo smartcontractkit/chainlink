@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         split: ${{ fromJson(needs.split-tests.outputs.splits) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
@@ -127,7 +127,7 @@ jobs:
       fail-fast: false
       matrix:
         split: ${{ fromJson(needs.split-tests.outputs.splits) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
