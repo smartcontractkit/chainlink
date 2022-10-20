@@ -73,6 +73,7 @@ If you want to change this, you can manually set `ETH_MAX_GAS_PRICE_WEI`.
 ### Fixed
 
 - Fixed minor bug where Chainlink would attempt (and fail) to estimate a tip cap higher than the maximum configured gas price in EIP1559 mode. It now caps the tipcap to the max instead of erroring.
+- Fixed bug whereby it was impossible to remove eth keys that had extant transactions. Now, removing an eth key will drop all associated data automatically including past transactions.
 
 ## 1.9.0 - 2022-10-12
 
