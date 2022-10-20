@@ -313,6 +313,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsA
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
 			app.Key = v
+		case p2pkey.KeyV2:
+			require.NoError(t, app.GetKeyStore().P2P().Add(v))
 		case evmtypes.DBChain:
 			chainID = v.ID
 		case *utils.Big:
