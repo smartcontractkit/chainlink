@@ -7,7 +7,7 @@ on:
 
 jobs:
   push-chainlink-develop:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu20.04-64cores-256GB
     environment: build-develop
     permissions:
       id-token: write

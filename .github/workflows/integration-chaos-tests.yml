@@ -12,7 +12,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -58,7 +58,7 @@ jobs:
       id-token: write
       contents: read
     name: EVM Chaos Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     needs:
       - build-chainlink
     steps:

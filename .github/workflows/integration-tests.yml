@@ -11,7 +11,7 @@ jobs:
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -40,7 +40,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     needs: [changes]
     steps:
       - name: Collect Metrics
@@ -73,7 +73,7 @@ jobs:
       id-token: write
       contents: read
     name: ETH Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     needs: [build-chainlink, changes]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -135,7 +135,7 @@ jobs:
   get_projectserum_version:
     name: Get ProjectSerum Version
     environment: integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     outputs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
@@ -155,7 +155,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     needs: [changes,get_projectserum_version]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
@@ -190,7 +190,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     needs: [build-chainlink, solana-build-contracts, changes]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}

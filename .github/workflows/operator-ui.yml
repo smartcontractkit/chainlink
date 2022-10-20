@@ -11,7 +11,7 @@ on:
 jobs:
   update-version:
     name: Update Version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-64cores-256GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics

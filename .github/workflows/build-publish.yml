@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-sign-publish-chainlink:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu20.04-64cores-256GB
     environment: build-publish
     permissions:
       id-token: write
