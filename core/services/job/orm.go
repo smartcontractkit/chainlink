@@ -189,8 +189,11 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCROracleSpec.EVMChainID == nil {
 				// If unspecified, assume we're creating a job intended to run on default chain id
 				newChain, err := o.chainSet.Default()
-				if err != nil || newChain == nil {
+				if err != nil {
 					return err
+				}
+				if newChain == nil {
+					return errors.New("internal error: chainSet.Default() should never return nil")
 				}
 				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
 			}
