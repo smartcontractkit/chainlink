@@ -6,6 +6,10 @@ on:
 env:
   NODE_OPTIONS: --max_old_space_size=5120
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   changes:
     name: Detect changes
