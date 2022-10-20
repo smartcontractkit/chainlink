@@ -45,8 +45,8 @@ var (
 )
 
 type soltxmProm struct {
-	id                             string
-	success, error, revert, reject float64
+	id                                      string
+	success, error, revert, reject, invalid float64
 }
 
 func (p soltxmProm) assertEqual(t *testing.T) {
@@ -54,6 +54,7 @@ func (p soltxmProm) assertEqual(t *testing.T) {
 	assert.Equal(t, p.error, testutil.ToFloat64(promSolTxmErrorTxs.WithLabelValues(p.id)), "mismatch: error")
 	assert.Equal(t, p.revert, testutil.ToFloat64(promSolTxmRevertTxs.WithLabelValues(p.id)), "mismatch: revert")
 	assert.Equal(t, p.reject, testutil.ToFloat64(promSolTxmRejectTxs.WithLabelValues(p.id)), "mismatch: reject")
+	assert.Equal(t, p.invalid, testutil.ToFloat64(promSolTxmInvalidBlockhash.WithLabelValues(p.id)), "mismatch: invalid")
 }
 
 func (p soltxmProm) getInflight() float64 {
@@ -66,6 +67,7 @@ func (p *soltxmProm) Reset() {
 	promSolTxmErrorTxs.Reset()
 	promSolTxmRevertTxs.Reset()
 	promSolTxmRejectTxs.Reset()
+	promSolTxmInvalidBlockhash.Reset()
 }
 
 // create placeholder transaction
@@ -165,6 +167,7 @@ func TestTxm(t *testing.T) {
 		wg.Add(3)
 
 		mc.On("SendTx", mock.Anything, mTx).Return(sig, nil).Once()
+		mc.On("IsBlockhashValid", mock.Anything, solana.Hash{}).Return(true, nil).Once()
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return([]*rpc.SignatureStatusesResult{nil}, nil).Once()
@@ -212,6 +215,7 @@ func TestTxm(t *testing.T) {
 			assert.Equal(t, fee, val)
 			wg.Done()
 		}).Return(sig, nil).Once()
+		mc.On("IsBlockhashValid", mock.Anything, solana.Hash{}).Return(true, nil).Twice()
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
 			wg.Done()
 		}).Return([]*rpc.SignatureStatusesResult{confirmedStatus}, nil).Once()
@@ -259,6 +263,7 @@ func TestTxm(t *testing.T) {
 				return nil
 			},
 		).Times(3)
+		mc.On("IsBlockhashValid", mock.Anything, solana.Hash{}).Return(true, nil).Times(3)
 		mc.On("SignatureStatuses", mock.Anything, mSig).Return(
 			func(_ context.Context, sigs []solana.Signature) (out []*rpc.SignatureStatusesResult) {
 				for i := 0; i < len(sigs); i++ {
@@ -306,6 +311,7 @@ func TestTxm(t *testing.T) {
 				wg.Done()
 			},
 		).Once()
+		mc.On("IsBlockhashValid", mock.Anything, solana.Hash{}).Return(true, nil).Twice()
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return(
 			[]*rpc.SignatureStatusesResult{nil}, nil)
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig, sigRetry}).Return(
@@ -334,6 +340,7 @@ func TestTxm(t *testing.T) {
 		mc.On("SendTx", mock.Anything, mTx).Run(func(_ mock.Arguments) {
 			wg.Done()
 		}).Return(sig, nil).Once()
+		mc.On("IsBlockhashValid", mock.Anything, solana.Hash{}).Return(true, nil).Once()
 		mc.On("SignatureStatuses", mock.Anything, mSig).Run(func(_ mock.Arguments) {
 			wg.Done()
 		}).Return(
@@ -373,6 +380,7 @@ func TestTxm(t *testing.T) {
 				wg.Done()
 			},
 		).Once()
+		mc.On("IsBlockhashValid", mock.Anything, solana.Hash{}).Return(true, nil).Twice()
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{{
 			ConfirmationStatus: rpc.ConfirmationStatusProcessed,
 		}}, nil).Twice()
@@ -392,6 +400,29 @@ func TestTxm(t *testing.T) {
 		prom.success++
 		prom.assertEqual(t)
 	})
+
+	// tx fails with an invalid blockhash
+	t.Run("fail_invalidBlockhash", func(t *testing.T) {
+		txm, mc, empty := initTxm()
+		tx := getTx(t, pubkey)
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		mc.On("IsBlockhashValid", mock.Anything, solana.Hash{}).Run(func(_ mock.Arguments) {
+			wg.Done()
+		}).Return(false, nil).Once()
+
+		// tx should be able to queue
+		assert.NoError(t, txm.Enqueue(t.Name(), tx))
+		wg.Wait()      // wait to be picked up and processed
+		waitFor(empty) // txs cleared after timeout
+
+		// check prom metric
+		prom.error++
+		prom.invalid++
+		prom.assertEqual(t)
+	})
+
 }
 
 func TestTxm_Enqueue(t *testing.T) {

@@ -31,4 +31,8 @@ var (
 		Name: "solana_txm_tx_error_reject",
 		Help: "Number of transactions that the RPC immediately rejected",
 	}, []string{"chainID"})
+	promSolTxmInvalidBlockhash = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "solana_txm_tx_error_invalidBlockhash",
+		Help: "Number of transactions that included an invalid blockhash",
+	}, []string{"chainID"})
 )

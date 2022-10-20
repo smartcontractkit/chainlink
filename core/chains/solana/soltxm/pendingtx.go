@@ -255,8 +255,9 @@ type pendingTxMemoryWithProm struct {
 }
 
 const (
-	TxFailRevert = iota // execution revert
-	TxRPCReject         // rpc rejected transaction
+	TxFailRevert       = iota // execution revert
+	TxRPCReject               // rpc rejected transaction
+	TxInvalidBlockhash        // tx used an invalid blockhash
 )
 
 func newPendingTxMemoryWithProm(id string) *pendingTxMemoryWithProm {
@@ -321,6 +322,9 @@ func (txs *pendingTxMemoryWithProm) OnError(sig solana.Signature, errType int) (
 	case TxRPCReject:
 		// reject called when RPC rejects a tx, no valid signature to check
 		promSolTxmRejectTxs.WithLabelValues(txs.chainID).Add(1)
+	case TxInvalidBlockhash:
+		// invalid blockhash called when tx has invalid blockhash, no valid signature to check
+		promSolTxmInvalidBlockhash.WithLabelValues(txs.chainID).Add(1)
 	}
 	// increment total errors
 	promSolTxmErrorTxs.WithLabelValues(txs.chainID).Add(1)
