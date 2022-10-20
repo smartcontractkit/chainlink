@@ -34,7 +34,6 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/pg/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -461,7 +460,6 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").Return(uint16(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(42)).Maybe().Once()
-	cfg.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(15 * time.Second)).Maybe().Once()
 	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
 	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe()
