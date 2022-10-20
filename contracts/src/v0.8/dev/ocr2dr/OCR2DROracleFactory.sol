@@ -25,10 +25,10 @@ contract OCR2DROracleFactory {
 
   /**
    * @notice creates a new Oracle contract with the msg.sender as owner
-   * @param donPublicKey DON's public key used to encrypt user secrets
+   * @param donPublicKey DON's secp256k1 public key used to encrypt user secrets as an Uint8Array
    * @return address Address of a newly deployed oracle
    */
-  function deployNewOracle(bytes32 donPublicKey) external returns (address) {
+  function deployNewOracle(bytes calldata donPublicKey) external returns (address) {
     OCR2DROracle oracle = new OCR2DROracle(msg.sender, donPublicKey);
     s_created.add(address(oracle));
     emit OracleCreated(address(oracle), msg.sender, msg.sender);

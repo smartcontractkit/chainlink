@@ -24,11 +24,11 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
 
   uint256 private constant MINIMUM_CONSUMER_GAS_LIMIT = 400000;
 
-  bytes32 private s_donPublicKey;
+  bytes private s_donPublicKey;
   uint256 private s_nonce;
   mapping(bytes32 => Commitment) private s_commitments;
 
-  constructor(address owner, bytes32 donPublicKey) ConfirmedOwner(owner) {
+  constructor(address owner, bytes memory donPublicKey) ConfirmedOwner(owner) {
     s_donPublicKey = donPublicKey;
   }
 
@@ -41,7 +41,7 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
   }
 
   /// @inheritdoc OCR2DROracleInterface
-  function getDONPublicKey() external view override returns (bytes32) {
+  function getDONPublicKey() external view override returns (bytes memory) {
     return s_donPublicKey;
   }
 
