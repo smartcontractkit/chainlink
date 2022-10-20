@@ -315,7 +315,6 @@ func subscribeVRF(
 func createVRFJobs(
 	t *testing.T,
 	fromKeys [][]ethkey.KeyV2,
-	maxGasPricesGWei []int,
 	app *cltest.TestApplication,
 	uni coordinatorV2Universe,
 	batchEnabled bool,
@@ -343,7 +342,6 @@ func createVRFJobs(
 			FromAddresses:            keyStrs,
 			BackoffInitialDelay:      10 * time.Millisecond,
 			BackoffMaxDelay:          time.Second,
-			MaxGasPriceGWei:          maxGasPricesGWei[i],
 			V2:                       true,
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)
@@ -620,7 +618,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{10}, app, uni, true)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests.
@@ -683,7 +681,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{10}, app, uni, true)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests with low max gas callback limits.
@@ -758,7 +756,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1, key2}}, []int{10, 10}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1, key2}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -839,7 +837,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{10, 10}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -889,7 +887,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{10, 10}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -955,7 +953,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{10, 10}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash, maxNumWords)
@@ -1024,7 +1022,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{10, 10}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash, maxNumWords)
@@ -1103,7 +1101,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	}, assets.GWei(10).ToInt())
 
 	// Create VRF job.
-	vrfJobs := createVRFJobs(t, [][]ethkey.KeyV2{{vrfKey}}, []int{10}, app, uni, false)
+	vrfJobs := createVRFJobs(t, [][]ethkey.KeyV2{{vrfKey}}, app, uni, false)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 	_ = createAndStartBHSJob(
@@ -1192,7 +1190,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, []int{1000}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	numWords := uint32(20)
@@ -1256,7 +1254,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{100}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests, each one block apart, which contain a single low-gas request sandwiched between two high-gas requests.
@@ -1356,7 +1354,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF jobs.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{cheapKey}, {expensiveKey}}, []int{10, 1000}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{cheapKey}, {expensiveKey}}, app, uni, false)
 	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
 	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
 
@@ -1441,7 +1439,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, []int{10}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the randomness request.
@@ -1636,7 +1634,6 @@ func TestIntegrationVRFV2(t *testing.T) {
 		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
 		PublicKey:                vrfkey.PublicKey.String(),
-		MaxGasPriceGWei:          10,
 		FromAddresses:            []string{keys[0].Address.String()},
 		V2:                       true,
 	}).Toml()
