@@ -4,11 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -80,7 +79,6 @@ type MockConfig struct {
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocksF uint16
 	BlockHistoryEstimatorTransactionPercentileF     uint16
 	ChainTypeF                                      string
-	DefaultHTTPTimeoutF                             models.Duration
 	EvmEIP1559DynamicFeesF                          bool
 	EvmGasBumpPercentF                              uint16
 	EvmGasBumpThresholdF                            uint64
@@ -127,10 +125,6 @@ func (m *MockConfig) BlockHistoryEstimatorTransactionPercentile() uint16 {
 
 func (m *MockConfig) ChainType() config.ChainType {
 	return config.ChainType(m.ChainTypeF)
-}
-
-func (m *MockConfig) DefaultHTTPTimeout() models.Duration {
-	return m.DefaultHTTPTimeoutF
 }
 
 func (m *MockConfig) EvmEIP1559DynamicFees() bool {
