@@ -23,6 +23,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -146,7 +148,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "offchain reporting",
 			toml: testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-				TransmitterAddress: app.Key.Address.Hex(),
+				TransmitterAddress: app.Keys[0].Address.Hex(),
 				DS1BridgeName:      b1,
 				DS2BridgeName:      b2,
 			}).Toml(),
@@ -498,7 +500,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
-	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
+	jb.OCROracleSpec.TransmitterAddress = &app.Keys[0].EIP55Address
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 	dbJb, err := app.JobORM().FindJob(testutils.Context(t), jb.ID)
@@ -510,7 +512,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 		DS1BridgeName:      bridge2.Name.String(),
 		DS2BridgeName:      bridge.Name.String(),
 		Name:               "updated OCR job",
-		TransmitterAddress: app.Key.Address.Hex(),
+		TransmitterAddress: app.Keys[0].Address.Hex(),
 	})
 	require.NoError(t, err)
 	body, _ := json.Marshal(web.UpdateJobRequest{
@@ -553,7 +555,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
-	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
+	jb.OCROracleSpec.TransmitterAddress = &app.Keys[0].EIP55Address
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
@@ -562,7 +564,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		DS1BridgeName:      bridge2.Name.String(),
 		DS2BridgeName:      bridge.Name.String(),
 		Name:               "updated OCR job",
-		TransmitterAddress: app.Key.EIP55Address.String(),
+		TransmitterAddress: app.Keys[0].EIP55Address.String(),
 	})
 	require.NoError(t, err)
 	body, _ := json.Marshal(web.UpdateJobRequest{
@@ -611,10 +613,11 @@ func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) (b1, b2 string) {
 }
 
 func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
-	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -626,10 +629,11 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
-	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -648,7 +652,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
-	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
+	jb.OCROracleSpec.TransmitterAddress = &app.Keys[0].EIP55Address
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
