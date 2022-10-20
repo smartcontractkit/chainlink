@@ -603,11 +603,9 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		// Counters are prune to being in-accurate due to re-orgs.
 		if ec.config.EvmUseForwarders() {
 			meta, err := attempt.EthTx.GetMeta()
-			if err == nil && meta != nil {
-				if meta.FwdrDestAddress != nil {
-					// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
-					promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
-				}
+			if err == nil && meta != nil && meta.FwdrDestAddress != nil {
+				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
+				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
 			}
 		}
 
