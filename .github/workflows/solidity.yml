@@ -222,9 +222,14 @@ jobs:
       - name: Verify local solc binaries
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ./tools/ci/check_solc_hashes
-      - name: Display git diff
+      - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: git diff --minimal --color --exit-code | diff-so-fancy
+      - name: Comment on fix instructions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        if: ${{ failure() }}
+        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make go-soldity-wrappers` command'
 
   lint:
     defaults:
