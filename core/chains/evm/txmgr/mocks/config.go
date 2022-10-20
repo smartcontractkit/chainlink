@@ -10,8 +10,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
-
 	time "time"
 )
 
@@ -127,20 +125,6 @@ func (_m *Config) ChainType() config.ChainType {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(config.ChainType)
-	}
-
-	return r0
-}
-
-// DefaultHTTPTimeout provides a mock function with given fields:
-func (_m *Config) DefaultHTTPTimeout() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
 	}
 
 	return r0
