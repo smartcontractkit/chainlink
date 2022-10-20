@@ -429,8 +429,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
 			PerformLogProvider:           logProvider,
-			CacheExpiration:              cfg.CacheExpiration,
-			CacheEvictionInterval:        cfg.CacheEvictionInterval,
+			CacheExpiration:              cfg.CacheExpiration.Value(),
+			CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
 			MaxServiceWorkers:            cfg.MaxServiceWorkers,
 			ServiceQueueLength:           cfg.ServiceQueueLength,
 		}

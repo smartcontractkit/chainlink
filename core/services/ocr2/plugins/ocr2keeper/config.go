@@ -6,17 +6,42 @@ import (
 	"time"
 )
 
+type Duration time.Duration
+
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var raw string
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+
+	p, err := time.ParseDuration(raw)
+	if err != nil {
+		return err
+	}
+
+	*d = Duration(p)
+	return nil
+}
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return []byte(time.Duration(d).String()), nil
+}
+
+func (d Duration) Value() time.Duration {
+	return time.Duration(d)
+}
+
 type PluginConfig struct {
 	// CacheExpiration is the duration of time a cached key is available. Use
 	// this value to balance memory usage and RPC calls. A new set of keys is
 	// generated with every block so a good setting might come from block time
 	// times number of blocks of history to support not replaying reports.
-	CacheExpiration time.Duration `json:"cacheExpiration"`
+	CacheExpiration Duration `json:"cacheExpiration"`
 	// CacheEvictionInterval is a parameter for how often the cache attempts to
 	// evict expired keys. This value should be short enough to ensure key
 	// eviction doesn't block for too long, and long enough that it doesn't
 	// cause frequent blocking.
-	CacheEvictionInterval time.Duration `json:"cacheEvictionInterval"`
+	CacheEvictionInterval Duration `json:"cacheEvictionInterval"`
 	// MaxServiceWorkers is the total number of go-routines allowed to make RPC
 	// simultaneous calls on behalf of the sampling operation. This parameter
 	// is 10x the number of available CPUs by default. The RPC calls are memory
@@ -29,54 +54,6 @@ type PluginConfig struct {
 	ServiceQueueLength int `json:"serviceQueueLength"`
 }
 
-type rawStruct struct {
-	cacheExpiration       string
-	cacheEvictionInterval string
-	maxServiceWorkers     int
-	serviceQueueLength    int
-}
-
-func (c *PluginConfig) UnmarshalJSON(b []byte) error {
-
-	var raw rawStruct
-	err := json.Unmarshal(b, &raw)
-	if err != nil {
-		return err
-	}
-
-	conf := PluginConfig{
-		MaxServiceWorkers:  raw.maxServiceWorkers,
-		ServiceQueueLength: raw.serviceQueueLength,
-	}
-
-	d, err := time.ParseDuration(raw.cacheExpiration)
-	if err != nil {
-		return err
-	}
-
-	conf.CacheExpiration = d
-
-	d, err = time.ParseDuration(raw.cacheEvictionInterval)
-	if err != nil {
-		return err
-	}
-
-	conf.CacheEvictionInterval = d
-	*c = conf
-	return nil
-}
-
-func (c PluginConfig) MarshalJSON() ([]byte, error) {
-	raw := rawStruct{
-		cacheExpiration:       c.CacheExpiration.String(),
-		cacheEvictionInterval: c.CacheEvictionInterval.String(),
-		maxServiceWorkers:     c.MaxServiceWorkers,
-		serviceQueueLength:    c.ServiceQueueLength,
-	}
-
-	return json.Marshal(raw)
-}
-
 func ValidatePluginConfig(cfg PluginConfig) error {
 	if cfg.CacheExpiration < 0 {
 		return fmt.Errorf("cache expiration cannot be less than zero")
@@ -86,7 +63,7 @@ func ValidatePluginConfig(cfg PluginConfig) error {
 		return fmt.Errorf("cache eviction interval cannot be less than zero")
 	}
 
-	if cfg.CacheEvictionInterval > 0 && cfg.CacheEvictionInterval < time.Second {
+	if cfg.CacheEvictionInterval > 0 && cfg.CacheEvictionInterval.Value() < time.Second {
 		return fmt.Errorf("cache eviction interval should be more than every second")
 	}
 
