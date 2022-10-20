@@ -207,6 +207,8 @@ jobs:
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
+      - name: Install diff-so-fancy
+        run: npm i -g diff-so-fancy
       - name: Setup Go
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
@@ -218,7 +220,7 @@ jobs:
         run: ./tools/ci/check_solc_hashes
       - name: Display git diff
         if: ${{ needs.changes.outputs.changes == 'true' }}
-        run: git diff --minimal
+        run: git diff --minimal --color --exit-code | diff-so-fancy
 
   lint:
     defaults:
