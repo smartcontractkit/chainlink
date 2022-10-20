@@ -192,15 +192,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if err != nil {
 					return err
 				}
-				if newChain == nil {
-					return errors.New("internal error: chainSet.Default() should never return nil")
-				}
 				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
 			}
 			newChainID := jb.OCROracleSpec.EVMChainID
 
 			existingSpec := new(OCROracleSpec)
-			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL OR $2 IS NULL) LIMIT 1;`,
+			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL) LIMIT 1;`,
 				jb.OCROracleSpec.ContractAddress, newChainID,
 			)
 
