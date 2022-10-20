@@ -5,7 +5,6 @@ package soltxm_test
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -194,7 +193,6 @@ func TestTxm_Integration(t *testing.T) {
 	// setup mock keystore
 	mkey := mocks.NewSolana(t)
 	mkey.On("Get", key.ID()).Return(key, nil)
-	mkey.On("Get", loadTestKey.ID()).Return(loadTestKey, nil)
 	mkey.On("Get", pubKeyReceiver.String()).Return(solkey.Key{}, keystore.KeyNotFoundError{ID: pubKeyReceiver.String(), KeyType: "Solana"})
 
 	// set up txm
@@ -264,103 +262,103 @@ func TestTxm_Integration(t *testing.T) {
 		// TXM will see onchain error (accept initial tx)
 		require.NoError(t, txm.Enqueue("test_invalidReceiver", createTx(pubKey, pubKey, solana.PublicKey{}, solana.LAMPORTS_PER_SOL)))
 		require.NoError(t, txm.Enqueue("test_invalidAmount", createTx(pubKey, pubKey, pubKeyReceiver, 1000*solana.LAMPORTS_PER_SOL)))
-		// TODO: invalid or outdated blockhash is simply dropped by network and can never be confirmed
-		// require.NoError(t, txm.Enqueue("test_invalidBlockhash", createTxWithBlockhash(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL, solana.Hash{})))
+		// invalid or outdated blockhash is simply dropped by network and can never be confirmed
+		require.NoError(t, txm.Enqueue("test_invalidBlockhash", XXXTxWithBlockhash(t, pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL, solana.Hash{})))
 
 		XXXConfirmDone(t, ctx, txm)
 	})
 
 }
 
-func TestTxm_Congestion(t *testing.T) {
-	ctx := testutils.Context(t)
-	// url := solanaClient.SetupLocalSolNodeOpts(t, LOADTEST_TICKSPERSLOT)
-	url := "http://localhost:8899"
+// func TestTxm_Congestion(t *testing.T) {
+// 	ctx := testutils.Context(t)
+// 	// url := solanaClient.SetupLocalSolNodeOpts(t, LOADTEST_TICKSPERSLOT)
+// 	url := "http://localhost:8899"
 
-	// txm key
-	key, err := solkey.New()
-	require.NoError(t, err)
+// 	// txm key
+// 	key, err := solkey.New()
+// 	require.NoError(t, err)
 
-	// spam keys
-	spamN := 15
-	var spam []solana.PrivateKey
-	var spamFund []solana.PublicKey
-	for i := 0; i < spamN; i++ {
-		spamKey, err := solana.NewRandomPrivateKey()
-		require.NoError(t, err)
-		spam = append(spam, spamKey)
-		spamFund = append(spamFund, spamKey.PublicKey())
-	}
+// 	// spam keys
+// 	spamN := 15
+// 	var spam []solana.PrivateKey
+// 	var spamFund []solana.PublicKey
+// 	for i := 0; i < spamN; i++ {
+// 		spamKey, err := solana.NewRandomPrivateKey()
+// 		require.NoError(t, err)
+// 		spam = append(spam, spamKey)
+// 		spamFund = append(spamFund, spamKey.PublicKey())
+// 	}
 
-	// fund keys
-	solanaClient.FundTestAccounts(t, append(spamFund, key.PublicKey()), url)
+// 	// fund keys
+// 	solanaClient.FundTestAccounts(t, append(spamFund, key.PublicKey()), url)
 
-	// setup mock keystore
-	mkey := mocks.NewSolana(t)
-	mkey.On("Get", key.ID()).Return(key, nil)
+// 	// setup mock keystore
+// 	mkey := mocks.NewSolana(t)
+// 	mkey.On("Get", key.ID()).Return(key, nil)
 
-	// set up txm
-	txm, client, cfg, createTx := XXXSetupTxm(t, url, mkey)
+// 	// set up txm
+// 	txm, client, cfg, createTx := XXXSetupTxm(t, url, mkey)
 
-	// start
-	require.NoError(t, txm.Start(ctx))
-	t.Cleanup(func() {
-		require.NoError(t, txm.Close())
-	})
+// 	// start
+// 	require.NoError(t, txm.Start(ctx))
+// 	t.Cleanup(func() {
+// 		require.NoError(t, txm.Close())
+// 	})
 
-	// already started
-	assert.Error(t, txm.Start(ctx))
+// 	// already started
+// 	assert.Error(t, txm.Start(ctx))
 
-	// track times
-	var noCongestion time.Duration
-	var congestedNoFees time.Duration
-	var congestedWithFees time.Duration
+// 	// track times
+// 	var noCongestion time.Duration
+// 	var congestedNoFees time.Duration
+// 	var congestedWithFees time.Duration
 
-	t.Log("Benchmarking: No Congestion")
-	// load test: try to overload txs, confirm
-	// benchmark for congestion testing
-	// set fees to no bumping
-	cfg.Update(db.ChainCfg{
-		DefaultComputeUnitPrice: null.IntFrom(0),
-		MinComputeUnitPrice:     null.IntFrom(0),
-		MaxComputeUnitPrice:     null.IntFrom(0),
-	})
+// 	t.Log("Benchmarking: No Congestion")
+// 	// load test: try to overload txs, confirm
+// 	// benchmark for congestion testing
+// 	// set fees to no bumping
+// 	cfg.Update(db.ChainCfg{
+// 		DefaultComputeUnitPrice: null.IntFrom(0),
+// 		MinComputeUnitPrice:     null.IntFrom(0),
+// 		MaxComputeUnitPrice:     null.IntFrom(0),
+// 	})
 
-	noCongestion = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
+// 	noCongestion = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
 
-	// start spammers
-	stop := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Add(spamN)
-	for i := 0; i < spamN; i++ {
-		go func(ind int) {
-			go XXXNetworkSpam(t, stop, client, spam[ind])
-			wg.Done()
-		}(i)
-	}
+// 	// start spammers
+// 	stop := make(chan struct{})
+// 	var wg sync.WaitGroup
+// 	wg.Add(spamN)
+// 	for i := 0; i < spamN; i++ {
+// 		go func(ind int) {
+// 			go XXXNetworkSpam(t, stop, client, spam[ind])
+// 			wg.Done()
+// 		}(i)
+// 	}
 
-	t.Log("Benchmarking: Congested + No Fee Txm")
-	// note this will show errors regarding duplicate signatures because the fee cannot be bumped so the rebroadcast tx is identical => identical signature
-	congestedNoFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
+// 	t.Log("Benchmarking: Congested + No Fee Txm")
+// 	// note this will show errors regarding duplicate signatures because the fee cannot be bumped so the rebroadcast tx is identical => identical signature
+// 	congestedNoFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
 
-	t.Log("Benchmarking: Congested + Fee Enhanced Txm")
-	// set fees to no bumping
-	cfg.Update(db.ChainCfg{
-		DefaultComputeUnitPrice: null.IntFrom(2),
-		MinComputeUnitPrice:     null.IntFrom(0),
-		MaxComputeUnitPrice:     null.IntFrom(1_000_000),
-	})
-	congestedWithFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
+// 	t.Log("Benchmarking: Congested + Fee Enhanced Txm")
+// 	// set fees to no bumping
+// 	cfg.Update(db.ChainCfg{
+// 		DefaultComputeUnitPrice: null.IntFrom(2),
+// 		MinComputeUnitPrice:     null.IntFrom(0),
+// 		MaxComputeUnitPrice:     null.IntFrom(1_000_000),
+// 	})
+// 	congestedWithFees = XXXLoadTest(t, ctx, txm, createTx, key.PublicKey())
 
-	// log accounts used
-	fmt.Println("Sender", key.PublicKey())
-	fmt.Println("Spammers", spamFund)
+// 	// log accounts used
+// 	fmt.Println("Sender", key.PublicKey())
+// 	fmt.Println("Spammers", spamFund)
 
-	// stop spammers
-	close(stop)
-	wg.Wait()
+// 	// stop spammers
+// 	close(stop)
+// 	wg.Wait()
 
-	t.Logf("Benchmark:\n- No Congestion = %d\n- Congested (No Fees) = %d\n- Congested (With Fees) = %d", noCongestion, congestedNoFees, congestedWithFees)
-	assert.True(t, noCongestion < congestedNoFees, "congestedNoFees should take longer than noCongestion")
-	assert.True(t, congestedNoFees > congestedWithFees, "congestedNoFees should take longer than congestedWithFees")
-}
+// 	t.Logf("Benchmark:\n- No Congestion = %d\n- Congested (No Fees) = %d\n- Congested (With Fees) = %d", noCongestion, congestedNoFees, congestedWithFees)
+// 	assert.True(t, noCongestion < congestedNoFees, "congestedNoFees should take longer than noCongestion")
+// 	assert.True(t, congestedNoFees > congestedWithFees, "congestedNoFees should take longer than congestedWithFees")
+// }

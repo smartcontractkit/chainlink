@@ -157,11 +157,8 @@ func (txm *Txm) run() {
 			tx.Signatures = append(tx.Signatures, finalSig)
 
 			// process tx
-			sig, err := txm.send(ctx, tx)
+			sig, validBlockhash, err := txm.send(ctx, tx)
 			if err != nil {
-				// TODO: handle failed b/c blockhash expired or invalid
-				// tx is silently dropped, update the blockhash?
-
 				txm.lggr.Errorw("failed to send transaction", "error", err, "id", id, "tx", tx)
 				txm.client.Reset() // clear client if tx fails immediately (potentially bad RPC)
 
@@ -175,6 +172,17 @@ func (txm *Txm) run() {
 				// (fee is not bumped if txs.Add is not called => `broadcast = false`)
 				txm.chSend <- msg
 				continue // skip remainining
+			}
+
+			// if invalid blockhash, remove and skip tx
+			if !validBlockhash {
+				txm.lggr.Warnw("removing tx - invalid blockhash", "id", id, "blockhash", tx.Message.RecentBlockhash)
+				if err := txm.txs.Remove(id); err != nil {
+					txm.lggr.Debugw("failed to remove tx ID - it has likely already been removed", "error", err)
+					continue // skip incrementing error if tx already removed
+				}
+				txm.txs.OnError(sig, TxInvalidBlockhash)
+				continue
 			}
 
 			txm.lggr.Debugw("transaction sent", "signature", sig.String())
@@ -200,25 +208,34 @@ func (txm *Txm) run() {
 }
 
 // sendWithExpBackoff broadcasts a transaction at an exponential backoff rate to increase chances of inclusion by the next validator by rebroadcasting more tx packets
-func (txm *Txm) send(chanCtx context.Context, tx *solanaGo.Transaction) (solanaGo.Signature, error) {
+func (txm *Txm) send(chanCtx context.Context, tx *solanaGo.Transaction) (sig solanaGo.Signature, validBlockhash bool, err error) {
 	// fetch client
 	client, err := txm.client.Get()
 	if err != nil {
-		return solanaGo.Signature{}, errors.Wrap(err, "failed to get client in soltxm.sendWithExpBackoff")
+		return solanaGo.Signature{}, validBlockhash, errors.Wrap(err, "failed to get client in soltxm.sendWithExpBackoff")
 	}
 
 	// create timeout context
 	ctx, cancel := context.WithTimeout(chanCtx, txm.cfg.TxTimeout())
 	defer cancel()
 
-	// send tx
-	sig, err := client.SendTx(ctx, tx) // returns 000.. signature if errors
+	// validate block hash
+	validBlockhash, err = client.IsBlockhashValid(ctx, tx.Message.RecentBlockhash)
 	if err != nil {
-		return solanaGo.Signature{}, errors.Wrap(err, "tx failed transmit")
+		return sig, validBlockhash, errors.Wrap(err, "err in txm.send.IsBlockhashValid")
+	}
+	if !validBlockhash {
+		return sig, validBlockhash, nil
+	}
+
+	// send tx
+	sig, err = client.SendTx(ctx, tx) // returns 000.. signature if errors
+	if err != nil {
+		return sig, validBlockhash, errors.Wrap(err, "tx failed transmit")
 	}
 
 	// return signature for use in simulation
-	return sig, nil
+	return sig, validBlockhash, nil
 }
 
 // goroutine that polls to confirm implementation
