@@ -20,6 +20,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 var (
@@ -39,6 +40,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 		"batchSize", cfg.BlockHistoryEstimatorBatchSize(),
 		"blockDelay", cfg.BlockHistoryEstimatorBlockDelay(),
 		"blockHistorySize", cfg.BlockHistoryEstimatorBlockHistorySize(),
+		"defaultHTTPTimeout", cfg.DefaultHTTPTimeout(),
 		"eip1559FeeCapBufferBlocks", cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks(),
 		"transactionPercentile", cfg.BlockHistoryEstimatorTransactionPercentile(),
 		"eip1559DynamicFees", cfg.EvmEIP1559DynamicFees(),
@@ -61,7 +63,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 	case "FixedPrice":
 		return NewFixedPriceEstimator(cfg, lggr)
 	case "Optimism2", "L2Suggested":
-		return NewL2SuggestedPriceEstimator(lggr, ethClient)
+		return NewL2SuggestedPriceEstimator(cfg, lggr, ethClient)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(cfg, lggr)
@@ -134,6 +136,7 @@ type Config interface {
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainType() config.ChainType
+	DefaultHTTPTimeout() models.Duration
 	EvmEIP1559DynamicFees() bool
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
