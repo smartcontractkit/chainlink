@@ -16,13 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type ArbConfig interface {
 	EvmGasLimitMax() uint32
-	DefaultHTTPTimeout() models.Duration
 }
 
 //go:generate mockery --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
@@ -56,7 +54,7 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		Estimator:      NewL2SuggestedPriceEstimator(cfg, lggr, rpcClient),
+		Estimator:      NewL2SuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
