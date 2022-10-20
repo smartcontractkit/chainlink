@@ -341,7 +341,7 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 Enabled = false # Default
 ForwardToUrl = 'http://localhost:9898' # Example
 JsonWrapperKey = 'event' # Example
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
 ```
 
 
@@ -365,7 +365,7 @@ JsonWrapperKey if set wraps the map of data under another single key to make par
 
 ### Headers<a id='AuditLogger-Headers'></a>
 ```toml
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
 ```
 Headers is the set of headers you wish to pass along with each request
 
@@ -3926,7 +3926,8 @@ Mode controls what type of gas estimator is used.
 
 - `FixedPrice` uses static configured values for gas price (can be set via API call).
 - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `L2Suggested`
+- `Optimism2`/`L2Suggested` is a special mode only for use with Optimism and Metis blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+- `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 
 Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
 

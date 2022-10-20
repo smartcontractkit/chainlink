@@ -9,10 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // LeaseLock handles taking an exclusive lease on database access. This is not
@@ -185,11 +186,16 @@ func (l *leaseLock) logRetry(count int) {
 func (l *leaseLock) loop(ctx context.Context) {
 	defer l.wgReleased.Done()
 
-	ticker := time.NewTicker(l.refreshInterval)
-	defer ticker.Stop()
+	refresh := time.NewTicker(l.refreshInterval)
+	defer refresh.Stop()
+
+	stats := time.NewTicker(dbStatsInternal)
+	defer stats.Stop()
 
 	for {
 		select {
+		case <-stats.C:
+			publishStats(l.db.Stats())
 		case <-ctx.Done():
 			qctx, cancel := DefaultQueryCtx()
 			err := multierr.Combine(
@@ -201,7 +207,7 @@ func (l *leaseLock) loop(ctx context.Context) {
 				l.logger.Warnw("Error trying to release lease on cancelled ctx", "err", err)
 			}
 			return
-		case <-ticker.C:
+		case <-refresh.C:
 			qctx, cancel := context.WithTimeout(ctx, l.leaseDuration)
 			gotLease, err := l.getLease(qctx, false)
 			if errors.Is(err, sql.ErrConnDone) {

@@ -92,9 +92,6 @@ func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting2
 }
 
-func (Delegate) OnJobCreated(spec job.Job) {}
-func (Delegate) OnJobDeleted(spec job.Job) {}
-
 func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 

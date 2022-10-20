@@ -15,11 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -96,7 +96,6 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	n := 10
 
@@ -131,7 +130,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
@@ -191,20 +189,20 @@ func TestJobController_Create_HappyPath(t *testing.T) {
                                   externalJobID               = "123e4567-e89b-12d3-a456-426655440002"
                              `,
 			assertion: func(t *testing.T, r *http.Response) {
-				require.Equal(t, http.StatusOK, r.StatusCode)
+				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
 
-				resource := presenters.JobResource{}
-				b := cltest.ParseResponseBody(t, r)
-				err := web.ParseJSONAPIResponse(b, &resource)
-				require.NoError(t, err)
-				require.NotNil(t, resource.KeeperSpec)
-
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				errs := cltest.ParseJSONAPIErrors(t, r.Body)
+				require.NotNil(t, errs)
+				require.Len(t, errs.Errors, 1)
+				// services failed to start
+				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
+				// but the job should still exist
+				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440002")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
-				require.Equal(t, resource.KeeperSpec.ContractAddress, jb.KeeperSpec.ContractAddress)
-				require.Equal(t, resource.KeeperSpec.FromAddress, jb.KeeperSpec.FromAddress)
+				require.Equal(t, ethkey.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
+				require.Equal(t, ethkey.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 				assert.Equal(t, "example keeper spec", jb.Name.ValueOrZero())
 
 				// Sanity check to make sure it inserted correctly
@@ -293,17 +291,21 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "fluxmonitor",
 			toml: testspecs.FluxMonitorSpec,
 			assertion: func(t *testing.T, r *http.Response) {
-				require.Equal(t, http.StatusOK, r.StatusCode)
-				resource := presenters.JobResource{}
-				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
+
+				errs := cltest.ParseJSONAPIErrors(t, r.Body)
+				require.NotNil(t, errs)
+				require.Len(t, errs.Errors, 1)
+				// services failed to start
+				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
+				// but the job should still exist
+				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440005")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 
 				assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
-				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				assert.NotNil(t, jb.PipelineSpec.DotDagSource)
 				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
 				assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
@@ -472,7 +474,9 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 func TestJobsController_Update_HappyPath(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
+	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -525,7 +529,9 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 func TestJobsController_Update_NonExistentID(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
+	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -607,7 +613,9 @@ func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) (b1, b2 string) {
 func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
+	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -620,7 +628,9 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
+	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
