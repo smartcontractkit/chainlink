@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
@@ -23,70 +24,60 @@ var ZeroAddress = common.Address{}
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs that
 // read from different adapters, to be used in combination with SetAdapterResponses
-func CreateOCRKeeperJobs(
-	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.Chainlink,
-	mockserver *ctfClient.MockserverClient,
-	registryAddr string,
-) func() {
-	return func() {
-		for _, ocrInstance := range ocrInstances {
-			bootstrapNode := chainlinkNodes[0]
-			bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
-			Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from bootstrap node")
-			bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
-			bootstrapSpec := &client.OCRBootstrapJobSpec{
-				Name:            fmt.Sprintf("bootstrap-%s", uuid.NewV4().String()),
-				ContractAddress: ocrInstance.Address(),
-				P2PPeerID:       bootstrapP2PId,
-				IsBootstrapPeer: true,
-			}
-			_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
-			Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bootstrap job on bootstrap node")
+func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClient.MockserverClient, registryAddr string) {
 
-			for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
-				nodeP2PIds, err := chainlinkNodes[nodeIndex].MustReadP2PKeys()
-				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from OCR node %d", nodeIndex+1)
-				nodeP2PId := nodeP2PIds.Data[0].Attributes.PeerID
-				nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].PrimaryEthAddress()
-				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
-				nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCRKeys()
-				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
-				nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+	bootstrapNode := chainlinkNodes[0]
+	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
+	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from bootstrap node")
+	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
+	bootstrapSpec := &client.OCRBootstrapJobSpec{
+		Name:            fmt.Sprintf("automation-bootstrap-%s", uuid.NewV4().String()),
+		ContractAddress: registryAddr, //registry addr
+		P2PPeerID:       bootstrapP2PId,
+		IsBootstrapPeer: true,
+	}
+	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
+	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bootstrap job on bootstrap node")
 
-				fmt.Println(nodeP2PId, nodeTransmitterAddress, nodeOCRKeyId)
+	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
+		//nodeP2PIds, err := chainlinkNodes[nodeIndex].MustReadP2PKeys()
+		//Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from OCR node %d", nodeIndex+1)
+		//nodeP2PId := nodeP2PIds.Data[0].Attributes.PeerID
+		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].PrimaryEthAddress()
+		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
+		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCRKeys()
+		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
+		nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-				nodeContractPairID := BuildNodeContractPairID(chainlinkNodes[nodeIndex], ocrInstance)
-				Expect(err).ShouldNot(HaveOccurred())
-				bta := client.BridgeTypeAttributes{
-					Name: nodeContractPairID,
-					URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, nodeContractPairID),
-				}
-
-				// This sets a default value for all node and ocr instances in order to avoid 404 issues
-				SetAllAdapterResponsesToTheSameValue(0, ocrInstances, chainlinkNodes, mockserver)
-
-				err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
-				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
-
-				//ocrSpec := &client.OCRTaskJobSpec{
-				//	ContractAddress:    ocrInstance.Address(),
-				//	P2PPeerID:          nodeP2PId,
-				//	P2PBootstrapPeers:  []*client.Chainlink{bootstrapNode},
-				//	KeyBundleID:        nodeOCRKeyId,
-				//	TransmitterAddress: nodeTransmitterAddress,
-				//	ObservationSource:  client.ObservationSourceSpecBridge(bta),
-				//}
-				_, err = chainlinkNodes[nodeIndex].MustCreateJob(&client.KeeperOCRJobSpec{
-					ContractID:         registryAddr,           // registryAddr
-					OCRKeyBundleID:     "",                     // get node ocr2config.ID
-					TransmitterID:      nodeTransmitterAddress, // node addr
-					P2Pv2Bootstrappers: "",                     // bootstrap node key and address
-					ChainID:            0,
-				})
-				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
-			}
+		shortNodeAddr := nodeTransmitterAddress[2:12]
+		shortOCRAddr := registryAddr[2:12]
+		nodeContractPairID := strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr))
+		//nodeContractPairID := BuildNodeContractPairID(chainlinkNodes[nodeIndex], ocrInstance)
+		Expect(err).ShouldNot(HaveOccurred())
+		bta := client.BridgeTypeAttributes{
+			Name: nodeContractPairID,
+			URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, nodeContractPairID),
 		}
+
+		err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
+		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
+
+		//ocrSpec := &client.OCRTaskJobSpec{
+		//	ContractAddress:    ocrInstance.Address(),
+		//	P2PPeerID:          nodeP2PId,
+		//	P2PBootstrapPeers:  []*client.Chainlink{bootstrapNode},
+		//	KeyBundleID:        nodeOCRKeyId,
+		//	TransmitterAddress: nodeTransmitterAddress,
+		//	ObservationSource:  client.ObservationSourceSpecBridge(bta),
+		//}
+		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&client.KeeperOCRJobSpec{
+			ContractID:         registryAddr,           // registryAddr
+			OCRKeyBundleID:     nodeOCRKeyId,           // get node ocr2config.ID
+			TransmitterID:      nodeTransmitterAddress, // node addr
+			P2Pv2Bootstrappers: "",                     // bootstrap node key and address <p2p-key>@bootstrap:8000
+			ChainID:            0,
+		})
+		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
 }
 

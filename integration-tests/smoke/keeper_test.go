@@ -175,7 +175,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			envVars["FEATURE_LOG_POLLER"] = true
 			envVars["P2P_NETWORKING_STACK"] = "V2"
 			envVars["CHAINLINK_TLS_PORT"] = 0
-			envVars["P2PV2_LISTEN_ADDRESSES"] = "0.0.0.0:8000"
+			// does port matter
+			envVars["P2PV2_LISTEN_ADDRESSES"] = "0.0.0.0:19494"
 		}
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
@@ -247,22 +248,11 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		}
 
 		if OCR {
-			// TODO: create bootstrap, create ocr jobs, config
-
-			// below currently just stolen from ocr helper
-			By("Deploying OCR contracts")
-			ocrInstances := actions.DeployOCRContracts(1, linkToken, contractDeployer, chainlinkNodes, chainClient)
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred())
-
 			mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
-
-			//By("Setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer))
-			By("Creating OCR jobs", actions.CreateOCRKeeperJobs(ocrInstances, chainlinkNodes, mockServer, registry.Address()))
+			actions.CreateOCRKeeperJobs(chainlinkNodes, mockServer, registry.Address())
 			//	do we need to start rounds?
 			//	By("Starting new round", actions.StartNewRound(1, ocrInstances, chainClient))
-
 		} else {
 			// legacy non-OCR
 			By("Register Keeper Jobs")
