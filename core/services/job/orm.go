@@ -70,6 +70,8 @@ type ORM interface {
 
 	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
+
+	FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error)
 }
 
 type orm struct {
@@ -261,8 +263,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					}
 				}
 			}
-			switch jb.OCR2OracleSpec.PluginType {
-			case Median:
+			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
@@ -275,7 +276,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if err2 := o.assertBridgesExist(*feePipeline); err2 != nil {
 					return err2
 				}
-			case DKG, OCR2VRF:
 			}
 
 			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
@@ -929,6 +929,31 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 		maxID = minID - 1
 	}
 	return
+}
+
+func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) (result []byte, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := fmt.Sprintf("SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1 AND dot_id = '%s';", taskName)
+
+		var taskRuns []pipeline.TaskRun
+		if errB := tx.Select(&taskRuns, stmt, runID); errB != nil {
+			return errB
+		}
+		if len(taskRuns) == 0 {
+			return fmt.Errorf("can't find task run with id: %v, taskName: %v", runID, taskName)
+		}
+		if len(taskRuns) > 1 {
+			o.lggr.Errorf("found multiple task runs with id: %v, taskName: %v. Using the first one.", runID, taskName)
+		}
+		taskRun := taskRuns[0]
+		resBytes, errB := taskRun.Output.MarshalJSON()
+		if errB != nil {
+			return errB
+		}
+		result = resBytes
+		return nil
+	})
+	return result, errors.Wrap(err, "failed")
 }
 
 // FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.
