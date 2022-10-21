@@ -8,6 +8,7 @@ require (
 	github.com/ava-labs/coreth v0.8.14
 	github.com/btcsuite/btcd v0.23.1
 	github.com/cosmos/cosmos-sdk v0.44.5
+	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -24,6 +25,7 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20201101042839-6a891bf89f19
 	github.com/gin-gonic/gin v1.8.1
 	github.com/gogo/protobuf v1.3.3
+	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
@@ -78,8 +80,10 @@ require (
 	github.com/tidwall/gjson v1.14.3
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/umbracle/ethgo v0.1.3
+	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.10
+	github.com/valyala/fastjson v1.4.1 // indirect
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.13
 	go.uber.org/atomic v1.9.0
@@ -89,19 +93,12 @@ require (
 	golang.org/x/exp v0.0.0-20220608143224-64259d1afd70
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
-	golang.org/x/text v0.3.7
+	golang.org/x/text v0.4.0
 	golang.org/x/tools v0.1.12
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-)
-
-require (
-	github.com/cosmos/gorocksdb v1.2.0 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
-	github.com/valyala/fastjson v1.4.1 // indirect
 )
 
 require (
@@ -372,4 +369,6 @@ replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 exclude (
 	github.com/influxdata/influxdb v1.8.3
 	github.com/labstack/echo/v4 v4.5.0
+	github.com/nats-io/nats-server/v2 v2.1.2
+	github.com/nats-io/nats-server/v2 v2.5.0
 )
