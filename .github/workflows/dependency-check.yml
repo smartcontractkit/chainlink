@@ -38,4 +38,4 @@ jobs:
       - name: Check vulnerabilities
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
-          nancyVersion: "v1.0.22"
+          nancyVersion: "v1.0.39"
