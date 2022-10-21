@@ -103,6 +103,25 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
+	t.Run("Delete removes key even if eth_txes are present", func(t *testing.T) {
+		defer reset()
+		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+		require.NoError(t, err)
+		// ensure at least one state is present
+		cltest.AssertCount(t, db, statesTableName, 1)
+
+		// add one eth_tx
+		borm := cltest.NewTxmORM(t, db, cfg)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, key.Address)
+
+		_, err = ethKeyStore.Delete(key.ID())
+		require.NoError(t, err)
+		retrievedKeys, err := ethKeyStore.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(retrievedKeys))
+		cltest.AssertCount(t, db, statesTableName, 0)
+	})
+
 	t.Run("EnsureKeys / EnabledKeysForChain", func(t *testing.T) {
 		defer reset()
 		err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
