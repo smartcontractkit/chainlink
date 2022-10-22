@@ -220,7 +220,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	var gasPrice, gasTipCap, gasFeeCap *assets.Wei
 	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
-		price, fee, err := ex.estimateGasPrice(upkeep)
+		price, fee, err := ex.estimateGasPrice(ctxService, upkeep)
 		if err != nil {
 			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
 			return
@@ -266,7 +266,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	}
 }
 
-func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *assets.Wei, fee gas.DynamicFee, err error) {
+func (ex *UpkeepExecuter) estimateGasPrice(ctx context.Context, upkeep UpkeepRegistration) (gasPrice *assets.Wei, fee gas.DynamicFee, err error) {
 	var performTxData []byte
 	performTxData, err = Registry1_1ABI.Pack(
 		"performUpkeep", // performUpkeep is same across registry ABI versions
@@ -279,10 +279,10 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 
 	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
 	if ex.config.EvmEIP1559DynamicFees() {
-		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas, keySpecificGasPriceWei)
+		fee, _, err = ex.gasEstimator.GetDynamicFee(ctx, upkeep.ExecuteGas, keySpecificGasPriceWei)
 		fee.TipCap = fee.TipCap.AddPercentage(ex.config.KeeperGasTipCapBufferPercent())
 	} else {
-		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
+		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(ctx, performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
 		gasPrice = gasPrice.AddPercentage(ex.config.KeeperGasPriceBufferPercent())
 	}
 	if err != nil {

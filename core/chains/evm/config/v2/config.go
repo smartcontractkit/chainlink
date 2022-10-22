@@ -164,9 +164,6 @@ type EVMConfig struct {
 	Nodes EVMNodes
 }
 
-// Ensure that the embedded struct will be validated (w/o requiring a pointer receiver).
-var _ v2.Validated = Chain{}
-
 func (c *EVMConfig) SetFromDB(ch types.DBChain, nodes []types.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
@@ -224,6 +221,8 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 		}
 	}
 
+	err = multierr.Append(err, c.Chain.ValidateConfig())
+
 	return
 }
 
@@ -245,22 +244,17 @@ type Chain struct {
 	RPCDefaultBatchSize      *uint32
 	RPCBlockQueryDelay       *uint16
 
-	Transactions *Transactions
-
-	BalanceMonitor *BalanceMonitor
-
-	GasEstimator *GasEstimator
-
-	HeadTracker *HeadTracker
-
-	KeySpecific KeySpecificConfig `toml:",omitempty"`
-
-	NodePool *NodePool
-
-	OCR *OCR
+	Transactions   Transactions      `toml:",omitempty"`
+	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
+	GasEstimator   GasEstimator      `toml:",omitempty"`
+	HeadTracker    HeadTracker       `toml:",omitempty"`
+	KeySpecific    KeySpecificConfig `toml:",omitempty"`
+	NodePool       NodePool          `toml:",omitempty"`
+	OCR            OCR               `toml:",omitempty"`
+	OCR2           OCR2              `toml:",omitempty"`
 }
 
-func (c Chain) ValidateConfig() (err error) {
+func (c *Chain) ValidateConfig() (err error) {
 	var chainType config.ChainType
 	if c.ChainType != nil {
 		chainType = config.ChainType(*c.ChainType)
@@ -411,6 +405,24 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 }
 
+type OCR2 struct {
+	Automation Automation `toml:",omitempty"`
+}
+
+func (o *OCR2) setFrom(f *OCR2) {
+	o.Automation.setFrom(&f.Automation)
+}
+
+type Automation struct {
+	GasLimit *uint32
+}
+
+func (a *Automation) setFrom(f *Automation) {
+	if v := f.GasLimit; v != nil {
+		a.GasLimit = v
+	}
+}
+
 type BalanceMonitor struct {
 	Enabled *bool
 }
@@ -445,7 +457,7 @@ type GasEstimator struct {
 	TipCapDefault *assets.Wei
 	TipCapMin     *assets.Wei
 
-	BlockHistory *BlockHistoryEstimator
+	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -536,12 +548,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 		e.PriceMin = v
 	}
 	e.LimitJobType.setFrom(&f.LimitJobType)
-	if f.BlockHistory != nil {
-		if e.BlockHistory == nil {
-			e.BlockHistory = &BlockHistoryEstimator{}
-		}
-		e.BlockHistory.setFrom(f.BlockHistory)
-	}
+	e.BlockHistory.setFrom(&f.BlockHistory)
 }
 
 type GasLimitJobType struct {
@@ -617,11 +624,17 @@ func (ks KeySpecificConfig) ValidateConfig() (err error) {
 
 type KeySpecific struct {
 	Key          *ethkey.EIP55Address
-	GasEstimator *KeySpecificGasEstimator
+	GasEstimator KeySpecificGasEstimator `toml:",omitempty"`
 }
 
 type KeySpecificGasEstimator struct {
 	PriceMax *assets.Wei
+}
+
+func (e *KeySpecificGasEstimator) setFrom(f *KeySpecificGasEstimator) {
+	if v := f.PriceMax; v != nil {
+		e.PriceMax = v
+	}
 }
 
 type HeadTracker struct {
@@ -690,15 +703,9 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.ChainType = &cfg.ChainType.String
 	}
 	if cfg.EthTxReaperThreshold != nil {
-		if c.Transactions == nil {
-			c.Transactions = &Transactions{}
-		}
 		c.Transactions.ReaperThreshold = cfg.EthTxReaperThreshold
 	}
 	if cfg.EthTxResendAfterThreshold != nil {
-		if c.Transactions == nil {
-			c.Transactions = &Transactions{}
-		}
 		c.Transactions.ResendAfterThreshold = cfg.EthTxResendAfterThreshold
 	}
 	if cfg.EvmFinalityDepth.Valid {
@@ -706,23 +713,14 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.FinalityDepth = &v
 	}
 	if cfg.EvmHeadTrackerHistoryDepth.Valid {
-		if c.HeadTracker == nil {
-			c.HeadTracker = &HeadTracker{}
-		}
 		v := uint32(cfg.EvmHeadTrackerHistoryDepth.Int64)
 		c.HeadTracker.HistoryDepth = &v
 	}
 	if cfg.EvmHeadTrackerMaxBufferSize.Valid {
-		if c.HeadTracker == nil {
-			c.HeadTracker = &HeadTracker{}
-		}
 		v := uint32(cfg.EvmHeadTrackerMaxBufferSize.Int64)
 		c.HeadTracker.MaxBufferSize = &v
 	}
 	if i := cfg.EvmHeadTrackerSamplingInterval; i != nil {
-		if c.HeadTracker == nil {
-			c.HeadTracker = &HeadTracker{}
-		}
 		c.HeadTracker.SamplingInterval = cfg.EvmHeadTrackerSamplingInterval
 	}
 	if cfg.EvmLogBackfillBatchSize.Valid {
@@ -734,9 +732,6 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.NonceAutoSync = &cfg.EvmNonceAutoSync.Bool
 	}
 	if cfg.EvmUseForwarders.Valid {
-		if c.Transactions == nil {
-			c.Transactions = &Transactions{}
-		}
 		c.Transactions.ForwardersEnabled = &cfg.EvmUseForwarders.Bool
 	}
 	if cfg.EvmRPCDefaultBatchSize.Valid {
@@ -757,27 +752,15 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.FlagsContractAddress = &v
 	}
 	if cfg.GasEstimatorMode.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.Mode = &cfg.GasEstimatorMode.String
 	}
 	if cfg.EvmMaxGasPriceWei != nil {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.PriceMax = cfg.EvmMaxGasPriceWei
 	}
 	if cfg.EvmEIP1559DynamicFees.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.EIP1559DynamicFees = &cfg.EvmEIP1559DynamicFees.Bool
 	}
 	if cfg.EvmGasPriceDefault != nil {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.PriceDefault = cfg.EvmGasPriceDefault
 	}
 	if cfg.EvmGasLimitMultiplier.Valid {
@@ -785,98 +768,55 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.GasEstimator.LimitMultiplier = &v
 	}
 	if cfg.EvmGasTipCapDefault != nil {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.TipCapDefault = cfg.EvmGasTipCapDefault
 	}
 	if cfg.EvmGasTipCapMinimum != nil {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.TipCapMin = cfg.EvmGasTipCapMinimum
 	}
 	if cfg.EvmGasBumpPercent.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint16(cfg.EvmGasBumpPercent.Int64)
 		c.GasEstimator.BumpPercent = &v
 	}
 	if cfg.EvmGasBumpTxDepth.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint16(cfg.EvmGasBumpTxDepth.Int64)
 		c.GasEstimator.BumpTxDepth = &v
 	}
 	if cfg.EvmGasBumpWei != nil {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.BumpMin = cfg.EvmGasBumpWei
 	}
 	if cfg.EvmGasFeeCapDefault != nil {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		c.GasEstimator.FeeCapDefault = cfg.EvmGasFeeCapDefault
 	}
 	if cfg.EvmGasLimitDefault.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint32(cfg.EvmGasLimitDefault.Int64)
 		c.GasEstimator.LimitDefault = &v
 	}
 	if cfg.EvmGasLimitMax.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint32(cfg.EvmGasLimitMax.Int64)
 		c.GasEstimator.LimitMax = &v
 	}
 	if cfg.EvmGasLimitOCRJobType.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint32(cfg.EvmGasLimitOCRJobType.Int64)
 		c.GasEstimator.LimitJobType.OCR = &v
 	}
 	if cfg.EvmGasLimitDRJobType.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint32(cfg.EvmGasLimitDRJobType.Int64)
 		c.GasEstimator.LimitJobType.DR = &v
 	}
 	if cfg.EvmGasLimitVRFJobType.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint32(cfg.EvmGasLimitVRFJobType.Int64)
 		c.GasEstimator.LimitJobType.VRF = &v
 	}
 	if cfg.EvmGasLimitFMJobType.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint32(cfg.EvmGasLimitFMJobType.Int64)
 		c.GasEstimator.LimitJobType.FM = &v
 	}
 	if cfg.EvmGasLimitKeeperJobType.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
 		v := uint32(cfg.EvmGasLimitKeeperJobType.Int64)
 		c.GasEstimator.LimitJobType.Keeper = &v
 	}
 
 	if cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
-		if c.GasEstimator == nil {
-			c.GasEstimator = &GasEstimator{}
-		}
-		c.GasEstimator.BlockHistory = &BlockHistoryEstimator{}
 		if cfg.BlockHistoryEstimatorBlockHistorySize.Valid {
 			v := uint16(cfg.BlockHistoryEstimatorBlockHistorySize.Int64)
 			c.GasEstimator.BlockHistory.BlockHistorySize = &v
@@ -894,7 +834,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		v := ethkey.EIP55AddressFromAddress(a)
 		c.KeySpecific = append(c.KeySpecific, KeySpecific{
 			Key: &v,
-			GasEstimator: &KeySpecificGasEstimator{
+			GasEstimator: KeySpecificGasEstimator{
 				PriceMax: kcfg.EvmMaxGasPriceWei,
 			},
 		})

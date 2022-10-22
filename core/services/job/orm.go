@@ -70,6 +70,8 @@ type ORM interface {
 
 	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
+
+	FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error)
 }
 
 type orm struct {
@@ -87,6 +89,7 @@ func NewORM(
 	db *sqlx.DB,
 	chainSet evm.ChainSet,
 	pipelineORM pipeline.ORM,
+	bridgeORM bridges.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
 	lggr logger.Logger,
 	cfg pg.LogConfig,
@@ -97,7 +100,7 @@ func NewORM(
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
-		bridgeORM:   bridges.NewORM(db, lggr, cfg),
+		bridgeORM:   bridgeORM,
 		lggr:        namedLogger,
 	}
 }
@@ -185,27 +188,27 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			if jb.OCROracleSpec.EVMChainID == nil {
+				// If unspecified, assume we're creating a job intended to run on default chain id
+				newChain, err := o.chainSet.Default()
+				if err != nil {
+					return err
+				}
+				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
+			}
+			newChainID := jb.OCROracleSpec.EVMChainID
+
 			existingSpec := new(OCROracleSpec)
 			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL) LIMIT 1;`,
-				jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID,
+				jb.OCROracleSpec.ContractAddress, newChainID,
 			)
+
 			if !errors.Is(err, sql.ErrNoRows) {
 				if err != nil {
 					return errors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
 				}
 
-				matchErr := errors.Errorf("a job with contract address %s already exists for chain ID %d", jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID.ToInt())
-				if existingSpec.EVMChainID == nil {
-					chain, err2 := o.chainSet.Default()
-					if err2 != nil {
-						return errors.Wrap(err2, "failed to validate OffchainreportingOracleSpec on creation")
-					}
-					if jb.OCROracleSpec.EVMChainID.Equal((*utils.Big)(chain.ID())) {
-						return matchErr
-					}
-				} else {
-					return matchErr
-				}
+				return errors.Errorf("a job with contract address %s already exists for chain ID %s", jb.OCROracleSpec.ContractAddress, newChainID)
 			}
 
 			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, p2pv2_bootstrappers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
@@ -260,8 +263,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					}
 				}
 			}
-			switch jb.OCR2OracleSpec.PluginType {
-			case Median:
+			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
@@ -274,7 +276,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if err2 := o.assertBridgesExist(*feePipeline); err2 != nil {
 					return err2
 				}
-			case DKG, OCR2VRF:
 			}
 
 			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
@@ -390,6 +391,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		}
 
 		jb.PipelineSpecID = pipelineSpecID
+
 		err = o.InsertJob(jb, pg.WithQueryer(tx))
 		jobID = jb.ID
 		return errors.Wrap(err, "failed to insert job")
@@ -411,11 +413,22 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+	var query string
+
+	// if job has id, emplace otherwise insert with a new id.
+	if job.ID == 0 {
+		query = `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
+	} else {
+		query = `INSERT INTO jobs (id, pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+	VALUES (:id, :pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+			:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+	RETURNING *;`
+	}
 	return q.GetNamed(query, job, job)
 }
 
@@ -916,6 +929,31 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 		maxID = minID - 1
 	}
 	return
+}
+
+func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) (result []byte, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := fmt.Sprintf("SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1 AND dot_id = '%s';", taskName)
+
+		var taskRuns []pipeline.TaskRun
+		if errB := tx.Select(&taskRuns, stmt, runID); errB != nil {
+			return errB
+		}
+		if len(taskRuns) == 0 {
+			return fmt.Errorf("can't find task run with id: %v, taskName: %v", runID, taskName)
+		}
+		if len(taskRuns) > 1 {
+			o.lggr.Errorf("found multiple task runs with id: %v, taskName: %v. Using the first one.", runID, taskName)
+		}
+		taskRun := taskRuns[0]
+		resBytes, errB := taskRun.Output.MarshalJSON()
+		if errB != nil {
+			return errB
+		}
+		result = resBytes
+		return nil
+	})
+	return result, errors.Wrap(err, "failed")
 }
 
 // FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.

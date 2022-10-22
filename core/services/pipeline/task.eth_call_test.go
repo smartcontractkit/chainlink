@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -258,8 +257,7 @@ func TestETHCallTask(t *testing.T) {
 
 			var cc evm.ChainSet
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				cc = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
-					Client: client.NewNullClient(big.NewInt(0), lggr), TxManager: txManager, KeyStore: keyStore})
+				cc = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 			} else {
 				cc = cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
 			}

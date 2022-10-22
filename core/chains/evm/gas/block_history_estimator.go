@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -90,11 +91,12 @@ type (
 		ctx       context.Context
 		ctxCancel context.CancelFunc
 
-		gasPrice *assets.Wei
-		tipCap   *assets.Wei
-		priceMu  sync.RWMutex
-		latest   *evmtypes.Head
-		latestMu sync.RWMutex
+		gasPrice     *assets.Wei
+		tipCap       *assets.Wei
+		priceMu      sync.RWMutex
+		latest       *evmtypes.Head
+		latestMu     sync.RWMutex
+		initialFetch atomic.Bool
 
 		logger logger.SugaredLogger
 	}
@@ -124,7 +126,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
 	b.setLatest(head)
@@ -214,7 +216,7 @@ func (b *BlockHistoryEstimator) Close() error {
 	})
 }
 
-func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		gasPrice = b.getGasPrice()
@@ -223,7 +225,12 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint32, maxGasPr
 		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
 	if gasPrice == nil {
-		return nil, 0, errors.Errorf("GasPrice unset. Likely cause is that BlockHistoryEstimator failed to make the first estimation on start, or no suitable transactions are available for estimation (size=%d)", b.size)
+		if !b.initialFetch.Load() {
+			return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+		}
+		b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
+			"Using EvmGasPriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
+		gasPrice = b.config.EvmGasPriceDefault()
 	}
 	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.config)
 	return
@@ -234,13 +241,21 @@ func (b *BlockHistoryEstimator) getGasPrice() *assets.Wei {
 	defer b.priceMu.RUnlock()
 	return b.gasPrice
 }
+
+func (b *BlockHistoryEstimator) getBlockHistoryNumbers() (numsInHistory []int64) {
+	for _, b := range b.blocks {
+		numsInHistory = append(numsInHistory, b.Number)
+	}
+	return
+}
+
 func (b *BlockHistoryEstimator) getTipCap() *assets.Wei {
 	b.priceMu.RLock()
 	defer b.priceMu.RUnlock()
 	return b.tipCap
 }
 
-func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
@@ -342,7 +357,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []PriorAttempt) error
 	return nil
 }
 
-func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if !b.config.EvmEIP1559DynamicFees() {
 		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
@@ -355,8 +370,13 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint32, maxGasPriceWei *a
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
 		if tipCap == nil {
-			err = errors.Errorf("TipCap unset. Likely cause is that BlockHistoryEstimator failed to make the first estimation on start, or no suitable transactions are available for estimation (size=%d)", b.size)
-			return
+			if !b.initialFetch.Load() {
+				err = errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+				return
+			}
+			b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
+				"Using EvmGasTipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
+			tipCap = b.config.EvmGasTipCapDefault()
 		}
 		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config)
 		if b.config.EvmGasBumpThreshold() == 0 {
@@ -409,7 +429,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, cfg Config, tipCap *as
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
@@ -445,7 +465,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 		b.logger.Warnw("Error fetching blocks", "head", head, "err", err)
 		return
 	}
-
+	b.initialFetch.Store(true)
 	b.Recalculate(head)
 }
 
@@ -748,12 +768,16 @@ func verifyBlock(block Block, eip1559 bool) error {
 }
 
 func (b *BlockHistoryEstimator) setPercentileTipCap(tipCap *assets.Wei) {
+	max := b.config.EvmMaxGasPriceWei()
 	min := b.config.EvmGasTipCapMinimum()
 
 	b.priceMu.Lock()
 	defer b.priceMu.Unlock()
-	if tipCap.Cmp(min) < 0 {
-		b.logger.Warnw(fmt.Sprintf("Calculated gas tip cap of %s falls below EVM_GAS_TIP_CAP_MINIMUM=%[2]s, setting gas tip cap to the minimum allowed value of %[2]s instead", tipCap.String(), min.String()), "tipCapWei", tipCap, "minTipCapWei", min)
+	if tipCap.Cmp(max) > 0 {
+		b.logger.Warnw(fmt.Sprintf("Calculated gas tip cap of %s exceeds ETH_MAX_GAS_PRICE_WEI=%[2]s, setting gas tip cap to the maximum allowed value of %[2]s instead", tipCap.String(), max.String()), "tipCapWei", tipCap, "minTipCapWei", min, "maxTipCapWei", max)
+		b.tipCap = max
+	} else if tipCap.Cmp(min) < 0 {
+		b.logger.Warnw(fmt.Sprintf("Calculated gas tip cap of %s falls below EVM_GAS_TIP_CAP_MINIMUM=%[2]s, setting gas tip cap to the minimum allowed value of %[2]s instead", tipCap.String(), min.String()), "tipCapWei", tipCap, "minTipCapWei", min, "maxTipCapWei", max)
 		b.tipCap = min
 	} else {
 		b.tipCap = tipCap

@@ -89,6 +89,7 @@ type GeneralConfigOverrides struct {
 	GlobalMinIncomingConfirmations                  null.Int
 	GlobalMinimumContractPayment                    *assets.Link
 	GlobalOCRObservationGracePeriod                 time.Duration
+	GlobalOCR2AutomationGasLimit                    null.Int
 	KeeperCheckUpkeepGasPriceFeatureEnabled         null.Bool
 	KeeperRegistryMaxPerformDataSize                null.Int
 	KeeperMaximumGracePeriod                        null.Int
@@ -137,7 +138,6 @@ type GeneralConfigOverrides struct {
 
 	// P2P v1 and V2
 	P2PPeerID          p2pkey.PeerID
-	P2PPeerIDError     error
 	P2PNetworkingStack ocrnetworking.NetworkingStack
 
 	// P2P v1
@@ -193,11 +193,14 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
+// NewTestGeneralConfig returns a legacy *TestGeneralConfig. Use v2.NewTestGeneralConfig instead.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
 // Deprecated: see v2.TOML
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{
@@ -821,6 +824,13 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 		return c.Overrides.LinkContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalLinkContractAddress()
+}
+
+func (c *TestGeneralConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
+	if c.Overrides.GlobalOCR2AutomationGasLimit.Valid {
+		return uint32(c.Overrides.GlobalOCR2AutomationGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalOCR2AutomationGasLimit()
 }
 
 // GlobalOperatorFactoryAddress allows to override the OperatorFactory contract address

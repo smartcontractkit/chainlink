@@ -42,6 +42,7 @@ func TestClient_IndexEVMChains(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateEVMChain(t *testing.T) {
 	t.Parallel()
 
@@ -75,6 +76,7 @@ func TestClient_CreateEVMChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveEVMChain(t *testing.T) {
 	t.Parallel()
 
@@ -111,6 +113,7 @@ func TestClient_RemoveEVMChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigureEVMChain(t *testing.T) {
 	t.Parallel()
 

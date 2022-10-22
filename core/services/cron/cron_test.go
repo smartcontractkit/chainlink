@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
@@ -29,7 +30,8 @@ func TestCronV2Pipeline(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: evmtest.NewEthClientMockWithDefaultChain(t)})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg)
-	jobORM := job.NewORM(db, cc, orm, keyStore, lggr, cfg)
+	btORM := bridges.NewORM(db, lggr, cfg)
+	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg)
 
 	jb := &job.Job{
 		Type:          job.Cron,

@@ -63,7 +63,6 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	}
 
 	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cltest.TestOverrides(c, s)
 		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
@@ -81,6 +80,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	return app
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
 	t.Helper()
 
@@ -502,6 +502,7 @@ func TestClient_Profile(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
@@ -593,6 +594,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigDump(t *testing.T) {
 	t.Parallel()
 
@@ -613,12 +615,15 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	}, func(opts *startOptions) {
+		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
 	})
 	client, _ := app.NewClientAndRenderer()
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())

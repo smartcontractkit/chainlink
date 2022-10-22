@@ -34,7 +34,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, rpcClient, ethClient)
-		_, _, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
+		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
@@ -62,7 +62,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, rpcClient, ethClient)
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(42), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
@@ -88,7 +88,7 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, assets.NewWeiI(40))
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(40))
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
 		assert.Nil(t, gasPrice)
@@ -115,18 +115,18 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, assets.NewWeiI(110))
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(110))
 		assert.EqualError(t, err, "estimated gas price: 120 wei is greater than the maximum gas price configured: 110 wei")
 		assert.Nil(t, gasPrice)
 		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
 
-	t.Run("calling BumpGas always returns error", func(t *testing.T) {
+	t.Run("calling BumpLegacyGas always returns error", func(t *testing.T) {
 		config := mocks.NewConfig(t)
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, rpcClient, ethClient)
-		_, _, err := o.BumpLegacyGas(assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
+		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
 		assert.EqualError(t, err, "bump gas is not supported for this l2")
 	})
 
@@ -148,7 +148,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
 
-		_, _, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
+		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "failed to estimate l2 gas; gas price not set")
 	})
 
@@ -182,7 +182,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, rpcClient, ethClient)
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		require.NotNil(t, gasPrice)
 		assert.Equal(t, "42 wei", gasPrice.String())
@@ -218,7 +218,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		o := gas.NewArbitrumEstimator(logger.TestLogger(t), config, rpcClient, ethClient)
 		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.Error(t, err, "expected error but got (%s, %d)", gasPrice, chainSpecificGasLimit)
 	})
 }
