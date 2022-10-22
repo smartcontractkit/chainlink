@@ -26,10 +26,9 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	fi || true
 	go mod download
 
-.PHONY: gomodtidy
 gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
-	cd ./integration-tests && go mod tidy
+	cd ./integration-tests && go mod tidy && cd ..
 
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
@@ -64,30 +63,39 @@ abigen: ## Build & install abigen.
 go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
+	./core/internal/gethwrappers2/generate.sh
+	make presubmit
 
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
 	go generate ./core/gethwrappers/ocr2vrf
+	make presubmit
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run ./core/main.go local db preparetest
 
-.PHONY: testdb
+.PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
 	go run ./core/main.go local db preparetest --user-only
 
+.PHONY: install-goimports
+install-goimports:
+	go install golang.org/x/tools/cmd/goimports@latest
+
 # Format for CI
 .PHONY: presubmit
-presubmit: ## Format go files and imports.
-	goimports -w ./core
-	gofmt -w ./core
-	go mod tidy
+presubmit: gomodtidy install-goimports ## Format go files and imports.
+	goimports -w -local github.com/smartcontractkit/chainlink .
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.14.0
+
+generate: mockery abigen
+	go generate ./...
+	make presubmit
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.

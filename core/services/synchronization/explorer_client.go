@@ -351,8 +351,8 @@ const CloseTimeout = 100 * time.Millisecond
 // response messages (text)
 //
 // For more details on how disconnection messages are handled, see:
-//  * https://stackoverflow.com/a/48181794/639773
-//  * https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
+//   - https://stackoverflow.com/a/48181794/639773
+//   - https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
 func (ec *explorerClient) readPump() {
 	defer ec.wg.Done()
 	ec.conn.SetReadLimit(maxMessageSize)

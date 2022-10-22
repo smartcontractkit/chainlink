@@ -82,6 +82,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, maxGasPriceWei.String())
 }
 
+//nolint:errcheck
 func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 

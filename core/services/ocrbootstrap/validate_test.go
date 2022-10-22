@@ -3,10 +3,11 @@ package ocrbootstrap
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 func TestValidateBootstrapSpec(t *testing.T) {

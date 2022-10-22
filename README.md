@@ -146,11 +146,15 @@ For more information on creating and using external adapters, please see our [ex
 
 2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
 
-3. Install mockery
+3. Run mockery
 
 `make mockery`
 
-Using the `make` command will install the correct version.
+Using the `make mockery` command will install the correct version.
+
+Running `make generate` will run `go generate` on the entire repo using mockery to
+generate all mocks.  (This will also re-generate gethwrappers from solidity contracts,
+which will first be compiled.)
 
 4. Build contracts:
 

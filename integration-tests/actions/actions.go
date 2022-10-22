@@ -233,7 +233,7 @@ func TeardownSuite(
 	} else {
 		log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 	}
-	// nolint
+
 	if c != nil {
 		c.Close()
 	}

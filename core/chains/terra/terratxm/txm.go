@@ -192,7 +192,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 		}
 		if limit := txm.cfg.MaxMsgsPerBatch() - int64(len(started)); limit > 0 {
 			// Use the remaining batch budget for Unstarted
-			unstarted, err := txm.orm.GetMsgsState(db.Unstarted, limit, pg.WithQueryer(tx)) //nolint
+			unstarted, err := txm.orm.GetMsgsState(db.Unstarted, limit, pg.WithQueryer(tx)) //nolint:govet
 			if err != nil {
 				txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 				return err

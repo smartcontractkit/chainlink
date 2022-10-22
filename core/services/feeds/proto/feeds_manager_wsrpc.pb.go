@@ -12,7 +12,6 @@ import (
 )
 
 // FeedsManagerClient is the client API for FeedsManager service.
-//
 type FeedsManagerClient interface {
 	ApprovedJob(ctx context.Context, in *ApprovedJobRequest) (*ApprovedJobResponse, error)
 	UpdateNode(ctx context.Context, in *UpdateNodeRequest) (*UpdateNodeResponse, error)
@@ -135,7 +134,6 @@ var FeedsManager_ServiceDesc = wsrpc.ServiceDesc{
 }
 
 // NodeServiceClient is the client API for NodeService service.
-//
 type NodeServiceClient interface {
 	ProposeJob(ctx context.Context, in *ProposeJobRequest) (*ProposeJobResponse, error)
 }

@@ -4,11 +4,12 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	fmmocks "github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2/mocks"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {

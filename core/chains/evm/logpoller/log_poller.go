@@ -247,7 +247,6 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		return ErrReplayAbortedByClient
 	}
 	// Should never reach here.
-	return nil
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {

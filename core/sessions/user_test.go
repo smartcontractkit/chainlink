@@ -3,10 +3,11 @@ package sessions_test
 import (
 	"testing"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -27,6 +27,7 @@ tools/clroot/db.sqlite3-wal
 .idea
 .vscode/
 *.iml
+yarn.lock
 
 # codeship
 *.aes

@@ -6,6 +6,7 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 

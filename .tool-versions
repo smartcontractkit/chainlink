@@ -1,4 +1,5 @@
 golang 1.19.1
+golangci-lint 1.49.0
 mockery 2.14.0
 nodejs 16.13.2
 postgres 13.3

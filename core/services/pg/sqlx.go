@@ -7,8 +7,9 @@ import (
 	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //go:generate mockery --name Queryer --output ./mocks/ --case=underscore

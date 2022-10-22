@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 )
 
 func intToByte32(id uint) [32]byte {

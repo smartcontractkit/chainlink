@@ -2,6 +2,7 @@ package fluxmonitorv2
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/core/null"
 )
 

@@ -3,8 +3,9 @@
 package mocks
 
 import (
-	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 	mock "github.com/stretchr/testify/mock"
+
+	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
 	proto "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 )

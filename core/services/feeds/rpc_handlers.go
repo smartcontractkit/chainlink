@@ -4,6 +4,7 @@ import (
 	"context"
 
 	uuid "github.com/satori/go.uuid"
+
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 )
 

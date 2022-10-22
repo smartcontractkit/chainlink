@@ -125,7 +125,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 }
 
 // NewEligibleUpkeepsForRegistry fetches eligible upkeeps for processing
-//The query checks the following conditions
+// The query checks the following conditions
 // - checks the registry address is correct and the registry has some keepers associated
 // -- is it my turn AND my keeper was not the last perform for this upkeep OR my keeper was the last before BUT it is past the grace period
 // -- OR is it my buddy's turn AND they were the last keeper to do the perform for this upkeep
@@ -254,7 +254,7 @@ WHERE registry_id = $1
 	return upkeeps, errors.Wrap(err, "allUpkeepIDs failed")
 }
 
-//SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
+// SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
 func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *utils.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) (int64, error) {
 	res, err := korm.q.WithOpts(qopts...).Exec(`
 	UPDATE upkeep_registrations

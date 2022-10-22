@@ -59,6 +59,7 @@ func setAuthorizedSenders(e helpers.Environment, forwarder common.Address, sende
 	f, err := authorized_forwarder.NewAuthorizedForwarder(forwarder, e.Ec)
 	helpers.PanicErr(err)
 	tx, err := f.SetAuthorizedSenders(e.Owner, senders)
+	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 

@@ -11,11 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 
 	"github.com/pkg/errors"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 // inMemoryDataSource is an abstraction over the process of initiating a pipeline run

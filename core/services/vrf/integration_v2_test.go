@@ -2137,6 +2137,7 @@ func TestStartingCountsV1(t *testing.T) {
 	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, initial_broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :initial_broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id);`
 	for _, tx := range txes {
+		tx := tx
 		_, err = db.NamedExec(sql, &tx)
 		require.NoError(t, err)
 	}
@@ -2174,6 +2175,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
 		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
 	for _, attempt := range txAttempts {
+		attempt := attempt
 		_, err = db.NamedExec(sql, &attempt)
 		require.NoError(t, err)
 	}
@@ -2193,6 +2195,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO eth_receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
 		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
 	for _, r := range receipts {
+		r := r
 		_, err := db.NamedExec(sql, &r)
 		require.NoError(t, err)
 	}

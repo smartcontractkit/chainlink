@@ -34,7 +34,6 @@ const (
     `
 )
 
-//nolint
 func Up36(tx *sql.Tx) error {
 	// Add the external ID column and remove type specific ones.
 	if _, err := tx.Exec(up36_1); err != nil {
@@ -52,9 +51,9 @@ func Up36(tx *sql.Tx) error {
 		stmt := `UPDATE jobs AS j SET external_job_id = vals.external_job_id FROM (values `
 		for i := range jobIDs {
 			if i == len(jobIDs)-1 {
-				stmt += fmt.Sprintf("(uuid('%s'), %d))", uuid.NewV4(), jobIDs[i])
+				stmt += fmt.Sprintf("(uuid('%s'), %d))", uuid.NewV4(), jobIDs[i]) //nolint:sec
 			} else {
-				stmt += fmt.Sprintf("(uuid('%s'), %d),", uuid.NewV4(), jobIDs[i])
+				stmt += fmt.Sprintf("(uuid('%s'), %d),", uuid.NewV4(), jobIDs[i]) // nolint:sec
 			}
 		}
 		stmt += ` AS vals(external_job_id, id) WHERE vals.id = j.id`
@@ -71,7 +70,6 @@ func Up36(tx *sql.Tx) error {
 	return nil
 }
 
-//nolint
 func Down36(tx *sql.Tx) error {
 	if _, err := tx.Exec(down36); err != nil {
 		return err

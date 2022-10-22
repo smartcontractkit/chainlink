@@ -543,7 +543,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		backend.Commit()
 
 		// setup app
-		config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_max_perform_data_test"))
+		config, db := heavyweight.FullTestDB(t, "keeper_max_perform_data_test")
 		korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 		d := 24 * time.Hour
 		// disable full sync ticker for test
