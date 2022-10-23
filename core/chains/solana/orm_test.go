@@ -21,7 +21,7 @@ func setupORM(t *testing.T) (*sqlx.DB, solana.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := solana.NewORM(db, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	orm := solana.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return db, orm
 }
