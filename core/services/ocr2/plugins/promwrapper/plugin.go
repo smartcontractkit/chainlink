@@ -37,7 +37,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's Query() method",
 			Buckets: buckets,
 		},
-		[]string{"chainType", "chainID", "pluginName"},
+		[]string{"chainType", "chainID", "plugin"},
 	)
 	promObservation = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -45,7 +45,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's Observation() method",
 			Buckets: buckets,
 		},
-		[]string{"chainType", "chainID", "pluginName"},
+		[]string{"chainType", "chainID", "plugin"},
 	)
 	promReport = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -53,7 +53,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's Report() method",
 			Buckets: buckets,
 		},
-		[]string{"chainType", "chainID", "pluginName"},
+		[]string{"chainType", "chainID", "plugin"},
 	)
 	promShouldAcceptFinalizedReport = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -61,7 +61,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's ShouldAcceptFinalizedReport() method",
 			Buckets: buckets,
 		},
-		[]string{"chainType", "chainID", "pluginName"},
+		[]string{"chainType", "chainID", "plugin"},
 	)
 	promShouldTransmitAcceptedReport = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -69,7 +69,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's ShouldTransmitAcceptedReport() method",
 			Buckets: buckets,
 		},
-		[]string{"chainType", "chainID", "pluginName"},
+		[]string{"chainType", "chainID", "plugin"},
 	)
 	promClose = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -77,7 +77,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's Close() method",
 			Buckets: buckets,
 		},
-		[]string{"chainType", "chainID", "pluginName"},
+		[]string{"chainType", "chainID", "plugin"},
 	)
 )
 
