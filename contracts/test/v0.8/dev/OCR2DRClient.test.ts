@@ -2,21 +2,11 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, providers } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
-import { decodeDietCBOR, stringToBytes } from '../../test-helpers/helpers'
+import { decodeDietCBOR } from '../../test-helpers/helpers'
 
 let concreteOCR2DRClientFactory: ContractFactory
 let ocr2drOracleFactory: ContractFactory
 let roles: Roles
-
-function getEventArg(events: any, eventName: string, argIndex: number) {
-  if (Array.isArray(events)) {
-    const event = events.find((e: any) => e.event == eventName)
-    if (event && Array.isArray(event.args) && event.args.length > 0) {
-      return event.args[argIndex]
-    }
-  }
-  return undefined
-}
 
 async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const receipt = await tx.wait()
@@ -47,10 +37,9 @@ describe('OCR2DRClientTestHelper', () => {
   let oracle: Contract
 
   beforeEach(async () => {
-    const accounts = await ethers.getSigners()
     oracle = await ocr2drOracleFactory
       .connect(roles.defaultAccount)
-      .deploy(accounts[0].address, donPublicKey)
+      .deploy(donPublicKey)
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
@@ -93,30 +82,6 @@ describe('OCR2DRClientTestHelper', () => {
         codeLocation: 0,
         source: js,
       })
-    })
-  })
-
-  describe('#fulfillRequest', () => {
-    it('emits fulfillment events', async () => {
-      const accounts = await ethers.getSigners()
-      await oracle.setAuthorizedSenders([accounts[0].address])
-
-      const tx = await client.sendSimpleRequestWithJavaScript(
-        'function run() {}',
-        subscriptionId,
-      )
-
-      const { events } = await tx.wait()
-      const requestId = getEventArg(events, 'RequestSent', 0)
-      await expect(tx).to.emit(client, 'RequestSent').withArgs(requestId)
-
-      const response = stringToBytes('response')
-      const error = stringToBytes('error')
-      await expect(oracle.fulfillRequest(requestId, response, error))
-        .to.emit(oracle, 'OracleResponse')
-        .withArgs(requestId)
-        .to.emit(client, 'FulfillRequestInvoked')
-        .withArgs(requestId, response, error)
     })
   })
 })

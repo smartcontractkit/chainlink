@@ -75,7 +75,7 @@ describe('OCR2DROracleFactory', () => {
         .connect(roles.defaultAccount)
         .attach(emittedOracle)
       const ownerString = await oracle.owner()
-      assert.equal(ownerString, await roles.oracleNode.getAddress())
+      assert.equal(ownerString, await factory.address)
     })
 
     it('records that it deployed that address', async () => {
