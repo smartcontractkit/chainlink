@@ -132,52 +132,6 @@ func (_m *VRFCoordinatorInterface) BatchTransferLink(opts *bind.TransactOpts, re
 	return r0, r1
 }
 
-// CalculateRequestPriceCallbackJuels provides a mock function with given fields: opts, callback
-func (_m *VRFCoordinatorInterface) CalculateRequestPriceCallbackJuels(opts *bind.CallOpts, callback vrf_coordinator.VRFBeaconTypesCallback) (*big.Int, error) {
-	ret := _m.Called(opts, callback)
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, vrf_coordinator.VRFBeaconTypesCallback) *big.Int); ok {
-		r0 = rf(opts, callback)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, vrf_coordinator.VRFBeaconTypesCallback) error); ok {
-		r1 = rf(opts, callback)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// CalculateRequestPriceJuels provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) CalculateRequestPriceJuels(opts *bind.CallOpts) (*big.Int, error) {
-	ret := _m.Called(opts)
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) *big.Int); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CancelSubscription provides a mock function with given fields: opts, subId, to
 func (_m *VRFCoordinatorInterface) CancelSubscription(opts *bind.TransactOpts, subId uint64, to common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, subId, to)
@@ -682,29 +636,6 @@ func (_m *VRFCoordinatorInterface) IStartSlot(opts *bind.CallOpts) (*big.Int, er
 
 // LINK provides a mock function with given fields: opts
 func (_m *VRFCoordinatorInterface) LINK(opts *bind.CallOpts) (common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 common.Address
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// LINKETHFEED provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) LINKETHFEED(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
 
 	var r0 common.Address
@@ -1332,29 +1263,6 @@ func (_m *VRFCoordinatorInterface) RequestSubscriptionOwnerTransfer(opts *bind.T
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, uint64, common.Address) error); ok {
 		r1 = rf(opts, subId, newOwner)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// SetBillingConfig provides a mock function with given fields: opts, billingConfig
-func (_m *VRFCoordinatorInterface) SetBillingConfig(opts *bind.TransactOpts, billingConfig vrf_coordinator.VRFBeaconTypesBillingConfig) (*types.Transaction, error) {
-	ret := _m.Called(opts, billingConfig)
-
-	var r0 *types.Transaction
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, vrf_coordinator.VRFBeaconTypesBillingConfig) *types.Transaction); ok {
-		r0 = rf(opts, billingConfig)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, vrf_coordinator.VRFBeaconTypesBillingConfig) error); ok {
-		r1 = rf(opts, billingConfig)
 	} else {
 		r1 = ret.Error(1)
 	}
