@@ -464,6 +464,8 @@ func configureEnvironmentVariables(useForwarder bool) {
 	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
 	helpers.PanicErr(os.Setenv("P2P_NETWORKING_STACK", "V2"))
 	helpers.PanicErr(os.Setenv("P2PV2_LISTEN_ADDRESSES", "127.0.0.1:8000"))
+	helpers.PanicErr(os.Setenv("ETH_HEAD_TRACKER_HISTORY_DEPTH", "1"))
+	helpers.PanicErr(os.Setenv("ETH_FINALITY_DEPTH", "1"))
 }
 
 func resetDatabase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
