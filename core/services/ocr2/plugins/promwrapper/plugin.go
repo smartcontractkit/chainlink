@@ -19,7 +19,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's Query() method",
 			Buckets: []float64{}, // TODO: figure out buckets
 		},
-		[]string{"evmChainID", "pluginName"},
+		[]string{"evmChainID", "plugin"},
 	)
 	promObservation = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
