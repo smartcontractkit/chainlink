@@ -171,12 +171,16 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			"KEEPER_TURN_LOOK_BACK":      "0",
 		}
 		if OCR {
-			envVars["FEATURE_OFFCHAIN_REPORTING2"] = true
-			envVars["FEATURE_LOG_POLLER"] = true
-			envVars["P2P_NETWORKING_STACK"] = "V2"
-			envVars["CHAINLINK_TLS_PORT"] = 0
-			// does port matter
-			envVars["P2PV2_LISTEN_ADDRESSES"] = "0.0.0.0:19494"
+			envVars = map[string]interface{}{
+				"MIN_INCOMING_CONFIRMATIONS":  "1",
+				"KEEPER_TURN_LOOK_BACK":       "0",
+				"FEATURE_OFFCHAIN_REPORTING2": "true",
+				"FEATURE_LOG_POLLER":          "true",
+				"P2P_NETWORKING_STACK":        "V2",
+				"P2P_LISTEN_PORT":             "",
+				"CHAINLINK_TLS_PORT":          "0",
+				"P2PV2_LISTEN_ADDRESSES":      "0.0.0.0:6690",
+			}
 		}
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
@@ -190,7 +194,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = blockchain.NewEVMClient(networks.SimulatedEVM, testEnvironment)
+		network := networks.SimulatedEVM
+		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
@@ -248,9 +253,10 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		}
 
 		if OCR {
+			By("Create OCR Automation Jobs")
 			mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
-			actions.CreateOCRKeeperJobs(chainlinkNodes, mockServer, registry.Address())
+			actions.CreateOCRKeeperJobs(chainlinkNodes, mockServer, registry.Address(), network.ChainID)
 			//	do we need to start rounds?
 			//	By("Starting new round", actions.StartNewRound(1, ocrInstances, chainClient))
 		} else {

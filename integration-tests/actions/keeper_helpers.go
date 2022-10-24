@@ -22,10 +22,8 @@ import (
 
 var ZeroAddress = common.Address{}
 
-// CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs that
-// read from different adapters, to be used in combination with SetAdapterResponses
-func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClient.MockserverClient, registryAddr string) {
-
+// CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
+func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClient.MockserverClient, registryAddr string, chainID int64) {
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from bootstrap node")
@@ -38,6 +36,7 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClie
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bootstrap job on bootstrap node")
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, "0.0.0.0", 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		//nodeP2PIds, err := chainlinkNodes[nodeIndex].MustReadP2PKeys()
@@ -74,8 +73,8 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClie
 			ContractID:         registryAddr,           // registryAddr
 			OCRKeyBundleID:     nodeOCRKeyId,           // get node ocr2config.ID
 			TransmitterID:      nodeTransmitterAddress, // node addr
-			P2Pv2Bootstrappers: "",                     // bootstrap node key and address <p2p-key>@bootstrap:8000
-			ChainID:            0,
+			P2Pv2Bootstrappers: P2Pv2Bootstrapper,      // bootstrap node key and address <p2p-key>@bootstrap:8000
+			ChainID:            int(chainID),
 		})
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
