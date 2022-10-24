@@ -59,7 +59,7 @@ var (
 			Help:    "The amount of time elapsed during the OCR2 plugin's Close() method",
 			Buckets: []float64{}, // TODO: figure out buckets
 		},
-		[]string{"evmChainID", "pluginName"},
+		[]string{"chainType", "chainID", "pluginName"},
 	)
 )
 
