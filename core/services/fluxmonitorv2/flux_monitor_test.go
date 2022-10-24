@@ -273,7 +273,7 @@ func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
-	cfg, db := heavyweight.FullTestDB(t, name)
+	cfg, db := heavyweight.FullTestDBV2(t, name, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 

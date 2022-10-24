@@ -19,9 +19,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	drocr_service "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
@@ -403,6 +405,17 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
 
+		var cfg ocr2keeper.PluginConfig
+		err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "unmarshal ocr2keepers plugin config")
+		}
+
+		err2 = ocr2keeper.ValidatePluginConfig(cfg)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
+		}
+
 		conf := ocr2keepers.DelegateConfig{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -418,6 +431,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
 			PerformLogProvider:           logProvider,
+			CacheExpiration:              cfg.CacheExpiration.Value(),
+			CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
+			MaxServiceWorkers:            cfg.MaxServiceWorkers,
+			ServiceQueueLength:           cfg.ServiceQueueLength,
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {
@@ -439,6 +456,35 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			keeperProvider,
 			pluginService,
 		}, nil
+	case job.OCR2DirectRequest:
+		// TODO: relayer for DR-OCR plugin: https://app.shortcut.com/chainlinklabs/story/54051/relayer-for-the-ocr-plugin
+		drProvider, err2 := relayer.NewMedianProvider(
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			})
+		if err2 != nil {
+			return nil, err2
+		}
+		ocr2Provider = drProvider
+
+		var relayConfig evmrelay.RelayConfig
+		err2 = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
+		if err2 != nil {
+			return nil, err2
+		}
+		chain, err2 := d.chainSet.Get(relayConfig.ChainID.ToInt())
+		if err2 != nil {
+			return nil, err2
+		}
+		// TODO replace with a DB: https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
+		pluginORM := drocr_service.NewInMemoryORM()
+		pluginOracle, _ = directrequestocr.NewDROracle(jobSpec, d.pipelineRunner, d.jobORM, ocr2Provider, pluginORM, chain, lggr, ocrLogger)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

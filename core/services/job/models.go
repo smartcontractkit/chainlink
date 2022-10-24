@@ -288,6 +288,8 @@ const (
 	// to the new name (automation) but in code we refer it to keepers
 	// TODO: sc-55296 to rename ocr2keeper to ocr2automation in code
 	OCR2Keeper OCR2PluginType = "ocr2automation"
+
+	OCR2DirectRequest OCR2PluginType = "directrequest"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.

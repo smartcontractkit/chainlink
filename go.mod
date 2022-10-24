@@ -64,7 +64,7 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
-	github.com/smartcontractkit/ocr2keepers v0.4.6
+	github.com/smartcontractkit/ocr2keepers v0.4.7
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20221017160540-1ebacaf4c7e7
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -89,19 +89,12 @@ require (
 	golang.org/x/exp v0.0.0-20220608143224-64259d1afd70
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
-	golang.org/x/text v0.3.7
+	golang.org/x/text v0.4.0
 	golang.org/x/tools v0.1.12
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-)
-
-require (
-	github.com/cosmos/gorocksdb v1.2.0 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
-	github.com/valyala/fastjson v1.4.1 // indirect
 )
 
 require (
@@ -133,6 +126,7 @@ require (
 	github.com/confio/ics23/go v0.6.6 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
+	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.17.3 // indirect
 	github.com/cosmos/ibc-go v1.1.5 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
@@ -183,6 +177,7 @@ require (
 	github.com/google/certificate-transparency-go v1.0.21 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
@@ -323,7 +318,9 @@ require (
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
+	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/urfave/cli/v2 v2.10.2 // indirect
+	github.com/valyala/fastjson v1.4.1 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -372,4 +369,6 @@ replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 exclude (
 	github.com/influxdata/influxdb v1.8.3
 	github.com/labstack/echo/v4 v4.5.0
+	github.com/nats-io/nats-server/v2 v2.1.2
+	github.com/nats-io/nats-server/v2 v2.5.0
 )
