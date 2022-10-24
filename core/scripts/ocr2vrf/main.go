@@ -59,8 +59,9 @@ func main() {
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		linkAddress := cmd.String("link-address", "", "link contract address")
-		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address")
-		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
+		linkEthFeed := cmd.String("link-eth-feed", "", "link/eth feed address")
+		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address", "link-eth-feed")
+		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed)
 
 	case "beacon-deploy":
 		cmd := flag.NewFlagSet("beacon-deploy", flag.ExitOnError)
@@ -374,6 +375,17 @@ func main() {
 				big.NewInt(*batchSize),
 			)
 		}
+
+	case "verify-beacon-randomness":
+		cmd := flag.NewFlagSet("verify-randomness", flag.ExitOnError)
+		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
+		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
+		height := cmd.Uint64("height", 0, "block height of VRF beacon output")
+		confDelay := cmd.Uint64("conf-delay", 1, "confirmation delay of VRF beacon output")
+		searchWindow := cmd.Uint64("search-window", 200, "search space size for beacon transmission. Number of blocks after beacon height")
+		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "beacon-address", "height", "conf-delay")
+
+		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *height, *confDelay, *searchWindow)
 
 	case "dkg-setup":
 		setupDKGNodes(e)
