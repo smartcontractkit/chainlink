@@ -577,12 +577,6 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		}
 
 		fromAddresses := lsn.fromAddresses()
-		err = setMaxGasPriceGWei(fromAddresses, lsn.job.VRFSpec.MaxGasPriceGWei, lsn.keyUpdater, lsn.chainID)
-		if err != nil {
-			l.Warnw("Couldn't set max gas price gwei on configured from addresses, processing anyway",
-				"err", err, "fromAddresses", fromAddresses)
-		}
-
 		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
 		if err != nil {
 			l.Errorw("Couldn't get next from address", "err", err)
@@ -735,12 +729,6 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 
 		fromAddresses := lsn.fromAddresses()
-		err = setMaxGasPriceGWei(fromAddresses, lsn.job.VRFSpec.MaxGasPriceGWei, lsn.keyUpdater, lsn.chainID)
-		if err != nil {
-			l.Warnw("Couldn't set max gas price gwei on configured from addresses, processing anyway",
-				"err", err, "fromAddresses", fromAddresses)
-		}
-
 		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
 		if err != nil {
 			l.Errorw("Couldn't get next from address", "err", err)
