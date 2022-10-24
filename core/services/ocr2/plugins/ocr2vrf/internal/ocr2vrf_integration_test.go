@@ -108,47 +108,52 @@ func setupOCR2VRFContracts(
 	linkAddress, _, link, err := link_token_interface.DeployLinkToken(
 		owner, b)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	feedAddress, _, feed, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 		owner, b, 18, assets.GWei(int(1e7)).ToInt()) // 0.01 eth per link
 	require.NoError(t, err)
-
 	b.Commit()
 
 	dkgAddress, _, dkg, err := dkg_wrapper.DeployDKG(owner, b)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
-		owner, b, big.NewInt(beaconPeriod), linkAddress)
+		owner, b, big.NewInt(beaconPeriod), linkAddress, feedAddress)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
 		owner, b, linkAddress, coordinatorAddress, dkgAddress, keyID)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	consumerAddress, _, consumer, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(
 		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
-
 	b.Commit()
 
 	loadTestConsumerAddress, _, loadTestConsumer, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(
 		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
+	b.Commit()
 
+	// Set up coordinator subscription for billing.
+	coordinator.CreateSubscription(owner)
+	b.Commit()
+	subID := uint64(1)
+	coordinator.AddConsumer(owner, subID, consumerAddress)
+	b.Commit()
+	coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)
+	b.Commit()
+	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
+	require.NoError(t, err)
+	link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)
 	b.Commit()
 
 	_, err = dkg.AddClient(owner, keyID, beaconAddress)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	_, err = coordinator.SetProducer(owner, beaconAddress)

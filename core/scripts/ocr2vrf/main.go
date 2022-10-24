@@ -59,8 +59,9 @@ func main() {
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		linkAddress := cmd.String("link-address", "", "link contract address")
-		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address")
-		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
+		linkEthFeed := cmd.String("link-eth-feed", "", "link/eth feed address")
+		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address", "link-eth-feed")
+		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed)
 
 	case "beacon-deploy":
 		cmd := flag.NewFlagSet("beacon-deploy", flag.ExitOnError)
