@@ -90,7 +90,7 @@ jobs:
           - name: forwarder_ocr
             nodes: 1
           - name: keeper
-            nodes: 20
+            nodes: 15
           - name: ocr
             nodes: 1
           - name: runlog
