@@ -381,9 +381,10 @@ func main() {
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
 		height := cmd.Uint64("height", 0, "block height of VRF beacon output")
 		confDelay := cmd.Uint64("conf-delay", 1, "confirmation delay of VRF beacon output")
+		searchWindow := cmd.Uint64("search-window", 200, "search space size for beacon transmission. Number of blocks after beacon height")
 		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "beacon-address", "height", "conf-delay")
 
-		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *height, *confDelay)
+		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *height, *confDelay, *searchWindow)
 
 	case "dkg-setup":
 		setupDKGNodes(e)
