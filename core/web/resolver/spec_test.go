@@ -603,7 +603,6 @@ func TestResolver_VRFSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				maxGasPriceGWei := uint32(200)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.VRF,
 					VRFSpec: &job.VRFSpec{
@@ -622,7 +621,6 @@ func TestResolver_VRFSpec(t *testing.T) {
 						BatchFulfillmentGasMultiplier: 1,
 						BackoffInitialDelay:           time.Minute,
 						BackoffMaxDelay:               time.Hour,
-						MaxGasPriceGWei:               &maxGasPriceGWei,
 					},
 				}, nil)
 			},
@@ -648,7 +646,6 @@ func TestResolver_VRFSpec(t *testing.T) {
 									chunkSize
 									backoffInitialDelay
 									backoffMaxDelay
-									maxGasPriceGWei
 								}
 							}
 						}
@@ -674,8 +671,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"batchFulfillmentGasMultiplier": 1,
 							"chunkSize": 25,
 							"backoffInitialDelay": "1m0s",
-							"backoffMaxDelay": "1h0m0s",
-							"maxGasPriceGWei": 200
+							"backoffMaxDelay": "1h0m0s"
 						}
 					}
 				}
