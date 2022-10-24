@@ -48,7 +48,7 @@ type Config interface {
 	EvmNonceAutoSync() bool
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	TriggerFallbackDBPollInterval() time.Duration
 	LogSQL() bool
 }
@@ -166,7 +166,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	if cfg.EvmUseForwarders() {
 		b.fwdMgr = forwarders.NewFwdMgr(db, ethClient, logPoller, lggr, cfg)
 	} else {
-		b.logger.Info("EvmForwardManager: Disabled")
+		b.logger.Info("EvmForwarderManager: Disabled")
 	}
 
 	return &b

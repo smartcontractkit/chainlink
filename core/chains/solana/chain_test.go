@@ -263,12 +263,11 @@ func (m *mockORM) CreateNode(node db.Node, opt ...pg.QOpt) (db.Node, error) {
 
 func (m *mockORM) DeleteNode(i int32, opt ...pg.QOpt) error { panic("unimplemented") }
 
-func (m *mockORM) Node(i int32, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
-
 func (m *mockORM) NodeNamed(s string, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
 
 func (m *mockORM) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
 	panic("unimplemented")
 }
 
-func (m *mockORM) SetupNodes([]db.Node, []string) error { panic("unimplemented") }
+func (m *mockORM) SetupNodes([]db.Node, []string) error    { panic("unimplemented") }
+func (m *mockORM) EnsureChains([]string, ...pg.QOpt) error { panic("unimplemented") }

@@ -10,17 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	keystoremocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -245,9 +245,11 @@ func TestETHCallTask(t *testing.T) {
 			config := pipelinemocks.NewConfig(t)
 			test.setupClientMocks(ethClient, config)
 
-			cfg := configtest.NewTestGeneralConfig(t)
-			cfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(int64(gasLimit))
-			cfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(int64(drJobTypeGasLimit))
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.EVM[0].GasEstimator.LimitDefault = ptr(gasLimit)
+				c.EVM[0].GasEstimator.LimitJobType.DR = ptr(drJobTypeGasLimit)
+			})
+			lggr := logger.TestLogger(t)
 
 			keyStore := keystoremocks.NewEth(t)
 			txManager := txmmocks.NewTxManager(t)
@@ -262,7 +264,7 @@ func TestETHCallTask(t *testing.T) {
 
 			task.HelperSetDependencies(cc, cfg, test.specGasLimit, pipeline.DirectRequestJobType)
 
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

@@ -7,15 +7,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
@@ -65,7 +66,7 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 func TestClient_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	key, err := app.GetKeyStore().OCR().Create()
@@ -82,7 +83,7 @@ func TestClient_ListOCRKeyBundles(t *testing.T) {
 func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	requireOCRKeyCount(t, app, 0)
@@ -101,7 +102,7 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	key, err := app.GetKeyStore().OCR().Create()
@@ -125,10 +126,10 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 func TestClient_ImportExportOCRKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	keys := requireOCRKeyCount(t, app, 1)
 	key := keys[0]

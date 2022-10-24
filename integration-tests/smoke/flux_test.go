@@ -38,9 +38,9 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				defaultFluxEnv(networks.SimulatedEVM),
 			),
 			Entry("Flux monitor suite on General EVM @general",
-				networks.GeneralEVM(),
+				networks.GeneralEVM,
 				big.NewFloat(.1),
-				defaultFluxEnv(networks.GeneralEVM()),
+				defaultFluxEnv(networks.GeneralEVM),
 			),
 			Entry("Flux monitor suite on Metis Stardust @metis",
 				networks.MetisStardust,
@@ -61,6 +61,16 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				networks.KlaytnBaobab,
 				big.NewFloat(1),
 				defaultFluxEnv(networks.KlaytnBaobab),
+			),
+			Entry("Flux monitor suite on Optimism Goerli @optimism",
+				networks.OptimismGoerli,
+				big.NewFloat(.1),
+				defaultFluxEnv(networks.OptimismGoerli),
+			),
+			Entry("Flux monitor suite on Arbitrum Goerli @arbitrum",
+				networks.ArbitrumGoerli,
+				big.NewFloat(.1),
+				defaultFluxEnv(networks.ArbitrumGoerli),
 			),
 		}
 
@@ -92,7 +102,6 @@ var _ = Describe("Flux monitor suite @flux", func() {
 	) {
 		By("Deploying the environment")
 		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
 
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
@@ -226,7 +235,9 @@ func defaultFluxEnv(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	return environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConf).

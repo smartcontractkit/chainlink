@@ -5,7 +5,6 @@ package gethwrappers
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,7 +45,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 		compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(t, contractVersionInfo)
 	}
 	// Just check that LinkToken details haven't changed (they never ought to)
-	linkDetails, err := ioutil.ReadFile(filepath.Join(getProjectRoot(t), "contracts/LinkToken.json"))
+	linkDetails, err := os.ReadFile(filepath.Join(getProjectRoot(t), "contracts/LinkToken.json"))
 	require.NoError(t, err, "could not read link contract details")
 	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(linkDetails)),
 		"27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922",
@@ -84,9 +83,9 @@ func init() { // compute rootDir
 // compiler artifact matches the current solidity contracts.
 //
 // Most of the compiler artifacts should contain output from sol-compiler, or
-// "yarn compile". The relevant parts of its schema are
+// "pnpm compile". The relevant parts of its schema are
 //
-//    { "sourceCodes": { "<filePath>": "<code>", ... } }
+//	{ "sourceCodes": { "<filePath>": "<code>", ... } }
 //
 // where <filePath> is the path to the contract, below the truffle contracts/
 // directory, and <code> is the source code of the contract at the time the JSON

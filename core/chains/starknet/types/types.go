@@ -19,12 +19,12 @@ type ORM interface {
 	CreateNode(db.Node, ...pg.QOpt) (db.Node, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []string, qopts ...pg.QOpt) (nodes []db.Node, err error)
-	Node(int32, ...pg.QOpt) (db.Node, error)
 	NodeNamed(string, ...pg.QOpt) (db.Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
 
 	SetupNodes([]db.Node, []string) error
+	EnsureChains([]string, ...pg.QOpt) error
 
 	StoreString(chainID string, key, val string) error
 	Clear(chainID string, key string) error

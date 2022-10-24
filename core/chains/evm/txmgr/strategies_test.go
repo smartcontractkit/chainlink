@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
@@ -38,7 +39,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -56,7 +57,6 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
-	n++
 	initialEtxs := []txmgr.EthTx{
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj2),

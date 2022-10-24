@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"net/url"
 	"strconv"
 	"testing"
 
@@ -10,7 +11,10 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
@@ -27,7 +31,18 @@ func mustInsertTerraChain(t *testing.T, ter terra.ChainSet, id string) types.DBC
 	return chain
 }
 
-func terraStartNewApplication(t *testing.T) *cltest.TestApplication {
+func terraStartNewApplication(t *testing.T, cfgs ...*terra.TerraConfig) *cltest.TestApplication {
+	for i := range cfgs {
+		cfgs[i].SetDefaults()
+	}
+	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Terra = cfgs
+		c.EVM = nil
+	})
+}
+
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+func terraStartNewLegacyApplication(t *testing.T) *cltest.TestApplication {
 	return startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.TerraEnabled = null.BoolFrom(true)
 		c.Overrides.EVMEnabled = null.BoolFrom(false)
@@ -38,40 +53,35 @@ func terraStartNewApplication(t *testing.T) *cltest.TestApplication {
 func TestClient_IndexTerraNodes(t *testing.T) {
 	t.Parallel()
 
-	app := terraStartNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	ter := app.Chains.Terra
-	_, initialCount, err := ter.Index(0, 25)
-	require.NoError(t, err)
 	chainID := terratest.RandomChainID()
-	_ = mustInsertTerraChain(t, ter, chainID)
-
-	params := db.Node{
-		Name:          "second",
-		TerraChainID:  chainID,
-		TendermintURL: "http://tender.mint.test/bombay-12",
+	node := tercfg.Node{
+		Name:          ptr("second"),
+		TendermintURL: utils.MustParseURL("http://tender.mint.test/bombay-12"),
 	}
-	ctx := testutils.Context(t)
-	node, err := ter.CreateNode(ctx, params)
-	require.NoError(t, err)
+	chain := terra.TerraConfig{
+		ChainID: ptr(chainID),
+		Enabled: ptr(true),
+		Nodes:   terra.TerraNodes{&node},
+	}
+	app := terraStartNewApplication(t, &chain)
+	client, r := app.NewClientAndRenderer()
 
 	require.Nil(t, cmd.NewTerraNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.TerraNodePresenters)
-	require.Len(t, nodes, initialCount+1)
-	n := nodes[initialCount]
-	assert.Equal(t, strconv.FormatInt(int64(node.ID), 10), n.ID)
-	assert.Equal(t, params.Name, n.Name)
-	assert.Equal(t, params.TerraChainID, n.TerraChainID)
-	assert.Equal(t, params.TendermintURL, n.TendermintURL)
+	require.Len(t, nodes, 1)
+	n := nodes[0]
+	assert.Equal(t, "0", n.ID)
+	assert.Equal(t, *node.Name, n.Name)
+	assert.Equal(t, *chain.ChainID, n.TerraChainID)
+	assert.Equal(t, (*url.URL)(node.TendermintURL).String(), n.TendermintURL)
 	assertTableRenders(t, r)
 }
 
 func TestClient_CreateTerraNode(t *testing.T) {
 	t.Parallel()
 
-	app := terraStartNewApplication(t)
+	app := terraStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	ter := app.Chains.Terra
@@ -123,7 +133,7 @@ func TestClient_CreateTerraNode(t *testing.T) {
 func TestClient_RemoveTerraNode(t *testing.T) {
 	t.Parallel()
 
-	app := terraStartNewApplication(t)
+	app := terraStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	ter := app.Chains.Terra

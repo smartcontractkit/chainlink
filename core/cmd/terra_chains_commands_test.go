@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -22,29 +23,27 @@ import (
 func TestClient_IndexTerraChains(t *testing.T) {
 	t.Parallel()
 
-	app := terraStartNewApplication(t)
+	chainID := terratest.RandomChainID()
+	chain := terra.TerraConfig{
+		ChainID: ptr(chainID),
+		Enabled: ptr(true),
+	}
+	app := terraStartNewApplication(t, &chain)
 	client, r := app.NewClientAndRenderer()
-
-	ter := app.Chains.Terra
-	_, initialCount, err := ter.Index(0, 25)
-	require.NoError(t, err)
-
-	ctx := testutils.Context(t)
-	chain, err := ter.Add(ctx, terratest.RandomChainID(), nil)
-	require.NoError(t, err)
 
 	require.Nil(t, cmd.TerraChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.TerraChainPresenters)
-	require.Len(t, chains, initialCount+1)
-	c := chains[initialCount]
-	assert.Equal(t, chain.ID, c.ID)
+	require.Len(t, chains, 1)
+	c := chains[0]
+	assert.Equal(t, chainID, c.ID)
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateTerraChain(t *testing.T) {
 	t.Parallel()
 
-	app := terraStartNewApplication(t)
+	app := terraStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	ter := app.Chains.Terra
@@ -68,10 +67,11 @@ func TestClient_CreateTerraChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveTerraChain(t *testing.T) {
 	t.Parallel()
 
-	app := terraStartNewApplication(t)
+	app := terraStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	ter := app.Chains.Terra
@@ -99,10 +99,11 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigureTerraChain(t *testing.T) {
 	t.Parallel()
 
-	app := terraStartNewApplication(t)
+	app := terraStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	ter := app.Chains.Terra
@@ -148,3 +149,5 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 	assert.Equal(t, original.ConfirmPollPeriod, ch.Cfg.ConfirmPollPeriod)
 	assertTableRenders(t, r)
 }
+
+func ptr[T any](t T) *T { return &t }

@@ -97,7 +97,6 @@ func TestResolver_Config(t *testing.T) {
 					P2PBootstrapPeers:                    nil,
 					P2PListenPort:                        null.IntFrom(1),
 					P2PPeerID:                            "",
-					P2PPeerIDError:                       nil,
 					TriggerFallbackDBPollInterval:        nil,
 				})
 				cfg.SetRootDir("/tmp/chainlink_test/gql-test")
@@ -328,6 +327,22 @@ func TestResolver_Config(t *testing.T) {
       {
         "key": "TRIGGER_FALLBACK_DB_POLL_INTERVAL",
         "value": "30s"
+      },
+      {
+        "key": "AUDIT_LOGGER_ENABLED",
+        "value": "false"
+      },
+      {
+        "key": "AUDIT_LOGGER_FORWARD_TO_URL",
+        "value": ""
+      },
+      {
+        "key": "AUDIT_LOGGER_JSON_WRAPPER_KEY",
+        "value": ""
+      },
+      {
+        "key": "AUDIT_LOGGER_HEADERS",
+        "value": ""
       },
       {
         "key": "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",

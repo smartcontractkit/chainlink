@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -129,7 +130,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
 	} else if !peerWrapper.IsStarted() {
-		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running p2p peer")
 	}
 
 	var v1BootstrapPeers []string
@@ -166,7 +167,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	if concreteSpec.IsBootstrapPeer {
 		var bootstrapper *ocr.BootstrapNode
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
-			BootstrapperFactory:   peerWrapper.Peer,
+			BootstrapperFactory:   peerWrapper.Peer1,
 			V1Bootstrappers:       v1BootstrapPeers,
 			V2Bootstrappers:       v2Bootstrappers,
 			ContractConfigTracker: tracker,
@@ -222,14 +223,27 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
 
+		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
+		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
+		effectiveTransmitterAddress := concreteSpec.TransmitterAddress.Address()
+		if jb.ForwardingAllowed {
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(concreteSpec.TransmitterAddress.Address())
+			if fwderr == nil {
+				effectiveTransmitterAddress = fwdrAddress
+			} else {
+				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
+			}
+		}
+
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, jb.ForwardingAllowed, strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), []common.Address{concreteSpec.TransmitterAddress.Address()}, gasLimit, effectiveTransmitterAddress, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
+			effectiveTransmitterAddress,
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
@@ -266,7 +280,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,
 			PrivateKeys:                  ocrkey,
-			BinaryNetworkEndpointFactory: peerWrapper.Peer,
+			BinaryNetworkEndpointFactory: peerWrapper.Peer1,
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              v1BootstrapPeers,
 			V2Bootstrappers:              v2Bootstrappers,

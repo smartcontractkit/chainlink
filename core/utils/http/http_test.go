@@ -2,14 +2,15 @@ package http_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	netHttp "net/http"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils/http"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestUnrestrictedHTTPClient(t *testing.T) {
@@ -52,6 +53,6 @@ func (t *mockTransport) RoundTrip(req *netHttp.Request) (*netHttp.Response, erro
 	response.Header.Set("Content-Type", "application/json")
 
 	responseBody := `{"foo":123}`
-	response.Body = ioutil.NopCloser(strings.NewReader(responseBody))
+	response.Body = io.NopCloser(strings.NewReader(responseBody))
 	return response, nil
 }

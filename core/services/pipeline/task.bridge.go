@@ -12,13 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//
 // Return types:
-//     string
 //
+//	string
 type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 
@@ -27,7 +25,7 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 
-	queryer    pg.Queryer
+	orm        bridges.ORM
 	config     Config
 	httpClient *http.Client
 }
@@ -88,10 +86,14 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	if t.Async == "true" {
 		responseURL := t.config.BridgeResponseURL()
-		if *responseURL != *zeroURL {
+		if responseURL != nil && *responseURL != *zeroURL {
 			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
 		}
-		requestData["responseURL"] = responseURL.String()
+		var s string
+		if responseURL != nil {
+			s = responseURL.String()
+		}
+		requestData["responseURL"] = s
 	}
 
 	requestDataJSON, err := json.Marshal(requestData)
@@ -143,8 +145,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 }
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	var bt bridges.BridgeType
-	err := t.queryer.Get(&bt, "SELECT * FROM bridge_types WHERE name = $1", string(name))
+	bt, err := t.orm.FindBridge(bridges.BridgeName(name))
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

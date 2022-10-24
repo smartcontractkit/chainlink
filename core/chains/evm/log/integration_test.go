@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"gopkg.in/guregu/null.v4"
 
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -24,9 +23,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -34,7 +35,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	const blockHeight int64 = 123
-	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
 	helper.lb.AddDependents(2)
 
 	var listener = helper.newLogListenerWithJob("A")
@@ -80,7 +81,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
@@ -146,7 +147,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
 
 	maxNumConfirmations := int64(10)
@@ -205,7 +206,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		FilterLogs:       4,
 		FilterLogsResult: sentLogs,
 	})
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(blockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(blockHeight), nil)
 	helper.mockEth = mockEth
 
 	listener := helper.newLogListenerWithJob("listener")
@@ -262,7 +263,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
@@ -285,8 +286,9 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 
 	// Pool two logs from subscription, then shut down
-	helper := helperCfg.new(t, 0, 1, logs)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(confs)
+	helper := helperCfg.new(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+	})
 	listener := helper.newLogListenerWithJob("one")
 	listener.SkipMarkingConsumed(true)
 	listener2 := helper.newLogListenerWithJob("two")
@@ -329,8 +331,9 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	helper.requireBroadcastCount(0)
 
 	// Backfill pool with both, then broadcast one, but don't consume
-	helper = helperCfg.new(t, 2, 1, logs)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(confs)
+	helper = helperCfg.new(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+	})
 	listener = helper.newLogListenerWithJob("one")
 	listener.SkipMarkingConsumed(true)
 	listener2 = helper.newLogListenerWithJob("two")
@@ -369,8 +372,9 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.False(t, c)
 
 	// Backfill pool and broadcast two, but only consume one
-	helper = helperCfg.new(t, 4, 1, logs)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(confs)
+	helper = helperCfg.new(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+	})
 	listener = helper.newLogListenerWithJob("one")
 	listener2 = helper.newLogListenerWithJob("two")
 	listener2.SkipMarkingConsumed(true)
@@ -410,8 +414,9 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.False(t, c)
 
 	// Backfill pool, broadcast and consume one
-	helper = helperCfg.new(t, 7, 1, logs[1:])
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(confs)
+	helper = helperCfg.new(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+	})
 	listener = helper.newLogListenerWithJob("one")
 	listener2 = helper.newLogListenerWithJob("two")
 	func() {
@@ -451,6 +456,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	const (
 		lastStoredBlockHeight       = 100
 		blockHeight           int64 = 125
+		backfillDepth               = 15
 	)
 
 	backfillTimes := 1
@@ -462,13 +468,11 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].BlockBackfillSkip = ptr(true)
+		c.EVM[0].BlockBackfillDepth = ptr[uint32](15)
+	})
 	helper.mockEth = mockEth
-
-	backfillDepth := 15
-
-	helper.globalConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
-	helper.globalConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
 	var backfillCount atomic.Int64
 
@@ -514,11 +518,12 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].LogBackfillBatchSize = ptr(uint32(batchSize))
+	})
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
-	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(batchSize)
 
 	var backfillCount atomic.Int64
 
@@ -586,10 +591,10 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].LogBackfillBatchSize = ptr(batchSize)
+	})
 	helper.mockEth = mockEth
-
-	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
 
 	var backfillCount atomic.Int64
 
@@ -611,7 +616,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
@@ -675,7 +680,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
@@ -756,8 +761,9 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 
 func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(1)
+	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](1)
+	})
 	helper.start()
 	defer helper.stop()
 
@@ -821,8 +827,9 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(4)
+	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](4)
+	})
 	helper.start()
 	defer helper.stop()
 
@@ -886,8 +893,9 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(3)
+	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](3)
+	})
 	helper.start()
 	defer helper.stop()
 
@@ -970,8 +978,9 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
+	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](2)
+	})
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
@@ -1018,7 +1027,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
@@ -1064,8 +1073,9 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
+	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].FinalityDepth = ptr[uint32](2)
+	})
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
@@ -1196,7 +1206,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		Return(nil, nil).
 		Once()
 
-	helper := newBroadcasterHelperWithEthClient(t, ethClient, nil)
+	helper := newBroadcasterHelperWithEthClient(t, ethClient, nil, nil)
 	helper.lb.AddDependents(1)
 	helper.start()
 	defer helper.stop()
@@ -1342,10 +1352,11 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			helper := newBroadcasterHelper(t, test.blockHeight1, 2)
-			var backfillDepth int64 = 5
-			// something other than default
-			helper.globalConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+			const backfillDepth = 5
+			helper := newBroadcasterHelper(t, test.blockHeight1, 2, func(c *chainlink.Config, s *chainlink.Secrets) {
+				// something other than default
+				c.EVM[0].BlockBackfillDepth = ptr[uint32](backfillDepth)
+			})
 
 			helper.start()
 			defer helper.stop()
@@ -1498,7 +1509,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 
 func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
 	helper.start()
 	defer helper.stop()
 
@@ -1534,7 +1545,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	const startBlockHeight int64 = 0
-	helper := newBroadcasterHelper(t, startBlockHeight, 1)
+	helper := newBroadcasterHelper(t, startBlockHeight, 1, nil)
 	helper.start()
 	defer helper.stop()
 
@@ -1591,10 +1602,10 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 
 	chRawLogs := <-helper.chchRawLogs
 
+	ctx := testutils.Context(t)
 	for _, event := range events {
 		switch x := event.(type) {
 		case *evmtypes.Head:
-			ctx, _ := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
 			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
 			chRawLogs.TrySend(x)
@@ -1617,7 +1628,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 2)
+	helper := newBroadcasterHelper(t, blockHeight, 2, nil)
 	helper.mockEth.EthClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: blockHeight}, nil).Times(1)
 	helper.mockEth.EthClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(1)
 
@@ -1691,7 +1702,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Return(nil, nil)
 
-	helper := newBroadcasterHelperWithEthClient(t, ethClient, nil)
+	helper := newBroadcasterHelperWithEthClient(t, ethClient, nil, nil)
 	helper.start()
 	defer helper.stop()
 
@@ -1771,3 +1782,5 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		return len(listener1.getUniqueLogs()) == len(addr1SentLogs) && len(listener2.getUniqueLogs()) == len(addr1SentLogs)
 	}, 1*time.Second, cltest.DBPollingInterval).Should(gomega.BeTrue())
 }
+
+func ptr[T any](t T) *T { return &t }

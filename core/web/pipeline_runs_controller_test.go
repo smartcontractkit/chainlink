@@ -3,7 +3,7 @@ package web_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,12 +14,14 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -29,11 +31,10 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-
-	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
-	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(2 * time.Second)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -41,7 +42,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	// Setup the bridge
 	mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 		defer r.Body.Close()
-		bs, err := ioutil.ReadAll(r.Body)
+		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})
@@ -87,11 +88,10 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-
-	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
-	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(2 * time.Second)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -103,7 +103,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 		defer r.Body.Close()
-		bs, err := ioutil.ReadAll(r.Body)
+		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})
@@ -245,13 +245,16 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
 	t.Parallel()
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
-	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())

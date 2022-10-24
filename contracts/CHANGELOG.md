@@ -1,6 +1,18 @@
 # @chainlink/contracts CHANGELOG.md
 
-## 0.5.0 - 2022-09-16
+## Unreleased
+
+- Migrated and improved `AuthorizedReceiverInterface` and `AuthorizedReceiver` from 0.7.0
+- Added `OCR2DR` interfaces and contracts (initial version for PoC)
+
+## 0.5.1 - 2022-09-27
+
+- Rename `KeeperBase` -> `AutomationBase` and add alias for backwards compatibility
+- Rename `KeeperCompatible` -> `AutomationCompatible` and add alias for backwards compatibility
+- Rename `KeeperCompatibleInterface` -> `AutomationCompatibleInterface` and add alias for backwards compatibility
+- Rename `KeeperRegistryInterface1_2` -> `AutomationRegistryInterface1_2` and add alias for backwards compatibility
+
+## 0.5.0 - 2022-09-26
 
 ### Changed
 

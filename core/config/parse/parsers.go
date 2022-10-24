@@ -9,10 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -93,10 +95,28 @@ func BigInt(str string) (*big.Int, error) {
 	return i, nil
 }
 
+func Wei(str string) (w *assets.Wei, err error) {
+	w = new(assets.Wei)
+	err = w.UnmarshalText([]byte(str))
+	return w, err
+}
+
 func HomeDir(str string) (string, error) {
 	exp, err := homedir.Expand(str)
 	if err != nil {
 		return "", err
 	}
 	return filepath.ToSlash(exp), nil
+}
+
+func DatabaseURL(s string) (url.URL, error) {
+	uri, err := url.Parse(s)
+	if err != nil {
+		return url.URL{}, errors.Wrapf(err, "invalid database url %s", s)
+	}
+	if uri.String() == "" {
+		return *uri, nil
+	}
+	static.SetConsumerName(uri, "Default", nil)
+	return *uri, nil
 }

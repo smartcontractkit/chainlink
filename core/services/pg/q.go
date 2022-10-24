@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -93,14 +95,6 @@ func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
 func WithLongQueryTimeout() func(q *Q) {
 	return func(q *Q) {
 		q.QueryTimeout = LongQueryTimeout
-	}
-}
-
-// MergeCtx allows callers to combine a ctx with a previously set parent context
-// Responsibility for cancelling the passed context lies with caller
-func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
-	return func(q *Q) {
-		q.ParentCtx = fn(q.ParentCtx)
 	}
 }
 
@@ -280,10 +274,29 @@ func sprintQ(query string, args []interface{}) string {
 	}
 	var pairs []string
 	for i, arg := range args {
-		pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		// We print by type so one can directly take the logged query string and execute it manually in pg.
+		// Annoyingly it seems as though the logger itself will add an extra \, so you still have to remove that.
+		switch v := arg.(type) {
+		case []byte:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v))
+		case common.Address:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case common.Hash:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case pq.ByteaArray:
+			var s strings.Builder
+			fmt.Fprintf(&s, "('\\x%x'", v[0])
+			for j := 1; j < len(v); j++ {
+				fmt.Fprintf(&s, ",'\\x%x'", v[j])
+			}
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s.String()))
+		default:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		}
 	}
 	replacer := strings.NewReplacer(pairs...)
-	return replacer.Replace(query)
+	queryWithVals := replacer.Replace(query)
+	return strings.ReplaceAll(strings.ReplaceAll(queryWithVals, "\n", " "), "\t", " ")
 }
 
 // queryLogger extends Q with logging helpers for a particular query w/ args.

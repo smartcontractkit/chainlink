@@ -287,7 +287,7 @@ func (km *keyManager) save(callbacks ...func(pg.Queryer) error) error {
 
 // caller must hold lock!
 func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) error) error {
-	fieldName, err := getFieldNameForKey(unknownKey)
+	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) e
 
 // caller must hold lock!
 func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(pg.Queryer) error) (err error) {
-	fieldName, err := getFieldNameForKey(unknownKey)
+	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (km *keyManager) isLocked() bool {
 	return len(km.password) == 0
 }
 
-func getFieldNameForKey(unknownKey Key) (string, error) {
+func GetFieldNameForKey(unknownKey Key) (string, error) {
 	switch unknownKey.(type) {
 	case csakey.KeyV2:
 		return "CSA", nil

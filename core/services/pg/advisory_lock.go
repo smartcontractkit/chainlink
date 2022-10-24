@@ -139,11 +139,16 @@ const checkAdvisoryLockStmt = `SELECT EXISTS (SELECT 1 FROM pg_locks WHERE lockt
 func (l *advisoryLock) loop(ctx context.Context) {
 	defer l.wgReleased.Done()
 
-	ticker := time.NewTicker(utils.WithJitter(l.checkInterval))
-	defer ticker.Stop()
+	check := time.NewTicker(utils.WithJitter(l.checkInterval))
+	defer check.Stop()
+
+	stats := time.NewTicker(dbStatsInternal)
+	defer stats.Stop()
 
 	for {
 		select {
+		case <-stats.C:
+			publishStats(l.db.Stats())
 		case <-ctx.Done():
 			qctx, cancel := DefaultQueryCtx()
 			err := multierr.Combine(
@@ -155,7 +160,7 @@ func (l *advisoryLock) loop(ctx context.Context) {
 				l.logger.Warnw("Error trying to unlock advisory lock on shutdown", "err", err)
 			}
 			return
-		case <-ticker.C:
+		case <-check.C:
 			var gotLock bool
 
 			qctx, cancel := DefaultQueryCtxWithParent(ctx)
@@ -178,7 +183,7 @@ func (l *advisoryLock) loop(ctx context.Context) {
 				}
 				l.logger.Fatal("Another node has taken the advisory lock, exiting immediately")
 			}
-			ticker.Reset(utils.WithJitter(l.checkInterval))
+			check.Reset(utils.WithJitter(l.checkInterval))
 		}
 	}
 }

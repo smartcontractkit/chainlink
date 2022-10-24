@@ -9,11 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -285,9 +284,9 @@ func TestJob_ToRows(t *testing.T) {
 func TestClient_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-	}))
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+	})
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
@@ -308,9 +307,9 @@ func TestClient_ListFindJobs(t *testing.T) {
 func TestClient_ShowJob(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-	}))
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+	})
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
@@ -334,14 +333,18 @@ func TestClient_ShowJob(t *testing.T) {
 func TestClient_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-		c.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
-	}))
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	}, func(opts *startOptions) {
+		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
+	})
 	client, r := app.NewClientAndRenderer()
 
 	requireJobsCount(t, app.JobORM(), 0)
@@ -362,13 +365,13 @@ func TestClient_CreateJobV2(t *testing.T) {
 func TestClient_DeleteJob(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
-	}))
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	})
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job

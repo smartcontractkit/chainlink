@@ -503,7 +503,7 @@ func (r *OCR2SpecResolver) BlockchainTimeout() *string {
 	return &timeout
 }
 
-// ContractAddress resolves the spec's contract address.
+// ContractID resolves the spec's contract address.
 func (r *OCR2SpecResolver) ContractID() string {
 	return r.spec.ContractID
 }
@@ -696,15 +696,6 @@ func (r *VRFSpecResolver) BackoffInitialDelay() string {
 // BackoffMaxDelay resolves the spec's backoff max delay.
 func (r *VRFSpecResolver) BackoffMaxDelay() string {
 	return r.spec.BackoffMaxDelay.String()
-}
-
-// MaxGasPriceGWei resolves the spec's max gas price gwei.
-func (r *VRFSpecResolver) MaxGasPriceGWei() *int32 {
-	if r.spec.MaxGasPriceGWei == nil {
-		return nil
-	}
-	maxGasPriceGWei := int32(*r.spec.MaxGasPriceGWei)
-	return &maxGasPriceGWei
 }
 
 type WebhookSpecResolver struct {

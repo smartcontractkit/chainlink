@@ -65,10 +65,8 @@ func NewApp(client *Client) *cli.App {
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.IsSet("config") {
-			var err error
-
 			// TOML
-			configTOML := os.Getenv("CL_CONFIG")
+			configTOML := v2.CLConfig
 			if configTOML == "" {
 				fileName := c.String("config")
 				b, err := os.ReadFile(fileName)
@@ -79,7 +77,7 @@ func NewApp(client *Client) *cli.App {
 			}
 
 			secretsTOML := ""
-			if c.IsSet(("secrets")) {
+			if c.IsSet("secrets") {
 				secretsFileName := c.String("secrets")
 				b, err := os.ReadFile(secretsFileName)
 				if err != nil {
@@ -87,11 +85,27 @@ func NewApp(client *Client) *cli.App {
 				}
 				secretsTOML = string(b)
 			}
-			client.Config, err = chainlink.NewGeneralConfig(configTOML, secretsTOML, c)
+			var keystorePasswordFileName, vrfPasswordFileName *string
+			if c.IsSet("password") {
+				s := c.String("password")
+				keystorePasswordFileName = &s
+			}
+			if c.IsSet("vrfpassword") {
+				s := c.String("vrfpassword")
+				vrfPasswordFileName = &s
+			}
+			var err error
+			client.Config, err = chainlink.GeneralConfigTOML{
+				Config:                   configTOML,
+				Secrets:                  secretsTOML,
+				KeystorePasswordFileName: keystorePasswordFileName,
+				VRFPasswordFileName:      vrfPasswordFileName,
+			}.New(client.Logger)
 			if err != nil {
 				return err
 			}
-			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/33615/create-new-implementation-of-chainscopedconfig-generalconfig-interfaces-that-sources-config-from-a-config-toml-file
+			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
+			//TODO note that empty string is NOT OK since it is sometimes meaningful - must use os.LookupEnv()
 		} else {
 			// Legacy ENV
 			if c.IsSet("secrets") {
