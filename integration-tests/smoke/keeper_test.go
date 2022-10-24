@@ -97,7 +97,7 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
-var _ = PDescribe("Keeper Suite @keeper", func() {
+var _ = Describe("Keeper Suite @keeper", func() {
 	var (
 		err                  error
 		chainClient          blockchain.EVMClient
