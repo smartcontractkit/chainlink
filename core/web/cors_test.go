@@ -4,17 +4,17 @@ import (
 	"net/http"
 	"testing"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.AllowOrigins = null.StringFrom("http://localhost:3000,http://localhost:6689")
-	config.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.WebServer.AllowOrigins = ptr("http://localhost:3000,http://localhost:6689")
+	})
 
 	tests := []struct {
 		origin     string
@@ -32,7 +32,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 			headers := map[string]string{"Origin": test.origin}
-			resp, cleanup := client.Get("/v2/config", headers)
+			resp, cleanup := client.Get("/v2/chains/evm", headers)
 			defer cleanup()
 			cltest.AssertServerResponse(t, resp, test.statusCode)
 		})
@@ -55,15 +55,16 @@ func TestCors_OverrideOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
-			config := cltest.NewTestGeneralConfig(t)
-			config.Overrides.AllowOrigins = null.StringFrom(test.allow)
-			config.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+
+			config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.WebServer.AllowOrigins = ptr(test.allow)
+			})
 			app := cltest.NewApplicationWithConfig(t, config)
 
 			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 			headers := map[string]string{"Origin": test.origin}
-			resp, cleanup := client.Get("/v2/config", headers)
+			resp, cleanup := client.Get("/v2/chains/evm", headers)
 			defer cleanup()
 			cltest.AssertServerResponse(t, resp, test.statusCode)
 		})

@@ -391,10 +391,10 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 }
 
 func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
-	// Use the a non-transactional db for this test because we need to
+	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions")
+	config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions", nil)
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -435,8 +435,6 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 		CloseLogger:            lggr.Sync,
 	}
 
-	config.Overrides.Dialect = dialects.TransactionWrappedPostgres
-
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -466,8 +464,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange")
-			config.Overrides.Dialect = dialects.Postgres
+			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Database.Dialect = dialects.Postgres
+			})
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 
@@ -505,8 +504,6 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				Logger:                 lggr,
 				CloseLogger:            lggr.Sync,
 			}
-
-			config.Overrides.Dialect = dialects.TransactionWrappedPostgres
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
