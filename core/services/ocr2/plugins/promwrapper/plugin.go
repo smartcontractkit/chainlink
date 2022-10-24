@@ -12,7 +12,7 @@ import (
 
 var (
 	_       types.ReportingPlugin = &promPlugin{}
-	buckets []float64             = []float64{
+	buckets                       = []float64{
 		float64(1 * time.Millisecond),
 		float64(5 * time.Millisecond),
 		float64(10 * time.Millisecond),
