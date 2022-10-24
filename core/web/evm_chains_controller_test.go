@@ -19,7 +19,7 @@ import (
 	corecfg "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -81,9 +81,9 @@ func Test_EVMChainsController_Show(t *testing.T) {
 				ChainID: validId,
 				Enabled: ptr(true),
 				Chain: evmcfg.DefaultsFrom(nil, &evmcfg.Chain{
-					GasEstimator: &evmcfg.GasEstimator{
+					GasEstimator: evmcfg.GasEstimator{
 						EIP1559DynamicFees: ptr(true),
-						BlockHistory: &evmcfg.BlockHistoryEstimator{
+						BlockHistory: evmcfg.BlockHistoryEstimator{
 							BlockHistorySize: ptr[uint16](50),
 						},
 					},
@@ -114,8 +114,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupEVMChainsControllerTest(t, configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				cltest.TestOverrides(c, s)
+			controller := setupEVMChainsControllerTest(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				if tc.want != nil {
 					c.EVM = evmcfg.EVMConfigs{tc.want}
 				}
@@ -153,9 +152,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
 			Chain: evmcfg.DefaultsFrom(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](13),
-				GasEstimator: &evmcfg.GasEstimator{
+				GasEstimator: evmcfg.GasEstimator{
 					EIP1559DynamicFees: ptr(true),
-					BlockHistory: &evmcfg.BlockHistoryEstimator{
+					BlockHistory: evmcfg.BlockHistoryEstimator{
 						BlockHistorySize: ptr[uint16](1),
 					},
 				},
@@ -166,9 +165,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
 			Chain: evmcfg.DefaultsFrom(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](5),
-				GasEstimator: &evmcfg.GasEstimator{
+				GasEstimator: evmcfg.GasEstimator{
 					EIP1559DynamicFees: ptr(false),
-					BlockHistory: &evmcfg.BlockHistoryEstimator{
+					BlockHistory: evmcfg.BlockHistoryEstimator{
 						BlockHistorySize: ptr[uint16](2),
 					},
 				},
@@ -177,8 +176,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		},
 	}
 
-	controller := setupEVMChainsControllerTest(t, configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cltest.TestOverrides(c, s)
+	controller := setupEVMChainsControllerTest(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = append(c.EVM, newChains...)
 	}))
 
@@ -414,7 +412,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg corecfg.GeneralConfig) *Test
 func setupEVMChainsControllerTestLegacy(t *testing.T) *TestEVMChainsController {
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
-	app := cltest.NewLegacyApplication(t)
+	app := cltest.NewApplicationWithConfig(t, cltest.NewTestGeneralConfig(t))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)

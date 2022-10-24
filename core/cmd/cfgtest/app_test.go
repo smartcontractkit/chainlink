@@ -35,21 +35,29 @@ func TestDefaultConfig(t *testing.T) {
 	redefined := []string{"BlockEmissionIdleWarningThreshold", "DatabaseLockingMode", "EVMEnabled", "EVMRPCEnabled"}
 
 	t.Run("general", func(t *testing.T) {
-		assertMethodsReturnEqual[config.GeneralConfig](t, legacyGeneral, newGeneral, redefined)
+		assertMethodsReturnEqual[config.GeneralConfig](t, legacyGeneral, newGeneral, redefined...)
 	})
 	t.Run("general-test", func(t *testing.T) {
-		// Legacy overrides root with random, but none of these others picked that up.
-		// New uses test temp dir and inherits as expected.
-		testRoot := []string{
+		assertMethodsReturnEqual[config.GeneralConfig](t, configtest.NewTestGeneralConfig(t), configtest2.NewTestGeneralConfig(t),
+			"KeystorePassword", // new has a dummy value to pass validation
+
+			// Legacy package cltest defaults that were made standard.
+			"JobPipelineReaperInterval",
+			"P2PEnabled",
+			"P2PNetworkingStack",
+			"P2PNetworkingStackRaw",
+			"ShutdownGracePeriod",
+
+			// Legacy overrides root with random, but none of these others picked that up.
+			// New uses test temp dir and inherits as expected.
 			"AutoPprofProfileRoot",
 			"CertFile",
 			"KeyFile",
 			"LogFileDir",
 			"RootDir",
 			"TLSDir",
-			"AuditLoggerEnvironment", // same problem being derived from Dev()
-		}
-		assertMethodsReturnEqual[config.GeneralConfig](t, configtest.NewTestGeneralConfig(t), configtest2.NewTestGeneralConfig(t), testRoot)
+			"AuditLoggerEnvironment", // same problem being derived from Dev())
+		)
 	})
 	evmCfg := evmcfg2.EVMConfig{
 		ChainID: chainID,
@@ -59,13 +67,13 @@ func TestDefaultConfig(t *testing.T) {
 	legacyConfig := evmcfg.NewChainScopedConfig(chainID.ToInt(), evmtypes.ChainCfg{}, nil, lggr, legacyGeneral)
 
 	t.Run("chain-scoped", func(t *testing.T) {
-		assertMethodsReturnEqual[evmcfg.ChainScopedOnlyConfig](t, legacyConfig, newConfig, redefined)
+		assertMethodsReturnEqual[evmcfg.ChainScopedOnlyConfig](t, legacyConfig, newConfig, redefined...)
 	})
 }
 
 // assertMethodsReturnEqual calls each method from M on a and b, and asserts the returned values are equal.
 // Methods which accept arguments are skipped, allowe with a few other special cases.
-func assertMethodsReturnEqual[M any](t *testing.T, a, b M, redefined []string) {
+func assertMethodsReturnEqual[M any](t *testing.T, a, b M, redefined ...string) {
 	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
 	to := reflect.TypeOf((*M)(nil)).Elem()
 	for i := 0; i < to.NumMethod(); i++ {

@@ -25,7 +25,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100000 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500_000
 LimitMax = 500_000
@@ -43,6 +43,8 @@ TipCapMin = '1'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
@@ -60,3 +62,6 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2.Automation]
+GasLimit = 5300000

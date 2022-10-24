@@ -1,6 +1,6 @@
 name: CI Core
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -10,13 +10,11 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-  shard-packages:
-    name: Shard Go Tests
+  split-packages:
+    name: Split Go Tests
     runs-on: ubuntu-latest
     outputs:
-      shards: ${{ steps.shard.outputs.shards }} 
-    env:
-      SHARDS: 10 
+      splits: ${{ steps.split.outputs.splits }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -24,30 +22,30 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Shard Go Tests 
+          this-job-name: Split Go Tests
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Install zx shell
-        run: npm i -g zx
-      - name: Shard list of go packages
-        id: shard
-        run: ./tools/ci/shard_packages
+      - name: Generate splits
+        id: split
+        uses: ./.github/actions/split-tests
+        with:
+          config: ./ci.json
 
   core:
-    needs: [shard-packages]
+    needs: [split-packages]
     strategy:
       fail-fast: false
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests"]
-        shard: ${{ fromJson(needs.shard-packages.outputs.shards) }}  
-    name: Core Tests (${{ matrix.cmd }}) ${{ matrix.shard.id }}
+        split: ${{ fromJson(needs.split-packages.outputs.splits) }}
+    name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
@@ -75,17 +73,16 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.shard.id }}
+          this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup node
         uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
         with:
-          node-version: "16"
-          cache: yarn
-      - name: Install contract dependencies
-        run: yarn install --prod --frozen-lockfile
+          prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
       - name: Setup Solana
@@ -104,12 +101,12 @@ jobs:
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
       - name: Run tests
-        run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.shard.pkgs }}"
+        run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
       - name: Store logs artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v2.3.0
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
-          name: ${{ matrix.cmd }}_${{ matrix.shard.idx }}_logs
+          name: ${{ matrix.cmd }}_${{ matrix.split.idx }}_logs
           path: |
             ./output.txt
             ./race.*
@@ -120,7 +117,7 @@ jobs:
           args: logs ${{ job.services.postgres.id }}
 
   # Satisfy required check for core tests
-  # while still allowing for adjustable sharding
+  # while still allowing for adjustable splitting
   core-complete:
     needs: [core]
     name: Core Tests (${{ matrix.cmd }})
@@ -128,6 +125,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: ['go_core_tests', 'go_core_race_tests']
+        cmd: ["go_core_tests", "go_core_race_tests"]
     steps:
       - run: echo "${{ matrix.cmd }} have finished"

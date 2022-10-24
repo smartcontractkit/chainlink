@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -175,6 +176,7 @@ func (cll *chainSet) Default() (Chain, error) {
 }
 
 // Requires a lock on chainsMu
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.DBChain) error {
 	// preload nodes
 	nodes, _, err := cll.opts.ORM.NodesForChain(dbchain.ID, 0, math.MaxInt)
@@ -413,6 +415,7 @@ type ChainSetOpts struct {
 	GenTxManager      func(*big.Int) txmgr.TxManager
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 	if err := opts.check(); err != nil {
 		return nil, err
@@ -535,13 +538,13 @@ func (opts *ChainSetOpts) check() error {
 	return nil
 }
 
-func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *big.Int) ChainConfigUpdater {
+func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *assets.Wei) ChainConfigUpdater {
 	return func(config *types.ChainCfg) error {
 		keyChainConfig, ok := config.KeySpecific[addr.Hex()]
 		if !ok {
 			keyChainConfig = types.ChainCfg{}
 		}
-		keyChainConfig.EvmMaxGasPriceWei = (*utils.Big)(maxGasPriceWei)
+		keyChainConfig.EvmMaxGasPriceWei = maxGasPriceWei
 		if config.KeySpecific == nil {
 			config.KeySpecific = map[string]types.ChainCfg{}
 		}

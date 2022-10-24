@@ -53,10 +53,6 @@ func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.Chai
 	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.TestLogger(t), cfg)
 }
 
-func NewLegacyChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.LegacyChainScopedConfig {
-	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.TestLogger(t), cfg)
-}
-
 type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
@@ -89,8 +85,11 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) (evm.ChainSetOpts, []
 		KeyStore:         testopts.KeyStore,
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
 	}
-	if testopts.Client != nil {
-		opts.GenEthClient = func(*big.Int) evmclient.Client { return testopts.Client }
+	opts.GenEthClient = func(*big.Int) evmclient.Client {
+		if testopts.Client != nil {
+			return testopts.Client
+		}
+		return evmclient.NewNullClient(testopts.GeneralConfig.DefaultChainID(), logger.TestLogger(t))
 	}
 	if testopts.LogBroadcaster != nil {
 		opts.GenLogBroadcaster = func(*big.Int) log.Broadcaster {
@@ -134,6 +133,7 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 	return chain
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func MustInsertChain(t testing.TB, db *sqlx.DB, chain *evmtypes.DBChain) {
 	query, args, e := db.BindNamed(`
 INSERT INTO evm_chains (id, cfg, enabled, created_at, updated_at) VALUES (:id, :cfg, :enabled, NOW(), NOW()) RETURNING *;`, chain)

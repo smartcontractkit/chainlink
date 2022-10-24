@@ -10,9 +10,7 @@ contract OCR2DRClientTestHelper is OCR2DRClient {
 
   event FulfillRequestInvoked(bytes32 requestId, bytes response, bytes err);
 
-  constructor(address _oracle) {
-    setOracle(_oracle);
-  }
+  constructor(address oracle) OCR2DRClient(oracle) {}
 
   function sendSimpleRequestWithJavaScript(string memory sourceCode, uint256 subscriptionId) public returns (bytes32) {
     OCR2DR.Request memory request;

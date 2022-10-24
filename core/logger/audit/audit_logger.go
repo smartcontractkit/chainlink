@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -37,7 +40,7 @@ type AuditLoggerConfig struct {
 	Enabled        *bool
 	ForwardToUrl   *models.URL
 	JsonWrapperKey *string
-	Headers        *ServiceHeaders
+	Headers        *[]ServiceHeader
 }
 
 func (p *AuditLoggerConfig) SetFrom(f *AuditLoggerConfig) {
@@ -56,6 +59,47 @@ func (p *AuditLoggerConfig) SetFrom(f *AuditLoggerConfig) {
 
 }
 
+// ServiceHeader is an HTTP header to include in POST to log service.
+type ServiceHeader struct {
+	Header string
+	Value  string
+}
+
+func (h *ServiceHeader) UnmarshalText(input []byte) error {
+	parts := strings.SplitN(string(input), ":", 2)
+	h.Header = parts[0]
+	if len(parts) > 1 {
+		h.Value = strings.TrimSpace(parts[1])
+	}
+	return h.validate()
+}
+
+func (h *ServiceHeader) MarshalText() ([]byte, error) {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "%s: %s", h.Header, h.Value)
+	return b.Bytes(), nil
+}
+
+// We act slightly more strictly than the HTTP specifications
+// technically allow instead following the guidelines of
+// cloudflare transforms.
+// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
+var (
+	headerNameRegex  = regexp.MustCompile(`^[A-Za-z\-]+$`)
+	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
+)
+
+func (h ServiceHeader) validate() (err error) {
+	if !headerNameRegex.MatchString(h.Header) {
+		err = multierr.Append(err, errors.Errorf("invalid header name: %s", h.Header))
+	}
+
+	if !headerValueRegex.MatchString(h.Value) {
+		err = multierr.Append(err, errors.Errorf("invalid header value: %s", h.Value))
+	}
+	return
+}
+
 type ServiceHeaders []ServiceHeader
 
 func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
@@ -64,12 +108,6 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 	}
 
 	headers := string(input)
-	// We act slightly more strictly than the HTTP specifications
-	// technically allow instead following the guidelines of
-	// cloudflare transforms.
-	// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
-	headerNameRegex, _ := regexp.Compile(`^[A-Za-z\-]+$`)
-	headerValueRegex, _ := regexp.Compile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 
 	var parsedHeaders []ServiceHeader
 	if headers != "" {
@@ -79,20 +117,15 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 			if len(keyValue) != 2 {
 				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
-			header := keyValue[0]
-			value := keyValue[1]
-
-			if !headerNameRegex.MatchString(header) {
-				return errors.Errorf("invalid header name: %s", header)
+			h := ServiceHeader{
+				Header: keyValue[0],
+				Value:  keyValue[1],
 			}
 
-			if !headerValueRegex.MatchString(value) {
-				return errors.Errorf("invalid header value: %s", value)
+			if err := h.validate(); err != nil {
+				return err
 			}
-			parsedHeaders = append(parsedHeaders, ServiceHeader{
-				Header: header,
-				Value:  value,
-			})
+			parsedHeaders = append(parsedHeaders, h)
 		}
 	}
 
@@ -102,7 +135,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 
 func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 	if sh == nil {
-		return nil, errors.New("Cannot unmarshal to a nil receiver")
+		return nil, errors.New("Cannot marshal to a nil receiver")
 	}
 
 	sb := strings.Builder{}
@@ -157,12 +190,6 @@ type AuditLoggerService struct {
 	loggingChannel chan wrappedAuditLog
 	chStop         chan struct{}
 	chDone         chan struct{}
-}
-
-// Configurable headers to include in POST to log service
-type ServiceHeader struct {
-	Header string
-	Value  string
 }
 
 type wrappedAuditLog struct {

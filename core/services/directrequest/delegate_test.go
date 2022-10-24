@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -78,9 +79,10 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg config.GeneralConfig, 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg)
+	btORM := bridges.NewORM(db, lggr, cfg)
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
-	jobORM := job.NewORM(db, cc, orm, keyStore, lggr, cfg)
+	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, cc)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)

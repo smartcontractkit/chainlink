@@ -46,7 +46,7 @@ UseBatchSend = true
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = 'event'
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 
 [Log]
 DatabaseQueries = false
@@ -124,6 +124,7 @@ TransmitterAddress = ''
 [P2P]
 IncomingMessageBufferSize = 999
 OutgoingMessageBufferSize = 10
+PeerID = ''
 TraceLogging = false
 
 [P2P.V1]
@@ -137,7 +138,6 @@ DHTLookupInterval = 10
 ListenIP = '0.0.0.0'
 ListenPort = 0
 NewStreamTimeout = '10s'
-PeerID = ''
 PeerstoreWriteInterval = '5m0s'
 
 [P2P.V2]
@@ -221,7 +221,7 @@ Enabled = true
 [EVM.GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -239,6 +239,8 @@ TipCapMin = '1 wei'
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [EVM.HeadTracker]
@@ -256,6 +258,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 5300000
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -297,7 +303,7 @@ Enabled = true
 [EVM.GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '9.223372036854775807 ether'
-PriceMax = '100 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -315,6 +321,8 @@ TipCapMin = '1 wei'
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
 [EVM.HeadTracker]
@@ -332,6 +340,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 5300000
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -367,7 +379,7 @@ Enabled = true
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 PriceDefault = '30 gwei'
-PriceMax = '200 micro'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '30 gwei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -385,6 +397,8 @@ TipCapMin = '1 wei'
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 4
 BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [EVM.HeadTracker]
@@ -402,6 +416,10 @@ ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 5300000
 
 [[EVM.Nodes]]
 Name = 'primary'

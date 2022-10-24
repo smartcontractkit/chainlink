@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
@@ -38,7 +39,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 

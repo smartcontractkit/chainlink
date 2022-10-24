@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -30,10 +29,10 @@ import (
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -45,13 +44,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -85,7 +86,7 @@ type ocr2Node struct {
 	peerID      string
 	transmitter common.Address
 	keybundle   ocr2key.KeyBundle
-	config      *configtest.TestGeneralConfig
+	config      config.GeneralConfig
 }
 
 func setupOCR2VRFContracts(
@@ -93,7 +94,7 @@ func setupOCR2VRFContracts(
 	owner := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
 		owner.From: {
-			Balance: assets.Ether(100),
+			Balance: assets.Ether(100).ToInt(),
 		},
 	}
 	b := backends.NewSimulatedBackend(genesisData, ethconfig.Defaults.Miner.GasCeil*2)
@@ -111,7 +112,7 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	feedAddress, _, feed, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-		owner, b, 18, assets.GWei(1e7)) // 0.01 eth per link
+		owner, b, 18, assets.GWei(int(1e7)).ToInt()) // 0.01 eth per link
 	require.NoError(t, err)
 
 	b.Commit()
@@ -185,37 +186,35 @@ func setupNodeOCR2(
 	dbName string,
 	b *backends.SimulatedBackend,
 	useForwarders bool,
+	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
-	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
-	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
-	config.Overrides.FeatureLogPoller = null.BoolFrom(true)
-	poll := 500 * time.Millisecond
-	config.Overrides.GlobalEvmLogPollInterval = &poll
-	config.Overrides.P2PEnabled = null.BoolFrom(true)
-	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
-	config.Overrides.P2PListenPort = null.NewInt(0, true)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(3_500_000, true)
-	config.Overrides.GlobalEvmUseForwarders = null.BoolFrom(useForwarders)
-	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
-	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
-	p2paddresses := []string{
-		fmt.Sprintf("127.0.0.1:%d", port),
-	}
-	config.Overrides.P2PV2ListenAddresses = p2paddresses
-	// Disables ocr spec validation so we can have fast polling for the test.
-	config.Overrides.Dev = null.BoolFrom(true)
-
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	_, err := app.GetKeyStore().P2P().Create()
+	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
+	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
 
-	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
-	require.NoError(t, err)
-	require.Len(t, p2pIDs, 1)
-	peerID := p2pIDs[0].PeerID()
+		c.Feature.LogPoller = ptr(true)
 
-	config.Overrides.P2PPeerID = peerID
+		c.P2P.PeerID = ptr(p2pKey.PeerID())
+		c.P2P.V1.Enabled = ptr(false)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
+		if len(p2pV2Bootstrappers) > 0 {
+			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
+		}
+
+		c.OCR.Enabled = ptr(false)
+		c.OCR2.Enabled = ptr(true)
+
+		c.EVM[0].LogPollInterval = models.MustNewDuration(500 * time.Millisecond)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
+		c.OCR2.ContractPollInterval = models.MustNewDuration(10 * time.Second)
+	})
+
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
 	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
@@ -260,9 +259,9 @@ func setupNodeOCR2(
 
 		tx := types.NewTransaction(
 			n, k.Address,
-			assets.Ether(1),
+			assets.Ether(1).ToInt(),
 			21000,
-			assets.GWei(1),
+			assets.GWei(1).ToInt(),
 			nil)
 		signedTx, err := owner.Signer(owner.From, tx)
 		require.NoError(t, err)
@@ -276,7 +275,7 @@ func setupNodeOCR2(
 
 	return &ocr2Node{
 		app:         app,
-		peerID:      peerID.Raw(),
+		peerID:      p2pKey.PeerID().Raw(),
 		transmitter: transmitter,
 		keybundle:   kb,
 		config:      config,
@@ -298,7 +297,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	t.Log("Creating bootstrap node")
 
 	bootstrapNodePort := getFreePort(t)
-	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false)
+	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false, nil)
 	numNodes := 5
 
 	t.Log("Creating OCR2 nodes")
@@ -312,13 +311,13 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		dkgSigners     []dkgsignkey.Key
 	)
 	for i := 0; i < numNodes; i++ {
-		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders)
 		// Supply the bootstrap IP and port as a V2 peer address
-		node.config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
+		bootstrappers := []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.peerID, Addrs: []string{
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
+		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
 
 		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()
 		require.NoError(t, err)
@@ -675,3 +674,5 @@ func getFreePort(t *testing.T) uint16 {
 
 	return uint16(l.Addr().(*net.TCPAddr).Port)
 }
+
+func ptr[T any](v T) *T { return &v }

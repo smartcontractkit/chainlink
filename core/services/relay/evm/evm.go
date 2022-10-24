@@ -163,6 +163,18 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 			fromAddresses = append(fromAddresses, common.HexToAddress(s))
 		}
 	} else {
+		// Ensure the transmitter is contained in the sending keys slice.
+		var transmitterFoundLocally bool
+		for _, s := range sendingKeys {
+			if s == effectiveTransmitterAddress.String() {
+				transmitterFoundLocally = true
+				break
+			}
+		}
+		if !transmitterFoundLocally {
+			return nil, errors.New("the transmitter was not found in the list of sending keys, perhaps EvmUseForwarders needs to be enabled")
+		}
+
 		// If not using the forwarder, the effectiveTransmitterAddress (TransmitterID) is used as the from address.
 		fromAddresses = append(fromAddresses, effectiveTransmitterAddress)
 	}
@@ -189,7 +201,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	)
 }
 
-func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, spec job.Job, pr pipeline.Runner) (*ContractTransmitter, error) {
+func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, pluginGasLimit *uint32, configWatcher *configWatcher, spec job.Job, pr pipeline.Runner) (*ContractTransmitter, error) {
 	var relayConfig RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -208,6 +220,10 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
+	if pluginGasLimit != nil {
+		gasLimit = *pluginGasLimit
+	}
+
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),

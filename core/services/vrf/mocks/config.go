@@ -3,9 +3,9 @@
 package mocks
 
 import (
-	big "math/big"
-
 	common "github.com/ethereum/go-ethereum/common"
+	assets "github.com/smartcontractkit/chainlink/core/assets"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -59,15 +59,15 @@ func (_m *Config) EvmGasLimitVRFJobType() *uint32 {
 }
 
 // KeySpecificMaxGasPriceWei provides a mock function with given fields: addr
-func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
+func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 	ret := _m.Called(addr)
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func(common.Address) *assets.Wei); ok {
 		r0 = rf(addr)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	gencfg "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func NewTOMLChainScopedConfig(genCfg gencfg.BasicConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
@@ -85,6 +84,14 @@ func (c *ChainScoped) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	return *c.cfg.GasEstimator.BlockHistory.BlockHistorySize
 }
 
+func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
+	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionBlocks
+}
+
+func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
+	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionPercentile
+}
+
 func (c *ChainScoped) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
 	if c.cfg.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks == nil {
 		return uint16(c.EvmGasBumpThreshold()) + 1
@@ -128,12 +135,12 @@ func (c *ChainScoped) EvmGasBumpTxDepth() uint16 {
 	return *c.cfg.GasEstimator.BumpTxDepth
 }
 
-func (c *ChainScoped) EvmGasBumpWei() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.BumpMin)
+func (c *ChainScoped) EvmGasBumpWei() *assets.Wei {
+	return c.cfg.GasEstimator.BumpMin
 }
 
-func (c *ChainScoped) EvmGasFeeCapDefault() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.FeeCapDefault)
+func (c *ChainScoped) EvmGasFeeCapDefault() *assets.Wei {
+	return c.cfg.GasEstimator.FeeCapDefault
 }
 
 func (c *ChainScoped) EvmGasLimitDefault() uint32 {
@@ -173,24 +180,24 @@ func (c *ChainScoped) EvmGasLimitKeeperJobType() *uint32 {
 	return c.cfg.GasEstimator.LimitJobType.Keeper
 }
 
-func (c *ChainScoped) EvmGasPriceDefault() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.PriceDefault)
+func (c *ChainScoped) EvmGasPriceDefault() *assets.Wei {
+	return c.cfg.GasEstimator.PriceDefault
 }
 
-func (c *ChainScoped) EvmMinGasPriceWei() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.PriceMin)
+func (c *ChainScoped) EvmMinGasPriceWei() *assets.Wei {
+	return c.cfg.GasEstimator.PriceMin
 }
 
-func (c *ChainScoped) EvmMaxGasPriceWei() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.PriceMax)
+func (c *ChainScoped) EvmMaxGasPriceWei() *assets.Wei {
+	return c.cfg.GasEstimator.PriceMax
 }
 
-func (c *ChainScoped) EvmGasTipCapDefault() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.TipCapDefault)
+func (c *ChainScoped) EvmGasTipCapDefault() *assets.Wei {
+	return c.cfg.GasEstimator.TipCapDefault
 }
 
-func (c *ChainScoped) EvmGasTipCapMinimum() *big.Int {
-	return (*big.Int)(c.cfg.GasEstimator.TipCapMin)
+func (c *ChainScoped) EvmGasTipCapMinimum() *assets.Wei {
+	return c.cfg.GasEstimator.TipCapMin
 }
 
 func (c *ChainScoped) EvmHeadTrackerHistoryDepth() uint32 {
@@ -247,19 +254,19 @@ func (c *ChainScoped) FlagsContractAddress() string {
 func (c *ChainScoped) GasEstimatorMode() string {
 	return *c.cfg.GasEstimator.Mode
 }
-func (c *ChainScoped) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
-	var keySpecific *utils.Big
+func (c *ChainScoped) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
+	var keySpecific *assets.Wei
 	for i := range c.cfg.KeySpecific {
 		ks := c.cfg.KeySpecific[i]
 		if ks.Key.Address() == addr {
-			keySpecific = (*utils.Big)(ks.GasEstimator.PriceMax)
+			keySpecific = ks.GasEstimator.PriceMax
 			break
 		}
 	}
 
-	chainSpecific := utils.NewBig(c.EvmMaxGasPriceWei())
-	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) && keySpecific.Cmp(chainSpecific) < 0 {
-		return keySpecific.ToInt()
+	chainSpecific := c.EvmMaxGasPriceWei()
+	if keySpecific != nil && !keySpecific.IsZero() && keySpecific.Cmp(chainSpecific) < 0 {
+		return keySpecific
 	}
 
 	return c.EvmMaxGasPriceWei()
@@ -317,4 +324,8 @@ func (c *ChainScoped) OCRObservationGracePeriod() time.Duration {
 
 func (c *ChainScoped) OCRDatabaseTimeout() time.Duration {
 	return c.cfg.OCR.DatabaseTimeout.Duration()
+}
+
+func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
+	return *c.cfg.OCR2.Automation.GasLimit
 }

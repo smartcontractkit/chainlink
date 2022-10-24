@@ -11,7 +11,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -35,8 +34,9 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	useForwarder := fs.Bool("use-forwarder", false, "boolean to use the forwarder")
 	confDelays := fs.String("conf-delays", "1,2,3,4,5,6,7,8", "8 confirmation delays")
 	lookbackBlocks := fs.Int64("lookback-blocks", 1000, "lookback blocks")
-	weiPerUnitLink := fs.String("wei-per-unit-link", assets.GWei(60_000_000).String(), "wei per unit link price for feed")
+	weiPerUnitLink := fs.String("wei-per-unit-link", "6e16", "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
+	subscriptionBalanceString := fs.String("subscription-balance", "1e19", "amount to fund subscription")
 
 	apiFile := fs.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := fs.String("password", "../../../tools/secrets/password.txt", "password file")
@@ -93,6 +93,21 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println("Deploying beacon consumer...")
 	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+
+	fmt.Println("Creating subscription...")
+	createSubscription(e, vrfCoordinatorAddress.String())
+	subID := 1
+
+	fmt.Println("Adding consumer to subscription...")
+	addConsumer(e, vrfCoordinatorAddress.String(), consumerAddress.String(), big.NewInt(int64(subID)))
+
+	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
+	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
+		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
+		eoaFundSubscription(e, vrfCoordinatorAddress.String(), link.String(), subscriptionBalance, uint64(subID))
+	} else {
+		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
+	}
 
 	var forwarderAddresses []common.Address
 	var forwarderAddressesStrings []string
@@ -204,6 +219,16 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 			nodesToFund = append(nodesToFund, t)
 		}
 	}
+
+	var payees []common.Address
+	var reportTransmitters []common.Address // all transmitters excluding bootstrap
+	for _, t := range transmitters[1:] {
+		payees = append(payees, e.Owner.From)
+		reportTransmitters = append(reportTransmitters, common.HexToAddress(t))
+	}
+
+	fmt.Printf("Setting EOA: %s as payee for transmitters: %v \n", e.Owner.From, reportTransmitters)
+	setPayees(e, vrfBeaconAddress.String(), reportTransmitters, payees)
 
 	fmt.Println("Funding transmitters...")
 	helpers.FundNodes(e, nodesToFund, big.NewInt(*fundingAmount))

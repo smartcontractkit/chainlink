@@ -13,13 +13,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -35,6 +33,7 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32)
 }
 
 // Deprecated: use NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg *configtest.TestGeneralConfig,
@@ -69,7 +68,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 }
 
 // NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain is like NewApplicationWithConfigAndKeyOnSimulatedBlockchain
-// but cfg should be v2, and cltest.OverrideSimulated used to include the simulated chain (testutils.SimulatedChainID).
+// but cfg should be v2, and configtest.NewGeneralConfigSimulated used to include the simulated chain (testutils.SimulatedChainID).
 func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg coreconfig.GeneralConfig,
@@ -89,24 +88,6 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 
 	//  app.Stop() will call client.Close on the simulated backend
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
-}
-
-// OverrideSimulated is a config override func that appends the simulated chain (testutils.SimulatedChainID),
-// or replaces the null chain (client.NullClientChainID) if that is the only entry.
-func OverrideSimulated(c *chainlink.Config, s *chainlink.Secrets) {
-	chainID := utils.NewBig(testutils.SimulatedChainID)
-	enabled := true
-	cfg := evmcfg.EVMConfig{
-		ChainID: chainID,
-		Chain:   evmcfg.DefaultsFrom(chainID, nil),
-		Enabled: &enabled,
-		Nodes:   evmcfg.EVMNodes{{}},
-	}
-	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(utils.NewBigI(client.NullClientChainID)) == 0 {
-		c.EVM[0] = &cfg
-	} else {
-		c.EVM = append(c.EVM, &cfg)
-	}
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds
