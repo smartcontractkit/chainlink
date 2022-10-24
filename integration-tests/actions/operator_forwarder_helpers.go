@@ -1,8 +1,8 @@
 package actions
 
+//revive:disable:dot-imports
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	geth "github.com/ethereum/go-ethereum"
@@ -48,6 +48,7 @@ func DeployForwarderContracts(
 		authorizedForwarders = append(authorizedForwarders, authorizedForwarder)
 	}
 	err = chainClient.WaitForEvents()
+	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for events")
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
@@ -188,12 +189,4 @@ func TrackForwarder(chainClient blockchain.EVMClient, authorizedForwarder common
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
-}
-
-func GetForwarders(chainlinkNodes []*client.Chainlink) {
-	for _, node := range chainlinkNodes {
-		forwarders, _, err := node.GetForwarders()
-		Expect(err).ShouldNot(HaveOccurred(), "Could not get forwarders list from one of the nodes")
-		fmt.Println(forwarders)
-	}
 }

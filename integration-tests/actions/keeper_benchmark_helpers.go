@@ -98,6 +98,7 @@ func ResetUpkeeps(
 	upkeepResetterAddr string,
 ) {
 	contractLoader, err := contracts.NewContractLoader(client)
+	Expect(err).ShouldNot(HaveOccurred(), "Error loading upkeep contract")
 	upkeepChunkSize := 500
 	upkeepChunks := make([][]string, int(math.Ceil(float64(numberOfContracts)/float64(upkeepChunkSize))))
 	upkeepResetter, err := contractLoader.LoadUpkeepResetter(common.HexToAddress(upkeepResetterAddr))
@@ -184,6 +185,7 @@ func DeployKeeperConsumersBenchmark(
 				big.NewInt(performGasToBurn),
 				big.NewInt(firstEligibleBuffer),
 			)
+			Expect(err).ShouldNot(HaveOccurred(), "Error deploying KeeperConsumerBenchmark")
 		}
 		//Expect(err).ShouldNot(HaveOccurred(), "Deploying KeeperConsumerBenchmark instance %d shouldn't fail", contractCount+1)
 		upkeeps = append(upkeeps, keeperConsumerInstance)

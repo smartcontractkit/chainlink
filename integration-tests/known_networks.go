@@ -16,8 +16,12 @@ import (
 // Some networks with public RPC endpoints are already filled out, but make use of environment variables to use info like
 // private RPC endpoints and private keys.
 var (
-	// SelectedNetwork uses the SELECTED_NETWORK env var to determine which network to run the test on
-	SelectedNetwork *blockchain.EVMNetwork = determineSelectedNetwork()
+	// SelectedNetworks uses the SELECTED_NETWORKS env var to determine which network to run the test on.
+	// For use in tests that utilize multiple chains. For tests on one chain, see SelectedNetwork
+	SelectedNetworks []*blockchain.EVMNetwork = determineSelectedNetworks()
+	// SelectedNetwork uses the first listed network in SELECTED_NETWORKS, for use in tests on only one chain
+	SelectedNetwork *blockchain.EVMNetwork = SelectedNetworks[0]
+
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM *blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 	// generalEVM is a customizable network through environment variables
@@ -107,56 +111,74 @@ var (
 	}
 )
 
-// DetermineNetwork determines which network
-func determineSelectedNetwork() *blockchain.EVMNetwork {
+// determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which network(s) to run the tests on
+func determineSelectedNetworks() []*blockchain.EVMNetwork {
 	logging.Init()
-	setNetwork := strings.ToUpper(os.Getenv("SELECTED_NETWORK"))
-	if chosenNetwork, valid := mappedNetworks[setNetwork]; valid {
-		log.Info().
-			Str("SELECTED_NETWORK", setNetwork).
-			Str("Network Name", chosenNetwork.Name).
-			Msg("Read network choice from 'SELECTED_NETWORK'")
-		chosenNetwork.URLs = getURLs(setNetwork)
-		chosenNetwork.PrivateKeys = getKeys(setNetwork)
-		return chosenNetwork
+	selectedNetworks := make([]*blockchain.EVMNetwork, 0)
+	setNetworkNames := strings.Split(strings.ToUpper(os.Getenv("SELECTED_NETWORKS")), ",")
+
+	for _, setNetworkName := range setNetworkNames {
+		if chosenNetwork, valid := mappedNetworks[setNetworkName]; valid {
+			log.Info().
+				Interface("SELECTED_NETWORKS", setNetworkNames).
+				Str("Network Name", chosenNetwork.Name).
+				Msg("Read network choice from 'SELECTED_NETWORKS'")
+			setURLs(setNetworkName, chosenNetwork)
+			setKeys(setNetworkName, chosenNetwork)
+			selectedNetworks = append(selectedNetworks, chosenNetwork)
+		} else {
+			validNetworks := make([]string, 0)
+			for validNetwork := range mappedNetworks {
+				validNetworks = append(validNetworks, validNetwork)
+			}
+			log.Fatal().
+				Interface("SELECTED_NETWORKS", setNetworkNames).
+				Str("Valid Networks", strings.Join(validNetworks, ", ")).
+				Msg("SELECTED_NETWORKS value is invalid. Use a valid one")
+		}
 	}
-	validNetworks := make([]string, 0)
-	for validNetwork := range mappedNetworks {
-		validNetworks = append(validNetworks, validNetwork)
-	}
-	log.Fatal().
-		Str("SELECTED_NETWORK", setNetwork).
-		Str("Valid Networks", strings.Join(validNetworks, ", ")).
-		Msg("SELECTED_NETWORK value is invalid. Use a valid one")
-	return nil
+	return selectedNetworks
 }
 
-func getURLs(prefix string) []string {
+// setURLs sets a network URL(s) based on env vars
+func setURLs(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
+	prefix = strings.ToUpper(prefix)
+	if prefix == "SIMULATED" { // Use defaults or read from env values for SIMULATED
+		return
+	}
+
 	envVar := fmt.Sprintf("%s_URLS", prefix)
 	if os.Getenv(envVar) == "" {
 		urls := strings.Split(os.Getenv("EVM_URLS"), ",")
 		log.Warn().
 			Interface("EVM_URLS", urls).
 			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_URLS'", envVar))
-		return urls
+		network.URLs = urls
+		return
 	}
 	urls := strings.Split(os.Getenv(envVar), ",")
+	network.URLs = urls
 	log.Info().Interface(envVar, urls).Msg("Read network URLs")
-	return urls
 }
 
-func getKeys(prefix string) []string {
-	strings.Trim(prefix, "_")
+// setKeys sets a network's private key(s) based on env vars
+func setKeys(prefix string, network *blockchain.EVMNetwork) {
+	prefix = strings.Trim(prefix, "_")
+	prefix = strings.ToUpper(prefix)
+	if prefix == "SIMULATED" { // Use defaults or read from env values for SIMULATED
+		return
+	}
 	envVar := fmt.Sprintf("%s_KEYS", prefix)
 	if os.Getenv(envVar) == "" {
 		keys := strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ",")
 		log.Warn().
 			Interface("EVM_PRIVATE_KEYS", keys).
 			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_PRIVATE_KEYS'", envVar))
-		return keys
+		network.PrivateKeys = keys
+		return
 	}
 	keys := strings.Split(os.Getenv(envVar), ",")
+	network.PrivateKeys = keys
 	log.Info().Interface(envVar, keys).Msg("Read network Keys")
-	return keys
 }

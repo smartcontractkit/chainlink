@@ -74,7 +74,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Deploying OCR contracts")

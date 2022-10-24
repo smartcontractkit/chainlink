@@ -82,7 +82,7 @@ var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to e
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Prepare forwarder contracts onchain")
