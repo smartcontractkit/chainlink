@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -585,6 +586,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
+	c.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, errors.New("mocked"))
 	c.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
 	c.On("Close").Maybe().Return()
 
