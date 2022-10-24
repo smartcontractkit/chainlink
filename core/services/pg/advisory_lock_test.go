@@ -21,6 +21,7 @@ func newAdvisoryLock(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfi
 	return pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), logger.TestLogger(t), cfg.AdvisoryLockCheckInterval())
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_AdvisoryLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBEmpty(t, "advisorylock")
 	check := 1 * time.Second

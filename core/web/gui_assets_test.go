@@ -8,14 +8,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 //go:embed fixtures/operator_ui/assets
@@ -85,8 +86,9 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.Dev = null.BoolFrom(false)
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = false
+	})
 	app := cltest.NewApplicationWithConfig(t, config)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
