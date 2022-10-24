@@ -39,7 +39,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -47,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -236,7 +236,7 @@ type TestApplication struct {
 	Server  *httptest.Server
 	Started bool
 	Backend *backends.SimulatedBackend
-	Key     ethkey.KeyV2
+	Keys    []ethkey.KeyV2
 }
 
 // NewWSServer starts a websocket server which invokes callback for each message received.
@@ -312,7 +312,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsA
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
-			app.Key = v
+			app.Keys = append(app.Keys, v)
 		case p2pkey.KeyV2:
 			require.NoError(t, app.GetKeyStore().P2P().Add(v))
 		case evmtypes.DBChain:
@@ -321,10 +321,14 @@ func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsA
 			chainID = *v
 		}
 	}
-	if app.Key.Address == utils.ZeroAddress {
-		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+	if len(app.Keys) == 0 {
+		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+		app.Keys = []ethkey.KeyV2{k}
 	} else {
-		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
+		id, ks := chainID.ToInt(), app.KeyStore.Eth()
+		for _, k := range app.Keys {
+			MustAddKeyToKeystore(t, k, id, ks)
+		}
 	}
 
 	return app
@@ -580,6 +584,8 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
+	c.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
 	c.On("Close").Maybe().Return()
 
 	block := &types.Header{

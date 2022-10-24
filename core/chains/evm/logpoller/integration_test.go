@@ -34,7 +34,7 @@ func logRuntime(t *testing.T, start time.Time) {
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("only for local load testing and query analysis")
 	lggr := logger.TestLogger(t)
-	_, db := heavyweight.FullTestDB(t, "logs_scale")
+	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
 	chainID := big.NewInt(137)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
