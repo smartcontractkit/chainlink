@@ -198,6 +198,8 @@ func TestCoordinator_ProvingKeyHash(t *testing.T) {
 
 func TestCoordinator_ReportBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
+	proofG1X := big.NewInt(1)
+	proofG1Y := big.NewInt(2)
 	t.Run("happy path, beacon requests", func(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
@@ -375,6 +377,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			{
 				Height:            195,
 				ConfirmationDelay: big.NewInt(3),
+				ProofG1X:          proofG1X,
+				ProofG1Y:          proofG1Y,
 			},
 		}, beaconAddress)}, nil).Once()
 
@@ -450,6 +454,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			{
 				Height:            195,
 				ConfirmationDelay: big.NewInt(3),
+				ProofG1X:          proofG1X,
+				ProofG1Y:          proofG1Y,
 			},
 		}, beaconAddress)}, nil).Once()
 
@@ -518,6 +524,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			{
 				Height:            195,
 				ConfirmationDelay: big.NewInt(3),
+				ProofG1X:          proofG1X,
+				ProofG1Y:          proofG1Y,
 			},
 		}, beaconAddress)}, nil).Once()
 
@@ -590,6 +598,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			{
 				Height:            195,
 				ConfirmationDelay: big.NewInt(3),
+				ProofG1X:          proofG1X,
+				ProofG1Y:          proofG1Y,
 			},
 		}, beaconAddress)}, nil).Once()
 
@@ -976,6 +986,8 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
 func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 	t.Parallel()
+	proofG1X := big.NewInt(1)
+	proofG1Y := big.NewInt(2)
 	lggr := logger.TestLogger(t)
 	evmClient := evm_mocks.NewClient(t)
 
@@ -1013,10 +1025,14 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 		{
 			Height:            1500,
 			ConfirmationDelay: big.NewInt(3),
+			ProofG1X:          proofG1X,
+			ProofG1Y:          proofG1Y,
 		},
 		{
 			Height:            1505,
 			ConfirmationDelay: big.NewInt(4),
+			ProofG1X:          proofG1X,
+			ProofG1Y:          proofG1Y,
 		},
 	}, beaconAddress)
 	ntIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))

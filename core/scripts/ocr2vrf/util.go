@@ -21,6 +21,7 @@ import (
 	"github.com/urfave/cli"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+	"go.dedis.ch/kyber/v3/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -35,6 +36,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+)
+
+var (
+	suite pairing.Suite = &altbn_128.PairingSuite{}
+	g1                  = suite.G1()
+	g2                  = suite.G2()
 )
 
 func deployDKG(e helpers.Environment) common.Address {
