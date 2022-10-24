@@ -17,6 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	drocr_service "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
@@ -39,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 type Delegate struct {
