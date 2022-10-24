@@ -155,6 +155,9 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	// Start application.
 	app.Start(rootCtx)
 
+	// Close application.
+	defer app.Stop()
+
 	// Initialize transmitter settings.
 	var sendingKeys []string
 	useForwarder := c.Bool("use-forwarder")
@@ -264,9 +267,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	} else {
 		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
 	}
-
-	// Close application.
-	app.Stop()
 
 	if err != nil {
 		return nil, err
