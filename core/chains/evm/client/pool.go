@@ -313,13 +313,13 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 		ok := p.IfNotStopped(func() {
 			// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
 			p.wg.Add(1)
-			go func(n SendOnlyNode, txCp types.Transaction) {
+			go func(n SendOnlyNode) {
 				defer p.wg.Done()
 
 				sendCtx, cancel := ContextWithDefaultTimeoutFromChan(p.chStop)
 				defer cancel()
 
-				err := NewSendError(n.SendTransaction(sendCtx, &txCp))
+				err := NewSendError(n.SendTransaction(sendCtx, tx))
 				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
 				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
 					// Nonce too low or transaction known errors are expected since
@@ -328,7 +328,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 				}
 
 				p.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
-			}(n, *tx) // copy tx here in case it is mutated after the function returns
+			}(n)
 		})
 		if !ok {
 			p.logger.Debug("Cannot send transaction on sendonly node; pool is stopped", "node", n.String())
