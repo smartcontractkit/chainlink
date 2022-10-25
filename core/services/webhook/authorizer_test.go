@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
-func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bridges.ORM {
+func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) bridges.ORM {
 	return bridges.NewORM(db, logger.TestLogger(t), cfg)
 }
 
@@ -34,7 +34,7 @@ func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db, pgtest.NewPGCfg(true))
+	borm := newBridgeORM(t, db, pgtest.NewQConfig(true))
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
