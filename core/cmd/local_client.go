@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -52,11 +53,6 @@ const PristineDBName = "chainlink_test_pristine"
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err := cli.runNode(c); err != nil {
-		err = errors.Wrap(err, "Cannot boot Chainlink")
-		cli.Logger.Errorw(err.Error(), "err", err)
-		if serr := cli.CloseLogger(); serr != nil {
-			err = multierr.Combine(serr, err)
-		}
 		return cli.errorOut(err)
 	}
 	return nil
@@ -126,7 +122,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, ldb.DB())
+	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, cli.Logger, ldb.DB())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -139,18 +135,18 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var vrfpwd string
-	var fileErr error
-	vrfPasswordFile := c.String("vrfpassword")
-	if len(vrfPasswordFile) != 0 {
-		// TODO: In config V2 this is handled while building the config struct
-		vrfpwd, fileErr = utils.PasswordFromFile(vrfPasswordFile)
-		if fileErr != nil {
-			return errors.Wrapf(fileErr,
-				"error reading VRF password from vrfpassword file \"%s\"",
-				vrfPasswordFile)
-		}
-	} else {
+	if _, ok := cli.Config.(v2.HasEVMConfigs); ok {
+		// In config V2 this is handled while building the config struct
 		vrfpwd = cli.Config.VRFPassword()
+	} else {
+		// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+		if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
+			var fileErr error
+			vrfpwd, fileErr = utils.PasswordFromFile(vrfPasswordFile)
+			if fileErr != nil {
+				return errors.Wrapf(fileErr, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+			}
+		}
 	}
 
 	evmChainSet := app.GetChains().EVM
@@ -226,10 +222,10 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && !errors.Is(err, ErrNoCredentialFile) {
+	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM, lggr); err != nil && !errors.Is(err, ErrNoCredentialFile) {
 		return errors.Wrap(err, "error creating api initializer")
 	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
+	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM, lggr); err != nil {
 		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 			return errors.WithStack(err)
 		}
@@ -358,13 +354,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	lggr := cli.Logger.Named("RebroadcastTransactions")
-	db, err := pg.OpenUnlockedDB(cli.Config, lggr)
+	db, err := pg.OpenUnlockedDB(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "opening DB"))
 	}
 	defer lggr.ErrorIfClosing(db, "db")
 
-	app, err := cli.AppFactory.NewApplication(context.TODO(), cli.Config, db)
+	app, err := cli.AppFactory.NewApplication(context.TODO(), cli.Config, lggr, db)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -572,7 +568,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(cli.Config, cli.Logger)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -586,7 +582,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config, cli.Logger)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -602,7 +598,7 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config, cli.Logger)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -618,7 +614,7 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(cli.Config, cli.Logger)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -635,24 +631,17 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 }
 
 type dbConfig interface {
+	pg.ConnectionConfig
 	DatabaseURL() url.URL
-	ORMMaxOpenConns() int
-	ORMMaxIdleConns() int
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 }
 
-func newConnection(cfg dbConfig, lggr logger.Logger) (*sqlx.DB, error) {
+func newConnection(cfg dbConfig) (*sqlx.DB, error) {
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 	}
-	config := pg.Config{
-		Logger:       lggr,
-		MaxOpenConns: cfg.ORMMaxOpenConns(),
-		MaxIdleConns: cfg.ORMMaxIdleConns(),
-	}
-	db, err := pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), config)
-	return db, err
+	return pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
 }
 
 func dropAndCreateDB(parsed url.URL) (err error) {
@@ -694,7 +683,7 @@ func dropAndCreatePristineDB(db *sql.DB, template string) (err error) {
 }
 
 func migrateDB(config dbConfig, lggr logger.Logger) error {
-	db, err := newConnection(config, lggr)
+	db, err := newConnection(config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -705,7 +694,7 @@ func migrateDB(config dbConfig, lggr logger.Logger) error {
 }
 
 func downAndUpDB(cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
-	db, err := newConnection(cfg, lggr)
+	db, err := newConnection(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}

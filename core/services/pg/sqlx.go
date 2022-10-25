@@ -7,8 +7,9 @@ import (
 	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //go:generate mockery --name Queryer --output ./mocks/ --case=underscore
@@ -33,12 +34,6 @@ func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
 	db := sqlx.NewDb(rdb, "postgres")
 	db.MapperFunc(mapper.CamelToSnakeASCII)
 	return db
-}
-
-func SqlxTransactionWithDefaultCtx(q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {
-	ctx, cancel := DefaultQueryCtx()
-	defer cancel()
-	return SqlxTransaction(ctx, q, lggr, fc, txOpts...)
 }
 
 func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {

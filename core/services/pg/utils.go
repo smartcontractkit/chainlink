@@ -1,7 +1,6 @@
 package pg
 
 import (
-	"context"
 	"database/sql/driver"
 	"fmt"
 	"os"
@@ -38,11 +37,13 @@ func init() {
 	}
 }
 
+// unexport and make constant after legacy config is removed
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 var (
 	// DefaultQueryTimeout is a reasonable upper bound for how long a SQL query should take
 	DefaultQueryTimeout = 10 * time.Second
-	// LongQueryTimeout is a bigger upper bound for how long a SQL query should take
-	LongQueryTimeout = 1 * time.Minute
+	// longQueryTimeout is a bigger upper bound for how long a SQL query should take
+	longQueryTimeout = 1 * time.Minute
 	// DefaultLockTimeout controls the max time we will wait for any kind of database lock.
 	// It's good to set this to _something_ because waiting for locks forever is really bad.
 	DefaultLockTimeout = 15 * time.Second
@@ -50,17 +51,6 @@ var (
 	// It's good to set this to _something_ because leaving transactions open forever is really bad.
 	DefaultIdleInTxSessionTimeout = 1 * time.Hour
 )
-
-// DefaultQueryCtx returns a context with a sensible sanity limit timeout for SQL queries
-func DefaultQueryCtx() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), DefaultQueryTimeout)
-}
-
-// DefaultQueryCtxWithParent returns a context with a sensible sanity limit timeout for
-// SQL queries with the given parent context
-func DefaultQueryCtxWithParent(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(ctx, DefaultQueryTimeout)
-}
 
 var _ driver.Valuer = Limit(-1)
 

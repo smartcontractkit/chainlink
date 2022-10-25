@@ -526,6 +526,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		DefaultIdleInTxSessionTimeout: mustParseDuration(os.Getenv("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT")),
 		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
 		DefaultQueryTimeout:           mustParseDuration(os.Getenv("DATABASE_DEFAULT_QUERY_TIMEOUT")),
+		LogQueries:                    envvar.LogSQL.ParsePtr(),
 		MigrateOnStartup:              envvar.NewBool("MigrateDatabase").ParsePtr(),
 		MaxIdleConns:                  envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		MaxOpenConns:                  envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
@@ -559,9 +560,9 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.Log = config.Log{
-		DatabaseQueries: envvar.NewBool("LogSQL").ParsePtr(),
-		JSONConsole:     envvar.JSONConsole.ParsePtr(),
-		UnixTS:          envvar.LogUnixTS.ParsePtr(),
+		Level:       (*config.LogLevel)(envvar.LogLevel.ParsePtr()),
+		JSONConsole: envvar.JSONConsole.ParsePtr(),
+		UnixTS:      envvar.LogUnixTS.ParsePtr(),
 		File: config.LogFile{
 			Dir:        envvar.NewString("LogFileDir").ParsePtr(),
 			MaxSize:    envvar.LogFileMaxSize.ParsePtr(),
@@ -719,7 +720,6 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.Pyroscope = config.Pyroscope{
-		AuthToken:     envvar.NewString("PyroscopeAuthToken").ParsePtr(),
 		ServerAddress: envvar.NewString("PyroscopeServerAddress").ParsePtr(),
 		Environment:   envvar.NewString("PyroscopeEnvironment").ParsePtr(),
 	}
