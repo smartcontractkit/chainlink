@@ -37,9 +37,7 @@ describe('OCR2DRClientTestHelper', () => {
   let oracle: Contract
 
   beforeEach(async () => {
-    oracle = await ocr2drOracleFactory
-      .connect(roles.defaultAccount)
-      .deploy(donPublicKey)
+    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
@@ -47,6 +45,7 @@ describe('OCR2DRClientTestHelper', () => {
 
   describe('#getDONPublicKey', () => {
     it('returns DON public key set on Oracle', async () => {
+      await expect(oracle.setDONPublicKey(donPublicKey)).not.to.be.reverted
       expect(await client.callStatic.getDONPublicKey()).to.be.equal(
         donPublicKey,
       )

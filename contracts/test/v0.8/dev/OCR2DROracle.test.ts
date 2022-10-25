@@ -28,9 +28,7 @@ describe('OCR2DROracle', () => {
 
   beforeEach(async () => {
     const { roles } = await getUsers()
-    oracle = await ocr2drOracleFactory
-      .connect(roles.defaultAccount)
-      .deploy(donPublicKey)
+    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
   })
 
   describe('General', () => {
@@ -41,8 +39,16 @@ describe('OCR2DROracle', () => {
     })
 
     it('returns DON public key set on this Oracle', async () => {
+      await expect(oracle.setDONPublicKey(donPublicKey)).not.to.be.reverted
       expect(await oracle.callStatic.getDONPublicKey()).to.be.equal(
         donPublicKey,
+      )
+    })
+
+    it('reverts setDONPublicKey for empty data', async () => {
+      const emptyPublicKey = stringToHex('')
+      await expect(oracle.setDONPublicKey(emptyPublicKey)).to.be.revertedWith(
+        'EmptyPublicKey',
       )
     })
   })

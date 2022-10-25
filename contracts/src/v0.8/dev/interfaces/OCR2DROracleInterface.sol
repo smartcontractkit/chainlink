@@ -14,6 +14,13 @@ interface OCR2DROracleInterface {
   function getDONPublicKey() external view returns (bytes memory);
 
   /**
+   * @notice Sets DON secp256k1 public key used to encrypt secrets
+   * @dev Used to rotate the key
+   * @param donPublicKey New public key
+   */
+  function setDONPublicKey(bytes calldata donPublicKey) external;
+
+  /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId
    * @param subscriptionId A unique subscription ID allocated by billing system,
    * a client can make requests from different contracts referencing the same subscription

@@ -19,6 +19,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   error InvalidRequestID();
   error LowGasForConsumer();
   error InconsistentReportData();
+  error EmptyPublicKey();
 
   struct Commitment {
     address client;
@@ -31,9 +32,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   uint256 private s_nonce;
   mapping(bytes32 => Commitment) private s_commitments;
 
-  constructor(bytes memory donPublicKey) OCR2Base(true) {
-    s_donPublicKey = donPublicKey;
-  }
+  constructor() OCR2Base(true) {}
 
   /**
    * @notice The type and version of this contract
@@ -46,6 +45,14 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   /// @inheritdoc OCR2DROracleInterface
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_donPublicKey;
+  }
+
+  /// @inheritdoc OCR2DROracleInterface
+  function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
+    if (donPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
+    s_donPublicKey = donPublicKey;
   }
 
   /// @inheritdoc OCR2DROracleInterface
@@ -79,8 +86,8 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _report(
-    bytes32 /* configDigest */,
-    uint40 /* epochAndRound */,
+    bytes32, /* configDigest */
+    uint40, /* epochAndRound */
     bytes memory report
   ) internal override {
     bytes32[] memory requestIds;
@@ -90,7 +97,9 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
     if (requestIds.length != results.length && requestIds.length != errors.length) {
       revert InconsistentReportData();
     }
-  
+
+    // Note: for PoC it does not handle any issues in users' callbacks yet.
+    // Gas amount must be sufficient to fulfill all requests in this batch.
     for (uint256 i = 0; i < requestIds.length; i++) {
       fulfillRequest(requestIds[i], results[i], errors[i]);
     }

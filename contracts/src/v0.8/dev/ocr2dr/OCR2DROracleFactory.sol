@@ -27,11 +27,10 @@ contract OCR2DROracleFactory is TypeAndVersionInterface {
 
   /**
    * @notice creates a new Oracle contract with the msg.sender as owner
-   * @param donPublicKey DON's secp256k1 public key used to encrypt user secrets
    * @return address Address of a newly deployed oracle
    */
-  function deployNewOracle(bytes calldata donPublicKey) external returns (address) {
-    OCR2DROracle oracle = new OCR2DROracle(donPublicKey);
+  function deployNewOracle() external returns (address) {
+    OCR2DROracle oracle = new OCR2DROracle();
     s_created.add(address(oracle));
     emit OracleCreated(address(oracle), msg.sender, msg.sender);
     return address(oracle);
