@@ -6,9 +6,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -786,7 +786,8 @@ func (k *KeeperOCRJobSpec) Type() string { return "keeper" }
 
 // String representation of the job
 func (k *KeeperOCRJobSpec) String() (string, error) {
-	ocr2keeperJobTemplate := `type = "offchainreporting2"
+	ocr2keeperJobTemplate := `
+type = "offchainreporting2"
 pluginType = "ocr2automation"
 relay = "evm"
 name = "ocr2"

@@ -257,8 +257,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 			actions.CreateOCRKeeperJobs(chainlinkNodes, mockServer, registry.Address(), network.ChainID)
-			//	do we need to start rounds?
-			//	By("Starting new round", actions.StartNewRound(1, ocrInstances, chainClient))
 		} else {
 			// legacy non-OCR
 			By("Register Keeper Jobs")

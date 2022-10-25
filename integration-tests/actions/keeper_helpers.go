@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
@@ -48,18 +47,16 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClie
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
 		nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-		shortNodeAddr := nodeTransmitterAddress[2:12]
-		shortOCRAddr := registryAddr[2:12]
-		nodeContractPairID := strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr))
+		//shortNodeAddr := nodeTransmitterAddress[2:12]
+		//shortOCRAddr := registryAddr[2:12]
+		//nodeContractPairID := strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr))
 		//nodeContractPairID := BuildNodeContractPairID(chainlinkNodes[nodeIndex], ocrInstance)
-		Expect(err).ShouldNot(HaveOccurred())
-		bta := client.BridgeTypeAttributes{
-			Name: nodeContractPairID,
-			URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, nodeContractPairID),
-		}
-
-		err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
-		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
+		//bta := client.BridgeTypeAttributes{
+		//	Name: nodeContractPairID,
+		//	URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, nodeContractPairID),
+		//}
+		//err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
+		//Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
 
 		//ocrSpec := &client.OCRTaskJobSpec{
 		//	ContractAddress:    ocrInstance.Address(),
