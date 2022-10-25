@@ -235,7 +235,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return median.NewMedianServices(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, d.new, oracleArgsNoPlugin)
+		return median.NewMedianServices(jobSpec, d.chainSet, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, d.new, oracleArgsNoPlugin)
 	case job.DKG:
 		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
 		if !ok {
