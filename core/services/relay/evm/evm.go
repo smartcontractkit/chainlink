@@ -96,7 +96,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 		go func() {
 			defer c.wg.Done()
 			c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
-			if err := c.configPoller.destChainLogPoller.Replay(context.Background(), int64(c.fromBlock)); err != nil {
+			if err := c.configPoller.destChainLogPoller.Replay(replayCtx, int64(c.fromBlock)); err != nil {
 				c.lggr.Errorf("error replaying for config", "err", err)
 			} else {
 				c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
