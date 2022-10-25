@@ -138,7 +138,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	}
 	defer lggr.ErrorIfClosing(ldb, "db")
 
-	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, ldb.DB())
+	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, lggr, ldb.DB())
 	if err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -151,6 +151,12 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	if err != nil {
 		return nil, cli.errorOut(err)
 	}
+
+	// Start application.
+	app.Start(rootCtx)
+
+	// Close application.
+	defer app.Stop()
 
 	// Initialize transmitter settings.
 	var sendingKeys []string
@@ -261,6 +267,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	} else {
 		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
 	}
+
 	if err != nil {
 		return nil, err
 	}

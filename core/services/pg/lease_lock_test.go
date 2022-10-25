@@ -10,24 +10,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func newLeaseLock(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) pg.LeaseLock {
-	return pg.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
+func newLeaseLock(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig) pg.LeaseLock {
+	return pg.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), cfg)
 }
 
 func Test_LeaseLock(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBNoFixtures(t, "leaselock")
-	duration := 15 * time.Second
-	refresh := 100 * time.Millisecond
-	cfg.Overrides.LeaseLockDuration = &duration
-	cfg.Overrides.LeaseLockRefreshInterval = &refresh
+	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "leaselock", func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.Lock.LeaseDuration = models.MustNewDuration(15 * time.Second)
+		c.Database.Lock.LeaseRefreshInterval = models.MustNewDuration(100 * time.Millisecond)
+	})
 
 	t.Run("on migrated database", func(t *testing.T) {
 		leaseLock1 := newLeaseLock(t, db, cfg)
@@ -183,7 +184,7 @@ func Test_LeaseLock(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	t.Run("on virgin database", func(t *testing.T) {
-		_, db := heavyweight.FullTestDBEmpty(t, "leaselock")
+		_, db := heavyweight.FullTestDBEmptyV2(t, "leaselock", nil)
 
 		leaseLock1 := newLeaseLock(t, db, cfg)
 

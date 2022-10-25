@@ -27,7 +27,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(true)
+	cfg := pgtest.NewQConfig(true)
 	orm := newORM(t, db, cfg, nil)
 
 	address := testutils.NewAddress()
@@ -167,7 +167,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(true)
+	cfg := pgtest.NewQConfig(true)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	strategy := txmmocks.NewTxStrategy(t)

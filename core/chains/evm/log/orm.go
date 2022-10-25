@@ -53,7 +53,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, evmChainID big.Int) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, evmChainID big.Int) *orm {
 	return &orm{pg.NewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
 }
 

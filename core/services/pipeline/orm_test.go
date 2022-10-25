@@ -27,11 +27,11 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	t.Helper()
 
 	if name != "" {
-		_, db = heavyweight.FullTestDB(t, name)
+		_, db = heavyweight.FullTestDBV2(t, name, nil)
 	} else {
 		db = pgtest.NewSqlxDB(t)
 	}
-	orm = pipeline.NewORM(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	orm = pipeline.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return
 }
