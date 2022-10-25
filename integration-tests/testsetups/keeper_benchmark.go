@@ -234,6 +234,7 @@ func (k *KeeperBenchmarkTest) Run() {
 // counts the number of times it was unsuccessful
 func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool, metricsReporter *testreporters.KeeperBenchmarkTestReporter, rIndex int) {
 	contractABI, err := ethereum.KeeperRegistry11MetaData.GetAbi()
+	Expect(err).ShouldNot(HaveOccurred(), "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
 		contractABI, err = ethereum.KeeperRegistry11MetaData.GetAbi()

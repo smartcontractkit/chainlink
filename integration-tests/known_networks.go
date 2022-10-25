@@ -134,7 +134,7 @@ func determineSelectedNetworks() []*blockchain.EVMNetwork {
 			log.Fatal().
 				Interface("SELECTED_NETWORKS", setNetworkNames).
 				Str("Valid Networks", strings.Join(validNetworks, ", ")).
-				Msg("SELECTED_NETWORKS value is invalid. Use a valid one")
+				Msg("SELECTED_NETWORKS value is invalid. Use a valid network(s).")
 		}
 	}
 	return selectedNetworks
@@ -169,12 +169,13 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	if prefix == "SIMULATED" { // Use defaults or read from env values for SIMULATED
 		return
 	}
+
 	envVar := fmt.Sprintf("%s_KEYS", prefix)
 	if os.Getenv(envVar) == "" {
-		keys := strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ",")
+		keys := strings.Split(os.Getenv("EVM_KEYS"), ",")
 		log.Warn().
-			Interface("EVM_PRIVATE_KEYS", keys).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_PRIVATE_KEYS'", envVar))
+			Interface("EVM_KEYS", keys).
+			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
 		network.PrivateKeys = keys
 		return
 	}
