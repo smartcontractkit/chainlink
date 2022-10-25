@@ -514,6 +514,48 @@ func (_m *GeneralConfig) DatabaseBackupURL() *url.URL {
 	return r0
 }
 
+// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultLockTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultLockTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultQueryTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // DatabaseListenerMaxReconnectDuration provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
 	ret := _m.Called()

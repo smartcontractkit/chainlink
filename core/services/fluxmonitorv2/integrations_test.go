@@ -404,7 +404,7 @@ func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result i
 	return run
 }
 
-func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.LogConfig) {
+func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.QConfig) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	lggr.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)

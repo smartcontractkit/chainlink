@@ -92,6 +92,7 @@ type ocr2Node struct {
 func setupOCR2VRFContracts(
 	t *testing.T, beaconPeriod int64, keyID [32]byte, consumerShouldFail bool) ocr2vrfUniverse {
 	owner := testutils.MustNewSimTransactor(t)
+	owner.GasPrice = assets.GWei(1).ToInt()
 	genesisData := core.GenesisAlloc{
 		owner.From: {
 			Balance: assets.Ether(100).ToInt(),
@@ -108,47 +109,61 @@ func setupOCR2VRFContracts(
 	linkAddress, _, link, err := link_token_interface.DeployLinkToken(
 		owner, b)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	feedAddress, _, feed, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 		owner, b, 18, assets.GWei(int(1e7)).ToInt()) // 0.01 eth per link
 	require.NoError(t, err)
-
 	b.Commit()
 
 	dkgAddress, _, dkg, err := dkg_wrapper.DeployDKG(owner, b)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
-		owner, b, big.NewInt(beaconPeriod), linkAddress)
+		owner, b, big.NewInt(beaconPeriod), linkAddress, feedAddress)
 	require.NoError(t, err)
+	b.Commit()
 
+	coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
+		RedeemableRequestGasOverhead: 50_000,
+		CallbackRequestGasOverhead:   50_000,
+		StalenessSeconds:             60,
+		PremiumPercentage:            0,
+		FallbackWeiPerUnitLink:       assets.GWei(int(1e7)).ToInt(),
+	})
 	b.Commit()
 
 	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
 		owner, b, linkAddress, coordinatorAddress, dkgAddress, keyID)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	consumerAddress, _, consumer, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(
 		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
-
 	b.Commit()
 
 	loadTestConsumerAddress, _, loadTestConsumer, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(
 		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
+	b.Commit()
 
+	// Set up coordinator subscription for billing.
+	coordinator.CreateSubscription(owner)
+	b.Commit()
+	subID := uint64(1)
+	coordinator.AddConsumer(owner, subID, consumerAddress)
+	b.Commit()
+	coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)
+	b.Commit()
+	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
+	require.NoError(t, err)
+	link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)
 	b.Commit()
 
 	_, err = dkg.AddClient(owner, keyID, beaconAddress)
 	require.NoError(t, err)
-
 	b.Commit()
 
 	_, err = coordinator.SetProducer(owner, beaconAddress)
@@ -475,16 +490,48 @@ lookbackBlocks         	= %d # This is an integer
 
 	t.Log("Sending VRF request")
 
-	// Send a VRF request and mine it
+	initialSub, err := uni.coordinator.GetSubscription(nil, 1)
+	require.NoError(t, err)
+	require.Equal(t, assets.Ether(5).ToInt(), initialSub.Balance)
+
+	// Send a beacon VRF request and mine it
 	_, err = uni.consumer.TestRequestRandomness(uni.owner, 2, 1, big.NewInt(1))
 	require.NoError(t, err)
+	uni.backend.Commit()
+
+	// There is no premium on this request, so the cost of the request should have been:
+	// = (request overhead) * (gas price) / (LINK/ETH ratio)
+	// = (50_000 * 1 Gwei) / .01
+	// = 5_000_000 Gwei
+	subAfterBeaconRequest, err := uni.coordinator.GetSubscription(nil, 1)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(initialSub.Balance.Int64()-assets.GWei(5_000_000).Int64()), subAfterBeaconRequest.Balance)
+
+	// Send a fulfillment VRF request and mine it
 	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, 1, 1, big.NewInt(2), 50_000, []byte{})
 	require.NoError(t, err)
+	uni.backend.Commit()
 
+	// There is no premium on this request, so the cost of the request should have been:
+	// = (request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)
+	// = ((50_000 + 50_000) * 1 Gwei) / .01
+	// = 10_000_000 Gwei
+	subAfterFulfillmentRequest, err := uni.coordinator.GetSubscription(nil, 1)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(subAfterBeaconRequest.Balance.Int64()-assets.GWei(10_000_000).Int64()), subAfterFulfillmentRequest.Balance)
+
+	// Send two batched fulfillment VRF requests and mine them
 	_, err = uni.loadTestConsumer.TestRequestRandomnessFulfillmentBatch(uni.owner, 1, 1, big.NewInt(2), 200_000, []byte{}, big.NewInt(2))
 	require.NoError(t, err)
-
 	uni.backend.Commit()
+
+	// There is no premium on these requests, so the cost of the requests should have been:
+	// = ((request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)) * batch size
+	// = (((50_000 + 200_000) * 1 Gwei) / .01) * 2
+	// = 50_000_000 Gwei
+	subAfterBatchFulfillmentRequest, err := uni.coordinator.GetSubscription(nil, 1)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(subAfterFulfillmentRequest.Balance.Int64()-assets.GWei(50_000_000).Int64()), subAfterBatchFulfillmentRequest.Balance)
 
 	t.Log("waiting for fulfillment")
 

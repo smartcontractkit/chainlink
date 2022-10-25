@@ -3,40 +3,47 @@ package chainlink
 import "net/url"
 
 func (g *generalConfig) DatabaseURL() url.URL {
-	if g.secrets.DatabaseURL == nil {
+	if g.secrets.Database.URL == nil {
 		return url.URL{}
 	}
-	return *(*url.URL)(g.secrets.DatabaseURL)
+	return *(*url.URL)(g.secrets.Database.URL)
 }
 
 func (g *generalConfig) DatabaseBackupURL() *url.URL {
-	return (*url.URL)(g.secrets.DatabaseBackupURL)
+	return (*url.URL)(g.secrets.Database.BackupURL)
 }
 
 func (g *generalConfig) ExplorerAccessKey() string {
-	if g.secrets.ExplorerAccessKey == nil {
+	if g.secrets.Explorer.AccessKey == nil {
 		return ""
 	}
-	return *g.secrets.ExplorerAccessKey
+	return string(*g.secrets.Explorer.AccessKey)
 }
 
 func (g *generalConfig) ExplorerSecret() string {
-	if g.secrets.ExplorerSecret == nil {
+	if g.secrets.Explorer.Secret == nil {
 		return ""
 	}
-	return *g.secrets.ExplorerSecret
+	return string(*g.secrets.Explorer.Secret)
 }
 
 func (g *generalConfig) KeystorePassword() string {
-	if g.secrets.KeystorePassword == nil {
+	if g.secrets.Password.Keystore == nil {
 		return ""
 	}
-	return *g.secrets.KeystorePassword
+	return string(*g.secrets.Password.Keystore)
 }
 
 func (g *generalConfig) VRFPassword() string {
-	if g.secrets.VRFPassword == nil {
+	if g.secrets.Password.VRF == nil {
 		return ""
 	}
-	return *g.secrets.VRFPassword
+	return string(*g.secrets.Password.VRF)
+}
+
+func (g *generalConfig) PyroscopeAuthToken() string {
+	if g.secrets.Pyroscope.AuthToken == nil {
+		return ""
+	}
+	return string(*g.secrets.Pyroscope.AuthToken)
 }

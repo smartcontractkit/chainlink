@@ -56,7 +56,7 @@ func NewDelegate(
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg pg.LogConfig) *Delegate {
+	cfg pg.QConfig) *Delegate {
 	return &Delegate{
 		q:    pg.NewQ(db, lggr, cfg),
 		ks:   ks,

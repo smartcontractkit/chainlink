@@ -12,6 +12,7 @@ UICSAKeys = true
 DefaultIdleInTxSessionTimeout = '1m0s'
 DefaultLockTimeout = '1h0m0s'
 DefaultQueryTimeout = '1s'
+LogQueries = true
 MaxIdleConns = 7
 MaxOpenConns = 13
 MigrateOnStartup = true
@@ -49,7 +50,7 @@ JsonWrapperKey = 'event'
 Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 
 [Log]
-DatabaseQueries = true
+Level = 'crit'
 JSONConsole = true
 UnixTS = true
 
@@ -180,7 +181,6 @@ MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 
 [Pyroscope]
-AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 

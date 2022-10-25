@@ -1,5 +1,9 @@
 [//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
+This document describes the TOML format for configuration.
+
+See also [SECRETS.md](secrets.md)
+
 ## Table of contents
 
 - [Global](#Global)
@@ -115,6 +119,7 @@ UICSAKeys enables CSA Keys in the UI.
 DefaultIdleInTxSessionTimeout = '1h' # Default
 DefaultLockTimeout = '15s' # Default
 DefaultQueryTimeout = '10s' # Default
+LogQueries = false # Default
 MaxIdleConns = 10 # Default
 MaxOpenConns = 20 # Default
 MigrateOnStartup = true # Default
@@ -138,6 +143,12 @@ DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take
 DefaultQueryTimeout = '10s' # Default
 ```
 DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
+
+### LogQueries<a id='Database-LogQueries'></a>
+```toml
+LogQueries = false # Default
+```
+LogQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
 
 ### MaxIdleConns<a id='Database-MaxIdleConns'></a>
 ```toml
@@ -372,17 +383,26 @@ Headers is the set of headers you wish to pass along with each request
 ## Log<a id='Log'></a>
 ```toml
 [Log]
-DatabaseQueries = false # Default
+Level = 'info' # Default
 JSONConsole = false # Default
 UnixTS = false # Default
 ```
 
 
-### DatabaseQueries<a id='Log-DatabaseQueries'></a>
+### Level<a id='Log-Level'></a>
 ```toml
-DatabaseQueries = false # Default
+Level = 'info' # Default
 ```
-DatabaseQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
+Level determines both what is printed on the screen and what is written to the log file.
+
+The available levels are:
+- "debug": Useful for forensic debugging of issues.
+- "info": High-level informational messages. (default)
+- "warn": A mild error occurred that might require non-urgent action. Check these warnings semi-regularly to see if any of them require attention. These warnings usually happen due to factors outside of the control of the node operator. Examples: Unexpected responses from a remote API or misleading networking errors.
+- "error": An unexpected error occurred during the regular operation of a well-maintained node. Node operators might need to take action to remedy this error. Check these regularly to see if any of them require attention. Examples: Use of deprecated configuration options or incorrectly configured settings that cause a job to fail.
+- "crit": A critical error occurred. The node might be unable to function. Node operators should take immediate action to fix these errors. Examples: The node could not boot because a network socket could not be opened or the database became inaccessible.
+- "panic": An exceptional error occurred that could not be handled. If the node is unresponsive, node operators should try to restart their nodes and notify the Chainlink team of a potential bug.
+- "fatal": The node encountered an unrecoverable problem and had to exit.
 
 ### JSONConsole<a id='Log-JSONConsole'></a>
 ```toml
@@ -1259,7 +1279,6 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 ```toml
 [Pyroscope]
 ServerAddress = 'http://localhost:4040' # Example
-AuthToken = 'randomly-oauth-generated-token' # Example
 Environment = 'mainnet' # Default
 ```
 
@@ -1269,12 +1288,6 @@ Environment = 'mainnet' # Default
 ServerAddress = 'http://localhost:4040' # Example
 ```
 ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
-
-### AuthToken<a id='Pyroscope-AuthToken'></a>
-```toml
-AuthToken = 'randomly-oauth-generated-token' # Example
-```
-AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
 
 ### Environment<a id='Pyroscope-Environment'></a>
 ```toml

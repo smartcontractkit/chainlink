@@ -63,7 +63,7 @@ func TestClient_SendTerraCoins(t *testing.T) {
 	}, time.Minute, 5*time.Second)
 
 	db := app.GetSqlxDB()
-	orm := terratxm.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	orm := terratxm.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	client, r := app.NewClientAndRenderer()
 	cliapp := cli.NewApp()

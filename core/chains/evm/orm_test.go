@@ -20,7 +20,7 @@ func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := evm.NewORM(db, logger.TestLogger(t), pgtest.PGCfg{})
+	orm := evm.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return db, orm
 }
