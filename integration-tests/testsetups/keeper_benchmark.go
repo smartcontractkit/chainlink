@@ -326,9 +326,6 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	Expect(inputs.UpkeepSLA).ShouldNot(BeNil(), "You need to set UpkeepSLA")
 	Expect(inputs.FirstEligibleBuffer).ShouldNot(BeNil(), "You need to set FirstEligibleBuffer")
 	Expect(inputs.RegistryVersions[0]).ShouldNot(BeNil(), "You need to set RegistryVersion")
-	if len(inputs.UpkeepResetterAddress) == 0 {
-		k.Inputs.UpkeepResetterAddress = "0x"
-	}
 }
 
 func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) error {
