@@ -18,6 +18,7 @@ import (
 
 	"github.com/Depado/ginprom"
 	"github.com/Masterminds/semver/v3"
+	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
@@ -337,6 +338,7 @@ type ChainlinkRunner struct{}
 // for input and return data.
 func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) error {
 	config := app.GetConfig()
+
 	mode := gin.ReleaseMode
 	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
@@ -345,16 +347,18 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
-	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
 
-	g, gCtx := errgroup.WithContext(ctx)
+	if err := sentryInit(config); err != nil {
+		return errors.Wrap(err, "failed to initialize sentry")
+	}
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
 		return errors.New("You must specify at least one port to listen on")
 	}
 
-	server := server{handler: handler, lggr: app.GetLogger()}
+	server := server{handler: web.Router(app.(*chainlink.ChainlinkApplication), prometheus), lggr: app.GetLogger()}
 
+	g, gCtx := errgroup.WithContext(ctx)
 	if config.Port() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
@@ -384,6 +388,39 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	})
 
 	return errors.WithStack(g.Wait())
+}
+
+func sentryInit(cfg config.BasicConfig) error {
+	sentrydsn := cfg.SentryDSN()
+	if sentrydsn == "" {
+		// Do not initialize sentry at all if the DSN is missing
+		return nil
+	}
+
+	var sentryenv string
+	if env := cfg.SentryEnvironment(); env != "" {
+		sentryenv = env
+	} else if cfg.Dev() {
+		sentryenv = "dev"
+	} else {
+		sentryenv = "prod"
+	}
+
+	var sentryrelease string
+	if release := cfg.SentryRelease(); release != "" {
+		sentryrelease = release
+	} else {
+		sentryrelease = static.Version
+	}
+
+	return sentry.Init(sentry.ClientOptions{
+		// AttachStacktrace is needed to send stacktrace alongside panics
+		AttachStacktrace: true,
+		Dsn:              sentrydsn,
+		Environment:      sentryenv,
+		Release:          sentryrelease,
+		Debug:            cfg.SentryDebug(),
+	})
 }
 
 func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, runServer func() error) {
