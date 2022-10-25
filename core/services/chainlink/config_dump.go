@@ -725,16 +725,16 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
-		c.Sentry = config.Sentry{DSN: &dsn}
-		if debug := os.Getenv("SENTRY_DEBUG") == "true"; debug {
-			c.Sentry.Debug = &debug
-		}
-		if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
-			c.Sentry.Environment = &env
-		}
-		if env := os.Getenv("SENTRY_RELEASE"); env != "" {
-			c.Sentry.Release = &env
-		}
+		c.Sentry.DSN = &dsn
+	}
+	if debug := os.Getenv("SENTRY_DEBUG") == "true"; debug {
+		c.Sentry.Debug = &debug
+	}
+	if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
+		c.Sentry.Environment = &env
+	}
+	if rel := os.Getenv("SENTRY_RELEASE"); rel != "" {
+		c.Sentry.Release = &rel
 	}
 }
 

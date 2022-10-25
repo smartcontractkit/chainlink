@@ -187,5 +187,5 @@ Environment = 'mainnet'
 [Sentry]
 Debug = false
 DSN = ''
-Environment = 'prod'
+Environment = ''
 Release = ''
