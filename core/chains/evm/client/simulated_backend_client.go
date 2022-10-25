@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -461,7 +462,9 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			b[i].Error = err
 		case "eth_getBlockByNumber":
 			if _, ok := elem.Result.(*evmtypes.Head); !ok {
-				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Head for eth_getBlockByNumber, got type %T", elem.Result)
+				if _, ok = elem.Result.(*gas.Block); !ok {
+					return errors.Errorf("SimulatedBackendClient expected return type of [*evmtypes.Head] or [*gas.Block] for eth_getBlockByNumber, got type %T", elem.Result)
+				}
 			}
 			if len(elem.Args) != 2 {
 				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
