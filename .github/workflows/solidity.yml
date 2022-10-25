@@ -206,13 +206,19 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Checkout diff-so-fancy
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          repository: so-fancy/diff-so-fancy
+          ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
+          path: diff-so-fancy
+      - name: Install diff-so-fancy
+        run: echo "$GITHUB_WORKSPACE/diff-so-fancy" >> $GITHUB_PATH
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
-      - name: Install diff-so-fancy
-        run: npm i -g diff-so-fancy
       - name: Setup Go
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
