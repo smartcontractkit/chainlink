@@ -38,7 +38,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	chainID := big.NewInt(137)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
-	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewPGCfg(true))
+	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewQConfig(true))
 	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")

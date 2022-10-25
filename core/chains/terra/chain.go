@@ -52,7 +52,7 @@ type chain struct {
 	lggr           logger.Logger
 }
 
-func newChain(id string, cfg terra.Config, db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg terra.Config, db *sqlx.DB, ks keystore.Terra, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("terraChainID", id)
 	var ch = chain{
 		id:   id,

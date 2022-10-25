@@ -91,7 +91,7 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // MustCreateBridge creates a bridge
 // Be careful not to specify a name here unless you ABSOLUTELY need to
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
-func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.LogConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.QConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	err := orm.CreateBridgeType(bt)
@@ -476,7 +476,7 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) evmtypes.Head {
+func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 

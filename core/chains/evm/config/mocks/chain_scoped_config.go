@@ -679,6 +679,48 @@ func (_m *ChainScopedConfig) DatabaseBackupURL() *url.URL {
 	return r0
 }
 
+// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultLockTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseDefaultLockTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultQueryTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // DatabaseListenerMaxReconnectDuration provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
 	ret := _m.Called()

@@ -14,6 +14,20 @@ type Config struct {
 	mock.Mock
 }
 
+// DatabaseDefaultQueryTimeout provides a mock function with given fields:
+func (_m *Config) DatabaseDefaultQueryTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // DefaultHTTPTimeout provides a mock function with given fields:
 func (_m *Config) DefaultHTTPTimeout() models.Duration {
 	ret := _m.Called()

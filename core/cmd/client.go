@@ -66,9 +66,9 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         config.GeneralConfig
-	Logger                         logger.Logger
-	CloseLogger                    func() error
+	Config                         config.GeneralConfig // initialized in Before
+	Logger                         logger.Logger        // initialized in Before
+	CloseLogger                    func() error         // called in After
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -90,20 +90,19 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
-	appLggr, closeLggr := logger.NewLogger()
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
 	// Set up the versioning ORM
-	verORM := versioning.NewORM(db, appLggr)
+	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
 
 	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
@@ -296,7 +295,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
 		AuditLogger:              auditLogger,
-		CloseLogger:              closeLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 		RestrictedHTTPClient:     restrictedClient,
@@ -731,22 +729,21 @@ func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest,
 // needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
 	// Initialize creates a new user for API access, or does nothing if one exists.
-	Initialize(orm sessions.ORM) (sessions.User, error)
+	Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error)
 }
 
 type promptingAPIInitializer struct {
 	prompter Prompter
-	lggr     logger.Logger
 }
 
 // NewPromptingAPIInitializer creates a concrete instance of APIInitializer
 // that uses the terminal to solicit credentials from the user.
-func NewPromptingAPIInitializer(prompter Prompter, lggr logger.Logger) APIInitializer {
-	return &promptingAPIInitializer{prompter: prompter, lggr: lggr}
+func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
+	return &promptingAPIInitializer{prompter: prompter}
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
-func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
+func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
@@ -765,18 +762,18 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 			// On a fresh DB, create an admin user
 			user, err2 := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
 			if err2 != nil {
-				t.lggr.Errorw("Error creating API user", "err", err2)
+				lggr.Errorw("Error creating API user", "err", err2)
 				continue
 			}
 			if err = orm.CreateUser(&user); err != nil {
-				t.lggr.Errorf("Error creating API user: ", err, "err")
+				lggr.Errorf("Error creating API user: ", err, "err")
 			}
 			return user, err
 		}
 	}
 
 	// Attempt to contextually return the correct admin user, CLI access here implies admin
-	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, t.lggr); found {
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, lggr); found {
 		return adminUser, nil
 	}
 
@@ -792,17 +789,16 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 
 type fileAPIInitializer struct {
 	file string
-	lggr logger.Logger
 }
 
 // NewFileAPIInitializer creates a concrete instance of APIInitializer
 // that pulls API user credentials from the passed file path.
-func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
-	return fileAPIInitializer{file: file, lggr: lggr.With("file", file)}
+func NewFileAPIInitializer(file string) APIInitializer {
+	return fileAPIInitializer{file: file}
 }
 
-func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	request, err := credentialsFromFile(f.file, f.lggr)
+func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+	request, err := credentialsFromFile(f.file, lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
@@ -823,7 +819,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 	}
 
 	// Attempt to contextually return the correct admin user, CLI access here implies admin
-	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, f.lggr); found {
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, lggr); found {
 		return adminUser, nil
 	}
 
@@ -835,7 +831,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 	return user, nil
 }
 
-func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger.Logger) (sessions.User, bool) {
+func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions.User, bool) {
 	if len(users) == 0 {
 		return sessions.User{}, false
 	}

@@ -24,7 +24,6 @@ import (
 	"go.dedis.ch/kyber/v3/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
@@ -32,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -487,18 +485,12 @@ func resetDatabase(client *cmd.Client, context *cli.Context, index int, database
 }
 
 func newSetupClient() *cmd.Client {
-	lggr, closeLggr := logger.NewLogger()
-	cfg := config.NewGeneralConfig(lggr)
-
 	prompter := cmd.NewTerminalPrompter()
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
-		Config:                         cfg,
-		Logger:                         lggr,
-		CloseLogger:                    closeLggr,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
-		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter, lggr),
+		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
 		Runner:                         cmd.ChainlinkRunner{},
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),

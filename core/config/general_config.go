@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -98,6 +99,9 @@ type BasicConfig interface {
 	DatabaseBackupMode() DatabaseBackupMode
 	DatabaseBackupOnVersionUpgrade() bool
 	DatabaseBackupURL() *url.URL
+	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
+	DatabaseDefaultLockTimeout() time.Duration
+	DatabaseDefaultQueryTimeout() time.Duration
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
@@ -670,6 +674,18 @@ func (c *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
 func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(envvar.Name("DatabaseBackupDir"))
+}
+
+func (c *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	return pg.DefaultIdleInTxSessionTimeout
+}
+
+func (c *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
+	return pg.DefaultLockTimeout
+}
+
+func (c *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	return pg.DefaultQueryTimeout
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be

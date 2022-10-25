@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -48,6 +49,7 @@ func TestSetupNodes(t *testing.T) {
 
 	cfg := config{
 		solanaNodes: s,
+		QConfig:     pgtest.NewQConfig(false),
 	}
 
 	err := solana.SetupNodes(db, cfg, logger.TestLogger(t))
@@ -70,10 +72,9 @@ func TestSetupNodes(t *testing.T) {
 
 type config struct {
 	solanaNodes string
+	pg.QConfig
 }
 
 func (c config) SolanaNodes() string {
 	return c.solanaNodes
 }
-
-func (c config) LogSQL() bool { return false }

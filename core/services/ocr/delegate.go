@@ -206,7 +206,8 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
+		cfg := chain.Config()
+		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
 
 		var checker txmgr.TransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {

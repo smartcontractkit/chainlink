@@ -67,11 +67,11 @@ type master struct {
 	dkgEncrypt *dkgEncrypt
 }
 
-func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
+func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) Master {
 	return newMaster(db, scryptParams, lggr, cfg)
 }
 
-func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) *master {
+func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) *master {
 	km := &keyManager{
 		orm:          NewORM(db, lggr, cfg),
 		scryptParams: scryptParams,
