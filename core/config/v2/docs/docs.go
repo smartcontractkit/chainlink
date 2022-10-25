@@ -20,6 +20,8 @@ const (
 )
 
 var (
+	//go:embed secrets.toml
+	secretsTOML string
 	//go:embed core.toml
 	coreTOML string
 	//go:embed chains-evm.toml
@@ -34,18 +36,35 @@ var (
 	docsTOML = coreTOML + chainsEVMTOML + chainsSolanaTOML + chainsStarknetTOML + chainsTerraTOML
 )
 
-// GenerateDocs returns MarkDown documentation generated from core.toml & chains-*.toml.
-func GenerateDocs() (string, error) {
-	return generateDocs(docsTOML)
+// GenerateConfig returns MarkDown documentation generated from core.toml & chains-*.toml.
+func GenerateConfig() (string, error) {
+	return generateDocs(docsTOML, `[//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
+
+This document describes the TOML format for configuration.
+
+See also [SECRETS.md](secrets.md)
+`)
+}
+
+// GenerateSecrets returns MarkDown documentation generated from secrets.toml.
+func GenerateSecrets() (string, error) {
+	return generateDocs(secretsTOML, `[//]: # (Documentation generated from docs/secrets.toml - DO NOT EDIT.)
+
+This document describes the TOML format for secrets.
+
+Each secret has an alternative corresponding environment variable.
+
+See also [CONFIG.md](config.md)
+`)
 }
 
 // generateDocs returns MarkDown documentation generated from the TOML string.
-func generateDocs(toml string) (string, error) {
+func generateDocs(toml, header string) (string, error) {
 	items, err := parseTOMLDocs(toml)
 	var sb strings.Builder
 
-	sb.WriteString(`[//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
-
+	sb.WriteString(header)
+	sb.WriteString(`
 ## Table of contents
 
 `)
@@ -234,6 +253,10 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 			currentTable.codes = append(currentTable.codes, kv.code)
 			desc = nil
 		}
+	}
+	if len(globalTable.codes) == 0 {
+		//drop it
+		items = items[1:]
 	}
 	if len(desc) > 0 {
 		items = append(items, desc)
