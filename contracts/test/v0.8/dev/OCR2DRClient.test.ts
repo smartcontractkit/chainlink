@@ -32,7 +32,7 @@ before(async () => {
     roles.defaultAccount,
   )
   ocr2drOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DROracle.sol:OCR2DROracle',
+    'src/v0.8/tests/OCR2DROracleHelper.sol:OCR2DROracleHelper',
     roles.defaultAccount,
   )
 })
@@ -47,10 +47,7 @@ describe('OCR2DRClientTestHelper', () => {
   let oracle: Contract
 
   beforeEach(async () => {
-    const accounts = await ethers.getSigners()
-    oracle = await ocr2drOracleFactory
-      .connect(roles.defaultAccount)
-      .deploy(accounts[0].address, donPublicKey)
+    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
@@ -58,6 +55,7 @@ describe('OCR2DRClientTestHelper', () => {
 
   describe('#getDONPublicKey', () => {
     it('returns DON public key set on Oracle', async () => {
+      await expect(oracle.setDONPublicKey(donPublicKey)).not.to.be.reverted
       expect(await client.callStatic.getDONPublicKey()).to.be.equal(
         donPublicKey,
       )
@@ -98,9 +96,6 @@ describe('OCR2DRClientTestHelper', () => {
 
   describe('#fulfillRequest', () => {
     it('emits fulfillment events', async () => {
-      const accounts = await ethers.getSigners()
-      await oracle.setAuthorizedSenders([accounts[0].address])
-
       const tx = await client.sendSimpleRequestWithJavaScript(
         'function run() {}',
         subscriptionId,
@@ -112,7 +107,14 @@ describe('OCR2DRClientTestHelper', () => {
 
       const response = stringToBytes('response')
       const error = stringToBytes('error')
-      await expect(oracle.fulfillRequest(requestId, response, error))
+      const abi = ethers.utils.defaultAbiCoder
+
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [[requestId], [response], [error]],
+      )
+
+      await expect(oracle.callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
         .to.emit(client, 'FulfillRequestInvoked')

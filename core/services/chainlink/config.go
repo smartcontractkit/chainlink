@@ -114,6 +114,9 @@ func (s *Secrets) setOverrides(keystorePasswordFileName, vrfPasswordFileName *st
 			return err
 		}
 	}
+	if config.EnvDatabaseAllowSimplePasswords.IsTrue() {
+		s.Database.AllowSimplePasswords = true
+	}
 	if explorerKey := config.EnvExplorerAccessKey.Get(); explorerKey != "" {
 		s.Explorer.AccessKey = &explorerKey
 	}
