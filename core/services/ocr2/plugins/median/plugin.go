@@ -66,7 +66,7 @@ func NewMedianServices(jb job.Job,
 	}
 	if new {
 		// If this is a brand-new job, then we make use of the start blocks. If not then we're rebooting and log poller will pick up where we left off.
-		// Median doesn't need from blocks before starting the plugin.
+		// Median doesn't need specific fromBlocks before starting the plugin.
 		return []job.ServiceCtx{ocr2Provider, ocrcommon.NewResultRunSaver(
 			runResults,
 			pipelineRunner,

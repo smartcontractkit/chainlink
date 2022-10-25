@@ -60,7 +60,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595
+	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20221025211432-48b5cb439e44
 	github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220930034647-edd5a863b876
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
@@ -374,8 +374,7 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
-replace github.com/smartcontractkit/chainlink-relay => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-relay
-
+//replace github.com/smartcontractkit/chainlink-relay => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-relay
 
 exclude (
 	github.com/influxdata/influxdb v1.8.3
