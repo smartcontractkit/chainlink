@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -10,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 
@@ -21,11 +23,12 @@ import (
 var _ median.MedianContract = &medianContract{}
 
 type medianContract struct {
-	contractCaller *ocr2aggregator.OCR2AggregatorCaller
-	tracker        *RequestRoundTracker
+	configTracker       types.ContractConfigTracker
+	contractCaller      *ocr2aggregator.OCR2AggregatorCaller
+	requestRoundTracker *RequestRoundTracker
 }
 
-func newMedianContract(contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
+func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
@@ -42,8 +45,9 @@ func newMedianContract(contractAddress common.Address, chain evm.Chain, specID i
 	}
 
 	return &medianContract{
+		configTracker:  configTracker,
 		contractCaller: contractCaller,
-		tracker: NewRequestRoundTracker(
+		requestRoundTracker: NewRequestRoundTracker(
 			contract,
 			contractFilterer,
 			chain.Client(),
@@ -58,14 +62,19 @@ func newMedianContract(contractAddress common.Address, chain evm.Chain, specID i
 }
 
 func (oc *medianContract) Start() error {
-	return oc.tracker.Start()
+	return oc.requestRoundTracker.Start()
 }
 
 func (oc *medianContract) Close() error {
-	return oc.tracker.Close()
+	return oc.requestRoundTracker.Close()
 }
 
 func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
+	if os.Getenv("CL_MERCURY_REPORT_URL") != "" {
+		// TODO: Does it need to actually return the latest transmission?
+		_, cd, err := oc.configTracker.LatestConfigDetails(ctx)
+		return cd, 0, 0, big.NewInt(0), time.Time{}, err
+	}
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
 	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
@@ -83,5 +92,5 @@ func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtyp
 // As an optimization, this function may also return zero values, if no
 // RoundRequested event has been emitted after the latest NewTransmission event.
 func (oc *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
-	return oc.tracker.LatestRoundRequested(ctx, lookback)
+	return oc.requestRoundTracker.LatestRoundRequested(ctx, lookback)
 }

@@ -370,6 +370,10 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
+replace github.com/smartcontractkit/libocr => github.com/samsondav/libocr v0.0.0-20221107152458-f0bc77e46d76
+
+// replace github.com/smartcontractkit/libocr => /Users/sam/code/smartcontractkit/libocr
+
 exclude (
 	github.com/influxdata/influxdb v1.8.3
 	github.com/labstack/echo/v4 v4.5.0
