@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -83,12 +84,17 @@ type configWatcher struct {
 	chain            evm.Chain
 	new              bool
 	fromBlock        uint64
+	replayCtx        context.Context
+	replayCancel     context.CancelFunc
+	wg               sync.WaitGroup
 }
 
 func (c *configWatcher) Start(ctx context.Context) error {
 	if c.new {
 		// Only replay if its a brand new job.
+		c.wg.Add(1)
 		go func() {
+			defer c.wg.Done()
 			c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
 			if err := c.configPoller.destChainLogPoller.Replay(context.Background(), int64(c.fromBlock)); err != nil {
 				c.lggr.Errorf("error replaying for config", "err", err)
@@ -101,6 +107,8 @@ func (c *configWatcher) Start(ctx context.Context) error {
 }
 
 func (c *configWatcher) Close() error {
+	c.replayCancel()
+	c.wg.Wait()
 	return nil
 }
 
@@ -143,6 +151,8 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		ChainID:         chain.Config().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
 	return &configWatcher{
 		lggr:             lggr,
 		contractAddress:  contractAddress,
@@ -152,6 +162,9 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		chain:            chain,
 		new:              args.New,
 		fromBlock:        relayConfig.FromBlock,
+		replayCtx:        ctx,
+		replayCancel:     cancel,
+		wg:               sync.WaitGroup{},
 	}, nil
 }
 

@@ -374,8 +374,6 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
-//replace github.com/smartcontractkit/chainlink-relay => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-relay
-
 exclude (
 	github.com/influxdata/influxdb v1.8.3
 	github.com/labstack/echo/v4 v4.5.0
