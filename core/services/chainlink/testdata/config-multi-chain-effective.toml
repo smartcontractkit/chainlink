@@ -428,15 +428,18 @@ WSURL = 'wss://web.socket/test'
 [[Solana]]
 ChainID = 'mainnet'
 BalancePollPeriod = '5s'
-ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1s'
 OCR2CacheTTL = '1m0s'
 TxTimeout = '1m0s'
-TxRetryTimeout = '10s'
-TxConfirmTimeout = '30s'
+TxConfirmTimeout = '2s'
+ConfirmPollPeriod = '500ms'
 SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 12
+FeeEstimatorMode = 'fixed'
+MaxComputeUnitPrice = 1000000
+MinComputeUnitPrice = 0
+DefaultComputeUnitPrice = 0
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -445,15 +448,18 @@ URL = 'http://mainnet.solana.com'
 [[Solana]]
 ChainID = 'testnet'
 BalancePollPeriod = '5s'
-ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1m0s'
 TxTimeout = '1m0s'
-TxRetryTimeout = '10s'
-TxConfirmTimeout = '30s'
+TxConfirmTimeout = '2s'
+ConfirmPollPeriod = '500ms'
 SkipPreflight = true
 Commitment = 'confirmed'
 MaxRetries = 0
+FeeEstimatorMode = 'fixed'
+MaxComputeUnitPrice = 1000000
+MinComputeUnitPrice = 0
+DefaultComputeUnitPrice = 0
 
 [[Solana.Nodes]]
 Name = 'primary'

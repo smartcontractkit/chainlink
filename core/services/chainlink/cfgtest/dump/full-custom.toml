@@ -282,12 +282,11 @@ SendOnly = true
 [[Solana]]
 ChainID = 'mainnet'
 BalancePollPeriod = '8s'
-ConfirmPollPeriod = '5m9s'
 OCR2CachePollPeriod = '1h7m0s'
 OCR2CacheTTL = '42m10s'
 TxTimeout = '1s'
-TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1h0m0s'
+ConfirmPollPeriod = '5m9s'
 SkipPreflight = true
 Commitment = 'foobar'
 MaxRetries = 7
