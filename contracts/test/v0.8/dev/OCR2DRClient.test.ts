@@ -2,11 +2,21 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, providers } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
-import { decodeDietCBOR } from '../../test-helpers/helpers'
+import { decodeDietCBOR, stringToBytes } from '../../test-helpers/helpers'
 
 let concreteOCR2DRClientFactory: ContractFactory
 let ocr2drOracleFactory: ContractFactory
 let roles: Roles
+
+function getEventArg(events: any, eventName: string, argIndex: number) {
+  if (Array.isArray(events)) {
+    const event = events.find((e: any) => e.event == eventName)
+    if (event && Array.isArray(event.args) && event.args.length > 0) {
+      return event.args[argIndex]
+    }
+  }
+  return undefined
+}
 
 async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const receipt = await tx.wait()
@@ -22,7 +32,7 @@ before(async () => {
     roles.defaultAccount,
   )
   ocr2drOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DROracle.sol:OCR2DROracle',
+    'src/v0.8/tests/OCR2DROracleHelper.sol:OCR2DROracleHelper',
     roles.defaultAccount,
   )
 })
@@ -81,6 +91,34 @@ describe('OCR2DRClientTestHelper', () => {
         codeLocation: 0,
         source: js,
       })
+    })
+  })
+
+  describe('#fulfillRequest', () => {
+    it('emits fulfillment events', async () => {
+      const tx = await client.sendSimpleRequestWithJavaScript(
+        'function run() {}',
+        subscriptionId,
+      )
+
+      const { events } = await tx.wait()
+      const requestId = getEventArg(events, 'RequestSent', 0)
+      await expect(tx).to.emit(client, 'RequestSent').withArgs(requestId)
+
+      const response = stringToBytes('response')
+      const error = stringToBytes('error')
+      const abi = ethers.utils.defaultAbiCoder
+
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [[requestId], [response], [error]],
+      )
+
+      await expect(oracle.callReport(report))
+        .to.emit(oracle, 'OracleResponse')
+        .withArgs(requestId)
+        .to.emit(client, 'FulfillRequestInvoked')
+        .withArgs(requestId, response, error)
     })
   })
 })

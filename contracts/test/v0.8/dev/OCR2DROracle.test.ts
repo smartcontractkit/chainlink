@@ -4,6 +4,7 @@ import { Contract, ContractFactory } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 
 let ocr2drOracleFactory: ContractFactory
+let clientTestHelperFactory: ContractFactory
 let roles: Roles
 
 const stringToHex = (s: string) => {
@@ -12,12 +13,25 @@ const stringToHex = (s: string) => {
 
 const anyValue = () => true
 
+const encodeReport = (requestId: string, result: string, err: string) => {
+  const abi = ethers.utils.defaultAbiCoder
+  return abi.encode(
+    ['bytes32[]', 'bytes[]', 'bytes[]'],
+    [[requestId], [result], [err]],
+  )
+}
+
 before(async () => {
   roles = (await getUsers()).roles
 
   ocr2drOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DROracle.sol:OCR2DROracle',
+    'src/v0.8/tests/OCR2DROracleHelper.sol:OCR2DROracleHelper',
     roles.defaultAccount,
+  )
+
+  clientTestHelperFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/OCR2DRClientTestHelper.sol:OCR2DRClientTestHelper',
+    roles.consumer,
   )
 })
 
@@ -25,10 +39,14 @@ describe('OCR2DROracle', () => {
   const donPublicKey =
     '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
   let oracle: Contract
+  let client: Contract
 
   beforeEach(async () => {
     const { roles } = await getUsers()
     oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
+    client = await clientTestHelperFactory
+      .connect(roles.consumer)
+      .deploy(oracle.address)
   })
 
   describe('General', () => {
@@ -82,6 +100,141 @@ describe('OCR2DROracle', () => {
         .withArgs(anyValue, data)
       const requestId2 = await oracle.callStatic.sendRequest(0, data)
       expect(requestId1).not.to.be.equal(requestId2)
+    })
+  })
+
+  describe('Fulfilling requests', () => {
+    const placeTestRequest = async () => {
+      const requestId = await client.callStatic.sendSimpleRequestWithJavaScript(
+        'function(){}',
+        0,
+      )
+      await expect(client.sendSimpleRequestWithJavaScript('function(){}', 0))
+        .to.emit(client, 'RequestSent')
+        .withArgs(requestId)
+      return requestId
+    }
+
+    it('#fulfillRequest reverts for unknown requestId', async () => {
+      const requestId =
+        '0x67c6a2e151d4352a55021b5d0028c18121cfc24c7d73b179d22b17daff069c6e'
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await expect(oracle.callReport(report)).to.be.revertedWith(
+        'InvalidRequestID',
+      )
+    })
+
+    it('#fulfillRequest reverts on low consumer gas', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await expect(
+        oracle.connect(roles.oracleNode).callReport(report, {
+          gasLimit: 300000,
+        }),
+      ).to.be.revertedWith('LowGasForConsumer')
+    })
+
+    it('#fulfillRequest emits OracleResponse', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'OracleResponse')
+        .withArgs(requestId)
+    })
+
+    it('#fulfillRequest invokes client fulfillRequest', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex('err'),
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(client, 'FulfillRequestInvoked')
+        .withArgs(requestId, stringToHex('response'), stringToHex('err'))
+    })
+
+    it('#fulfillRequest invalidates requestId', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex('err'),
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(client, 'FulfillRequestInvoked')
+        .withArgs(requestId, stringToHex('response'), stringToHex('err'))
+
+      // for second fulfill the requestId becomes invalid
+      await expect(
+        oracle.connect(roles.oracleNode).callReport(report),
+      ).to.be.revertedWith('InvalidRequestID')
+    })
+
+    it('#_report reverts for inconsistent encoding', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const abi = ethers.utils.defaultAbiCoder
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [[requestId], [], []],
+      )
+
+      await expect(
+        oracle.connect(roles.oracleNode).callReport(report),
+      ).to.be.revertedWith('InconsistentReportData')
+    })
+
+    it('#_report handle multiple reports', async () => {
+      const { roles } = await getUsers()
+      const requestId1 = await placeTestRequest()
+      const requestId2 = await placeTestRequest()
+      const result1 = stringToHex('result1')
+      const result2 = stringToHex('result2')
+      const err = stringToHex('')
+
+      const abi = ethers.utils.defaultAbiCoder
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [
+          [requestId1, requestId2],
+          [result1, result2],
+          [err, err],
+        ],
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(client, 'FulfillRequestInvoked')
+        .withArgs(requestId1, result1, err)
+        .to.emit(client, 'FulfillRequestInvoked')
+        .withArgs(requestId2, result2, err)
     })
   })
 })
