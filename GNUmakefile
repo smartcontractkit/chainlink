@@ -148,7 +148,7 @@ test_chaos: test_need_operator_assets ## Run core node chaos tests.
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate/main.go > ./docs/CONFIG.md
+	go run ./core/config/v2/docs/cmd/generate/main.go -o ./docs/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.

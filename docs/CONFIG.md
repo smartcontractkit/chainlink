@@ -1,5 +1,9 @@
 [//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
+This document describes the TOML format for configuration.
+
+See also [SECRETS.md](secrets.md)
+
 ## Table of contents
 
 - [Global](#Global)
