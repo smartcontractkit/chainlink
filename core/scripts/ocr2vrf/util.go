@@ -21,6 +21,7 @@ import (
 	"github.com/urfave/cli"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+	"go.dedis.ch/kyber/v3/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -37,14 +38,26 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
+var (
+	suite pairing.Suite = &altbn_128.PairingSuite{}
+	g1                  = suite.G1()
+	g2                  = suite.G2()
+)
+
 func deployDKG(e helpers.Environment) common.Address {
 	_, tx, _, err := dkgContract.DeployDKG(e.Owner, e.Ec)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress string) common.Address {
-	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(e.Owner, e.Ec, beaconPeriodBlocks, common.HexToAddress(linkAddress))
+func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress string, linkEthFeed string) common.Address {
+	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(
+		e.Owner,
+		e.Ec,
+		beaconPeriodBlocks,
+		common.HexToAddress(linkAddress),
+		common.HexToAddress(linkEthFeed),
+	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -462,6 +475,10 @@ func configureEnvironmentVariables(useForwarder bool) {
 	helpers.PanicErr(os.Setenv("ETH_USE_FORWARDERS", fmt.Sprintf("%t", useForwarder)))
 	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
 	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
+	helpers.PanicErr(os.Setenv("P2P_NETWORKING_STACK", "V2"))
+	helpers.PanicErr(os.Setenv("P2PV2_LISTEN_ADDRESSES", "127.0.0.1:8000"))
+	helpers.PanicErr(os.Setenv("ETH_HEAD_TRACKER_HISTORY_DEPTH", "1"))
+	helpers.PanicErr(os.Setenv("ETH_FINALITY_DEPTH", "1"))
 }
 
 func resetDatabase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
