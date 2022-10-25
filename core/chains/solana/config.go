@@ -171,16 +171,19 @@ func (c *SolanaConfig) AsV1() DBChain {
 		ID:      *c.ChainID,
 		Enabled: c.IsEnabled(),
 		Cfg: &soldb.ChainCfg{
-			BalancePollPeriod:   c.Chain.BalancePollPeriod,
-			ConfirmPollPeriod:   c.Chain.ConfirmPollPeriod,
-			OCR2CachePollPeriod: c.Chain.OCR2CachePollPeriod,
-			OCR2CacheTTL:        c.Chain.OCR2CacheTTL,
-			TxTimeout:           c.Chain.TxTimeout,
-			TxRetryTimeout:      c.Chain.TxRetryTimeout,
-			TxConfirmTimeout:    c.Chain.TxConfirmTimeout,
-			SkipPreflight:       null.BoolFromPtr(c.Chain.SkipPreflight),
-			Commitment:          null.StringFromPtr(c.Chain.Commitment),
-			MaxRetries:          null.IntFromPtr(c.Chain.MaxRetries),
+			BalancePollPeriod:       c.Chain.BalancePollPeriod,
+			OCR2CachePollPeriod:     c.Chain.OCR2CachePollPeriod,
+			OCR2CacheTTL:            c.Chain.OCR2CacheTTL,
+			TxTimeout:               c.Chain.TxTimeout,
+			TxConfirmTimeout:        c.Chain.TxConfirmTimeout,
+			ConfirmPollPeriod:       c.Chain.ConfirmPollPeriod,
+			SkipPreflight:           null.BoolFromPtr(c.Chain.SkipPreflight),
+			Commitment:              null.StringFromPtr(c.Chain.Commitment),
+			MaxRetries:              null.IntFromPtr(c.Chain.MaxRetries),
+			FeeEstimatorMode:        null.StringFromPtr(c.Chain.FeeEstimatorMode),
+			MaxComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MaxComputeUnitPrice)),
+			MinComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MinComputeUnitPrice)),
+			DefaultComputeUnitPrice: null.IntFrom(int64(*c.Chain.DefaultComputeUnitPrice)),
 		},
 	}
 }
@@ -189,10 +192,6 @@ var _ solcfg.Config = &SolanaConfig{}
 
 func (c *SolanaConfig) BalancePollPeriod() time.Duration {
 	return c.Chain.BalancePollPeriod.Duration()
-}
-
-func (c *SolanaConfig) ConfirmPollPeriod() time.Duration {
-	return c.Chain.ConfirmPollPeriod.Duration()
 }
 
 func (c *SolanaConfig) OCR2CachePollPeriod() time.Duration {
@@ -207,12 +206,12 @@ func (c *SolanaConfig) TxTimeout() time.Duration {
 	return c.Chain.TxTimeout.Duration()
 }
 
-func (c *SolanaConfig) TxRetryTimeout() time.Duration {
-	return c.Chain.TxRetryTimeout.Duration()
-}
-
 func (c *SolanaConfig) TxConfirmTimeout() time.Duration {
 	return c.Chain.TxConfirmTimeout.Duration()
+}
+
+func (c *SolanaConfig) ConfirmPollPeriod() time.Duration {
+	return c.Chain.ConfirmPollPeriod.Duration()
 }
 
 func (c *SolanaConfig) SkipPreflight() bool {
@@ -229,6 +228,22 @@ func (c *SolanaConfig) MaxRetries() *uint {
 	}
 	mr := uint(*c.Chain.MaxRetries)
 	return &mr
+}
+
+func (c *SolanaConfig) FeeEstimatorMode() string {
+	return *c.Chain.FeeEstimatorMode
+}
+
+func (c *SolanaConfig) MaxComputeUnitPrice() uint64 {
+	return *c.Chain.MaxComputeUnitPrice
+}
+
+func (c *SolanaConfig) MinComputeUnitPrice() uint64 {
+	return *c.Chain.MinComputeUnitPrice
+}
+
+func (c *SolanaConfig) DefaultComputeUnitPrice() uint64 {
+	return *c.Chain.DefaultComputeUnitPrice
 }
 
 func (c *SolanaConfig) Update(cfg soldb.ChainCfg) {
