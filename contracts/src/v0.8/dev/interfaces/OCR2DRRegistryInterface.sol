@@ -49,7 +49,7 @@ interface OCR2DRRegistryInterface {
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRequest.
    */
-  function sendRequest(
+  function beginBilling(
     bytes32 keyHash,
     uint64 subId,
     uint16 minimumRequestConfirmations,
@@ -64,7 +64,7 @@ interface OCR2DRRegistryInterface {
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRequest(
+  function finishBilling(
     bytes32 requestId,
     bytes32 keyHash,
     RequestCommitment memory rc,
