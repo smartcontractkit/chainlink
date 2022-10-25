@@ -17,7 +17,7 @@ See also [CONFIG.md](config.md)
 ```toml
 [Database]
 URL = "postgresql://user:pass@localhost:5432/dbname?sslmode=disable" # Example
-BackupURL = "postgresql://user:pass@localhost:5432/backupdbname?sslmode=disable" # Example
+BackupURL = "postgresql://user:pass@read-replica.example.com:5432/dbname?sslmode=disable" # Example
 AllowSimplePasswords = false # Default
 ```
 
@@ -33,7 +33,7 @@ Environment variable: `CL_DATABASE_URL`
 
 ### BackupURL<a id='Database-BackupURL'></a>
 ```toml
-BackupURL = "postgresql://user:pass@localhost:5432/backupdbname?sslmode=disable" # Example
+BackupURL = "postgresql://user:pass@read-replica.example.com:5432/dbname?sslmode=disable" # Example
 ```
 BackupURL is where the automatic database backup will pull from, rather than the main DATABASE_URL. It is recommended
 to set this value to a read replica if you have one to avoid excessive load on the main database.
@@ -46,7 +46,7 @@ AllowSimplePasswords = false # Default
 ```
 AllowSimplePasswords skips the password complexity check normally enforced on URL & BackupURL.
 
-TODO need an env var?
+Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 
 ## Explorer<a id='Explorer'></a>
 ```toml
@@ -107,7 +107,7 @@ AuthToken = "pyroscope-token" # Example
 ```toml
 AuthToken = "pyroscope-token" # Example
 ```
-AuthToken is the API key for the Pyroscope.ServerAddress.
+AuthToken is the API key for the Pyroscope server.
 
 Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
 
