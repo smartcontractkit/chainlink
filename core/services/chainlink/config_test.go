@@ -552,7 +552,7 @@ func TestConfig_Marshal(t *testing.T) {
 				SkipPreflight:           ptr(true),
 				Commitment:              ptr("banana"),
 				MaxRetries:              ptr[int64](7),
-				FeeEstimatorMode:        ptr("static"),
+				FeeEstimatorMode:        ptr("fixed"),
 				MaxComputeUnitPrice:     ptr[uint64](1000),
 				MinComputeUnitPrice:     ptr[uint64](10),
 				DefaultComputeUnitPrice: ptr[uint64](100),
@@ -912,11 +912,11 @@ SendOnly = true
 ChainID = 'mainnet'
 Enabled = false
 BalancePollPeriod = '1m0s'
-ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxConfirmTimeout = '1s'
+ConfirmPollPeriod = '1s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
