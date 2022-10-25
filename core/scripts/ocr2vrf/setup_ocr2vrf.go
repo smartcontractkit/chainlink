@@ -80,7 +80,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
+	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
 
 	fmt.Println("Deploying VRF beacon...")
 	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
@@ -125,6 +125,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println("Deploying batch beacon consumer...")
 	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), big.NewInt(int64(subID)))
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
