@@ -356,10 +356,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		})
 		dkgReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
-			return promwrapper.NewPromFactory(wrapped, "DKG", promwrapper.EVM, chain.ID())
+			return promwrapper.NewPromFactory(wrapped, "DKG", string(relay.EVM), chain.ID())
 		}
 		vrfReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
-			return promwrapper.NewPromFactory(wrapped, "OCR2VRF", promwrapper.EVM, chain.ID())
+			return promwrapper.NewPromFactory(wrapped, "OCR2VRF", string(relay.EVM), chain.ID())
 		}
 		oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
 			VRFLogger:                          vrfLogger,

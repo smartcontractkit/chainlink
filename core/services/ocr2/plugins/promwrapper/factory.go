@@ -8,16 +8,10 @@ import (
 
 var _ types.ReportingPluginFactory = &promFactory{}
 
-type ChainType string
-
-const (
-	EVM ChainType = "evm"
-)
-
 type promFactory struct {
 	wrapped   types.ReportingPluginFactory
 	name      string
-	chainType ChainType
+	chainType string
 	chainID   *big.Int
 }
 
@@ -31,7 +25,7 @@ func (p *promFactory) NewReportingPlugin(config types.ReportingPluginConfig) (ty
 	return prom, info, nil
 }
 
-func NewPromFactory(wrapped types.ReportingPluginFactory, name string, chainType ChainType, chainID *big.Int) types.ReportingPluginFactory {
+func NewPromFactory(wrapped types.ReportingPluginFactory, name, chainType string, chainID *big.Int) types.ReportingPluginFactory {
 	return &promFactory{
 		wrapped:   wrapped,
 		name:      name,

@@ -33,7 +33,7 @@ var (
 var (
 	promQuery = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr2_reporting_plugin_query_duration",
+			Name:    "ocr2_reporting_plugin_query_time",
 			Help:    "The amount of time elapsed during the OCR2 plugin's Query() method",
 			Buckets: buckets,
 		},
@@ -41,7 +41,7 @@ var (
 	)
 	promObservation = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr2_reporting_plugin_observation_duration",
+			Name:    "ocr2_reporting_plugin_observation_time",
 			Help:    "The amount of time elapsed during the OCR2 plugin's Observation() method",
 			Buckets: buckets,
 		},
@@ -49,7 +49,7 @@ var (
 	)
 	promReport = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr2_reporting_plugin_report_duration",
+			Name:    "ocr2_reporting_plugin_report_time",
 			Help:    "The amount of time elapsed during the OCR2 plugin's Report() method",
 			Buckets: buckets,
 		},
@@ -57,7 +57,7 @@ var (
 	)
 	promShouldAcceptFinalizedReport = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr2_reporting_plugin_should_accept_finalized_report_duration",
+			Name:    "ocr2_reporting_plugin_should_accept_finalized_report_time",
 			Help:    "The amount of time elapsed during the OCR2 plugin's ShouldAcceptFinalizedReport() method",
 			Buckets: buckets,
 		},
@@ -65,7 +65,7 @@ var (
 	)
 	promShouldTransmitAcceptedReport = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr2_reporting_plugin_should_transmit_accepted_report_duration",
+			Name:    "ocr2_reporting_plugin_should_transmit_accepted_report_time",
 			Help:    "The amount of time elapsed during the OCR2 plugin's ShouldTransmitAcceptedReport() method",
 			Buckets: buckets,
 		},
@@ -73,7 +73,7 @@ var (
 	)
 	promClose = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr2_reporting_plugin_close_duration",
+			Name:    "ocr2_reporting_plugin_close_time",
 			Help:    "The amount of time elapsed during the OCR2 plugin's Close() method",
 			Buckets: buckets,
 		},
@@ -87,11 +87,11 @@ var (
 type promPlugin struct {
 	wrapped   types.ReportingPlugin
 	name      string
-	chainType ChainType
+	chainType string
 	chainID   *big.Int
 }
 
-func New(plugin types.ReportingPlugin, name string, chainType ChainType, chainID *big.Int) types.ReportingPlugin {
+func New(plugin types.ReportingPlugin, name string, chainType string, chainID *big.Int) types.ReportingPlugin {
 	return &promPlugin{
 		wrapped:   plugin,
 		name:      name,
