@@ -2,7 +2,6 @@ package median
 
 import (
 	"encoding/json"
-	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -38,11 +37,11 @@ func NewMedianServices(jb job.Job,
 	if err != nil {
 		return nil, err
 	}
-	chainID := big.NewInt(0).SetUint64(pluginConfig.ChainID)
-	chain, err := chainSet.Get(chainID)
-	if err != nil {
-		return nil, err
-	}
+	//chainID := big.NewInt(0).SetUint64(pluginConfig.ChainID)
+	//chain, err := chainSet.Get(chainID)
+	//if err != nil {
+	//	return nil, err
+	//}
 	juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 		ID:           jb.ID,
 		DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
@@ -67,12 +66,13 @@ func NewMedianServices(jb job.Job,
 	}
 	if new {
 		// If this is a brand-new job, then we make use of the start blocks. If not then we're rebooting and log poller will pick up where we left off.
-		return []job.ServiceCtx{ocrcommon.NewResultRunSaver(
+		// Median doesn't need from blocks before starting the plugin.
+		return []job.ServiceCtx{ocr2Provider, ocrcommon.NewResultRunSaver(
 			runResults,
 			pipelineRunner,
 			make(chan struct{}),
 			lggr),
-			ocrcommon.NewBackfilledOracle(lggr, []ocrcommon.BackfilledPoller{{FromBlock: pluginConfig.FromBlock, Poller: chain.LogPoller()}}, job.NewServiceAdapter(oracle))}, nil
+			ocrcommon.NewBackfilledOracle(lggr, []ocrcommon.BackfilledPoller{}, job.NewServiceAdapter(oracle))}, nil
 	}
 	return []job.ServiceCtx{}, nil
 }

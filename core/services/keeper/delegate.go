@@ -44,8 +44,8 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (Delegate) AfterJobCreated(spec job.Job) {}
-
+func (Delegate) BeforeJobCreated(spec job.Job) {}
+func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec satisfies the job.Delegate interface.

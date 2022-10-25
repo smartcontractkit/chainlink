@@ -343,5 +343,6 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
+func (*NullDelegate) BeforeJobCreated(spec Job) {}
 func (*NullDelegate) AfterJobCreated(spec Job)  {}
 func (*NullDelegate) BeforeJobDeleted(spec Job) {}

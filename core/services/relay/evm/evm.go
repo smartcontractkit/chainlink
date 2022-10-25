@@ -75,14 +75,28 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 
 type configWatcher struct {
 	utils.StartStopOnce
+	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester types.OffchainConfigDigester
 	configPoller     *ConfigPoller
 	chain            evm.Chain
+	new              bool
+	fromBlock        uint64
 }
 
 func (c *configWatcher) Start(ctx context.Context) error {
+	if c.new {
+		// Only replay if its a brand new job.
+		go func() {
+			c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
+			if err := c.configPoller.destChainLogPoller.Replay(context.Background(), int64(c.fromBlock)); err != nil {
+				c.lggr.Errorf("error replaying for config", "err", err)
+			} else {
+				c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
+			}
+		}()
+	}
 	return nil
 }
 
@@ -130,11 +144,14 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		ContractAddress: contractAddress,
 	}
 	return &configWatcher{
+		lggr:             lggr,
 		contractAddress:  contractAddress,
 		contractABI:      contractABI,
 		configPoller:     configPoller,
 		offchainDigester: offchainConfigDigester,
 		chain:            chain,
+		new:              args.New,
+		fromBlock:        relayConfig.FromBlock,
 	}, nil
 }
 
@@ -269,6 +286,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 
 type RelayConfig struct {
 	ChainID                     *utils.Big     `json:"chainID"`
+	FromBlock                   uint64         `json:"fromBlock"`
 	EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`
 	SendingKeys                 pq.StringArray `json:"sendingKeys"`
 }

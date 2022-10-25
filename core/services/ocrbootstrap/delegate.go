@@ -22,6 +22,7 @@ type Delegate struct {
 	cfg         validate.Config
 	lggr        logger.Logger
 	relayers    map[relay.Network]types.Relayer
+	new         bool
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -48,6 +49,10 @@ func (d Delegate) JobType() job.Type {
 	return job.Bootstrap
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {
+	d.new = true
+}
+
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
 	spec := jobSpec.BootstrapSpec
@@ -67,6 +72,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
+		New:           d.new,
 		RelayConfig:   spec.RelayConfig.Bytes(),
 	})
 	if err != nil {

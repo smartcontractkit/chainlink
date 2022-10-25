@@ -88,6 +88,7 @@ func NewDelegate(
 		dkgEncryptKs,
 		ethKs,
 		relayers,
+		false,
 	}
 }
 
@@ -214,6 +215,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
+				New:           d.new,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,

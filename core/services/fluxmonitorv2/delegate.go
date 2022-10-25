@@ -51,6 +51,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
+func (Delegate) BeforeJobCreated(spec job.Job) {}
 func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 

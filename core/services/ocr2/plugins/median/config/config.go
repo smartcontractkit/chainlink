@@ -12,8 +12,6 @@ import (
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 type PluginConfig struct {
 	JuelsPerFeeCoinPipeline string `json:"juelsPerFeeCoinSource"`
-	FromBlock               uint64 `json:"fromBlock"`
-	ChainID                 uint64 `json:"sourceChainID"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.
