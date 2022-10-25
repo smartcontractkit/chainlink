@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
