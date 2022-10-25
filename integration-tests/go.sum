@@ -1648,7 +1648,7 @@ github.com/smartcontractkit/chainlink-testing-framework v1.7.3 h1:2B0f6IFG+AKbuu
 github.com/smartcontractkit/chainlink-testing-framework v1.7.3/go.mod h1:CoajIOmJFXm6uExgOdkJmwJ86WrPM1n2SOImgp0Qs5U=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCKJwt0AY15bAaorscflOcBs/FnmO7NoCh8Tons=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
-github.com/smartcontractkit/ocr2keepers v0.4.7 h1:WvLqZtTlPOj2EBQg04Mg4hKiZCI/4Fa0aw8GuhdMm3Q=
+github.com/smartcontractkit/ocr2keepers v0.4.8 h1:pvCDWIsYaSJI/M6qw0xIIXpHs5MPQaYEpmWsJiyi6LM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20221021145954-aef9beb5fcbf h1:cJXYu06PYbWeuoqp8K2U+SoM8PMHy9VMrDLTrM3gOGI=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20221021145954-aef9beb5fcbf/go.mod h1:60/WayFm5nOAPIHtSThJ0DAd4sMKtytPQsjHAwYxGfU=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
