@@ -94,7 +94,7 @@ func ResetUpkeeps(
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn, // How much gas should be burned on performUpkeep() calls
 	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block
-	predeployedContracts []string,
+	predeployedContracts []contracts.KeeperConsumerBenchmark,
 	upkeepResetterAddr string,
 ) {
 	contractLoader, err := contracts.NewContractLoader(client)
@@ -117,7 +117,7 @@ func ResetUpkeeps(
 			iter++
 			upkeepChunks[iter] = make([]string, 0)
 		}
-		upkeepChunks[iter] = append(upkeepChunks[iter], predeployedContracts[count])
+		upkeepChunks[iter] = append(upkeepChunks[iter], predeployedContracts[count].Address())
 	}
 	log.Debug().Int("UpkeepChunk length", len(upkeepChunks))
 	for it, upkeepChunk := range upkeepChunks {
@@ -163,7 +163,7 @@ func DeployKeeperConsumersBenchmark(
 		}
 		// Reset upkeeps so that they are not eligible when being registered
 		ResetUpkeeps(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn,
-			performGasToBurn, 10000, predeployedContracts, upkeepResetterAddr)
+			performGasToBurn, 10000, upkeeps, upkeepResetterAddr)
 		return upkeeps
 	}
 
