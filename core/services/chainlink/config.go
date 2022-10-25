@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	"github.com/pelletier/go-toml/v2"
-	"github.com/spf13/viper"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -89,35 +88,46 @@ type Secrets struct {
 	config.Secrets
 }
 
+// TOMLString returns a TOML encoded string with secret values redacted.
+func (s *Secrets) TOMLString() (string, error) {
+	b, err := toml.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 func (s *Secrets) Validate() error {
 	return config.Validate(s)
 }
 
-// SetOverrides overrides fields with values from ENV vars and password files.
-func (s *Secrets) SetOverrides(keystorePasswordFileName, vrfPasswordFileName *string) error {
+// setOverrides overrides fields with values from ENV vars and password files.
+func (s *Secrets) setOverrides(keystorePasswordFileName, vrfPasswordFileName *string) error {
 	// Override DB and Explorer secrets from ENV vars, if present
-	v := viper.New()
-	v.AutomaticEnv()
-	//TODO CL_ prefix: https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
-	if dbURL := v.GetString("DATABASE_URL"); dbURL != "" {
-		parsedURL, err := models.ParseURL(dbURL)
-		if err != nil {
+	if dbURL := config.EnvDatabaseURL.Get(); dbURL != "" {
+		if err := s.Database.URL.UnmarshalText([]byte(dbURL)); err != nil {
 			return err
 		}
-		s.DatabaseURL = parsedURL
 	}
-	if dbBackupUrl := v.GetString("DATABASE_BACKUP_URL"); dbBackupUrl != "" {
-		parsedURL, err := models.ParseURL(dbBackupUrl)
-		if err != nil {
+	if dbBackupUrl := config.EnvDatabaseBackupURL.Get(); dbBackupUrl != "" {
+		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupUrl)); err != nil {
 			return err
 		}
-		s.DatabaseBackupURL = parsedURL
 	}
-	if explorerKey := v.GetString("EXPLORER_ACCESS_KEY"); explorerKey != "" {
-		s.ExplorerAccessKey = &explorerKey
+	if explorerKey := config.EnvExplorerAccessKey.Get(); explorerKey != "" {
+		s.Explorer.AccessKey = &explorerKey
 	}
-	if explorerSecret := v.GetString("EXPLORER_SECRET"); explorerSecret != "" {
-		s.ExplorerSecret = &explorerSecret
+	if explorerSecret := config.EnvExplorerSecret.Get(); explorerSecret != "" {
+		s.Explorer.Secret = &explorerSecret
+	}
+	if keystorePassword := config.EnvPasswordKeystore.Get(); keystorePassword != "" {
+		s.Password.Keystore = &keystorePassword
+	}
+	if vrfPassword := config.EnvPasswordVRF.Get(); vrfPassword != "" {
+		s.Password.VRF = &vrfPassword
+	}
+	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
+		s.Pyroscope.AuthToken = &pyroscopeAuthToken
 	}
 
 	// Override Keystore and VRF passwords from corresponding files, if present
@@ -126,14 +136,14 @@ func (s *Secrets) SetOverrides(keystorePasswordFileName, vrfPasswordFileName *st
 		if err != nil {
 			return err
 		}
-		s.KeystorePassword = &keystorePwd
+		s.Password.Keystore = models.NewSecret(keystorePwd)
 	}
 	if vrfPasswordFileName != nil {
 		vrfPwd, err := utils.PasswordFromFile(*vrfPasswordFileName)
 		if err != nil {
 			return err
 		}
-		s.VRFPassword = &vrfPwd
+		s.Password.VRF = models.NewSecret(vrfPwd)
 	}
 	return nil
 }

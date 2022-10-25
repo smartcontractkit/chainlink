@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -48,6 +49,7 @@ func TestSetupNodes(t *testing.T) {
 
 	cfg := config{
 		terraNodes: s,
+		QConfig:    pgtest.NewQConfig(false),
 	}
 
 	err := terra.SetupNodes(db, cfg, logger.TestLogger(t))
@@ -70,10 +72,9 @@ func TestSetupNodes(t *testing.T) {
 
 type config struct {
 	terraNodes string
+	pg.QConfig
 }
 
 func (c config) TerraNodes() string {
 	return c.terraNodes
 }
-
-func (c config) LogSQL() bool { return false }
