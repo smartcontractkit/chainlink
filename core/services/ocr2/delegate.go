@@ -54,6 +54,7 @@ type Delegate struct {
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
 	relayers              map[relay.Network]types.Relayer
+	new                   bool
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -94,6 +95,10 @@ func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting2
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {
+	// This is only called first time the job is created
+	d.new = true
+}
 func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
@@ -217,8 +222,20 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = medianProvider
-		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
+		oracleArgsNoPlugin := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          medianProvider.ContractTransmitter(),
+			ContractConfigTracker:        medianProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			OffchainConfigDigester:       medianProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+		}
+		return median.NewMedianServices(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, d.new, oracleArgsNoPlugin)
 	case job.DKG:
 		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
 		if !ok {

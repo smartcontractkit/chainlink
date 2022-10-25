@@ -2,83 +2,77 @@ package median
 
 import (
 	"encoding/json"
+	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/libocr/commontypes"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-// The Median struct holds parameters needed to run a Median plugin.
-type Median struct {
-	jb             job.Job
-	ocr2Provider   types.MedianProvider
-	pipelineRunner pipeline.Runner
-	runResults     chan pipeline.Run
-	lggr           logger.Logger
-	ocrLogger      commontypes.Logger
-
-	pluginConfig config.PluginConfig
-}
-
-var _ plugins.OraclePlugin = &Median{}
-
 // NewMedian parses the arguments and returns a new Median struct.
-func NewMedian(jb job.Job, ocr2Provider types.MedianProvider, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (*Median, error) {
+func NewMedianServices(jb job.Job,
+	chainSet evm.ChainSet,
+	ocr2Provider types.MedianProvider,
+	pipelineRunner pipeline.Runner,
+	runResults chan pipeline.Run,
+	lggr logger.Logger,
+	ocrLogger commontypes.Logger,
+	new bool,
+	argsNoPlugin libocr2.OracleArgs,
+) ([]job.ServiceCtx, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return &Median{}, err
+		return nil, err
 	}
 	err = config.ValidatePluginConfig(pluginConfig)
 	if err != nil {
-		return &Median{}, err
+		return nil, err
 	}
-
-	return &Median{
-		jb:             jb,
-		ocr2Provider:   ocr2Provider,
-		pipelineRunner: pipelineRunner,
-		runResults:     runResults,
-		lggr:           lggr,
-		ocrLogger:      ocrLogger,
-		pluginConfig:   pluginConfig,
-	}, nil
-}
-
-// GetPluginFactory return a median.NumericalMedianFactory.
-func (m *Median) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
+	chainID := big.NewInt(0).SetUint64(pluginConfig.ChainID)
+	chain, err := chainSet.Get(chainID)
+	if err != nil {
+		return nil, err
+	}
 	juelsPerFeeCoinPipelineSpec := pipeline.Spec{
-		ID:           m.jb.ID,
-		DotDagSource: m.pluginConfig.JuelsPerFeeCoinPipeline,
+		ID:           jb.ID,
+		DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
 		CreatedAt:    time.Now(),
 	}
-	return median.NumericalMedianFactory{
-		ContractTransmitter: m.ocr2Provider.MedianContract(),
-		DataSource: ocrcommon.NewDataSourceV2(m.pipelineRunner,
-			m.jb,
-			*m.jb.PipelineSpec,
-			m.lggr,
-			m.runResults,
+	argsNoPlugin.ReportingPluginFactory = median.NumericalMedianFactory{
+		ContractTransmitter: ocr2Provider.MedianContract(),
+		DataSource: ocrcommon.NewDataSourceV2(pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			lggr,
+			runResults,
 		),
-		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(m.pipelineRunner, m.jb, juelsPerFeeCoinPipelineSpec, m.lggr),
-		OnchainConfigCodec:        m.ocr2Provider.OnchainConfigCodec(),
-		ReportCodec:               m.ocr2Provider.ReportCodec(),
-		Logger:                    m.ocrLogger,
-	}, nil
-}
-
-// GetServices return an empty Service slice because Median does not need any services besides the generic OCR2 ones
-// supplied in the OCR2 delegate. This method exists to satisfy the plugins.OraclePlugin interface.
-func (m *Median) GetServices() ([]job.ServiceCtx, error) {
+		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, juelsPerFeeCoinPipelineSpec, lggr),
+		OnchainConfigCodec:        ocr2Provider.OnchainConfigCodec(),
+		ReportCodec:               ocr2Provider.ReportCodec(),
+		Logger:                    ocrLogger,
+	}
+	oracle, err := libocr2.NewOracle(argsNoPlugin)
+	if err != nil {
+		return nil, err
+	}
+	if new {
+		// If this is a brand-new job, then we make use of the start blocks. If not then we're rebooting and log poller will pick up where we left off.
+		return []job.ServiceCtx{ocrcommon.NewResultRunSaver(
+			runResults,
+			pipelineRunner,
+			make(chan struct{}),
+			lggr),
+			ocrcommon.NewBackfilledOracle(lggr, []ocrcommon.BackfilledPoller{{FromBlock: pluginConfig.FromBlock, Poller: chain.LogPoller()}}, job.NewServiceAdapter(oracle))}, nil
+	}
 	return []job.ServiceCtx{}, nil
 }
