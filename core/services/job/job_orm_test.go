@@ -252,7 +252,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
-	korm := keeper.NewORM(db, lggr, nil, nil)
+	scopedConfig := evmtest.NewChainScopedConfig(t, config)
+	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)

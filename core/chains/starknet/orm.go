@@ -12,7 +12,7 @@ import (
 )
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) types.ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
 	return chains.NewORM[string, *starknetdb.ChainCfg, starknetdb.Node](q, "starknet", "url")
 }

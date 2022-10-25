@@ -1294,7 +1294,8 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		sendError = nil
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex(), "err", sendError)
-		return saveConfirmedMissingReceiptAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), ec.lggr, &attempt, now)
+		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		return saveConfirmedMissingReceiptAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), timeout, ec.lggr, &attempt, now)
 	}
 
 	if sendError.IsReplacementUnderpriced() {
@@ -1326,12 +1327,14 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
 		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
-		return saveInsufficientEthAttempt(ec.q, ec.lggr, &attempt, now)
+		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		return saveInsufficientEthAttempt(ec.q, timeout, ec.lggr, &attempt, now)
 	}
 
 	if sendError == nil {
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
-		return saveSentAttempt(ec.db, lggr, &attempt, now)
+		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		return saveSentAttempt(ec.db, timeout, lggr, &attempt, now)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the
@@ -1352,9 +1355,9 @@ func deleteInProgressAttempt(q pg.Q, attempt EthTxAttempt) error {
 	return errors.Wrap(err, "deleteInProgressAttempt failed")
 }
 
-func saveConfirmedMissingReceiptAttempt(q pg.Q, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveConfirmedMissingReceiptAttempt(q pg.Q, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
 	err := q.Transaction(func(tx pg.Queryer) error {
-		if err := saveSentAttempt(tx, lggr, attempt, broadcastAt); err != nil {
+		if err := saveSentAttempt(tx, timeout, lggr, attempt, broadcastAt); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`UPDATE eth_txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.EthTxID); err != nil {
@@ -1365,25 +1368,27 @@ func saveConfirmedMissingReceiptAttempt(q pg.Q, lggr logger.Logger, attempt *Eth
 	return errors.Wrap(err, "saveConfirmedMissingReceiptAttempt failed")
 }
 
-func saveSentAttempt(q pg.Queryer, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveSentAttempt(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = EthTxAttemptBroadcast
-	return errors.Wrap(saveAttemptWithNewState(q, lggr, *attempt, broadcastAt), "saveSentAttempt failed")
+	return errors.Wrap(saveAttemptWithNewState(q, timeout, lggr, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
-func saveInsufficientEthAttempt(q pg.Queryer, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveInsufficientEthAttempt(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
 	if !(attempt.State == EthTxAttemptInProgress || attempt.State == EthTxAttemptInsufficientEth) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
 	attempt.State = EthTxAttemptInsufficientEth
-	return errors.Wrap(saveAttemptWithNewState(q, lggr, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
+	return errors.Wrap(saveAttemptWithNewState(q, timeout, lggr, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 
 }
 
-func saveAttemptWithNewState(q pg.Queryer, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
-	return pg.SqlxTransactionWithDefaultCtx(q, lggr, func(tx pg.Queryer) error {
+func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return pg.SqlxTransaction(ctx, q, lggr, func(tx pg.Queryer) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error

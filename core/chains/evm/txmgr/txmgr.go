@@ -37,6 +37,7 @@ import (
 //go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
 	gas.Config
+	pg.QConfig
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -50,7 +51,6 @@ type Config interface {
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	TriggerFallbackDBPollInterval() time.Duration
-	LogSQL() bool
 }
 
 // KeyStore encompasses the subset of keystore used by txmgr

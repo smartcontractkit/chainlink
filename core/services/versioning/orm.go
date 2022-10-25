@@ -1,6 +1,7 @@
 package versioning
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -23,14 +24,16 @@ type ORM interface {
 }
 
 type orm struct {
-	db   *sqlx.DB
-	lggr logger.Logger
+	db      *sqlx.DB
+	lggr    logger.Logger
+	timeout time.Duration
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, timeout time.Duration) *orm {
 	return &orm{
-		db:   db,
-		lggr: lggr.Named("VersioningORM"),
+		db:      db,
+		lggr:    lggr.Named("VersioningORM"),
+		timeout: timeout,
 	}
 }
 
@@ -45,7 +48,9 @@ func (o *orm) UpsertNodeVersion(version NodeVersion) error {
 		return errors.Wrapf(err, "%q is not valid semver", version.Version)
 	}
 
-	return pg.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx pg.Queryer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), o.timeout)
+	defer cancel()
+	return pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
 		if _, _, err := CheckVersion(tx, logger.NullLogger, version.Version); err != nil {
 			return err
 		}

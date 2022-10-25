@@ -11,6 +11,7 @@ JsonWrapperKey = 'event'
 Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 
 [Log]
+Level = 'panic'
 JSONConsole = true
 
 [JobPipeline]

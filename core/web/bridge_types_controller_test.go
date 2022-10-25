@@ -115,7 +115,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(true)
+	cfg := pgtest.NewQConfig(true)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
 	// Create a duplicate
