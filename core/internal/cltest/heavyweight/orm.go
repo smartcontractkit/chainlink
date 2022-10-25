@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -50,12 +49,7 @@ func prepareFullTestDB(t *testing.T, name string, empty bool, loadFixtures bool)
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name, empty)
 	require.NoError(t, err)
-	lggr := logger.TestLogger(t)
-	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, pg.Config{
-		Logger:       lggr,
-		MaxOpenConns: gcfg.ORMMaxOpenConns(),
-		MaxIdleConns: gcfg.ORMMaxIdleConns(),
-	})
+	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())
@@ -111,12 +105,7 @@ func prepareFullTestDBV2(t *testing.T, name string, empty bool, loadFixtures boo
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name, empty)
 	require.NoError(t, err)
-	lggr := logger.TestLogger(t)
-	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, pg.Config{
-		Logger:       lggr,
-		MaxOpenConns: gcfg.ORMMaxOpenConns(),
-		MaxIdleConns: gcfg.ORMMaxIdleConns(),
-	})
+	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())
@@ -125,7 +114,7 @@ func prepareFullTestDBV2(t *testing.T, name string, empty bool, loadFixtures boo
 
 	gcfg = configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Dialect = dialects.Postgres
-		s.DatabaseURL = models.MustParseURL(migrationTestDBURL)
+		s.Database.URL = models.MustSecretURL(migrationTestDBURL)
 		if overrideFn != nil {
 			overrideFn(c, s)
 		}

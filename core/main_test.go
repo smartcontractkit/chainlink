@@ -33,7 +33,6 @@ func Run(args ...string) {
 		Renderer:               cmd.RendererTable{Writer: io.Discard},
 		Config:                 tc,
 		Logger:                 lggr,
-		CloseLogger:            lggr.Sync,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},

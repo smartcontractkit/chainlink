@@ -21,7 +21,7 @@ import (
 )
 
 func newLeaseLock(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig) pg.LeaseLock {
-	return pg.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
+	return pg.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), cfg)
 }
 
 func Test_LeaseLock(t *testing.T) {

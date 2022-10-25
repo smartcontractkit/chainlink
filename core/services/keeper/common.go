@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 var Registry1_1ABI = types.MustGetABI(keeper_registry_wrapper1_1.KeeperRegistryABI)
@@ -32,7 +33,7 @@ type Config interface {
 	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeeperTurnLookBack() int64
 	KeeperTurnFlagEnabled() bool
-	LogSQL() bool
+	pg.QConfig
 }
 
 type RegistryGasChecker interface {

@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func NewTestORM(t *testing.T, db *sqlx.DB, chainSet evm.ChainSet, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.LogConfig) job.ORM {
+func NewTestORM(t *testing.T, db *sqlx.DB, chainSet evm.ChainSet, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.QConfig) job.ORM {
 	o := job.NewORM(db, chainSet, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
 	t.Cleanup(func() { o.Close() })
 	return o
