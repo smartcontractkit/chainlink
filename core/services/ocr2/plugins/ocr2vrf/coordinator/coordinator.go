@@ -257,7 +257,7 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
-		randomnessRequestedLogs, randomWordsFulfilledLogs, outputsServedLogs, randomnessFulfillmentRequestedLogs))
+		randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, randomWordsFulfilledLogs, outputsServedLogs))
 
 	// Get blockhashes that pertain to requested blocks.
 	blockhashesMapping, err := c.getBlockhashesMappingFromRequests(ctx, randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, currentHeight)
@@ -655,9 +655,12 @@ func (c *coordinator) unmarshalLogs(
 			outputsServedLogs = append(outputsServedLogs, nt)
 		default:
 			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", lg.EventSig))
-			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
-				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
-				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.outputsServedTopic[:])))
+			c.lggr.Error(fmt.Sprintf("expected one of: %s (RandomnessRequested) %s (RandomnessFulfillmentRequested) %s (RandomWordsFulfilled) %s (OutputsServed), got %s",
+				hexutil.Encode(c.randomnessRequestedTopic[:]),
+				hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
+				hexutil.Encode(c.randomWordsFulfilledTopic[:]),
+				hexutil.Encode(c.outputsServedTopic[:]),
+				lg.EventSig))
 		}
 	}
 	return

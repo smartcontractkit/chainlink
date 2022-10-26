@@ -17,6 +17,7 @@ import (
 
 	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -85,7 +86,7 @@ func getVRFSignature(e helpers.Environment, coordinatorAddress string, height, c
 		},
 		Topics: [][]common.Hash{
 			{
-				vrf_beacon.VRFBeaconNewTransmission{}.Topic(),
+				vrf_coordinator.VRFCoordinatorOutputsServed{}.Topic(),
 			},
 		},
 	}
@@ -106,10 +107,10 @@ func getVRFSignature(e helpers.Environment, coordinatorAddress string, height, c
 	return
 }
 
-func verifyBeaconRandomness(e helpers.Environment, dkgAddress, coordinatorAddress string, height, confDelay, searchWindow uint64) bool {
+func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress string, coordinatorAddress string, height, confDelay, searchWindow uint64) bool {
 	dkgConfig := getDKGLatestConfigDetails(e, dkgAddress)
-	vrfConfig := getVRFLatestConfigDetails(e, coordinatorAddress)
-	keyID := getKeyID(e, coordinatorAddress)
+	vrfConfig := getVRFLatestConfigDetails(e, beaconAddress)
+	keyID := getKeyID(e, beaconAddress)
 	pk := getPublicKey(e, dkgAddress, keyID, dkgConfig.ConfigDigest)
 	h := getHashToCurveMessage(e, height, uint32(confDelay), vrfConfig.ConfigDigest, pk)
 	hpoint := h.HashPoint
