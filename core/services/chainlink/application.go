@@ -565,6 +565,9 @@ func (app *ChainlinkApplication) stop() (err error) {
 	}
 	app.shutdownOnce.Do(func() {
 		defer func() {
+			if app.closeLogger == nil {
+				return
+			}
 			if lerr := app.closeLogger(); lerr != nil {
 				err = multierr.Append(err, lerr)
 			}
