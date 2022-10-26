@@ -99,9 +99,8 @@ jobs:
             ./race.*
       - name: Print postgres logs
         if: always()
-        uses: docker://docker:latest
-        with:
-          args: logs ${{ job.services.postgres.id }}
+        run: docker compose logs postgres
+        working-directory: ./.github/actions/setup-postgres
 
   # Satisfy required check for core tests
   # while still allowing for adjustable splitting
