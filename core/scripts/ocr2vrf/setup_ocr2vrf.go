@@ -23,9 +23,6 @@ const (
 )
 
 func setupOCR2VRFNodes(e helpers.Environment) {
-	client := newSetupClient()
-	app := cmd.NewApp(client)
-
 	fs := flag.NewFlagSet("ocr2vrf-setup", flag.ExitOnError)
 
 	keyID := fs.String("key-id", "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc", "key ID")
@@ -138,6 +135,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		dkgSigners         []string
 		sendingKeys        [][]string
 	)
+
 	for i := 0; i < *nodeCount; i++ {
 		flagSet := flag.NewFlagSet("run-ocr2vrf-job-creation", flag.ExitOnError)
 		flagSet.String("api", *apiFile, "api file")
@@ -175,12 +173,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		}
 		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
-		ctx := cli.NewContext(app, flagSet, nil)
-
-		resetDatabase(client, ctx, i, *databasePrefix, *databaseSuffixes)
-		configureEnvironmentVariables((*useForwarder) && (i > 0))
-
-		payload := setupOCR2VRFNodeFromClient(client, ctx)
+		payload := setupNode(flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder)
 
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)
 		offChainPublicKeys = append(offChainPublicKeys, payload.OffChainPublicKey)
@@ -292,4 +285,23 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		consumerAddress.Hex())
 	fmt.Println(redeemCommand)
 	fmt.Println()
+}
+
+func setupNode(flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool) *cmd.SetupOCR2VRFNodePayload {
+	client := newSetupClient()
+	app := cmd.NewApp(client)
+	ctx := cli.NewContext(app, flagSet, nil)
+
+	defer func() {
+		err := app.After(ctx)
+		helpers.PanicErr(err)
+	}()
+
+	err := app.Before(ctx)
+	helpers.PanicErr(err)
+
+	resetDatabase(client, ctx, nodeIdx, databasePrefix, databaseSuffixes)
+	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0))
+
+	return setupOCR2VRFNodeFromClient(client, ctx)
 }
