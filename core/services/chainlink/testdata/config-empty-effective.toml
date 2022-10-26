@@ -12,6 +12,7 @@ UICSAKeys = false
 DefaultIdleInTxSessionTimeout = '1h0m0s'
 DefaultLockTimeout = '15s'
 DefaultQueryTimeout = '10s'
+LogQueries = false
 MaxIdleConns = 10
 MaxOpenConns = 20
 MigrateOnStartup = true
@@ -49,7 +50,7 @@ JsonWrapperKey = ''
 Headers = []
 
 [Log]
-DatabaseQueries = false
+Level = 'info'
 JSONConsole = false
 UnixTS = false
 
@@ -180,12 +181,11 @@ MemThreshold = '4.00gb'
 GoroutineThreshold = 5000
 
 [Pyroscope]
-AuthToken = ''
 ServerAddress = ''
 Environment = 'mainnet'
 
 [Sentry]
 Debug = false
 DSN = ''
-Environment = 'prod'
+Environment = ''
 Release = ''

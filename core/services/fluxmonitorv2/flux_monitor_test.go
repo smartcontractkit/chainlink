@@ -47,7 +47,7 @@ const oracleCount uint8 = 17
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
 	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.TransmitCheckerSpec{})
 }
 
@@ -179,7 +179,7 @@ func setup(t *testing.T, db *sqlx.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		tm.pipelineRunner,
 		job.Job{},
 		pipelineSpec,
-		pg.NewQ(db, lggr, pgtest.NewPGCfg(true)),
+		pg.NewQ(db, lggr, pgtest.NewQConfig(true)),
 		options.orm,
 		tm.jobORM,
 		tm.pipelineORM,
@@ -265,7 +265,7 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, pgtest.NewPGCfg(true)).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true)).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	return db, nodeAddr
@@ -736,7 +736,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = newORM(t, db, pgtest.NewPGCfg(true), nil)
+				orm = newORM(t, db, pgtest.NewQConfig(true), nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
@@ -1130,7 +1130,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	var (
 		oracles = []common.Address{nodeAddr, testutils.NewAddress()}
-		orm     = newORM(t, db, pgtest.NewPGCfg(true), nil)
+		orm     = newORM(t, db, pgtest.NewQConfig(true), nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))

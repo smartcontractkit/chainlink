@@ -40,7 +40,7 @@ var _ chains.ORM[string, *soldb.ChainCfg, soldb.Node] = (ORM)(nil)
 
 // NewORM returns an ORM backed by db.
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
 	return chains.NewORM[string, *soldb.ChainCfg, soldb.Node](q, "solana", "solana_url")
 }

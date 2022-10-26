@@ -514,6 +514,48 @@ func (_m *GeneralConfig) DatabaseBackupURL() *url.URL {
 	return r0
 }
 
+// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultLockTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultLockTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultQueryTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // DatabaseListenerMaxReconnectDuration provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
 	ret := _m.Called()
@@ -3408,6 +3450,62 @@ func (_m *GeneralConfig) SecureCookies() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// SentryDSN provides a mock function with given fields:
+func (_m *GeneralConfig) SentryDSN() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// SentryDebug provides a mock function with given fields:
+func (_m *GeneralConfig) SentryDebug() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// SentryEnvironment provides a mock function with given fields:
+func (_m *GeneralConfig) SentryEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// SentryRelease provides a mock function with given fields:
+func (_m *GeneralConfig) SentryRelease() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
