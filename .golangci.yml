@@ -84,6 +84,6 @@ issues:
     - path: "(^|/)mocks($|/)"
       linters:
         - all
-    - path: .pb
+    - path: .pb.go
       linters:
         - all
