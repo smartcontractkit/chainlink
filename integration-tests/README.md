@@ -53,7 +53,7 @@ as well as some simulated blockchains, all depending on the types of tests and n
 
 See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
 
-You can also specify `EVM_PRIVATE_KEYS` and `EVM_URLS` for running on live chains.
+You can also specify `EVM_KEYS` and `EVM_URLS` for running on live chains, or use specific identifiers as shown in the [example.env](./example.env) file.
 
 Other `EVM_*` variables are retrieved when running with the `@general` tag, and is helpful for doing quick sanity checks on new chains or when tweaking variables.
 
@@ -65,23 +65,25 @@ Most of the time, you'll want to run tests on a simulated chain, for the purpose
 
 ### Smoke
 
-Run all smoke tests with the below command. By default, we only use simulated blockchains, as running on live chains takes more configuration.
+Run all smoke tests with the below command. Will use your `SELECTED_NETWORKS` env var for which network to run on.
 
 ```sh
-make test_smoke
+make test_smoke # Run all smoke tests on the chosen SELECTED_NETWORKS
+SELECTED_NETWORKS="GOERLI" make test_smoke # Run all smoke tests on GOERLI network
+make test_smoke_simulated # Run all smoke tests on a simulated network
 ```
 
-Run all smoke tests in parallel, only using simulated blockchains. *Note: As of now, you can only run tests in parallel on simulated chains, not on live ones.*
+Run all smoke tests in parallel, only using simulated blockchains. *Note: As of now, you can only run tests in parallel on simulated chains, not on live ones. Running on parallel tests on live chains will give errors*
 
 ```sh
-make test_smoke args="-nodes=<number-of-parallel-tests>"
+make test_smoke_simulated args="-nodes=<number-of-parallel-tests>"
 ```
 
-You can also run specific tests or specific networks using `make test_smoke_raw` and a `focus` tag.
+You can also run specific tests using `make test_smoke` and a `focus` tag.
 
 ```sh
-make test_smoke_raw args="-focus=@metis" # Runs all the smoke tests on the Metis Stardust network
-make test_smoke_raw args="-focus=@general" # Runs all smoke tests for a network that you define in environment vars
+make test_smoke args="-focus=@ocr" # Runs all the ocr smoke tests
+make test_smoke args="-focus=@keeper" # Runs all smoke tests for keepers
 ```
 
 [Check out](https://onsi.github.io/ginkgo/#description-based-filtering) how Ginkgo handles focus and skip tags if you're looking for more precise behavior.

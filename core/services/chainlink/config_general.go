@@ -36,6 +36,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type ConfigV2 interface {
+	// ConfigTOML returns both the user provided and effective configuration as TOML.
+	ConfigTOML() (user, effective string)
+}
+
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
 	lggr logger.Logger
@@ -139,6 +144,11 @@ func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
 	log("Secrets:\n", g.secretsTOML)
 	log("Input Configuration:\n", g.inputTOML)
 	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+}
+
+// ConfigTOML implements chainlink.ConfigV2
+func (g *generalConfig) ConfigTOML() (user, effective string) {
+	return g.inputTOML, g.effectiveTOML
 }
 
 func (g *generalConfig) Dev() bool {

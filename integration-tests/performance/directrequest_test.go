@@ -68,9 +68,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		})
 
 		By("Funding Chainlink nodes", func() {
-			ethAmount, err := chainClient.EstimateCostForChainlinkOperations(1)
-			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, ethAmount)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
 			Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 		})
 
