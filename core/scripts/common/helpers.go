@@ -172,7 +172,7 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 	case 420: // Optimism Goerli
 		fmtURL = "https://goerli-optimism.etherscan.io/tx/%s"
 
-	case 421613: // Arbitrum Goerli
+	case ArbitrumGoerliChainID: // Arbitrum Goerli
 		fmtURL = "https://goerli-rollup-explorer.arbitrum.io/tx/%s"
 
 	case 56: // BSC mainnet
@@ -282,7 +282,7 @@ func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
 	for i := 0; i < len(transmitters); i++ {
 		// Special case for Arbitrum since gas estimation there is different.
 		var gasLimit uint64
-		if IsArbitrumChainID(e.ChainID) {
+		if e.ChainID == ArbitrumGoerliChainID {
 			to := common.HexToAddress(transmitters[i])
 			estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
 				From:  e.Owner.From,
