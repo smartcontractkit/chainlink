@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -254,7 +255,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			ocrLogger,
 			d.dkgSignKs,
 			d.dkgEncryptKs,
-			chain.Client())
+			chain.Client(),
+			d.db,
+			d.cfg,
+		)
 		if err != nil {
 			return nil, errors.Wrap(err, "error while instantiating DKG")
 		}
@@ -390,6 +394,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			KeyID:                              keyID,
 			DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
+			DKGSharePersistence:                persistence.NewShareDB(d.db, d.lggr.Named("DKGShareDB"), d.cfg),
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")

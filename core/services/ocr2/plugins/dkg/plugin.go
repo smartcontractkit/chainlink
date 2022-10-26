@@ -10,6 +10,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
+	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -17,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 )
 
@@ -29,6 +32,8 @@ type container struct {
 	dkgSignKs    keystore.DKGSign
 	dkgEncryptKs keystore.DKGEncrypt
 	ethClient    evmclient.Client
+	db           *sqlx.DB
+	qConfig      pg.QConfig
 }
 
 var _ plugins.OraclePlugin = &container{}
@@ -40,7 +45,10 @@ func NewDKG(
 	ocrLogger commontypes.Logger,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
-	ethClient evmclient.Client) (plugins.OraclePlugin, error) {
+	ethClient evmclient.Client,
+	db *sqlx.DB,
+	qConfig pg.QConfig,
+) (plugins.OraclePlugin, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
@@ -60,6 +68,8 @@ func NewDKG(
 		dkgSignKs:    dkgSignKs,
 		dkgEncryptKs: dkgEncryptKs,
 		ethClient:    ethClient,
+		db:           db,
+		qConfig:      qConfig,
 	}, nil
 }
 
@@ -84,6 +94,7 @@ func (d *container) GetPluginFactory() (ocr2types.ReportingPluginFactory, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "decode key ID")
 	}
+	shareDB := persistence.NewShareDB(d.db, d.logger.Named("DKGShareDB"), d.qConfig)
 
 	factory := dkg.NewReportingPluginFactory(
 		encryptKey.KyberScalar(),
@@ -92,6 +103,7 @@ func (d *container) GetPluginFactory() (ocr2types.ReportingPluginFactory, error)
 		onchainContract,
 		d.ocrLogger,
 		keyConsumer,
+		shareDB,
 	)
 	return factory, nil
 }
