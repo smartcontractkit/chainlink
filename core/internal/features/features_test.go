@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/consumer_wrapper"
@@ -1314,17 +1313,17 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
 
-	b41 := gas.Block{
+	b41 := evmtypes.Block{
 		Number:       41,
 		Hash:         utils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(41_000_000_000, 41_500_000_000),
 	}
-	b42 := gas.Block{
+	b42 := evmtypes.Block{
 		Number:       42,
 		Hash:         utils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(44_000_000_000, 45_000_000_000),
 	}
-	b43 := gas.Block{
+	b43 := evmtypes.Block{
 		Number:       43,
 		Hash:         utils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
