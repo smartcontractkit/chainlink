@@ -4,13 +4,15 @@ pragma solidity ^0.8.0;
 
 import "./../interfaces/UpkeepTranscoderInterface.sol";
 import "./../interfaces/TypeAndVersionInterface.sol";
+import {Upkeep as UpkeepV2} from "./../interfaces/KeeperRegistryInterface1_3.sol";
+import {Upkeep as UpkeepV3} from "./keeper2_0/interfaces/KeeperRegistryInterface2_0.sol";
 import "./../UpkeepFormat.sol";
 
 /**
  * @notice Transcoder 3_0 allows converting upkeep data from previous keeper registry versions to registry 2.0
  */
 contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterface {
-  // 1.2
+  // since Upkeep V1 is privately defined on a contract, it cannot be imported.
   struct UpkeepV1 {
     uint96 balance;
     address lastKeeper; // 1 storage slot full
@@ -19,31 +21,6 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
     address target; // 2 storage slots full
     uint96 amountSpent;
     address admin; // 3 storage slots full
-  }
-
-  // 1.3
-  struct UpkeepV2 {
-    uint96 balance;
-    address lastKeeper; // 1 full evm word
-    uint96 amountSpent;
-    address admin; // 2 full evm words
-    uint32 executeGas;
-    uint32 maxValidBlocknumber;
-    address target;
-    bool paused; // 24 bits to 3 full evm words
-  }
-
-  // 2.0
-  struct UpkeepV3 {
-    uint32 executeGas;
-    uint32 maxValidBlocknumber;
-    bool paused;
-    address target;
-    // 3 bytes left in 1st EVM word - not written to in transmit
-    uint96 amountSpent;
-    uint96 balance;
-    uint32 lastPerformBlockNumber;
-    // 4 bytes left in 2nd EVM word - written in transmit path
   }
 
   error InvalidTranscoding();
@@ -75,7 +52,8 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       return encodedUpkeeps;
     }
 
-    if (toVersion != UpkeepFormat.V3 || fromVersion != UpkeepFormat.V1 || fromVersion != UpkeepFormat.V2) {
+    // this transcoder only handles upkeep V1/V2 to V3, all other formats are invalid.
+    if (toVersion != UpkeepFormat.V3) {
       revert InvalidTranscoding();
     }
 
@@ -93,9 +71,10 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
       for (uint256 idx = 0; idx < ids.length; idx++) {
         UpkeepV1 memory upkeep = upkeeps[idx];
+        assert(upkeep.maxValidBlocknumber < UINT32_MAX);
         newUpkeeps[idx] = UpkeepV3({
           executeGas: upkeep.executeGas,
-          maxValidBlocknumber: UINT32_MAX, // assuming only active upkeeps can be migrated
+          maxValidBlocknumber: UINT32_MAX,
           paused: false,
           target: upkeep.target,
           amountSpent: upkeep.amountSpent,
@@ -105,32 +84,33 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
         admins[idx] = upkeep.admin;
       }
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
-    }
+    } else if (fromVersion == UpkeepFormat.V2) {
+      (uint256[] memory ids, UpkeepV2[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
+        encodedUpkeeps,
+        (uint256[], UpkeepV2[], bytes[])
+      );
 
-    (uint256[] memory ids, UpkeepV2[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
-      encodedUpkeeps,
-      (uint256[], UpkeepV2[], bytes[])
-    );
+      if (ids.length != upkeeps.length || ids.length != checkDatas.length) {
+        revert InvalidTranscoding();
+      }
 
-    if (ids.length != upkeeps.length || ids.length != checkDatas.length) {
-      revert InvalidTranscoding();
+      address[] memory admins = new address[](ids.length);
+      UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
+      for (uint256 idx = 0; idx < ids.length; idx++) {
+        UpkeepV2 memory upkeep = upkeeps[idx];
+        newUpkeeps[idx] = UpkeepV3({
+          executeGas: upkeep.executeGas,
+          maxValidBlocknumber: upkeep.maxValidBlocknumber,
+          paused: upkeep.paused,
+          target: upkeep.target,
+          amountSpent: upkeep.amountSpent,
+          balance: upkeep.balance,
+          lastPerformBlockNumber: 0
+        });
+        admins[idx] = upkeep.admin;
+      }
+      return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }
-
-    address[] memory admins = new address[](ids.length);
-    UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
-    for (uint256 idx = 0; idx < ids.length; idx++) {
-      UpkeepV2 memory upkeep = upkeeps[idx];
-      newUpkeeps[idx] = UpkeepV3({
-        executeGas: upkeep.executeGas,
-        maxValidBlocknumber: upkeep.maxValidBlocknumber,
-        paused: upkeep.paused,
-        target: upkeep.target,
-        amountSpent: upkeep.amountSpent,
-        balance: upkeep.balance,
-        lastPerformBlockNumber: 0
-      });
-      admins[idx] = upkeep.admin;
-    }
-    return abi.encode(ids, newUpkeeps, checkDatas, admins);
+    revert InvalidTranscoding();
   }
 }
