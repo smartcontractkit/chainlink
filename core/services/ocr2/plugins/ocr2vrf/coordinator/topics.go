@@ -13,6 +13,7 @@ type topics struct {
 	randomWordsFulfilledTopic           common.Hash
 	configSetTopic                      common.Hash
 	newTransmissionTopic                common.Hash
+	outputsServedTopic                  common.Hash
 }
 
 func newTopics() topics {
@@ -22,5 +23,6 @@ func newTopics() topics {
 		randomWordsFulfilledTopic:           vrf_coordinator.VRFCoordinatorRandomWordsFulfilled{}.Topic(),
 		configSetTopic:                      vrf_beacon.VRFBeaconConfigSet{}.Topic(),
 		newTransmissionTopic:                vrf_beacon.VRFBeaconNewTransmission{}.Topic(),
+		outputsServedTopic:                  vrf_coordinator.VRFCoordinatorOutputsServed{}.Topic(),
 	}
 }
