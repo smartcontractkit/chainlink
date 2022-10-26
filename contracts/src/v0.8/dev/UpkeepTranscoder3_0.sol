@@ -61,7 +61,7 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
       for (uint256 idx = 0; idx < ids.length; idx++) {
         UpkeepV1 memory upkeep = upkeeps[idx];
-        assert(upkeep.maxValidBlocknumber < UINT32_MAX);
+        assert(upkeep.maxValidBlocknumber >= UINT32_MAX);
         newUpkeeps[idx] = UpkeepV3({
           executeGas: upkeep.executeGas,
           maxValidBlocknumber: UINT32_MAX,
