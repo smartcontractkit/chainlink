@@ -1,9 +1,11 @@
 package types
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"strings"
@@ -248,6 +250,131 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 		jsonHead.Timestamp = &t
 	}
 	return json.Marshal(jsonHead)
+}
+
+// Block represents an ethereum block
+// This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
+type Block struct {
+	Number        int64
+	Hash          common.Hash
+	ParentHash    common.Hash
+	BaseFeePerGas *assets.Wei
+	Timestamp     time.Time
+	Transactions  []Transaction
+}
+
+type blockInternal struct {
+	Number        string
+	Hash          common.Hash
+	ParentHash    common.Hash
+	BaseFeePerGas *hexutil.Big
+	Timestamp     hexutil.Uint64
+	Transactions  []Transaction
+}
+
+// MarshalJSON implements json marshalling for Block
+func (b Block) MarshalJSON() ([]byte, error) {
+	return json.Marshal(blockInternal{
+		hexutil.EncodeBig(big.NewInt(b.Number)),
+		b.Hash,
+		b.ParentHash,
+		(*hexutil.Big)(b.BaseFeePerGas),
+		(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
+		b.Transactions,
+	})
+}
+
+var ErrMissingBlock = errors.New("missing block")
+
+// UnmarshalJSON unmarshals to a Block
+func (b *Block) UnmarshalJSON(data []byte) error {
+	var bi *blockInternal
+	if err := json.Unmarshal(data, &bi); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
+	}
+	if bi == nil {
+		return errors.WithStack(ErrMissingBlock)
+	}
+	n, err := hexutil.DecodeBig(bi.Number)
+	if err != nil {
+		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got: '%s'", data)
+	}
+	*b = Block{
+		n.Int64(),
+		bi.Hash,
+		bi.ParentHash,
+		(*assets.Wei)(bi.BaseFeePerGas),
+		time.Unix((int64((uint64)(bi.Timestamp))), 0),
+		bi.Transactions,
+	}
+	return nil
+}
+
+type TxType uint8
+
+// NOTE: Need to roll our own unmarshaller since geth's hexutil.Uint64 does not
+// handle double zeroes e.g. 0x00
+func (txt *TxType) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, []byte(`"0x00"`)) {
+		data = []byte(`"0x0"`)
+	}
+	var hx hexutil.Uint64
+	if err := (&hx).UnmarshalJSON(data); err != nil {
+		return err
+	}
+	if hx > math.MaxUint8 {
+		return errors.Errorf("expected 'type' to fit into a single byte, got: '%s'", data)
+	}
+	*txt = TxType(hx)
+	return nil
+}
+
+type transactionInternal struct {
+	GasPrice             *hexutil.Big    `json:"gasPrice"`
+	Gas                  *hexutil.Uint64 `json:"gas"`
+	MaxFeePerGas         *hexutil.Big    `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *hexutil.Big    `json:"maxPriorityFeePerGas"`
+	Type                 *TxType         `json:"type"`
+	Hash                 common.Hash     `json:"hash"`
+}
+
+// Transaction represents an ethereum transaction
+// Use our own type because geth's type has validation failures on e.g. zero
+// gas used, which can occur on other chains.
+// This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
+type Transaction struct {
+	GasPrice             *assets.Wei
+	GasLimit             uint32
+	MaxFeePerGas         *assets.Wei
+	MaxPriorityFeePerGas *assets.Wei
+	Type                 TxType
+	Hash                 common.Hash
+}
+
+const LegacyTxType = TxType(0x0)
+
+// UnmarshalJSON unmarshals a Transaction
+func (t *Transaction) UnmarshalJSON(data []byte) error {
+	ti := transactionInternal{}
+	if err := json.Unmarshal(data, &ti); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal to transactionInternal, got: '%s'", data)
+	}
+	if ti.Gas == nil {
+		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
+	}
+	if ti.Type == nil {
+		tpe := LegacyTxType
+		ti.Type = &tpe
+	}
+	*t = Transaction{
+		(*assets.Wei)(ti.GasPrice),
+		uint32(*ti.Gas),
+		(*assets.Wei)(ti.MaxFeePerGas),
+		(*assets.Wei)(ti.MaxPriorityFeePerGas),
+		*ti.Type,
+		ti.Hash,
+	}
+	return nil
 }
 
 // WeiPerEth is amount of Wei currency units in one Eth.

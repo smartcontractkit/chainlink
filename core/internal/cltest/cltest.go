@@ -602,12 +602,12 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(Head(0), nil)
 	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &gas.Block{
+		elems[0].Result = &evmtypes.Block{
 			Number:       42,
 			Hash:         utils.NewHash(),
 			Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
 		}
-		elems[1].Result = &gas.Block{
+		elems[1].Result = &evmtypes.Block{
 			Number:       41,
 			Hash:         utils.NewHash(),
 			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
@@ -1093,28 +1093,28 @@ func Head(val interface{}) *evmtypes.Head {
 }
 
 // LegacyTransactionsFromGasPrices returns transactions matching the given gas prices
-func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
+func LegacyTransactionsFromGasPrices(gasPrices ...int64) []evmtypes.Transaction {
 	return LegacyTransactionsFromGasPricesTxType(0x0, gasPrices...)
 }
 
-func LegacyTransactionsFromGasPricesTxType(code gas.TxType, gasPrices ...int64) []gas.Transaction {
-	txs := make([]gas.Transaction, len(gasPrices))
+func LegacyTransactionsFromGasPricesTxType(code evmtypes.TxType, gasPrices ...int64) []evmtypes.Transaction {
+	txs := make([]evmtypes.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gas.Transaction{Type: code, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
+		txs[i] = evmtypes.Transaction{Type: code, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
 	}
 	return txs
 }
 
 // DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
 // given TipCaps (FeeCap is arbitrary)
-func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
+func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []evmtypes.Transaction {
 	return DynamicFeeTransactionsFromTipCapsTxType(0x02, tipCaps...)
 }
 
-func DynamicFeeTransactionsFromTipCapsTxType(code gas.TxType, tipCaps ...int64) []gas.Transaction {
-	txs := make([]gas.Transaction, len(tipCaps))
+func DynamicFeeTransactionsFromTipCapsTxType(code evmtypes.TxType, tipCaps ...int64) []evmtypes.Transaction {
+	txs := make([]evmtypes.Transaction, len(tipCaps))
 	for i, tipCap := range tipCaps {
-		txs[i] = gas.Transaction{Type: code, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
+		txs[i] = evmtypes.Transaction{Type: code, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }

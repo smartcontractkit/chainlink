@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 )
 
@@ -23,13 +24,13 @@ func BlockHistoryEstimatorFromInterface(bhe Estimator) *BlockHistoryEstimator {
 	return bhe.(*BlockHistoryEstimator)
 }
 
-func SetRollingBlockHistory(bhe Estimator, blocks []Block) {
+func SetRollingBlockHistory(bhe Estimator, blocks []evmtypes.Block) {
 	bhe.(*BlockHistoryEstimator).blocksMu.Lock()
 	defer bhe.(*BlockHistoryEstimator).blocksMu.Unlock()
 	bhe.(*BlockHistoryEstimator).blocks = blocks
 }
 
-func GetRollingBlockHistory(bhe Estimator) []Block {
+func GetRollingBlockHistory(bhe Estimator) []evmtypes.Block {
 	return bhe.(*BlockHistoryEstimator).getBlocks()
 }
 
