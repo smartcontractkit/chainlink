@@ -97,7 +97,7 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
-var _ = Describe("Keeper Suite @keeper", func() {
+var _ = FDescribe("Keeper Suite @keeper", func() {
 	var (
 		err                  error
 		chainClient          blockchain.EVMClient
@@ -187,7 +187,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		chainClient.ParallelTransactions(true)
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.5))
 		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 
 		By("Deploy Keeper Contracts")
@@ -345,7 +345,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index "+strconv.Itoa(i))
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(5)+countersAfterPause[i].Int64()),
-						"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
+						"Expected consumer counter to be greater than %d, but got %d", int64(5)+countersAfterPause[i].Int64(), counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 			}, "3m", "1s").Should(Succeed())
@@ -360,7 +360,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index "+strconv.Itoa(i))
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(10)),
-						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+						"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 			}, "5m", "1s").Should(Succeed())
