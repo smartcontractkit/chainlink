@@ -2,11 +2,13 @@ package contracts
 
 import (
 	"errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
@@ -30,7 +32,7 @@ func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
 	case *blockchain.MetisClient:
 		return &MetisContractLoader{NewEthereumContractLoader(clientImpl)}, nil
 	case *blockchain.ArbitrumClient:
-		return &MetisContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
