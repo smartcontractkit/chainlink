@@ -3217,6 +3217,11 @@ func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
 }
 
+// SetPasswords provides a mock function with given fields: keystore, vrf
+func (_m *ChainScopedConfig) SetPasswords(keystore *string, vrf *string) {
+	_m.Called(keystore, vrf)
+}
+
 // ShutdownGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) ShutdownGracePeriod() time.Duration {
 	ret := _m.Called()

@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"math"
 	"net"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -1210,23 +1209,14 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	const PWD_OVERRIDE = "great_password"
 	const DBURL_OVERRIDE = "http://user@db"
 
-	pwdFile, err := os.CreateTemp("", "")
-	assert.NoError(t, err)
-	defer os.Remove(pwdFile.Name())
-	_, err = pwdFile.WriteString(PWD_OVERRIDE)
-	assert.NoError(t, err)
-
-	filename := pwdFile.Name()
-
 	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	opts := GeneralConfigOpts{
-		KeystorePasswordFileName: &filename,
-	}
+	var opts GeneralConfigOpts
 	require.NoError(t, opts.ParseTOML(fullTOML, secretsFullTOML))
 	c, err := opts.New(logger.TestLogger(t))
 	assert.NoError(t, err)
+	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
 	dbURL := c.DatabaseURL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())

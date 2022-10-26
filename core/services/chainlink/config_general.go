@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -45,7 +46,7 @@ type ConfigV2 interface {
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
-	lggr logger.Logger
+	lggr relaylogger.Logger
 
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
@@ -62,6 +63,8 @@ type generalConfig struct {
 	randomP2PPortOnce sync.Once
 
 	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
+
+	passwordMu sync.RWMutex // passwords are set after initialization
 }
 
 // GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
@@ -70,8 +73,6 @@ type generalConfig struct {
 type GeneralConfigOpts struct {
 	Config
 	Secrets
-
-	KeystorePasswordFileName, VRFPasswordFileName *string
 
 	// OverrideFn is a *test-only* hook to override effective values.
 	OverrideFn func(*Config, *Secrets)
@@ -89,6 +90,43 @@ func (o *GeneralConfigOpts) ParseTOML(config, secrets string) error {
 
 // New returns a coreconfig.GeneralConfig for the given options.
 func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	cfg, err := o.init()
+	if err != nil {
+		return nil, err
+	}
+	cfg.lggr = lggr
+	return cfg, nil
+}
+
+// NewAndLogger returns a coreconfig.GeneralConfig for the given options, and a logger.Logger (with close func).
+func (o GeneralConfigOpts) NewAndLogger() (coreconfig.GeneralConfig, logger.Logger, func() error, error) {
+	cfg, err := o.init()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// placeholder so we can call config methods to bootstrap the real logger
+	cfg.lggr, err = relaylogger.New()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	lggrCfg := logger.Config{
+		LogLevel:       cfg.LogLevel(),
+		Dir:            cfg.LogFileDir(),
+		JsonConsole:    cfg.JSONConsole(),
+		UnixTS:         cfg.LogUnixTimestamps(),
+		FileMaxSizeMB:  int(cfg.LogFileMaxSize() / utils.MB),
+		FileMaxAgeDays: int(cfg.LogFileMaxAge()),
+		FileMaxBackups: int(cfg.LogFileMaxBackups()),
+	}
+	lggr, closeLggr := lggrCfg.New()
+
+	cfg.lggr = lggr
+	return cfg, lggr, closeLggr, nil
+}
+
+// new returns a new generalConfig, but with a nil lggr.
+func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
@@ -102,10 +140,6 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 		if err != nil {
 			return nil, err
 		}
-	}
-	err = o.Secrets.setPasswords(o.KeystorePasswordFileName, o.VRFPasswordFileName)
-	if err != nil {
-		return nil, err
 	}
 
 	if fn := o.OverrideFn; fn != nil {
@@ -122,11 +156,15 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 		return nil, err
 	}
 
-	return &generalConfig{
-		lggr:      lggr,
+	cfg := &generalConfig{
 		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
 		c: &o.Config, secrets: &o.Secrets,
-		logLevelDefault: zapcore.Level(*o.Config.Log.Level)}, nil
+	}
+	if lvl := o.Config.Log.Level; lvl != nil {
+		cfg.logLevelDefault = zapcore.Level(*lvl)
+	}
+
+	return cfg, nil
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
