@@ -82,7 +82,7 @@ type configWatcher struct {
 	offchainDigester types.OffchainConfigDigester
 	configPoller     *ConfigPoller
 	chain            evm.Chain
-	new              bool
+	runReplay        bool
 	fromBlock        uint64
 	replayCtx        context.Context
 	replayCancel     context.CancelFunc
@@ -90,8 +90,8 @@ type configWatcher struct {
 }
 
 func (c *configWatcher) Start(ctx context.Context) error {
-	if c.new {
-		// Only replay if its a brand new job.
+	if c.runReplay && c.fromBlock != 0 {
+		// Only replay if its a brand runReplay job.
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
@@ -160,7 +160,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		configPoller:     configPoller,
 		offchainDigester: offchainConfigDigester,
 		chain:            chain,
-		new:              args.New,
+		runReplay:        args.New == true,
 		fromBlock:        relayConfig.FromBlock,
 		replayCtx:        ctx,
 		replayCancel:     cancel,

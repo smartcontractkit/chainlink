@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// RequestRoundTracker subscribes to new request round logs.
+// RequestRoundTracker subscribes to runReplay request round logs.
 type RequestRoundTracker struct {
 	utils.StartStopOnce
 
@@ -45,7 +45,7 @@ type RequestRoundTracker struct {
 	lrrMu                sync.RWMutex
 }
 
-// NewRequestRoundTracker makes a new RequestRoundTracker
+// NewRequestRoundTracker makes a runReplay RequestRoundTracker
 func NewRequestRoundTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer,
@@ -151,7 +151,7 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 			t.lrrMu.Lock()
 			t.latestRoundRequested = *rr
 			t.lrrMu.Unlock()
-			t.lggr.Infow("RequestRoundTracker: received new latest RoundRequested event", "latestRoundRequested", *rr)
+			t.lggr.Infow("RequestRoundTracker: received runReplay latest RoundRequested event", "latestRoundRequested", *rr)
 		} else {
 			t.lggr.Warnw("RequestRoundTracker: ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
 		}

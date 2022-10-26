@@ -57,7 +57,7 @@ type Delegate struct {
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
 	relayers              map[relay.Network]types.Relayer
-	new                   bool
+	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -95,19 +95,19 @@ func NewDelegate(
 	}
 }
 
-func (d Delegate) JobType() job.Type {
+func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting2
 }
 
 func (d *Delegate) BeforeJobCreated(spec job.Job) {
 	// This is only called first time the job is created
-	d.new = true
+	d.isNewlyCreatedJob = true
 }
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
-func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	spec := jobSpec.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
@@ -218,7 +218,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
-				New:           d.new,
+				New:           d.isNewlyCreatedJob,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -312,7 +312,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "new vrf provider")
+			return nil, errors.Wrap(err2, "isNewlyCreatedJob vrf provider")
 		}
 
 		dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
@@ -326,18 +326,18 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "new dkg provider")
+			return nil, errors.Wrap(err2, "isNewlyCreatedJob dkg provider")
 		}
 
 		dkgContract, err2 := dkg.NewOnchainDKGClient(cfg.DKGContractAddress, chain.Client())
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "new onchain dkg client")
+			return nil, errors.Wrap(err2, "isNewlyCreatedJob onchain dkg client")
 		}
 
 		juelsPerFeeCoin, err2 := juelsfeecoin.NewLinkEthPriceProvider(
 			common.HexToAddress(cfg.LinkEthFeedAddress), chain.Client(), 1*time.Second)
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "new link eth price provider")
+			return nil, errors.Wrap(err2, "isNewlyCreatedJob link eth price provider")
 		}
 
 		// No need to error check here, we check these keys exist when validating
@@ -411,7 +411,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
 		})
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "new ocr2vrf")
+			return nil, errors.Wrap(err2, "isNewlyCreatedJob ocr2vrf")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
@@ -468,7 +468,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
+			return nil, errors.Wrap(err, "could not create isNewlyCreatedJob keepers ocr2 delegate")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
