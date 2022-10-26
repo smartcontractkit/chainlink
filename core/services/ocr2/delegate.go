@@ -266,18 +266,27 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = dkgProvider
-		pluginOracle, err = dkg.NewDKG(
+		oracleArgsNoPlugin := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          dkgProvider.ContractTransmitter(),
+			ContractConfigTracker:        dkgProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			OffchainConfigDigester:       dkgProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+		}
+		return dkg.NewDKGServices(
 			jobSpec,
 			dkgProvider,
-			lggr.Named("DKG"),
 			ocrLogger,
 			d.dkgSignKs,
 			d.dkgEncryptKs,
-			chain.Client())
-		if err != nil {
-			return nil, errors.Wrap(err, "error while instantiating DKG")
-		}
+			chain.Client(),
+			oracleArgsNoPlugin)
 	case job.OCR2VRF:
 		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
 		if !ok {

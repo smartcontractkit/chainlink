@@ -142,7 +142,6 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relayty
 		ContractAddress: contractAddress,
 	}
 
-	runReplay := rargs.New == true
 	return newConfigWatcher(
 		lggr,
 		contractAddress,
@@ -151,6 +150,6 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relayty
 		configPoller,
 		chain,
 		relayConfig.FromBlock,
-		runReplay,
+		rargs.New,
 	), nil
 }

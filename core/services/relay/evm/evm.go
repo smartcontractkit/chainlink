@@ -183,7 +183,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		ChainID:         chain.Config().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, configPoller, chain, relayConfig.FromBlock, args.New == true), nil
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, configPoller, chain, relayConfig.FromBlock, args.New), nil
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
