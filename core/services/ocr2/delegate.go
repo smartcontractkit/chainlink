@@ -323,7 +323,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "isNewlyCreatedJob vrf provider")
+			return nil, errors.Wrap(err2, "new vrf provider")
 		}
 
 		dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
@@ -337,18 +337,18 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "isNewlyCreatedJob dkg provider")
+			return nil, errors.Wrap(err2, "new dkg provider")
 		}
 
 		dkgContract, err2 := dkg.NewOnchainDKGClient(cfg.DKGContractAddress, chain.Client())
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "isNewlyCreatedJob onchain dkg client")
+			return nil, errors.Wrap(err2, "new onchain dkg client")
 		}
 
 		juelsPerFeeCoin, err2 := juelsfeecoin.NewLinkEthPriceProvider(
 			common.HexToAddress(cfg.LinkEthFeedAddress), chain.Client(), 1*time.Second)
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "isNewlyCreatedJob link eth price provider")
+			return nil, errors.Wrap(err2, "new link eth price provider")
 		}
 
 		// No need to error check here, we check these keys exist when validating
@@ -422,7 +422,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
 		})
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "isNewlyCreatedJob ocr2vrf")
+			return nil, errors.Wrap(err2, "new ocr2vrf")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
@@ -479,7 +479,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "could not create isNewlyCreatedJob keepers ocr2 delegate")
+			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 		}
 
 		// RunResultSaver needs to be started first, so it's available

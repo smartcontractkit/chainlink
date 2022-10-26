@@ -26,7 +26,7 @@ var (
 	_ ocrtypes.Database = &db{}
 )
 
-// NewDB returns a isNewlyCreatedJob DB scoped to this oracleSpecID
+// NewDB returns a new DB scoped to this oracleSpecID
 func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConfig) *db {
 	namedLogger := lggr.Named("OCR2.DB")
 
