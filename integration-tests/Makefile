@@ -50,5 +50,5 @@ endif
 	helm repo update
 
 .PHONY: test_smoke_product
-test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product focus="@simulated" product="cron"
+test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product focus="@cron" product="cron"
 	ARGS="$(args)" PRODUCT=$(product) FOCUS=$(focus) ./scripts/run_product_tests

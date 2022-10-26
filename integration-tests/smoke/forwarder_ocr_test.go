@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to each node @ocr-forwarder", func() {
+var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to each node @forwarder-ocr", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("OCR with operator forwarder suite @default", forwarderOCREnv()),

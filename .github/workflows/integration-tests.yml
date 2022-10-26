@@ -23,7 +23,7 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
           filters: |
@@ -116,9 +116,11 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
+        env:
+          SELECTED_NETWORKS: "SIMULATED"
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
         with:
-          test_command_to_run: cd integration-tests/ && make test_smoke_product product="${{ matrix.product.name }}" focus="@simulated" args="-nodes=${{ matrix.product.nodes }}"
+          test_command_to_run: cd integration-tests/ && make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus-file ${{ matrix.product.name }}_test.go"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
