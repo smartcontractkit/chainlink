@@ -1407,6 +1407,9 @@ func (e *EthereumOperatorFactory) Address() string {
 
 func (e *EthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
 	tx, err := e.operatorFactory.DeployNewOperatorAndForwarder(opts)
 	if err != nil {
 		return nil, err
@@ -1427,6 +1430,9 @@ func (e *EthereumOperator) Address() string {
 
 func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address, eoa []common.Address) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
 	log.Info().
 		Str("ForwardersAddresses", fmt.Sprint(forwarders)).
 		Str("EoaAddresses", fmt.Sprint(eoa)).
