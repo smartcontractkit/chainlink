@@ -11,7 +11,7 @@ jobs:
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -65,15 +65,14 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  eth-smoke-tests:
+  eth-smoke-tests-matrix:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    name: ETH Smoke Tests
-    runs-on: ubuntu-latest
+    name: ETH Smoke Tests Matrix
     needs: [build-chainlink, changes]
     env:
       SELECTED_NETWORKS: SIMULATED
@@ -86,20 +85,29 @@ jobs:
         product:
           - name: cron
             nodes: 1
+            os: ubuntu-latest
           - name: flux
             nodes: 1
+            os: ubuntu-latest
           - name: forwarder_ocr
             nodes: 1
+            os: ubuntu-latest
           - name: keeper
-            nodes: 15
+            nodes: 27
+            os: ubuntu20.04-4cores-16GB
           - name: ocr
             nodes: 1
+            os: ubuntu-latest
           - name: runlog
             nodes: 1
+            os: ubuntu-latest
           - name: vrf
             nodes: 1
+            os: ubuntu-latest
           - name: vrfv2
             nodes: 1
+            os: ubuntu-latest
+    runs-on: ${{ matrix.product.os }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -116,8 +124,6 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        env:
-          SELECTED_NETWORKS: "SIMULATED"
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
         with:
           test_command_to_run: make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus-file ${{ matrix.product.name }}_test.go"
@@ -126,7 +132,7 @@ jobs:
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: EVM Smoke Test Results
+          publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -152,6 +158,16 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
+  ### Used to check the required checks box when the matrix completes
+  eth-smoke-tests:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    name: ETH Smoke Tests
+    needs: eth-smoke-tests-matrix
+    steps:
+      - name: Check smoke test matrix status
+        if: ${{ needs.eth-smoke-tests-matrix.result != 'success' }}
+        run: exit 1
 
   ### Solana Section
   get_projectserum_version:
@@ -177,7 +193,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-4cores-16GB
     needs: [changes, get_projectserum_version]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}

@@ -32,8 +32,10 @@ ifeq ($(shell which asdf), )
 ifeq ($(OSFLAG),$(LINUX))
 	echo "You will need to install asdf via your linux installer https://asdf-vm.com/guide/getting-started.html"
 	exit 1
-else ($(OSFLAG),$(OSX))
+else
+ifeq ($(OSFLAG),$(OSX))
 	brew install asdf
+endif
 endif
 endif
 # install the plugins if needed and then install the dependencies
@@ -50,5 +52,5 @@ endif
 	helm repo update
 
 .PHONY: test_smoke_product
-test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product focus="@cron" product="cron"
-	ARGS="$(args)" PRODUCT=$(product) FOCUS=$(focus) ./scripts/run_product_tests
+test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
+	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests
