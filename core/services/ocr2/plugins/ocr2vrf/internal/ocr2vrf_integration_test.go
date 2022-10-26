@@ -398,7 +398,8 @@ schemaVersion		= 1
 contractID			= "%s"
 [relayConfig]
 chainID 			= 1337
-`, uni.dkgAddress.Hex())
+fromBlock           = %d
+`, uni.dkgAddress.Hex(), blockBeforeConfig.Number().Int64())
 	t.Log("Creating bootstrap job:", bootstrapJobSpec)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(bootstrapJobSpec)
 	require.NoError(t, err)
@@ -423,6 +424,7 @@ transmitterID        	= "%s"
 
 [relayConfig]
 chainID              	= 1337
+fromBlock               = %d
 
 [pluginConfig]
 dkgEncryptionPublicKey 	= "%s"
@@ -437,6 +439,7 @@ lookbackBlocks         	= %d # This is an integer
 `, uni.beaconAddress.String(),
 			kbs[i].ID(),
 			transmitters[i],
+			blockBeforeConfig.Number().Int64(),
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
 			hex.EncodeToString(keyID[:]),
@@ -452,14 +455,6 @@ lookbackBlocks         	= %d # This is an integer
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
 	}
-
-	t.Log("jobs added, running log poller replay")
-
-	// Once all the jobs are added, replay to ensure we have the configSet logs.
-	for _, app := range apps {
-		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
-	}
-	require.NoError(t, bootstrapNode.app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
 
 	t.Log("Waiting for DKG key to get written")
 	// poll until a DKG key is written to the contract

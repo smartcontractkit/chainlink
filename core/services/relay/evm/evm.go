@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -89,27 +90,58 @@ type configWatcher struct {
 	wg               sync.WaitGroup
 }
 
-func (c *configWatcher) Start(ctx context.Context) error {
-	if c.runReplay && c.fromBlock != 0 {
-		// Only replay if its a brand runReplay job.
-		c.wg.Add(1)
-		go func() {
-			defer c.wg.Done()
-			c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
-			if err := c.configPoller.destChainLogPoller.Replay(c.replayCtx, int64(c.fromBlock)); err != nil {
-				c.lggr.Errorf("error replaying for config", "err", err)
-			} else {
-				c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
-			}
-		}()
+func newConfigWatcher(lggr logger.Logger,
+	contractAddress common.Address,
+	contractABI abi.ABI,
+	offchainDigester types.OffchainConfigDigester,
+	configPoller *ConfigPoller,
+	chain evm.Chain,
+	fromBlock uint64,
+	runReplay bool,
+) *configWatcher {
+	replayCtx, replayCancel := context.WithCancel(context.Background())
+	return &configWatcher{
+		StartStopOnce:    utils.StartStopOnce{},
+		lggr:             lggr,
+		contractAddress:  contractAddress,
+		contractABI:      contractABI,
+		offchainDigester: offchainDigester,
+		configPoller:     configPoller,
+		chain:            chain,
+		runReplay:        runReplay,
+		fromBlock:        fromBlock,
+		replayCtx:        replayCtx,
+		replayCancel:     replayCancel,
+		wg:               sync.WaitGroup{},
 	}
-	return nil
+
+}
+
+func (c *configWatcher) Start(ctx context.Context) error {
+	return c.StartOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
+		if c.runReplay && c.fromBlock != 0 {
+			// Only replay if its a brand runReplay job.
+			c.wg.Add(1)
+			go func() {
+				defer c.wg.Done()
+				c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
+				if err := c.configPoller.destChainLogPoller.Replay(c.replayCtx, int64(c.fromBlock)); err != nil {
+					c.lggr.Errorf("error replaying for config", "err", err)
+				} else {
+					c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
+				}
+			}()
+		}
+		return nil
+	})
 }
 
 func (c *configWatcher) Close() error {
-	c.replayCancel()
-	c.wg.Wait()
-	return nil
+	return c.StopOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
+		c.replayCancel()
+		c.wg.Wait()
+		return nil
+	})
 }
 
 func (c *configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
@@ -151,21 +183,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		ChainID:         chain.Config().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	return &configWatcher{
-		lggr:             lggr,
-		contractAddress:  contractAddress,
-		contractABI:      contractABI,
-		configPoller:     configPoller,
-		offchainDigester: offchainConfigDigester,
-		chain:            chain,
-		runReplay:        args.New == true,
-		fromBlock:        relayConfig.FromBlock,
-		replayCtx:        ctx,
-		replayCancel:     cancel,
-		wg:               sync.WaitGroup{},
-	}, nil
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, configPoller, chain, relayConfig.FromBlock, args.New == true), nil
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
