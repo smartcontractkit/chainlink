@@ -187,9 +187,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		chainClient.ParallelTransactions(true)
 
 		By("Funding Chainlink nodes")
-		txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-		Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 
 		By("Deploy Keeper Contracts")
