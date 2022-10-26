@@ -127,16 +127,6 @@ contract KeeperRegistry1_2 is
     uint32 nonce; // 2 evm words
   }
 
-  struct Upkeep {
-    uint96 balance;
-    address lastKeeper; // 1 storage slot full
-    uint32 executeGas;
-    uint64 maxValidBlocknumber;
-    address target; // 2 storage slots full
-    uint96 amountSpent;
-    address admin; // 3 storage slots full
-  }
-
   struct KeeperInfo {
     address payee;
     uint96 balance;

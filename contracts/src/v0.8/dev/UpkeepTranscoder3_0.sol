@@ -4,7 +4,8 @@ pragma solidity ^0.8.0;
 
 import "./../interfaces/UpkeepTranscoderInterface.sol";
 import "./../interfaces/TypeAndVersionInterface.sol";
-import {Upkeep as UpkeepV2} from "./../interfaces/KeeperRegistryInterface1_3.sol";
+import {Upkeep as UpkeepV1} from "./../interfaces/AutomationRegistryInterface1_2.sol";
+import {Upkeep as UpkeepV2} from "./interfaces/KeeperRegistryInterface1_3.sol";
 import {Upkeep as UpkeepV3} from "./keeper2_0/interfaces/KeeperRegistryInterface2_0.sol";
 import "./../UpkeepFormat.sol";
 
@@ -12,17 +13,6 @@ import "./../UpkeepFormat.sol";
  * @notice Transcoder 3_0 allows converting upkeep data from previous keeper registry versions to registry 2.0
  */
 contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterface {
-  // since Upkeep V1 is privately defined on a contract, it cannot be imported.
-  struct UpkeepV1 {
-    uint96 balance;
-    address lastKeeper; // 1 storage slot full
-    uint32 executeGas;
-    uint64 maxValidBlocknumber;
-    address target; // 2 storage slots full
-    uint96 amountSpent;
-    address admin; // 3 storage slots full
-  }
-
   error InvalidTranscoding();
 
   /**
