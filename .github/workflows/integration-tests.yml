@@ -76,6 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-chainlink, changes]
     env:
+      SELECTED_NETWORKS: SIMULATED
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-eth
@@ -175,7 +176,7 @@ jobs:
       contents: read
     name: Solana Build Artifacts
     runs-on: ubuntu-latest
-    needs: [changes,get_projectserum_version]
+    needs: [changes, get_projectserum_version]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:

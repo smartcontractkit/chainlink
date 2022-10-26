@@ -15,7 +15,7 @@ import (
 func Test_EthKeyStore(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := ExposedNewMaster(t, db, pgtest.NewPGCfg(true))
+	keyStore := ExposedNewMaster(t, db, pgtest.NewQConfig(true))
 	err := keyStore.Unlock(testutils.Password)
 	require.NoError(t, err)
 	ks := keyStore.Eth()

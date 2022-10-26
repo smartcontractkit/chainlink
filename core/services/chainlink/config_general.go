@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -37,12 +36,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type ConfigV2 interface {
+	// ConfigTOML returns both the user provided and effective configuration as TOML.
+	ConfigTOML() (user, effective string)
+}
+
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
 	lggr logger.Logger
 
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
+	secretsTOML   string // with env overdies includes, redacted
 
 	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
 	secrets *Secrets
@@ -57,38 +62,9 @@ type generalConfig struct {
 	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
 }
 
-// GeneralConfigTOML holds TOML configuration options for creating a coreconfig.GeneralConfig via New().
-//
-// See GeneralConfigOpts to initilize from go types.
-type GeneralConfigTOML struct {
-	Config, Secrets string
-
-	KeystorePasswordFileName, VRFPasswordFileName *string
-
-	OverrideFn func(*Config, *Secrets) // tests only
-}
-
-// New returns a coreconfig.GeneralConfig from the parsed TOML.
-func (t GeneralConfigTOML) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
-	o := GeneralConfigOpts{
-		KeystorePasswordFileName: t.KeystorePasswordFileName,
-		VRFPasswordFileName:      t.VRFPasswordFileName,
-		OverrideFn:               t.OverrideFn,
-	}
-	err := v2.DecodeTOML(strings.NewReader(t.Config), &o.Config)
-	if err != nil {
-		return nil, err
-	}
-	err = v2.DecodeTOML(strings.NewReader(t.Secrets), &o.Secrets)
-	if err != nil {
-		return nil, err
-	}
-	return o.New(lggr)
-}
-
 // GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
 //
-// See GeneralConfigTOML to inialize from TOML.
+// See ParseTOML to initilialize Config and Secrets from TOML.
 type GeneralConfigOpts struct {
 	Config
 	Secrets
@@ -99,6 +75,14 @@ type GeneralConfigOpts struct {
 	OverrideFn func(*Config, *Secrets)
 }
 
+// ParseTOML sets Config and Secrets from the given TOML strings.
+func (g *GeneralConfigOpts) ParseTOML(config, secrets string) error {
+	return multierr.Combine(
+		v2.DecodeTOML(strings.NewReader(config), &g.Config),
+		v2.DecodeTOML(strings.NewReader(secrets), &g.Secrets),
+	)
+}
+
 // New returns a coreconfig.GeneralConfig for the given options.
 func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
 	input, err := o.Config.TOMLString()
@@ -107,14 +91,9 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 	}
 
 	o.Config.setDefaults()
+	o.Config.DevMode = v2.EnvDev.IsTrue()
 
-	//TODO setEnv() helper; https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
-	o.Config.DevMode = v2.CLDev
-	if p := envvar.LogLevel.ParsePtr(); p != nil {
-		o.Config.Log.Level = *p
-	}
-
-	err = o.Secrets.SetOverrides(o.KeystorePasswordFileName, o.VRFPasswordFileName)
+	err = o.Secrets.setOverrides(o.KeystorePasswordFileName, o.VRFPasswordFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -128,11 +107,16 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 		return nil, err
 	}
 
+	secrets, err := o.Secrets.TOMLString()
+	if err != nil {
+		return nil, err
+	}
+
 	return &generalConfig{
 		lggr:      lggr,
-		inputTOML: input, effectiveTOML: effective,
+		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
 		c: &o.Config, secrets: &o.Secrets,
-		logLevelDefault: o.Config.Log.Level}, nil
+		logLevelDefault: zapcore.Level(*o.Config.Log.Level)}, nil
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
@@ -157,8 +141,14 @@ func (g *generalConfig) Validate() error {
 }
 
 func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
+	log("Secrets:\n", g.secretsTOML)
 	log("Input Configuration:\n", g.inputTOML)
 	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+}
+
+// ConfigTOML implements chainlink.ConfigV2
+func (g *generalConfig) ConfigTOML() (user, effective string) {
+	return g.inputTOML, g.effectiveTOML
 }
 
 func (g *generalConfig) Dev() bool {
@@ -426,6 +416,30 @@ func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 	return g.c.Database.Listener.MinReconnectInterval.Duration()
 }
 
+func (g *generalConfig) MigrateDatabase() bool {
+	return *g.c.Database.MigrateOnStartup
+}
+
+func (g *generalConfig) ORMMaxIdleConns() int {
+	return int(*g.c.Database.MaxIdleConns)
+}
+
+func (g *generalConfig) ORMMaxOpenConns() int {
+	return int(*g.c.Database.MaxOpenConns)
+}
+
+func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
+	return g.c.Database.DefaultLockTimeout.Duration()
+}
+
+func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	return g.c.Database.DefaultQueryTimeout.Duration()
+}
+
+func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
+}
+
 func (g *generalConfig) DefaultHTTPLimit() int64 {
 	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
@@ -571,18 +585,6 @@ func (g *generalConfig) LogFileMaxBackups() int64 {
 
 func (g *generalConfig) LogUnixTimestamps() bool {
 	return *g.c.Log.UnixTS
-}
-
-func (g *generalConfig) MigrateDatabase() bool {
-	return *g.c.Database.MigrateOnStartup
-}
-
-func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.MaxIdleConns)
-}
-
-func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.MaxOpenConns)
 }
 
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -804,10 +806,6 @@ func (g *generalConfig) P2PV2ListenAddresses() []string {
 	return nil
 }
 
-func (g *generalConfig) PyroscopeAuthToken() string {
-	return *g.c.Pyroscope.AuthToken
-}
-
 func (g *generalConfig) PyroscopeServerAddress() string {
 	return *g.c.Pyroscope.ServerAddress
 }
@@ -855,6 +853,22 @@ func (g *generalConfig) SessionOptions() sessions.Options {
 
 func (g *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
+}
+
+func (g *generalConfig) SentryDSN() string {
+	return *g.c.Sentry.DSN
+}
+
+func (g *generalConfig) SentryDebug() bool {
+	return *g.c.Sentry.Debug
+}
+
+func (g *generalConfig) SentryEnvironment() string {
+	return *g.c.Sentry.Environment
+}
+
+func (g *generalConfig) SentryRelease() string {
+	return *g.c.Sentry.Release
 }
 
 func (g *generalConfig) TLSCertPath() string {

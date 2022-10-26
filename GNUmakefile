@@ -110,17 +110,11 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 test_smoke: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	--progress --focus @simulated $(args) ./integration-tests/smoke
+	--progress $(args) ./integration-tests/smoke
 
 .PHONY: test_smoke_simulated
 test_smoke_simulated: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	--progress --focus @simulated $(args) ./integration-tests/smoke
-
-.PHONY: test_smoke_raw
-test_smoke_raw: test_need_operator_assets ## Run ALL integration smoke tests, only used for when focusing a specific suite or test
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	SELECTED_NETWORKS="SIMULATED" ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 
@@ -148,7 +142,7 @@ test_chaos: test_need_operator_assets ## Run core node chaos tests.
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate/main.go > ./docs/CONFIG.md
+	go run ./core/config/v2/docs/cmd/generate/main.go -o ./docs/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.

@@ -2,8 +2,9 @@ package benchmark_test
 
 //revive:disable:dot-imports
 import (
-	"github.com/onsi/ginkgo/v2"
 	"testing"
+
+	"github.com/onsi/ginkgo/v2"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )

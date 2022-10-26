@@ -42,7 +42,7 @@ type externalInitiatorManager struct {
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 
 // NewExternalInitiatorManager returns the concrete externalInitiatorManager
-func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.LogConfig) *externalInitiatorManager {
+func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.QConfig) *externalInitiatorManager {
 	namedLogger := lggr.Named("ExternalInitiatorManager")
 	return &externalInitiatorManager{
 		q:          pg.NewQ(db, namedLogger, cfg),

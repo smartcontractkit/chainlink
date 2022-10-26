@@ -35,7 +35,7 @@ type orm struct {
 	chainID utils.Big
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, chainID big.Int) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID big.Int) ORM {
 	return &orm{pg.NewQ(db, lggr.Named("HeadTrackerORM"), cfg), utils.Big(chainID)}
 }
 

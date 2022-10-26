@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -98,6 +99,9 @@ type BasicConfig interface {
 	DatabaseBackupMode() DatabaseBackupMode
 	DatabaseBackupOnVersionUpgrade() bool
 	DatabaseBackupURL() *url.URL
+	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
+	DatabaseDefaultLockTimeout() time.Duration
+	DatabaseDefaultQueryTimeout() time.Duration
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
@@ -161,6 +165,10 @@ type BasicConfig interface {
 	ReaperExpiration() models.Duration
 	RootDir() string
 	SecureCookies() bool
+	SentryDSN() string
+	SentryDebug() bool
+	SentryEnvironment() string
+	SentryRelease() string
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
 	SolanaNodes() string
@@ -672,6 +680,18 @@ func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(envvar.Name("DatabaseBackupDir"))
 }
 
+func (c *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	return pg.DefaultIdleInTxSessionTimeout
+}
+
+func (c *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
+	return pg.DefaultLockTimeout
+}
+
+func (c *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	return pg.DefaultQueryTimeout
+}
+
 // DatabaseURL configures the URL for chainlink to connect to. This must be
 // a properly formatted URL, with a valid scheme (postgres://)
 func (c *generalConfig) DatabaseURL() url.URL {
@@ -1161,6 +1181,22 @@ func (c *generalConfig) SecureCookies() bool {
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("SessionTimeout")))
+}
+
+func (c *generalConfig) SentryDSN() string {
+	return os.Getenv("SENTRY_DSN")
+}
+
+func (c *generalConfig) SentryDebug() bool {
+	return os.Getenv("SENTRY_DEBUG") == "true"
+}
+
+func (c *generalConfig) SentryEnvironment() string {
+	return os.Getenv("SENTRY_ENVIRONMENT")
+}
+
+func (c *generalConfig) SentryRelease() string {
+	return os.Getenv("SENTRY_RELEASE")
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
