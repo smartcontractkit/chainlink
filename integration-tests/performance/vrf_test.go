@@ -66,9 +66,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		})
 
 		By("Funding Chainlink nodes", func() {
-			txCost, err := chainClient.EstimateCostForChainlinkOperations(1)
-			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
 			Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 		})
 
