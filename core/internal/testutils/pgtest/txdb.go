@@ -54,6 +54,9 @@ func init() {
 	} else if v2 == "" {
 		dbURL = v1
 		which = "DATABASE_URL"
+	} else if v1 == v2 {
+		dbURL = v1
+		which = "DATABASE_URL"
 	} else {
 		panic("you must only set one of DATABASE_URL and CL_DATABASE_URL environment variables, not both")
 	}
