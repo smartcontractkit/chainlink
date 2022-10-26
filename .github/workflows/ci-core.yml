@@ -67,6 +67,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          --name cl_pg
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -94,6 +95,26 @@ jobs:
         run: go mod download
       - name: Build binary
         run: go build -o chainlink.test ./core
+      - name: Install psql # TODO: pin version?
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Increase max_connections and shared_buffers
+        run: |
+          docker exec -i cl_pg bash << EOF
+            sed -i -e 's/max_connections = 100/max_connections = 1000/' /var/lib/postgresql/data/postgresql.conf
+            sed -i -e 's/shared_buffers = 128MB/shared_buffers = 2GB/' /var/lib/postgresql/data/postgresql.conf
+          EOF
+      - name: Show PostgreSQL config file
+        run: psql -h localhost -p 5432 -U postgres -c 'SHOW config_file;'
+      - name: Restart PostgreSQL container
+        run: docker restart --time 0 cl_pg
+      - name: Sleep a bit until the DB starts up
+        run: sleep 5
+      - name: Show max_connections
+        run: psql -h localhost -p 5432 -U postgres -c 'SHOW max_connections;'
+      - name: Show shared_buffers
+        run: psql -h localhost -p 5432 -U postgres -c 'SHOW shared_buffers;'
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout
