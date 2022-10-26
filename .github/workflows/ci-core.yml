@@ -51,23 +51,6 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
-    services:
-      postgres:
-        image: postgres:14-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: chainlink_test
-          POSTGRES_HOST_AUTH_METHOD: trust
-        # Set health checks to wait until postgres has started
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --name cl_pg
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -89,32 +72,14 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
         run: go build -o chainlink.test ./core
-      - name: Install psql # TODO: pin version?
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
-      - name: Increase max_connections and shared_buffers
-        run: |
-          docker exec -i cl_pg bash << EOF
-            sed -i -e 's/max_connections = 100/max_connections = 1000/' /var/lib/postgresql/data/postgresql.conf
-            sed -i -e 's/shared_buffers = 128MB/shared_buffers = 2GB/' /var/lib/postgresql/data/postgresql.conf
-          EOF
-      - name: Show PostgreSQL config file
-        run: psql -h localhost -p 5432 -U postgres -c 'SHOW config_file;'
-      - name: Restart PostgreSQL container
-        run: docker restart --time 0 cl_pg
-      - name: Sleep a bit until the DB starts up
-        run: sleep 5
-      - name: Show max_connections
-        run: psql -h localhost -p 5432 -U postgres -c 'SHOW max_connections;'
-      - name: Show shared_buffers
-        run: psql -h localhost -p 5432 -U postgres -c 'SHOW shared_buffers;'
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout

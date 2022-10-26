@@ -1,0 +1,13 @@
+name: Setup Postgresql
+description: Setup postgres docker container
+runs:
+  using: composite
+  steps:
+    - name: Start postgres service
+      run: docker compose up -d
+      shell: bash
+      working-directory: ./.github/actions/setup-postgres
+    - name: Wait for postgres service to be healthy
+      run: ./wait-for-healthy-postgres.sh
+      shell: bash
+      working-directory: ./.github/actions/setup-postgres
