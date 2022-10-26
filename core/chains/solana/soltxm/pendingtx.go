@@ -7,8 +7,9 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 )
 
 type PendingTx struct {

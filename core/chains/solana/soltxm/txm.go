@@ -181,7 +181,9 @@ func (txm *Txm) run() {
 					txm.lggr.Debugw("failed to remove tx ID - it has likely already been removed", "error", err)
 					continue // skip incrementing error if tx already removed
 				}
-				txm.txs.OnError(sig, TxInvalidBlockhash)
+				if _, invalidErr := txm.txs.OnError(sig, TxInvalidBlockhash); invalidErr != nil {
+					txm.lggr.Errorw("failed to mark tx as invalid blockhash", "id", id, "error", invalidErr)
+				}
 				continue
 			}
 
@@ -192,7 +194,7 @@ func (txm *Txm) run() {
 				// this can occur if a duplicate transaction is broadcast
 				txm.lggr.Errorw("failed to save tx signature", "signature", sig, "error", err)
 
-				// handle duplicate transcations
+				// handle duplicate transactions
 				// check if TX has any associated signatures, remove if not (indicates a duplicate transaction)
 				if tx, exists := txm.txs.GetByID(id); exists && len(tx.signatures) == 0 {
 					txm.lggr.Debugw("removing tx - duplicate signature", "id", id, "signature", sig)

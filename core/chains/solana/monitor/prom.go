@@ -4,6 +4,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 )
 
