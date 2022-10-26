@@ -123,7 +123,8 @@ func TestPendingTxMemory(t *testing.T) {
 
 		// stop all sub processes
 		for i := 0; i < len(list); i++ {
-			txs.OnSuccess(list[i])
+			_, err := txs.OnSuccess(list[i])
+			require.NoError(t, err)
 			assert.Equal(t, n-i-1, len(txs.ListSignatures()))
 
 			_, exists := txs.GetBySignature(list[i])
@@ -156,7 +157,8 @@ func TestPendingTxMemory(t *testing.T) {
 		assert.Equal(t, n, len(list))
 
 		// clear transaction by completing 1 signature
-		txs.OnSuccess(list[0])
+		_, err := txs.OnSuccess(list[0])
+		require.NoError(t, err)
 		assert.Equal(t, 0, len(txs.ListSignatures()))
 		for i := 0; i < len(list); i++ {
 			_, exists := txs.GetBySignature(list[i])
