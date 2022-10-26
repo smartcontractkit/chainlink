@@ -356,13 +356,24 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "dump",
-					Usage:  "Dump a TOML file equivalent to the current environment and database configuration",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration",
 					Action: client.ConfigDump,
 				},
 				{
 					Name:   "list",
-					Usage:  "Show the node's environment variables",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Show the node's environment variables",
 					Action: client.GetConfiguration,
+				},
+				{
+					Name:   "show",
+					Usage:  "V2 CONFIG (TOML) ONLY - Show the application configuration",
+					Action: client.ConfigV2,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "user-only",
+							Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
+						},
+					},
 				},
 				{
 					Name:   "setgasprice",

@@ -13,6 +13,7 @@ type Query {
     chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
     config: ConfigPayload!
+    configv2: ConfigV2Payload!
     csaKeys: CSAKeysPayload!
     ethKeys: EthKeysPayload!
     ethTransaction(hash: ID!): EthTransactionPayload!
