@@ -164,12 +164,14 @@ func TestPool_Dial(t *testing.T) {
 			}
 			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID)
 			err := p.Dial(ctx)
+			if err == nil {
+				t.Cleanup(func() { assert.NoError(t, p.Close()) })
+			}
 			if test.errStr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.errStr)
 			} else {
 				require.NoError(t, err)
-				p.Close()
 			}
 		})
 	}
@@ -247,9 +249,9 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	n2.On("String").Maybe().Return("n2")
 	n3.On("String").Maybe().Return("n3")
 
-	n1.On("Close").Maybe()
-	n2.On("Close").Maybe()
-	n3.On("Close").Maybe()
+	n1.On("Close").Maybe().Return(nil)
+	n2.On("Close").Maybe().Return(nil)
+	n3.On("Close").Maybe().Return(nil)
 
 	// n1 is alive
 	n1.On("Start", mock.Anything).Return(nil).Once()
@@ -265,7 +267,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	n3.On("ChainID").Return(testutils.FixtureChainID).Once()
 
 	require.NoError(t, p.Dial(testutils.Context(t)))
-	t.Cleanup(p.Close)
+	t.Cleanup(func() { assert.NoError(t, p.Close()) })
 
 	testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")
 

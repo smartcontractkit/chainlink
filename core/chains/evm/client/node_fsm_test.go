@@ -161,15 +161,15 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		assert.True(t, sub.unsubbed)
 	})
 	t.Run("Close", func(t *testing.T) {
-		// first attempt panics due to node being unstarted
-		assert.Panics(t, n.Close)
+		// first attempt errors due to node being unstarted
+		assert.Error(t, n.Close())
 		// must start to allow closing
 		err := n.StartOnce("test node", func() error { return nil })
 		assert.NoError(t, err)
-		n.Close()
+		assert.NoError(t, n.Close())
 
 		assert.Equal(t, NodeStateClosed, n.State())
-		// second attempt panics due to node being stopped twice
-		assert.Panics(t, n.Close)
+		// second attempt errors due to node being stopped twice
+		assert.Error(t, n.Close())
 	})
 }

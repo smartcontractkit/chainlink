@@ -17,6 +17,7 @@ import (
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -109,6 +110,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		if len(p.nodes) == 0 {
 			return errors.Errorf("no available nodes for chain %s", p.chainID.String())
 		}
+		var ms services.MultiStart
 		for _, n := range p.nodes {
 			if n.ChainID().Cmp(p.chainID) != 0 {
 				return errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String())
@@ -122,7 +124,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 				rawNode.nLiveNodes = p.nLiveNodes
 			}
 			// node will handle its own redialing and automatic recovery
-			if err := n.Start(ctx); err != nil {
+			if err := ms.Start(ctx, n); err != nil {
 				return err
 			}
 		}
@@ -130,8 +132,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 			if s.ChainID().Cmp(p.chainID) != 0 {
 				return errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String())
 			}
-			err := s.Start(ctx)
-			if err != nil {
+			if err := ms.Start(ctx, s); err != nil {
 				return err
 			}
 		}
@@ -206,32 +207,20 @@ func (p *Pool) report() {
 }
 
 // Close tears down the pool and closes all nodes
-func (p *Pool) Close() {
-	err := p.StopOnce("Pool", func() error {
+func (p *Pool) Close() error {
+	return p.StopOnce("Pool", func() error {
 		close(p.chStop)
 		p.wg.Wait()
 
-		var closeWg sync.WaitGroup
-		closeWg.Add(len(p.nodes))
+		var mc services.MultiClose
 		for _, n := range p.nodes {
-			go func(node Node) {
-				defer closeWg.Done()
-				node.Close()
-			}(n)
+			mc = append(mc, n)
 		}
-		closeWg.Add(len(p.sendonlys))
 		for _, s := range p.sendonlys {
-			go func(sNode SendOnlyNode) {
-				defer closeWg.Done()
-				sNode.Close()
-			}(s)
+			mc = append(mc, s)
 		}
-		closeWg.Wait()
-		return nil
+		return mc.Close()
 	})
-	if err != nil {
-		panic(err)
-	}
 }
 
 func (p *Pool) ChainID() *big.Int {

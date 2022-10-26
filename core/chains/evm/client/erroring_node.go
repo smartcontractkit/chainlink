@@ -23,7 +23,7 @@ func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
 
 func (e *erroringNode) Start(ctx context.Context) error { return errors.New(e.errMsg) }
 
-func (e *erroringNode) Close() {}
+func (e *erroringNode) Close() error { return nil }
 
 func (e *erroringNode) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
 	return errors.New(e.errMsg)

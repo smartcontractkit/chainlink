@@ -83,7 +83,7 @@ var (
 // Node represents a client that connects to an ethereum-compatible RPC node
 type Node interface {
 	Start(ctx context.Context) error
-	Close()
+	Close() error
 
 	// State() returns NodeState
 	State() NodeState
@@ -341,8 +341,8 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	return nil
 }
 
-func (n *node) Close() {
-	err := n.StopOnce(n.name, func() error {
+func (n *node) Close() error {
+	return n.StopOnce(n.name, func() error {
 		defer n.wg.Wait()
 
 		n.stateMu.Lock()
@@ -356,9 +356,6 @@ func (n *node) Close() {
 		}
 		return nil
 	})
-	if err != nil {
-		panic(err)
-	}
 }
 
 // registerSub adds the sub to the node list
