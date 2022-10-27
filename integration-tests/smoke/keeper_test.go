@@ -119,8 +119,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		testScenarios = []TableEntry{
 			//Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), !OCR),
 			//Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), !OCR),
-			Entry("v1.3 Basic smoke test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), !OCR),
-			//Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), OCR),
+			//Entry("v1.3 Basic smoke test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), !OCR),
+			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), OCR),
 
 			//Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds), !OCR),
 			//Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds), !OCR),
