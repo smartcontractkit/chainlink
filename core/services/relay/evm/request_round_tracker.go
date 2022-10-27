@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// RequestRoundTracker subscribes to runReplay request round logs.
+// RequestRoundTracker subscribes to request round logs.
 type RequestRoundTracker struct {
 	utils.StartStopOnce
 

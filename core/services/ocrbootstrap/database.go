@@ -19,7 +19,7 @@ type db struct {
 
 var _ ocrtypes.ConfigDatabase = &db{}
 
-// NewDB returns a new DB scoped to this oracleSpecID
+// NewDB returns a isNewlyCreatedJob DB scoped to this oracleSpecID
 func NewDB(sqldb *sql.DB, bootstrapSpecID int32, lggr logger.Logger) *db {
 	return &db{sqldb, bootstrapSpecID, lggr}
 }

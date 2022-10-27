@@ -16,16 +16,16 @@ import (
 
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	db          *sqlx.DB
-	jobORM      job.ORM
-	peerWrapper *ocrcommon.SingletonPeerWrapper
-	cfg         validate.Config
-	lggr        logger.Logger
-	relayers    map[relay.Network]types.Relayer
-	new         bool
+	db                *sqlx.DB
+	jobORM            job.ORM
+	peerWrapper       *ocrcommon.SingletonPeerWrapper
+	cfg               validate.Config
+	lggr              logger.Logger
+	relayers          map[relay.Network]types.Relayer
+	isNewlyCreatedJob bool
 }
 
-// NewDelegateBootstrap creates a new Delegate
+// NewDelegateBootstrap creates a isNewlyCreatedJob Delegate
 func NewDelegateBootstrap(
 	db *sqlx.DB,
 	jobORM job.ORM,
@@ -50,7 +50,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 func (d *Delegate) BeforeJobCreated(spec job.Job) {
-	d.new = true
+	d.isNewlyCreatedJob = true
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
@@ -72,7 +72,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
-		New:           d.new,
+		New:           d.isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
-	d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
+	d.lggr.Debugw("Launching isNewlyCreatedJob bootstrap node", "args", bootstrapNodeArgs)
 	bootstrapper, err := ocr.NewBootstrapper(bootstrapNodeArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")

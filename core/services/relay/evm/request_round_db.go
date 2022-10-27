@@ -27,7 +27,7 @@ type requestRoundDB struct {
 	lggr         logger.Logger
 }
 
-// NewDB returns a runReplay DB scoped to this oracleSpecID
+// NewDB returns a new DB scoped to this oracleSpecID
 func NewRoundRequestedDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *requestRoundDB {
 	return &requestRoundDB{sqldb, oracleSpecID, lggr}
 }
