@@ -30,7 +30,9 @@ func init() {
 	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	var logColor string
 	if v1, v2 := os.Getenv("LOG_COLOR"), os.Getenv("CL_LOG_COLOR"); v1 != "" && v2 != "" {
-		panic("you may only set one of LOG_COLOR and CL_LOG_COLOR environment variables, not both")
+		if v1 != v2 {
+			panic("you may only set one of LOG_COLOR and CL_LOG_COLOR environment variables, not both")
+		}
 	} else if v1 == "" {
 		logColor = v2
 	} else if v2 == "" {
