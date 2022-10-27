@@ -25,7 +25,7 @@ type Delegate struct {
 	isNewlyCreatedJob bool
 }
 
-// NewDelegateBootstrap creates a isNewlyCreatedJob Delegate
+// NewDelegateBootstrap creates a new Delegate
 func NewDelegateBootstrap(
 	db *sqlx.DB,
 	jobORM job.ORM,

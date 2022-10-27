@@ -45,7 +45,7 @@ type RequestRoundTracker struct {
 	lrrMu                sync.RWMutex
 }
 
-// NewRequestRoundTracker makes a runReplay RequestRoundTracker
+// NewRequestRoundTracker makes a new RequestRoundTracker
 func NewRequestRoundTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer,
