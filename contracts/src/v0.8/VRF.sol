@@ -152,6 +152,7 @@ contract VRF {
     bigModExpContractInputs[4] = exponent;
     bigModExpContractInputs[5] = FIELD_SIZE;
     uint256[1] memory output;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       // solhint-disable-line no-inline-assembly
       callResult := staticcall(

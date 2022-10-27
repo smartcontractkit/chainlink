@@ -97,7 +97,8 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     ValidatorConfiguration memory currentValidator = s_currentValidator;
     address currentValidatorAddress = address(currentValidator.target);
     require(currentValidatorAddress != address(0), "No validator set");
-    currentValidatorAddress.call(
+    // solhint-disable-next-line avoid-low-level-calls
+    (bool successValidatorCall, ) = currentValidatorAddress.call(
       abi.encodeWithSelector(
         AggregatorValidatorInterface.validate.selector,
         previousRoundId,
@@ -106,9 +107,12 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
         currentAnswer
       )
     );
+    require(successValidatorCall, "Validator call reverted");
+
     // If there is a new proposed validator, send the validate call to that validator also
     if (currentValidator.hasNewProposal) {
-      address(s_proposedValidator).call(
+      // solhint-disable-next-line avoid-low-level-calls
+      (bool successProposedValidatorCall, ) = address(s_proposedValidator).call(
         abi.encodeWithSelector(
           AggregatorValidatorInterface.validate.selector,
           previousRoundId,
@@ -117,6 +121,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
           currentAnswer
         )
       );
+      require(successProposedValidatorCall, "Proposed validator call reverted");
     }
     return true;
   }

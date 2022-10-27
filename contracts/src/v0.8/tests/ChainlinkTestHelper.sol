@@ -7,7 +7,7 @@ import "../vendor/BufferChainlink.sol";
 
 contract ChainlinkTestHelper {
   using Chainlink for Chainlink.Request;
-  using CBORChainlink for BufferChainlink.buffer;
+  using CBORChainlink for BufferChainlink.Buffer;
 
   Chainlink.Request private req;
 

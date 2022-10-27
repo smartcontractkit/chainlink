@@ -19,6 +19,7 @@ contract PermissionedForwardProxy is ConfirmedOwner {
 
   mapping(address => address) private s_forwardPermissionList;
 
+  // solhint-disable-next-line no-empty-blocks
   constructor() ConfirmedOwner(msg.sender) {}
 
   /**

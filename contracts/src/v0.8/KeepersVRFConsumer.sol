@@ -48,6 +48,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
     KEY_HASH = keyHash;
     UPKEEP_INTERVAL = upkeepInterval;
 
+    // solhint-disable-next-line not-rely-on-time
     s_lastTimeStamp = block.timestamp;
     s_vrfRequestCounter = 0;
     s_vrfResponseCounter = 0;
@@ -70,6 +71,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
       bytes memory /* performData */
     )
   {
+    // solhint-disable-next-line not-rely-on-time
     upkeepNeeded = (block.timestamp - s_lastTimeStamp) > UPKEEP_INTERVAL;
   }
 
@@ -80,7 +82,9 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
   function performUpkeep(
     bytes calldata /* performData */
   ) external override {
+    // solhint-disable-next-line not-rely-on-time
     if ((block.timestamp - s_lastTimeStamp) > UPKEEP_INTERVAL) {
+      // solhint-disable-next-line not-rely-on-time
       s_lastTimeStamp = block.timestamp;
 
       requestRandomWords();

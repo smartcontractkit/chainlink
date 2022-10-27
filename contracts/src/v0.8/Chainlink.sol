@@ -11,14 +11,14 @@ import {BufferChainlink} from "./vendor/BufferChainlink.sol";
 library Chainlink {
   uint256 internal constant defaultBufferSize = 256; // solhint-disable-line const-name-snakecase
 
-  using CBORChainlink for BufferChainlink.buffer;
+  using CBORChainlink for BufferChainlink.Buffer;
 
   struct Request {
     bytes32 id;
     address callbackAddress;
     bytes4 callbackFunctionId;
     uint256 nonce;
-    BufferChainlink.buffer buf;
+    BufferChainlink.Buffer buf;
   }
 
   /**

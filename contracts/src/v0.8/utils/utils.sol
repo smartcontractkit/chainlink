@@ -7,6 +7,7 @@ pragma solidity ^0.8.0;
  */
 function getRevertMsg(bytes memory payload) pure returns (string memory) {
   if (payload.length < 68) return "transaction reverted silently";
+  // solhint-disable-next-line no-inline-assembly
   assembly {
     payload := add(payload, 0x04)
   }

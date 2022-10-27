@@ -50,7 +50,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
   error TickTooOld();
   error TickDoesntMatchSpec();
 
-  address immutable s_delegate;
+  address public immutable s_delegate;
   uint256 public immutable s_maxJobs;
   uint256 private s_nextCronJobID = 1;
   EnumerableSet.UintSet private s_activeCronJobIDs;
@@ -91,11 +91,16 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
       (uint256, uint256, address, bytes)
     );
     validate(id, tickTime, target, handler);
+
+    // solhint-disable-next-line not-rely-on-time
     s_lastRuns[id] = block.timestamp;
+
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory payload) = target.call(handler);
     if (!success) {
       revert CallFailed(id, getRevertMsg(payload));
     }
+    // solhint-disable-next-line not-rely-on-time
     emit CronJobExecuted(id, block.timestamp);
   }
 
@@ -228,6 +233,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
     s_targets[newID] = target;
     s_handlers[newID] = handler;
     s_specs[newID] = spec;
+    // solhint-disable-next-line not-rely-on-time
     s_lastRuns[newID] = block.timestamp;
     s_handlerSignatures[newID] = handlerSig(target, handler);
     s_nextCronJobID++;
@@ -252,6 +258,8 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
     bytes memory handler
   ) private {
     tickTime = tickTime - (tickTime % 60); // remove seconds from tick time
+
+    // solhint-disable-next-line not-rely-on-time
     if (block.timestamp < tickTime) {
       revert TickInFuture();
     }

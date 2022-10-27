@@ -9,6 +9,7 @@ contract AutomationBase {
    * the sender is the zero address.
    */
   function preventExecution() internal view {
+    // solhint-disable-next-line avoid-tx-origin
     if (tx.origin != address(0)) {
       revert OnlySimulatedBackend();
     }

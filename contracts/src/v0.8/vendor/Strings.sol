@@ -38,8 +38,8 @@
 
 pragma solidity ^0.8.0;
 
-library strings {
-  struct slice {
+library Strings {
+  struct Slice {
     uint256 _len;
     uint256 _ptr;
   }
@@ -51,6 +51,7 @@ library strings {
   ) private pure {
     // Copy word-length chunks while possible
     for (; len >= 32; len -= 32) {
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         mstore(dest, mload(src))
       }
@@ -63,6 +64,7 @@ library strings {
     if (len > 0) {
       mask = 256**(32 - len) - 1;
     }
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let srcpart := and(mload(src), not(mask))
       let destpart := and(mload(dest), mask)
@@ -75,12 +77,13 @@ library strings {
    * @param self The string to make a slice from.
    * @return A newly allocated slice containing the entire string.
    */
-  function toSlice(string memory self) internal pure returns (slice memory) {
+  function toSlice(string memory self) internal pure returns (Slice memory) {
     uint256 ptr;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       ptr := add(self, 0x20)
     }
-    return slice(bytes(self).length, ptr);
+    return Slice(bytes(self).length, ptr);
   }
 
   /*
@@ -120,8 +123,9 @@ library strings {
    * @return A new slice containing the value of the input argument up to the
    *         first null.
    */
-  function toSliceB32(bytes32 self) internal pure returns (slice memory ret) {
+  function toSliceB32(bytes32 self) internal pure returns (Slice memory ret) {
     // Allocate space for `self` in memory, copy it there, and point ret at it
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let ptr := mload(0x40)
       mstore(0x40, add(ptr, 0x20))
@@ -136,8 +140,8 @@ library strings {
    * @param self The slice to copy.
    * @return A new slice containing the same data as `self`.
    */
-  function copy(slice memory self) internal pure returns (slice memory) {
-    return slice(self._len, self._ptr);
+  function copy(Slice memory self) internal pure returns (Slice memory) {
+    return Slice(self._len, self._ptr);
   }
 
   /*
@@ -145,9 +149,10 @@ library strings {
    * @param self The slice to copy.
    * @return A newly allocated string containing the slice's text.
    */
-  function toString(slice memory self) internal pure returns (string memory) {
+  function toString(Slice memory self) internal pure returns (string memory) {
     string memory ret = new string(self._len);
     uint256 retptr;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       retptr := add(ret, 32)
     }
@@ -164,12 +169,13 @@ library strings {
    * @param self The slice to operate on.
    * @return The length of the slice in runes.
    */
-  function len(slice memory self) internal pure returns (uint256 l) {
+  function len(Slice memory self) internal pure returns (uint256 length) {
     // Starting at ptr-31 means the LSB will be the byte we care about
     uint256 ptr = self._ptr - 31;
     uint256 end = ptr + self._len;
-    for (l = 0; ptr < end; l++) {
+    for (length = 0; ptr < end; length++) {
       uint8 b;
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         b := and(mload(ptr), 0xFF)
       }
@@ -194,7 +200,7 @@ library strings {
    * @param self The slice to operate on.
    * @return True if the slice is empty, False otherwise.
    */
-  function empty(slice memory self) internal pure returns (bool) {
+  function empty(Slice memory self) internal pure returns (bool) {
     return self._len == 0;
   }
 
@@ -207,7 +213,7 @@ library strings {
    * @param other The second slice to compare.
    * @return The result of the comparison.
    */
-  function compare(slice memory self, slice memory other)
+  function compare(Slice memory self, Slice memory other)
     internal
     pure
     returns (int256)
@@ -220,6 +226,7 @@ library strings {
     for (uint256 idx = 0; idx < shortest; idx += 32) {
       uint256 a;
       uint256 b;
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         a := mload(selfptr)
         b := mload(otherptr)
@@ -247,7 +254,7 @@ library strings {
    * @param self The second slice to compare.
    * @return True if the slices are equal, false otherwise.
    */
-  function equals(slice memory self, slice memory other)
+  function equals(Slice memory self, Slice memory other)
     internal
     pure
     returns (bool)
@@ -262,10 +269,10 @@ library strings {
    * @param rune The slice that will contain the first rune.
    * @return `rune`.
    */
-  function nextRune(slice memory self, slice memory rune)
+  function nextRune(Slice memory self, Slice memory rune)
     internal
     pure
-    returns (slice memory)
+    returns (Slice memory)
   {
     rune._ptr = self._ptr;
 
@@ -274,33 +281,34 @@ library strings {
       return rune;
     }
 
-    uint256 l;
+    uint256 length;
     uint256 b;
     // Load the first byte of the rune into the LSBs of b
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       b := and(mload(sub(mload(add(self, 32)), 31)), 0xFF)
     }
     if (b < 0x80) {
-      l = 1;
+      length = 1;
     } else if (b < 0xE0) {
-      l = 2;
+      length = 2;
     } else if (b < 0xF0) {
-      l = 3;
+      length = 3;
     } else {
-      l = 4;
+      length = 4;
     }
 
     // Check for truncated codepoints
-    if (l > self._len) {
+    if (length > self._len) {
       rune._len = self._len;
       self._ptr += self._len;
       self._len = 0;
       return rune;
     }
 
-    self._ptr += l;
-    self._len -= l;
-    rune._len = l;
+    self._ptr += length;
+    self._len -= length;
+    rune._len = length;
     return rune;
   }
 
@@ -310,10 +318,10 @@ library strings {
    * @param self The slice to operate on.
    * @return A slice containing only the first rune from `self`.
    */
-  function nextRune(slice memory self)
+  function nextRune(Slice memory self)
     internal
     pure
-    returns (slice memory ret)
+    returns (Slice memory ret)
   {
     nextRune(self, ret);
   }
@@ -323,7 +331,7 @@ library strings {
    * @param self The slice to operate on.
    * @return The number of the first codepoint in the slice.
    */
-  function ord(slice memory self) internal pure returns (uint256 ret) {
+  function ord(Slice memory self) internal pure returns (uint256 ret) {
     if (self._len == 0) {
       return 0;
     }
@@ -333,6 +341,7 @@ library strings {
     uint256 divisor = 2**248;
 
     // Load the rune into the MSBs of b
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       word := mload(mload(add(self, 32)))
     }
@@ -374,7 +383,8 @@ library strings {
    * @param self The slice to hash.
    * @return The hash of the slice.
    */
-  function keccak(slice memory self) internal pure returns (bytes32 ret) {
+  function keccak(Slice memory self) internal pure returns (bytes32 ret) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       ret := keccak256(mload(add(self, 32)), mload(self))
     }
@@ -386,7 +396,7 @@ library strings {
    * @param needle The slice to search for.
    * @return True if the slice starts with the provided text, false otherwise.
    */
-  function startsWith(slice memory self, slice memory needle)
+  function startsWith(Slice memory self, Slice memory needle)
     internal
     pure
     returns (bool)
@@ -400,6 +410,7 @@ library strings {
     }
 
     bool equal;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let length := mload(needle)
       let selfptr := mload(add(self, 0x20))
@@ -416,10 +427,10 @@ library strings {
    * @param needle The slice to search for.
    * @return `self`
    */
-  function beyond(slice memory self, slice memory needle)
+  function beyond(Slice memory self, Slice memory needle)
     internal
     pure
-    returns (slice memory)
+    returns (Slice memory)
   {
     if (self._len < needle._len) {
       return self;
@@ -427,6 +438,7 @@ library strings {
 
     bool equal = true;
     if (self._ptr != needle._ptr) {
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         let length := mload(needle)
         let selfptr := mload(add(self, 0x20))
@@ -449,7 +461,7 @@ library strings {
    * @param needle The slice to search for.
    * @return True if the slice starts with the provided text, false otherwise.
    */
-  function endsWith(slice memory self, slice memory needle)
+  function endsWith(Slice memory self, Slice memory needle)
     internal
     pure
     returns (bool)
@@ -465,6 +477,7 @@ library strings {
     }
 
     bool equal;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let length := mload(needle)
       let needleptr := mload(add(needle, 0x20))
@@ -481,10 +494,10 @@ library strings {
    * @param needle The slice to search for.
    * @return `self`
    */
-  function until(slice memory self, slice memory needle)
+  function until(Slice memory self, Slice memory needle)
     internal
     pure
-    returns (slice memory)
+    returns (Slice memory)
   {
     if (self._len < needle._len) {
       return self;
@@ -493,6 +506,7 @@ library strings {
     uint256 selfptr = self._ptr + self._len - needle._len;
     bool equal = true;
     if (selfptr != needle._ptr) {
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         let length := mload(needle)
         let needleptr := mload(add(needle, 0x20))
@@ -526,12 +540,14 @@ library strings {
         }
 
         bytes32 needledata;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
           needledata := and(mload(needleptr), mask)
         }
 
         uint256 end = selfptr + selflen - needlelen;
         bytes32 ptrdata;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
           ptrdata := and(mload(ptr), mask)
         }
@@ -539,6 +555,7 @@ library strings {
         while (ptrdata != needledata) {
           if (ptr >= end) return selfptr + selflen;
           ptr++;
+          // solhint-disable-next-line no-inline-assembly
           assembly {
             ptrdata := and(mload(ptr), mask)
           }
@@ -547,12 +564,14 @@ library strings {
       } else {
         // For long needles, use hashing
         bytes32 hash;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
           hash := keccak256(needleptr, needlelen)
         }
 
         for (idx = 0; idx <= selflen - needlelen; idx++) {
           bytes32 testHash;
+          // solhint-disable-next-line no-inline-assembly
           assembly {
             testHash := keccak256(ptr, needlelen)
           }
@@ -582,12 +601,14 @@ library strings {
         }
 
         bytes32 needledata;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
           needledata := and(mload(needleptr), mask)
         }
 
         ptr = selfptr + selflen - needlelen;
         bytes32 ptrdata;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
           ptrdata := and(mload(ptr), mask)
         }
@@ -595,6 +616,7 @@ library strings {
         while (ptrdata != needledata) {
           if (ptr <= selfptr) return selfptr;
           ptr--;
+          // solhint-disable-next-line no-inline-assembly
           assembly {
             ptrdata := and(mload(ptr), mask)
           }
@@ -603,12 +625,14 @@ library strings {
       } else {
         // For long needles, use hashing
         bytes32 hash;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
           hash := keccak256(needleptr, needlelen)
         }
         ptr = selfptr + (selflen - needlelen);
         while (ptr >= selfptr) {
           bytes32 testHash;
+          // solhint-disable-next-line no-inline-assembly
           assembly {
             testHash := keccak256(ptr, needlelen)
           }
@@ -628,10 +652,10 @@ library strings {
    * @param needle The text to search for.
    * @return `self`.
    */
-  function find(slice memory self, slice memory needle)
+  function find(Slice memory self, Slice memory needle)
     internal
     pure
-    returns (slice memory)
+    returns (Slice memory)
   {
     uint256 ptr = findPtr(self._len, self._ptr, needle._len, needle._ptr);
     self._len -= ptr - self._ptr;
@@ -647,10 +671,10 @@ library strings {
    * @param needle The text to search for.
    * @return `self`.
    */
-  function rfind(slice memory self, slice memory needle)
+  function rfind(Slice memory self, Slice memory needle)
     internal
     pure
-    returns (slice memory)
+    returns (Slice memory)
   {
     uint256 ptr = rfindPtr(self._len, self._ptr, needle._len, needle._ptr);
     self._len = ptr - self._ptr;
@@ -668,10 +692,10 @@ library strings {
    * @return `token`.
    */
   function split(
-    slice memory self,
-    slice memory needle,
-    slice memory token
-  ) internal pure returns (slice memory) {
+    Slice memory self,
+    Slice memory needle,
+    Slice memory token
+  ) internal pure returns (Slice memory) {
     uint256 ptr = findPtr(self._len, self._ptr, needle._len, needle._ptr);
     token._ptr = self._ptr;
     token._len = ptr - self._ptr;
@@ -694,10 +718,10 @@ library strings {
    * @param needle The text to search for in `self`.
    * @return The part of `self` up to the first occurrence of `delim`.
    */
-  function split(slice memory self, slice memory needle)
+  function split(Slice memory self, Slice memory needle)
     internal
     pure
-    returns (slice memory token)
+    returns (Slice memory token)
   {
     split(self, needle, token);
   }
@@ -713,10 +737,10 @@ library strings {
    * @return `token`.
    */
   function rsplit(
-    slice memory self,
-    slice memory needle,
-    slice memory token
-  ) internal pure returns (slice memory) {
+    Slice memory self,
+    Slice memory needle,
+    Slice memory token
+  ) internal pure returns (Slice memory) {
     uint256 ptr = rfindPtr(self._len, self._ptr, needle._len, needle._ptr);
     token._ptr = ptr;
     token._len = self._len - (ptr - self._ptr);
@@ -738,10 +762,10 @@ library strings {
    * @param needle The text to search for in `self`.
    * @return The part of `self` after the last occurrence of `delim`.
    */
-  function rsplit(slice memory self, slice memory needle)
+  function rsplit(Slice memory self, Slice memory needle)
     internal
     pure
-    returns (slice memory token)
+    returns (Slice memory token)
   {
     rsplit(self, needle, token);
   }
@@ -752,7 +776,7 @@ library strings {
    * @param needle The text to search for in `self`.
    * @return The number of occurrences of `needle` found in `self`.
    */
-  function count(slice memory self, slice memory needle)
+  function count(Slice memory self, Slice memory needle)
     internal
     pure
     returns (uint256 cnt)
@@ -773,7 +797,7 @@ library strings {
    * @param needle The text to search for in `self`.
    * @return True if `needle` is found in `self`, false otherwise.
    */
-  function contains(slice memory self, slice memory needle)
+  function contains(Slice memory self, Slice memory needle)
     internal
     pure
     returns (bool)
@@ -789,13 +813,14 @@ library strings {
    * @param other The second slice to concatenate.
    * @return The concatenation of the two strings.
    */
-  function concat(slice memory self, slice memory other)
+  function concat(Slice memory self, Slice memory other)
     internal
     pure
     returns (string memory)
   {
     string memory ret = new string(self._len + other._len);
     uint256 retptr;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       retptr := add(ret, 32)
     }
@@ -812,7 +837,7 @@ library strings {
    * @return A newly allocated string containing all the slices in `parts`,
    *         joined with `self`.
    */
-  function join(slice memory self, slice[] memory parts)
+  function join(Slice memory self, Slice[] memory parts)
     internal
     pure
     returns (string memory)
@@ -824,6 +849,7 @@ library strings {
 
     string memory ret = new string(length);
     uint256 retptr;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       retptr := add(ret, 32)
     }

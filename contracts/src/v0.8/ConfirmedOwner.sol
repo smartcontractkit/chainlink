@@ -8,5 +8,6 @@ import "./ConfirmedOwnerWithProposal.sol";
  * @notice A contract with helpers for basic contract ownership.
  */
 contract ConfirmedOwner is ConfirmedOwnerWithProposal {
+  // solhint-disable-next-line no-empty-blocks
   constructor(address newOwner) ConfirmedOwnerWithProposal(newOwner, address(0)) {}
 }

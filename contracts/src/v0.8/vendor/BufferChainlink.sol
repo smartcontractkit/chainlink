@@ -15,7 +15,7 @@ library BufferChainlink {
    *      a capacity. The capacity may be longer than the current value, in
    *      which case it can be extended without the need to allocate more memory.
    */
-  struct buffer {
+  struct Buffer {
     bytes buf;
     uint256 capacity;
   }
@@ -26,12 +26,13 @@ library BufferChainlink {
    * @param capacity The number of bytes of space to allocate the buffer.
    * @return The buffer, for chaining.
    */
-  function init(buffer memory buf, uint256 capacity) internal pure returns (buffer memory) {
+  function init(Buffer memory buf, uint256 capacity) internal pure returns (Buffer memory) {
     if (capacity % 32 != 0) {
       capacity += 32 - (capacity % 32);
     }
     // Allocate space for the buffer data
     buf.capacity = capacity;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let ptr := mload(0x40)
       mstore(buf, ptr)
@@ -47,14 +48,14 @@ library BufferChainlink {
    * @param b The bytes object to initialize the buffer with.
    * @return A new buffer.
    */
-  function fromBytes(bytes memory b) internal pure returns (buffer memory) {
-    buffer memory buf;
+  function fromBytes(bytes memory b) internal pure returns (Buffer memory) {
+    Buffer memory buf;
     buf.buf = b;
     buf.capacity = b.length;
     return buf;
   }
 
-  function resize(buffer memory buf, uint256 capacity) private pure {
+  function resize(Buffer memory buf, uint256 capacity) private pure {
     bytes memory oldbuf = buf.buf;
     init(buf, capacity);
     append(buf, oldbuf);
@@ -72,7 +73,8 @@ library BufferChainlink {
    * @param buf The buffer to truncate.
    * @return The original buffer, for chaining..
    */
-  function truncate(buffer memory buf) internal pure returns (buffer memory) {
+  function truncate(Buffer memory buf) internal pure returns (Buffer memory) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let bufptr := mload(buf)
       mstore(bufptr, 0)
@@ -90,12 +92,12 @@ library BufferChainlink {
    * @return The original buffer, for chaining.
    */
   function write(
-    buffer memory buf,
+    Buffer memory buf,
     uint256 off,
     bytes memory data,
     uint256 len
-  ) internal pure returns (buffer memory) {
-    require(len <= data.length);
+  ) internal pure returns (Buffer memory) {
+    require(len <= data.length, "Len not eq to data length");
 
     if (off + len > buf.capacity) {
       resize(buf, max(buf.capacity, len + off) * 2);
@@ -103,6 +105,7 @@ library BufferChainlink {
 
     uint256 dest;
     uint256 src;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       // Memory address of the buffer data
       let bufptr := mload(buf)
@@ -119,6 +122,7 @@ library BufferChainlink {
 
     // Copy word-length chunks while possible
     for (; len >= 32; len -= 32) {
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         mstore(dest, mload(src))
       }
@@ -129,6 +133,7 @@ library BufferChainlink {
     // Copy remaining bytes
     unchecked {
       uint256 mask = (256**(32 - len)) - 1;
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         let srcpart := and(mload(src), not(mask))
         let destpart := and(mload(dest), mask)
@@ -148,10 +153,10 @@ library BufferChainlink {
    * @return The original buffer, for chaining.
    */
   function append(
-    buffer memory buf,
+    Buffer memory buf,
     bytes memory data,
     uint256 len
-  ) internal pure returns (buffer memory) {
+  ) internal pure returns (Buffer memory) {
     return write(buf, buf.buf.length, data, len);
   }
 
@@ -162,7 +167,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chaining.
    */
-  function append(buffer memory buf, bytes memory data) internal pure returns (buffer memory) {
+  function append(Buffer memory buf, bytes memory data) internal pure returns (Buffer memory) {
     return write(buf, buf.buf.length, data, data.length);
   }
 
@@ -175,14 +180,15 @@ library BufferChainlink {
    * @return The original buffer, for chaining.
    */
   function writeUint8(
-    buffer memory buf,
+    Buffer memory buf,
     uint256 off,
     uint8 data
-  ) internal pure returns (buffer memory) {
+  ) internal pure returns (Buffer memory) {
     if (off >= buf.capacity) {
       resize(buf, buf.capacity * 2);
     }
 
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       // Memory address of the buffer data
       let bufptr := mload(buf)
@@ -206,7 +212,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chaining.
    */
-  function appendUint8(buffer memory buf, uint8 data) internal pure returns (buffer memory) {
+  function appendUint8(Buffer memory buf, uint8 data) internal pure returns (Buffer memory) {
     return writeUint8(buf, buf.buf.length, data);
   }
 
@@ -220,11 +226,11 @@ library BufferChainlink {
    * @return The original buffer, for chaining.
    */
   function write(
-    buffer memory buf,
+    Buffer memory buf,
     uint256 off,
     bytes32 data,
     uint256 len
-  ) private pure returns (buffer memory) {
+  ) private pure returns (Buffer memory) {
     if (len + off > buf.capacity) {
       resize(buf, (len + off) * 2);
     }
@@ -233,6 +239,8 @@ library BufferChainlink {
       uint256 mask = (256**len) - 1;
       // Right-align data
       data = data >> (8 * (32 - len));
+
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         // Memory address of the buffer data
         let bufptr := mload(buf)
@@ -257,10 +265,10 @@ library BufferChainlink {
    * @return The original buffer, for chaining.
    */
   function writeBytes20(
-    buffer memory buf,
+    Buffer memory buf,
     uint256 off,
     bytes20 data
-  ) internal pure returns (buffer memory) {
+  ) internal pure returns (Buffer memory) {
     return write(buf, off, bytes32(data), 20);
   }
 
@@ -271,7 +279,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chhaining.
    */
-  function appendBytes20(buffer memory buf, bytes20 data) internal pure returns (buffer memory) {
+  function appendBytes20(Buffer memory buf, bytes20 data) internal pure returns (Buffer memory) {
     return write(buf, buf.buf.length, bytes32(data), 20);
   }
 
@@ -282,7 +290,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chaining.
    */
-  function appendBytes32(buffer memory buf, bytes32 data) internal pure returns (buffer memory) {
+  function appendBytes32(Buffer memory buf, bytes32 data) internal pure returns (Buffer memory) {
     return write(buf, buf.buf.length, data, 32);
   }
 
@@ -296,16 +304,17 @@ library BufferChainlink {
    * @return The original buffer, for chaining.
    */
   function writeInt(
-    buffer memory buf,
+    Buffer memory buf,
     uint256 off,
     uint256 data,
     uint256 len
-  ) private pure returns (buffer memory) {
+  ) private pure returns (Buffer memory) {
     if (len + off > buf.capacity) {
       resize(buf, (len + off) * 2);
     }
 
     uint256 mask = (256**len) - 1;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       // Memory address of the buffer data
       let bufptr := mload(buf)
@@ -328,10 +337,10 @@ library BufferChainlink {
    * @return The original buffer.
    */
   function appendInt(
-    buffer memory buf,
+    Buffer memory buf,
     uint256 data,
     uint256 len
-  ) internal pure returns (buffer memory) {
+  ) internal pure returns (Buffer memory) {
     return writeInt(buf, buf.buf.length, data, len);
   }
 }

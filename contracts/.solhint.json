@@ -2,6 +2,11 @@
 	"extends": "solhint:recommended",
 	"plugins": ["prettier"],
 	"rules": {
-	  "prettier/prettier": "error"
+	  "prettier/prettier": "error",
+	  "compiler-version": ["error", "^0.8.0"],
+	  "var-name-mixedcase": "off",
+	  "const-name-snakecase": "off",
+	  "reason-string": ["warn", { "maxLength": 50 }],
+	  "func-visibility": ["warn", { "ignoreConstructors": true }]
 	}
 }

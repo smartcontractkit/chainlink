@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "../interfaces/AggregatorValidatorInterface.sol";
 
 contract MockAggregatorValidator is AggregatorValidatorInterface {
-  uint8 immutable id;
+  uint8 internal immutable id;
 
   constructor(uint8 id_) {
     id = id_;

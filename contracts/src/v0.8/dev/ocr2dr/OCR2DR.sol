@@ -10,7 +10,7 @@ import {BufferChainlink} from "../../vendor/BufferChainlink.sol";
 library OCR2DR {
   uint256 internal constant DEFAULT_BUFFER_SIZE = 256;
 
-  using CBORChainlink for BufferChainlink.buffer;
+  using CBORChainlink for BufferChainlink.Buffer;
 
   enum Location {
     Inline
@@ -63,7 +63,7 @@ library OCR2DR {
    * @return CBOR encoded bytes
    */
   function encodeCBOR(Request memory self) internal pure returns (bytes memory) {
-    BufferChainlink.buffer memory buf;
+    BufferChainlink.Buffer memory buf;
     BufferChainlink.init(buf, DEFAULT_BUFFER_SIZE);
 
     buf.encodeString("codeLocation");

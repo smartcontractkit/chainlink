@@ -70,10 +70,10 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
 
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
   // fees, so this should be set to the highest gas lane on the network.
-  bytes32 s_keyHash;
+  bytes32 public s_keyHash;
 
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
-  uint8 s_maxNumWords;
+  uint8 public s_maxNumWords;
 
   struct Callback {
     address callbackAddress;

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
+
+// solhint-disable-next-line compiler-version
 pragma solidity >=0.4.19;
 
 import {BufferChainlink} from "./BufferChainlink.sol";
 
 library CBORChainlink {
-  using BufferChainlink for BufferChainlink.buffer;
+  using BufferChainlink for BufferChainlink.Buffer;
 
   uint8 private constant MAJOR_TYPE_INT = 0;
   uint8 private constant MAJOR_TYPE_NEGATIVE_INT = 1;
@@ -18,7 +20,7 @@ library CBORChainlink {
   uint8 private constant TAG_TYPE_BIGNUM = 2;
   uint8 private constant TAG_TYPE_NEGATIVE_BIGNUM = 3;
 
-  function encodeFixedNumeric(BufferChainlink.buffer memory buf, uint8 major, uint64 value) private pure {
+  function encodeFixedNumeric(BufferChainlink.Buffer memory buf, uint8 major, uint64 value) private pure {
     if(value <= 23) {
       buf.appendUint8(uint8((major << 5) | value));
     } else if (value <= 0xFF) {
@@ -36,11 +38,11 @@ library CBORChainlink {
     }
   }
 
-  function encodeIndefiniteLengthType(BufferChainlink.buffer memory buf, uint8 major) private pure {
+  function encodeIndefiniteLengthType(BufferChainlink.Buffer memory buf, uint8 major) private pure {
     buf.appendUint8(uint8((major << 5) | 31));
   }
 
-  function encodeUInt(BufferChainlink.buffer memory buf, uint value) internal pure {
+  function encodeUInt(BufferChainlink.Buffer memory buf, uint value) internal pure {
     if(value > 0xFFFFFFFFFFFFFFFF) {
       encodeBigNum(buf, value);
     } else {
@@ -48,7 +50,7 @@ library CBORChainlink {
     }
   }
 
-  function encodeInt(BufferChainlink.buffer memory buf, int value) internal pure {
+  function encodeInt(BufferChainlink.Buffer memory buf, int value) internal pure {
     if(value < -0x10000000000000000) {
       encodeSignedBigNum(buf, value);
     } else if(value > 0xFFFFFFFFFFFFFFFF) {
@@ -60,35 +62,35 @@ library CBORChainlink {
     }
   }
 
-  function encodeBytes(BufferChainlink.buffer memory buf, bytes memory value) internal pure {
+  function encodeBytes(BufferChainlink.Buffer memory buf, bytes memory value) internal pure {
     encodeFixedNumeric(buf, MAJOR_TYPE_BYTES, uint64(value.length));
     buf.append(value);
   }
 
-  function encodeBigNum(BufferChainlink.buffer memory buf, uint value) internal pure {
+  function encodeBigNum(BufferChainlink.Buffer memory buf, uint value) internal pure {
     buf.appendUint8(uint8((MAJOR_TYPE_TAG << 5) | TAG_TYPE_BIGNUM));
     encodeBytes(buf, abi.encode(value));
   }
 
-  function encodeSignedBigNum(BufferChainlink.buffer memory buf, int input) internal pure {
+  function encodeSignedBigNum(BufferChainlink.Buffer memory buf, int input) internal pure {
     buf.appendUint8(uint8((MAJOR_TYPE_TAG << 5) | TAG_TYPE_NEGATIVE_BIGNUM));
     encodeBytes(buf, abi.encode(uint256(-1 - input)));
   }
 
-  function encodeString(BufferChainlink.buffer memory buf, string memory value) internal pure {
+  function encodeString(BufferChainlink.Buffer memory buf, string memory value) internal pure {
     encodeFixedNumeric(buf, MAJOR_TYPE_STRING, uint64(bytes(value).length));
     buf.append(bytes(value));
   }
 
-  function startArray(BufferChainlink.buffer memory buf) internal pure {
+  function startArray(BufferChainlink.Buffer memory buf) internal pure {
     encodeIndefiniteLengthType(buf, MAJOR_TYPE_ARRAY);
   }
 
-  function startMap(BufferChainlink.buffer memory buf) internal pure {
+  function startMap(BufferChainlink.Buffer memory buf) internal pure {
     encodeIndefiniteLengthType(buf, MAJOR_TYPE_MAP);
   }
 
-  function endSequence(BufferChainlink.buffer memory buf) internal pure {
+  function endSequence(BufferChainlink.Buffer memory buf) internal pure {
     encodeIndefiniteLengthType(buf, MAJOR_TYPE_CONTENT_FREE);
   }
 }

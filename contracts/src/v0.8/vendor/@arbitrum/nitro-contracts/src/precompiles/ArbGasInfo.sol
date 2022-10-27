@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+
+// solhint-disable-next-line compiler-version
 pragma solidity >=0.4.21 <0.9.0;
 
 interface ArbGasInfo {

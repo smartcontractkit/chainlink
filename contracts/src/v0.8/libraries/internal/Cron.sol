@@ -85,7 +85,7 @@ struct Field {
  * determines the next time a cron job should fire based on the current block timestamp.
  */
 library Cron {
-  using strings for *;
+  using Strings for *;
 
   /**
    * @notice nextTick calculates the next datetime that a spec "ticks", starting
@@ -96,11 +96,13 @@ library Cron {
    * @dev this is the internal version of the library. There is also an external version.
    */
   function nextTick(Spec memory spec) internal view returns (uint256) {
+    /* solhint-disable not-rely-on-time */
     uint16 year = DateTime.getYear(block.timestamp);
     uint8 month = DateTime.getMonth(block.timestamp);
     uint8 day = DateTime.getDay(block.timestamp);
     uint8 hour = DateTime.getHour(block.timestamp);
     uint8 minute = DateTime.getMinute(block.timestamp);
+    /* solhint-enable not-rely-on-time */
     uint8 dayOfWeek;
     for (; true; year++) {
       for (; month <= 12; month++) {
@@ -152,11 +154,13 @@ library Cron {
    * @return the next tick
    */
   function lastTick(Spec memory spec) internal view returns (uint256) {
+    /* solhint-disable not-rely-on-time */
     uint16 year = DateTime.getYear(block.timestamp);
     uint8 month = DateTime.getMonth(block.timestamp);
     uint8 day = DateTime.getDay(block.timestamp);
     uint8 hour = DateTime.getHour(block.timestamp);
     uint8 minute = DateTime.getMinute(block.timestamp);
+    /* solhint-enable not-rely-on-time */
     uint8 dayOfWeek;
     bool resetDay;
     for (; true; year--) {
@@ -218,7 +222,7 @@ library Cron {
    * @param timestamp the timestamp to compare against
    * @return true / false if they match
    */
-  function matches(Spec memory spec, uint256 timestamp) internal view returns (bool) {
+  function matches(Spec memory spec, uint256 timestamp) internal pure returns (bool) {
     DateTime._DateTime memory dt = DateTime.parseTimestamp(timestamp);
     return
       matches(spec.month, dt.month) &&
@@ -234,15 +238,15 @@ library Cron {
    * @return the spec struct
    */
   function toSpec(string memory cronString) internal pure returns (Spec memory) {
-    strings.slice memory space = strings.toSlice(" ");
-    strings.slice memory cronSlice = strings.toSlice(cronString);
+    Strings.Slice memory space = Strings.toSlice(" ");
+    Strings.Slice memory cronSlice = Strings.toSlice(cronString);
     if (cronSlice.count(space) != 4) {
       revert InvalidSpec("4 spaces required");
     }
-    strings.slice memory minuteSlice = cronSlice.split(space);
-    strings.slice memory hourSlice = cronSlice.split(space);
-    strings.slice memory daySlice = cronSlice.split(space);
-    strings.slice memory monthSlice = cronSlice.split(space);
+    Strings.Slice memory minuteSlice = cronSlice.split(space);
+    Strings.Slice memory hourSlice = cronSlice.split(space);
+    Strings.Slice memory daySlice = cronSlice.split(space);
+    Strings.Slice memory monthSlice = cronSlice.split(space);
     // DEV: dayOfWeekSlice = cronSlice
     // The cronSlice now contains the last section of the cron job,
     // which corresponds to the day of week
@@ -437,21 +441,21 @@ library Cron {
   }
 
   /**
-   * @notice sliceToField converts a strings.slice to a field struct
+   * @notice sliceToField converts a Strings.Slice to a field struct
    * @param fieldSlice the slice of a string representing the field of a cron job
    * @return the field
    */
-  function sliceToField(strings.slice memory fieldSlice) private pure returns (Field memory) {
-    strings.slice memory star = strings.toSlice("*");
-    strings.slice memory dash = strings.toSlice("-");
-    strings.slice memory slash = strings.toSlice("/");
-    strings.slice memory comma = strings.toSlice(",");
+  function sliceToField(Strings.Slice memory fieldSlice) private pure returns (Field memory) {
+    Strings.Slice memory star = Strings.toSlice("*");
+    Strings.Slice memory dash = Strings.toSlice("-");
+    Strings.Slice memory slash = Strings.toSlice("/");
+    Strings.Slice memory comma = Strings.toSlice(",");
     Field memory field;
     if (fieldSlice.equals(star)) {
       field.fieldType = FieldType.WILD;
     } else if (fieldSlice.contains(dash)) {
       field.fieldType = FieldType.RANGE;
-      strings.slice memory start = fieldSlice.split(dash);
+      Strings.Slice memory start = fieldSlice.split(dash);
       field.rangeStart = sliceToUint8(start);
       field.rangeEnd = sliceToUint8(fieldSlice);
     } else if (fieldSlice.contains(slash)) {
@@ -460,7 +464,7 @@ library Cron {
       field.interval = sliceToUint8(fieldSlice);
     } else if (fieldSlice.contains(comma)) {
       field.fieldType = FieldType.LIST;
-      strings.slice memory token;
+      Strings.Slice memory token;
       while (fieldSlice.len() > 0) {
         if (field.listLength > 25) {
           revert ListTooLarge();
@@ -529,11 +533,11 @@ library Cron {
   }
 
   /**
-   * @notice sliceToUint8 converts a strings.slice to uint8
+   * @notice sliceToUint8 converts a Strings.Slice to uint8
    * @param slice the string slice to convert to a uint8
    * @return the number that the string represents ex: "20" --> 20
    */
-  function sliceToUint8(strings.slice memory slice) private pure returns (uint8) {
+  function sliceToUint8(Strings.Slice memory slice) private pure returns (uint8) {
     bytes memory b = bytes(slice.toString());
     uint8 i;
     uint8 result = 0;

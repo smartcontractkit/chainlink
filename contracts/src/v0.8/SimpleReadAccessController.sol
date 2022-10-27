@@ -20,6 +20,7 @@ contract SimpleReadAccessController is SimpleWriteAccessController {
    * @param _user The address to query
    */
   function hasAccess(address _user, bytes memory _calldata) public view virtual override returns (bool) {
+    // solhint-disable-next-line avoid-tx-origin
     return super.hasAccess(_user, _calldata) || _user == tx.origin;
   }
 }

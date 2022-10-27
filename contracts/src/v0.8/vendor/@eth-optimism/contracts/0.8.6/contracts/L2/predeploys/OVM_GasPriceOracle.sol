@@ -15,6 +15,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
  * constructor doesn't run in practice as the L2 state generation script uses
  * the deployed bytecode instead of running the initcode.
  */
+// solhint-disable-next-line contract-name-camelcase
 contract OVM_GasPriceOracle is Ownable {
     /*************
      * Variables *

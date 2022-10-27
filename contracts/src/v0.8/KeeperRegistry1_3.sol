@@ -15,6 +15,7 @@ import "./interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
+// solhint-disable-next-line contract-name-camelcase
 contract KeeperRegistry1_3 is
   KeeperRegistryBase1_3,
   Proxy,
@@ -70,6 +71,7 @@ contract KeeperRegistry1_3 is
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    */
+  /* solhint-disable no-unused-vars */
   function registerUpkeep(
     address target,
     uint32 gasLimit,
@@ -80,6 +82,8 @@ contract KeeperRegistry1_3 is
     _fallback();
   }
 
+  /* solhint-enable no-unused-vars */
+
   /**
    * @notice simulated by keepers via eth_call to see if the upkeep needs to be
    * performed. If upkeep is needed, the call then simulates performUpkeep
@@ -88,6 +92,7 @@ contract KeeperRegistry1_3 is
    * @param id identifier of the upkeep to check
    * @param from the address to simulate performing the upkeep from
    */
+  /* solhint-disable no-unused-vars */
   function checkUpkeep(uint256 id, address from)
     external
     override
@@ -103,6 +108,8 @@ contract KeeperRegistry1_3 is
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice executes the upkeep with the perform data returned from
@@ -123,10 +130,13 @@ contract KeeperRegistry1_3 is
    * @notice prevent an upkeep from being performed in the future
    * @param id upkeep to be canceled
    */
+  /* solhint-disable no-unused-vars */
   function cancelUpkeep(uint256 id) external override {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice pause an upkeep
@@ -172,10 +182,13 @@ contract KeeperRegistry1_3 is
    * @param id upkeep to fund
    * @param amount number of LINK to transfer
    */
+  /* solhint-disable no-unused-vars */
   function addFunds(uint256 id, uint96 amount) external override {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice uses LINK's transferAndCall to LINK and add funding to an upkeep
@@ -204,10 +217,13 @@ contract KeeperRegistry1_3 is
    * @param id upkeep to withdraw funds from
    * @param to destination address for sending remaining funds
    */
+  /* solhint-disable no-unused-vars */
   function withdrawFunds(uint256 id, address to) external {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice withdraws LINK funds collected through cancellation fees
@@ -222,10 +238,13 @@ contract KeeperRegistry1_3 is
    * @param id upkeep to be change the gas limit for
    * @param gasLimit new gas limit for the upkeep
    */
+  /* solhint-disable no-unused-vars */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice recovers LINK funds improperly transferred to the registry
@@ -243,48 +262,63 @@ contract KeeperRegistry1_3 is
    * @param from keeper address
    * @param to address to send the payment to
    */
+  /* solhint-disable no-unused-vars */
   function withdrawPayment(address from, address to) external {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice proposes the safe transfer of a keeper's payee to another address
    * @param keeper address of the keeper to transfer payee role
    * @param proposed address to nominate for next payeeship
    */
+  /* solhint-disable no-unused-vars */
   function transferPayeeship(address keeper, address proposed) external {
     // Executed through logic contract
     _fallback();
   }
 
+  /* solhint-enable no-unused-vars */
+
   /**
    * @notice accepts the safe transfer of payee role for a keeper
    * @param keeper address to accept the payee role for
    */
+  /* solhint-disable no-unused-vars */
   function acceptPayeeship(address keeper) external {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice proposes the safe transfer of an upkeep's admin role to another address
    * @param id the upkeep id to transfer admin
    * @param proposed address to nominate for the new upkeep admin
    */
+  /* solhint-disable no-unused-vars */
   function transferUpkeepAdmin(uint256 id, address proposed) external override {
     // Executed through logic contract
     _fallback();
   }
 
+  /* solhint-enable no-unused-vars */
+
   /**
    * @notice accepts the safe transfer of admin role for an upkeep
    * @param id the upkeep id
    */
+  /* solhint-disable no-unused-vars */
   function acceptUpkeepAdmin(uint256 id) external override {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @notice signals to keepers that they should not perform upkeeps until the
@@ -336,10 +370,13 @@ contract KeeperRegistry1_3 is
    * @param payees addresses corresponding to keepers who are allowed to
    * move payments which have been accrued
    */
+  /* solhint-disable no-unused-vars */
   function setKeepers(address[] calldata keepers, address[] calldata payees) external {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   // GETTERS
 
@@ -473,18 +510,24 @@ contract KeeperRegistry1_3 is
   /**
    * @notice sets the peer registry migration permission
    */
+  /* solhint-disable no-unused-vars */
   function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external {
     // Executed through logic contract
     _fallback();
   }
 
+  /* solhint-enable no-unused-vars */
+
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
+  /* solhint-disable no-unused-vars */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
@@ -494,10 +537,13 @@ contract KeeperRegistry1_3 is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
+  /* solhint-disable no-unused-vars */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     // Executed through logic contract
     _fallback();
   }
+
+  /* solhint-enable no-unused-vars */
 
   /**
    * @dev This is the address to which proxy functions are delegated to
@@ -515,6 +561,7 @@ contract KeeperRegistry1_3 is
     address target,
     bytes memory data
   ) private returns (bool success) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow

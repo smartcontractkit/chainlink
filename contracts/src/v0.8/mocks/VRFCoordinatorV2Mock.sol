@@ -35,22 +35,22 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   event ConsumerAdded(uint64 indexed subId, address consumer);
   event ConsumerRemoved(uint64 indexed subId, address consumer);
 
-  uint64 s_currentSubId;
-  uint256 s_nextRequestId = 1;
-  uint256 s_nextPreSeed = 100;
+  uint64 internal s_currentSubId;
+  uint256 internal s_nextRequestId = 1;
+  uint256 internal s_nextPreSeed = 100;
   struct Subscription {
     address owner;
     uint96 balance;
   }
-  mapping(uint64 => Subscription) s_subscriptions; /* subId */ /* subscription */
-  mapping(uint64 => address[]) s_consumers; /* subId */ /* consumers */
+  mapping(uint64 => Subscription) internal s_subscriptions; /* subId */ /* subscription */
+  mapping(uint64 => address[]) internal s_consumers; /* subId */ /* consumers */
 
   struct Request {
     uint64 subId;
     uint32 callbackGasLimit;
     uint32 numWords;
   }
-  mapping(uint256 => Request) s_requests; /* requestId */ /* request */
+  mapping(uint256 => Request) internal s_requests; /* requestId */ /* request */
 
   constructor(uint96 _baseFee, uint96 _gasPriceLink) {
     BASE_FEE = _baseFee;
@@ -118,6 +118,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
 
     VRFConsumerBaseV2 v;
     bytes memory callReq = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, _requestId, _words);
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, ) = _consumer.call{gas: req.callbackGasLimit}(callReq);
 
     uint96 payment = uint96(BASE_FEE + ((startGas - gasleft()) * GAS_PRICE_LINK));
@@ -260,7 +261,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
 
   function getConfig()
     external
-    view
+    pure
     returns (
       uint16 minimumRequestConfirmations,
       uint32 maxGasLimit,
@@ -273,7 +274,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
 
   function getFeeConfig()
     external
-    view
+    pure
     returns (
       uint32 fulfillmentFlatFeeLinkPPMTier1,
       uint32 fulfillmentFlatFeeLinkPPMTier2,
@@ -299,7 +300,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     );
   }
 
-  function getFallbackWeiPerUnitLink() external view returns (int256) {
+  function getFallbackWeiPerUnitLink() external pure returns (int256) {
     return 4000000000000000; // 0.004 Ether
   }
 
@@ -311,7 +312,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     revert("not implemented");
   }
 
-  function pendingRequestExists(uint64 subId) public view override returns (bool) {
+  function pendingRequestExists(uint64 subId) public pure override returns (bool) {
     revert("not implemented");
   }
 }

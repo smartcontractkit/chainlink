@@ -20,6 +20,7 @@ import "./interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
+// solhint-disable-next-line contract-name-camelcase
 contract KeeperRegistry1_2 is
   TypeAndVersionInterface,
   ConfirmedOwner,
@@ -238,6 +239,7 @@ contract KeeperRegistry1_2 is
     Upkeep memory upkeep = s_upkeep[id];
 
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
 
     if (!success) revert TargetCheckReverted(result);
@@ -756,12 +758,14 @@ contract KeeperRegistry1_2 is
     uint256 timestamp;
     int256 feedValue;
     (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
+    // solhint-disable-next-line not-rely-on-time
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
       gasWei = s_fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
     (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    // solhint-disable-next-line not-rely-on-time
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
       linkEth = s_fallbackLinkPrice;
     } else {
@@ -794,6 +798,7 @@ contract KeeperRegistry1_2 is
     address target,
     bytes memory data
   ) private returns (bool success) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow

@@ -311,6 +311,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
     if (amount < s_config.minLINKJuels) {
       revert InsufficientPayment();
     }
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, ) = address(this).delegatecall(data);
     // calls register
     if (!success) {
@@ -381,6 +382,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
    */
   modifier permittedFunctionsForLINK(bytes memory _data) {
     bytes4 funcSelector;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(_data, 32)) // First 32 bytes contain length of data
@@ -398,6 +400,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
    */
   modifier isActualAmount(uint256 expected, bytes memory data) {
     uint256 actual;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       actual := mload(add(data, 228))
     }
@@ -414,6 +417,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
    */
   modifier isActualSender(address expected, bytes memory data) {
     address actual;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       actual := mload(add(data, 292))
     }

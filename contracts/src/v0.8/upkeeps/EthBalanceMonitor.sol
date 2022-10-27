@@ -98,6 +98,7 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
     for (uint256 idx = 0; idx < watchList.length; idx++) {
       target = s_targets[watchList[idx]];
       if (
+        // solhint-disable-next-line not-rely-on-time
         target.lastTopUpTimestamp + minWaitPeriod <= block.timestamp &&
         balance >= target.topUpAmountWei &&
         watchList[idx].balance < target.minBalanceWei
@@ -108,6 +109,7 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
       }
     }
     if (count != watchList.length) {
+      // solhint-disable-next-line no-inline-assembly
       assembly {
         mstore(needsFunding, count)
       }
@@ -122,6 +124,7 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
   function topUp(address[] memory needsFunding) public whenNotPaused {
     uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
     Target memory target;
+    /* solhint-disable not-rely-on-time */
     for (uint256 idx = 0; idx < needsFunding.length; idx++) {
       target = s_targets[needsFunding[idx]];
       if (
@@ -129,8 +132,11 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
         target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp &&
         needsFunding[idx].balance < target.minBalanceWei
       ) {
+        /* solhint-disable */
         bool success = payable(needsFunding[idx]).send(target.topUpAmountWei);
+        /* solhint-enable */
         if (success) {
+          // solhint-disable-next-line reentrancy
           s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
           emit TopUpSucceeded(needsFunding[idx]);
         } else {
@@ -141,6 +147,7 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
         return;
       }
     }
+    /* solhint-enable not-rely-on-time */
   }
 
   /**
@@ -175,7 +182,7 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
    * @param payee The address to pay
    */
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
-    require(payee != address(0));
+    require(payee != address(0), "Payee can't be 0x0 address");
     emit FundsWithdrawn(amount, payee);
     payee.transfer(amount);
   }
@@ -191,7 +198,7 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
    * @notice Sets the keeper registry address
    */
   function setKeeperRegistryAddress(address keeperRegistryAddress) public onlyOwner {
-    require(keeperRegistryAddress != address(0));
+    require(keeperRegistryAddress != address(0), "keeperRegistryAddress can't be 0x0 address");
     emit KeeperRegistryAddressUpdated(s_keeperRegistryAddress, keeperRegistryAddress);
     s_keeperRegistryAddress = keeperRegistryAddress;
   }

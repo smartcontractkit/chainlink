@@ -10,6 +10,7 @@ import "./interfaces/UpkeepTranscoderInterface.sol";
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
+// solhint-disable-next-line contract-name-camelcase
 contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -21,6 +22,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
+  /* solhint-disable no-empty-blocks */
   constructor(
     PaymentModel paymentModel,
     uint256 registryGasOverhead,
@@ -28,6 +30,8 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
     address linkEthFeed,
     address fastGasFeed
   ) KeeperRegistryBase1_3(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
+
+  /* solhint-enable no-empty-blocks */
 
   function checkUpkeep(uint256 id, address from)
     external
@@ -43,6 +47,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
     Upkeep memory upkeep = s_upkeep[id];
 
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
 
     if (!success) revert TargetCheckReverted(result);

@@ -9,6 +9,7 @@ library DateTime {
    *  Date and Time utilities for ethereum contracts
    *
    */
+  // solhint-disable-next-line contract-name-camelcase
   struct _DateTime {
     uint16 year;
     uint8 month;
@@ -19,14 +20,14 @@ library DateTime {
     uint8 weekday;
   }
 
-  uint256 constant DAY_IN_SECONDS = 86400;
-  uint256 constant YEAR_IN_SECONDS = 31536000;
-  uint256 constant LEAP_YEAR_IN_SECONDS = 31622400;
+  uint256 private constant DAY_IN_SECONDS = 86400;
+  uint256 private constant YEAR_IN_SECONDS = 31536000;
+  uint256 private constant LEAP_YEAR_IN_SECONDS = 31622400;
 
-  uint256 constant HOUR_IN_SECONDS = 3600;
-  uint256 constant MINUTE_IN_SECONDS = 60;
+  uint256 private constant HOUR_IN_SECONDS = 3600;
+  uint256 private constant MINUTE_IN_SECONDS = 60;
 
-  uint16 constant ORIGIN_YEAR = 1970;
+  uint16 private constant ORIGIN_YEAR = 1970;
 
   function isLeapYear(uint16 year) internal pure returns (bool) {
     if (year % 4 != 0) {
