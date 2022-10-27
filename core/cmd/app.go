@@ -10,14 +10,12 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -105,36 +103,16 @@ func NewApp(client *Client) *cli.App {
 				}
 				secretsTOML = string(b)
 			}
-			var keystorePasswordFileName, vrfPasswordFileName *string
-			if c.IsSet("password") {
-				s := c.String("password")
-				keystorePasswordFileName = &s
-			}
-			if c.IsSet("vrfpassword") {
-				s := c.String("vrfpassword")
-				vrfPasswordFileName = &s
-			}
-			opts := chainlink.GeneralConfigOpts{
-				KeystorePasswordFileName: keystorePasswordFileName,
-				VRFPasswordFileName:      vrfPasswordFileName,
-			}
+			var opts chainlink.GeneralConfigOpts
 			if err := opts.ParseTOML(configTOML, secretsTOML); err != nil {
 				return err
 			}
-			lggrCfg := logger.Config{
-				LogLevel:       zapcore.Level(*opts.Config.Log.Level),
-				Dir:            *opts.Config.Log.File.Dir,
-				JsonConsole:    *opts.Config.Log.JSONConsole,
-				UnixTS:         *opts.Config.Log.UnixTS,
-				FileMaxSizeMB:  int(*opts.Config.Log.File.MaxSize / utils.MB),
-				FileMaxAgeDays: int(*opts.Config.Log.File.MaxAgeDays),
-				FileMaxBackups: int(*opts.Config.Log.File.MaxBackups),
-			}
-			client.Logger, client.CloseLogger = lggrCfg.New()
-			if cfg, err := opts.New(client.Logger); err != nil {
+			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 				return err
 			} else {
 				client.Config = cfg
+				client.Logger = lggr
+				client.CloseLogger = closeLggr
 			}
 		} else {
 			// Legacy ENV
