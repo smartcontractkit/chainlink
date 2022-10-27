@@ -53,16 +53,6 @@ struct State {
   uint256 numUpkeeps;
 }
 
-struct Upkeep {
-  uint96 balance;
-  address lastKeeper; // 1 storage slot full
-  uint32 executeGas;
-  uint64 maxValidBlocknumber;
-  address target; // 2 storage slots full
-  uint96 amountSpent;
-  address admin; // 3 storage slots full
-}
-
 interface AutomationRegistryBaseInterface {
   function registerUpkeep(
     address target,

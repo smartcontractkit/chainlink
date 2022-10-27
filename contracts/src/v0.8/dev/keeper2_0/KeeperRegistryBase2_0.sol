@@ -5,12 +5,34 @@ import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/Enumer
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
-import {OnchainConfig, State, Upkeep, UpkeepFailureReason} from "./interfaces/KeeperRegistryInterface2_0.sol";
+import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/KeeperCompatibleInterface.sol";
 import "../../interfaces/UpkeepTranscoderInterface.sol";
+
+/**
+ * @notice relevant state of an upkeep which is used in transmit function
+ * @member executeGas the gas limit of upkeep execution
+ * @member maxValidBlocknumber until which block this upkeep is valid
+ * @member paused if this upkeep has been paused
+ * @member target the contract which needs to be serviced
+ * @member amountSpent the amount this upkeep has spent
+ * @member balance the balance of this upkeep
+ * @member lastPerformBlockNumber the last block number when this upkeep was performed
+ */
+struct Upkeep {
+  uint32 executeGas;
+  uint32 maxValidBlocknumber;
+  bool paused;
+  address target;
+  // 3 bytes left in 1st EVM word - not written to in transmit
+  uint96 amountSpent;
+  uint96 balance;
+  uint32 lastPerformBlockNumber;
+  // 4 bytes left in 2nd EVM word - written in transmit path
+}
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between

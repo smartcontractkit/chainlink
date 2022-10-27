@@ -65,28 +65,6 @@ struct State {
 }
 
 /**
- * @notice relevant state of an upkeep which is used in transmit function
- * @member executeGas the gas limit of upkeep execution
- * @member maxValidBlocknumber until which block this upkeep is valid
- * @member paused if this upkeep has been paused
- * @member target the contract which needs to be serviced
- * @member amountSpent the amount this upkeep has spent
- * @member balance the balance of this upkeep
- * @member lastPerformBlockNumber the last block number when this upkeep was performed
- */
-struct Upkeep {
-  uint32 executeGas;
-  uint32 maxValidBlocknumber;
-  bool paused;
-  address target;
-  // 3 bytes left in 1st EVM word - not written to in transmit
-  uint96 amountSpent;
-  uint96 balance;
-  uint32 lastPerformBlockNumber;
-  // 4 bytes left in 2nd EVM word - written in transmit path
-}
-
-/**
  * @notice all information about an upkeep
  * @dev only used in return values
  * @member target the contract which needs to be serviced

@@ -6,12 +6,34 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "./ExecutionPrevention.sol";
-import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterface1_3.sol";
+import {Config, State} from "./interfaces/KeeperRegistryInterface1_3.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
+
+/**
+ * @notice relevant state of an upkeep
+ * @member balance the balance of this upkeep
+ * @member lastKeeper the keeper which last performs the upkeep
+ * @member executeGas the gas limit of upkeep execution
+ * @member maxValidBlocknumber until which block this upkeep is valid
+ * @member target the contract which needs to be serviced
+ * @member amountSpent the amount this upkeep has spent
+ * @member admin the upkeep admin
+ * @member paused if this upkeep has been paused
+ */
+struct Upkeep {
+  uint96 balance;
+  address lastKeeper; // 1 full evm word
+  uint96 amountSpent;
+  address admin; // 2 full evm words
+  uint32 executeGas;
+  uint32 maxValidBlocknumber;
+  address target;
+  bool paused; // 24 bits to 3 full evm words
+}
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between

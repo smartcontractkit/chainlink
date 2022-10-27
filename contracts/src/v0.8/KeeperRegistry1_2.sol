@@ -16,6 +16,16 @@ import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";
 
+struct Upkeep {
+  uint96 balance;
+  address lastKeeper; // 1 storage slot full
+  uint32 executeGas;
+  uint64 maxValidBlocknumber;
+  address target; // 2 storage slots full
+  uint96 amountSpent;
+  address admin; // 3 storage slots full
+}
+
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.

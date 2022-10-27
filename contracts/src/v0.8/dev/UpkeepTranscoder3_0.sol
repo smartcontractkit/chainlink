@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 
 import "./../interfaces/UpkeepTranscoderInterface.sol";
 import "./../interfaces/TypeAndVersionInterface.sol";
-import {Upkeep as UpkeepV1} from "./../interfaces/AutomationRegistryInterface1_2.sol";
-import {Upkeep as UpkeepV2} from "./interfaces/KeeperRegistryInterface1_3.sol";
-import {Upkeep as UpkeepV3} from "./keeper2_0/interfaces/KeeperRegistryInterface2_0.sol";
+import {Upkeep as UpkeepV1} from "./../KeeperRegistry1_2.sol";
+import {Upkeep as UpkeepV2} from "./KeeperRegistryBase.sol";
+import {Upkeep as UpkeepV3} from "./keeper2_0/KeeperRegistryBase2_0.sol";
 import "./../UpkeepFormat.sol";
 
 /**
@@ -42,11 +42,7 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
     }
 
     // this transcoder only handles upkeep V1/V2 to V3, all other formats are invalid.
-    if (toVersion != UpkeepFormat.V3) {
-      revert InvalidTranscoding();
-    }
-
-    if (fromVersion == UpkeepFormat.V1) {
+    if (fromVersion == UpkeepFormat.V1 && toVersion == UpkeepFormat.V3) {
       (uint256[] memory ids, UpkeepV1[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV1[], bytes[])
@@ -60,10 +56,15 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
       for (uint256 idx = 0; idx < ids.length; idx++) {
         UpkeepV1 memory upkeep = upkeeps[idx];
-        assert(upkeep.maxValidBlocknumber >= UINT32_MAX);
+        uint32 maxValidBlock;
+        if (upkeep.maxValidBlocknumber >= UINT32_MAX) {
+          maxValidBlock = UINT32_MAX;
+        } else {
+          maxValidBlock = uint32(upkeep.maxValidBlocknumber);
+        }
         newUpkeeps[idx] = UpkeepV3({
           executeGas: upkeep.executeGas,
-          maxValidBlocknumber: UINT32_MAX,
+          maxValidBlocknumber: maxValidBlock,
           paused: false,
           target: upkeep.target,
           amountSpent: upkeep.amountSpent,
@@ -73,7 +74,9 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
         admins[idx] = upkeep.admin;
       }
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
-    } else if (fromVersion == UpkeepFormat.V2) {
+    }
+
+    if (fromVersion == UpkeepFormat.V2 && toVersion == UpkeepFormat.V3) {
       (uint256[] memory ids, UpkeepV2[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV2[], bytes[])
@@ -100,6 +103,7 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       }
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }
+
     revert InvalidTranscoding();
   }
 }

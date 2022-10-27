@@ -53,28 +53,6 @@ struct State {
   uint256 numUpkeeps;
 }
 
-/**
- * @notice relevant state of an upkeep
- * @member balance the balance of this upkeep
- * @member lastKeeper the keeper which last performs the upkeep
- * @member executeGas the gas limit of upkeep execution
- * @member maxValidBlocknumber until which block this upkeep is valid
- * @member target the contract which needs to be serviced
- * @member amountSpent the amount this upkeep has spent
- * @member admin the upkeep admin
- * @member paused if this upkeep has been paused
- */
-struct Upkeep {
-  uint96 balance;
-  address lastKeeper; // 1 full evm word
-  uint96 amountSpent;
-  address admin; // 2 full evm words
-  uint32 executeGas;
-  uint32 maxValidBlocknumber;
-  address target;
-  bool paused; // 24 bits to 3 full evm words
-}
-
 interface KeeperRegistryBaseInterface {
   function registerUpkeep(
     address target,
