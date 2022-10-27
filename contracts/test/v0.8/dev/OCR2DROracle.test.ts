@@ -130,23 +130,6 @@ describe('OCR2DROracle', () => {
       )
     })
 
-    it('#fulfillRequest reverts on low consumer gas', async () => {
-      const { roles } = await getUsers()
-      const requestId = await placeTestRequest()
-
-      const report = encodeReport(
-        requestId,
-        stringToHex('response'),
-        stringToHex(''),
-      )
-
-      await expect(
-        oracle.connect(roles.oracleNode).callReport(report, {
-          gasLimit: 300000,
-        }),
-      ).to.be.revertedWith('LowGasForConsumer')
-    })
-
     it('#fulfillRequest emits OracleResponse', async () => {
       const { roles } = await getUsers()
       const requestId = await placeTestRequest()
@@ -160,6 +143,40 @@ describe('OCR2DROracle', () => {
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+    })
+
+    it('#fulfillRequest emits UserCallbackError if callback reverts', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await client.setRevertFulfillRequest(true)
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'UserCallbackError')
+        .withArgs(requestId, 'asked to revert')
+    })
+
+    it('#fulfillRequest emits UserCallbackRawError if callback does invalid op', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await client.setDoInvalidOperation(true)
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'UserCallbackRawError')
+        .withArgs(requestId, anyValue)
     })
 
     it('#fulfillRequest invokes client fulfillRequest', async () => {
@@ -212,7 +229,7 @@ describe('OCR2DROracle', () => {
       ).to.be.revertedWith('InconsistentReportData')
     })
 
-    it('#_report handle multiple reports', async () => {
+    it('#_report handles multiple reports', async () => {
       const { roles } = await getUsers()
       const requestId1 = await placeTestRequest()
       const requestId2 = await placeTestRequest()
@@ -235,6 +252,33 @@ describe('OCR2DROracle', () => {
         .withArgs(requestId1, result1, err)
         .to.emit(client, 'FulfillRequestInvoked')
         .withArgs(requestId2, result2, err)
+    })
+
+    it('#_report handles multiple failures', async () => {
+      const { roles } = await getUsers()
+      const requestId1 = await placeTestRequest()
+      const requestId2 = await placeTestRequest()
+      const result1 = stringToHex('result1')
+      const result2 = stringToHex('result2')
+      const err = stringToHex('')
+
+      const abi = ethers.utils.defaultAbiCoder
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [
+          [requestId1, requestId2],
+          [result1, result2],
+          [err, err],
+        ],
+      )
+
+      await client.setRevertFulfillRequest(true)
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'UserCallbackError')
+        .withArgs(requestId1, 'asked to revert')
+        .to.emit(oracle, 'UserCallbackError')
+        .withArgs(requestId2, 'asked to revert')
     })
   })
 })
