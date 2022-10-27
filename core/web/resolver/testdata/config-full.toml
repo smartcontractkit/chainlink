@@ -299,15 +299,18 @@ SendOnly = true
 ChainID = 'mainnet'
 Enabled = false
 BalancePollPeriod = '1m0s'
-ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
-TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+ConfirmPollPeriod = '1s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
+FeeEstimatorMode = 'fixed'
+MaxComputeUnitPrice = 1000000
+MinComputeUnitPrice = 0
+DefaultComputeUnitPrice = 0
 
 [[Solana.Nodes]]
 Name = 'primary'
