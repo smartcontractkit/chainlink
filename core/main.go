@@ -30,7 +30,9 @@ func isDevMode() bool {
 	var clDev string
 	v1, v2 := os.Getenv("CHAINLINK_DEV"), os.Getenv("CL_DEV")
 	if v1 != "" && v2 != "" {
-		panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		if v1 != v2 {
+			panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		}
 	} else if v1 == "" {
 		clDev = v2
 	} else if v2 == "" {
