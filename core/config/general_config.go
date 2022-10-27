@@ -165,6 +165,10 @@ type BasicConfig interface {
 	ReaperExpiration() models.Duration
 	RootDir() string
 	SecureCookies() bool
+	SentryDSN() string
+	SentryDebug() bool
+	SentryEnvironment() string
+	SentryRelease() string
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
 	SolanaNodes() string
@@ -1177,6 +1181,22 @@ func (c *generalConfig) SecureCookies() bool {
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("SessionTimeout")))
+}
+
+func (c *generalConfig) SentryDSN() string {
+	return os.Getenv("SENTRY_DSN")
+}
+
+func (c *generalConfig) SentryDebug() bool {
+	return os.Getenv("SENTRY_DEBUG") == "true"
+}
+
+func (c *generalConfig) SentryEnvironment() string {
+	return os.Getenv("SENTRY_ENVIRONMENT")
+}
+
+func (c *generalConfig) SentryRelease() string {
+	return os.Getenv("SENTRY_RELEASE")
 }
 
 // TLSCertPath represents the file system location of the TLS certificate

@@ -1,7 +1,7 @@
 GETH_VERSION: 1.10.25
-dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin 12b81183a536329d313a04729763c359f6caf29392bf60cd3c1aa8923c98aad0
-load_test_beacon_consumer: ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.bin 0948b8abfd294956c392edd9053cc47dfeb5744c807cb0a7de382b66b53c0ee1
-vrf_beacon: ../../../contracts/solc/v0.8.15/VRFBeacon.abi ../../../contracts/solc/v0.8.15/VRFBeacon.bin 6a81a8ef35e03699ef3b0c7d03430c24c8c66cc0a570585cab711b199b54e390
-vrf_beacon_consumer: ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin 427569de616d76ca4d46760135ea7928af0fa5123aad52eefcae6c9f6bc87bf4
+dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin 3e53a9a7c49246add2366d3bca7ff65135661a09533365befadea671fe7d9b8a
+load_test_beacon_consumer: ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.bin bbe6b498f875cddb29f050e51e85d1a6e496fd5cd7ddb4ff15d58dbffd281c6f
+vrf_beacon: ../../../contracts/solc/v0.8.15/VRFBeacon.abi ../../../contracts/solc/v0.8.15/VRFBeacon.bin e1bd012a3bc4b3c4b458b9155e80fc691b5e8580057eb4d12e7c520800d7f82e
+vrf_beacon_consumer: ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin 60b31d8a420fc6462a8e9687f003626512b842e6fea48ebcf31c5b5c4cd0a1be
 vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 08da747a3488fcd318ddc0db75fd0df7c07a100b2e19061f0efcb12a7180ecde
-vrf_coordinator: ../../../contracts/solc/v0.8.15/VRFCoordinator.abi ../../../contracts/solc/v0.8.15/VRFCoordinator.bin 9fe1193ace998870fe042ffdac7552cea453bb98cd34613dc96a35d527ac63d0
+vrf_coordinator: ../../../contracts/solc/v0.8.15/VRFCoordinator.abi ../../../contracts/solc/v0.8.15/VRFCoordinator.bin a17ca961e3a53e91abd3b97f1bbe802228228fcd67b45426f02cf867d422e844

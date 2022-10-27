@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
+
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

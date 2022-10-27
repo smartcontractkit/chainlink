@@ -477,6 +477,6 @@ Debug = false # Default
 # DSN is the data source name where events will be sent. Sentry is completely disabled if this is left blank.
 DSN = 'sentry-dsn' # Example
 # Environment overrides the Sentry environment to the given value. Otherwise autodetects between dev/prod.
-Environment = 'prod' # Default
+Environment = 'my-custom-env' # Example
 # Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
 Release = 'v1.2.3' # Example

@@ -1,0 +1,109 @@
+RootDir = 'my/root/dir'
+
+[Database]
+[Database.Listener]
+FallbackPollInterval = '2m0s'
+
+[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
+
+[Log]
+Level = 'panic'
+JSONConsole = true
+
+[JobPipeline]
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '30s'
+
+[OCR2]
+Enabled = true
+DatabaseTimeout = '20s'
+
+[OCR]
+Enabled = true
+BlockchainTimeout = '5s'
+
+[P2P]
+IncomingMessageBufferSize = 999
+
+[Keeper]
+GasPriceBufferPercent = 10
+
+[AutoPprof]
+CPUProfileRate = 7
+
+[[EVM]]
+ChainID = '1'
+FinalityDepth = 26
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/mainnet'
+
+[[EVM.Nodes]]
+Name = 'secondary'
+HTTPURL = 'http://broadcast.mirror'
+SendOnly = true
+
+[[EVM]]
+ChainID = '42'
+
+[EVM.GasEstimator]
+PriceDefault = '9.223372036854775807 ether'
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/test'
+
+[[EVM]]
+ChainID = '137'
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/test'
+
+[[Solana]]
+ChainID = 'mainnet'
+MaxRetries = 12
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://mainnet.solana.com'
+
+[[Solana]]
+ChainID = 'testnet'
+OCR2CachePollPeriod = '1m0s'
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://testnet.solana.com'
+
+[[Starknet]]
+ChainID = 'foobar'
+TxSendFrequency = '1h0m0s'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+
+[[Terra]]
+ChainID = 'Columbus-5'
+MaxMsgsPerBatch = 13
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://columbus.terra.com'
+
+[[Terra]]
+ChainID = 'Bombay-12'
+BlocksUntilTxTimeout = 20
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://bombay.terra.com'

@@ -4,18 +4,21 @@ package testsetups
 import (
 	"context"
 	"fmt"
-	"github.com/slack-go/slack"
 	"math/big"
 	"time"
+
+	"github.com/slack-go/slack"
 
 	goeath "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
@@ -231,6 +234,7 @@ func (k *KeeperBenchmarkTest) Run() {
 // counts the number of times it was unsuccessful
 func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool, metricsReporter *testreporters.KeeperBenchmarkTestReporter, rIndex int) {
 	contractABI, err := ethereum.KeeperRegistry11MetaData.GetAbi()
+	Expect(err).ShouldNot(HaveOccurred(), "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
 		contractABI, err = ethereum.KeeperRegistry11MetaData.GetAbi()

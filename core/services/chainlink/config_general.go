@@ -2,10 +2,12 @@ package chainlink
 
 import (
 	"crypto/rand"
+	_ "embed"
 	"fmt"
 	"math/big"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -35,6 +37,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+type ConfigV2 interface {
+	// ConfigTOML returns both the user provided and effective configuration as TOML.
+	ConfigTOML() (user, effective string)
+}
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
@@ -68,13 +75,15 @@ type GeneralConfigOpts struct {
 
 	// OverrideFn is a *test-only* hook to override effective values.
 	OverrideFn func(*Config, *Secrets)
+
+	SkipEnv bool
 }
 
 // ParseTOML sets Config and Secrets from the given TOML strings.
-func (g *GeneralConfigOpts) ParseTOML(config, secrets string) error {
+func (o *GeneralConfigOpts) ParseTOML(config, secrets string) error {
 	return multierr.Combine(
-		v2.DecodeTOML(strings.NewReader(config), &g.Config),
-		v2.DecodeTOML(strings.NewReader(secrets), &g.Secrets),
+		v2.DecodeTOML(strings.NewReader(config), &o.Config),
+		v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets),
 	)
 }
 
@@ -86,9 +95,15 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 	}
 
 	o.Config.setDefaults()
-	o.Config.DevMode = v2.EnvDev.IsTrue()
+	if !o.SkipEnv {
+		o.Config.DevMode = v2.EnvDev.IsTrue()
 
-	err = o.Secrets.setOverrides(o.KeystorePasswordFileName, o.VRFPasswordFileName)
+		err = o.Secrets.setEnv()
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = o.Secrets.setPasswords(o.KeystorePasswordFileName, o.VRFPasswordFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -131,14 +146,69 @@ func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	_, err := utils.MultiErrorList(multierr.Combine(g.c.Validate(), g.secrets.Validate()))
+	_, err := utils.MultiErrorList(multierr.Combine(
+		validateEnv(),
+		g.c.Validate(),
+		g.secrets.Validate()))
 	return err
+}
+
+//go:embed cfgtest/dump/empty-strings.env
+var emptyStringsEnv string
+
+var legacyEnvToV2 = map[string]string{
+	"CHAINLINK_DEV": "CL_DEV",
+
+	"DATABASE_URL":                            "CL_DATABASE_URL",
+	"DATABASE_BACKUP_URL":                     "CL_DATABASE_BACKUP_URL",
+	"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK": "CL_DATABASE_ALLOW_SIMPLE_PASSWORDS",
+
+	"EXPLORER_ACCESS_KEY": "CL_EXPLORER_ACCESS_KEY",
+	"EXPLORER_SECRET":     "CL_EXPLORER_SECRET",
+
+	"PYROSCOPE_AUTH_TOKEN": "CL_PYROSCOPE_AUTH_TOKEN",
+
+	"LOG_COLOR":          "CL_LOG_COLOR",
+	"LOG_SQL_MIGRATIONS": "CL_LOG_SQL_MIGRATIONS",
+}
+
+// validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
+func validateEnv() (err error) {
+	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
+		if strings.TrimSpace(kv) == "" {
+			continue
+		}
+		i := strings.Index(kv, "=")
+		if i == -1 {
+			return errors.Errorf("malformed .env file line: %s", kv)
+		}
+		k := kv[:i]
+		if k == "LOG_LEVEL" {
+			continue // exceptional case of permitting legacy env w/o equivalent v2
+		}
+		v, ok := os.LookupEnv(k)
+		if ok {
+			if k2, ok2 := legacyEnvToV2[k]; ok2 {
+				if v2 := os.Getenv(k2); v != v2 {
+					err = multierr.Append(err, fmt.Errorf("environment variables %s and %s must be equal, or %s must not be set", k, k2, k2))
+				}
+			} else {
+				err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
+			}
+		}
+	}
+	return
 }
 
 func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
 	log("Secrets:\n", g.secretsTOML)
 	log("Input Configuration:\n", g.inputTOML)
 	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+}
+
+// ConfigTOML implements chainlink.ConfigV2
+func (g *generalConfig) ConfigTOML() (user, effective string) {
+	return g.inputTOML, g.effectiveTOML
 }
 
 func (g *generalConfig) Dev() bool {
@@ -843,6 +913,22 @@ func (g *generalConfig) SessionOptions() sessions.Options {
 
 func (g *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
+}
+
+func (g *generalConfig) SentryDSN() string {
+	return *g.c.Sentry.DSN
+}
+
+func (g *generalConfig) SentryDebug() bool {
+	return *g.c.Sentry.Debug
+}
+
+func (g *generalConfig) SentryEnvironment() string {
+	return *g.c.Sentry.Environment
+}
+
+func (g *generalConfig) SentryRelease() string {
+	return *g.c.Sentry.Release
 }
 
 func (g *generalConfig) TLSCertPath() string {

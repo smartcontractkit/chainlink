@@ -1,10 +1,10 @@
 name: Integration Chaos Test
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   push:
     tags:
-      - '*'
+      - "*"
 jobs:
   build-chainlink:
     environment: integration
@@ -39,7 +39,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make operator-ui  
+        run: make operator-ui
       - name: Build and Push
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
         with:
@@ -61,6 +61,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-chainlink
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: chaos-CI
+      TEST_LOG_LEVEL: debug
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics

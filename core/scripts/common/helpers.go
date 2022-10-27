@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	avaxclient "github.com/ava-labs/coreth/ethclient"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -171,6 +172,9 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 	case 420: // Optimism Goerli
 		fmtURL = "https://goerli-optimism.etherscan.io/tx/%s"
 
+	case ArbitrumGoerliChainID: // Arbitrum Goerli
+		fmtURL = "https://goerli-rollup-explorer.arbitrum.io/tx/%s"
+
 	case 56: // BSC mainnet
 		fmtURL = "https://bscscan.com/tx/%s"
 	case 97: // BSC testnet
@@ -276,11 +280,26 @@ func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
 	PanicErr(err)
 
 	for i := 0; i < len(transmitters); i++ {
+		// Special case for Arbitrum since gas estimation there is different.
+		var gasLimit uint64
+		if IsArbitrumChainID(e.ChainID) {
+			to := common.HexToAddress(transmitters[i])
+			estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
+				From:  e.Owner.From,
+				To:    &to,
+				Value: fundingAmount,
+			})
+			PanicErr(err)
+			gasLimit = estimated
+		} else {
+			gasLimit = uint64(21_000)
+		}
+
 		tx := types.NewTransaction(
 			nonce+uint64(i),
 			common.HexToAddress(transmitters[i]),
 			fundingAmount,
-			uint64(21000),
+			gasLimit,
 			e.Owner.GasPrice,
 			nil,
 		)
