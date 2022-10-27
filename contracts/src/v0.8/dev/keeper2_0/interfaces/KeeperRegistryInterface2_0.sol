@@ -66,13 +66,13 @@ struct State {
 
 /**
  * @notice relevant state of an upkeep which is used in transmit function
- * @member balance the balance of this upkeep
- * @member target the contract which needs to be serviced
- * @member amountSpent the amount this upkeep has spent
  * @member executeGas the gas limit of upkeep execution
  * @member maxValidBlocknumber until which block this upkeep is valid
- * @member lastPerformBlockNumber the last block number when this upkeep was performed
  * @member paused if this upkeep has been paused
+ * @member target the contract which needs to be serviced
+ * @member amountSpent the amount this upkeep has spent
+ * @member balance the balance of this upkeep
+ * @member lastPerformBlockNumber the last block number when this upkeep was performed
  */
 struct Upkeep {
   uint32 executeGas;
