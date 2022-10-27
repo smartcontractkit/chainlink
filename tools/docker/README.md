@@ -82,6 +82,7 @@ cldev core # import our testing key and api credentials, then start the node
 # ...
 # ...
 ```
+
 ### Cleaning up
 
 To remove any containers, volumes, and networks related to our docker-compose setup, we can run the `clean` command:
@@ -246,7 +247,8 @@ $ go run ./core/main.go local db preparetest
 $ go test ./...
 
 # run evm tests
-$ yarn workspace @chainlink/contracts test
+$ cd contracts
+$ pnpm test
 
 # start geth
 $ geth --dev --datadir ./tools/gethnet/datadir --mine --ipcdisable --dev.period 2 --unlock 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f --password ./tools/clroot/password.txt --config ./tools/gethnet/config.toml

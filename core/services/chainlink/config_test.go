@@ -20,14 +20,12 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
-
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -1165,7 +1163,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			var opts GeneralConfigOpts
+			opts := GeneralConfigOpts{SkipEnv: true}
 			require.NoError(t, opts.ParseTOML(tt.inputConfig, tt.inputSecrets))
 			c, err := opts.New(lggr)
 			require.NoError(t, err)
@@ -1308,4 +1306,22 @@ func TestConfig_setDefaults(t *testing.T) {
 		t.Log(s, err)
 	}
 	cfgtest.AssertFieldsNotNil(t, c.Core)
+}
+
+func Test_validateEnv(t *testing.T) {
+	validate := func() error { _, err := utils.MultiErrorList(validateEnv()); return err }
+	t.Setenv("LOG_LEVEL", "warn")
+	t.Setenv("DATABASE_URL", "foo")
+	assert.ErrorContains(t, validate(), `environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set`)
+
+	t.Setenv("CL_DATABASE_URL", "foo")
+	assert.NoError(t, validate())
+
+	t.Setenv("CL_DATABASE_URL", "bar")
+	t.Setenv("GAS_UPDATER_ENABLED", "true")
+	t.Setenv("ETH_GAS_BUMP_TX_DEPTH", "7")
+	assert.ErrorContains(t, validate(), `3 errors:
+	- environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set
+	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2
+	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
 }
