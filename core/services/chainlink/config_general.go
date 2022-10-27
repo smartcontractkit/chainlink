@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -46,7 +46,7 @@ type ConfigV2 interface {
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
-	lggr relaylogger.Logger
+	lggr simplelogger.Logger
 
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
@@ -106,7 +106,7 @@ func (o GeneralConfigOpts) NewAndLogger() (coreconfig.GeneralConfig, logger.Logg
 	}
 
 	// placeholder so we can call config methods to bootstrap the real logger
-	cfg.lggr, err = relaylogger.New()
+	cfg.lggr, err = simplelogger.New()
 	if err != nil {
 		return nil, nil, nil, err
 	}
