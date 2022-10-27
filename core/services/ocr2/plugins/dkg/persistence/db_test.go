@@ -37,7 +37,7 @@ func TestShareDB(t *testing.T) {
 		playerIdx, _, err := ocr2vrftypes.UnmarshalPlayerIdx(b)
 		require.NoError(t, err)
 		shareRecord := crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
-		shareRecordHash := crypto.Keccak256Hash(shareRecord[:])
+		shareRecordHash := hash.GetHash(shareRecord[:])
 		var h hash.Hash
 		copy(h[:], shareRecordHash[:])
 		rec := ocr2vrftypes.PersistentShareSetRecord{
