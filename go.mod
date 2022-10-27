@@ -65,7 +65,7 @@ require (
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/smartcontractkit/ocr2keepers v0.4.8
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20221021145954-aef9beb5fcbf
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20221027160437-507f0a1099ae
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
@@ -365,8 +365,6 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
-
-replace github.com/smartcontractkit/ocr2vrf => ../ocr2vrf
 
 exclude (
 	github.com/influxdata/influxdb v1.8.3
