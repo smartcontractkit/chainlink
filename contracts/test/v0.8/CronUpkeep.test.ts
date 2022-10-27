@@ -116,7 +116,7 @@ describe('CronUpkeep', () => {
   })
 
   it('has a limited public ABI [ @skip-coverage ]', () => {
-    // Casting cron is necessary due to a tricky yarn version mismatch issue, likely between ethers
+    // Casting cron is necessary due to a tricky versioning mismatch issue, likely between ethers
     // and typechain. Remove once the version issue is resolved.
     // https://app.shortcut.com/chainlinklabs/story/21905/remove-contract-cast-in-cronupkeep-test-ts
     h.publicAbi(cron as unknown as Contract, [
@@ -509,7 +509,7 @@ describe('CronUpkeep', () => {
   })
 })
 
-// only run during yarn test:gas
+// only run during pnpm test:gas
 describe.skip('Cron Gas Usage', () => {
   before(async () => {
     const accounts = await ethers.getSigners()

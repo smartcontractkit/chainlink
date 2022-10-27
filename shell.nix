@@ -33,7 +33,7 @@ mkShell {
 
     # gofuzz
   ] ++ lib.optionals stdenv.isLinux [
-    # some dependencies needed for node-gyp on yarn install
+    # some dependencies needed for node-gyp on pnpm install
     pkg-config
     libudev-zero
     libusb1
