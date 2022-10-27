@@ -6,6 +6,10 @@ on:
 env:
   NODE_OPTIONS: --max_old_space_size=5120
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   changes:
     name: Detect changes
@@ -202,6 +206,14 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Checkout diff-so-fancy
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          repository: so-fancy/diff-so-fancy
+          ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
+          path: diff-so-fancy
+      - name: Install diff-so-fancy
+        run: echo "$GITHUB_WORKSPACE/diff-so-fancy" >> $GITHUB_PATH
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -216,9 +228,14 @@ jobs:
       - name: Verify local solc binaries
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ./tools/ci/check_solc_hashes
-      - name: Display git diff
+      - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
-        run: git diff --minimal
+        run: git diff --minimal --color --exit-code | diff-so-fancy
+      - name: Comment on fix instructions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        if: ${{ failure() }}
+        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make go-soldity-wrappers` command'
 
   lint:
     defaults:
