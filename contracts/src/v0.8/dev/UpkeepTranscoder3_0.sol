@@ -10,14 +10,15 @@ import {Upkeep as UpkeepV3} from "./keeper2_0/interfaces/KeeperRegistryInterface
 import "./../UpkeepFormat.sol";
 
 /**
- * @notice Transcoder 3_0 allows converting upkeep data from previous keeper registry versions to registry 2.0
+ * @notice UpkeepTranscoder 3_0 allows converting upkeep data from previous keeper registry versions 1.2 and 1.3 to
+ * registry 2.0
  */
 contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterface {
   error InvalidTranscoding();
 
   /**
    * @notice versions:
-   * - UpkeepTranscoder 3.0.0: version 3.0 works with registry 2.0
+   * - UpkeepTranscoder 3.0.0: version 3.0.0 works with registry 2.0
    */
   string public constant override typeAndVersion = "UpkeepTranscoder 3.0.0";
   uint32 internal constant UINT32_MAX = type(uint32).max;
@@ -30,8 +31,6 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
    * @param fromVersion struct version the upkeep is migrating from
    * @param toVersion struct version the upkeep is migrating to
    * @param encodedUpkeeps encoded upkeep data
-   * @dev this contract & function are simple now, but should evolve as new registries
-   * and migration paths are added
    */
   function transcodeUpkeeps(
     UpkeepFormat fromVersion,
