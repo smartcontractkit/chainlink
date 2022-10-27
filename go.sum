@@ -1569,10 +1569,8 @@ github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595 h1:B3OCQ+Zb+kgpWtoLvJTE7co38SOEtn4qt1B5QDPGlFk=
 github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595/go.mod h1:f6ju2ncT/Q1loAdiT2/8M7dtpkXwCaZvhfddyeBESXE=
-github.com/smartcontractkit/chainlink-solana v1.0.3-0.20221020203729-c3025652d5c6 h1:FovkHcjZ5TgHhY/ynwbk3FanARKORsPnpEKaJZE1TKU=
-github.com/smartcontractkit/chainlink-solana v1.0.3-0.20221020203729-c3025652d5c6/go.mod h1:RUC+D9jE9pZsFlFhnWmye1/cAkVDOaNo3yoLh7D8JZ0=
-github.com/smartcontractkit/chainlink-solana v1.0.3-0.20221027151024-a9e2751355c2 h1:+S1j3DmFY5WylCWyjiGsLlBMhFnXQPW0qtlgZgv4v4Y=
-github.com/smartcontractkit/chainlink-solana v1.0.3-0.20221027151024-a9e2751355c2/go.mod h1:RUC+D9jE9pZsFlFhnWmye1/cAkVDOaNo3yoLh7D8JZ0=
+github.com/smartcontractkit/chainlink-solana v1.0.3-0.20221027174234-50b4d94d7135 h1:GrwJnESfGEvsGnPO1c8SFiC3YPq1AV6BT8ENFFSmxQQ=
+github.com/smartcontractkit/chainlink-solana v1.0.3-0.20221027174234-50b4d94d7135/go.mod h1:RUC+D9jE9pZsFlFhnWmye1/cAkVDOaNo3yoLh7D8JZ0=
 github.com/smartcontractkit/chainlink-starknet/ops v0.0.0-20220929160142-83f3bd710afa h1:FUuifM5IdC8PMzjBO4u/7dOW8UwlEc/7IazywbXMYgk=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb h1:oRKhJVdoXTVQqBVSPkvfC/hxYoxsL3hldTavEuZrWOk=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb/go.mod h1:FR8+xi6pmUuK6/PaH64B+OT5n/QOz7ox9pp9z05Dc2g=
@@ -1582,8 +1580,6 @@ github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCK
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.4.8 h1:pvCDWIsYaSJI/M6qw0xIIXpHs5MPQaYEpmWsJiyi6LM=
 github.com/smartcontractkit/ocr2keepers v0.4.8/go.mod h1:6wSlAWYBmlJM7bDZ4Ewc5J5AJQszIRGDNaUAw35r3qc=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221017160540-1ebacaf4c7e7 h1:+BqHoR3VtOdTpVQf3QAK7n9YlMLQXN4/ouNxYLi75H8=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221017160540-1ebacaf4c7e7/go.mod h1:60/WayFm5nOAPIHtSThJ0DAd4sMKtytPQsjHAwYxGfU=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20221021145954-aef9beb5fcbf h1:cJXYu06PYbWeuoqp8K2U+SoM8PMHy9VMrDLTrM3gOGI=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20221021145954-aef9beb5fcbf/go.mod h1:60/WayFm5nOAPIHtSThJ0DAd4sMKtytPQsjHAwYxGfU=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
