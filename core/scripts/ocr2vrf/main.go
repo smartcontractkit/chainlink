@@ -269,11 +269,20 @@ func main() {
 		subId := cmd.Int64("sub-id", 1, "subscription ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
 		sub := getSubscription(e, *coordinatorAddress, uint64(*subId))
-		fmt.Println("subscription ID:", subId)
+		fmt.Println("subscription ID:", *subId)
 		fmt.Println("balance:", sub.Balance)
 		fmt.Println("consumers:", sub.Consumers)
 		fmt.Println("owner:", sub.Owner)
 		fmt.Println("request count:", sub.ReqCount)
+
+	case "coordinator-fund-sub":
+		cmd := flag.NewFlagSet("coordinator-fund-sub", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+		linkAddress := cmd.String("link-address", "", "link-address")
+		fundingAmount := cmd.Int64("funding-amount", 5e18, "funding amount in juels") // 5 LINK
+		subId := cmd.Uint64("sub-id", 1, "subscription ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
+		eoaFundSubscription(e, *coordinatorAddress, *linkAddress, big.NewInt(*fundingAmount), *subId)
 
 	case "beacon-set-payees":
 		cmd := flag.NewFlagSet("beacon-set-payees", flag.ExitOnError)
