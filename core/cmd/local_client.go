@@ -29,7 +29,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -60,6 +59,24 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 func (cli *Client) runNode(c *clipkg.Context) error {
 	lggr := cli.Logger.Named("RunNode")
+
+	var pwd, vrfpwd *string
+	if passwordFile := c.String("password"); passwordFile != "" {
+		p, err := utils.PasswordFromFile(passwordFile)
+		if err != nil {
+			return errors.Wrap(err, "error reading password from file")
+		}
+		pwd = &p
+	}
+	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
+		p, err := utils.PasswordFromFile(vrfPasswordFile)
+		if err != nil {
+			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+		}
+		vrfpwd = &p
+	}
+
+	cli.Config.SetPasswords(pwd, vrfpwd)
 
 	err := cli.Config.Validate()
 	if err != nil {
@@ -129,24 +146,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
-	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore, cli.Config)
+	err = cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
-	}
-
-	var vrfpwd string
-	if _, ok := cli.Config.(v2.HasEVMConfigs); ok {
-		// In config V2 this is handled while building the config struct
-		vrfpwd = cli.Config.VRFPassword()
-	} else {
-		// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-		if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
-			var fileErr error
-			vrfpwd, fileErr = utils.PasswordFromFile(vrfPasswordFile)
-			if fileErr != nil {
-				return errors.Wrapf(fileErr, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
-			}
-		}
 	}
 
 	evmChainSet := app.GetChains().EVM
@@ -160,7 +162,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 		return def.ID(), nil
 	}
-	err = keyStore.Migrate(vrfpwd, DefaultEVMChainIDFunc)
+	err = keyStore.Migrate(cli.Config.VRFPassword(), DefaultEVMChainIDFunc)
 
 	if cli.Config.EVMEnabled() {
 		if err != nil {
