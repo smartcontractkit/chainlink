@@ -14,10 +14,11 @@ import "../ocr2/OCR2Base.sol";
 contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   event OracleRequest(bytes32 requestId, bytes data);
   event OracleResponse(bytes32 requestId);
+  event UserCallbackError(bytes32 requestId, string reason);
+  event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
 
   error EmptyRequestData();
   error InvalidRequestID();
-  error LowGasForConsumer();
   error InconsistentReportData();
   error EmptyPublicKey();
 
@@ -25,8 +26,6 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
     address client;
     uint256 subscriptionId;
   }
-
-  uint256 private constant MINIMUM_CONSUMER_GAS_LIMIT = 400000;
 
   bytes private s_donPublicKey;
   uint256 private s_nonce;
@@ -73,12 +72,14 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
     bytes memory err
   ) internal validateRequestId(requestId) {
     OCR2DRClientInterface client = OCR2DRClientInterface(s_commitments[requestId].client);
-    emit OracleResponse(requestId);
-    if (gasleft() < MINIMUM_CONSUMER_GAS_LIMIT) {
-      revert LowGasForConsumer();
-    }
-    client.handleOracleFulfillment(requestId, response, err);
     delete s_commitments[requestId];
+    try client.handleOracleFulfillment(requestId, response, err) {
+      emit OracleResponse(requestId);
+    } catch Error(string memory reason) {
+      emit UserCallbackError(requestId, reason);
+    } catch (bytes memory lowLevelData) {
+      emit UserCallbackRawError(requestId, lowLevelData);
+    }
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
@@ -98,8 +99,6 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
       revert InconsistentReportData();
     }
 
-    // Note: for PoC it does not handle any issues in users' callbacks yet.
-    // Gas amount must be sufficient to fulfill all requests in this batch.
     for (uint256 i = 0; i < requestIds.length; i++) {
       fulfillRequest(requestIds[i], results[i], errors[i]);
     }
