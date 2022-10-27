@@ -1,5 +1,5 @@
 name: Setup Postgresql
-description: Setup postgres docker container
+description: Setup postgres docker container via docker-compose, allowing usage of a custom command, see https://github.com/orgs/community/discussions/26688
 runs:
   using: composite
   steps:
