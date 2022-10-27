@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"io"
+	"sync"
 
 	"go.uber.org/multierr"
 )
@@ -45,6 +47,33 @@ func (m *MultiStart) Close() (err error) {
 	for i := len(m.started) - 1; i >= 0; i-- {
 		s := m.started[i]
 		err = multierr.Append(err, s.Close())
+	}
+	return
+}
+
+// MultiClose is a utility for closing multiple services concurrently.
+type MultiClose []io.Closer
+
+// Close closes alls service concurrently and collects any returned errors as a multierr.
+func (m MultiClose) Close() (err error) {
+	if len(m) == 0 {
+		return nil
+	}
+	var wg sync.WaitGroup
+	wg.Add(len(m))
+	errs := make(chan error, len(m))
+	for _, s := range m {
+		go func(c io.Closer) {
+			defer wg.Done()
+			if e := c.Close(); e != nil {
+				errs <- e
+			}
+		}(s)
+	}
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		err = multierr.Append(err, e)
 	}
 	return
 }
