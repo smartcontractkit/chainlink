@@ -230,6 +230,9 @@ func (txm *Txm) send(chanCtx context.Context, tx *solanaGo.Transaction) (sig sol
 		return sig, validBlockhash, nil
 	}
 
+	res, err := client.SimulateTx(ctx, tx, nil)
+	txm.lggr.Debugw("simulate:", "error", err, "simout", res)
+
 	// send tx
 	sig, err = client.SendTx(ctx, tx) // returns 000.. signature if errors
 	if err != nil {
