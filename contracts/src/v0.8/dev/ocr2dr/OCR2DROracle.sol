@@ -21,7 +21,6 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   error InvalidRequestID();
   error InconsistentReportData();
   error EmptyPublicKey();
-  error UserCallbackFailed(string error);
 
   struct Commitment {
     address client;
