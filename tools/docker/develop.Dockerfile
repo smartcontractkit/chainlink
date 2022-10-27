@@ -13,7 +13,7 @@ RUN mkdir -p ~/.local/bin/
 ENV PATH="/root/.local/bin:${PATH}"
 RUN go get github.com/go-delve/delve/cmd/dlv
 RUN go get github.com/google/gofuzz
-RUN yarn global add ganache-cli
+RUN pnpm install -g ganache-cli
 RUN pip3 install web3 slither-analyzer crytic-compile
 RUN curl -L https://github.com/crytic/echidna/releases/download/v1.5.1/echidna-test-v1.5.1-Ubuntu-18.04.tar.gz | tar -xz -C ~/.local/bin
 RUN curl -L https://github.com/openethereum/openethereum/releases/download/v3.2.4/openethereum-linux-v3.2.4.zip --output openethereum.zip

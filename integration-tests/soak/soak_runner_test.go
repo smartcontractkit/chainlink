@@ -31,7 +31,7 @@ var baseEnvironmentConfig = &environment.Config{
 
 // Run the OCR soak test defined in ./tests/ocr_test.go
 func TestOCRSoak(t *testing.T) {
-	activeEVMNetwork := networks.GeneralEVM // Environment currently being used to soak test on
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-ocr-%s",
@@ -71,7 +71,7 @@ func TestOCRSoak(t *testing.T) {
 
 // Run the OCR soak test defined in ./tests/ocr_test.go
 func TestForwarderOCRSoak(t *testing.T) {
-	activeEVMNetwork := networks.GoerliTestnet // Environment currently being used to soak test on
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-forwarder-ocr-%s",
@@ -112,7 +112,7 @@ func TestForwarderOCRSoak(t *testing.T) {
 
 // Run the keeper soak test defined in ./tests/keeper_test.go
 func TestKeeperSoak(t *testing.T) {
-	activeEVMNetwork := networks.GeneralEVM // Environment currently being used to soak test on
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-keeper-%s",

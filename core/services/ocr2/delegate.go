@@ -17,6 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	drocr_service "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
@@ -32,6 +34,7 @@ import (
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -352,33 +355,41 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			"dkgContractID", cfg.DKGContractAddress), true, func(msg string) {
 			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		})
+		dkgReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
+			return promwrapper.NewPromFactory(wrapped, "DKG", string(relay.EVM), chain.ID())
+		}
+		vrfReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
+			return promwrapper.NewPromFactory(wrapped, "OCR2VRF", string(relay.EVM), chain.ID())
+		}
 		oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
-			VRFLogger:                    vrfLogger,
-			DKGLogger:                    dkgLogger,
-			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-			V2Bootstrappers:              bootstrapPeers,
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
-			VRFOffchainConfigDigester:    vrfProvider.OffchainConfigDigester(),
-			VRFContractConfigTracker:     vrfProvider.ContractConfigTracker(),
-			VRFContractTransmitter:       vrfProvider.ContractTransmitter(),
-			VRFDatabase:                  ocrDB,
-			VRFLocalConfig:               lc,
-			VRFMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-			DKGContractConfigTracker:     dkgProvider.ContractConfigTracker(),
-			DKGOffchainConfigDigester:    dkgProvider.OffchainConfigDigester(),
-			DKGContract:                  dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
-			DKGContractTransmitter:       dkgProvider.ContractTransmitter(),
-			DKGDatabase:                  ocrDB,
-			DKGLocalConfig:               lc,
-			DKGMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
-			Blockhashes:                  blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), d.lggr, 256),
-			Serializer:                   reportserializer.NewReportSerializer(&altbn_128.G1{}),
-			JulesPerFeeCoin:              juelsPerFeeCoin,
-			Coordinator:                  coordinator,
-			Esk:                          encryptionSecretKey.KyberScalar(),
-			Ssk:                          signingSecretKey.KyberScalar(),
-			KeyID:                        keyID,
+			VRFLogger:                          vrfLogger,
+			DKGLogger:                          dkgLogger,
+			BinaryNetworkEndpointFactory:       peerWrapper.Peer2,
+			V2Bootstrappers:                    bootstrapPeers,
+			OffchainKeyring:                    kb,
+			OnchainKeyring:                     kb,
+			VRFOffchainConfigDigester:          vrfProvider.OffchainConfigDigester(),
+			VRFContractConfigTracker:           vrfProvider.ContractConfigTracker(),
+			VRFContractTransmitter:             vrfProvider.ContractTransmitter(),
+			VRFDatabase:                        ocrDB,
+			VRFLocalConfig:                     lc,
+			VRFMonitoringEndpoint:              d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			DKGContractConfigTracker:           dkgProvider.ContractConfigTracker(),
+			DKGOffchainConfigDigester:          dkgProvider.OffchainConfigDigester(),
+			DKGContract:                        dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
+			DKGContractTransmitter:             dkgProvider.ContractTransmitter(),
+			DKGDatabase:                        ocrDB,
+			DKGLocalConfig:                     lc,
+			DKGMonitoringEndpoint:              d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
+			Blockhashes:                        blockhashes.NewFixedBlockhashProvider(chain.LogPoller(), d.lggr, 256),
+			Serializer:                         reportserializer.NewReportSerializer(&altbn_128.G1{}),
+			JulesPerFeeCoin:                    juelsPerFeeCoin,
+			Coordinator:                        coordinator,
+			Esk:                                encryptionSecretKey.KyberScalar(),
+			Ssk:                                signingSecretKey.KyberScalar(),
+			KeyID:                              keyID,
+			DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
+			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")

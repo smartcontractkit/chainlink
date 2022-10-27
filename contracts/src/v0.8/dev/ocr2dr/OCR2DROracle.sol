@@ -1,48 +1,57 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
+import "../../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
-import "../AuthorizedReceiver.sol";
 import "../../ConfirmedOwner.sol";
+import "../ocr2/OCR2Base.sol";
 
 /**
  * @title OCR2DR oracle contract
+ * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwner {
+contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   event OracleRequest(bytes32 requestId, bytes data);
   event OracleResponse(bytes32 requestId);
+  event UserCallbackError(bytes32 requestId, string reason);
+  event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
 
   error EmptyRequestData();
   error InvalidRequestID();
-  error LowGasForConsumer();
+  error InconsistentReportData();
+  error EmptyPublicKey();
 
   struct Commitment {
     address client;
     uint256 subscriptionId;
   }
 
-  uint256 private constant MINIMUM_CONSUMER_GAS_LIMIT = 400000;
-
-  bytes32 private s_donPublicKey;
+  bytes private s_donPublicKey;
   uint256 private s_nonce;
   mapping(bytes32 => Commitment) private s_commitments;
 
-  constructor(address owner, bytes32 donPublicKey) ConfirmedOwner(owner) {
-    s_donPublicKey = donPublicKey;
-  }
+  constructor() OCR2Base(true) {}
 
   /**
    * @notice The type and version of this contract
    * @return Type and version string
    */
-  function typeAndVersion() external pure virtual returns (string memory) {
+  function typeAndVersion() external pure override returns (string memory) {
     return "OCR2DROracle 0.0.0";
   }
 
   /// @inheritdoc OCR2DROracleInterface
-  function getDONPublicKey() external view override returns (bytes32) {
+  function getDONPublicKey() external view override returns (bytes memory) {
     return s_donPublicKey;
+  }
+
+  /// @inheritdoc OCR2DROracleInterface
+  function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
+    if (donPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
+    s_donPublicKey = donPublicKey;
   }
 
   /// @inheritdoc OCR2DROracleInterface
@@ -57,29 +66,50 @@ contract OCR2DROracle is OCR2DROracleInterface, AuthorizedReceiver, ConfirmedOwn
     return requestId;
   }
 
-  /// @inheritdoc OCR2DROracleInterface
   function fulfillRequest(
     bytes32 requestId,
-    bytes calldata response,
-    bytes calldata err
-  ) external override validateRequestId(requestId) validateAuthorizedSender {
+    bytes memory response,
+    bytes memory err
+  ) internal validateRequestId(requestId) {
     OCR2DRClientInterface client = OCR2DRClientInterface(s_commitments[requestId].client);
-    emit OracleResponse(requestId);
-    if (gasleft() < MINIMUM_CONSUMER_GAS_LIMIT) {
-      revert LowGasForConsumer();
-    }
-    client.handleOracleFulfillment(requestId, response, err);
     delete s_commitments[requestId];
+    try client.handleOracleFulfillment(requestId, response, err) {
+      emit OracleResponse(requestId);
+    } catch Error(string memory reason) {
+      emit UserCallbackError(requestId, reason);
+    } catch (bytes memory lowLevelData) {
+      emit UserCallbackRawError(requestId, lowLevelData);
+    }
   }
+
+  function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
+
+  function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
+
+  function _report(
+    bytes32, /* configDigest */
+    uint40, /* epochAndRound */
+    bytes memory report
+  ) internal override {
+    bytes32[] memory requestIds;
+    bytes[] memory results;
+    bytes[] memory errors;
+    (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
+    if (requestIds.length != results.length && requestIds.length != errors.length) {
+      revert InconsistentReportData();
+    }
+
+    for (uint256 i = 0; i < requestIds.length; i++) {
+      fulfillRequest(requestIds[i], results[i], errors[i]);
+    }
+  }
+
+  function _payTransmitter(uint32 initialGas, address transmitter) internal override {}
 
   modifier validateRequestId(bytes32 requestId) {
     if (s_commitments[requestId].client == address(0)) {
       revert InvalidRequestID();
     }
     _;
-  }
-
-  function _canSetAuthorizedSenders() internal view override returns (bool) {
-    return isAuthorizedSender(msg.sender) || owner() == msg.sender;
   }
 }

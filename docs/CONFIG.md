@@ -1,5 +1,9 @@
 [//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
+This document describes the TOML format for configuration.
+
+See also [SECRETS.md](secrets.md)
+
 ## Table of contents
 
 - [Global](#Global)
@@ -1296,7 +1300,7 @@ Environment sets the target environment tag in which profiles will be added to.
 [Sentry]
 Debug = false # Default
 DSN = 'sentry-dsn' # Example
-Environment = 'prod' # Default
+Environment = 'my-custom-env' # Example
 Release = 'v1.2.3' # Example
 ```
 
@@ -1316,7 +1320,7 @@ DSN is the data source name where events will be sent. Sentry is completely disa
 
 ### Environment<a id='Sentry-Environment'></a>
 ```toml
-Environment = 'prod' # Default
+Environment = 'my-custom-env' # Example
 ```
 Environment overrides the Sentry environment to the given value. Otherwise autodetects between dev/prod.
 

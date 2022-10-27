@@ -36,7 +36,9 @@ func isDevMode() bool {
 	var clDev string
 	v1, v2 := os.Getenv("CHAINLINK_DEV"), os.Getenv("CL_DEV")
 	if v1 != "" && v2 != "" {
-		panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		if v1 != v2 {
+			panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		}
 	} else if v1 == "" {
 		clDev = v2
 	} else if v2 == "" {
@@ -134,8 +136,6 @@ func NewApp(client *Client) *cli.App {
 			} else {
 				client.Config = cfg
 			}
-			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
-			//TODO note that empty string is NOT OK since it is sometimes meaningful - must use os.LookupEnv()
 		} else {
 			// Legacy ENV
 			if c.IsSet("secrets") {
@@ -356,13 +356,24 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "dump",
-					Usage:  "Dump a TOML file equivalent to the current environment and database configuration",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration",
 					Action: client.ConfigDump,
 				},
 				{
 					Name:   "list",
-					Usage:  "Show the node's environment variables",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Show the node's environment variables",
 					Action: client.GetConfiguration,
+				},
+				{
+					Name:   "show",
+					Usage:  "V2 CONFIG (TOML) ONLY - Show the application configuration",
+					Action: client.ConfigV2,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "user-only",
+							Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
+						},
+					},
 				},
 				{
 					Name:   "setgasprice",

@@ -60,3 +60,4 @@ integration-tests/**/logs/
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
+ztarrepo.tar.gz

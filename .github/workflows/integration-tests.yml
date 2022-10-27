@@ -76,6 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-chainlink, changes]
     env:
+      SELECTED_NETWORKS: SIMULATED
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-eth
@@ -98,7 +99,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
         with:
-          test_command_to_run: make test_smoke_simulated args="-nodes=30"
+          test_command_to_run: make test_smoke_simulated args="-nodes=34"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -156,7 +157,7 @@ jobs:
       contents: read
     name: Solana Build Artifacts
     runs-on: ubuntu-latest
-    needs: [changes,get_projectserum_version]
+    needs: [changes, get_projectserum_version]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:

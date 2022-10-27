@@ -30,7 +30,7 @@ var (
 )
 
 var OCR2DRClientMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"RequestIsAlreadyPending\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RequestIsNotPending\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SenderIsNotOracle\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"}],\"name\":\"RequestFulfilled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"}],\"name\":\"RequestSent\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getDONPublicKey\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"response\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"err\",\"type\":\"bytes\"}],\"name\":\"handleOracleFulfillment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"RequestIsAlreadyPending\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RequestIsNotPending\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SenderIsNotOracle\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"}],\"name\":\"RequestFulfilled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"}],\"name\":\"RequestSent\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getDONPublicKey\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"response\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"err\",\"type\":\"bytes\"}],\"name\":\"handleOracleFulfillment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 var OCR2DRClientABI = OCR2DRClientMetaData.ABI
@@ -151,25 +151,25 @@ func (_OCR2DRClient *OCR2DRClientTransactorRaw) Transact(opts *bind.TransactOpts
 	return _OCR2DRClient.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_OCR2DRClient *OCR2DRClientCaller) GetDONPublicKey(opts *bind.CallOpts) ([32]byte, error) {
+func (_OCR2DRClient *OCR2DRClientCaller) GetDONPublicKey(opts *bind.CallOpts) ([]byte, error) {
 	var out []interface{}
 	err := _OCR2DRClient.contract.Call(opts, &out, "getDONPublicKey")
 
 	if err != nil {
-		return *new([32]byte), err
+		return *new([]byte), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
 
 	return out0, err
 
 }
 
-func (_OCR2DRClient *OCR2DRClientSession) GetDONPublicKey() ([32]byte, error) {
+func (_OCR2DRClient *OCR2DRClientSession) GetDONPublicKey() ([]byte, error) {
 	return _OCR2DRClient.Contract.GetDONPublicKey(&_OCR2DRClient.CallOpts)
 }
 
-func (_OCR2DRClient *OCR2DRClientCallerSession) GetDONPublicKey() ([32]byte, error) {
+func (_OCR2DRClient *OCR2DRClientCallerSession) GetDONPublicKey() ([]byte, error) {
 	return _OCR2DRClient.Contract.GetDONPublicKey(&_OCR2DRClient.CallOpts)
 }
 
@@ -464,7 +464,7 @@ func (_OCR2DRClient *OCR2DRClient) Address() common.Address {
 }
 
 type OCR2DRClientInterface interface {
-	GetDONPublicKey(opts *bind.CallOpts) ([32]byte, error)
+	GetDONPublicKey(opts *bind.CallOpts) ([]byte, error)
 
 	HandleOracleFulfillment(opts *bind.TransactOpts, requestId [32]byte, response []byte, err []byte) (*types.Transaction, error)
 

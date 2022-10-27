@@ -11,13 +11,14 @@ var (
 	EnvConfig = Env("CL_CONFIG")
 	EnvDev    = Env("CL_DEV")
 
-	EnvDatabaseURL        = EnvSecret("CL_DATABASE_URL")
-	EnvDatabaseBackupURL  = EnvSecret("CL_DATABASE_BACKUP_URL")
-	EnvExplorerAccessKey  = EnvSecret("CL_EXPLORER_ACCESS_KEY")
-	EnvExplorerSecret     = EnvSecret("CL_EXPLORER_SECRET")
-	EnvPasswordKeystore   = EnvSecret("CL_PASSWORD_KEYSTORE")
-	EnvPasswordVRF        = EnvSecret("CL_PASSWORD_VRF")
-	EnvPyroscopeAuthToken = EnvSecret("CL_PYROSCOPE_AUTH_TOKEN")
+	EnvDatabaseAllowSimplePasswords = Env("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
+	EnvDatabaseURL                  = EnvSecret("CL_DATABASE_URL")
+	EnvDatabaseBackupURL            = EnvSecret("CL_DATABASE_BACKUP_URL")
+	EnvExplorerAccessKey            = EnvSecret("CL_EXPLORER_ACCESS_KEY")
+	EnvExplorerSecret               = EnvSecret("CL_EXPLORER_SECRET")
+	EnvPasswordKeystore             = EnvSecret("CL_PASSWORD_KEYSTORE")
+	EnvPasswordVRF                  = EnvSecret("CL_PASSWORD_VRF")
+	EnvPyroscopeAuthToken           = EnvSecret("CL_PYROSCOPE_AUTH_TOKEN")
 )
 
 type Env string

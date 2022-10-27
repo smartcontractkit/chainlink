@@ -24,7 +24,7 @@ import (
 type SendOnlyNode interface {
 	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
-	Close()
+	Close() error
 
 	ChainID() (chainID *big.Int)
 
@@ -50,6 +50,7 @@ type BatchSender interface {
 // It only supports sending transactions
 // It must a http(s) url
 type sendOnlyNode struct {
+	utils.StartStopOnce
 	uri         url.URL
 	batchSender BatchSender
 	sender      TxSender
@@ -73,11 +74,17 @@ func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *
 	return s
 }
 
+func (s *sendOnlyNode) Start(ctx context.Context) error {
+	return s.StartOnce(s.name, func() error {
+		return s.start(ctx)
+	})
+}
+
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
 // TODO: Failures to dial should put it into a retry loop
 // https://app.shortcut.com/chainlinklabs/story/28182/eth-node-failover-consider-introducing-a-state-for-sendonly-nodes
-func (s *sendOnlyNode) Start(startCtx context.Context) error {
+func (s *sendOnlyNode) start(startCtx context.Context) error {
 	s.log.Debugw("evmclient.Client#Dial(...)")
 	if s.dialed {
 		panic("evmclient.Client.Dial(...) should only be called once during the node's lifetime.")
@@ -114,8 +121,11 @@ func (s *sendOnlyNode) SetEthClient(newBatchSender BatchSender, newSender TxSend
 	s.sender = newSender
 }
 
-func (s *sendOnlyNode) Close() {
-	close(s.chStop)
+func (s *sendOnlyNode) Close() error {
+	return s.StopOnce(s.name, func() error {
+		close(s.chStop)
+		return nil
+	})
 }
 
 func (s *sendOnlyNode) logTiming(lggr logger.Logger, duration time.Duration, err error, callName string) {

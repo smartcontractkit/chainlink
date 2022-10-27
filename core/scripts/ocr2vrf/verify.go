@@ -9,14 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	bn256 "github.com/ethereum/go-ethereum/crypto/bn256/google"
-	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/mod"
 	"go.dedis.ch/kyber/v3/pairing"
+
+	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
 func getDKGLatestConfigDetails(e helpers.Environment, dkgAddress string) dkgContract.LatestConfigDetails {
@@ -72,7 +74,7 @@ func getHashToCurveMessage(e helpers.Environment, height uint64, confDelay uint3
 	return altbn_128.NewHashProof(h)
 }
 
-func getVRFSignature(e helpers.Environment, beaconAddress string, height, confDelay, searchWindow uint64) (proofG1X, proofG1Y *big.Int) {
+func getVRFSignature(e helpers.Environment, coordinatorAddress string, height, confDelay, searchWindow uint64) (proofG1X, proofG1Y *big.Int) {
 	// get transmission logs from requested block to requested block + search window blocks
 	// TODO: index transmission logs by height and confirmation delay to
 	// make the FilterQuery call more efficient
@@ -80,20 +82,20 @@ func getVRFSignature(e helpers.Environment, beaconAddress string, height, confDe
 		FromBlock: big.NewInt(0).SetUint64(height),
 		ToBlock:   big.NewInt(0).SetUint64(height + searchWindow),
 		Addresses: []common.Address{
-			common.HexToAddress(beaconAddress),
+			common.HexToAddress(coordinatorAddress),
 		},
 		Topics: [][]common.Hash{
 			{
-				vrf_beacon.VRFBeaconNewTransmission{}.Topic(),
+				vrf_coordinator.VRFCoordinatorOutputsServed{}.Topic(),
 			},
 		},
 	}
 	logs, err := e.Ec.FilterLogs(context.Background(), query)
 	helpers.PanicErr(err)
 
-	beacon := newVRFBeacon(common.HexToAddress(beaconAddress), e.Ec)
+	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 	for _, log := range logs {
-		t, err := beacon.ParseNewTransmission(log)
+		t, err := coordinator.ParseOutputsServed(log)
 		helpers.PanicErr(err)
 		for _, o := range t.OutputsServed {
 			if o.ConfirmationDelay.Uint64() == confDelay && o.Height == height {
@@ -105,7 +107,7 @@ func getVRFSignature(e helpers.Environment, beaconAddress string, height, confDe
 	return
 }
 
-func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress string, height, confDelay, searchWindow uint64) bool {
+func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress string, coordinatorAddress string, height, confDelay, searchWindow uint64) bool {
 	dkgConfig := getDKGLatestConfigDetails(e, dkgAddress)
 	vrfConfig := getVRFLatestConfigDetails(e, beaconAddress)
 	keyID := getKeyID(e, beaconAddress)
@@ -117,7 +119,7 @@ func verifyBeaconRandomness(e helpers.Environment, dkgAddress, beaconAddress str
 	g2Base := g2.Point().Base()
 
 	// get BLS signature for the given height and confirmation delay
-	proofG1X, proofG1Y := getVRFSignature(e, beaconAddress, height, confDelay, searchWindow)
+	proofG1X, proofG1Y := getVRFSignature(e, coordinatorAddress, height, confDelay, searchWindow)
 	if proofG1X.Cmp(big.NewInt(0)) == 0 || proofG1Y.Cmp(big.NewInt(0)) == 0 {
 		panic("signature not found")
 	}

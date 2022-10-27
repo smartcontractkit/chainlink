@@ -83,7 +83,7 @@ type (
 		config    Config
 		// NOTE: it is assumed that blocks will be kept sorted by
 		// block number ascending
-		blocks    []Block
+		blocks    []evmtypes.Block
 		blocksMu  sync.RWMutex
 		size      int64
 		mb        *utils.Mailbox[*evmtypes.Head]
@@ -111,7 +111,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		ethClient: ethClient,
 		chainID:   chainID,
 		config:    cfg,
-		blocks:    make([]Block, 0),
+		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
 		size:      int64(mathutil.Max(cfg.BlockHistoryEstimatorBlockHistorySize(), cfg.BlockHistoryEstimatorCheckInclusionBlocks())),
 		mb:        utils.NewMailbox[*evmtypes.Head](1),
@@ -163,7 +163,7 @@ func (b *BlockHistoryEstimator) getCurrentBlockNum() *int64 {
 	return &b.latest.Number
 }
 
-func (b *BlockHistoryEstimator) getBlocks() []Block {
+func (b *BlockHistoryEstimator) getBlocks() []evmtypes.Block {
 	b.blocksMu.RLock()
 	defer b.blocksMu.RUnlock()
 	return b.blocks
@@ -302,7 +302,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []PriorAttempt) error
 		// has not been included for at least the required number of blocks
 		b.logger.Debugw(fmt.Sprintf("transaction %s has been pending inclusion for %d blocks which equals or exceeds expected specified check inclusion blocks of %d", attempt.GetHash().Hex(), blocksSinceBroadcast, expectInclusionWithinBlocks), "broadcastBeforeBlockNum", broadcastBeforeBlockNum, "latestBlockNum", *latestBlockNum)
 		// is the price in the right percentile for all of these blocks?
-		var blocks []Block
+		var blocks []evmtypes.Block
 		l := expectInclusionWithinBlocks
 		// reverse order since we want to go highest -> lowest block number and bail out early
 		for i := l - 1; i >= 0; i-- {
@@ -565,7 +565,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		lowestBlockToFetch = 0
 	}
 
-	blocks := make(map[int64]Block)
+	blocks := make(map[int64]evmtypes.Block)
 	for _, block := range b.getBlocks() {
 		// Make a best-effort to be re-org resistant using the head
 		// chain, refetch blocks that got re-org'd out.
@@ -590,7 +590,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		req := rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
 			Args:   []interface{}{Int64ToHex(i), true},
-			Result: &Block{},
+			Result: &evmtypes.Block{},
 		}
 		reqs = append(reqs, req)
 	}
@@ -606,7 +606,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	for _, req := range reqs {
 		result, err := req.Result, req.Error
 		if err != nil {
-			if errors.Is(err, ErrMissingBlock) {
+			if errors.Is(err, evmtypes.ErrMissingBlock) {
 				num := HexToInt64(req.Args[0])
 				missingBlocks = append(missingBlocks, num)
 				lggr.Debugw(
@@ -620,9 +620,9 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 			continue
 		}
 
-		block, is := result.(*Block)
+		block, is := result.(*evmtypes.Block)
 		if !is {
-			return errors.Errorf("expected result to be a %T, got %T", &Block{}, result)
+			return errors.Errorf("expected result to be a %T, got %T", &evmtypes.Block{}, result)
 		}
 		if block == nil {
 			return errors.New("invariant violation: got nil block")
@@ -643,7 +643,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 			"blockNums", missingBlocks, "headNum", head.Number)
 	}
 
-	newBlockHistory := make([]Block, 0)
+	newBlockHistory := make([]evmtypes.Block, 0)
 
 	for _, block := range blocks {
 		newBlockHistory = append(newBlockHistory, block)
@@ -703,7 +703,7 @@ var (
 	ErrNoSuitableTransactions = errors.New("no suitable transactions")
 )
 
-func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []Block, percentile int, eip1559 bool, f func(gasPrices []*assets.Wei), f2 func(tipCaps []*assets.Wei)) (gasPrice, tipCap *assets.Wei, err error) {
+func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []evmtypes.Block, percentile int, eip1559 bool, f func(gasPrices []*assets.Wei), f2 func(tipCaps []*assets.Wei)) (gasPrice, tipCap *assets.Wei, err error) {
 	gasPrices, tipCaps := b.getPercentilePricesFromBlocks(blocks, percentile, eip1559)
 	if len(gasPrices) == 0 {
 		return nil, nil, ErrNoSuitableTransactions
@@ -729,7 +729,7 @@ func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []Block, percen
 	return
 }
 
-func (b *BlockHistoryEstimator) getPercentilePricesFromBlocks(blocks []Block, percentile int, eip1559 bool) (gasPrices, tipCaps []*assets.Wei) {
+func (b *BlockHistoryEstimator) getPercentilePricesFromBlocks(blocks []evmtypes.Block, percentile int, eip1559 bool) (gasPrices, tipCaps []*assets.Wei) {
 	gasPrices = make([]*assets.Wei, 0)
 	tipCaps = make([]*assets.Wei, 0)
 	for _, block := range blocks {
@@ -737,7 +737,7 @@ func (b *BlockHistoryEstimator) getPercentilePricesFromBlocks(blocks []Block, pe
 			b.logger.Warnw(fmt.Sprintf("Block %v is not usable, %s", block.Number, err.Error()), "block", block, "err", err)
 		}
 		for _, tx := range block.Transactions {
-			if tx.isUsable(b.config, b.logger) {
+			if b.isUsable(tx, b.config, b.logger) {
 				gp := b.EffectiveGasPrice(block, tx)
 				if gp != nil {
 					gasPrices = append(gasPrices, gp)
@@ -760,7 +760,7 @@ func (b *BlockHistoryEstimator) getPercentilePricesFromBlocks(blocks []Block, pe
 	return
 }
 
-func verifyBlock(block Block, eip1559 bool) error {
+func verifyBlock(block evmtypes.Block, eip1559 bool) error {
 	if eip1559 && block.BaseFeePerGas == nil {
 		return errors.New("EIP-1559 mode was enabled, but block was missing baseFeePerGas")
 	}
@@ -803,7 +803,7 @@ func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *assets.Wei) {
 
 // isUsable returns true if the tx is usable both generally and specifically for
 // this Config.
-func (tx *Transaction) isUsable(cfg Config, lggr logger.Logger) bool {
+func (b *BlockHistoryEstimator) isUsable(tx evmtypes.Transaction, cfg Config, lggr logger.Logger) bool {
 	// GasLimit 0 is impossible on Ethereum official, but IS possible
 	// on forks/clones such as RSK. We should ignore these transactions
 	// if they come up on any chain since they are not normal.
@@ -816,10 +816,10 @@ func (tx *Transaction) isUsable(cfg Config, lggr logger.Logger) bool {
 		lggr.Debugw("Ignoring transaction that was unexpectedly missing gas price", "tx", tx)
 		return false
 	}
-	return tx.chainSpecificIsUsable(cfg)
+	return chainSpecificIsUsable(tx, cfg)
 }
 
-func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *assets.Wei {
+func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {
 	switch tx.Type {
 	case 0x0, 0x1:
 		return tx.GasPrice
@@ -858,7 +858,7 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *
 	}
 }
 
-func (b *BlockHistoryEstimator) EffectiveTipCap(block Block, tx Transaction) *assets.Wei {
+func (b *BlockHistoryEstimator) EffectiveTipCap(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {
 	switch tx.Type {
 	case 0x2:
 		return tx.MaxPriorityFeePerGas

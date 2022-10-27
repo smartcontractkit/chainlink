@@ -269,11 +269,20 @@ func main() {
 		subId := cmd.Int64("sub-id", 1, "subscription ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
 		sub := getSubscription(e, *coordinatorAddress, uint64(*subId))
-		fmt.Println("subscription ID:", subId)
+		fmt.Println("subscription ID:", *subId)
 		fmt.Println("balance:", sub.Balance)
 		fmt.Println("consumers:", sub.Consumers)
 		fmt.Println("owner:", sub.Owner)
 		fmt.Println("request count:", sub.ReqCount)
+
+	case "coordinator-fund-sub":
+		cmd := flag.NewFlagSet("coordinator-fund-sub", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+		linkAddress := cmd.String("link-address", "", "link-address")
+		fundingAmount := cmd.Int64("funding-amount", 5e18, "funding amount in juels") // 5 LINK
+		subId := cmd.Uint64("sub-id", 1, "subscription ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
+		eoaFundSubscription(e, *coordinatorAddress, *linkAddress, big.NewInt(*fundingAmount), *subId)
 
 	case "beacon-set-payees":
 		cmd := flag.NewFlagSet("beacon-set-payees", flag.ExitOnError)
@@ -380,12 +389,13 @@ func main() {
 		cmd := flag.NewFlagSet("verify-randomness", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		height := cmd.Uint64("height", 0, "block height of VRF beacon output")
 		confDelay := cmd.Uint64("conf-delay", 1, "confirmation delay of VRF beacon output")
 		searchWindow := cmd.Uint64("search-window", 200, "search space size for beacon transmission. Number of blocks after beacon height")
-		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "beacon-address", "height", "conf-delay")
+		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "coordinator-address", "beacon-address", "height", "conf-delay")
 
-		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *height, *confDelay, *searchWindow)
+		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *coordinatorAddress, *height, *confDelay, *searchWindow)
 
 	case "dkg-setup":
 		setupDKGNodes(e)
