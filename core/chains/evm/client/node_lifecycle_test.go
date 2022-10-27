@@ -72,7 +72,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			defer close(ch)
 			n.aliveLoop()
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected aliveLoop to exit")
 	})
 
@@ -307,7 +307,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			defer close(ch)
 			n.aliveLoop()
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
 	})
 
@@ -471,7 +471,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			n.unreachableLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected unreachableLoop to exit")
 	})
 
@@ -542,7 +542,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 			n.invalidChainIDLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected invalidChainIDLoop to exit")
 	})
 
