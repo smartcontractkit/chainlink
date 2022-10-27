@@ -74,7 +74,7 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 					ChainlinkNodeFunding: big.NewFloat(1),
 				},
 			)
-			keeperBlockTimeTest.Setup(testEnvironment)
+			keeperBlockTimeTest.Setup(testEnvironment, false)
 		})
 	})
 
