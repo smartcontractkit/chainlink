@@ -282,7 +282,7 @@ func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
 	for i := 0; i < len(transmitters); i++ {
 		// Special case for Arbitrum since gas estimation there is different.
 		var gasLimit uint64
-		if e.ChainID == ArbitrumGoerliChainID {
+		if IsArbitrumChainID(e.ChainID) {
 			to := common.HexToAddress(transmitters[i])
 			estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
 				From:  e.Owner.From,
