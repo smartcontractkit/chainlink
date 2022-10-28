@@ -41,13 +41,13 @@ chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: docker ## Build the chainlink docker image
-docker: operator-ui
+docker: 
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
 
 .PHONY: chainlink-build
-chainlink-build: ## Build & install the chainlink binary.
+chainlink-build: operator-ui ## Build & install the chainlink binary.
 	go build $(GOFLAGS) -o chainlink ./core/
 	rm -f $(GOBIN)/chainlink
 	cp chainlink $(GOBIN)/chainlink
