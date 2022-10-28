@@ -6,11 +6,11 @@ func (g *generalConfig) DatabaseURL() url.URL {
 	if g.secrets.Database.URL == nil {
 		return url.URL{}
 	}
-	return *(*url.URL)(g.secrets.Database.URL)
+	return *g.secrets.Database.URL.URL()
 }
 
 func (g *generalConfig) DatabaseBackupURL() *url.URL {
-	return (*url.URL)(g.secrets.Database.BackupURL)
+	return g.secrets.Database.BackupURL.URL()
 }
 
 func (g *generalConfig) ExplorerAccessKey() string {

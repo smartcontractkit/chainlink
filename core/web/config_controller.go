@@ -32,6 +32,7 @@ func (cc *ConfigController) Show(c *gin.Context) {
 			userOnly, err = strconv.ParseBool(s)
 			if err != nil {
 				jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("invalid bool for userOnly: %v", err))
+				return
 			}
 		}
 		var toml string
@@ -42,13 +43,13 @@ func (cc *ConfigController) Show(c *gin.Context) {
 			toml = effective
 		}
 		jsonAPIResponse(c, ConfigV2Resource{toml}, "config")
-	} else {
-		// Legacy config
-		cw := config.NewConfigPrinter(cc.App.GetConfig())
-
-		cc.App.GetAuditLogger().Audit(audit.EnvNoncriticalEnvDumped, map[string]interface{}{})
-		jsonAPIResponse(c, cw, "config")
+		return
 	}
+	// Legacy config
+	cw := config.NewConfigPrinter(cc.App.GetConfig())
+
+	cc.App.GetAuditLogger().Audit(audit.EnvNoncriticalEnvDumped, map[string]interface{}{})
+	jsonAPIResponse(c, cw, "config")
 }
 
 type ConfigV2Resource struct {
@@ -67,16 +68,16 @@ func (cc *ConfigController) Dump(c *gin.Context) {
 	cfg := cc.App.GetConfig()
 	if _, ok := cfg.(chainlink.ConfigV2); ok {
 		jsonAPIError(c, http.StatusUnprocessableEntity, v2.ErrUnsupported)
-	} else {
-		// Legacy config mode
-		userToml, err := cc.App.ConfigDump(c)
-		if err != nil {
-			cc.App.GetLogger().Errorw("Failed to dump TOML config", "err", err)
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
-		jsonAPIResponse(c, ConfigV2Resource{userToml}, "config")
+		return
 	}
+	// Legacy config mode
+	userToml, err := cc.App.ConfigDump(c)
+	if err != nil {
+		cc.App.GetLogger().Errorw("Failed to dump TOML config", "err", err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	jsonAPIResponse(c, ConfigV2Resource{userToml}, "config")
 }
 
 type configPatchRequest struct {
