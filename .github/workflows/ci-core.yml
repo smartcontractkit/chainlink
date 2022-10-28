@@ -51,22 +51,6 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
-    services:
-      postgres:
-        image: postgres:14-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: chainlink_test
-          POSTGRES_HOST_AUTH_METHOD: trust
-        # Set health checks to wait until postgres has started
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -88,6 +72,8 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
@@ -113,9 +99,8 @@ jobs:
             ./race.*
       - name: Print postgres logs
         if: always()
-        uses: docker://docker:latest
-        with:
-          args: logs ${{ job.services.postgres.id }}
+        run: docker compose logs postgres
+        working-directory: ./.github/actions/setup-postgres
 
   # Satisfy required check for core tests
   # while still allowing for adjustable splitting
