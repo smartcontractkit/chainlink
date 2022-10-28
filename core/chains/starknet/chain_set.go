@@ -18,7 +18,7 @@ import (
 )
 
 type ChainSetOpts struct {
-	Config   coreconfig.GeneralConfig
+	Config   coreconfig.BasicConfig
 	Logger   logger.Logger
 	KeyStore keystore.StarkNet
 	ORM      types.ORM
@@ -91,6 +91,9 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error)
 	stkChains := map[string]starkchain.Chain{}
 	var err error
 	for _, chain := range cfgs {
+		if chain.Enabled == nil || !*chain.Enabled {
+			continue
+		}
 		var err2 error
 		stkChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
 		if err2 != nil {

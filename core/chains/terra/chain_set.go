@@ -28,7 +28,7 @@ var (
 
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
-	Config           coreconfig.GeneralConfig
+	Config           coreconfig.BasicConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Terra
@@ -114,6 +114,9 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs TerraConfigs) (ChainSet, error) {
 	solChains := map[string]terra.Chain{}
 	var err error
 	for _, chain := range cfgs {
+		if chain.Enabled == nil || !*chain.Enabled {
+			continue
+		}
 		var err2 error
 		solChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
 		if err2 != nil {

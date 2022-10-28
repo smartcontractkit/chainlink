@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -27,14 +26,16 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -45,7 +46,7 @@ type broadcasterHelper struct {
 	lb           log.BroadcasterInTest
 	db           *sqlx.DB
 	mockEth      *evmtest.MockEth
-	globalConfig *configtest.TestGeneralConfig
+	globalConfig config.BasicConfig
 	config       evmconfig.ChainScopedConfig
 
 	// each received channel corresponds to one eth subscription
@@ -54,8 +55,8 @@ type broadcasterHelper struct {
 	pipelineHelper cltest.JobPipelineV2TestHelper
 }
 
-func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *broadcasterHelper {
-	return broadcasterHelperCfg{}.new(t, blockHeight, timesSubscribe, nil)
+func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
+	return broadcasterHelperCfg{}.new(t, blockHeight, timesSubscribe, nil, overridesFn)
 }
 
 type broadcasterHelperCfg struct {
@@ -63,7 +64,7 @@ type broadcasterHelperCfg struct {
 	db              *sqlx.DB
 }
 
-func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log) *broadcasterHelper {
+func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
 	if c.db == nil {
 		// ensure we check before registering any mock Cleanup assertions
 		testutils.SkipShortDB(t)
@@ -77,24 +78,30 @@ func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscrib
 
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], timesSubscribe)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := c.newWithEthClient(t, mockEth.EthClient)
+	helper := c.newWithEthClient(t, mockEth.EthClient, overridesFn)
 	helper.chchRawLogs = chchRawLogs
 	helper.mockEth = mockEth
-	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(10)
 	return helper
 }
 
-func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client, highestSeenHead *evmtypes.Head) *broadcasterHelper {
-	return broadcasterHelperCfg{highestSeenHead: highestSeenHead}.newWithEthClient(t, ethClient)
+func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client, highestSeenHead *evmtypes.Head, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
+	return broadcasterHelperCfg{highestSeenHead: highestSeenHead}.newWithEthClient(t, ethClient, overridesFn)
 }
 
-func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient.Client) *broadcasterHelper {
+func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient.Client, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
 	if c.db == nil {
 		c.db = pgtest.NewSqlxDB(t)
 	}
 
-	globalConfig := cltest.NewTestGeneralConfig(t)
-	globalConfig.Overrides.LogSQL = null.BoolFrom(true)
+	globalConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.LogQueries = ptr(true)
+		finality := uint32(10)
+		c.EVM[0].FinalityDepth = &finality
+
+		if overridesFn != nil {
+			overridesFn(c, s)
+		}
+	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.TestLogger(t)
 
@@ -103,7 +110,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
-		GeneralConfig:  config,
+		GeneralConfig:  globalConfig,
 		DB:             c.db,
 		LogBroadcaster: &log.NullBroadcaster{},
 	})
@@ -243,6 +250,8 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 
 type simpleLogListener struct {
 	name                string
+	lggr                logger.Logger
+	cfg                 pg.QConfig
 	received            *received
 	t                   *testing.T
 	db                  *sqlx.DB
@@ -266,6 +275,8 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	var rec received
 	return &simpleLogListener{
 		db:       db,
+		lggr:     logger.TestLogger(t),
+		cfg:      helper.config,
 		name:     name,
 		received: &rec,
 		t:        t,
@@ -278,20 +289,18 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 }
 
 func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
-	lggr := logger.TestLogger(listener.t)
-	cfg := cltest.NewTestGeneralConfig(listener.t)
 	listener.received.Lock()
 	defer listener.received.Unlock()
-	lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
-	consumed := listener.handleLogBroadcast(listener.t, lggr, cfg, lb)
+	consumed := listener.handleLogBroadcast(lb)
 
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
 	} else {
-		lggr.Warnf("Listener %v: Log was already consumed!", listener.name)
+		listener.lggr.Warnf("Listener %v: Log was already consumed!", listener.name)
 	}
 }
 
@@ -324,17 +333,18 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	}
 }
 
-func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lggr logger.Logger, cfg pg.LogConfig, lb log.Broadcast) bool {
-	consumed, err := listener.WasAlreadyConsumed(listener.db, lggr, cfg, lb)
+func (listener *simpleLogListener) handleLogBroadcast(lb log.Broadcast) bool {
+	t := listener.t
+	consumed, err := listener.WasAlreadyConsumed(lb)
 	if !assert.NoError(t, err) {
 		return false
 	}
 	if !consumed && !listener.skipMarkingConsumed.Load() {
 
-		err = listener.MarkConsumed(listener.db, lggr, cfg, lb)
+		err = listener.MarkConsumed(lb)
 		if assert.NoError(t, err) {
 
-			consumed2, err := listener.WasAlreadyConsumed(listener.db, lggr, cfg, lb)
+			consumed2, err := listener.WasAlreadyConsumed(lb)
 			if assert.NoError(t, err) {
 				assert.True(t, consumed2)
 			}
@@ -343,12 +353,12 @@ func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lggr logger.
 	return consumed
 }
 
-func (listener *simpleLogListener) WasAlreadyConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) WasAlreadyConsumed(broadcast log.Broadcast) (bool, error) {
+	return log.NewORM(listener.db, listener.lggr, listener.cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
 
-func (listener *simpleLogListener) MarkConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) MarkConsumed(broadcast log.Broadcast) error {
+	return log.NewORM(listener.db, listener.lggr, listener.cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {

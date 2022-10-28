@@ -391,3 +391,8 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 func NewTestFlagSet() *flag.FlagSet {
 	return flag.NewFlagSet("test", flag.PanicOnError)
 }
+
+// Ptr takes pointer of anything
+func Ptr[T any](v T) *T {
+	return &v
+}

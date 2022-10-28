@@ -37,6 +37,7 @@ import (
 //go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
 	gas.Config
+	pg.QConfig
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -48,9 +49,8 @@ type Config interface {
 	EvmNonceAutoSync() bool
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	TriggerFallbackDBPollInterval() time.Duration
-	LogSQL() bool
 }
 
 // KeyStore encompasses the subset of keystore used by txmgr
@@ -166,7 +166,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	if cfg.EvmUseForwarders() {
 		b.fwdMgr = forwarders.NewFwdMgr(db, ethClient, logPoller, lggr, cfg)
 	} else {
-		b.logger.Info("EvmForwardManager: Disabled")
+		b.logger.Info("EvmForwarderManager: Disabled")
 	}
 
 	return &b

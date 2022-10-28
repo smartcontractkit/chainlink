@@ -96,8 +96,8 @@ func setupSolanaKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, key
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.Solana().Add(cltest.DefaultSolanaKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.Solana().Add(cltest.DefaultSolanaKey))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 

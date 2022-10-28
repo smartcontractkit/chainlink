@@ -2,12 +2,15 @@ package http
 
 import (
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
 type emptyDBURLcfg struct{}
@@ -16,10 +19,12 @@ func (emptyDBURLcfg) DatabaseURL() url.URL {
 	return url.URL{}
 }
 
-type testDBURLcfg struct{ t *testing.T }
+type testDBURLcfg struct {
+	u url.URL
+}
 
 func (c testDBURLcfg) DatabaseURL() url.URL {
-	return *testutils.MustParseURL(c.t, "postgresql://postgres@1.2.3.4:5432/chainlink_test?sslmode=disable")
+	return c.u
 }
 
 func TestHttpAllowedIPS_isRestrictedIP(t *testing.T) {
@@ -54,11 +59,24 @@ func TestHttpAllowedIPS_isRestrictedIP(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.ip.String(), func(t *testing.T) {
-			assert.Equal(t, test.isRestricted, isRestrictedIP(test.ip, emptyDBURLcfg{}, logger.TestLogger(t)))
+			r, err := isRestrictedIP(test.ip, emptyDBURLcfg{})
+			require.NoError(t, err)
+			assert.Equal(t, test.isRestricted, r)
 		})
 	}
 
 	t.Run("disallows queries to database IP", func(t *testing.T) {
-		assert.True(t, isRestrictedIP(net.ParseIP("1.2.3.4"), testDBURLcfg{t}, logger.TestLogger(t)))
+		s := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+		t.Cleanup(s.Close)
+		u := testutils.MustParseURL(t, s.URL)
+		r, err := isRestrictedIP(net.ParseIP(u.Host), testDBURLcfg{*u})
+		require.NoError(t, err)
+		assert.True(t, r)
+	})
+
+	t.Run("errors on failed lookup", func(t *testing.T) {
+		u := testutils.MustParseURL(t, "postgresql://postgres@1.2.3.4:5432/chainlink_test?sslmode=disable")
+		_, err := isRestrictedIP(net.ParseIP("1.2.3.4"), testDBURLcfg{*u})
+		require.Error(t, err)
 	})
 }

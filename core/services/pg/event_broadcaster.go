@@ -80,6 +80,12 @@ func (b *eventBroadcaster) Start(context.Context) error {
 		}
 		b.db = db
 		b.listener = pq.NewListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
+			// sanity check since these can still be called after closing the listener
+			select {
+			case <-b.chStop:
+				return
+			default:
+			}
 			// These are always connection-related events, and the pq library
 			// automatically handles reconnecting to the DB. Therefore, we do not
 			// need to terminate, but rather simply log these events for node

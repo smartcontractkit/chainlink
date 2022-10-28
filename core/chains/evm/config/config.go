@@ -33,6 +33,8 @@ type ChainScopedOnlyConfig interface {
 	BlockHistoryEstimatorBatchSize() (size uint32)
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
+	BlockHistoryEstimatorCheckInclusionBlocks() uint16
+	BlockHistoryEstimatorCheckInclusionPercentile() uint16
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
@@ -44,8 +46,8 @@ type ChainScopedOnlyConfig interface {
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
-	EvmGasBumpWei() *big.Int
-	EvmGasFeeCapDefault() *big.Int
+	EvmGasBumpWei() *assets.Wei
+	EvmGasFeeCapDefault() *assets.Wei
 	EvmGasLimitDefault() uint32
 	EvmGasLimitMax() uint32
 	EvmGasLimitMultiplier() float32
@@ -55,25 +57,26 @@ type ChainScopedOnlyConfig interface {
 	EvmGasLimitVRFJobType() *uint32
 	EvmGasLimitFMJobType() *uint32
 	EvmGasLimitKeeperJobType() *uint32
-	EvmGasPriceDefault() *big.Int
-	EvmGasTipCapDefault() *big.Int
-	EvmGasTipCapMinimum() *big.Int
+	EvmGasPriceDefault() *assets.Wei
+	EvmGasTipCapDefault() *assets.Wei
+	EvmGasTipCapMinimum() *assets.Wei
 	EvmHeadTrackerHistoryDepth() uint32
 	EvmHeadTrackerMaxBufferSize() uint32
 	EvmHeadTrackerSamplingInterval() time.Duration
 	EvmLogBackfillBatchSize() uint32
+	EvmLogKeepBlocksDepth() uint32
 	EvmLogPollInterval() time.Duration
-	EvmMaxGasPriceWei() *big.Int
+	EvmMaxGasPriceWei() *assets.Wei
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
-	EvmMinGasPriceWei() *big.Int
+	EvmMinGasPriceWei() *assets.Wei
 	EvmNonceAutoSync() bool
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
 	ChainType() config.ChainType
-	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
 	LinkContractAddress() string
 	OperatorFactoryAddress() string
 	MinIncomingConfirmations() uint32
@@ -84,6 +87,9 @@ type ChainScopedOnlyConfig interface {
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
 	OCRDatabaseTimeout() time.Duration
+
+	// OCR2 chain specific config
+	OCR2AutomationGasLimit() uint32
 
 	SetEvmGasPriceDefault(value *big.Int) error
 }
@@ -183,7 +189,7 @@ func (c *chainScopedConfig) validate() (err error) {
 	}
 	if c.EvmGasBumpThreshold() == 0 && c.GasEstimatorMode() == "FixedPrice" && c.EvmGasFeeCapDefault().Cmp(c.EvmMaxGasPriceWei()) != 0 && c.EvmEIP1559DynamicFees() {
 		// EvmGasFeeCapDefault MUST == EvmMaxGasPriceWei in EIP1559 mode if fixed estimator mode is on and gas bumping is disabled
-		err = multierr.Combine(err, errors.Errorf("You are using FixedPrice estimator with gas bumping disabled in EIP1559 mode. ETH_MAX_GAS_PRICE_WEI (current value: %s) will be used as the FeeCap for transactions instead of EVM_GAS_TIP_CAP_DEFAULT (current value: %s). To prevent surprising behaviour, you are required to set EVM_GAS_TIP_CAP_DEFAULT and ETH_MAX_GAS_PRICE_WEI to the same value in this mode", c.EvmMaxGasPriceWei(), c.EvmGasFeeCapDefault()))
+		err = multierr.Combine(err, errors.Errorf("You are using FixedPrice estimator with gas bumping disabled in EIP1559 mode. ETH_MAX_GAS_PRICE_WEI (current value: %s) will be used as the FeeCap for transactions instead of EVM_GAS_FEE_CAP_DEFAULT (current value: %s). To prevent surprising behaviour, you are required to set EVM_GAS_FEE_CAP_DEFAULT and ETH_MAX_GAS_PRICE_WEI to the same value in this mode", c.EvmMaxGasPriceWei(), c.EvmGasFeeCapDefault()))
 	} else if c.EvmGasFeeCapDefault().Cmp(c.EvmMaxGasPriceWei()) > 0 {
 		err = multierr.Combine(err, errors.Errorf("EVM_GAS_FEE_CAP_DEFAULT (%s) must be less than or equal to ETH_MAX_GAS_PRICE_WEI (%s)", c.EvmGasFeeCapDefault(), c.EvmMaxGasPriceWei()))
 	}
@@ -312,7 +318,7 @@ func (c *chainScopedConfig) EvmGasBumpThreshold() uint64 {
 }
 
 // EvmGasBumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt
-func (c *chainScopedConfig) EvmGasBumpWei() *big.Int {
+func (c *chainScopedConfig) EvmGasBumpWei() *assets.Wei {
 	val, ok := c.GeneralConfig.GlobalEvmGasBumpWei()
 	if ok {
 		c.logEnvOverrideOnce("EvmGasBumpWei", val)
@@ -323,7 +329,7 @@ func (c *chainScopedConfig) EvmGasBumpWei() *big.Int {
 	c.persistMu.RUnlock()
 	if p != nil {
 		c.logPersistedOverrideOnce("EvmGasBumpWei", p)
-		return p.ToInt()
+		return p
 	}
 	n := c.defaultSet.gasBumpWei
 	return &n
@@ -343,7 +349,7 @@ func (c *chainScopedConfig) EvmMaxInFlightTransactions() uint32 {
 
 // EvmMaxGasPriceWei is the maximum amount in Wei that a transaction will be
 // bumped to before abandoning it and marking it as errored.
-func (c *chainScopedConfig) EvmMaxGasPriceWei() *big.Int {
+func (c *chainScopedConfig) EvmMaxGasPriceWei() *assets.Wei {
 	val, ok := c.GeneralConfig.GlobalEvmMaxGasPriceWei()
 	if ok {
 		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
@@ -354,7 +360,7 @@ func (c *chainScopedConfig) EvmMaxGasPriceWei() *big.Int {
 	c.persistMu.RUnlock()
 	if p != nil {
 		c.logPersistedOverrideOnce("EvmMaxGasPriceWei", p)
-		return p.ToInt()
+		return p
 	}
 	n := c.defaultSet.maxGasPriceWei
 	return &n
@@ -375,7 +381,7 @@ func (c *chainScopedConfig) EvmMaxQueuedTransactions() uint64 {
 
 // EvmMinGasPriceWei is the minimum amount in Wei that a transaction may be priced.
 // Chainlink will never send a transaction priced below this amount.
-func (c *chainScopedConfig) EvmMinGasPriceWei() *big.Int {
+func (c *chainScopedConfig) EvmMinGasPriceWei() *assets.Wei {
 	val, ok := c.GeneralConfig.GlobalEvmMinGasPriceWei()
 	if ok {
 		c.logEnvOverrideOnce("EvmMinGasPriceWei", val)
@@ -503,7 +509,7 @@ func (c *chainScopedConfig) EvmGasLimitTransfer() uint32 {
 }
 
 // EvmGasPriceDefault is the starting gas price for every transaction
-func (c *chainScopedConfig) EvmGasPriceDefault() *big.Int {
+func (c *chainScopedConfig) EvmGasPriceDefault() *assets.Wei {
 	val, ok := c.GeneralConfig.GlobalEvmGasPriceDefault()
 	if ok {
 		c.logEnvOverrideOnce("EvmGasPriceDefault", val)
@@ -514,7 +520,7 @@ func (c *chainScopedConfig) EvmGasPriceDefault() *big.Int {
 	c.persistMu.RUnlock()
 	if p != nil {
 		c.logPersistedOverrideOnce("EvmGasPriceDefault", p)
-		return p.ToInt()
+		return p
 	}
 	n := c.defaultSet.gasPriceDefault
 	return &n
@@ -531,15 +537,15 @@ func (c *chainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	}
 	min := c.EvmMinGasPriceWei()
 	max := c.EvmMaxGasPriceWei()
-	if value.Cmp(min) < 0 {
+	if value.Cmp(min.ToInt()) < 0 {
 		return errors.Errorf("cannot set default gas price to %s, it is below the minimum allowed value of %s", value.String(), min.String())
 	}
-	if value.Cmp(max) > 0 {
+	if value.Cmp(max.ToInt()) > 0 {
 		return errors.Errorf("cannot set default gas price to %s, it is above the maximum allowed value of %s", value.String(), max.String())
 	}
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
-	c.persistedCfg.EvmGasPriceDefault = utils.NewBig(value)
+	c.persistedCfg.EvmGasPriceDefault = assets.NewWei(value)
 	return c.orm.storeString("EvmGasPriceDefault", value.String())
 }
 
@@ -745,6 +751,24 @@ func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uin
 	return uint16(c.EvmGasBumpThreshold() + 1)
 }
 
+func (c *chainScopedConfig) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
+	val, ok := c.GeneralConfig.GlobalBlockHistoryEstimatorCheckInclusionBlocks()
+	if ok {
+		c.logEnvOverrideOnce("BlockHistoryEstimatorCheckInclusionBlocks", val)
+		return val
+	}
+	return c.defaultSet.blockHistoryEstimatorCheckInclusionBlocks
+}
+
+func (c *chainScopedConfig) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
+	val, ok := c.GeneralConfig.GlobalBlockHistoryEstimatorCheckInclusionPercentile()
+	if ok {
+		c.logEnvOverrideOnce("BlockHistoryEstimatorCheckInclusionPercentile", val)
+		return val
+	}
+	return c.defaultSet.blockHistoryEstimatorCheckInclusionPercentile
+}
+
 // BlockHistoryEstimatorTransactionPercentile is the percentile gas price to choose. E.g.
 // if the past transaction history contains four transactions with gas prices:
 // [100, 200, 300, 400], picking 25 for this number will give a value of 200
@@ -790,15 +814,15 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 	return c.defaultSet.gasEstimatorMode
 }
 
-func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int {
+func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei {
 	c.persistMu.RLock()
 	keySpecific := c.persistedCfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei
 	c.persistMu.RUnlock()
 
-	chainSpecific := utils.NewBig(c.EvmMaxGasPriceWei())
-	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) && keySpecific.Cmp(chainSpecific) < 0 {
+	chainSpecific := c.EvmMaxGasPriceWei()
+	if keySpecific != nil && !keySpecific.Equal(assets.NewWeiI(0)) && keySpecific.Cmp(chainSpecific) < 0 {
 		c.logKeySpecificOverrideOnce("EvmMaxGasPriceWei", addr, keySpecific)
-		return keySpecific.ToInt()
+		return keySpecific
 	}
 	return c.EvmMaxGasPriceWei()
 }
@@ -1074,6 +1098,23 @@ func (c *chainScopedConfig) EvmLogPollInterval() time.Duration {
 	return c.defaultSet.logPollInterval
 }
 
+// EvmLogKeepBlocksDepth
+func (c *chainScopedConfig) EvmLogKeepBlocksDepth() uint32 {
+	val, ok := c.GeneralConfig.GlobalEvmLogKeepBlocksDepth()
+	if ok {
+		c.logEnvOverrideOnce("EvmLogKeepBlocksDepth", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmLogKeepBlocksDepth
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmLogKeepBlocksDepth", p.Int64)
+		return uint32(p.Int64)
+	}
+	return c.defaultSet.logKeepBlocksDepth
+}
+
 // EvmLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs
 func (c *chainScopedConfig) EvmLogBackfillBatchSize() uint32 {
 	val, ok := c.GeneralConfig.GlobalEvmLogBackfillBatchSize()
@@ -1155,7 +1196,7 @@ func (c *chainScopedConfig) EvmEIP1559DynamicFees() bool {
 }
 
 // EvmGasFeeCapDefault is the fixed amount to set the fee cap on DynamicFee transactions
-func (c *chainScopedConfig) EvmGasFeeCapDefault() *big.Int {
+func (c *chainScopedConfig) EvmGasFeeCapDefault() *assets.Wei {
 	val, ok := c.GeneralConfig.GlobalEvmGasFeeCapDefault()
 	if ok {
 		c.logEnvOverrideOnce("EvmGasFeeCapDefault", val)
@@ -1166,14 +1207,14 @@ func (c *chainScopedConfig) EvmGasFeeCapDefault() *big.Int {
 	c.persistMu.RUnlock()
 	if p != nil {
 		c.logPersistedOverrideOnce("EvmGasFeeCapDefault", p)
-		return p.ToInt()
+		return p
 	}
 	return &c.defaultSet.gasFeeCapDefault
 }
 
 // EvmGasTipCapDefault is the default value to use for the gas tip on DynamicFee transactions
 // This is analogous to EthGasPriceDefault except the base fee is excluded
-func (c *chainScopedConfig) EvmGasTipCapDefault() *big.Int {
+func (c *chainScopedConfig) EvmGasTipCapDefault() *assets.Wei {
 	val, ok := c.GeneralConfig.GlobalEvmGasTipCapDefault()
 	if ok {
 		c.logEnvOverrideOnce("EvmGasTipCapDefault", val)
@@ -1184,14 +1225,14 @@ func (c *chainScopedConfig) EvmGasTipCapDefault() *big.Int {
 	c.persistMu.RUnlock()
 	if p != nil {
 		c.logPersistedOverrideOnce("EvmGasTipCapDefault", p)
-		return p.ToInt()
+		return p
 	}
 	return &c.defaultSet.gasTipCapDefault
 }
 
 // EvmGasTipCapMinimum is the minimum allowed value to use for the gas tip on DynamicFee transactions
 // This is analogous to EthMinGasPriceWei except the base fee is excluded
-func (c *chainScopedConfig) EvmGasTipCapMinimum() *big.Int {
+func (c *chainScopedConfig) EvmGasTipCapMinimum() *assets.Wei {
 	val, ok := c.GeneralConfig.GlobalEvmGasTipCapMinimum()
 	if ok {
 		c.logEnvOverrideOnce("EvmGasTipCapMinimum", val)
@@ -1202,7 +1243,7 @@ func (c *chainScopedConfig) EvmGasTipCapMinimum() *big.Int {
 	c.persistMu.RUnlock()
 	if p != nil {
 		c.logPersistedOverrideOnce("EvmGasTipCapMinimum", p)
-		return p.ToInt()
+		return p
 	}
 	return &c.defaultSet.gasTipCapMinimum
 }
@@ -1250,6 +1291,16 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 		return val
 	}
 	return c.defaultSet.nodeSelectionMode
+}
+
+// OCR2AutomationGasLimit is the gas limit for automation OCR2 plugin
+func (c *chainScopedConfig) OCR2AutomationGasLimit() uint32 {
+	val, ok := c.GeneralConfig.GlobalOCR2AutomationGasLimit()
+	if ok {
+		c.logEnvOverrideOnce("OCR2AutomationGasLimit", val)
+		return val
+	}
+	return c.defaultSet.ocr2AutomationGasLimit
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config

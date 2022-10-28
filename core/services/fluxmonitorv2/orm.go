@@ -6,10 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type transmitter interface {
@@ -37,7 +38,7 @@ type orm struct {
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{

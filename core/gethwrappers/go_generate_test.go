@@ -83,7 +83,7 @@ func init() { // compute rootDir
 // compiler artifact matches the current solidity contracts.
 //
 // Most of the compiler artifacts should contain output from sol-compiler, or
-// "yarn compile". The relevant parts of its schema are
+// "pnpm compile". The relevant parts of its schema are
 //
 //	{ "sourceCodes": { "<filePath>": "<code>", ... } }
 //

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -28,8 +29,25 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 	return ret
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+func isDevMode() bool {
+	var clDev string
+	v1, v2 := os.Getenv("CHAINLINK_DEV"), os.Getenv("CL_DEV")
+	if v1 != "" && v2 != "" {
+		if v1 != v2 {
+			panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		}
+	} else if v1 == "" {
+		clDev = v2
+	} else if v2 == "" {
+		clDev = v1
+	}
+	return strings.ToLower(clDev) == "true"
+}
+
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
+	devMode := isDevMode()
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -53,20 +71,20 @@ func NewApp(client *Client) *cli.App {
 		},
 		cli.StringFlag{
 			Name:   "config, c",
-			Hidden: !v2.CLDev,
+			Hidden: !devMode,
 			Usage:  "EXPERIMENTAL: TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.",
 			EnvVar: "CL_CONFIG",
 		},
 		cli.StringFlag{
 			Name:   "secrets, s",
-			Hidden: !v2.CLDev,
+			Hidden: !devMode,
 			Usage:  "EXPERIMENTAL: TOML configuration file for secrets. Must be set if and only if config is set.",
 		},
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.IsSet("config") {
 			// TOML
-			configTOML := v2.CLConfig
+			configTOML := v2.EnvConfig.Get()
 			if configTOML == "" {
 				fileName := c.String("config")
 				b, err := os.ReadFile(fileName)
@@ -85,27 +103,23 @@ func NewApp(client *Client) *cli.App {
 				}
 				secretsTOML = string(b)
 			}
-			var keystorePasswordFileName, vrfPasswordFileName *string
-			if c.IsSet("password") {
-				s := c.String("password")
-				keystorePasswordFileName = &s
-			}
-			if c.IsSet("vrfpassword") {
-				s := c.String("vrfpassword")
-				vrfPasswordFileName = &s
-			}
-			var err error
-			client.Config, err = chainlink.NewTOMLGeneralConfig(client.Logger, configTOML, secretsTOML, keystorePasswordFileName, vrfPasswordFileName)
-			if err != nil {
+			var opts chainlink.GeneralConfigOpts
+			if err := opts.ParseTOML(configTOML, secretsTOML); err != nil {
 				return err
 			}
-			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
-			//TODO note that empty string is NOT OK since it is sometimes meaningful - must use os.LookupEnv()
+			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+				return err
+			} else {
+				client.Config = cfg
+				client.Logger = lggr
+				client.CloseLogger = closeLggr
+			}
 		} else {
 			// Legacy ENV
 			if c.IsSet("secrets") {
 				panic("secrets file must not be used without a core config file")
 			}
+			client.Logger, client.CloseLogger = logger.NewLogger()
 			client.Config = config.NewGeneralConfig(client.Logger)
 		}
 		logDeprecatedClientEnvWarnings(client.Logger)
@@ -140,6 +154,12 @@ func NewApp(client *Client) *cli.App {
 		client.HTTP = NewAuthenticatedHTTPClient(client.Logger, clientOpts, cookieAuth, sr)
 		client.CookieAuthenticator = cookieAuth
 		client.FileSessionRequestBuilder = sessionRequestBuilder
+		return nil
+	}
+	app.After = func(c *cli.Context) error {
+		if client.CloseLogger != nil {
+			return client.CloseLogger()
+		}
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{
@@ -314,13 +334,24 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "dump",
-					Usage:  "Dump a TOML file equivalent to the current environment and database configuration",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration",
 					Action: client.ConfigDump,
 				},
 				{
 					Name:   "list",
-					Usage:  "Show the node's environment variables",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Show the node's environment variables",
 					Action: client.GetConfiguration,
+				},
+				{
+					Name:   "show",
+					Usage:  "V2 CONFIG (TOML) ONLY - Show the application configuration",
+					Action: client.ConfigV2,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "user-only",
+							Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
+						},
+					},
 				},
 				{
 					Name:   "setgasprice",
@@ -907,7 +938,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "reset",
 							Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
-							Hidden: !v2.CLDev,
+							Hidden: !devMode,
 							Action: client.ResetDatabase,
 							Flags: []cli.Flag{
 								cli.BoolFlag{
@@ -919,7 +950,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "preparetest",
 							Usage:  "Reset database and load fixtures.",
-							Hidden: !v2.CLDev,
+							Hidden: !devMode,
 							Action: client.PrepareTestDatabase,
 							Flags: []cli.Flag{
 								cli.BoolFlag{
@@ -955,7 +986,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "create-migration",
 							Usage:  "Create a new migration.",
-							Hidden: !v2.CLDev,
+							Hidden: !devMode,
 							Action: client.CreateMigration,
 							Flags: []cli.Flag{
 								cli.StringFlag{
@@ -971,7 +1002,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:   "initiators",
 			Usage:  "Commands for managing External Initiators",
-			Hidden: !v2.CLDev,
+			Hidden: !devMode,
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",

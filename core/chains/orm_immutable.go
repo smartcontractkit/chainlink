@@ -30,13 +30,18 @@ func (o ormImmut[I, C, N]) SetupNodes(_ []N, _ []I) error {
 	return v2.ErrUnsupported
 }
 
+func (o ormImmut[I, C, N]) EnsureChains(_ []I, _ ...pg.QOpt) error {
+	return v2.ErrUnsupported
+}
+
 // chainsORMImmut is a generic, immutable ORM for chains.
 type chainsORMImmut[I ID, C Config] struct {
 	data chainData[I, C]
 }
 
 type chainData[I ID, C Config] interface {
-	Chains(...I) []DBChain[I, C]
+	// Chains returns a slice of DBChain for ids, or all if none are provided.
+	Chains(ids ...I) []DBChain[I, C]
 }
 
 // newChainsORMImmut returns an chainsORM backed by q, for the table <prefix>_chains.
@@ -87,10 +92,13 @@ func (o *chainsORMImmut[I, C]) DeleteChain(id I, _ ...pg.QOpt) error {
 
 func (o *chainsORMImmut[I, C]) Chains(offset, limit int, _ ...pg.QOpt) (chains []DBChain[I, C], count int, err error) {
 	chains = o.data.Chains()
-	if len(chains) < offset {
+	count = len(chains)
+	if offset < len(chains) {
 		chains = chains[offset:]
+	} else {
+		chains = nil
 	}
-	if len(chains) > limit {
+	if limit > 0 && len(chains) > limit {
 		chains = chains[:limit]
 	}
 	return
@@ -131,8 +139,11 @@ func (o *nodesORMImmut[I, N]) NodeNamed(name string, _ ...pg.QOpt) (node N, err 
 
 func (o *nodesORMImmut[I, N]) Nodes(offset, limit int, _ ...pg.QOpt) (nodes []N, count int, err error) {
 	nodes = o.data.Nodes()
-	if offset > 0 && len(nodes) > offset {
+	count = len(nodes)
+	if offset < len(nodes) {
 		nodes = nodes[offset:]
+	} else {
+		nodes = nil
 	}
 	if limit > 0 && len(nodes) > limit {
 		nodes = nodes[:limit]
@@ -142,8 +153,11 @@ func (o *nodesORMImmut[I, N]) Nodes(offset, limit int, _ ...pg.QOpt) (nodes []N,
 
 func (o *nodesORMImmut[I, N]) NodesForChain(chainID I, offset, limit int, _ ...pg.QOpt) (nodes []N, count int, err error) {
 	nodes = o.data.NodesByID(chainID)
-	if offset > 0 && len(nodes) > offset {
+	count = len(nodes)
+	if offset < len(nodes) {
 		nodes = nodes[offset:]
+	} else {
+		nodes = nil
 	}
 	if limit > 0 && len(nodes) > limit {
 		nodes = nodes[:limit]

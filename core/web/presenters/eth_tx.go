@@ -54,7 +54,7 @@ func NewEthTxResourceFromAttempt(txa txmgr.EthTxAttempt) EthTxResource {
 
 	r := NewEthTxResource(tx)
 	r.JAID = NewJAID(txa.Hash.Hex())
-	r.GasPrice = txa.GasPrice.String()
+	r.GasPrice = txa.GasPrice.ToInt().String()
 	r.Hash = txa.Hash
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
 	r.EVMChainID = txa.EthTx.EVMChainID

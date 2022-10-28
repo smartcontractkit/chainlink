@@ -95,7 +95,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 	return &orm{pg.NewQ(db, lggr, cfg), lggr}
 }
 

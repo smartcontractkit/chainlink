@@ -42,6 +42,7 @@ const (
 	randomnessFulfillmentRequestedEvent string = "RandomnessFulfillmentRequested"
 	randomWordsFulfilledEvent           string = "RandomWordsFulfilled"
 	newTransmissionEvent                string = "NewTransmission"
+	outputsServedEvent                  string = "OutputsServed"
 
 	// Both VRF and DKG contracts emit this, it's an OCR event.
 	configSetEvent = "ConfigSet"
@@ -120,12 +121,13 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	err = logPoller.MergeFilter([]common.Hash{
-		t.randomnessRequestedTopic,
-		t.randomnessFulfillmentRequestedTopic,
-		t.randomWordsFulfilledTopic,
-		t.configSetTopic,
-		t.newTransmissionTopic}, []common.Address{beaconAddress, coordinatorAddress, dkgAddress})
+	_, err = logPoller.RegisterFilter(logpoller.Filter{
+		EventSigs: []common.Hash{
+			t.randomnessRequestedTopic,
+			t.randomnessFulfillmentRequestedTopic,
+			t.randomWordsFulfilledTopic,
+			t.configSetTopic,
+			t.outputsServedTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +235,7 @@ func (c *coordinator) ReportBlocks(
 			c.randomnessRequestedTopic,
 			c.randomnessFulfillmentRequestedTopic,
 			c.randomWordsFulfilledTopic,
+			c.outputsServedTopic,
 		},
 		c.coordinatorAddress,
 		pg.WithParentCtx(ctx))
@@ -241,34 +244,20 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	beaconLogs, err := c.lp.LogsWithSigs(
-		currentHeight-c.lookbackBlocks,
-		currentHeight,
-		[]common.Hash{
-			c.newTransmissionTopic,
-		},
-		c.beaconAddress,
-		pg.WithParentCtx(ctx))
-	if err != nil {
-		err = errors.Wrapf(err, "logs with topics. address: %s", c.beaconAddress)
-		return
-	}
-
-	logs = append(logs, beaconLogs...)
 	c.lggr.Trace(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs,
-		newTransmissionLogs,
+		outputsServedLogs,
 		err := c.unmarshalLogs(logs)
 	if err != nil {
 		err = errors.Wrap(err, "unmarshal logs")
 		return
 	}
 
-	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
-		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
+	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
+		randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, randomWordsFulfilledLogs, outputsServedLogs))
 
 	// Get blockhashes that pertain to requested blocks.
 	blockhashesMapping, err := c.getBlockhashesMappingFromRequests(ctx, randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, currentHeight)
@@ -302,7 +291,7 @@ func (c *coordinator) ReportBlocks(
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
-	fulfilledBlocks := c.getFulfilledBlocks(newTransmissionLogs)
+	fulfilledBlocks := c.getFulfilledBlocks(outputsServedLogs)
 	for _, f := range fulfilledBlocks {
 		delete(blocksRequested, f)
 	}
@@ -386,8 +375,8 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	return
 }
 
-func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []*vrf_beacon.VRFBeaconNewTransmission) (fulfilled []block) {
-	for _, r := range newTransmissionLogs {
+func (c *coordinator) getFulfilledBlocks(outputsServedLogs []*vrf_coordinator.VRFCoordinatorOutputsServed) (fulfilled []block) {
+	for _, r := range outputsServedLogs {
 		for _, o := range r.OutputsServed {
 			fulfilled = append(fulfilled, block{
 				blockNumber: o.Height,
@@ -500,8 +489,6 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					Requester:         r.Callback.Requester,
 					Arguments:         r.Callback.Arguments,
 					GasAllowance:      r.Callback.GasAllowance,
-					RequestHeight:     r.Raw.BlockNumber,
-					RequestBlockHash:  r.Raw.BlockHash,
 				})
 				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
 			}
@@ -605,13 +592,13 @@ func (c *coordinator) unmarshalLogs(
 	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	randomWordsFulfilledLogs []*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled,
-	newTransmissionLogs []*vrf_beacon.VRFBeaconNewTransmission,
+	outputsServedLogs []*vrf_wrapper.VRFCoordinatorOutputsServed,
 	err error,
 ) {
 	for _, lg := range logs {
 		rawLog := toGethLog(lg)
-		switch {
-		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
+		switch lg.EventSig {
+		case c.randomnessRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -625,7 +612,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
-		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
+		case c.randomnessFulfillmentRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -639,7 +626,7 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, rfr)
-		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
+		case c.randomWordsFulfilledTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
@@ -653,24 +640,27 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
-		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
+		case c.outputsServedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
-				err = errors.Wrap(err2, "unmarshal NewTransmission log")
+				err = errors.Wrap(err2, "unmarshal OutputsServed log")
 				return
 			}
-			nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
+			nt, ok := unpacked.(*vrf_coordinator.VRFCoordinatorOutputsServed)
 			if !ok {
 				// should never happen
-				err = errors.New("cast to *vrf_beacon.VRFBeaconNewTransmission")
+				err = errors.New("cast to *vrf_coordinator.VRFCoordinatorOutputsServed")
 			}
-			newTransmissionLogs = append(newTransmissionLogs, nt)
+			outputsServedLogs = append(outputsServedLogs, nt)
 		default:
-			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
-			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
-				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
-				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
+			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", lg.EventSig))
+			c.lggr.Error(fmt.Sprintf("expected one of: %s (RandomnessRequested) %s (RandomnessFulfillmentRequested) %s (RandomWordsFulfilled) %s (OutputsServed), got %s",
+				hexutil.Encode(c.randomnessRequestedTopic[:]),
+				hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
+				hexutil.Encode(c.randomWordsFulfilledTopic[:]),
+				hexutil.Encode(c.outputsServedTopic[:]),
+				lg.EventSig))
 		}
 	}
 	return

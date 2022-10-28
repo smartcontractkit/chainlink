@@ -27,7 +27,7 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.LogConfig) *db {
+func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConfig) *db {
 	namedLogger := lggr.Named("OCR2.DB")
 
 	return &db{

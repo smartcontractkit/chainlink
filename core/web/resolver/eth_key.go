@@ -102,7 +102,7 @@ func (r *ETHKeyResolver) MaxGasPriceWei() *string {
 	gasPrice := r.key.chain.Config().KeySpecificMaxGasPriceWei(r.key.addr.Address())
 
 	if gasPrice != nil {
-		val := gasPrice.String()
+		val := gasPrice.ToInt().String()
 		return &val
 	}
 

@@ -14,6 +14,7 @@ import (
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -23,7 +24,7 @@ type LegacyEthNodeConfig interface {
 	EthereumHTTPURL() *url.URL
 	EthereumSecondaryURLs() []url.URL
 	EthereumNodes() string
-	LogSQL() bool
+	pg.QConfig
 }
 
 const missingEthChainIDMsg = `missing ETH_CHAIN_ID; this env var is required if ETH_URL is set

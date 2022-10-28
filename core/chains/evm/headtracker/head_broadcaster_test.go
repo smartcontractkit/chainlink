@@ -16,9 +16,12 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -38,9 +41,9 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	var d time.Duration
-	cfg.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].HeadTracker.SamplingInterval = &models.Duration{}
+	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)

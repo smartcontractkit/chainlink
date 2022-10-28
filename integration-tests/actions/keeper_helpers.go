@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
@@ -44,6 +45,41 @@ func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contrac
 			MinIncomingConfirmations: 1,
 		})
 		Expect(err).ShouldNot(HaveOccurred(), "Creating KeeperV2 Job shouldn't fail")
+	}
+}
+
+func CreateKeeperJobsWithKeyIndex(chainlinkNodes []*client.Chainlink, keeperRegistry contracts.KeeperRegistry, keyIndex int) {
+	// Send keeper jobs to registry and chainlink nodes
+	primaryNode := chainlinkNodes[0]
+	primaryNodeAddresses, err := primaryNode.EthAddresses()
+	Expect(err).ShouldNot(HaveOccurred(), "Reading ETH Keys from Chainlink Client shouldn't fail")
+	nodeAddresses, err := ChainlinkNodeAddressesAtIndex(chainlinkNodes, keyIndex)
+	Expect(err).ShouldNot(HaveOccurred(), "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
+	nodeAddressesStr, payees := make([]string, 0), make([]string, 0)
+	for _, cla := range nodeAddresses {
+		nodeAddressesStr = append(nodeAddressesStr, cla.Hex())
+		payees = append(payees, primaryNodeAddresses[keyIndex])
+	}
+	err = keeperRegistry.SetKeepers(nodeAddressesStr, payees)
+	Expect(err).ShouldNot(HaveOccurred(), "Setting keepers in the registry shouldn't fail")
+
+	for _, chainlinkNode := range chainlinkNodes {
+		chainlinkNodeAddress, err := chainlinkNode.EthAddresses()
+		Expect(err).ShouldNot(HaveOccurred(), "Error retrieving chainlink node address")
+		_, err = chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
+			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
+			ContractAddress:          keeperRegistry.Address(),
+			FromAddress:              chainlinkNodeAddress[keyIndex],
+			MinIncomingConfirmations: 1,
+		})
+		Expect(err).ShouldNot(HaveOccurred(), "Creating KeeperV2 Job shouldn't fail")
+	}
+}
+
+func DeleteKeeperJobsWithId(chainlinkNodes []*client.Chainlink, id int) {
+	for _, chainlinkNode := range chainlinkNodes {
+		err := chainlinkNode.MustDeleteJob(strconv.Itoa(id))
+		Expect(err).ShouldNot(HaveOccurred(), "Deleting KeeperV2 Job shouldn't fail")
 	}
 }
 

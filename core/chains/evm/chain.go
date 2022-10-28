@@ -132,7 +132,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
 	if opts.GenLogPoller != nil {
 		logPoller = opts.GenLogPoller(chainID)
 	}

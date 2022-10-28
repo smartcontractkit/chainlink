@@ -152,7 +152,7 @@ describe('OCR2DRTestHelper', () => {
         queries: [
           {
             verb: 0,
-            url: url,
+            url,
           },
         ],
       })
@@ -209,7 +209,7 @@ describe('OCR2DRTestHelper', () => {
         queries: [
           {
             verb: 0,
-            url: url,
+            url,
             headers: {
               k1: 'v1',
               k2: 'v2',

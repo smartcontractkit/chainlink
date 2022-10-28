@@ -27,46 +27,7 @@ import (
 var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("OCR suite on Simulated Network @simulated",
-				networks.SimulatedEVM,
-				big.NewFloat(50),
-				defaultOCREnv(networks.SimulatedEVM),
-			),
-			Entry("OCR suite on General EVM @general",
-				networks.GeneralEVM,
-				big.NewFloat(.1),
-				defaultOCREnv(networks.GeneralEVM),
-			),
-			Entry("OCR suite on Metis Stardust @metis",
-				networks.MetisStardust,
-				big.NewFloat(.01),
-				defaultOCREnv(networks.MetisStardust),
-			),
-			Entry("OCR suite on Sepolia Testnet @sepolia",
-				networks.SepoliaTestnet,
-				big.NewFloat(.1),
-				defaultOCREnv(networks.SepoliaTestnet),
-			),
-			Entry("OCR suite on Görli Testnet @goerli",
-				networks.GoerliTestnet,
-				big.NewFloat(.1),
-				defaultOCREnv(networks.GoerliTestnet),
-			),
-			Entry("OCR suite on Klaytn Baobab @klaytn",
-				networks.KlaytnBaobab,
-				big.NewFloat(1),
-				defaultOCREnv(networks.KlaytnBaobab),
-			),
-			Entry("OCR suite on Optimism Goerli @optimism",
-				networks.OptimismGoerli,
-				big.NewFloat(.0005),
-				defaultOCREnv(networks.OptimismGoerli),
-			),
-			Entry("OCR suite on Arbitrum Goerli @arbitrum",
-				networks.ArbitrumGoerli,
-				big.NewFloat(.005),
-				defaultOCREnv(networks.ArbitrumGoerli),
-			),
+			Entry("OCR test on a default environment @default", defaultOCREnv()),
 		}
 
 		err               error
@@ -87,13 +48,11 @@ var _ = Describe("OCR Feed @ocr", func() {
 	})
 
 	DescribeTable("OCR suite on different EVM networks", func(
-		testNetwork *blockchain.EVMNetwork,
-		funding *big.Float,
-		env *environment.Environment,
+		testInputs *smokeTestInputs,
 	) {
 		By("Deploying the environment")
-		testEnvironment = env
-
+		testEnvironment = testInputs.environment
+		testNetwork := testInputs.network
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -115,7 +74,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, funding)
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Deploying OCR contracts")
@@ -143,7 +102,8 @@ var _ = Describe("OCR Feed @ocr", func() {
 	)
 })
 
-func defaultOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
+func defaultOCREnv() *smokeTestInputs {
+	network := networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -152,7 +112,7 @@ func defaultOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{
+	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
 		AddHelm(mockservercfg.New(nil)).
@@ -162,4 +122,13 @@ func defaultOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
 			"env":      network.ChainlinkValuesMap(),
 			"replicas": 6,
 		}))
+	return &smokeTestInputs{
+		network:     network,
+		environment: env,
+	}
+}
+
+type smokeTestInputs struct {
+	environment *environment.Environment
+	network     *blockchain.EVMNetwork
 }

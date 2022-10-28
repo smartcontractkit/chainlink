@@ -1,20 +1,21 @@
 package config_test
 
 import (
+	"encoding/hex"
 	"testing"
 
-	"encoding/hex"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
-	"github.com/stretchr/testify/require"
 )
 
 func TestValidatePluginConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg)
 

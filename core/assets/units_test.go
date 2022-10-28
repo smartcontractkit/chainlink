@@ -14,13 +14,13 @@ func TestAssets_Units(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		fn     func(int64) *big.Int
+		fn     func(int64) *assets.Wei
 		factor *big.Int
 	}{
-		{name: "Wei", fn: assets.Wei, factor: big.NewInt(params.Wei)},
-		{name: "GWei", fn: assets.GWei, factor: big.NewInt(params.GWei)},
-		{name: "UEther", fn: assets.UEther, factor: big.NewInt(params.GWei * 1000)},
-		{name: "Ether", fn: assets.Ether, factor: big.NewInt(params.Ether)},
+		{name: "Wei", fn: assets.NewWeiI[int64], factor: big.NewInt(params.Wei)},
+		{name: "GWei", fn: assets.GWei[int64], factor: big.NewInt(params.GWei)},
+		{name: "UEther", fn: assets.UEther[int64], factor: big.NewInt(params.GWei * 1000)},
+		{name: "Ether", fn: assets.Ether[int64], factor: big.NewInt(params.Ether)},
 	}
 
 	for _, test := range tests {
@@ -29,16 +29,12 @@ func TestAssets_Units(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			expected := big.NewInt(0)
+			expected := assets.NewWeiI(0)
 			assert.Equal(t, expected, test.fn(0))
 
-			expected = big.NewInt(100)
-			expected = new(big.Int).Mul(expected, test.factor)
+			expected = assets.NewWeiI(100)
+			expected = expected.Mul(test.factor)
 			assert.Equal(t, expected, test.fn(100))
-
-			expected = big.NewInt(-100)
-			expected = new(big.Int).Mul(expected, test.factor)
-			assert.Equal(t, expected, test.fn(-100))
 		})
 	}
 }

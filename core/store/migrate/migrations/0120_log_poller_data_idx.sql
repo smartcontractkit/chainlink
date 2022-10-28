@@ -10,5 +10,5 @@ CREATE INDEX logs_idx_topic_three ON logs (encode(topics[3], 'hex'));
 CREATE INDEX logs_idx_topic_four ON logs (encode(topics[4], 'hex'));
 
 -- +goose Down
-DROP INDEX logs_idx_data_word_one, logs_idx_data_word_two, logs_idx_data_word_three;
-DROP INDEX logs_idx_topic_two, logs_idx_topic_three, logs_idx_topic_four;
+DROP INDEX IF EXISTS logs_idx_data_word_one, logs_idx_data_word_two, logs_idx_data_word_three;
+DROP INDEX IF EXISTS logs_idx_topic_two, logs_idx_topic_three, logs_idx_topic_four;

@@ -45,6 +45,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.Webhook
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) AfterJobCreated(jb job.Job) {
 	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
 	if err != nil {

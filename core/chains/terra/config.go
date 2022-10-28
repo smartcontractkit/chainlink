@@ -56,15 +56,17 @@ func (cs TerraConfigs) Chains(ids ...string) (chains []types.DBChain) {
 		if ch == nil {
 			continue
 		}
-		var match bool
-		for _, id := range ids {
-			if id == *ch.ChainID {
-				match = true
-				break
+		if len(ids) > 0 {
+			var match bool
+			for _, id := range ids {
+				if id == *ch.ChainID {
+					match = true
+					break
+				}
 			}
-		}
-		if !match {
-			continue
+			if !match {
+				continue
+			}
 		}
 		chains = append(chains, ch.AsV1())
 	}
@@ -98,7 +100,7 @@ func (cs TerraConfigs) NodesByID(chainIDs ...string) (ns []db.Node) {
 	for i := range cs {
 		var match bool
 		for _, id := range chainIDs {
-			if id != *cs[i].ChainID {
+			if id == *cs[i].ChainID {
 				match = true
 				break
 			}

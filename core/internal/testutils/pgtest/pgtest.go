@@ -3,6 +3,7 @@ package pgtest
 import (
 	"database/sql"
 	"testing"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
@@ -12,28 +13,38 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var _ pg.LogConfig = PGCfg{}
+var _ pg.QConfig = &qConfig{}
 
-type PGCfg struct{ logSQL bool }
+// qConfig implements pg.QCOnfig
+type qConfig struct {
+	logSQL              bool
+	defaultQueryTimeout time.Duration
+}
 
-func NewPGCfg(logSQL bool) pg.LogConfig { return PGCfg{logSQL} }
-func (p PGCfg) LogSQL() bool            { return p.logSQL }
+func NewQConfig(logSQL bool) pg.QConfig {
+	return &qConfig{logSQL, pg.DefaultQueryTimeout}
+}
+
+func (p *qConfig) LogSQL() bool { return p.logSQL }
+
+func (p *qConfig) DatabaseDefaultQueryTimeout() time.Duration { return p.defaultQueryTimeout }
 
 func NewSqlDB(t *testing.T) *sql.DB {
 	testutils.SkipShortDB(t)
-	db, err := sql.Open("txdb", uuid.NewV4().String())
+	db, err := sql.Open(string(dialects.TransactionWrappedPostgres), uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	return db
 }
 
-func NewSqlxDB(t *testing.T) *sqlx.DB {
+func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
-	db, err := sqlx.Open("txdb", uuid.NewV4().String())
+	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
