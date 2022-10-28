@@ -2,7 +2,6 @@
 .DS_Store
 .envrc
 *.log
-operator_ui/
 node_modules/
 **/node_modules/
 vendor/

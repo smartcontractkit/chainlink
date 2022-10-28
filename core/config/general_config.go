@@ -69,6 +69,7 @@ type BasicConfig interface {
 	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
+	SetPasswords(keystore, vrf *string)
 
 	FeatureFlags
 	audit.Config
@@ -291,6 +292,9 @@ type generalConfig struct {
 	logMutex         sync.RWMutex
 	genAppID         sync.Once
 	appID            uuid.UUID
+
+	passwordKeystore, passwordVRF string
+	passwordMu                    sync.RWMutex // passwords are set after initialization
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -1533,14 +1537,25 @@ func (c *generalConfig) LogFileDir() string {
 	return s
 }
 
-// Implemented only in config V2. V1 uses a --password flag.
-func (c *generalConfig) KeystorePassword() string {
-	c.lggr.Warn("Config V1 should use --password flag instead of calling KeystorePassword()")
-	return ""
+func (c *generalConfig) SetPasswords(keystore, vrf *string) {
+	c.passwordMu.Lock()
+	defer c.passwordMu.Unlock()
+	if keystore != nil {
+		c.passwordKeystore = *keystore
+	}
+	if vrf != nil {
+		c.passwordVRF = *vrf
+	}
 }
 
-// Implemented only in config V2. V1 uses a --vrfpassword flag.
+func (c *generalConfig) KeystorePassword() string {
+	c.passwordMu.RLock()
+	defer c.passwordMu.RUnlock()
+	return c.passwordKeystore
+}
+
 func (c *generalConfig) VRFPassword() string {
-	c.lggr.Warn("Config V1 should use --vrfpassword flag instead of calling VRFPassword()")
-	return ""
+	c.passwordMu.RLock()
+	defer c.passwordMu.RUnlock()
+	return c.passwordVRF
 }
