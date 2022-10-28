@@ -11,7 +11,7 @@ jobs:
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -40,7 +40,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
       - name: Collect Metrics
@@ -81,6 +81,7 @@ jobs:
       TEST_TRIGGERED_BY: core-CI-eth
       TEST_LOG_LEVEL: debug
     strategy:
+      fail-fast: false
       matrix:
         product:
           - name: cron
@@ -94,7 +95,7 @@ jobs:
             os: ubuntu-latest
           - name: keeper
             nodes: 27
-            os: ubuntu20.04-4cores-16GB
+            os: ubuntu20.04-32cores-128GB
           - name: ocr
             nodes: 1
             os: ubuntu-latest
@@ -115,7 +116,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests
+          this-job-name: ETH Smoke Tests Matrix ${{ matrix.product.name }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -193,7 +194,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, get_projectserum_version]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
@@ -228,7 +229,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-8cores-32GB
     needs: [build-chainlink, solana-build-contracts, changes]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
