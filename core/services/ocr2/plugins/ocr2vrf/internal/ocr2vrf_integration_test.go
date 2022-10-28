@@ -538,6 +538,14 @@ lookbackBlocks         	= %d # This is an integer
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
+		// Ensure a refund is provided. Refund amount comes out to ~23 million Gwei.
+		var refundAmount int64 = 23_822_200
+		subAfterRefund, err := uni.coordinator.GetSubscription(nil, 1)
+		require.NoError(t, err)
+		if subAfterRefund.Balance.Int64() != subAfterBatchFulfillmentRequest.Balance.Int64()+assets.GWei(refundAmount).Int64() {
+			return false
+		}
+
 		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, big.NewInt(0))
 		t.Logf("TestRedeemRandomness err: %+v", err1)
 		return err1 == nil
