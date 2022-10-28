@@ -21,20 +21,23 @@ let keeperRegistryFactory20: KeeperRegistry20Factory
 let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 let personas: Personas
 let owner: Signer
-let balance: number
-let executeGas: number
-let amountSpent: number
-let admin0: string
-let target0: string
-let lastKeeper0: string
-let admin1: string
-let target1: string
-let lastKeeper1: string
-let idx: number[]
 let upkeepsV1: any[]
 let upkeepsV2: any[]
 let upkeepsV3: any[]
 let admins: string[]
+let admin0: Signer
+let admin1: Signer
+const balance = 50000000000000
+const executeGas = 200000
+const amountSpent = 200000000000000
+const target0 = '0xffffffffffffffffffffffffffffffffffffffff'
+const target1 = '0xfffffffffffffffffffffffffffffffffffffffe'
+const lastKeeper0 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddd'
+const lastKeeper1 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddc'
+const UpkeepFormatV1 = 0
+const UpkeepFormatV2 = 1
+const UpkeepFormatV3 = 2
+const idx = [123, 124]
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
@@ -105,23 +108,18 @@ before(async () => {
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
 
-  owner = personas.Default
+  upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
+
+  owner = personas.Norbert
+  admin0 = personas.Neil
+  admin1 = personas.Nick
+  admins = [
+    (await admin0.getAddress()).toLowerCase(),
+    (await admin1.getAddress()).toLowerCase(),
+  ]
 })
 
-describe('UpkeepTranscoder3_0', async () => {
-  balance = 50000000000000
-  executeGas = 200000
-  amountSpent = 200000000000000
-  admin0 = await personas.Nick.getAddress()
-  target0 = '0xffffffffffffffffffffffffffffffffffffffff'
-  lastKeeper0 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddd'
-  admin1 = await personas.Carol.getAddress()
-  target1 = '0xfffffffffffffffffffffffffffffffffffffffe'
-  lastKeeper1 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddc'
-  const UpkeepFormatV1 = 0
-  const UpkeepFormatV2 = 1
-  const UpkeepFormatV3 = 2
-
+describe.only('UpkeepTranscoder3_0', () => {
   beforeEach(async () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
   })
@@ -176,14 +174,10 @@ describe('UpkeepTranscoder3_0', async () => {
     })
 
     context('when from and to versions are correct', () => {
-      idx = [123, 124]
-
       upkeepsV3 = [
         [executeGas, 2 ** 32 - 1, false, target0, amountSpent, balance, 0],
         [executeGas, 2 ** 32 - 1, false, target1, amountSpent, balance, 0],
       ]
-
-      admins = [admin0, admin1]
 
       it('transcodes V1 upkeeps to V3 properly', async () => {
         upkeepsV1 = [
@@ -194,7 +188,7 @@ describe('UpkeepTranscoder3_0', async () => {
             2 ** 32,
             target0,
             amountSpent,
-            admin0,
+            await admin0.getAddress(),
           ],
           [
             balance,
@@ -203,7 +197,7 @@ describe('UpkeepTranscoder3_0', async () => {
             2 ** 32,
             target1,
             amountSpent,
-            admin1,
+            await admin1.getAddress(),
           ],
         ]
 
@@ -224,7 +218,7 @@ describe('UpkeepTranscoder3_0', async () => {
             balance,
             lastKeeper0,
             amountSpent,
-            admin0,
+            await admin0.getAddress(),
             executeGas,
             2 ** 32 - 1,
             target0,
@@ -234,7 +228,7 @@ describe('UpkeepTranscoder3_0', async () => {
             balance,
             lastKeeper1,
             amountSpent,
-            admin1,
+            await admin1.getAddress(),
             executeGas,
             2 ** 32 - 1,
             target1,
@@ -307,7 +301,12 @@ describe('UpkeepTranscoder3_0', async () => {
           )
         const tx = await registry12
           .connect(owner)
-          .registerUpkeep(mock.address, executeGas, admin0, randomBytes)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin0.getAddress(),
+            randomBytes,
+          )
         const id = await getUpkeepID(tx)
 
         // @ts-ignore bug in autogen file
@@ -411,7 +410,6 @@ describe('UpkeepTranscoder3_0', async () => {
             offchainVersion,
             offchainBytes,
           )
-
         await registry20.connect(owner).setPayees(payees)
         await linkToken
           .connect(owner)
