@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Config is the root type used for TOML configuration.
@@ -132,25 +131,6 @@ func (s *Secrets) setEnv() error {
 	}
 	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
 		s.Pyroscope.AuthToken = &pyroscopeAuthToken
-	}
-	return nil
-}
-
-// setPasswords overrides Keystore and VRF passwords, if present.
-func (s *Secrets) setPasswords(keystorePasswordFileName, vrfPasswordFileName *string) error {
-	if keystorePasswordFileName != nil {
-		keystorePwd, err := utils.PasswordFromFile(*keystorePasswordFileName)
-		if err != nil {
-			return err
-		}
-		s.Password.Keystore = models.NewSecret(keystorePwd)
-	}
-	if vrfPasswordFileName != nil {
-		vrfPwd, err := utils.PasswordFromFile(*vrfPasswordFileName)
-		if err != nil {
-			return err
-		}
-		s.Password.VRF = models.NewSecret(vrfPwd)
 	}
 	return nil
 }
