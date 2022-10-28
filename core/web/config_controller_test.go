@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
