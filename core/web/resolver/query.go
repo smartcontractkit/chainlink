@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
+	config2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -432,8 +433,11 @@ func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
 	}
 
 	cfg := r.App.GetConfig()
-	printer := config.NewConfigPrinter(cfg)
+	if _, ok := cfg.(chainlink.ConfigV2); ok {
+		return nil, config2.ErrUnsupported
+	}
 
+	printer := config.NewConfigPrinter(cfg)
 	return NewConfigPayload(printer.EnvPrinter), nil
 }
 
