@@ -305,7 +305,51 @@ func TestIntegration_OCR2VRF(t *testing.T) {
 	runOCR2VRFTest(t, false)
 }
 
-func runOCR2VRFTest(t *testing.T, useForwarders bool) {
+// TODO: failing at the moment, need to fix.
+//func TestIntegration_OCR2VRF_Persistence(t *testing.T) {
+//	testCntxt := runOCR2VRFTest(t, false)
+//
+//	// shut down apps and restart them.
+//	// when we restart, we run another VRF request through them and ensure
+//	// it gets fulfilled.
+//	t.Log("shutting down apps")
+//	require.NoError(t, testCntxt.bootstrapNode.app.Stop())
+//	for _, app := range testCntxt.apps {
+//		require.NoError(t, app.Stop())
+//	}
+//
+//	t.Log("starting apps back up")
+//	require.NoError(t, testCntxt.bootstrapNode.app.Start(testutils.Context(t)))
+//	for _, app := range testCntxt.apps {
+//		require.NoError(t, app.Start(testutils.Context(t)))
+//	}
+//
+//	t.Log("starting ticker to commit blocks")
+//	tick := time.NewTicker(1 * time.Second)
+//	defer tick.Stop()
+//	go func() {
+//		for range tick.C {
+//			testCntxt.uni.backend.Commit()
+//		}
+//	}()
+//
+//	sendVRFRequestsAndAssertFulfillment(t, testCntxt)
+//}
+
+type ocr2vrfTestContext struct {
+	uni            ocr2vrfUniverse
+	keyID          [32]byte
+	bootstrapNode  *ocr2Node
+	oracles        []confighelper2.OracleIdentityExtra
+	transmitters   []common.Address
+	onchainPubKeys []common.Address
+	kbs            []ocr2key.KeyBundle
+	apps           []*cltest.TestApplication
+	dkgEncrypters  []dkgencryptkey.Key
+	dkgSigners     []dkgsignkey.Key
+}
+
+func setupOCR2VRFTestContext(t *testing.T, numNodes int, useForwarders bool) ocr2vrfTestContext {
 	keyID := randomKeyID(t)
 	uni := setupOCR2VRFContracts(t, 5, keyID, false)
 
@@ -313,7 +357,6 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 
 	bootstrapNodePort := getFreePort(t)
 	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false, nil)
-	numNodes := 5
 
 	t.Log("Creating OCR2 nodes")
 	var (
@@ -357,16 +400,34 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		})
 	}
 
+	return ocr2vrfTestContext{
+		uni:            uni,
+		keyID:          keyID,
+		bootstrapNode:  bootstrapNode,
+		oracles:        oracles,
+		transmitters:   transmitters,
+		onchainPubKeys: onchainPubKeys,
+		kbs:            kbs,
+		apps:           apps,
+		dkgEncrypters:  dkgEncrypters,
+		dkgSigners:     dkgSigners,
+	}
+}
+
+func runOCR2VRFTest(t *testing.T, useForwarders bool) ocr2vrfTestContext {
+	numNodes := 5
+	testCntxt := setupOCR2VRFTestContext(t, numNodes, useForwarders)
+
 	t.Log("starting ticker to commit blocks")
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
 	go func() {
 		for range tick.C {
-			uni.backend.Commit()
+			testCntxt.uni.backend.Commit()
 		}
 	}()
 
-	blockBeforeConfig, err := uni.backend.BlockByNumber(context.Background(), nil)
+	blockBeforeConfig, err := testCntxt.uni.backend.BlockByNumber(context.Background(), nil)
 	require.NoError(t, err)
 
 	t.Log("Setting DKG config before block:", blockBeforeConfig.Number().String())
@@ -374,21 +435,21 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	// set config for dkg
 	setDKGConfig(
 		t,
-		uni,
-		onchainPubKeys,
-		transmitters,
+		testCntxt.uni,
+		testCntxt.onchainPubKeys,
+		testCntxt.transmitters,
 		1,
-		oracles,
-		dkgSigners,
-		dkgEncrypters,
-		keyID,
+		testCntxt.oracles,
+		testCntxt.dkgSigners,
+		testCntxt.dkgEncrypters,
+		testCntxt.keyID,
 	)
 
 	t.Log("Adding bootstrap node job")
-	err = bootstrapNode.app.Start(testutils.Context(t))
+	err = testCntxt.bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
-	chainSet := bootstrapNode.app.GetChains().EVM
+	chainSet := testCntxt.bootstrapNode.app.GetChains().EVM
 	require.NotNil(t, chainSet)
 	bootstrapJobSpec := fmt.Sprintf(`
 type				= "bootstrap"
@@ -398,16 +459,16 @@ schemaVersion		= 1
 contractID			= "%s"
 [relayConfig]
 chainID 			= 1337
-`, uni.dkgAddress.Hex())
+`, testCntxt.uni.dkgAddress.Hex())
 	t.Log("Creating bootstrap job:", bootstrapJobSpec)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(bootstrapJobSpec)
 	require.NoError(t, err)
-	err = bootstrapNode.app.AddJobV2(context.Background(), &ocrJob)
+	err = testCntxt.bootstrapNode.app.AddJobV2(context.Background(), &ocrJob)
 	require.NoError(t, err)
 
 	t.Log("Creating OCR2VRF jobs")
 	for i := 0; i < numNodes; i++ {
-		err = apps[i].Start(testutils.Context(t))
+		err = testCntxt.apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		jobSpec := fmt.Sprintf(`
@@ -434,32 +495,32 @@ vrfCoordinatorAddress   = "%s"
 linkEthFeedAddress     	= "%s"
 confirmationDelays     	= %s # This is an array
 lookbackBlocks         	= %d # This is an integer
-`, uni.beaconAddress.String(),
-			kbs[i].ID(),
-			transmitters[i],
-			dkgEncrypters[i].PublicKeyString(),
-			dkgSigners[i].PublicKeyString(),
-			hex.EncodeToString(keyID[:]),
-			uni.dkgAddress.String(),
-			uni.coordinatorAddress.String(),
-			uni.feedAddress.String(),
+`, testCntxt.uni.beaconAddress.String(),
+			testCntxt.kbs[i].ID(),
+			testCntxt.transmitters[i],
+			testCntxt.dkgEncrypters[i].PublicKeyString(),
+			testCntxt.dkgSigners[i].PublicKeyString(),
+			hex.EncodeToString(testCntxt.keyID[:]),
+			testCntxt.uni.dkgAddress.String(),
+			testCntxt.uni.coordinatorAddress.String(),
+			testCntxt.uni.feedAddress.String(),
 			"[1, 2, 3, 4, 5, 6, 7, 8]", // conf delays
 			1000,                       // lookback blocks
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, jobSpec)
+		ocrJob, err := validate.ValidatedOracleSpecToml(testCntxt.apps[i].Config, jobSpec)
 		require.NoError(t, err)
-		err = apps[i].AddJobV2(context.Background(), &ocrJob)
+		err = testCntxt.apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
 	}
 
 	t.Log("jobs added, running log poller replay")
 
 	// Once all the jobs are added, replay to ensure we have the configSet logs.
-	for _, app := range apps {
+	for _, app := range testCntxt.apps {
 		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
 	}
-	require.NoError(t, bootstrapNode.app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
+	require.NoError(t, testCntxt.bootstrapNode.app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
 
 	t.Log("Waiting for DKG key to get written")
 	// poll until a DKG key is written to the contract
@@ -467,7 +528,7 @@ lookbackBlocks         	= %d # This is an integer
 	var emptyKH [32]byte
 	emptyHash := crypto.Keccak256Hash(emptyKH[:])
 	gomega.NewWithT(t).Eventually(func() bool {
-		kh, err := uni.beacon.SProvingKeyHash(&bind.CallOpts{
+		kh, err := testCntxt.uni.beacon.SProvingKeyHash(&bind.CallOpts{
 			Context: testutils.Context(t),
 		})
 		require.NoError(t, err)
@@ -480,56 +541,62 @@ lookbackBlocks         	= %d # This is an integer
 	// set config for vrf now that dkg is ready
 	setVRFConfig(
 		t,
-		uni,
-		onchainPubKeys,
-		transmitters,
+		testCntxt.uni,
+		testCntxt.onchainPubKeys,
+		testCntxt.transmitters,
 		1,
-		oracles,
+		testCntxt.oracles,
 		[]int{1, 2, 3, 4, 5, 6, 7, 8},
-		keyID)
+		testCntxt.keyID)
 
-	t.Log("Sending VRF request")
+	t.Log("Sending VRF requests")
 
-	initialSub, err := uni.coordinator.GetSubscription(nil, 1)
+	sendVRFRequestsAndAssertFulfillment(t, testCntxt)
+
+	return testCntxt
+}
+
+func sendVRFRequestsAndAssertFulfillment(t *testing.T, testCntxt ocr2vrfTestContext) {
+	initialSub, err := testCntxt.uni.coordinator.GetSubscription(nil, 1)
 	require.NoError(t, err)
 	require.Equal(t, assets.Ether(5).ToInt(), initialSub.Balance)
 
 	// Send a beacon VRF request and mine it
-	_, err = uni.consumer.TestRequestRandomness(uni.owner, 2, 1, big.NewInt(1))
+	_, err = testCntxt.uni.consumer.TestRequestRandomness(testCntxt.uni.owner, 2, 1, big.NewInt(1))
 	require.NoError(t, err)
-	uni.backend.Commit()
+	testCntxt.uni.backend.Commit()
 
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead) * (gas price) / (LINK/ETH ratio)
 	// = (50_000 * 1 Gwei) / .01
 	// = 5_000_000 Gwei
-	subAfterBeaconRequest, err := uni.coordinator.GetSubscription(nil, 1)
+	subAfterBeaconRequest, err := testCntxt.uni.coordinator.GetSubscription(nil, 1)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(initialSub.Balance.Int64()-assets.GWei(5_000_000).Int64()), subAfterBeaconRequest.Balance)
 
 	// Send a fulfillment VRF request and mine it
-	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, 1, 1, big.NewInt(2), 50_000, []byte{})
+	_, err = testCntxt.uni.consumer.TestRequestRandomnessFulfillment(testCntxt.uni.owner, 1, 1, big.NewInt(2), 50_000, []byte{})
 	require.NoError(t, err)
-	uni.backend.Commit()
+	testCntxt.uni.backend.Commit()
 
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)
 	// = ((50_000 + 50_000) * 1 Gwei) / .01
 	// = 10_000_000 Gwei
-	subAfterFulfillmentRequest, err := uni.coordinator.GetSubscription(nil, 1)
+	subAfterFulfillmentRequest, err := testCntxt.uni.coordinator.GetSubscription(nil, 1)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(subAfterBeaconRequest.Balance.Int64()-assets.GWei(10_000_000).Int64()), subAfterFulfillmentRequest.Balance)
 
 	// Send two batched fulfillment VRF requests and mine them
-	_, err = uni.loadTestConsumer.TestRequestRandomnessFulfillmentBatch(uni.owner, 1, 1, big.NewInt(2), 200_000, []byte{}, big.NewInt(2))
+	_, err = testCntxt.uni.loadTestConsumer.TestRequestRandomnessFulfillmentBatch(testCntxt.uni.owner, 1, 1, big.NewInt(2), 200_000, []byte{}, big.NewInt(2))
 	require.NoError(t, err)
-	uni.backend.Commit()
+	testCntxt.uni.backend.Commit()
 
 	// There is no premium on these requests, so the cost of the requests should have been:
 	// = ((request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)) * batch size
 	// = (((50_000 + 200_000) * 1 Gwei) / .01) * 2
 	// = 50_000_000 Gwei
-	subAfterBatchFulfillmentRequest, err := uni.coordinator.GetSubscription(nil, 1)
+	subAfterBatchFulfillmentRequest, err := testCntxt.uni.coordinator.GetSubscription(nil, 1)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(subAfterFulfillmentRequest.Balance.Int64()-assets.GWei(50_000_000).Int64()), subAfterBatchFulfillmentRequest.Balance)
 
@@ -538,13 +605,13 @@ lookbackBlocks         	= %d # This is an integer
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
-		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, big.NewInt(0))
+		_, err1 := testCntxt.uni.consumer.TestRedeemRandomness(testCntxt.uni.owner, big.NewInt(0))
 		t.Logf("TestRedeemRandomness err: %+v", err1)
 		return err1 == nil
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 
 	// Mine block after redeeming randomness
-	uni.backend.Commit()
+	testCntxt.uni.backend.Commit()
 
 	// poll until we're able to verify that consumer contract has stored randomness as expected
 	// First arg is the request ID, which starts at zero, second is the index into
@@ -552,25 +619,25 @@ lookbackBlocks         	= %d # This is an integer
 	gomega.NewWithT(t).Eventually(func() bool {
 
 		var errs []error
-		rw1, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(0))
+		rw1, err := testCntxt.uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(0))
 		t.Logf("TestRedeemRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(1))
+		rw2, err := testCntxt.uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(1))
 		t.Logf("TestRedeemRandomness 2nd word err: %+v", err)
 		errs = append(errs, err)
-		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(1), big.NewInt(0))
+		rw3, err := testCntxt.uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(1), big.NewInt(0))
 		t.Logf("FulfillRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw4, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(2), big.NewInt(0))
+		rw4, err := testCntxt.uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(2), big.NewInt(0))
 		t.Logf("Batch FulfillRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw5, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(3), big.NewInt(0))
+		rw5, err := testCntxt.uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(3), big.NewInt(0))
 		t.Logf("Batch FulfillRandomness 2nd word err: %+v", err)
 		errs = append(errs, err)
-		batchTotalRequests, err := uni.loadTestConsumer.STotalRequests(nil)
+		batchTotalRequests, err := testCntxt.uni.loadTestConsumer.STotalRequests(nil)
 		t.Logf("Batch FulfillRandomness total requests err: %+v", err)
 		errs = append(errs, err)
-		batchTotalFulfillments, err := uni.loadTestConsumer.STotalFulfilled(nil)
+		batchTotalFulfillments, err := testCntxt.uni.loadTestConsumer.STotalFulfilled(nil)
 		t.Logf("Batch FulfillRandomness total fulfillments err: %+v", err)
 		errs = append(errs, err)
 		err = nil
