@@ -988,7 +988,9 @@ observationSource                      = """
 """
 [pluginConfig]
 {{range $key, $value := .PluginConfig}}
-{{$key}} = "{{$value}}"
+{{$key}} = """
+{{$value}}
+"""
 {{end}}
 {{end}}
 
