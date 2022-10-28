@@ -29,11 +29,19 @@ const (
     `
 )
 
-func (t *BridgeTask) HelperSetDependencies(config Config, orm bridges.ORM, id uuid.UUID, httpClient *http.Client) {
+func (t *BridgeTask) HelperSetDependencies(
+	config Config,
+	orm bridges.ORM,
+	trORM ORM,
+	specId int32,
+	id uuid.UUID,
+	httpClient *http.Client) {
 	t.config = config
 	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
+	t.trORM = trORM
+	t.specId = specId
 }
 
 func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) {

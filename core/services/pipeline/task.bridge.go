@@ -25,7 +25,9 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 
+	specId     int32
 	orm        bridges.ORM
+	trORM      ORM
 	config     Config
 	httpClient *http.Client
 }
@@ -110,7 +112,21 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
-		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+		taskRun, terr := t.trORM.GetLastGoodTaskRun(t.dotID, t.specId, 10)
+		if terr != nil {
+			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+		}
+
+		responseBytes, err = taskRun.Output.MarshalJSON()
+		if err != nil {
+			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+		}
+
+		lggr.Debugw("Bridge task: using cached value",
+			"answer", string(responseBytes),
+			"url", url.String(),
+			"dotID", t.DotID(),
+		)
 	}
 
 	if t.Async == "true" {
