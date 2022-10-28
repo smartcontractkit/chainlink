@@ -1,5 +1,3 @@
-# MAKE ALL CHANGES WITHIN THE DEFAULT WORKDIR FOR YARN AND GO DEP CACHE HITS
-
 # Build image: Chainlink binary
 FROM golang:1.19-buster as buildgo
 WORKDIR /chainlink

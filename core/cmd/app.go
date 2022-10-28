@@ -10,14 +10,12 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -36,7 +34,9 @@ func isDevMode() bool {
 	var clDev string
 	v1, v2 := os.Getenv("CHAINLINK_DEV"), os.Getenv("CL_DEV")
 	if v1 != "" && v2 != "" {
-		panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		if v1 != v2 {
+			panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		}
 	} else if v1 == "" {
 		clDev = v2
 	} else if v2 == "" {
@@ -103,39 +103,17 @@ func NewApp(client *Client) *cli.App {
 				}
 				secretsTOML = string(b)
 			}
-			var keystorePasswordFileName, vrfPasswordFileName *string
-			if c.IsSet("password") {
-				s := c.String("password")
-				keystorePasswordFileName = &s
-			}
-			if c.IsSet("vrfpassword") {
-				s := c.String("vrfpassword")
-				vrfPasswordFileName = &s
-			}
-			opts := chainlink.GeneralConfigOpts{
-				KeystorePasswordFileName: keystorePasswordFileName,
-				VRFPasswordFileName:      vrfPasswordFileName,
-			}
+			var opts chainlink.GeneralConfigOpts
 			if err := opts.ParseTOML(configTOML, secretsTOML); err != nil {
 				return err
 			}
-			lggrCfg := logger.Config{
-				LogLevel:       zapcore.Level(*opts.Config.Log.Level),
-				Dir:            *opts.Config.Log.File.Dir,
-				JsonConsole:    *opts.Config.Log.JSONConsole,
-				UnixTS:         *opts.Config.Log.UnixTS,
-				FileMaxSizeMB:  int(*opts.Config.Log.File.MaxSize / utils.MB),
-				FileMaxAgeDays: int(*opts.Config.Log.File.MaxAgeDays),
-				FileMaxBackups: int(*opts.Config.Log.File.MaxBackups),
-			}
-			client.Logger, client.CloseLogger = lggrCfg.New()
-			if cfg, err := opts.New(client.Logger); err != nil {
+			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 				return err
 			} else {
 				client.Config = cfg
+				client.Logger = lggr
+				client.CloseLogger = closeLggr
 			}
-			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
-			//TODO note that empty string is NOT OK since it is sometimes meaningful - must use os.LookupEnv()
 		} else {
 			// Legacy ENV
 			if c.IsSet("secrets") {
