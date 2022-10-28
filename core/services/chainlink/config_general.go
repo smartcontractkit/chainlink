@@ -475,11 +475,10 @@ func (g *generalConfig) BlockBackfillDepth() uint64 { panic(v2.ErrUnsupported) }
 func (g *generalConfig) BlockBackfillSkip() bool { panic(v2.ErrUnsupported) }
 
 func (g *generalConfig) BridgeResponseURL() *url.URL {
-	u := (*url.URL)(g.c.WebServer.BridgeResponseURL)
-	if *u == zeroURL {
-		u = nil
+	if g.c.WebServer.BridgeResponseURL.IsZero() {
+		return nil
 	}
-	return u
+	return g.c.WebServer.BridgeResponseURL.URL()
 }
 
 func (g *generalConfig) CertFile() string {
@@ -1006,11 +1005,10 @@ func (g *generalConfig) TelemetryIngressServerPubKey() string {
 }
 
 func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	u := (*url.URL)(g.c.TelemetryIngress.URL)
-	if *u == zeroURL {
-		u = nil
+	if g.c.TelemetryIngress.URL.IsZero() {
+		return nil
 	}
-	return u
+	return g.c.TelemetryIngress.URL.URL()
 }
 
 func (g *generalConfig) TelemetryIngressBufferSize() uint {
