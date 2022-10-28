@@ -102,7 +102,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
-	d.lggr.Debugw("Launching isNewlyCreatedJob bootstrap node", "args", bootstrapNodeArgs)
+	d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
 	bootstrapper, err := ocr.NewBootstrapper(bootstrapNodeArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
