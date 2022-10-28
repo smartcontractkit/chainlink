@@ -250,11 +250,22 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			set.String("password", test.pwdfile, "")
 			c := cli.NewContext(nil, set, nil)
 
+			run := func() error {
+				cli := cmd.NewApp(&client)
+				if err := cli.Before(c); err != nil {
+					return err
+				}
+				if err := client.RunNode(c); err != nil {
+					return err
+				}
+				return nil
+			}
+
 			if test.wantUnlocked {
-				assert.NoError(t, client.RunNode(c))
+				assert.NoError(t, run())
 				assert.Equal(t, 1, apiPrompt.Count)
 			} else {
-				assert.Error(t, client.RunNode(c))
+				assert.Error(t, run())
 				assert.Equal(t, 0, apiPrompt.Count)
 			}
 		})

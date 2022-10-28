@@ -57,6 +57,8 @@ type (
 	// TODO(spook): I can't wait for Go generics
 	Delegate interface {
 		JobType() Type
+		// BeforeJobCreated is only called once on first time job create.
+		BeforeJobCreated(spec Job)
 		// ServicesForSpec returns services to be started and stopped for this
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
@@ -236,6 +238,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	}
 	js.lggr.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
 
+	delegate.BeforeJobCreated(*jb)
 	err = js.StartService(q.ParentCtx, *jb)
 	if err != nil {
 		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "error", err)
@@ -341,5 +344,6 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
-func (*NullDelegate) AfterJobCreated(spec Job)  {}
-func (*NullDelegate) BeforeJobDeleted(spec Job) {}
+func (n *NullDelegate) BeforeJobCreated(spec Job) {}
+func (n *NullDelegate) AfterJobCreated(spec Job)  {}
+func (n *NullDelegate) BeforeJobDeleted(spec Job) {}

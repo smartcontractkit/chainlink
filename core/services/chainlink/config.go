@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Config is the root type used for TOML configuration.
@@ -101,15 +100,16 @@ func (s *Secrets) Validate() error {
 	return config.Validate(s)
 }
 
-// setOverrides overrides fields with values from ENV vars and password files.
-func (s *Secrets) setOverrides(keystorePasswordFileName, vrfPasswordFileName *string) error {
-	// Override DB and Explorer secrets from ENV vars, if present
+// setEnv overrides fields from ENV vars, if present.
+func (s *Secrets) setEnv() error {
 	if dbURL := config.EnvDatabaseURL.Get(); dbURL != "" {
+		s.Database.URL = new(models.SecretURL)
 		if err := s.Database.URL.UnmarshalText([]byte(dbURL)); err != nil {
 			return err
 		}
 	}
 	if dbBackupUrl := config.EnvDatabaseBackupURL.Get(); dbBackupUrl != "" {
+		s.Database.BackupURL = new(models.SecretURL)
 		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupUrl)); err != nil {
 			return err
 		}
@@ -131,22 +131,6 @@ func (s *Secrets) setOverrides(keystorePasswordFileName, vrfPasswordFileName *st
 	}
 	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
 		s.Pyroscope.AuthToken = &pyroscopeAuthToken
-	}
-
-	// Override Keystore and VRF passwords from corresponding files, if present
-	if keystorePasswordFileName != nil {
-		keystorePwd, err := utils.PasswordFromFile(*keystorePasswordFileName)
-		if err != nil {
-			return err
-		}
-		s.Password.Keystore = models.NewSecret(keystorePwd)
-	}
-	if vrfPasswordFileName != nil {
-		vrfPwd, err := utils.PasswordFromFile(*vrfPasswordFileName)
-		if err != nil {
-			return err
-		}
-		s.Password.VRF = models.NewSecret(vrfPwd)
 	}
 	return nil
 }

@@ -27,7 +27,7 @@ func TestDefaultConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	chainID := utils.NewBigI(42991337)
 
-	newGeneral, err := chainlink.GeneralConfigOpts{}.New(lggr)
+	newGeneral, err := chainlink.GeneralConfigOpts{SkipEnv: true}.New(lggr)
 	require.NoError(t, err)
 	legacyGeneral := config.NewGeneralConfig(lggr)
 
