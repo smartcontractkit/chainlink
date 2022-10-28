@@ -31,6 +31,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -506,7 +507,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:  pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, nil, logger.TestLogger(t), NewTestGeneralConfig(t))
+	jorm := job.NewORM(db, nil, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
