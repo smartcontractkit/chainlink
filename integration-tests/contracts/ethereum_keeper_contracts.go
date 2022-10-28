@@ -388,6 +388,12 @@ func (v *EthereumKeeperRegistry) SetMigrationPermissions(peerAddress common.Addr
 }
 
 func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
+	if v.version == ethereum.RegistryVersion_2_0 {
+		// do nothing we set the registrar in the set config step later
+		// the flow of steps is different for OCR and this is used in a larger deploy flow
+		return nil
+	}
+
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -428,10 +434,6 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
-	case ethereum.RegistryVersion_2_0:
-		// do nothing we set the registrar in the set config step later
-		// the flow of steps is different for OCR and this is used in a large deploy flow
-		return nil
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
