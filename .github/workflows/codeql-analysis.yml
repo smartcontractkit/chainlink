@@ -16,7 +16,7 @@ on:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-4cores-16GB
 
     strategy:
       fail-fast: false
