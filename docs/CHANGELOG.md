@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [Unreleased]
 
+...
+<!-- unreleasedstop -->
+
+## 1.10.0
+
 ### Added
 
 #### New optional external logger added
@@ -73,8 +78,6 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
   - Newly created OCR jobs will only run on a single fixed chain, unaffected by changes to ETH_CHAIN_ID after the job is added.
   - It should no longer be possible to end up with multiple OCR jobs for a single contract running on the same chain; only one job per contract per chain is allowed
   - If there are any existing duplicate jobs (per contract per chain), all but the job with the latest creation date will be pruned during upgrade.
-
-<!-- unreleasedstop -->
 
 ### Fixed
 
