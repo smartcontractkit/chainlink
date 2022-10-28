@@ -119,7 +119,7 @@ before(async () => {
   ]
 })
 
-describe.only('UpkeepTranscoder3_0', () => {
+describe('UpkeepTranscoder3_0', () => {
   beforeEach(async () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
   })
