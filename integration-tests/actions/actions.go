@@ -237,7 +237,10 @@ func TeardownSuite(
 		}
 		// nolint
 		if c != nil {
-			c.Close()
+			err := c.Close()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
