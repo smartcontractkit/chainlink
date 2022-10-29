@@ -132,11 +132,11 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   function register(
     string memory name,
-    bytes calldata encryptedEmail,
+    bytes memory encryptedEmail,
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
-    bytes calldata checkData,
+    bytes memory checkData,
     uint96 amount,
     address sender
   ) external onlyLINK {
@@ -155,11 +155,11 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   function registerUpkeep(
     string memory name,
-    bytes calldata encryptedEmail,
+    bytes memory encryptedEmail,
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
-    bytes calldata checkData,
+    bytes memory checkData,
     uint96 amount
   ) external returns (uint256) {
     if (amount < s_config.minLINKJuels) {
@@ -326,11 +326,11 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   function _register(
     string memory name,
-    bytes calldata encryptedEmail,
+    bytes memory encryptedEmail,
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
-    bytes calldata checkData,
+    bytes memory checkData,
     uint96 amount,
     address sender
   ) private returns (uint256) {
@@ -363,7 +363,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
-    bytes calldata checkData,
+    bytes memory checkData,
     uint96 amount,
     bytes32 hash
   ) private returns (uint256) {
