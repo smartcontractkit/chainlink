@@ -89,6 +89,7 @@ func mustJSONMarshal(t *testing.T, s string) string {
 	return string(b)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestResolver_Config(t *testing.T) {
 	t.Parallel()
 

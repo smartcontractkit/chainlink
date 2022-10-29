@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -474,10 +473,11 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
-	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -529,10 +529,11 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Update_NonExistentID(t *testing.T) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	cfg.Overrides.P2PEnabled = null.BoolFrom(true)
-	cfg.Overrides.P2PPeerID = cltest.DefaultP2PPeerID
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))

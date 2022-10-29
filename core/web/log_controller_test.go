@@ -10,10 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
 
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -31,14 +33,10 @@ type testCase struct {
 func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
-	logLevel := zapcore.WarnLevel
-	cfg.Overrides.LogLevel = &logLevel
-	sqlEnabled := true
-	cfg.Overrides.LogSQL = null.BoolFrom(sqlEnabled)
-	defaultLogLevel := zapcore.WarnLevel
-	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Log.Level = ptr(v2.LogLevel(zapcore.WarnLevel))
+		c.Database.LogQueries = ptr(true)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -57,11 +55,11 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	for i, svcName := range svcLogConfig.ServiceName {
 
 		if svcName == "Global" {
-			assert.Equal(t, logLevel.String(), svcLogConfig.LogLevel[i])
+			assert.Equal(t, zapcore.WarnLevel.String(), svcLogConfig.LogLevel[i])
 		}
 
 		if svcName == "IsSqlEnabled" {
-			assert.Equal(t, strconv.FormatBool(sqlEnabled), svcLogConfig.LogLevel[i])
+			assert.Equal(t, strconv.FormatBool(true), svcLogConfig.LogLevel[i])
 		}
 	}
 }
