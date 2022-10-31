@@ -85,12 +85,12 @@ type Node interface {
 	Start(ctx context.Context) error
 	Close() error
 
-	// State() returns NodeState
+	// State returns NodeState
 	State() NodeState
-	// StateAndLatestBlockNumber() returns NodeState and the latest received block number
+	// StateAndLatestBlockNumber returns NodeState and the latest received block number
 	StateAndLatestBlockNumber() (NodeState, int64)
-	// Unique identifier for node
-	ID() int32
+	// Name is a unique identifier for this node.
+	Name() string
 	ChainID() *big.Int
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
@@ -1041,6 +1041,6 @@ func (n *node) String() string {
 	return s
 }
 
-func (n *node) ID() int32 {
-	return n.id
+func (n *node) Name() string {
+	return n.name
 }
