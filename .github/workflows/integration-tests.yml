@@ -152,7 +152,7 @@ jobs:
       SELECTED_NETWORKS: ${{ matrix.network }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_TRIGGERED_BY: core-CI-live
+      TEST_TRIGGERED_BY: core-CI-${{ matrix.network }}
       TEST_LOG_LEVEL: debug
       EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
       GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}

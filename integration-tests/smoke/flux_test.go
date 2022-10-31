@@ -32,7 +32,7 @@ import (
 var _ = Describe("Flux monitor suite @flux", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Flux monitor suite on a default environment", defaultFluxEnv()),
+			Entry("Flux monitor suite on a default environment @default", defaultFluxEnv()),
 		}
 
 		err              error

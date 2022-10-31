@@ -28,7 +28,7 @@ import (
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("VRFv2 suite on Simulated Network @simulated", defaultVRFv2Env()),
+			Entry("VRFv2 suite on a default environment @default", defaultVRFv2Env()),
 		}
 
 		testEnvironment *environment.Environment

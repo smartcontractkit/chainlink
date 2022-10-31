@@ -29,7 +29,7 @@ import (
 var _ = Describe("Direct request suite @runlog", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Runlog suite on Simulated Network @simulated", defaultRunlogEnv()),
+			Entry("Runlog suite on a default environment @default", defaultRunlogEnv()),
 		}
 
 		err              error
