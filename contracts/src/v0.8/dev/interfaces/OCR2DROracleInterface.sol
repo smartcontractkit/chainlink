@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
+import "./OCR2DRBillingInterface.sol";
+
 /**
  * @title OCR2DR oracle interface.
  */
@@ -22,10 +24,11 @@ interface OCR2DROracleInterface {
 
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId
-   * @param subscriptionId A unique subscription ID allocated by billing system,
-   * a client can make requests from different contracts referencing the same subscription
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param billing Configuration for payment of the request
    * @return requestId A unique request identifier (unique per oracle)
    */
-  function sendRequest(uint256 subscriptionId, bytes calldata data) external returns (bytes32);
+  function sendRequest(bytes calldata data, OCR2DRBillingInterface.RequestBilling calldata billing)
+    external
+    returns (bytes32);
 }

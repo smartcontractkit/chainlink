@@ -4,6 +4,8 @@ pragma solidity ^0.8.6;
 import "./OCR2DR.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
+import "../interfaces/OCR2DRBillingInterface.sol";
+import "../../../v0.4/interfaces/ERC20.sol";
 
 /**
  * @title The OCR2DR client contract
@@ -32,11 +34,18 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   /**
    * @notice Sends OCR2DR request to the stored oracle address
    * @param req The initialized OCR2DR.Request
-   * @param subscriptionId The subscription ID
+   * @param billing The request's billing configuration
    * @return requestId The generated request ID
    */
-  function sendRequest(OCR2DR.Request memory req, uint256 subscriptionId) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req));
+  function sendRequest(OCR2DR.Request memory req, OCR2DRBillingInterface.RequestBilling calldata billing)
+    internal
+    returns (bytes32)
+  {
+    allowance = ERC20(billing.feeToken).allowance(address(this), address(s_oracle));
+    if (allowance < billing.totalFee) {
+      ERC20(billing.feeToken).approve(address(s_oracle), billing.totalFee);
+    }
+    bytes32 requestId = s_oracle.sendRequest(OCR2DR.encodeCBOR(req), billing);
     s_pendingRequests[requestId] = address(s_oracle);
     emit RequestSent(requestId);
     return requestId;

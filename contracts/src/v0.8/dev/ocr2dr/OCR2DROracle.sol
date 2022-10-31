@@ -5,14 +5,15 @@ import "../../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
 import "../../ConfirmedOwner.sol";
-import "../ocr2/OCR2Base.sol";
+import "./OCR2Base.sol";
+import "./OCR2DRBillingAbstract.sol";
 
 /**
  * @title OCR2DR oracle contract
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
-  event OracleRequest(bytes32 requestId, bytes data);
+contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, OCR2DRBillingAbstract {
+  event OracleRequest(bytes32 requestId, bytes data, RequestBilling billing);
   event OracleResponse(bytes32 requestId);
   event UserCallbackError(bytes32 requestId, string reason);
   event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
@@ -24,7 +25,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
 
   struct Commitment {
     address client;
-    uint256 subscriptionId;
+    RequestBilling billing;
   }
 
   bytes private s_donPublicKey;
@@ -55,38 +56,42 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   }
 
   /// @inheritdoc OCR2DROracleInterface
-  function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
+  function sendRequest(bytes calldata data, RequestBilling calldata billing) external override returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
+    _preRequestBilling(data, billing);
     s_nonce++;
     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, s_nonce));
-    s_commitments[requestId] = Commitment(msg.sender, subscriptionId);
-    emit OracleRequest(requestId, data);
+    s_commitments[requestId] = Commitment(msg.sender, billing);
+    emit OracleRequest(requestId, data, billing);
     return requestId;
   }
 
   function fulfillRequest(
     bytes32 requestId,
     bytes memory response,
-    bytes memory err
-  ) internal validateRequestId(requestId) {
+    bytes memory err,
+    uint32 gasLimit
+  ) internal validateRequestId(requestId) returns (uint32) {
+    uint32 initialGas = gasleft(); // This line must come first
     OCR2DRClientInterface client = OCR2DRClientInterface(s_commitments[requestId].client);
     delete s_commitments[requestId];
-    try client.handleOracleFulfillment(requestId, response, err) {
+    try client.handleOracleFulfillment.gas(gasLimit)(requestId, response, err) {
       emit OracleResponse(requestId);
     } catch Error(string memory reason) {
       emit UserCallbackError(requestId, reason);
     } catch (bytes memory lowLevelData) {
       emit UserCallbackRawError(requestId, lowLevelData);
     }
+    return initialGas - gasleft();
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
-  function _report(
+  function _validateReport(
     bytes32, /* configDigest */
     uint40, /* epochAndRound */
     bytes memory report
@@ -98,13 +103,25 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
     if (requestIds.length != results.length && requestIds.length != errors.length) {
       revert InconsistentReportData();
     }
-
-    for (uint256 i = 0; i < requestIds.length; i++) {
-      fulfillRequest(requestIds[i], results[i], errors[i]);
-    }
   }
 
-  function _payTransmitter(uint32 initialGas, address transmitter) internal override {}
+  function _report(
+    uint32 initialGas,
+    address transmitter,
+    address[maxNumOracles] memory signers,
+    bytes calldata report
+  ) internal override {
+    bytes32[] memory requestIds;
+    bytes[] memory results;
+    bytes[] memory errors;
+    (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
+
+    for (uint256 i = 0; i < requestIds.length; i++) {
+      commitment = s_commitments[requestIds[i]];
+      uint32 gasUsed = fulfillRequest(requestIds[i], results[i], errors[i], billingConfig.gasLimit);
+      _postFulfillBilling(commitment.client, commitment.billing, transmitter, signers, initialGas, gasUsed);
+    }
+  }
 
   modifier validateRequestId(bytes32 requestId) {
     if (s_commitments[requestId].client == address(0)) {
