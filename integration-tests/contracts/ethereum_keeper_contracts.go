@@ -1665,9 +1665,10 @@ func (v *EthereumKeeperConsumerBenchmark) SetFirstEligibleBuffer(ctx context.Con
 // EthereumKeeperRegistrar corresponds to the registrar which is used to send requests to the registry when
 // registering new upkeeps.
 type EthereumKeeperRegistrar struct {
-	client    blockchain.EVMClient
-	registrar *ethereum.KeeperRegistrar
-	address   *common.Address
+	client      blockchain.EVMClient
+	registrar   *ethereum.KeeperRegistrar
+	registrar20 *ethereum.KeeperRegistrar20
+	address     *common.Address
 }
 
 func (v *EthereumKeeperRegistrar) Address() string {
@@ -1690,26 +1691,49 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 	source uint8,
 	senderAddr string,
 ) ([]byte, error) {
-	registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrarMetaData.ABI))
-	if err != nil {
-		return nil, err
+	if v.registrar20 != nil {
+		registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrar20MetaData.ABI))
+		if err != nil {
+			return nil, err
+		}
+		req, err := registryABI.Pack(
+			"register",
+			name,
+			email,
+			common.HexToAddress(upkeepAddr),
+			gasLimit,
+			common.HexToAddress(adminAddr),
+			checkData,
+			nil, //offchainConfig
+			amount,
+			common.HexToAddress(senderAddr),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return req, nil
+	} else {
+		registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrarMetaData.ABI))
+		if err != nil {
+			return nil, err
+		}
+		req, err := registryABI.Pack(
+			"register",
+			name,
+			email,
+			common.HexToAddress(upkeepAddr),
+			gasLimit,
+			common.HexToAddress(adminAddr),
+			checkData,
+			amount,
+			source,
+			common.HexToAddress(senderAddr),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return req, nil
 	}
-	req, err := registryABI.Pack(
-		"register",
-		name,
-		email,
-		common.HexToAddress(upkeepAddr),
-		gasLimit,
-		common.HexToAddress(adminAddr),
-		checkData,
-		amount,
-		source,
-		common.HexToAddress(senderAddr),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return req, nil
 }
 
 // EthereumUpkeepTranscoder represents the transcoder which is used to perform migrations

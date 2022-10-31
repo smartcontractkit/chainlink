@@ -37,7 +37,7 @@ type ContractDeployer interface {
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
 	DeployMockGasFeed(answer *big.Int) (MockGasFeed, error)
-	DeployKeeperRegistrar(linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error)
+	DeployKeeperRegistrar(registryVersion ethereum.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error)
 	DeployUpkeepTranscoder() (UpkeepTranscoder, error)
 	DeployKeeperRegistry(opts *KeeperRegistryOpts) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
@@ -440,26 +440,49 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployKeeperRegistrar(linkAddr string,
+func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereum.KeeperRegistryVersion, linkAddr string,
 	registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 
-	address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
-		opts *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
-			registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
-	})
+	if registryVersion == ethereum.RegistryVersion_2_0 {
+		// deploy registrar 2.0
+		address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
+			opts *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistrar20(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
+				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
+		})
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+
+		return &EthereumKeeperRegistrar{
+			client:      e.client,
+			registrar20: instance.(*ethereum.KeeperRegistrar20),
+			address:     address,
+		}, err
+	} else {
+		// non OCR registrar
+		address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
+			opts *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
+				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return &EthereumKeeperRegistrar{
+			client:    e.client,
+			registrar: instance.(*ethereum.KeeperRegistrar),
+			address:   address,
+		}, err
 	}
 
-	return &EthereumKeeperRegistrar{
-		client:    e.client,
-		registrar: instance.(*ethereum.KeeperRegistrar),
-		address:   address,
-	}, err
 }
 
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
@@ -627,26 +650,6 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 				auth,
 				backend,
 				*logicAddress,
-				//paymentModel,
-				//registryGasOverhead,
-				//common.HexToAddress(opts.LinkAddr),
-				//common.HexToAddress(opts.ETHFeedAddr),
-				//common.HexToAddress(opts.GasFeedAddr),
-				//*logicAddress,
-				//ethereum.Config2_0{
-				//	PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
-				//	FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
-				//	BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
-				//	CheckGasLimit:        opts.Settings.CheckGasLimit,
-				//	StalenessSeconds:     opts.Settings.StalenessSeconds,
-				//	GasCeilingMultiplier: opts.Settings.GasCeilingMultiplier,
-				//	MinUpkeepSpend:       opts.Settings.MinUpkeepSpend,
-				//	MaxPerformGas:        opts.Settings.MaxPerformGas,
-				//	FallbackGasPrice:     opts.Settings.FallbackGasPrice,
-				//	FallbackLinkPrice:    opts.Settings.FallbackLinkPrice,
-				//	Transcoder:           common.HexToAddress(opts.TranscoderAddr),
-				//	Registrar:            common.HexToAddress(opts.RegistrarAddr),
-				//},
 			)
 		})
 		if err != nil {
