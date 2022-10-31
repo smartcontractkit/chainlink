@@ -7,14 +7,14 @@ require (
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/imdario/mergo v0.3.13
 	github.com/onsi/ginkgo/v2 v2.4.0
-	github.com/onsi/gomega v1.22.1
+	github.com/onsi/gomega v1.23.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.28.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.11.3
 	github.com/smartcontractkit/chainlink v1.8.0
-	github.com/smartcontractkit/chainlink-env v0.2.46
-	github.com/smartcontractkit/chainlink-testing-framework v1.7.5
+	github.com/smartcontractkit/chainlink-env v0.2.47
+	github.com/smartcontractkit/chainlink-testing-framework v1.7.6
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/atomic v1.9.0

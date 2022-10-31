@@ -137,6 +137,7 @@ jobs:
 
   live-smoke-tests:
     strategy:
+      fail-fast: false
       matrix:
         network: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     environment: integration
