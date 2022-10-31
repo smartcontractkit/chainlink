@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"gopkg.in/guregu/null.v4"
-
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -995,7 +994,7 @@ observationSource                      = """
 
 [relayConfig]
 {{range $key, $value := .RelayConfig}}
-{{$key}} = {{$value}}
+{{$key}} = "{{$value}}"
 {{end}}`
 
 	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
