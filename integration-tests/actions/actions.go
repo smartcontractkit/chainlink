@@ -21,6 +21,7 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -213,7 +214,7 @@ func TeardownSuite(
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
-	c blockchain.EVMClient,
+	clients ...blockchain.EVMClient,
 ) error {
 	keepEnvs := os.Getenv("KEEP_ENVIRONMENTS")
 	if keepEnvs == "" {
@@ -223,19 +224,24 @@ func TeardownSuite(
 	if err := testreporters.WriteTeardownLogs(env, optionalTestReporter); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
-	if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
-		if err := returnFunds(chainlinkNodes, c); err != nil {
-			log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
-				Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
-					"Environment is left running so you can try manually!")
-			keepEnvs = "ALWAYS"
+	for _, c := range clients {
+		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
+			if err := returnFunds(chainlinkNodes, c); err != nil {
+				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
+						"Environment is left running so you can try manually!")
+				keepEnvs = "ALWAYS"
+			}
+		} else {
+			log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 		}
-	} else {
-		log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
-	}
-	// nolint
-	if c != nil {
-		c.Close()
+		// nolint
+		if c != nil {
+			err := c.Close()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	switch strings.ToUpper(keepEnvs) {
