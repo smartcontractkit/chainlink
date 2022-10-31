@@ -1,5 +1,8 @@
 name: Integration Tests
 on:
+  push:
+    tags:
+      - "*"
   pull_request:
 
 # Only run 1 of this workflow at a time per PR
@@ -106,6 +109,80 @@ jobs:
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: EVM Smoke Test Results
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          CGO_ENABLED: "1"
+
+      ## Run this step when changes that do not need the test to run are made
+      - name: Run Setup
+        if: needs.changes.outputs.src == 'false'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        with:
+          test_download_vendor_packages_command: make gomod
+          test_download_ginkgo_command: make test_install_ginkgo
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+      ## Run Cleanup regardless
+      - name: cleanup
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        with:
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+
+  live-smoke-tests:
+    strategy:
+      matrix:
+        network: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: Live Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [build-chainlink, changes]
+    env:
+      SELECTED_NETWORKS: ${{ matrix.network }}
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: core-CI-live
+      TEST_LOG_LEVEL: debug
+      EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
+      GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
+      OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
+      ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ETH Smoke Tests
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      ## Run this step when changes that require tests to be run are made
+      - name: Run Tests
+        if: needs.changes.outputs.src == 'true'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        with:
+          test_command_to_run: make test_smoke
+          test_download_vendor_packages_command: make gomod
+          test_download_ginkgo_command: make test_install_ginkgo
+          cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          cl_image_tag: latest.${{ github.sha }}
+          artifacts_location: ./integration-tests/smoke/logs
+          publish_check_name: Live Smoke Test Results
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
