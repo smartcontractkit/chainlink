@@ -12,6 +12,7 @@ RUN go mod download
 ARG COMMIT_SHA
 
 COPY core core
+COPY operator_ui operator_ui
 
 # Build the golang binary
 RUN make chainlink-build

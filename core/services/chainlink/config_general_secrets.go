@@ -6,11 +6,11 @@ func (g *generalConfig) DatabaseURL() url.URL {
 	if g.secrets.Database.URL == nil {
 		return url.URL{}
 	}
-	return *(*url.URL)(g.secrets.Database.URL)
+	return *g.secrets.Database.URL.URL()
 }
 
 func (g *generalConfig) DatabaseBackupURL() *url.URL {
-	return (*url.URL)(g.secrets.Database.BackupURL)
+	return g.secrets.Database.BackupURL.URL()
 }
 
 func (g *generalConfig) ExplorerAccessKey() string {
@@ -26,21 +26,6 @@ func (g *generalConfig) ExplorerSecret() string {
 	}
 	return string(*g.secrets.Explorer.Secret)
 }
-
-func (g *generalConfig) KeystorePassword() string {
-	if g.secrets.Password.Keystore == nil {
-		return ""
-	}
-	return string(*g.secrets.Password.Keystore)
-}
-
-func (g *generalConfig) VRFPassword() string {
-	if g.secrets.Password.VRF == nil {
-		return ""
-	}
-	return string(*g.secrets.Password.VRF)
-}
-
 func (g *generalConfig) PyroscopeAuthToken() string {
 	if g.secrets.Pyroscope.AuthToken == nil {
 		return ""

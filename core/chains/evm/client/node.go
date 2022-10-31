@@ -83,14 +83,14 @@ var (
 // Node represents a client that connects to an ethereum-compatible RPC node
 type Node interface {
 	Start(ctx context.Context) error
-	Close()
+	Close() error
 
-	// State() returns NodeState
+	// State returns NodeState
 	State() NodeState
-	// StateAndLatestBlockNumber() returns NodeState and the latest received block number
+	// StateAndLatestBlockNumber returns NodeState and the latest received block number
 	StateAndLatestBlockNumber() (NodeState, int64)
-	// Unique identifier for node
-	ID() int32
+	// Name is a unique identifier for this node.
+	Name() string
 	ChainID() *big.Int
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
@@ -341,8 +341,8 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	return nil
 }
 
-func (n *node) Close() {
-	err := n.StopOnce(n.name, func() error {
+func (n *node) Close() error {
+	return n.StopOnce(n.name, func() error {
 		defer n.wg.Wait()
 
 		n.stateMu.Lock()
@@ -356,9 +356,6 @@ func (n *node) Close() {
 		}
 		return nil
 	})
-	if err != nil {
-		panic(err)
-	}
 }
 
 // registerSub adds the sub to the node list
@@ -1044,6 +1041,6 @@ func (n *node) String() string {
 	return s
 }
 
-func (n *node) ID() int32 {
-	return n.id
+func (n *node) Name() string {
+	return n.name
 }

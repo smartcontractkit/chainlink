@@ -3,6 +3,7 @@ package models
 import (
 	"encoding"
 	"fmt"
+	"net/url"
 )
 
 const redacted = "xxxxx"
@@ -41,6 +42,8 @@ func MustSecretURL(u string) *SecretURL { return NewSecretURL(MustParseURL(u)) }
 func (s *SecretURL) String() string { return redacted }
 
 func (s *SecretURL) GoString() string { return redacted }
+
+func (s *SecretURL) URL() *url.URL { return (*URL)(s).URL() }
 
 func (s *SecretURL) MarshalText() ([]byte, error) { return []byte(redacted), nil }
 

@@ -23,6 +23,7 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+!.github/actions/setup-postgres/.env
 .direnv
 .idea
 .vscode/
