@@ -3,18 +3,17 @@ package ocrbootstrap
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 func TestValidateBootstrapSpec(t *testing.T) {
 	var tt = []struct {
-		name         string
-		toml         string
-		setGlobalCfg func(t *testing.T, c *configtest.TestGeneralConfig)
-		assertion    func(t *testing.T, os job.Job, err error)
+		name      string
+		toml      string
+		assertion func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "decodes valid bootstrap spec toml",
