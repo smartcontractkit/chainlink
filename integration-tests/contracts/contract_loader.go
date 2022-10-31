@@ -1,8 +1,6 @@
 package contracts
 
 import (
-	"errors"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
@@ -24,17 +22,7 @@ type ContractLoader interface {
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
 func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
-	switch clientImpl := bcClient.Get().(type) {
-	case *blockchain.EthereumClient:
-		return NewEthereumContractLoader(clientImpl), nil
-	case *blockchain.KlaytnClient:
-		return &KlaytnContractLoader{NewEthereumContractLoader(clientImpl)}, nil
-	case *blockchain.MetisClient:
-		return &MetisContractLoader{NewEthereumContractLoader(clientImpl)}, nil
-	case *blockchain.ArbitrumClient:
-		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl)}, nil
-	}
-	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
+	return NewEthereumContractLoader(bcClient), nil
 }
 
 // EthereumContractLoader provides the implementations for deploying ETH (EVM) based contracts
