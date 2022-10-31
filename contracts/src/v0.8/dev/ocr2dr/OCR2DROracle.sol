@@ -4,6 +4,7 @@ pragma solidity ^0.8.6;
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
+import "../interfaces/OCR2DRRegistryInterface.sol";
 import "../../ConfirmedOwner.sol";
 import "../ocr2/OCR2Base.sol";
 
@@ -24,14 +25,34 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
 
   struct Commitment {
     address client;
-    uint256 subscriptionId;
+    uint64 subscriptionId;
   }
 
+  uint256 private constant MINIMUM_CONSUMER_GAS_LIMIT = 400000;
+
+  address private s_registry;
   bytes private s_donPublicKey;
   uint256 private s_nonce;
-  mapping(bytes32 => Commitment) private s_commitments;
+  mapping(bytes32 => Commitment) private s_commitments; /* requestId */ /* Commitment */
 
   constructor() OCR2Base(true) {}
+
+  constructor(
+    address owner,
+    bytes memory donPublicKey,
+    address registryAddress
+  ) ConfirmedOwner(owner) {
+    s_donPublicKey = donPublicKey;
+    setRegistry(registryAddress);
+  }
+
+  /**
+   * @notice Sets the stored oracle address
+   * @param registryAddress The address of OCR2DR registry contract
+   */
+  function setRegistry(address registryAddress) internal {
+    s_registry = registryAddress;
+  }
 
   /**
    * @notice The type and version of this contract
@@ -46,6 +67,14 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
     return s_donPublicKey;
   }
 
+  /**
+   * @notice Returns the proving key hash key associated with this public key
+   * @param publicKey the key to return the hash of
+   */
+  function hashOfKey(bytes memory publicKey) public pure returns (bytes32) {
+    return keccak256(abi.encode(publicKey));
+  }
+
   /// @inheritdoc OCR2DROracleInterface
   function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
@@ -55,25 +84,43 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   }
 
   /// @inheritdoc OCR2DROracleInterface
-  function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
+  function sendRequest(uint64 subscriptionId, bytes calldata data) external override returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
-    s_nonce++;
-    bytes32 requestId = keccak256(abi.encodePacked(msg.sender, s_nonce));
-    s_commitments[requestId] = Commitment(msg.sender, subscriptionId);
+
+    bytes32 requestId = OCR2DRRegistryInterface(s_registry).sendRequest(
+      hashOfKey(s_donPublicKey),
+      subscriptionId,
+      5, // TODO accept as input
+      250_000, // TODO accept as input
+      data
+    );
+
+    s_commitments[requestId] = Commitment(
+      msg.sender,
+      subscriptionId,
+      OCR2DRRegistryInterface.RequestCommitment(uint64(block.number), subscriptionId, 250_000, msg.sender)
+    );
     emit OracleRequest(requestId, data);
     return requestId;
   }
 
   function fulfillRequest(
     bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) internal validateRequestId(requestId) {
-    OCR2DRClientInterface client = OCR2DRClientInterface(s_commitments[requestId].client);
+    bytes calldata response,
+    bytes calldata err
+  ) external override validateRequestId(requestId) validateAuthorizedSender {
     delete s_commitments[requestId];
-    try client.handleOracleFulfillment(requestId, response, err) {
+    try
+      OCR2DRRegistryInterface(s_registry).fulfillRequest(
+        requestId,
+        hashOfKey(s_donPublicKey),
+        s_commitments[requestId].rc,
+        response,
+        err
+      )
+    {
       emit OracleResponse(requestId);
     } catch Error(string memory reason) {
       emit UserCallbackError(requestId, reason);

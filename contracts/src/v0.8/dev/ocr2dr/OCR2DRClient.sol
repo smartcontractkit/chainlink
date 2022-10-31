@@ -35,7 +35,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
    * @param subscriptionId The subscription ID
    * @return requestId The generated request ID
    */
-  function sendRequest(OCR2DR.Request memory req, uint256 subscriptionId) internal returns (bytes32) {
+  function sendRequest(OCR2DR.Request memory req, uint64 subscriptionId) internal returns (bytes32) {
     bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req));
     s_pendingRequests[requestId] = address(s_oracle);
     emit RequestSent(requestId);
