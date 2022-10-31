@@ -195,13 +195,14 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
+// Deprecated: see v2.NewTestGeneralConfig
 // NewTestGeneralConfig returns a legacy *TestGeneralConfig. Use v2.NewTestGeneralConfig instead.
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
-// Deprecated: see v2.TOML
+// Deprecated: see v2.NewGeneralConfig
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
