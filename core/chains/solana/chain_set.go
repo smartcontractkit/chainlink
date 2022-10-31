@@ -96,7 +96,7 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs SolanaConfigs) (ChainSet, error) {
 	solChains := map[string]solana.Chain{}
 	var err error
 	for _, chain := range cfgs {
-		if chain.Enabled == nil || !*chain.Enabled {
+		if !chain.IsEnabled() {
 			continue
 		}
 		var err2 error

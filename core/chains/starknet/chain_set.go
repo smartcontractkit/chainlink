@@ -91,7 +91,7 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error)
 	stkChains := map[string]starkchain.Chain{}
 	var err error
 	for _, chain := range cfgs {
-		if chain.Enabled == nil || !*chain.Enabled {
+		if !chain.IsEnabled() {
 			continue
 		}
 		var err2 error
