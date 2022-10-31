@@ -124,6 +124,10 @@ type StarknetConfig struct {
 	Nodes StarknetNodes
 }
 
+func (c *StarknetConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
+}
+
 func (c *StarknetConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
@@ -159,7 +163,7 @@ func (c *StarknetConfig) ValidateConfig() (err error) {
 func (c *StarknetConfig) AsV1() types.DBChain {
 	return types.DBChain{
 		ID:      *c.ChainID,
-		Enabled: *c.Enabled,
+		Enabled: c.IsEnabled(),
 		Cfg: &starknetdb.ChainCfg{
 			OCR2CachePollPeriod: c.Chain.OCR2CachePollPeriod,
 			OCR2CacheTTL:        c.Chain.OCR2CacheTTL,
