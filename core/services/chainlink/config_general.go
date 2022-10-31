@@ -283,7 +283,7 @@ func (g *generalConfig) AutoPprofEnabled() bool {
 
 func (g *generalConfig) EVMEnabled() bool {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -292,7 +292,7 @@ func (g *generalConfig) EVMEnabled() bool {
 
 func (g *generalConfig) EVMRPCEnabled() bool {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			if len(c.Nodes) > 0 {
 				return true
 			}
@@ -303,7 +303,7 @@ func (g *generalConfig) EVMRPCEnabled() bool {
 
 func (g *generalConfig) DefaultChainID() *big.Int {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return (*big.Int)(c.ChainID)
 		}
 	}
@@ -312,7 +312,7 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 
 func (g *generalConfig) EthereumHTTPURL() *url.URL {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			for _, n := range c.Nodes {
 				if n.SendOnly == nil || !*n.SendOnly {
 					return (*url.URL)(n.HTTPURL)
@@ -325,7 +325,7 @@ func (g *generalConfig) EthereumHTTPURL() *url.URL {
 }
 func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			for _, n := range c.Nodes {
 				if n.HTTPURL != nil {
 					us = append(us, (url.URL)(*n.HTTPURL))
@@ -338,7 +338,7 @@ func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
 }
 func (g *generalConfig) EthereumURL() string {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			for _, n := range c.Nodes {
 				if n.SendOnly == nil || !*n.SendOnly {
 					if n.WSURL != nil {
@@ -362,7 +362,7 @@ func (g *generalConfig) P2PEnabled() bool {
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -371,7 +371,7 @@ func (g *generalConfig) SolanaEnabled() bool {
 
 func (g *generalConfig) TerraEnabled() bool {
 	for _, c := range g.c.Terra {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -380,7 +380,7 @@ func (g *generalConfig) TerraEnabled() bool {
 
 func (g *generalConfig) StarkNetEnabled() bool {
 	for _, c := range g.c.Starknet {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}

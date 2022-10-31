@@ -92,7 +92,7 @@ func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.DBChain) {
 			ID:  *ch.ChainID,
 			Cfg: ch.asV1(),
 		}
-		if ch.Enabled != nil && *ch.Enabled {
+		if ch.IsEnabled() {
 			dbc.Enabled = true
 		}
 		chains = append(chains, dbc)
@@ -111,14 +111,19 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 	return types.Node{}, sql.ErrNoRows
 }
 
-func legacyNode(n *Node, chainID *utils.Big) types.Node {
-	return types.Node{
-		Name:       *n.Name,
-		EVMChainID: *chainID,
-		WSURL:      null.StringFrom((*n).WSURL.String()),
-		HTTPURL:    null.StringFrom((*n).HTTPURL.String()),
-		SendOnly:   *n.SendOnly,
+func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
+	v2.Name = *n.Name
+	v2.EVMChainID = *chainID
+	if n.HTTPURL != nil {
+		v2.HTTPURL = null.StringFrom(n.HTTPURL.String())
 	}
+	if n.WSURL != nil {
+		v2.WSURL = null.StringFrom(n.WSURL.String())
+	}
+	if n.SendOnly != nil {
+		v2.SendOnly = *n.SendOnly
+	}
+	return
 }
 
 func (cs EVMConfigs) Nodes() (ns []types.Node) {
@@ -162,6 +167,10 @@ type EVMConfig struct {
 	Enabled *bool
 	Chain
 	Nodes EVMNodes
+}
+
+func (c *EVMConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
 }
 
 func (c *EVMConfig) SetFromDB(ch types.DBChain, nodes []types.Node) error {
