@@ -46,6 +46,7 @@ var (
 
 type startOptions struct {
 	// Set the config options
+	// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	SetConfig func(cfg *configtest.TestGeneralConfig)
 	// Use to set up mocks on the app
 	FlagsAndDeps []interface{}
