@@ -428,15 +428,15 @@ func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Head
 }
 
 // NodeStates provides a mock function with given fields:
-func (_m *Client) NodeStates() map[int32]string {
+func (_m *Client) NodeStates() map[string]string {
 	ret := _m.Called()
 
-	var r0 map[int32]string
-	if rf, ok := ret.Get(0).(func() map[int32]string); ok {
+	var r0 map[string]string
+	if rf, ok := ret.Get(0).(func() map[string]string); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[int32]string)
+			r0 = ret.Get(0).(map[string]string)
 		}
 	}
 
