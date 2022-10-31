@@ -34,11 +34,6 @@ describe('OCR2DRTestHelper', () => {
       'addSecrets',
       'addTwoArgs',
       'addEmptyArgs',
-      'addQuery',
-      'setTwoQueries',
-      'setEmptyQueries',
-      'setEmptyHeaders',
-      'addQueryWithTwoHeaders',
     ])
   })
 
@@ -133,117 +128,6 @@ describe('OCR2DRTestHelper', () => {
   describe('#addEmptyArgs to revert', () => {
     it('reverts with EmptyArgs() if args param is empty', async () => {
       await expect(ctr.addEmptyArgs()).to.be.revertedWith('EmptyArgs()')
-    })
-  })
-
-  describe('#addQuery', () => {
-    it('emits CBOR encoded request with js and query', async () => {
-      const js = 'function run(args, responses) {}'
-      const url = 'https://data.source'
-      await ctr.initializeRequestForInlineJavaScript(js)
-      await ctr.addQuery(url)
-      const tx = await ctr.closeEvent()
-      const [payload] = await parseRequestDataEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-        queries: [
-          {
-            verb: 0,
-            url,
-          },
-        ],
-      })
-    })
-  })
-
-  describe('#addQuery to revert', () => {
-    it('reverts with EmptyUrl() if url param is empty', async () => {
-      await expect(ctr.addQuery('')).to.be.revertedWith('EmptyUrl()')
-    })
-  })
-
-  describe('#setTwoQueries', () => {
-    it('emits CBOR encoded request with two queries', async () => {
-      const js = 'function run(args, responses) {}'
-      const url1 = 'https://data.source1'
-      const url2 = 'https://data.source1'
-      await ctr.initializeRequestForInlineJavaScript(js)
-      await ctr.setTwoQueries(url1, url2)
-      const tx = await ctr.closeEvent()
-      const [payload] = await parseRequestDataEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-        queries: [
-          {
-            verb: 0,
-            url: url1,
-          },
-          {
-            verb: 0,
-            url: url2,
-          },
-        ],
-      })
-    })
-  })
-
-  describe('#addQueryWithTwoHeaders', () => {
-    it('emits CBOR encoded request for a query with two headers', async () => {
-      const js = 'function run(args, responses) {}'
-      const url = 'https://data.source'
-      await ctr.initializeRequestForInlineJavaScript(js)
-      await ctr.addQueryWithTwoHeaders(url, 'k1', 'v1', 'k2', 'v2')
-      const tx = await ctr.closeEvent()
-      const [payload] = await parseRequestDataEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-        queries: [
-          {
-            verb: 0,
-            url,
-            headers: {
-              k1: 'v1',
-              k2: 'v2',
-            },
-          },
-        ],
-      })
-    })
-  })
-
-  describe('#addQueryWithTwoHeaders to revert', () => {
-    it('reverts with EmptyKey() if key param is empty', async () => {
-      const url = 'https://data.source'
-      await expect(
-        ctr.addQueryWithTwoHeaders(url, 'k1', 'v1', '', 'v2'),
-      ).to.be.revertedWith('EmptyKey()')
-    })
-    it('reverts with EmptyValue() if value param is empty', async () => {
-      const url = 'https://data.source'
-      await expect(
-        ctr.addQueryWithTwoHeaders(url, 'k1', 'v1', 'k2', ''),
-      ).to.be.revertedWith('EmptyValue()')
-    })
-  })
-
-  describe('#setEmptyQueries to revert', () => {
-    it('reverts with EmptyQueries() if queries param is empty', async () => {
-      await expect(ctr.setEmptyQueries()).to.be.revertedWith('EmptyQueries()')
-    })
-  })
-
-  describe('#setEmptyHeaders to revert', () => {
-    it('reverts with EmptyHeaders() if headers param is empty', async () => {
-      await expect(ctr.setEmptyHeaders()).to.be.revertedWith('EmptyHeaders()')
     })
   })
 })
