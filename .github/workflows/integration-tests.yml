@@ -176,7 +176,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
         with:
-          test_command_to_run: make test_smoke
+          test_command_to_run: make test_smoke args="--skip=@keeper"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
