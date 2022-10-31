@@ -4,18 +4,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/stretchr/testify/require"
+
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Peerstore_Start(t *testing.T) {
@@ -52,7 +52,7 @@ func Test_Peerstore_Start(t *testing.T) {
 	`, p2pkey.PeerID(peerID), p2pkey.PeerID(peerID), p2pkey.PeerID(nonExistentP2PPeerID)))
 	require.NoError(t, err)
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg)
 	require.NoError(t, err)
 
@@ -75,7 +75,7 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg)
 	require.NoError(t, err)
 
