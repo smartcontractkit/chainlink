@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	corenull "github.com/smartcontractkit/chainlink/core/null"
@@ -1192,7 +1193,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 			var (
 				orm = newORM(t, db, cfg, nil)
 			)
@@ -1261,7 +1262,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			var (
 				orm = newORM(t, db, cfg, nil)
@@ -1325,7 +1326,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	var (
 		orm = newORM(t, db, cfg, nil)

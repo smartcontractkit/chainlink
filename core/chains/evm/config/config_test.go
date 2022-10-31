@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -190,13 +191,17 @@ func TestChainScopedConfig(t *testing.T) {
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
-	orm := make(fakeChainConfigORM)
 	chainID := big.NewInt(56)
-	gcfg := configtest.NewTestGeneralConfig(t)
-	lggr := logger.TestLogger(t).With("evmChainID", chainID.String())
-	cfg := evmconfig.NewChainScopedConfig(chainID, evmtypes.ChainCfg{
-		KeySpecific: make(map[string]evmtypes.ChainCfg),
-	}, orm, lggr, gcfg)
+	gcfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
+		id := utils.NewBig(chainID)
+		cfg, _ := v2.Defaults(id)
+		c.EVM[0] = &v2.EVMConfig{
+			ChainID: id,
+			Enabled: ptr(true),
+			Chain:   cfg,
+		}
+	})
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
 	timeout := cfg.OCRDatabaseTimeout()
 	require.Equal(t, 2*time.Second, timeout)
@@ -239,9 +244,16 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gcfg := configtest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			config := evmconfig.NewChainScopedConfig(big.NewInt(tt.chainID), evmtypes.ChainCfg{}, nil, lggr, gcfg)
+			gcfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
+				id := utils.NewBigI(tt.chainID)
+				cfg, _ := v2.Defaults(id)
+				c.EVM[0] = &v2.EVMConfig{
+					ChainID: id,
+					Enabled: ptr(true),
+					Chain:   cfg,
+				}
+			})
+			config := evmtest.NewChainScopedConfig(t, gcfg)
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
 			assert.Nil(t, config.EvmGasLimitOCRJobType())
