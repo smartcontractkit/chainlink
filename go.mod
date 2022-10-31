@@ -2,6 +2,10 @@ module github.com/smartcontractkit/chainlink
 
 go 1.19
 
+// batch-call-len-1.10.25: 1.10.25 with batch response length fix
+// until released upstream: https://github.com/ethereum/go-ethereum/pull/26064
+replace github.com/ethereum/go-ethereum => github.com/smartcontractkit/go-ethereum v1.10.9-0.20221031124550-ea38079ea107
+
 require (
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.1.1
