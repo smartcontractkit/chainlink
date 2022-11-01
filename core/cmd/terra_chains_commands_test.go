@@ -24,10 +24,7 @@ func TestClient_IndexTerraChains(t *testing.T) {
 	t.Parallel()
 
 	chainID := terratest.RandomChainID()
-	chain := terra.TerraConfig{
-		ChainID: ptr(chainID),
-		Enabled: ptr(true),
-	}
+	chain := terra.TerraConfig{ChainID: ptr(chainID)}
 	app := terraStartNewApplication(t, &chain)
 	client, r := app.NewClientAndRenderer()
 

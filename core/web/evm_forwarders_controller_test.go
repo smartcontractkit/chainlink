@@ -46,7 +46,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = evmcfg.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.DefaultsFrom(chainId, nil)},
+			{ChainID: chainId, Chain: evmcfg.DefaultsFrom(chainId, nil)},
 		}
 	})
 
@@ -76,7 +76,7 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = evmcfg.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.DefaultsFrom(chainId, nil)},
+			{ChainID: chainId, Chain: evmcfg.DefaultsFrom(chainId, nil)},
 		}
 	})
 

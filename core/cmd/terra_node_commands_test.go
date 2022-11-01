@@ -60,7 +60,6 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	}
 	chain := terra.TerraConfig{
 		ChainID: ptr(chainID),
-		Enabled: ptr(true),
 		Nodes:   terra.TerraNodes{&node},
 	}
 	app := terraStartNewApplication(t, &chain)

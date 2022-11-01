@@ -116,7 +116,7 @@ func Test_TerraChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupTerraChainsControllerTestV2(t, &terra.TerraConfig{ChainID: ptr(validId), Enabled: ptr(true),
+			controller := setupTerraChainsControllerTestV2(t, &terra.TerraConfig{ChainID: ptr(validId),
 				Chain: tercfg.Chain{
 					FallbackGasPriceULuna: ptr(decimal.RequireFromString("9.999")),
 					GasLimitMultiplier:    ptr(decimal.RequireFromString("1.55555")),
@@ -147,14 +147,12 @@ func Test_TerraChainsController_Index(t *testing.T) {
 
 	chainA := &terra.TerraConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
-		Enabled: ptr(true),
 		Chain: tercfg.Chain{
 			FallbackGasPriceULuna: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
 	chainB := &terra.TerraConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
-		Enabled: ptr(true),
 		Chain: tercfg.Chain{
 			GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
 		},

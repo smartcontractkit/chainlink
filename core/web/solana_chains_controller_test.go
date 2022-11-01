@@ -119,7 +119,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 			t.Parallel()
 
 			controller := setupSolanaChainsControllerTestV2(t, &solana.SolanaConfig{ChainID: ptr(validId),
-				Enabled: ptr(true), Chain: config.Chain{
+				Chain: config.Chain{
 					SkipPreflight: ptr(false),
 					TxTimeout:     utils.MustNewDuration(time.Hour),
 				},
@@ -150,14 +150,12 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 
 	chainA := &solana.SolanaConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
-		Enabled: ptr(true),
 		Chain: config.Chain{
 			TxTimeout: utils.MustNewDuration(time.Hour),
 		},
 	}
 	chainB := &solana.SolanaConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
-		Enabled: ptr(true),
 		Chain: config.Chain{
 			SkipPreflight: ptr(false),
 		},

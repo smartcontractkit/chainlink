@@ -38,7 +38,7 @@ func TestTxm_Integration(t *testing.T) {
 	t.Skip("requires terrad")
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	fallbackGasPrice := sdk.NewDecCoinFromDec("uluna", sdk.MustNewDecFromStr("0.01"))
-	chain := terra.TerraConfig{ChainID: &chainID, Enabled: ptr(true), Chain: tercfg.Chain{
+	chain := terra.TerraConfig{ChainID: &chainID, Chain: tercfg.Chain{
 		FallbackGasPriceULuna: ptr(decimal.RequireFromString("0.01")),
 		GasLimitMultiplier:    ptr(decimal.RequireFromString("1.5")),
 	}}

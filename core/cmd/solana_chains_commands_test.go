@@ -25,7 +25,6 @@ func TestClient_IndexSolanaChains(t *testing.T) {
 	id := solanatest.RandomChainID()
 	chain := solana.SolanaConfig{
 		ChainID: &id,
-		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewClientAndRenderer()
