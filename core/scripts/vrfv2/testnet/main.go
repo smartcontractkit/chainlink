@@ -451,7 +451,7 @@ func main() {
 	case "coordinator-get-config":
 		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
-		helpers.ParseArgs(cmd, os.Args[2:], "address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
 
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), e.Ec)
 		helpers.PanicErr(err)
