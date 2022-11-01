@@ -17,7 +17,9 @@ import (
 
 	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 
@@ -762,9 +764,11 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		t := true
+		c.JobPipeline.ExternalInitiatorsEnabled = &t
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 
@@ -940,9 +944,11 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		t := true
+		c.JobPipeline.ExternalInitiatorsEnabled = &t
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 

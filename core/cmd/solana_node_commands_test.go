@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
 
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func mustInsertSolanaChain(t *testing.T, sol solana.ChainSet, id string) solana.DBChain {
 	chain, err := sol.Add(testutils.Context(t), id, nil)
 	require.NoError(t, err)
@@ -41,7 +42,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solana.SolanaConfig) *clte
 	})
 }
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func solanaStartNewLegacyApplication(t *testing.T) *cltest.TestApplication {
 	return startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.SolanaEnabled = null.BoolFrom(true)
