@@ -164,7 +164,7 @@ func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 func (o *orm) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error) {
 	var attempts []EthTxAttempt
 
-	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1)`
+	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY id desc`
 	if err := o.q.Select(&attempts, sql, ids); err != nil {
 		return nil, err
 	}
