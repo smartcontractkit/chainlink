@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,7 @@ var (
 
 type startOptions struct {
 	// Set the config options
+	// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 	SetConfig func(cfg *configtest.TestGeneralConfig)
 	// Use to set up mocks on the app
 	FlagsAndDeps []interface{}
@@ -592,6 +594,28 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.LogSQL, cfg.LogSQL())
 	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
+}
+
+func TestClient_ConfigV2(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplicationV2(t, nil)
+	client, _ := app.NewClientAndRenderer()
+	assert.Error(t, client.GetConfiguration(cltest.EmptyCLIContext()))
+	cfg, ok := app.Config.(chainlink.ConfigV2)
+	require.True(t, ok)
+	user, effective := cfg.ConfigTOML()
+
+	t.Run("user", func(t *testing.T) {
+		got, err := client.ConfigV2Str(true)
+		require.NoError(t, err)
+		assert.Equal(t, user, got, diff.Diff(user, got))
+	})
+	t.Run("effective", func(t *testing.T) {
+		got, err := client.ConfigV2Str(false)
+		require.NoError(t, err)
+		assert.Equal(t, effective, got, diff.Diff(effective, got))
+	})
 }
 
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config

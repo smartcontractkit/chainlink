@@ -2,10 +2,12 @@ package chainlink
 
 import (
 	"crypto/rand"
+	_ "embed"
 	"fmt"
 	"math/big"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -36,9 +39,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type ConfigV2 interface {
+	// ConfigTOML returns both the user provided and effective configuration as TOML.
+	ConfigTOML() (user, effective string)
+}
+
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
-	lggr logger.Logger
+	lggr simplelogger.Logger
 
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
@@ -55,6 +63,8 @@ type generalConfig struct {
 	randomP2PPortOnce sync.Once
 
 	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
+
+	passwordMu sync.RWMutex // passwords are set after initialization
 }
 
 // GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
@@ -64,33 +74,72 @@ type GeneralConfigOpts struct {
 	Config
 	Secrets
 
-	KeystorePasswordFileName, VRFPasswordFileName *string
-
 	// OverrideFn is a *test-only* hook to override effective values.
 	OverrideFn func(*Config, *Secrets)
+
+	SkipEnv bool
 }
 
 // ParseTOML sets Config and Secrets from the given TOML strings.
-func (g *GeneralConfigOpts) ParseTOML(config, secrets string) error {
+func (o *GeneralConfigOpts) ParseTOML(config, secrets string) error {
 	return multierr.Combine(
-		v2.DecodeTOML(strings.NewReader(config), &g.Config),
-		v2.DecodeTOML(strings.NewReader(secrets), &g.Secrets),
+		v2.DecodeTOML(strings.NewReader(config), &o.Config),
+		v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets),
 	)
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
 func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+	cfg, err := o.init()
+	if err != nil {
+		return nil, err
+	}
+	cfg.lggr = lggr
+	return cfg, nil
+}
+
+// NewAndLogger returns a coreconfig.GeneralConfig for the given options, and a logger.Logger (with close func).
+func (o GeneralConfigOpts) NewAndLogger() (coreconfig.GeneralConfig, logger.Logger, func() error, error) {
+	cfg, err := o.init()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// placeholder so we can call config methods to bootstrap the real logger
+	cfg.lggr, err = simplelogger.New()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	lggrCfg := logger.Config{
+		LogLevel:       cfg.LogLevel(),
+		Dir:            cfg.LogFileDir(),
+		JsonConsole:    cfg.JSONConsole(),
+		UnixTS:         cfg.LogUnixTimestamps(),
+		FileMaxSizeMB:  int(cfg.LogFileMaxSize() / utils.MB),
+		FileMaxAgeDays: int(cfg.LogFileMaxAge()),
+		FileMaxBackups: int(cfg.LogFileMaxBackups()),
+	}
+	lggr, closeLggr := lggrCfg.New()
+
+	cfg.lggr = lggr
+	return cfg, lggr, closeLggr, nil
+}
+
+// new returns a new generalConfig, but with a nil lggr.
+func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
 	}
 
 	o.Config.setDefaults()
-	o.Config.DevMode = v2.EnvDev.IsTrue()
+	if !o.SkipEnv {
+		o.Config.DevMode = v2.EnvDev.IsTrue()
 
-	err = o.Secrets.setOverrides(o.KeystorePasswordFileName, o.VRFPasswordFileName)
-	if err != nil {
-		return nil, err
+		err = o.Secrets.setEnv()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if fn := o.OverrideFn; fn != nil {
@@ -107,11 +156,15 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 		return nil, err
 	}
 
-	return &generalConfig{
-		lggr:      lggr,
+	cfg := &generalConfig{
 		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
 		c: &o.Config, secrets: &o.Secrets,
-		logLevelDefault: zapcore.Level(*o.Config.Log.Level)}, nil
+	}
+	if lvl := o.Config.Log.Level; lvl != nil {
+		cfg.logLevelDefault = zapcore.Level(*lvl)
+	}
+
+	return cfg, nil
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
@@ -131,14 +184,69 @@ func (g *generalConfig) TerraConfigs() terra.TerraConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	_, err := utils.MultiErrorList(multierr.Combine(g.c.Validate(), g.secrets.Validate()))
+	_, err := utils.MultiErrorList(multierr.Combine(
+		validateEnv(),
+		g.c.Validate(),
+		g.secrets.Validate()))
 	return err
+}
+
+//go:embed cfgtest/dump/empty-strings.env
+var emptyStringsEnv string
+
+var legacyEnvToV2 = map[string]string{
+	"CHAINLINK_DEV": "CL_DEV",
+
+	"DATABASE_URL":                            "CL_DATABASE_URL",
+	"DATABASE_BACKUP_URL":                     "CL_DATABASE_BACKUP_URL",
+	"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK": "CL_DATABASE_ALLOW_SIMPLE_PASSWORDS",
+
+	"EXPLORER_ACCESS_KEY": "CL_EXPLORER_ACCESS_KEY",
+	"EXPLORER_SECRET":     "CL_EXPLORER_SECRET",
+
+	"PYROSCOPE_AUTH_TOKEN": "CL_PYROSCOPE_AUTH_TOKEN",
+
+	"LOG_COLOR":          "CL_LOG_COLOR",
+	"LOG_SQL_MIGRATIONS": "CL_LOG_SQL_MIGRATIONS",
+}
+
+// validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
+func validateEnv() (err error) {
+	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
+		if strings.TrimSpace(kv) == "" {
+			continue
+		}
+		i := strings.Index(kv, "=")
+		if i == -1 {
+			return errors.Errorf("malformed .env file line: %s", kv)
+		}
+		k := kv[:i]
+		if k == "LOG_LEVEL" {
+			continue // exceptional case of permitting legacy env w/o equivalent v2
+		}
+		v, ok := os.LookupEnv(k)
+		if ok {
+			if k2, ok2 := legacyEnvToV2[k]; ok2 {
+				if v2 := os.Getenv(k2); v != v2 {
+					err = multierr.Append(err, fmt.Errorf("environment variables %s and %s must be equal, or %s must not be set", k, k2, k2))
+				}
+			} else {
+				err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
+			}
+		}
+	}
+	return
 }
 
 func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
 	log("Secrets:\n", g.secretsTOML)
 	log("Input Configuration:\n", g.inputTOML)
 	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+}
+
+// ConfigTOML implements chainlink.ConfigV2
+func (g *generalConfig) ConfigTOML() (user, effective string) {
+	return g.inputTOML, g.effectiveTOML
 }
 
 func (g *generalConfig) Dev() bool {
@@ -175,7 +283,7 @@ func (g *generalConfig) AutoPprofEnabled() bool {
 
 func (g *generalConfig) EVMEnabled() bool {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -184,7 +292,7 @@ func (g *generalConfig) EVMEnabled() bool {
 
 func (g *generalConfig) EVMRPCEnabled() bool {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			if len(c.Nodes) > 0 {
 				return true
 			}
@@ -195,7 +303,7 @@ func (g *generalConfig) EVMRPCEnabled() bool {
 
 func (g *generalConfig) DefaultChainID() *big.Int {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return (*big.Int)(c.ChainID)
 		}
 	}
@@ -204,7 +312,7 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 
 func (g *generalConfig) EthereumHTTPURL() *url.URL {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			for _, n := range c.Nodes {
 				if n.SendOnly == nil || !*n.SendOnly {
 					return (*url.URL)(n.HTTPURL)
@@ -217,7 +325,7 @@ func (g *generalConfig) EthereumHTTPURL() *url.URL {
 }
 func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			for _, n := range c.Nodes {
 				if n.HTTPURL != nil {
 					us = append(us, (url.URL)(*n.HTTPURL))
@@ -230,7 +338,7 @@ func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
 }
 func (g *generalConfig) EthereumURL() string {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			for _, n := range c.Nodes {
 				if n.SendOnly == nil || !*n.SendOnly {
 					if n.WSURL != nil {
@@ -254,7 +362,7 @@ func (g *generalConfig) P2PEnabled() bool {
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -263,7 +371,7 @@ func (g *generalConfig) SolanaEnabled() bool {
 
 func (g *generalConfig) TerraEnabled() bool {
 	for _, c := range g.c.Terra {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -272,7 +380,7 @@ func (g *generalConfig) TerraEnabled() bool {
 
 func (g *generalConfig) StarkNetEnabled() bool {
 	for _, c := range g.c.Starknet {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -367,11 +475,10 @@ func (g *generalConfig) BlockBackfillDepth() uint64 { panic(v2.ErrUnsupported) }
 func (g *generalConfig) BlockBackfillSkip() bool { panic(v2.ErrUnsupported) }
 
 func (g *generalConfig) BridgeResponseURL() *url.URL {
-	u := (*url.URL)(g.c.WebServer.BridgeResponseURL)
-	if *u == zeroURL {
-		u = nil
+	if g.c.WebServer.BridgeResponseURL.IsZero() {
+		return nil
 	}
-	return u
+	return g.c.WebServer.BridgeResponseURL.URL()
 }
 
 func (g *generalConfig) CertFile() string {
@@ -898,11 +1005,10 @@ func (g *generalConfig) TelemetryIngressServerPubKey() string {
 }
 
 func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	u := (*url.URL)(g.c.TelemetryIngress.URL)
-	if *u == zeroURL {
-		u = nil
+	if g.c.TelemetryIngress.URL.IsZero() {
+		return nil
 	}
-	return u
+	return g.c.TelemetryIngress.URL.URL()
 }
 
 func (g *generalConfig) TelemetryIngressBufferSize() uint {

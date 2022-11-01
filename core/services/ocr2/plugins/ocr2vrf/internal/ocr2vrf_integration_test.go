@@ -125,13 +125,13 @@ func setupOCR2VRFContracts(
 	require.NoError(t, err)
 	b.Commit()
 
-	coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
+	require.NoError(t, utils.JustError(coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
 		RedeemableRequestGasOverhead: 50_000,
 		CallbackRequestGasOverhead:   50_000,
 		StalenessSeconds:             60,
 		PremiumPercentage:            0,
 		FallbackWeiPerUnitLink:       assets.GWei(int(1e7)).ToInt(),
-	})
+	})))
 	b.Commit()
 
 	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
@@ -150,16 +150,16 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	// Set up coordinator subscription for billing.
-	coordinator.CreateSubscription(owner)
+	require.NoError(t, utils.JustError(coordinator.CreateSubscription(owner)))
 	b.Commit()
 	subID := uint64(1)
-	coordinator.AddConsumer(owner, subID, consumerAddress)
+	require.NoError(t, utils.JustError(coordinator.AddConsumer(owner, subID, consumerAddress)))
 	b.Commit()
-	coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)
+	require.NoError(t, utils.JustError(coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)))
 	b.Commit()
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
 	require.NoError(t, err)
-	link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)
+	require.NoError(t, utils.JustError(link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)))
 	b.Commit()
 
 	_, err = dkg.AddClient(owner, keyID, beaconAddress)
@@ -242,7 +242,7 @@ func setupNodeOCR2(
 		// Add new sending key.
 		k, err := app.KeyStore.Eth().Create()
 		require.NoError(t, err)
-		app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID)
+		require.NoError(t, app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID))
 		sendingKeys = append(sendingKeys, k)
 		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
 
@@ -398,7 +398,8 @@ schemaVersion		= 1
 contractID			= "%s"
 [relayConfig]
 chainID 			= 1337
-`, uni.dkgAddress.Hex())
+fromBlock           = %d
+`, uni.dkgAddress.Hex(), blockBeforeConfig.Number().Int64())
 	t.Log("Creating bootstrap job:", bootstrapJobSpec)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(bootstrapJobSpec)
 	require.NoError(t, err)
@@ -423,6 +424,7 @@ transmitterID        	= "%s"
 
 [relayConfig]
 chainID              	= 1337
+fromBlock               = %d
 
 [pluginConfig]
 dkgEncryptionPublicKey 	= "%s"
@@ -437,6 +439,7 @@ lookbackBlocks         	= %d # This is an integer
 `, uni.beaconAddress.String(),
 			kbs[i].ID(),
 			transmitters[i],
+			blockBeforeConfig.Number().Int64(),
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
 			hex.EncodeToString(keyID[:]),
@@ -452,14 +455,6 @@ lookbackBlocks         	= %d # This is an integer
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
 	}
-
-	t.Log("jobs added, running log poller replay")
-
-	// Once all the jobs are added, replay to ensure we have the configSet logs.
-	for _, app := range apps {
-		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
-	}
-	require.NoError(t, bootstrapNode.app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
 
 	t.Log("Waiting for DKG key to get written")
 	// poll until a DKG key is written to the contract

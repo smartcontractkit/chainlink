@@ -66,9 +66,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 		})
 
 		By("Funding Chainlink nodes", func() {
-			txCost, err := chainClient.EstimateCostForChainlinkOperations(10)
-			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 			Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 		})
 

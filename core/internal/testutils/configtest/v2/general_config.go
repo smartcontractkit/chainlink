@@ -10,7 +10,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -41,11 +40,6 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 
 // overrides applies some test config settings and adds a default chain with evmclient.NullClientChainID.
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
-	var emptyURL models.SecretURL
-	if s.Database.URL == nil || *s.Database.URL == emptyURL {
-		// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-		s.Database.URL = models.NewSecretURL((*models.URL)(envvar.DatabaseURL.ParsePtr()))
-	}
 	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
 
 	c.DevMode = true

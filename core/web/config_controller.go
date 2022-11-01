@@ -3,8 +3,10 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -22,6 +24,28 @@ type ConfigController struct {
 //
 //	"<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
+	cfg := cc.App.GetConfig()
+	if cfg2, ok := cfg.(chainlink.ConfigV2); ok {
+		var userOnly bool
+		if s, has := c.GetQuery("userOnly"); has {
+			var err error
+			userOnly, err = strconv.ParseBool(s)
+			if err != nil {
+				jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("invalid bool for userOnly: %v", err))
+				return
+			}
+		}
+		var toml string
+		user, effective := cfg2.ConfigTOML()
+		if userOnly {
+			toml = user
+		} else {
+			toml = effective
+		}
+		jsonAPIResponse(c, ConfigV2Resource{toml}, "config")
+		return
+	}
+	// Legacy config
 	cw := config.NewConfigPrinter(cc.App.GetConfig())
 
 	cc.App.GetAuditLogger().Audit(audit.EnvNoncriticalEnvDumped, map[string]interface{}{})
@@ -41,13 +65,19 @@ func (c *ConfigV2Resource) SetID(string) error {
 }
 
 func (cc *ConfigController) Dump(c *gin.Context) {
-	tomlStr, err := cc.App.ConfigDump(c)
+	cfg := cc.App.GetConfig()
+	if _, ok := cfg.(chainlink.ConfigV2); ok {
+		jsonAPIError(c, http.StatusUnprocessableEntity, v2.ErrUnsupported)
+		return
+	}
+	// Legacy config mode
+	userToml, err := cc.App.ConfigDump(c)
 	if err != nil {
 		cc.App.GetLogger().Errorw("Failed to dump TOML config", "err", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, ConfigV2Resource{tomlStr}, "config")
+	jsonAPIResponse(c, ConfigV2Resource{userToml}, "config")
 }
 
 type configPatchRequest struct {

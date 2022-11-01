@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -57,6 +58,7 @@ type Delegate struct {
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
 	relayers              map[relay.Network]types.Relayer
+	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -90,18 +92,23 @@ func NewDelegate(
 		dkgEncryptKs,
 		ethKs,
 		relayers,
+		false,
 	}
 }
 
-func (d Delegate) JobType() job.Type {
+func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting2
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {
+	// This is only called first time the job is created
+	d.isNewlyCreatedJob = true
+}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
-func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	spec := jobSpec.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
@@ -212,6 +219,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
+				New:           d.isNewlyCreatedJob,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -220,8 +228,20 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = medianProvider
-		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
+		oracleArgsNoPlugin := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          medianProvider.ContractTransmitter(),
+			ContractConfigTracker:        medianProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			OffchainConfigDigester:       medianProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+		}
+		return median.NewMedianServices(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin)
 	case job.DKG:
 		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
 		if !ok {
@@ -238,6 +258,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
+				New:           d.isNewlyCreatedJob,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -246,18 +267,33 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = dkgProvider
-		pluginOracle, err = dkg.NewDKG(
+		oracleArgsNoPlugin := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          dkgProvider.ContractTransmitter(),
+			ContractConfigTracker:        dkgProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			OffchainConfigDigester:       dkgProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+		}
+		return dkg.NewDKGServices(
 			jobSpec,
 			dkgProvider,
-			lggr.Named("DKG"),
+			d.lggr,
 			ocrLogger,
 			d.dkgSignKs,
 			d.dkgEncryptKs,
-			chain.Client())
-		if err != nil {
-			return nil, errors.Wrap(err, "error while instantiating DKG")
-		}
+			chain.Client(),
+			oracleArgsNoPlugin,
+			d.db,
+			d.cfg,
+			big.NewInt(chainID),
+			spec.Relay,
+		)
 	case job.OCR2VRF:
 		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
 		if !ok {
@@ -287,6 +323,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
+				New:           d.isNewlyCreatedJob,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -390,6 +427,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			KeyID:                              keyID,
 			DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
+			DKGSharePersistence:                persistence.NewShareDB(d.db, d.lggr.Named("DKGShareDB"), d.cfg, big.NewInt(chainID), spec.Relay),
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")
@@ -409,7 +447,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		// and exported from the ocr2vrf library. It takes care of running the DKG and OCR2VRF
 		// oracles under the hood together.
 		oracleCtx := job.NewServiceAdapter(oracles)
-		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
+		return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jobSpec, d.db, lggr, d.chainSet, d.pipelineRunner)
 		if err2 != nil {

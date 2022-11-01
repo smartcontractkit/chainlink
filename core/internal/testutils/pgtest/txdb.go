@@ -51,7 +51,7 @@ func init() {
 	} else if v1 == "" {
 		dbURL = v2
 		which = "CL_DATABASE_URL"
-	} else if v2 == "" {
+	} else if v2 == "" || v1 == v2 {
 		dbURL = v1
 		which = "DATABASE_URL"
 	} else {
