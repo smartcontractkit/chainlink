@@ -77,7 +77,7 @@ type ORM interface {
 	StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
-	GetLastGoodTaskRun(dotId string, specId int32, maxElapsedSeconds int32) (TaskRun, error)
+	GetLastGoodTaskRun(dotId string, specId int32, maxElapsed time.Duration) (TaskRun, error)
 
 	// InsertFinishedRuns inserts all the given runs into the database.
 	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
@@ -239,18 +239,19 @@ func (o *orm) DeleteRun(id int64) error {
 	return err
 }
 
-func (o *orm) GetLastGoodTaskRun(dotId string, specId int32, maxElapsedSeconds int32) (TaskRun, error) {
+func (o *orm) GetLastGoodTaskRun(dotId string, specId int32, maxElapsed time.Duration) (TaskRun, error) {
 	var taskRun TaskRun
+	stalenessThreshold := time.Now().Add(-maxElapsed)
 	sql := `SELECT ptr.id, ptr.dot_id, ptr.output, ptr.error, ptr.finished_at 
 		FROM pipeline_task_runs ptr JOIN pipeline_runs pr ON pr.id = ptr.pipeline_run_id 
 		WHERE 
 		ptr.dot_id = $1 AND 
 		pr.pipeline_spec_id = $2 AND 
-		ptr.error IS NULL AND 
-		ptr.finished_at > (NOW() - INTERVAL '60 SECONDS') 
+		ptr.error IS NULL AND
+		ptr.finished_at > ($3)
 		ORDER BY ptr.finished_at 
 		DESC LIMIT 1;`
-	err := o.q.Get(&taskRun, sql, dotId, specId)
+	err := o.q.Get(&taskRun, sql, dotId, specId, stalenessThreshold)
 	return taskRun, errors.Wrap(err, fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId))
 }
 

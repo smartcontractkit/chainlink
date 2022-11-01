@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -24,6 +25,7 @@ type BridgeTask struct {
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
+	CacheTTL          string `json:"CacheTTL"`
 
 	specId     int32
 	orm        bridges.ORM
@@ -50,11 +52,13 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		name              StringParam
 		requestData       MapParam
 		includeInputAtKey StringParam
+		cacheTTL          Uint64Param
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
+		errors.Wrap(ResolveParam(&cacheTTL, From(VarExpr(t.CacheTTL, vars), NonemptyString(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -112,7 +116,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
-		taskRun, terr := t.trORM.GetLastGoodTaskRun(t.dotID, t.specId, 10)
+		taskRun, terr := t.trORM.GetLastGoodTaskRun(t.dotID, t.specId, time.Duration(time.Second*time.Duration(cacheTTL)))
 		if terr != nil {
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}

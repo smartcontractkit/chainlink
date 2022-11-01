@@ -206,6 +206,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.SetBridgeCacheTTL(10 * time.Second)
 
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -240,22 +241,23 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 		nil)
 
 	assert.False(t, runInfo.IsPending)
-	// assert.False(t, runInfo.IsRetryable)
+	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 
+	// Insert in the -5s past.
 	err = trORM.InsertFinishedRuns(
 		[]*pipeline.Run{
 			{
 				PipelineSpecID: specID,
 				CreatedAt:      time.Now().Add(-10 * time.Second),
-				FinishedAt:     null.TimeFrom(time.Now()),
+				FinishedAt:     null.TimeFrom(time.Now().Add(-5 * time.Second)),
 				State:          pipeline.RunStatusCompleted,
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
 						DotID:      task.DotID(),
 						CreatedAt:  time.Now().Add(-10 * time.Second),
-						FinishedAt: null.TimeFrom(time.Now()),
+						FinishedAt: null.TimeFrom(time.Now().Add(-5 * time.Second)),
 						Output:     pipeline.JSONSerializable{Val: []interface{}{result.Value}, Valid: true},
 					},
 				},
