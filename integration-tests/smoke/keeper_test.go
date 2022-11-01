@@ -982,7 +982,8 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 		mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 		actions.CreateOCRKeeperJobs(chainlinkNodes, mockServer, registry.Address(), network.ChainID)
-		ocrConfig := actions.BuildOCRConfigVars(chainlinkNodes, registryConfig, registrar.Address())
+		nodesWithoutBootstrap := chainlinkNodes[1:]
+		ocrConfig := actions.BuildOCRConfigVars(nodesWithoutBootstrap, registryConfig, registrar.Address())
 		err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
 		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 

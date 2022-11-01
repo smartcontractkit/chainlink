@@ -1704,7 +1704,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 			gasLimit,
 			common.HexToAddress(adminAddr),
 			checkData,
-			nil, //offchainConfig
+			[]byte{}, //offchainConfig
 			amount,
 			common.HexToAddress(senderAddr),
 		)
