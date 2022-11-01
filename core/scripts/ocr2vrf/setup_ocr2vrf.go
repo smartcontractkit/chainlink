@@ -140,6 +140,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		flagSet := flag.NewFlagSet("run-ocr2vrf-job-creation", flag.ExitOnError)
 		flagSet.String("api", *apiFile, "api file")
 		flagSet.String("password", *passwordFile, "password file")
+		flagSet.String("vrfpassword", *passwordFile, "vrf password file")
 		flagSet.String("bootstrapPort", fmt.Sprintf("%d", 8000), "port of bootstrap")
 		flagSet.Int64("chainID", e.ChainID, "the chain ID")
 
