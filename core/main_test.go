@@ -163,13 +163,10 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    dump         Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]
-	//    list         Show the node's environment variables [Not supported with TOML]
-	//    show         Show the application configuration [Only supported with TOML]
-	//    setgasprice  Set the default gas price to use for outgoing transactions [Not supported with TOML]
-	//    loglevel     Set log level
-	//    logsql       Enable/disable sql statement logging
-	//    validate     Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]
+	//    show      Show the application configuration
+	//    loglevel  Set log level
+	//    logsql    Enable/disable SQL statement logging
+	//    validate  Validate provided TOML config file, and print the full effective configuration, with defaults included
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -569,10 +566,7 @@ func ExampleRun_chains_evm() {
 	//    core.test chains evm command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create     Create a new EVM chain
-	//    delete     Delete an existing EVM chain
-	//    list       List all existing EVM chains
-	//    configure  Configure an existing EVM chain
+	//    list  List all existing EVM chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -588,10 +582,7 @@ func ExampleRun_chains_solana() {
 	//    core.test chains solana command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create     Create a new Solana chain
-	//    delete     Delete an existing Solana chain
-	//    list       List all existing Solana chains
-	//    configure  Configure an existing Solana chain
+	//    list  List all existing Solana chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -607,10 +598,7 @@ func ExampleRun_chains_starknet() {
 	//    core.test chains starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create     Create a new StarkNet chain
-	//    delete     Delete an existing StarkNet chain
-	//    list       List all existing StarkNet chains
-	//    configure  Configure an existing StarkNet chain
+	//    list  List all existing StarkNet chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -644,9 +632,7 @@ func ExampleRun_nodes_evm() {
 	//    core.test nodes evm command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new EVM node
-	//    delete  Delete an existing EVM node
-	//    list    List all existing EVM nodes
+	//    list  List all existing EVM nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -675,9 +661,7 @@ func ExampleRun_nodes_solana() {
 	//    core.test nodes solana command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new Solana node
-	//    delete  Delete an existing Solana node
-	//    list    List all existing Solana nodes
+	//    list  List all existing Solana nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -693,9 +677,7 @@ func ExampleRun_nodes_starknet() {
 	//    core.test nodes starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new StarkNet node
-	//    delete  Delete an existing StarkNet node
-	//    list    List all existing StarkNet nodes
+	//    list  List all existing StarkNet nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

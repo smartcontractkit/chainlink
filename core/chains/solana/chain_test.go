@@ -269,5 +269,4 @@ func (m *mockORM) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, c
 	panic("unimplemented")
 }
 
-func (m *mockORM) SetupNodes([]db.Node, []string) error    { panic("unimplemented") }
 func (m *mockORM) EnsureChains([]string, ...pg.QOpt) error { panic("unimplemented") }

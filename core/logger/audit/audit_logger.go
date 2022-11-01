@@ -16,7 +16,6 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -154,15 +153,6 @@ func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 
 	return []byte(serialized), nil
 }
-
-var AuditLoggerHeaders = envvar.New("AuditLoggerHeaders", func(s string) (ServiceHeaders, error) {
-	sh := make(ServiceHeaders, 0)
-	err := sh.UnmarshalText([]byte(s))
-	if err != nil {
-		return nil, err
-	}
-	return sh, nil
-})
 
 type Config interface {
 	AuditLoggerEnabled() bool

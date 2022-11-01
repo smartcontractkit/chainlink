@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	utilsmocks "github.com/smartcontractkit/chainlink/core/utils/mocks"
 
@@ -28,13 +27,7 @@ func (cfg zapDiskLoggerConfig) newTestLogger(t *testing.T, zcfg zap.Config, core
 
 func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	cfg := newZapConfigBase()
-	ll, invalid := envvar.LogLevel.Parse()
-	assert.Empty(t, invalid)
-
-	cfg.Level.SetLevel(ll)
-
-	maxSize, invalid := envvar.LogFileMaxSize.Parse()
-	assert.Empty(t, invalid)
+	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
@@ -219,13 +212,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 func TestZapLogger_LogCaller(t *testing.T) {
 	cfg := newZapConfigBase()
-	ll, invalid := envvar.LogLevel.Parse()
-	assert.Empty(t, invalid)
-
-	cfg.Level.SetLevel(ll)
-
-	maxSize, invalid := envvar.LogFileMaxSize.Parse()
-	assert.Empty(t, invalid)
+	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
@@ -277,7 +264,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:268")
+	require.Contains(t, lines[0], "logger/zap_test.go:255")
 }
 
 func TestZapLogger_Name(t *testing.T) {
