@@ -6,15 +6,22 @@ pragma solidity ^0.8.6;
  */
 interface OCR2DRBillingInterface {
   struct BillingConfig {
+    // There is some variance of gas costs for execution, so use a
+    // fixed value representing the average cost so that NOPs are fairly compensated
     uint32 gasOverhead;
+    // Price Oracles to look up currency conversion rates to allow paying in any ERC20 token
     mapping(address => address) feeTokenPriceOracles; /* feeToken => oracle */
+    // An additional fee charged to use a fee token
     mapping(address => uint32) requiredFeeByToken; /* feeToken => fee */
   }
 
   struct RequestBilling {
-    uint32 totalFee; // required fee + execution fee
-    address feeToken; // ERC20 compatible token that the user wants to pay in
-    uint32 gasLimit; // customer specified gas limit for the fulfillment callback
+    // required fee + execution fee
+    uint32 totalFee;
+    // ERC20 compatible token that the user wants to pay in
+    address feeToken;
+    // customer specified gas limit for the fulfillment callback
+    uint32 gasLimit;
   }
 
   /**

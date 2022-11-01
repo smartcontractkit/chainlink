@@ -31,6 +31,7 @@ abstract contract OCR2DRBillingAbstract is ConfirmedOwner, OCR2DRBillingInterfac
     _billingConfig.gasOverhead = gasOverhead;
   }
 
+  /// @inheritdoc OCR2DRBillingInterface
   function getRequiredFee(bytes calldata data, RequestBillingConfig calldata billing)
     external
     view
@@ -43,8 +44,13 @@ abstract contract OCR2DRBillingAbstract is ConfirmedOwner, OCR2DRBillingInterfac
     return _billingConfig.requiredFeeByToken[billing.feeToken] + fee;
   }
 
+  /**
+   * @dev Hook that can contain logic to charge additional feeds
+   * @param data Encoded OCR2DR request data
+   */
   function _additionalRequiredFee(bytes calldata data) internal view returns (uint32) {}
 
+  /// @inheritdoc OCR2DRBillingInterface
   function estimateExecutionFee(RequestBillingConfig calldata billing) external view override returns (uint256) {
     address feeToken = _billingConfig.feeTokenPriceOracles[billing.feeToken];
     if (feeToken == address(0)) {
@@ -57,6 +63,11 @@ abstract contract OCR2DRBillingAbstract is ConfirmedOwner, OCR2DRBillingInterfac
     return (_billingConfig.gasOverhead + billing.gasLimit) * uint256(weiPerUnitToken) * tx.gasprice;
   }
 
+  /**
+   * @dev Hook that should be called within the Oracle contract before the request is sent to the DON
+   * @param data Encoded OCR2DR request data
+   * @param billing Configuration for payment of the request
+   */
   function _preRequestBilling(bytes calldata data, RequestBillingConfig calldata billing) internal {
     requiredFee = getRequiredFee(data, billing);
     executionFee = estimateExecutionFee(billing);
@@ -75,6 +86,15 @@ abstract contract OCR2DRBillingAbstract is ConfirmedOwner, OCR2DRBillingInterfac
     feeToken.transferFrom(msg.sender, billing.totalFee, address(this));
   }
 
+  /**
+   * @dev Hook that should be called within the Oracle contract after a fulfillment report has been submitted
+   * @param consumer the Client contract that initiated the request
+   * @param billing Configuration for payment of the request
+   * @param transmitter the NOP who sent the report
+   * @param signers the NOPs who signed the report
+   * @param intialGas the initial amount of gas that was sent by the transmitter when submitting the report
+   * @param callbackGasCost the amount of gas spent to execute the callback on the Client contract
+   */
   function _postFulfillBilling(address consumer, RequestBillingConfig calldata billing, address transmitter, address[] signers, uint32 initialGas, uint32 callbackGasCost) internal {
     /** 
     * Consumer Refunds *
