@@ -3,15 +3,11 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -59,10 +55,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 	switch typed := v.(type) {
 	case *webpresenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
-	case *web.ConfigPatchResponse:
-		return rt.renderConfigPatchResponse(typed)
-	case *config.ConfigPrinter:
-		return rt.renderConfiguration(*typed)
 	case *webpresenters.PipelineRunResource:
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.ServiceLogConfigResource:
@@ -103,43 +95,6 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 
 	renderList([]string{"Compressed", "Uncompressed", "Hash"}, rows, rt.Writer)
 
-	return nil
-}
-
-func (rt RendererTable) renderConfiguration(cp config.ConfigPrinter) error {
-	table := rt.newTable([]string{"Key", "Value"})
-	schemaT := reflect.TypeOf(envvar.ConfigSchema{})
-	cpT := reflect.TypeOf(cp.EnvPrinter)
-	cpV := reflect.ValueOf(cp.EnvPrinter)
-
-	for index := 0; index < cpT.NumField(); index++ {
-		item := cpT.FieldByIndex([]int{index})
-		schemaItem, ok := schemaT.FieldByName(item.Name)
-		if !ok {
-			panic(fmt.Sprintf("Field %s missing from store.Schema", item.Name))
-		}
-		envName, ok := schemaItem.Tag.Lookup("env")
-		if !ok {
-			continue
-		}
-		field := cpV.FieldByIndex(item.Index)
-
-		if stringer, ok := field.Interface().(fmt.Stringer); ok {
-			if stringer != reflect.Zero(reflect.TypeOf(stringer)).Interface() {
-				table.Append([]string{
-					envName,
-					stringer.String(),
-				})
-			}
-		} else {
-			table.Append([]string{
-				envName,
-				fmt.Sprintf("%v", field),
-			})
-		}
-	}
-
-	render("Configuration", table)
 	return nil
 }
 
@@ -204,17 +159,6 @@ func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader(headers)
 	return table
-}
-
-func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchResponse) error {
-	table := rt.newTable([]string{"Config", "Old Value", "New Value"})
-	table.Append([]string{
-		"EvmGasPriceDefault",
-		config.EvmGasPriceDefault.From,
-		config.EvmGasPriceDefault.To,
-	})
-	render("Configuration Changes", table)
-	return nil
 }
 
 func (rt RendererTable) renderPipelineRun(run webpresenters.PipelineRunResource) error {

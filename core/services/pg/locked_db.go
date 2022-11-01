@@ -24,8 +24,6 @@ type LockedDB interface {
 
 type LockedDBConfig interface {
 	ConnectionConfig
-	AdvisoryLockCheckInterval() time.Duration
-	AdvisoryLockID() int64
 	AppID() uuid.UUID
 	DatabaseLockingMode() string
 	DatabaseURL() url.URL
@@ -37,11 +35,10 @@ type LockedDBConfig interface {
 }
 
 type lockedDb struct {
-	cfg          LockedDBConfig
-	lggr         logger.Logger
-	db           *sqlx.DB
-	leaseLock    LeaseLock
-	advisoryLock AdvisoryLock
+	cfg       LockedDBConfig
+	lggr      logger.Logger
+	db        *sqlx.DB
+	leaseLock LeaseLock
 }
 
 // NewLockedDB creates a new instance of LockedDB.
@@ -88,21 +85,11 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 
 	// Take the lease before any other DB operations
 	switch lockingMode {
-	case "lease", "dual":
+	case "lease":
 		l.leaseLock = NewLeaseLock(l.db, l.cfg.AppID(), l.lggr, l.cfg)
 		if err = l.leaseLock.TakeAndHold(ctx); err != nil {
 			defer revert()
 			return errors.Wrap(err, "failed to take initial lease on database")
-		}
-	}
-
-	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	switch lockingMode {
-	case "advisorylock", "dual":
-		l.advisoryLock = NewAdvisoryLock(l.db, l.lggr, l.cfg)
-		if err = l.advisoryLock.TakeAndHold(ctx); err != nil {
-			defer revert()
-			return errors.Wrap(err, "error acquiring lock")
 		}
 	}
 
@@ -115,14 +102,10 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 func (l *lockedDb) Close() error {
 	defer func() {
 		l.db = nil
-		l.advisoryLock = nil
 		l.leaseLock = nil
 	}()
 
 	// Step 1: release DB locks
-	if l.advisoryLock != nil {
-		l.advisoryLock.Release()
-	}
 	if l.leaseLock != nil {
 		l.leaseLock.Release()
 	}

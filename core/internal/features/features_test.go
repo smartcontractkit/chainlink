@@ -1077,7 +1077,6 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		// Note it's plausible these ports could be occupied on a CI machine.
 		// May need a port randomize + retry approach if we observe collisions.
 		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, fmt.Sprintf("b_%d", 1), b, ocrnetworking.NetworkingStackV2, nil)
-		// bootstrapCfg.Overrides.GlobalEvmUseForwarders = null.BoolFrom(true)
 
 		var (
 			oracles             []confighelper.OracleIdentityExtra

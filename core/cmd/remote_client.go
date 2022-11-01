@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -24,13 +23,10 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -360,79 +356,6 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-// SetEvmGasPriceDefault specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetEvmGasPriceDefault(c *clipkg.Context) (err error) {
-	var adjustedAmount *big.Int
-	if c.NArg() != 1 {
-		return cli.errorOut(errors.New("expecting an amount"))
-	}
-	value := c.Args().Get(0)
-	amount, ok := new(big.Float).SetString(value)
-	if !ok {
-		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
-	}
-	if c.IsSet("gwei") {
-		amount.Mul(amount, big.NewFloat(1000000000))
-	}
-	var chainID *big.Int
-	if c.IsSet("evmChainID") {
-		var ok bool
-		chainID, ok = new(big.Int).SetString(c.String("evmChainID"), 10)
-		if !ok {
-			return cli.errorOut(fmt.Errorf("invalid evmChainID %s", value))
-		}
-	}
-	adjustedAmount, _ = amount.Int(nil)
-
-	request := struct {
-		EvmGasPriceDefault string     `json:"ethGasPriceDefault"`
-		EvmChainID         *utils.Big `json:"evmChainID"`
-	}{
-		EvmGasPriceDefault: adjustedAmount.String(),
-		EvmChainID:         utils.NewBig(chainID),
-	}
-
-	requestData, err := json.Marshal(request)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	buf := bytes.NewBuffer(requestData)
-	response, err := cli.HTTP.Patch("/v2/config", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := response.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	patchResponse := web.ConfigPatchResponse{}
-	if err = cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
-		return err
-	}
-
-	err = cli.errorOut(cli.Render(&patchResponse))
-	return err
-}
-
-// GetConfiguration gets the nodes environment variables
-func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/config")
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	cwl := config.ConfigPrinter{}
-	err = cli.renderAPIResponse(resp, &cwl)
-	return err
-}
-
 func (cli *Client) configDumpStr() (string, error) {
 	resp, err := cli.HTTP.Get("/v2/config/dump-v1-as-v2")
 	if err != nil {
@@ -457,15 +380,6 @@ func (cli *Client) configDumpStr() (string, error) {
 		return "", cli.errorOut(err)
 	}
 	return configV2Resource.Config, nil
-}
-
-func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
-	configStr, err := cli.configDumpStr()
-	if err != nil {
-		return err
-	}
-	fmt.Print(configStr)
-	return nil
 }
 
 func (cli *Client) ConfigV2(c *clipkg.Context) error {
@@ -504,9 +418,6 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 }
 
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	if _, ok := cli.Config.(chainlink.ConfigV2); !ok {
-		return errors.New("unsupported with legacy ENV config")
-	}
 	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
 	err := cli.Config.Validate()
 	if err != nil {

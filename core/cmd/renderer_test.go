@@ -3,14 +3,11 @@ package cmd_test
 import (
 	"bytes"
 	"io"
-	"regexp"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink" //nolint:typecheck
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -34,30 +31,11 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	assert.NoError(t, r.Render(&keys))
 }
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func TestRendererTable_RenderConfiguration(t *testing.T) {
-	t.Parallel()
-
-	app := cltest.NewLegacyApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-
-	resp, cleanup := client.Get("/v2/config")
-	defer cleanup()
-	var cp config.ConfigPrinter
-	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cp))
-
-	r := cmd.RendererTable{Writer: io.Discard}
-	assert.NoError(t, r.Render(&cp))
-}
-
 func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	cfg, ok := app.Config.(chainlink.ConfigV2)
-	require.True(t, ok)
-	wantUser, wantEffective := cfg.ConfigTOML()
+	wantUser, wantEffective := app.Config.ConfigTOML()
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
@@ -124,25 +102,6 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 			assert.True(t, tw.found)
 		})
 	}
-}
-
-func TestRendererTable_PatchResponse(t *testing.T) {
-	t.Parallel()
-
-	buffer := bytes.NewBufferString("")
-	r := cmd.RendererTable{Writer: buffer}
-
-	patchResponse := web.ConfigPatchResponse{
-		EvmGasPriceDefault: web.Change{
-			From: "98721",
-			To:   "53276",
-		},
-	}
-
-	assert.NoError(t, r.Render(&patchResponse))
-	output := buffer.String()
-	assert.Regexp(t, regexp.MustCompile("98721"), output)
-	assert.Regexp(t, regexp.MustCompile("53276"), output)
 }
 
 func TestRendererTable_RenderUnknown(t *testing.T) {
