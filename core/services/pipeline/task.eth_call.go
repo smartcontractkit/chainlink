@@ -126,12 +126,12 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	if err != nil {
 		if t.ExtractRevertReason {
 			rpcError, errExtract := evmclient.ExtractRPCError(err)
-			if err != nil {
-				lggr.Warnw("failed to extract rpc error", "err", err, "errExtract", errExtract)
-				// Leave error as is.
-			} else {
+			if errExtract == nil {
 				// Update error to unmarshalled RPCError with revert data.
 				err = rpcError
+			} else {
+				lggr.Warnw("failed to extract rpc error", "err", err, "errExtract", errExtract)
+				// Leave error as is.
 			}
 		}
 
