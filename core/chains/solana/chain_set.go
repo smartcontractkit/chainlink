@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -48,15 +47,6 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 	return o.ORM, o.Logger
 }
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func (o *ChainSetOpts) NewChain(dbchain DBChain) (solana.Chain, error) {
-	if !dbchain.Enabled {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
-	}
-	cfg := config.NewConfig(*dbchain.Cfg, o.Logger)
-	return newChain(dbchain.ID, cfg, o.KeyStore, o.ORM, o.Logger)
-}
-
 func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
@@ -75,21 +65,10 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 type ChainSet interface {
 	solana.ChainSet
 
-	Add(context.Context, string, *db.ChainCfg) (DBChain, error)
-	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config *db.ChainCfg) (DBChain, error)
 	Show(id string) (DBChain, error)
 	Index(offset, limit int) ([]DBChain, int, error)
 	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
 	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
-	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
-	DeleteNode(ctx context.Context, id int32) error
-}
-
-// NewChainSet returns a new chain set for opts.
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
-	return chains.NewChainSet[string, *db.ChainCfg, db.Node, solana.Chain](&opts, func(s string) string { return s })
 }
 
 func NewChainSetImmut(opts ChainSetOpts, cfgs SolanaConfigs) (ChainSet, error) {

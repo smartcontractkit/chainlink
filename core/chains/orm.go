@@ -15,16 +15,11 @@ import (
 type ChainsORM[I ID, CFG Config, C DBChain[I, CFG]] interface {
 	Chain(I, ...pg.QOpt) (C, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]C, int, error)
-	CreateChain(id I, config CFG, qopts ...pg.QOpt) (C, error)
-	UpdateChain(id I, enabled bool, config CFG, qopts ...pg.QOpt) (C, error)
-	DeleteChain(id I, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []I) (chains []C, err error)
 	EnabledChains(...pg.QOpt) ([]C, error)
 }
 
 type NodesORM[I ID, N Node] interface {
-	CreateNode(N, ...pg.QOpt) (N, error)
-	DeleteNode(int32, ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []I, qopts ...pg.QOpt) (nodes []N, err error)
 	NodeNamed(string, ...pg.QOpt) (N, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
@@ -37,13 +32,6 @@ type ORM[I ID, C Config, N Node] interface {
 
 	NodesORM[I, N]
 
-	StoreString(chainID I, key, val string) error
-	Clear(chainID I, key string) error
-
-	// SetupNodes is a shim to help with configuring multiple nodes via ENV.
-	// All existing nodes are dropped, and any missing chains are automatically created.
-	// Then all nodes are inserted, and conflicts are ignored.
-	SetupNodes(nodes []N, chainIDs []I) error
 	EnsureChains([]I, ...pg.QOpt) error
 }
 
@@ -60,22 +48,6 @@ func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) O
 		newChainsORM[I, C](q, prefix),
 		newNodesORM[I, N](q, prefix, nodeCols...),
 	}
-}
-
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
-	return o.chainsORM.q.Transaction(func(q pg.Queryer) error {
-		tx := pg.WithQueryer(q)
-		if err := o.truncateNodes(tx); err != nil {
-			return err
-		}
-
-		if err := o.EnsureChains(ids, tx); err != nil {
-			return err
-		}
-
-		return o.ensureNodes(nodes, tx)
-	})
 }
 
 // DBChain is a generic DB chain for an ID and Config.

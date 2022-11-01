@@ -62,7 +62,7 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	logCfg := pgtest.NewQConfig(true)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	terratest.MustInsertChain(t, db, &Chain{ID: chainID})
+	terratest.MustEnsureChain(t, db, chainID)
 	require.NoError(t, err)
 	cfg := terra.NewConfig(ChainCfg{
 		MaxMsgsPerBatch: null.IntFrom(2),

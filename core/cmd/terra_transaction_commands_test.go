@@ -13,8 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/denom"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
@@ -32,24 +34,16 @@ func TestClient_SendTerraCoins(t *testing.T) {
 	chainID := terratest.RandomChainID()
 	accounts, _, tendermintURL := terraclient.SetupLocalTerraNode(t, chainID)
 	require.Greater(t, len(accounts), 1)
-	app := terraStartNewApplication(t)
+	app := terraStartNewApplication(t, &terra.TerraConfig{ChainID: &chainID, Nodes: terra.TerraNodes{
+		{Name: ptr(t.Name()), TendermintURL: utils.MustParseURL(tendermintURL)},
+	}})
 
 	from := accounts[0]
 	to := accounts[1]
 	require.NoError(t, app.GetKeyStore().Terra().Add(terrakey.Raw(from.PrivateKey.Bytes()).Key()))
 
 	chains := app.GetChains()
-	_, err := chains.Terra.Add(testutils.Context(t), chainID, nil)
-	require.NoError(t, err)
 	chain, err := chains.Terra.Chain(testutils.Context(t), chainID)
-	require.NoError(t, err)
-
-	ctx := testutils.Context(t)
-	_, err = chains.Terra.CreateNode(ctx, terradb.Node{
-		Name:          t.Name(),
-		TerraChainID:  chainID,
-		TendermintURL: tendermintURL,
-	})
 	require.NoError(t, err)
 
 	reader, err := chain.Reader("")

@@ -22,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	bridgesMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
@@ -30,6 +29,7 @@ import (
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -38,7 +38,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg config.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
+func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	lggr := logger.TestLogger(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := mocks.NewORM(t)

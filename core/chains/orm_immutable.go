@@ -26,10 +26,6 @@ func NewORMImmut[I ID, C Config, N Node](chainConfigs ChainConfig[I, C, N]) ORM[
 	}
 }
 
-func (o ormImmut[I, C, N]) SetupNodes(_ []N, _ []I) error {
-	return v2.ErrUnsupported
-}
-
 func (o ormImmut[I, C, N]) EnsureChains(_ []I, _ ...pg.QOpt) error {
 	return v2.ErrUnsupported
 }

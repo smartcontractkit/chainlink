@@ -65,16 +65,6 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 	return o.ORM, o.Logger
 }
 
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (terra.Chain, error) {
-	if !dbchain.Enabled {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
-	}
-	id := dbchain.ID
-	cfg := terra.NewConfig(*dbchain.Cfg, o.Logger)
-	return newChain(id, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
-}
-
 func (o *ChainSetOpts) NewTOMLChain(cfg *TerraConfig) (terra.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
@@ -92,22 +82,10 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *TerraConfig) (terra.Chain, error) {
 // ChainSet extends terra.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {
 	terra.ChainSet
-
-	Add(context.Context, string, *db.ChainCfg) (types.DBChain, error)
-	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config *db.ChainCfg) (types.DBChain, error)
 	Show(id string) (types.DBChain, error)
 	Index(offset, limit int) ([]types.DBChain, int, error)
 	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
 	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
-	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
-	DeleteNode(ctx context.Context, id int32) error
-}
-
-// NewChainSet returns a new chain set for opts.
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
-	return chains.NewChainSet[string, *db.ChainCfg, db.Node, terra.Chain](&opts, func(s string) string { return s })
 }
 
 func NewChainSetImmut(opts ChainSetOpts, cfgs TerraConfigs) (ChainSet, error) {
