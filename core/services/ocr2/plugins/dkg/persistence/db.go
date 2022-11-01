@@ -5,10 +5,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/smartcontractkit/ocr2vrf/types/hash"
@@ -16,23 +19,51 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 )
 
 var (
 	_        ocr2vrftypes.DKGSharePersistence = &shareDB{}
 	zeroHash hash.Hash
+	buckets  = []float64{
+		float64(100 * time.Millisecond),
+		float64(200 * time.Millisecond),
+		float64(500 * time.Millisecond),
+		float64(1 * time.Second),
+		float64(2 * time.Second),
+		float64(5 * time.Second),
+		float64(10 * time.Second),
+		float64(30 * time.Second),
+	}
+	labels = []string{
+		"chainType", "chainID",
+	}
+	promWriteShareRecords = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "write_share_records_time",
+		Help:    "The duration of the DKG WriteShareRecords call",
+		Buckets: buckets,
+	}, labels)
+	promReadShareRecords = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "read_share_records_time",
+		Help:    "The duration of the DKG ReadShareRecords call.",
+		Buckets: buckets,
+	}, labels)
 )
 
 type shareDB struct {
-	q    pg.Q
-	lggr logger.Logger
+	q         pg.Q
+	lggr      logger.Logger
+	chainID   *big.Int
+	chainType string
 }
 
 // NewShareDB creates a new DKG share database.
-func NewShareDB(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ocr2vrftypes.DKGSharePersistence {
+func NewShareDB(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID *big.Int, chainType relay.Network) ocr2vrftypes.DKGSharePersistence {
 	return &shareDB{
-		q:    pg.NewQ(db, lggr, cfg),
-		lggr: lggr,
+		q:         pg.NewQ(db, lggr, cfg),
+		lggr:      lggr,
+		chainID:   chainID,
+		chainType: string(chainType),
 	}
 }
 
@@ -50,7 +81,9 @@ func (s *shareDB) WriteShareRecords(
 
 	start := time.Now()
 	defer func() {
-		lggr.Infow("Inserted DKG shares into DB", "duration", time.Since(start))
+		duration := time.Since(start)
+		promWriteShareRecords.WithLabelValues(s.chainType, s.chainID.String()).Observe(float64(duration))
+		lggr.Debugw("Inserted DKG shares into DB", "duration", duration)
 	}()
 
 	var named []dkgShare
@@ -122,7 +155,9 @@ func (s *shareDB) ReadShareRecords(
 
 	start := time.Now()
 	defer func() {
-		lggr.Debugw("Finished reading DKG shares from DB", "duration", time.Since(start))
+		duration := time.Since(start)
+		promReadShareRecords.WithLabelValues(s.chainType, s.chainID.String()).Observe(float64(duration))
+		lggr.Debugw("Finished reading DKG shares from DB", "duration", duration)
 	}()
 
 	a := map[string]any{
