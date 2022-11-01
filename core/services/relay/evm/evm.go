@@ -193,6 +193,9 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	}
 	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
+	if !relayConfig.EffectiveTransmitterAddress.Valid {
+		return nil, errors.New("EffectiveTransmitterAddress must be specified")
+	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
 	useForwarders := configWatcher.chain.Config().EvmUseForwarders()
 
@@ -256,6 +259,9 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 		return nil, err
 	}
 
+	if !relayConfig.EffectiveTransmitterAddress.Valid {
+		return nil, errors.New("EffectiveTransmitterAddress must be specified")
+	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	scoped := configWatcher.chain.Config()
