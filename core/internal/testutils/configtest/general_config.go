@@ -36,6 +36,7 @@ const (
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type GeneralConfigOverrides struct {
 	AdvisoryLockCheckInterval                       *time.Duration
 	AdvisoryLockID                                  null.Int
@@ -186,6 +187,7 @@ func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
 // gives but allows overriding certain methods
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type TestGeneralConfig struct {
 	config.GeneralConfig
 	t         testing.TB
@@ -193,13 +195,14 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
+// Deprecated: see v2.NewTestGeneralConfig
 // NewTestGeneralConfig returns a legacy *TestGeneralConfig. Use v2.NewTestGeneralConfig instead.
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
-// Deprecated: see v2.TOML
+// Deprecated: see v2.NewGeneralConfig
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
@@ -211,6 +214,7 @@ func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOver
 	}
 }
 
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func genRootDir(t testing.TB) string {
 	name := fmt.Sprintf("%d-%d", time.Now().UnixNano(), 0)
 	dir := filepath.Join(RootDir, name)

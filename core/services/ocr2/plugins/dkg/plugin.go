@@ -4,28 +4,39 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
+	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 )
 
 func NewDKGServices(
 	jb job.Job,
 	ocr2Provider evmrelay.DKGProvider,
+	lggr logger.Logger,
 	ocrLogger commontypes.Logger,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethClient evmclient.Client,
 	oracleArgsNoPlugin libocr2.OracleArgs,
+	db *sqlx.DB,
+	qConfig pg.QConfig,
+	chainID *big.Int,
+	network relay.Network,
 ) ([]job.ServiceCtx, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -56,7 +67,7 @@ func NewDKGServices(
 	if err != nil {
 		return nil, errors.Wrap(err, "decode key ID")
 	}
-
+	shareDB := persistence.NewShareDB(db, lggr.Named("DKGShareDB"), qConfig, chainID, network)
 	oracleArgsNoPlugin.ReportingPluginFactory = dkg.NewReportingPluginFactory(
 		encryptKey.KyberScalar(),
 		signKey.KyberScalar(),
@@ -64,6 +75,7 @@ func NewDKGServices(
 		onchainContract,
 		ocrLogger,
 		keyConsumer,
+		shareDB,
 	)
 	oracle, err := libocr2.NewOracle(oracleArgsNoPlugin)
 	if err != nil {

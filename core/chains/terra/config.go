@@ -135,6 +135,10 @@ type TerraConfig struct {
 	Nodes TerraNodes
 }
 
+func (c *TerraConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
+}
+
 func (c *TerraConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
@@ -169,7 +173,7 @@ func (c *TerraConfig) ValidateConfig() (err error) {
 func (c *TerraConfig) AsV1() types.DBChain {
 	return types.DBChain{
 		ID:      *c.ChainID,
-		Enabled: *c.Enabled,
+		Enabled: c.IsEnabled(),
 		Cfg: &db.ChainCfg{
 			BlockRate:             c.Chain.BlockRate,
 			BlocksUntilTxTimeout:  null.IntFromPtr(c.Chain.BlocksUntilTxTimeout),

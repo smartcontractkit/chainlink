@@ -9,14 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,41 +26,6 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32)
 		logger.TestLogger(t).ErrorIfClosing(backend, "simulated backend")
 	})
 	return backend
-}
-
-// Deprecated: use NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain
-// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
-	t testing.TB,
-	cfg *configtest.TestGeneralConfig,
-	backend *backends.SimulatedBackend,
-	flagsAndDeps ...interface{},
-) *TestApplication {
-	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
-		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
-	}
-	cfg.Overrides.DefaultChainID = testutils.SimulatedChainID
-
-	// Only set P2PEnabled override to false if it wasn't set by calling test
-	if !cfg.Overrides.P2PEnabled.Valid {
-		cfg.Overrides.P2PEnabled = null.BoolFrom(false)
-	}
-
-	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
-
-	simulatedBackendChain := evmtypes.DBChain{
-		ID: *utils.NewBig(testutils.SimulatedChainID),
-		Cfg: &evmtypes.ChainCfg{
-			MinimumContractPayment: assets.NewLinkFromJuels(100),
-		},
-		Enabled: true,
-	}
-
-	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, simulatedBackendChain)
-
-	//  app.Stop() will call client.Close on the simulated backend
-	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain is like NewApplicationWithConfigAndKeyOnSimulatedBlockchain

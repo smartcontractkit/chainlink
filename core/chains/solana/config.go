@@ -132,6 +132,10 @@ type SolanaConfig struct {
 	Nodes SolanaNodes
 }
 
+func (c *SolanaConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
+}
+
 func (c *SolanaConfig) SetFromDB(ch DBChain, nodes []soldb.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
@@ -165,7 +169,7 @@ func (c *SolanaConfig) ValidateConfig() (err error) {
 func (c *SolanaConfig) AsV1() DBChain {
 	return DBChain{
 		ID:      *c.ChainID,
-		Enabled: *c.Enabled,
+		Enabled: c.IsEnabled(),
 		Cfg: &soldb.ChainCfg{
 			BalancePollPeriod:   c.Chain.BalancePollPeriod,
 			ConfirmPollPeriod:   c.Chain.ConfirmPollPeriod,

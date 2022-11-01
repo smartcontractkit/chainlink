@@ -10,13 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
@@ -111,8 +112,9 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
