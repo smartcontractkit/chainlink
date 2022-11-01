@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -100,27 +101,15 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	var maxGasPriceGWei int64
 	if c.Query("maxGasPriceGWei") != "" {
-		maxGasPriceGWei, err = strconv.ParseInt(c.Query("maxGasPriceGWei"), 10, 64)
-		if err != nil {
-			jsonAPIError(c, http.StatusUnprocessableEntity, err)
-			return
-		}
+		jsonAPIError(c, http.StatusBadRequest, v2.ErrUnsupported)
+		return
 	}
 
 	key, err := ethKeyStore.Create(chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
-	}
-	if maxGasPriceGWei > 0 {
-		maxGasPriceWei := assets.GWei(maxGasPriceGWei)
-		updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
-		if err = ekc.app.GetChains().EVM.UpdateConfig(chain.ID(), updateMaxGasPrice); err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
 	}
 
 	state, err := ethKeyStore.GetState(key.ID(), chain.ID())
@@ -153,9 +142,8 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		return
 	}
 
-	maxGasPriceGWei, err := strconv.ParseInt(c.Query("maxGasPriceGWei"), 10, 64)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	if c.Query("maxGasPriceGWei") != "" {
+		jsonAPIError(c, http.StatusUnprocessableEntity, v2.ErrUnsupported)
 		return
 	}
 
@@ -177,13 +165,6 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 
 	key, err := ethKeyStore.Get(keyID)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	maxGasPriceWei := assets.GWei(maxGasPriceGWei)
-	updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
-	if err = ekc.app.GetChains().EVM.UpdateConfig((*big.Int)(&state.EVMChainID), updateMaxGasPrice); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
