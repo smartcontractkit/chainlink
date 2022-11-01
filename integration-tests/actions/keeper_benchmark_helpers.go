@@ -101,7 +101,7 @@ func ResetUpkeeps(
 	Expect(err).ShouldNot(HaveOccurred(), "Error loading upkeep contract")
 	upkeepChunkSize := 500
 	if client.NetworkSimulated() {
-		upkeepChunkSize = 10
+		upkeepChunkSize = 100
 	}
 	upkeepChunks := make([][]string, int(math.Ceil(float64(numberOfContracts)/float64(upkeepChunkSize))))
 	if len(upkeepResetterAddr) >= 0 {
