@@ -56,7 +56,7 @@ func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (starkchain.Chain, error)
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, error) {
-	if !*cfg.Enabled {
+	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.ORM, o.Logger)
