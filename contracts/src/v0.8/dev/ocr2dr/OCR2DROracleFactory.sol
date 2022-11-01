@@ -31,6 +31,7 @@ contract OCR2DROracleFactory is TypeAndVersionInterface {
    */
   function deployNewOracle() external returns (address) {
     OCR2DROracle oracle = new OCR2DROracle();
+    oracle.transferOwnership(msg.sender);
     s_created.add(address(oracle));
     emit OracleCreated(address(oracle), msg.sender, msg.sender);
     return address(oracle);
