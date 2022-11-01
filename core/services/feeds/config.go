@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 
 type Config interface {
 	Dev() bool

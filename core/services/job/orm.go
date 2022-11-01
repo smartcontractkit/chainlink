@@ -40,7 +40,7 @@ var (
 	ErrNoSuchPublicKey       = errors.New("no such public key exists")
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) error

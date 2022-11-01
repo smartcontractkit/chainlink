@@ -87,7 +87,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *TerraConfig) (terra.Chain, error) {
 	return c, nil
 }
 
-//go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 
 // ChainSet extends terra.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {

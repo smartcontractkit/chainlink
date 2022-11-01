@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	CreateRequest(contractRequestID [32]byte, receivedAt time.Time, requestTxHash *common.Hash) (int64, error)

@@ -33,7 +33,7 @@ var ErrLocked = errors.New("Keystore is locked")
 // necessary because it is lazily evaluated
 type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 
-//go:generate mockery --name Master --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Master --output ./mocks/ --case=underscore
 
 type Master interface {
 	CSA() CSA
