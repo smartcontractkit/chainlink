@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -15,14 +15,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -86,7 +87,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-			b, err := ioutil.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 			assert.Contains(t, string(b), tc.expectedErr.Error())
 		})
@@ -95,8 +96,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	n := 10
 
@@ -130,8 +130,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
@@ -148,7 +147,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "offchain reporting",
 			toml: testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-				TransmitterAddress: app.Key.Address.Hex(),
+				TransmitterAddress: app.Keys[0].Address.Hex(),
 				DS1BridgeName:      b1,
 				DS2BridgeName:      b2,
 			}).Toml(),
@@ -191,20 +190,20 @@ func TestJobController_Create_HappyPath(t *testing.T) {
                                   externalJobID               = "123e4567-e89b-12d3-a456-426655440002"
                              `,
 			assertion: func(t *testing.T, r *http.Response) {
-				require.Equal(t, http.StatusOK, r.StatusCode)
+				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
 
-				resource := presenters.JobResource{}
-				b := cltest.ParseResponseBody(t, r)
-				err := web.ParseJSONAPIResponse(b, &resource)
-				require.NoError(t, err)
-				require.NotNil(t, resource.KeeperSpec)
-
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				errs := cltest.ParseJSONAPIErrors(t, r.Body)
+				require.NotNil(t, errs)
+				require.Len(t, errs.Errors, 1)
+				// services failed to start
+				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
+				// but the job should still exist
+				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440002")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
-				require.Equal(t, resource.KeeperSpec.ContractAddress, jb.KeeperSpec.ContractAddress)
-				require.Equal(t, resource.KeeperSpec.FromAddress, jb.KeeperSpec.FromAddress)
+				require.Equal(t, ethkey.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
+				require.Equal(t, ethkey.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 				assert.Equal(t, "example keeper spec", jb.Name.ValueOrZero())
 
 				// Sanity check to make sure it inserted correctly
@@ -293,17 +292,21 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "fluxmonitor",
 			toml: testspecs.FluxMonitorSpec,
 			assertion: func(t *testing.T, r *http.Response) {
-				require.Equal(t, http.StatusOK, r.StatusCode)
-				resource := presenters.JobResource{}
-				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
+
+				errs := cltest.ParseJSONAPIErrors(t, r.Body)
+				require.NotNil(t, errs)
+				require.Len(t, errs.Errors, 1)
+				// services failed to start
+				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
+				// but the job should still exist
+				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440005")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 
 				assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
-				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				assert.NotNil(t, jb.PipelineSpec.DotDagSource)
 				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
 				assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
@@ -386,7 +389,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 
-	b, err := ioutil.ReadAll(response.Body)
+	b, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.Contains(t, string(b), "syntax is not supported. Please use \\\"{}\\\" instead")
 }
@@ -469,6 +472,110 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
+func TestJobsController_Update_HappyPath(t *testing.T) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
+
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+
+	var jb job.Job
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName: bridge.Name.String(),
+		DS2BridgeName: bridge2.Name.String(),
+		Name:          "old OCR job",
+	})
+	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
+	require.NoError(t, err)
+	var ocrSpec job.OCROracleSpec
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
+	require.NoError(t, err)
+	jb.OCROracleSpec = &ocrSpec
+	jb.OCROracleSpec.TransmitterAddress = &app.Keys[0].EIP55Address
+	err = app.AddJobV2(testutils.Context(t), &jb)
+	require.NoError(t, err)
+	dbJb, err := app.JobORM().FindJob(testutils.Context(t), jb.ID)
+	require.NoError(t, err)
+	require.Equal(t, dbJb.Name.String, ocrspec.Name)
+
+	// test Calling update on the job id with changed values should succeed.
+	updatedSpec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName:      bridge2.Name.String(),
+		DS2BridgeName:      bridge.Name.String(),
+		Name:               "updated OCR job",
+		TransmitterAddress: app.Keys[0].Address.Hex(),
+	})
+	require.NoError(t, err)
+	body, _ := json.Marshal(web.UpdateJobRequest{
+		TOML: updatedSpec.Toml(),
+	})
+	response, cleanup := client.Put("/v2/jobs/"+fmt.Sprintf("%v", jb.ID), bytes.NewReader(body))
+	t.Cleanup(cleanup)
+
+	dbJb, err = app.JobORM().FindJob(testutils.Context(t), jb.ID)
+	require.NoError(t, err)
+	require.Equal(t, dbJb.Name.String, updatedSpec.Name)
+
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+}
+
+func TestJobsController_Update_NonExistentID(t *testing.T) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
+
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+
+	var jb job.Job
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName: bridge.Name.String(),
+		DS2BridgeName: bridge2.Name.String(),
+		Name:          "old OCR job",
+	})
+	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
+	require.NoError(t, err)
+	var ocrSpec job.OCROracleSpec
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
+	require.NoError(t, err)
+	jb.OCROracleSpec = &ocrSpec
+	jb.OCROracleSpec.TransmitterAddress = &app.Keys[0].EIP55Address
+	err = app.AddJobV2(testutils.Context(t), &jb)
+	require.NoError(t, err)
+
+	// test Calling update on the job id with changed values should succeed.
+	updatedSpec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName:      bridge2.Name.String(),
+		DS2BridgeName:      bridge.Name.String(),
+		Name:               "updated OCR job",
+		TransmitterAddress: app.Keys[0].EIP55Address.String(),
+	})
+	require.NoError(t, err)
+	body, _ := json.Marshal(web.UpdateJobRequest{
+		TOML: updatedSpec.Toml(),
+	})
+	response, cleanup := client.Put("/v2/jobs/99999", bytes.NewReader(body))
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, response, http.StatusNotFound)
+}
+
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobSpecFromServer presenters.JobResource) {
 	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OCROracleSpec
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffChainReportingSpec.ContractAddress)
@@ -500,16 +607,19 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
-func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) (b1, b2 string) {
+func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.QConfig) (b1, b2 string) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
 	return bridge.Name.String(), bridge2.Name.String()
 }
 
 func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -520,9 +630,12 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.Enabled = ptr(true)
+		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.PeerID = &cltest.DefaultP2PPeerID
+	})
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -540,7 +653,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
-	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
+	jb.OCROracleSpec.TransmitterAddress = &app.Keys[0].EIP55Address
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 

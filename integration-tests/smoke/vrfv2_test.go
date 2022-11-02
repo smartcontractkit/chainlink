@@ -28,36 +28,7 @@ import (
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("VRFv2 suite on Simulated Network @simulated",
-				networks.SimulatedEVM,
-				big.NewFloat(5),
-				defaultVRFv2Env(networks.SimulatedEVM),
-			),
-			Entry("VRFv2 suite on General EVM @general",
-				networks.GeneralEVM(),
-				big.NewFloat(.05),
-				defaultVRFv2Env(networks.GeneralEVM()),
-			),
-			Entry("VRFv2 suite on Metis Stardust @metis",
-				networks.MetisStardust,
-				big.NewFloat(.005),
-				defaultVRFv2Env(networks.MetisStardust),
-			),
-			Entry("VRFv2 suite on Sepolia Testnet @sepolia",
-				networks.SepoliaTestnet,
-				big.NewFloat(.05),
-				defaultVRFv2Env(networks.SepoliaTestnet),
-			),
-			Entry("VRFv2 suite on on Görli Testnet @goerli",
-				networks.GoerliTestnet,
-				big.NewFloat(.05),
-				defaultVRFv2Env(networks.GoerliTestnet),
-			),
-			Entry("VRFv2 suite on Klaytn Baobab @klaytn",
-				networks.KlaytnBaobab,
-				big.NewFloat(.5),
-				defaultVRFv2Env(networks.KlaytnBaobab),
-			),
+			Entry("VRFv2 suite on Simulated Network @simulated", defaultVRFv2Env()),
 		}
 
 		testEnvironment *environment.Environment
@@ -75,13 +46,11 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	})
 
 	DescribeTable("VRFv2 suite on different EVM networks", func(
-		testNetwork *blockchain.EVMNetwork,
-		funding *big.Float,
-		env *environment.Environment,
+		testInputs *smokeTestInputs,
 	) {
 		By("Deploying the environment")
-		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
+		testEnvironment = testInputs.environment
+		testNetwork := testInputs.network
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -206,7 +175,8 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	)
 })
 
-func defaultVRFv2Env(network *blockchain.EVMNetwork) *environment.Environment {
+func defaultVRFv2Env() *smokeTestInputs {
+	network := networks.SelectedNetwork
 	evmConfig := ethdeploy.New(nil)
 	if !network.Simulated {
 		evmConfig = ethdeploy.New(&ethdeploy.Props{
@@ -215,9 +185,15 @@ func defaultVRFv2Env(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	env := environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"env": network.ChainlinkValuesMap(),
 		}))
+	return &smokeTestInputs{
+		network:     network,
+		environment: env,
+	}
 }

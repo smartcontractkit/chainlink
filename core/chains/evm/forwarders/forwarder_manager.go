@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -27,7 +28,7 @@ var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersCh
 
 type Config interface {
 	gas.Config
-	LogSQL() bool
+	pg.QConfig
 }
 
 type FwdMgr struct {
@@ -102,34 +103,37 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 	})
 }
 
-func (f *FwdMgr) MaybeForwardTransaction(from common.Address, to common.Address, encodedPayload []byte) (fwdAddr common.Address, fwdPayload []byte, err error) {
+func (f *FwdMgr) GetForwarderForEOA(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
 	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
 	if err != nil {
-		return to, encodedPayload, errors.Wrap(err, "Skipping forwarding transaction")
+		return common.Address{}, err
 	}
 
 	for _, fwdr := range fwdrs {
 		eoas, err := f.getContractSenders(fwdr.Address)
 		if err != nil {
-			f.logger.Errorw("Failed to get forwarder senders", "err", err)
+			f.logger.Errorw("Failed to get forwarder senders", "forwarder", fwdr.Address, "err", err)
 			continue
 		}
 		for _, eoa := range eoas {
-			if eoa != from {
-				continue
+			if eoa == addr {
+				return fwdr.Address, nil
 			}
-			forwardedPayload, err := f.getForwardedPayload(to, encodedPayload)
-			if err != nil {
-				f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
-					"err", err, "to", to, "payload", encodedPayload)
-				continue
-			}
-			return fwdr.Address, forwardedPayload, nil
 		}
 	}
+	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
+}
 
-	return to, encodedPayload, errors.New("Skipping forwarding transaction")
+func (f *FwdMgr) GetForwardedPayload(dest common.Address, origPayload []byte) ([]byte, error) {
+	databytes, err := f.getForwardedPayload(dest, origPayload)
+	if err != nil {
+		if err != nil {
+			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
+				"err", err, "to", dest, "payload", origPayload)
+		}
+	}
+	return databytes, nil
 }
 
 func (f *FwdMgr) getForwardedPayload(dest common.Address, origPayload []byte) ([]byte, error) {
@@ -192,9 +196,12 @@ func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) error {
 }
 
 func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
-	return f.logpoller.MergeFilter(
-		[]common.Hash{authChangedTopic},
-		[]common.Address{addr})
+	_, err := f.logpoller.RegisterFilter(
+		evmlogpoller.Filter{
+			EventSigs: []common.Hash{authChangedTopic},
+			Addresses: []common.Address{addr},
+		})
+	return err
 }
 
 func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {
@@ -218,6 +225,11 @@ func (f *FwdMgr) runLoop() {
 		select {
 		case <-tick:
 			addrs := f.collectAddresses()
+			if len(addrs) == 0 {
+				f.logger.Debug("Skipping log syncing, no forwarders tracked.")
+				continue
+			}
+
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
@@ -281,7 +293,7 @@ func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
 }
 
 // Stop cancels all outgoings calls and stops internal ticker loop.
-func (f *FwdMgr) Stop() error {
+func (f *FwdMgr) Close() error {
 	return f.StopOnce("EVMForwarderManager", func() (err error) {
 		f.cancel()
 		f.wg.Wait()

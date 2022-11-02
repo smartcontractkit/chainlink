@@ -37,5 +37,8 @@ func NewTerraNodesController(app chainlink.Application) NodesController {
 				TerraChainID:  request.TerraChainID,
 				TendermintURL: request.TendermintURL,
 			}, nil
-		})
+		},
+		app.GetLogger(),
+		app.GetAuditLogger(),
+	)
 }

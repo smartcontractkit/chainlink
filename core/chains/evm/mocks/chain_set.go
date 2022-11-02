@@ -189,27 +189,6 @@ func (_m *ChainSet) Get(id *big.Int) (evm.Chain, error) {
 	return r0, r1
 }
 
-// GetNode provides a mock function with given fields: ctx, id
-func (_m *ChainSet) GetNode(ctx context.Context, id int32) (types.Node, error) {
-	ret := _m.Called(ctx, id)
-
-	var r0 types.Node
-	if rf, ok := ret.Get(0).(func(context.Context, int32) types.Node); ok {
-		r0 = rf(ctx, id)
-	} else {
-		r0 = ret.Get(0).(types.Node)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, int32) error); ok {
-		r1 = rf(ctx, id)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetNodes provides a mock function with given fields: ctx, offset, limit
 func (_m *ChainSet) GetNodes(ctx context.Context, offset int, limit int) ([]types.Node, int, error) {
 	ret := _m.Called(ctx, offset, limit)

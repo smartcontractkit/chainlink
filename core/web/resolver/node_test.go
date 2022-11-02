@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"database/sql"
 	"encoding/json"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 func TestResolver_Nodes(t *testing.T) {
@@ -66,7 +64,7 @@ func TestResolver_Nodes(t *testing.T) {
 			{
 				"nodes": {
 					"results": [{
-						"id": "200",
+						"id": "node-name",
 						"name": "node-name",
 						"createdAt": "2021-01-01T00:00:00Z",
 						"chain": {
@@ -107,7 +105,7 @@ func Test_NodeQuery(t *testing.T) {
 
 	query := `
 		query GetNode {
-			node(id: "200") {
+			node(id: "node-name") {
 				... on Node {
 					name
 					wsURL
@@ -121,6 +119,7 @@ func Test_NodeQuery(t *testing.T) {
 		}`
 
 	nodeID := int32(200)
+	const name = "node-name"
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "node"),
@@ -128,13 +127,13 @@ func Test_NodeQuery(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.chainSet.On("GetNode", mock.Anything, nodeID).Return(types.Node{
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.Mocks.evmORM.AddNodes(types.Node{
 					ID:      nodeID,
-					Name:    "node-name",
+					Name:    name,
 					WSURL:   null.StringFrom("ws://some-url"),
 					HTTPURL: null.StringFrom("http://some-url"),
-				}, nil)
-				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				})
 			},
 			query: query,
 			result: `
@@ -150,8 +149,7 @@ func Test_NodeQuery(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.chainSet.On("GetNode", mock.Anything, int32(200)).Return(types.Node{}, sql.ErrNoRows)
-				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query: query,
 			result: `
@@ -255,6 +253,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 		}`
 
 	fakeID := int32(2)
+	const name = "node-name"
 	fakeNode := types.Node{
 		ID:         fakeID,
 		Name:       "node-name",
@@ -265,7 +264,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 	}
 
 	variables := map[string]interface{}{
-		"id": stringutils.FromInt32(fakeID),
+		"id": name,
 	}
 
 	d, err := json.Marshal(map[string]interface{}{
@@ -288,9 +287,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.chainSet.On("GetNode", mock.Anything, fakeID).Return(fakeNode, nil)
-				f.Mocks.evmORM.AddNodes(types.Node{ID: 2})
-				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				f.Mocks.evmORM.AddNodes(fakeNode)
 			},
 			query:     mutation,
 			variables: variables,
@@ -300,8 +297,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 			name:          "not found error on fetch",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.chainSet.On("GetNode", mock.Anything, fakeID).Return(types.Node{}, sql.ErrNoRows)
-				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -318,8 +314,6 @@ func Test_DeleteNodeMutation(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.chainSet.On("GetNode", mock.Anything, fakeID).Return(fakeNode, nil)
-				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: variables,

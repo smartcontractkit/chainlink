@@ -58,7 +58,7 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestClient_StarkNetKeys(t *testing.T) {
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().StarkNet()
 	cleanup := func() {
 		keys, err := ks.GetAll()

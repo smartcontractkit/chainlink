@@ -1,6 +1,7 @@
 package ocr
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/lib/pq"
@@ -10,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	config2 "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -35,6 +37,16 @@ type ValidationConfig interface {
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job, error) {
+	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (config2.ChainScopedConfig, error) {
+		c, err := chainSet.Get(id)
+		if err != nil {
+			return nil, err
+		}
+		return c.Config(), nil
+	}, tomlString)
+}
+
+func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedConfig, error), tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCROracleSpec
 	tree, err := toml.Load(tomlString)
@@ -77,7 +89,7 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		}
 	}
 
-	chain, err := chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+	cfg, err := configFn(jb.OCROracleSpec.EVMChainID.ToInt())
 	if err != nil {
 		return jb, err
 	}
@@ -86,10 +98,10 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		if err := validateBootstrapSpec(tree, jb); err != nil {
 			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, chain.Config(), jb); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, cfg, jb); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(chain.Config(), spec); err != nil {
+	if err := validateTimingParameters(cfg, spec); err != nil {
 		return jb, err
 	}
 	return jb, nil

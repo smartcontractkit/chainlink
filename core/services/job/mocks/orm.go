@@ -433,6 +433,29 @@ func (_m *ORM) FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]job.Spec
 	return r0, r1
 }
 
+// FindTaskResultByRunIDAndTaskName provides a mock function with given fields: runID, taskName
+func (_m *ORM) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error) {
+	ret := _m.Called(runID, taskName)
+
+	var r0 []byte
+	if rf, ok := ret.Get(0).(func(int64, string) []byte); ok {
+		r0 = rf(runID, taskName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, string) error); ok {
+		r1 = rf(runID, taskName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // InsertJob provides a mock function with given fields: _a0, qopts
 func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))

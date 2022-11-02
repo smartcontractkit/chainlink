@@ -102,7 +102,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(context.Context, config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(context.Context, config.GeneralConfig, logger.Logger, *sqlx.DB) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -110,7 +110,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(context.Context, config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(context.Context, config.GeneralConfig, logger.Logger, *sqlx.DB) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -371,7 +371,7 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
+func (m *MockAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
 	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
 		return user, err
 	}

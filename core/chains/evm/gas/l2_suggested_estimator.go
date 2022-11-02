@@ -2,7 +2,6 @@ package gas
 
 import (
 	"context"
-	"math/big"
 	"sync"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -34,7 +34,7 @@ type l2SuggestedPriceEstimator struct {
 	logger     logger.Logger
 
 	gasPriceMu sync.RWMutex
-	l2GasPrice *big.Int
+	l2GasPrice *assets.Wei
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
@@ -101,7 +101,7 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 		o.logger.Warnf("Failed to refresh prices, got error: %s", err)
 		return
 	}
-	bi := (*big.Int)(&res)
+	bi := (*assets.Wei)(&res)
 
 	o.logger.Debugw("refreshPrice", "l2GasPrice", bi)
 
@@ -113,18 +113,19 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 
 func (o *l2SuggestedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (*l2SuggestedPriceEstimator) GetDynamicFee(_ uint32, _ *big.Int) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ DynamicFee, _ uint32, _ *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) GetLegacyGas(_ []byte, l2GasLimit uint32, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
+func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = l2GasLimit
+
 	ok := o.IfStarted(func() {
 		if slices.Contains(opts, OptForceRefetch) {
 			ch := make(chan struct{})
@@ -133,11 +134,17 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(_ []byte, l2GasLimit uint32, ma
 			case <-o.chStop:
 				err = errors.New("estimator stopped")
 				return
+			case <-ctx.Done():
+				err = ctx.Err()
+				return
 			}
 			select {
 			case <-ch:
 			case <-o.chStop:
 				err = errors.New("estimator stopped")
+				return
+			case <-ctx.Done():
+				err = ctx.Err()
 				return
 			}
 		}
@@ -159,11 +166,11 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(_ []byte, l2GasLimit uint32, ma
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) BumpLegacyGas(_ *big.Int, _ uint32, _ *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
+func (o *l2SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	return nil, 0, errors.New("bump gas is not supported for this l2")
 }
 
-func (o *l2SuggestedPriceEstimator) getGasPrice() (l2GasPrice *big.Int) {
+func (o *l2SuggestedPriceEstimator) getGasPrice() (l2GasPrice *assets.Wei) {
 	o.gasPriceMu.RLock()
 	defer o.gasPriceMu.RUnlock()
 	return o.l2GasPrice

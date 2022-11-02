@@ -6,11 +6,15 @@ import (
 	"math/big"
 	"time"
 
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
@@ -43,6 +47,14 @@ type ContractDeployer interface {
 		checkGasToBurn,
 		performGasToBurn *big.Int,
 	) (KeeperConsumerPerformance, error)
+	DeployKeeperConsumerBenchmark(
+		testBlockRange,
+		averageCadence,
+		checkGasToBurn,
+		performGasToBurn,
+		firstEligibleBuffer *big.Int,
+	) (KeeperConsumerBenchmark, error)
+	DeployKeeperPerformDataChecker(expectedData []byte) (KeeperPerformDataChecker, error)
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
@@ -50,6 +62,8 @@ type ContractDeployer interface {
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployBlockhashStore() (BlockHashStore, error)
+	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
+	DeployUpkeepResetter() (UpkeepResetter, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -63,6 +77,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.ArbitrumClient:
 		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.OptimismClient:
+		return &OptimismContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -84,6 +100,11 @@ type MetisContractDeployer struct {
 
 // ArbitrumContractDeployer wraps for Arbitrum
 type ArbitrumContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+// OptimismContractDeployer wraps for Optimism
+type OptimismContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -474,6 +495,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			version:     ethereum.RegistryVersion_1_1,
 			registry1_1: instance.(*ethereum.KeeperRegistry11),
 			registry1_2: nil,
+			registry1_3: nil,
 			address:     address,
 		}, err
 	case ethereum.RegistryVersion_1_2:
@@ -658,6 +680,58 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 	}, err
 }
 
+func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark(
+	testBlockRange,
+	averageCadence,
+	checkGasToBurn,
+	performGasToBurn,
+	firstEligibleBuffer *big.Int,
+) (KeeperConsumerBenchmark, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperConsumerBenchmark", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployKeeperConsumerBenchmark(
+			auth,
+			backend,
+			testBlockRange,
+			averageCadence,
+			checkGasToBurn,
+			performGasToBurn,
+			firstEligibleBuffer,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperConsumerBenchmark{
+		client:   e.client,
+		consumer: instance.(*ethereum.KeeperConsumerBenchmark),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData []byte) (KeeperPerformDataChecker, error) {
+	address, _, instance, err := e.client.DeployContract("PerformDataChecker", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployPerformDataChecker(
+			auth,
+			backend,
+			expectedData,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperPerformDataCheckerConsumer{
+		client:             e.client,
+		performDataChecker: instance.(*ethereum.PerformDataChecker),
+		address:            address,
+	}, err
+}
+
 // DeployBlockhashStore deploys blockhash store used with VRF contract
 func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error) {
 	address, _, instance, err := e.client.DeployContract("BlockhashStore", func(
@@ -745,5 +819,41 @@ func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordina
 		client:   e.client,
 		consumer: instance.(*ethereum.VRFConsumerV2),
 		address:  address,
+	}, err
+}
+
+// DeployOperatorFactory deploys operator factory contract
+func (e *EthereumContractDeployer) DeployOperatorFactory(linkAddr string) (OperatorFactory, error) {
+	addr, _, instance, err := e.client.DeployContract("OperatorFactory", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return operator_factory.DeployOperatorFactory(auth, backend, common.HexToAddress(linkAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOperatorFactory{
+		address:         addr,
+		client:          e.client,
+		operatorFactory: instance.(*operator_factory.OperatorFactory),
+	}, err
+}
+
+// DeployUpkeepResetter deploys upkeep resetter contract
+func (e *EthereumContractDeployer) DeployUpkeepResetter() (UpkeepResetter, error) {
+	addr, _, instance, err := e.client.DeployContract("UpkeepResetter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return int_ethereum.DeployUpkeepResetter(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumUpkeepResetter{
+		address:  addr,
+		client:   e.client,
+		consumer: instance.(*int_ethereum.UpkeepResetter),
 	}, err
 }

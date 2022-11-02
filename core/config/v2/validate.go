@@ -16,23 +16,31 @@ type Validated interface {
 	// ValidateConfig returns nil if the config is valid, otherwise an error describing why it is invalid.
 	//
 	// For implementations:
-	//  - A nil receiver should return nil, freeing the caller to decide whether each case is required.
 	//  - Use package multierr to accumulate all errors, rather than returning the first encountered.
+	//  - If an anonymous field also implements ValidateConfig(), it must be called explicitly!
 	ValidateConfig() error
 }
 
 // Validate returns any errors from calling Validated.ValidateConfig on cfg and any nested types that implement Validated.
 func Validate(cfg interface{}) (err error) {
-	return utils.MultiErrorList(validate(cfg))
+	_, err = utils.MultiErrorList(validate(reflect.ValueOf(cfg), true))
+	return
 }
 
-func validate(s interface{}) (err error) {
-	if vc, ok := s.(Validated); ok {
-		err = multierr.Append(err, vc.ValidateConfig())
+func validate(v reflect.Value, checkInterface bool) (err error) {
+	if checkInterface {
+		i := v.Interface()
+		if vc, ok := i.(Validated); ok {
+			err = multierr.Append(err, vc.ValidateConfig())
+		} else if v.CanAddr() {
+			i = v.Addr().Interface()
+			if vc, ok := i.(Validated); ok {
+				err = multierr.Append(err, vc.ValidateConfig())
+			}
+		}
 	}
 
-	t := reflect.TypeOf(s)
-	v := reflect.ValueOf(s)
+	t := v.Type()
 	if t.Kind() == reflect.Ptr {
 		if v.IsNil() {
 			return
@@ -59,7 +67,8 @@ func validate(s interface{}) (err error) {
 			if fv.Kind() == reflect.Ptr && fv.IsNil() {
 				continue
 			}
-			if fe := Validate(fv.Interface()); fe != nil {
+			// skip the interface if Anonymous, since the parent struct inherits the methods
+			if fe := validate(fv, !ft.Anonymous); fe != nil {
 				if ft.Anonymous {
 					err = multierr.Append(err, fe)
 				} else {
@@ -79,7 +88,7 @@ func validate(s interface{}) (err error) {
 			if mv.Kind() == reflect.Ptr && mv.IsNil() {
 				continue
 			}
-			if me := Validate(mv.Interface()); me != nil {
+			if me := validate(mv, true); me != nil {
 				err = multierr.Append(err, namedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
 			}
 		}
@@ -93,7 +102,7 @@ func validate(s interface{}) (err error) {
 			if iv.Kind() == reflect.Ptr && iv.IsNil() {
 				continue
 			}
-			if me := Validate(iv.Interface()); me != nil {
+			if me := validate(iv, true); me != nil {
 				err = multierr.Append(err, namedMultiErrorList(me, strconv.Itoa(i)))
 			}
 		}
@@ -104,8 +113,14 @@ func validate(s interface{}) (err error) {
 }
 
 func namedMultiErrorList(err error, name string) error {
-	err = utils.MultiErrorList(err)
-	msg := strings.ReplaceAll(err.Error(), "\n", "\n\t")
+	l, merr := utils.MultiErrorList(err)
+	if l == 0 {
+		return nil
+	}
+	msg := strings.ReplaceAll(merr.Error(), "\n", "\n\t")
+	if l == 1 {
+		return fmt.Errorf("%s.%s", name, msg)
+	}
 	return fmt.Errorf("%s: %s", name, msg)
 }
 
@@ -115,8 +130,13 @@ type ErrInvalid struct {
 	Msg   string
 }
 
+// NewErrDuplicate returns an ErrInvalid with a standard duplicate message.
+func NewErrDuplicate(name string, value any) ErrInvalid {
+	return ErrInvalid{Name: name, Value: value, Msg: "duplicate - must be unique"}
+}
+
 func (e ErrInvalid) Error() string {
-	return fmt.Sprintf("%s: invalid value %v: %s", e.Name, e.Value, e.Msg)
+	return fmt.Sprintf("%s: invalid value (%v): %s", e.Name, e.Value, e.Msg)
 }
 
 type ErrMissing struct {
@@ -135,4 +155,39 @@ type ErrEmpty struct {
 
 func (e ErrEmpty) Error() string {
 	return fmt.Sprintf("%s: empty: %s", e.Name, e.Msg)
+}
+
+// UniqueStrings is a helper for tracking unique values in string form.
+type UniqueStrings map[string]struct{}
+
+// IsDupeFmt is like IsDupe, but calls String().
+func (u UniqueStrings) IsDupeFmt(t fmt.Stringer) bool {
+	if t == nil {
+		return false
+	}
+	if reflect.ValueOf(t).IsNil() {
+		// interface holds a typed-nil value
+		return false
+	}
+	return u.isDupe(t.String())
+}
+
+// IsDupe returns true if the set already contains the string, otherwise false.
+// Non-nil/empty strings are added to the set.
+func (u UniqueStrings) IsDupe(s *string) bool {
+	if s == nil {
+		return false
+	}
+	return u.isDupe(*s)
+}
+
+func (u UniqueStrings) isDupe(s string) bool {
+	if s == "" {
+		return false
+	}
+	_, ok := u[s]
+	if !ok {
+		u[s] = struct{}{}
+	}
+	return ok
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -67,6 +68,7 @@ type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
 	GetLogger() logger.Logger
+	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
@@ -134,6 +136,7 @@ type ChainlinkApplication struct {
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
+	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
@@ -145,11 +148,12 @@ type ChainlinkApplication struct {
 
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
+	Logger                   logger.Logger
 	EventBroadcaster         pg.EventBroadcaster
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	Chains                   Chains
-	Logger                   logger.Logger
+	AuditLogger              audit.AuditLogger
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
@@ -189,15 +193,21 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
+	auditLogger := opts.AuditLogger
 	db := opts.SqlxDB
 	cfg := opts.Config
-	keyStore := opts.KeyStore
 	chains := opts.Chains
-	globalLogger := opts.Logger
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
+	globalLogger := opts.Logger
+	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+
+	// If the audit logger is enabled
+	if auditLogger.Ready() == nil {
+		srvcs = append(srvcs, auditLogger)
+	}
 
 	var profiler *pyroscope.Profiler
 	if cfg.PyroscopeServerAddress() != "" {
@@ -274,9 +284,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
 	)
 
@@ -397,6 +407,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
+			keyStore.Eth(),
 			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
@@ -462,6 +473,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		AuditLogger:              auditLogger,
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
@@ -505,14 +517,16 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		}
 	}
 
+	var ms services.MultiStart
 	for _, service := range app.srvcs {
 		if ctx.Err() != nil {
-			return errors.Wrap(ctx.Err(), "aborting start")
+			err := errors.Wrap(ctx.Err(), "aborting start")
+			return multierr.Combine(err, ms.Close())
 		}
 
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(service))
 
-		if err := service.Start(ctx); err != nil {
+		if err := ms.Start(ctx, service); err != nil {
 			return err
 		}
 	}
@@ -551,6 +565,9 @@ func (app *ChainlinkApplication) stop() (err error) {
 	}
 	app.shutdownOnce.Do(func() {
 		defer func() {
+			if app.closeLogger == nil {
+				return
+			}
 			if lerr := app.closeLogger(); lerr != nil {
 				err = multierr.Append(err, lerr)
 			}
@@ -598,6 +615,10 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 
 func (app *ChainlinkApplication) GetLogger() logger.Logger {
 	return app.logger
+}
+
+func (app *ChainlinkApplication) GetAuditLogger() audit.AuditLogger {
+	return app.AuditLogger
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() services.Checker {

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -56,10 +58,6 @@ var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
 //	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
 type QOpt func(*Q)
 
-type LogConfig interface {
-	LogSQL() bool
-}
-
 // WithQueryer sets the queryer
 func WithQueryer(queryer Queryer) func(q *Q) {
 	return func(q *Q) {
@@ -92,19 +90,16 @@ func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
 // Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
 func WithLongQueryTimeout() func(q *Q) {
 	return func(q *Q) {
-		q.QueryTimeout = LongQueryTimeout
-	}
-}
-
-// MergeCtx allows callers to combine a ctx with a previously set parent context
-// Responsibility for cancelling the passed context lies with caller
-func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
-	return func(q *Q) {
-		q.ParentCtx = fn(q.ParentCtx)
+		q.QueryTimeout = longQueryTimeout
 	}
 }
 
 var _ Queryer = Q{}
+
+type QConfig interface {
+	LogSQL() bool
+	DatabaseDefaultQueryTimeout() time.Duration
+}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
@@ -124,11 +119,11 @@ type Q struct {
 	ParentCtx    context.Context
 	db           *sqlx.DB
 	logger       logger.Logger
-	config       LogConfig
+	config       QConfig
 	QueryTimeout time.Duration
 }
 
-func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
+func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)
 	}
@@ -158,18 +153,15 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
-	if q.QueryTimeout > 0 {
-		ctx := q.ParentCtx
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		return context.WithTimeout(ctx, q.QueryTimeout)
+	ctx := q.ParentCtx
+	if ctx == nil {
+		ctx = context.Background()
 	}
-
-	if q.ParentCtx == nil {
-		return DefaultQueryCtx()
+	timeout := q.QueryTimeout
+	if q.QueryTimeout <= 0 {
+		timeout = q.config.DatabaseDefaultQueryTimeout()
 	}
-	return DefaultQueryCtxWithParent(q.ParentCtx)
+	return context.WithTimeout(ctx, timeout)
 }
 
 func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
@@ -280,10 +272,29 @@ func sprintQ(query string, args []interface{}) string {
 	}
 	var pairs []string
 	for i, arg := range args {
-		pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		// We print by type so one can directly take the logged query string and execute it manually in pg.
+		// Annoyingly it seems as though the logger itself will add an extra \, so you still have to remove that.
+		switch v := arg.(type) {
+		case []byte:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v))
+		case common.Address:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case common.Hash:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case pq.ByteaArray:
+			var s strings.Builder
+			fmt.Fprintf(&s, "('\\x%x'", v[0])
+			for j := 1; j < len(v); j++ {
+				fmt.Fprintf(&s, ",'\\x%x'", v[j])
+			}
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s.String()))
+		default:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		}
 	}
 	replacer := strings.NewReplacer(pairs...)
-	return replacer.Replace(query)
+	queryWithVals := replacer.Replace(query)
+	return strings.ReplaceAll(strings.ReplaceAll(queryWithVals, "\n", " "), "\t", " ")
 }
 
 // queryLogger extends Q with logging helpers for a particular query w/ args.

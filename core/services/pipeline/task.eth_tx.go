@@ -19,10 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//
 // Return types:
-//     nil
 //
+//	nil
 type ETHTxTask struct {
 	BaseTask         `mapstructure:",squash"`
 	From             string `json:"from"`
@@ -126,18 +125,27 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while querying keystore: %v", err)}, retryableRunInfo()
 	}
 
-	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
+	// TODO(sc-55115): Allow job specs to pass in the strategy that they want
 	strategy := txmgr.NewSendEveryStrategy()
 
+	forwarderAddress := common.Address{}
+	if t.forwardingAllowed {
+		var fwderr error
+		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(fromAddr)
+		if fwderr != nil {
+			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
+		}
+	}
+
 	newTx := txmgr.NewTx{
-		FromAddress:    fromAddr,
-		ToAddress:      common.Address(toAddr),
-		EncodedPayload: []byte(data),
-		GasLimit:       uint32(gasLimit),
-		Meta:           txMeta,
-		Forwardable:    t.forwardingAllowed,
-		Strategy:       strategy,
-		Checker:        transmitChecker,
+		FromAddress:      fromAddr,
+		ToAddress:        common.Address(toAddr),
+		EncodedPayload:   []byte(data),
+		GasLimit:         uint32(gasLimit),
+		Meta:             txMeta,
+		ForwarderAddress: forwarderAddress,
+		Strategy:         strategy,
+		Checker:          transmitChecker,
 	}
 
 	if minOutgoingConfirmations > 0 {

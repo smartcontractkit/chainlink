@@ -26,12 +26,15 @@ const (
 	RegistryVersion_1_1
 	RegistryVersion_1_2
 	RegistryVersion_1_3
+	RegistryVersion_2_0
 )
 
 func (rv RegistryVersion) String() string {
 	switch rv {
 	case RegistryVersion_1_0, RegistryVersion_1_1, RegistryVersion_1_2, RegistryVersion_1_3:
 		return fmt.Sprintf("v1.%d", rv)
+	case RegistryVersion_2_0:
+		return "v2.0"
 	default:
 		return "unknown registry version"
 	}
@@ -104,7 +107,7 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 func getRegistryVersion(contract *type_and_version.TypeAndVersionInterface) (*RegistryVersion, error) {
 	typeAndVersion, err := contract.TypeAndVersion(nil)
 	if err != nil {
-		jsonErr := evmclient.ExtractRPCError(err)
+		jsonErr := evmclient.ExtractRPCErrorOrNil(err)
 		if jsonErr != nil {
 			// Version 1.0 does not support typeAndVersion interface, hence gives a json error on this call
 			version := RegistryVersion_1_0

@@ -2,18 +2,19 @@ package ocrcommon
 
 import (
 	"context"
+	"io"
 
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
-
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"go.uber.org/multierr"
 
@@ -27,18 +28,18 @@ type PeerWrapperConfig interface {
 	config.P2PNetworking
 	config.P2PV1Networking
 	config.P2PV2Networking
+	pg.QConfig
 	OCRTraceLogging() bool
-	LogSQL() bool
 	FeatureOffchainReporting() bool
 }
 
 type (
-	peerAdapter struct {
-		ocrtypes.BinaryNetworkEndpointFactory
-		ocrtypes.BootstrapperFactory
+	peerAdapterOCR1 struct {
+		ocr1types.BinaryNetworkEndpointFactory
+		ocr1types.BootstrapperFactory
 	}
 
-	peerAdapter2 struct {
+	peerAdapterOCR2 struct {
 		ocr2types.BinaryNetworkEndpointFactory
 		ocr2types.BootstrapperFactory
 	}
@@ -53,11 +54,14 @@ type (
 		PeerID        p2pkey.PeerID
 		pstoreWrapper *Pstorewrapper
 
-		// V1V2 adapter
-		Peer *peerAdapter
+		// Used at shutdown to stop all of this peer's goroutines
+		peerCloser io.Closer
 
-		// V2 peer
-		Peer2 *peerAdapter2
+		// OCR1 peer adapter
+		Peer1 *peerAdapterOCR1
+
+		// OCR2 peer adapter
+		Peer2 *peerAdapterOCR2
 	}
 )
 
@@ -193,14 +197,15 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "error calling NewPeer")
 		}
-		p.Peer = &peerAdapter{
+		p.Peer1 = &peerAdapterOCR1{
 			peer.OCR1BinaryNetworkEndpointFactory(),
 			peer.OCR1BootstrapperFactory(),
 		}
-		p.Peer2 = &peerAdapter2{
+		p.Peer2 = &peerAdapterOCR2{
 			peer.OCR2BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
+		p.peerCloser = peer
 		return nil
 	})
 }
@@ -208,6 +213,9 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 // Close closes the peer and peerstore
 func (p *SingletonPeerWrapper) Close() error {
 	return p.StopOnce("SingletonPeerWrapper", func() (err error) {
+		if p.peerCloser != nil {
+			err = p.peerCloser.Close()
+		}
 		if p.pstoreWrapper != nil {
 			err = multierr.Combine(err, p.pstoreWrapper.Close())
 		}

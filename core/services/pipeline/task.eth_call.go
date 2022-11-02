@@ -125,7 +125,14 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
-			err = t.retrieveRevertReason(err, lggr)
+			rpcError, errExtract := evmclient.ExtractRPCError(err)
+			if errExtract == nil {
+				// Update error to unmarshalled RPCError with revert data.
+				err = rpcError
+			} else {
+				lggr.Warnw("failed to extract rpc error", "err", err, "errExtract", errExtract)
+				// Leave error as is.
+			}
 		}
 
 		return Result{Error: err}, retryableRunInfo()
@@ -134,14 +141,4 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 
 	return Result{Value: resp}, runInfo
-}
-
-func (t *ETHCallTask) retrieveRevertReason(baseErr error, lggr logger.Logger) error {
-	reason, err := evmclient.ExtractRevertReasonFromRPCError(baseErr)
-	if err != nil {
-		lggr.Warnw("failed to extract revert reason", "baseErr", baseErr, "error", err)
-		return baseErr
-	}
-
-	return errors.Wrap(baseErr, reason)
 }

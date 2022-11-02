@@ -3,10 +3,10 @@ package resolver
 import "github.com/smartcontractkit/chainlink/core/config"
 
 type FeaturesResolver struct {
-	cfg config.GeneralConfig
+	cfg config.FeatureFlags
 }
 
-func NewFeaturesResolver(cfg config.GeneralConfig) *FeaturesResolver {
+func NewFeaturesResolver(cfg config.FeatureFlags) *FeaturesResolver {
 	return &FeaturesResolver{cfg: cfg}
 }
 
@@ -21,10 +21,10 @@ func (r *FeaturesResolver) FeedsManager() bool {
 }
 
 type FeaturesPayloadResolver struct {
-	cfg config.GeneralConfig
+	cfg config.FeatureFlags
 }
 
-func NewFeaturesPayloadResolver(cfg config.GeneralConfig) *FeaturesPayloadResolver {
+func NewFeaturesPayloadResolver(cfg config.FeatureFlags) *FeaturesPayloadResolver {
 	return &FeaturesPayloadResolver{cfg: cfg}
 }
 

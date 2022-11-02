@@ -1,6 +1,6 @@
 ChainID = '4'
 LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 
 [GasEstimator]
 # TODO: EIP1559 on rinkeby has not been adequately tested, see:

@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -56,8 +56,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	t.Log(authorized)
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		evmClient, lggr, 100*time.Millisecond, 2, 3, 2)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
@@ -69,10 +68,10 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
-	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
+	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
 	require.NoError(t, err)
 	require.Equal(t, addr, forwarderAddr)
-	err = fwdMgr.Stop()
+	err = fwdMgr.Close()
 	require.NoError(t, err)
 }
 
@@ -97,8 +96,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	ec.Commit()
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		evmClient, lggr, 100*time.Millisecond, 2, 3, 2)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
@@ -111,18 +109,9 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 
 	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
-	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
-	require.ErrorContains(t, err, "Skipping forwarding transaction")
-	require.Equal(t, addr, operatorAddr)
-	err = fwdMgr.Stop()
+	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
+	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
+	require.Equal(t, addr, common.Address{})
+	err = fwdMgr.Close()
 	require.NoError(t, err)
-}
-
-func getSimpleOperatorCall(t *testing.T) []byte {
-	args, err := SimpleOracleCallABI.Inputs.Pack()
-	require.NoError(t, err)
-
-	dataBytes := append(SimpleOracleCallABI.ID, args...)
-	require.NotEmpty(t, dataBytes)
-	return args
 }

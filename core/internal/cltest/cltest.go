@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -35,7 +36,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -56,13 +57,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -142,10 +144,8 @@ func init() {
 	gomega.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
 
 	logger.InitColor(true)
-	if ll, _ := envvar.LogLevel.Parse(); ll.Enabled(zapcore.DebugLevel) {
-		gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
-			fmt.Printf("[gin] %-6s %-25s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
-		}
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		fmt.Printf("[gin] %-6s %-25s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
 	// Seed the random number generator, otherwise separate modules will take
@@ -186,11 +186,12 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, cfg)
-	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
-	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	btORM := bridges.NewORM(db, lggr, cfg)
+	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, cfg)
+	pr := pipeline.NewRunner(prm, btORM, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -232,7 +233,7 @@ type TestApplication struct {
 	Server  *httptest.Server
 	Started bool
 	Backend *backends.SimulatedBackend
-	Key     ethkey.KeyV2
+	Keys    []ethkey.KeyV2
 }
 
 // NewWSServer starts a websocket server which invokes callback for each message received.
@@ -242,6 +243,8 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 	return server.WSURL().String()
 }
 
+// Deprecated: use configtest/v2.NewTestGeneralConfig
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	reaperInterval := time.Duration(0) // disable reaper
@@ -260,6 +263,16 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
+	c := configtest2.NewGeneralConfig(t, nil)
+
+	return NewApplicationWithConfig(t, c)
+}
+
+// Deprecated: use NewApplicationEVMDisabled
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+func NewLegacyApplicationEVMDisabled(t *testing.T) *TestApplication {
+	t.Helper()
+
 	c := NewTestGeneralConfig(t)
 	c.Overrides.EVMEnabled = null.BoolFrom(false)
 
@@ -271,7 +284,7 @@ func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	c := NewTestGeneralConfig(t)
+	c := configtest2.NewGeneralConfig(t, nil)
 
 	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
@@ -281,30 +294,38 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	config := NewTestGeneralConfig(t)
+	config := configtest2.NewGeneralConfig(t, nil)
 	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	require.NoError(t, app.KeyStore.Unlock(Password))
-	var chainID utils.Big = *utils.NewBig(&FixtureChainID)
+	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
-			app.Key = v
+			app.Keys = append(app.Keys, v)
+		case p2pkey.KeyV2:
+			require.NoError(t, app.GetKeyStore().P2P().Add(v))
 		case evmtypes.DBChain:
 			chainID = v.ID
+		case *utils.Big:
+			chainID = *v
 		}
 	}
-	if app.Key.Address == utils.ZeroAddress {
-		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+	if len(app.Keys) == 0 {
+		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+		app.Keys = []ethkey.KeyV2{k}
 	} else {
-		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
+		id, ks := chainID.ToInt(), app.KeyStore.Eth()
+		for _, k := range app.Keys {
+			MustAddKeyToKeystore(t, k, id, ks)
+		}
 	}
 
 	return app
@@ -315,8 +336,8 @@ const (
 )
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
-// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
-func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
+func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
 
@@ -332,14 +353,23 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		lggr = logger.TestLogger(t)
 	}
 
+	var auditLogger audit.AuditLogger
+	for _, dep := range flagsAndDeps {
+		audLgger, is := dep.(audit.AuditLogger)
+		if is {
+			auditLogger = audLgger
+			break
+		}
+	}
+
+	if auditLogger == nil {
+		auditLogger = audit.NoopLogger
+	}
+
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
 	url := cfg.DatabaseURL()
-	db, err := pg.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), pg.Config{
-		Logger:       lggr,
-		MaxOpenConns: cfg.ORMMaxOpenConns(),
-		MaxIdleConns: cfg.ORMMaxIdleConns(),
-	})
+	db, err := pg.NewConnection(url.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -370,13 +400,25 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if ethClient == nil {
-		ethClient = evmclient.NewNullClient(nil, lggr)
-	}
-	if chainORM == nil {
-		chainORM = evm.NewORM(db, lggr, cfg)
+		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	if h, ok := cfg.(v2.HasEVMConfigs); ok {
+		var ids []utils.Big
+		for _, c := range h.EVMConfigs() {
+			ids = append(ids, *c.ChainID)
+		}
+		if len(ids) > 0 {
+			o := chainORM
+			if o == nil {
+				o = evm.NewORM(db, lggr, cfg)
+			}
+			if err = o.EnsureChains(ids); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
@@ -385,7 +427,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(c evmtypes.DBChain) evmclient.Client {
+		GenEthClient: func(_ *big.Int) evmclient.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}
@@ -397,42 +439,90 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 	if cfg.TerraEnabled() {
 		terraLggr := lggr.Named("Terra")
-		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		opts := terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
 			DB:               db,
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
-			ORM:              terra.NewORM(db, terraLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
+			cfgs := newCfg.TerraConfigs()
+			opts.ORM = terra.NewORMImmut(cfgs)
+			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
+			}
+		} else {
+			opts.ORM = terra.NewORM(db, terraLggr, cfg)
+			chains.Terra, err = terra.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
 	}
 	if cfg.SolanaEnabled() {
 		solLggr := lggr.Named("Solana")
-		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
-			Config:           cfg,
-			Logger:           solLggr,
-			DB:               db,
-			KeyStore:         keyStore.Solana(),
-			EventBroadcaster: eventBroadcaster,
-			ORM:              solana.NewORM(db, solLggr, cfg),
-		})
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			DB:       db,
+			KeyStore: keyStore.Solana(),
+		}
+		if newCfg, ok := cfg.(interface {
+			SolanaConfigs() solana.SolanaConfigs
+		}); ok {
+			cfgs := newCfg.SolanaConfigs()
+			opts.ORM = solana.NewORMImmut(cfgs)
+			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
+			}
+		} else {
+			opts.ORM = solana.NewORM(db, solLggr, cfg)
+			chains.Solana, err = solana.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")
-		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+		opts := starknet.ChainSetOpts{
 			Config:   cfg,
 			Logger:   starkLggr,
-			DB:       db,
 			KeyStore: keyStore.StarkNet(),
-			// EventBroadcaster: eventBroadcaster,
-			ORM: starknet.NewORM(db, starkLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface {
+			StarknetConfigs() starknet.StarknetConfigs
+		}); ok {
+			cfgs := newCfg.StarknetConfigs()
+			opts.ORM = starknet.NewORMImmut(cfgs)
+			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+					t.Fatal(err)
+				}
+			}
+		} else {
+			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
+			chains.StarkNet, err = starknet.NewChainSet(opts)
+		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
@@ -445,6 +535,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		Logger:                   lggr,
+		AuditLogger:              auditLogger,
 		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
 		RestrictedHTTPClient:     c,
@@ -486,6 +577,9 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
+	c.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, errors.New("mocked"))
+	c.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
 	c.On("Close").Maybe().Return()
 
 	block := &types.Header{
@@ -508,12 +602,12 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(Head(0), nil)
 	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &gas.Block{
+		elems[0].Result = &evmtypes.Block{
 			Number:       42,
 			Hash:         utils.NewHash(),
 			Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
 		}
-		elems[1].Result = &gas.Block{
+		elems[1].Result = &evmtypes.Block{
 			Number:       41,
 			Hash:         utils.NewHash(),
 			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
@@ -609,7 +703,6 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
-		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -629,7 +722,6 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
-		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -643,7 +735,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewKeyStore returns a new, unlocked keystore
-func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.LogConfig) keystore.Master {
+func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.QConfig) keystore.Master {
 	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
@@ -1001,20 +1093,28 @@ func Head(val interface{}) *evmtypes.Head {
 }
 
 // LegacyTransactionsFromGasPrices returns transactions matching the given gas prices
-func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
-	txs := make([]gas.Transaction, len(gasPrices))
+func LegacyTransactionsFromGasPrices(gasPrices ...int64) []evmtypes.Transaction {
+	return LegacyTransactionsFromGasPricesTxType(0x0, gasPrices...)
+}
+
+func LegacyTransactionsFromGasPricesTxType(code evmtypes.TxType, gasPrices ...int64) []evmtypes.Transaction {
+	txs := make([]evmtypes.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gas.Transaction{Type: 0x0, GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+		txs[i] = evmtypes.Transaction{Type: code, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
 	}
 	return txs
 }
 
 // DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
 // given TipCaps (FeeCap is arbitrary)
-func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
-	txs := make([]gas.Transaction, len(tipCaps))
+func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []evmtypes.Transaction {
+	return DynamicFeeTransactionsFromTipCapsTxType(0x02, tipCaps...)
+}
+
+func DynamicFeeTransactionsFromTipCapsTxType(code evmtypes.TxType, tipCaps ...int64) []evmtypes.Transaction {
+	txs := make([]evmtypes.Transaction, len(tipCaps))
 	for i, tipCap := range tipCaps {
-		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
+		txs[i] = evmtypes.Transaction{Type: code, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }
@@ -1097,24 +1197,19 @@ func AssertError(t testing.TB, want bool, err error) {
 
 func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
-
-	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	request, err := http.NewRequest("POST", url, body)
-	require.NoError(t, err)
-	request.Header.Set("Content-Type", "application/json")
-	for key, value := range headers {
-		request.Header.Add(key, value)
-	}
-	resp, err := client.Do(request)
-	require.NoError(t, err)
-	return resp, func() { resp.Body.Close() }
+	return unauthenticatedHTTP(t, "POST", url, body, headers)
 }
 
-func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+func UnauthenticatedGet(t testing.TB, url string, headers map[string]string) (*http.Response, func()) {
+	t.Helper()
+	return unauthenticatedHTTP(t, "GET", url, nil, headers)
+}
+
+func unauthenticatedHTTP(t testing.TB, method string, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	request, err := http.NewRequest("PATCH", url, body)
+	request, err := http.NewRequest(method, url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
@@ -1571,7 +1666,7 @@ func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := NewTestGeneralConfig(t)
+	cfg := configtest2.NewGeneralConfig(t, nil)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
@@ -1581,7 +1676,7 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	return states[0]
 }
 
-func NewTxmORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) txmgr.ORM {
+func NewTxmORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.ORM {
 	return txmgr.NewORM(db, logger.TestLogger(t), cfg)
 }
 

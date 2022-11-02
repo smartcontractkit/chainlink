@@ -9,9 +9,10 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -59,7 +60,7 @@ type orm struct {
 	q pg.Q
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 	return &orm{
 		q: pg.NewQ(db, lggr, cfg),
 	}

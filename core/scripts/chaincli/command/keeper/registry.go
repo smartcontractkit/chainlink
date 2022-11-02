@@ -7,6 +7,24 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
 )
 
+var registryCmd = &cobra.Command{
+	Use:   "registry",
+	Short: "Keeper registry management",
+	Long:  `This command provides an interface to manage keeper registry.`,
+}
+
+var deployRegistryCmd = &cobra.Command{
+	Use:   "deploy",
+	Short: "Deploy keeper registry",
+	Long:  `This command deploys a new keeper registry.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := config.New()
+		hdlr := handler.NewKeeper(cfg)
+
+		hdlr.DeployRegistry(cmd.Context())
+	},
+}
+
 var updateRegistryCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update keeper registry",
@@ -15,7 +33,7 @@ var updateRegistryCmd = &cobra.Command{
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
 
-		hdlr.GetRegistry(cmd.Context())
+		hdlr.UpdateRegistry(cmd.Context())
 	},
 }
 
@@ -30,4 +48,10 @@ var withdrawFromRegistryCmd = &cobra.Command{
 
 		hdlr.Withdraw(cmd.Context(), args[0])
 	},
+}
+
+func init() {
+	registryCmd.AddCommand(deployRegistryCmd)
+	registryCmd.AddCommand(updateRegistryCmd)
+	registryCmd.AddCommand(withdrawFromRegistryCmd)
 }

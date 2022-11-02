@@ -1,4 +1,3 @@
-// TODO: Improve code reuse (mostly c/p of core/chains/terra/orm_test.go)
 package solana_test
 
 import (
@@ -22,7 +21,7 @@ func setupORM(t *testing.T) (*sqlx.DB, solana.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := solana.NewORM(db, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	orm := solana.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return db, orm
 }
@@ -54,7 +53,7 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	gotNode, err = orm.Node(gotNode.ID)
+	gotNode, err = orm.NodeNamed(gotNode.Name)
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 

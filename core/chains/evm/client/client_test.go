@@ -26,7 +26,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -38,7 +37,7 @@ func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, send
 	cfg := evmclient.TestNodeConfig{
 		SelectionMode: evmclient.NodeSelectionMode_RoundRobin,
 	}
-	c, err := evmclient.NewClientWithTestNode(cfg, logger.TestLogger(t), wsURL, nil, sendonlys, 42, chainID)
+	c, err := evmclient.NewClientWithTestNode(t, cfg, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
 	return c
 }
@@ -263,7 +262,6 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			ethClient := mustNewClient(t, wsURL)
 			err := ethClient.Dial(testutils.Context(t))
 			require.NoError(t, err)
-			defer ethClient.Close()
 
 			ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
 			defer cancel()
@@ -317,7 +315,6 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 
 	sendonlyURL := *cltest.MustParseURL(t, ts.URL)
 	ethClient := mustNewClient(t, wsURL, sendonlyURL, sendonlyURL)
-	defer ethClient.Close()
 	err := ethClient.Dial(testutils.Context(t))
 	require.NoError(t, err)
 

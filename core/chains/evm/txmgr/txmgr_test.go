@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -18,10 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"gopkg.in/guregu/null.v4"
-
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
@@ -30,10 +25,11 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -57,8 +53,7 @@ func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory, lp)
 
 	_, err := txm.SendEther(big.NewInt(0), from, to, *value, 21000)
@@ -70,7 +65,7 @@ func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -162,7 +157,7 @@ func TestTxm_CountUnconfirmedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -184,7 +179,7 @@ func TestTxm_CountUnstartedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -205,7 +200,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	kst := cltest.NewKeyStore(t, db, cfg)
 
@@ -223,8 +218,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 	txm := txmgr.NewTxm(db, ethClient, config, kst.Eth(), nil, lggr, checkerFactory, lp)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
@@ -426,22 +420,13 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
-		senders, err := evmtypes.MustGetABI(
-			authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"].Outputs.Pack(
-			[]gethcommon.Address{fromAddress})
-		require.NoError(t, err)
-		// mock getAuthorizedSenders to return [fromAddress]
-		ethClient.On("CallContract", mock.Anything,
-			ethereum.CallMsg{From: gethcommon.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
-			mock.Anything).Return(senders, nil).Once()
-
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: payload,
-			GasLimit:       gasLimit,
-			Forwardable:    true,
-			Strategy:       txmgr.NewSendEveryStrategy(),
+			FromAddress:      fromAddress,
+			ToAddress:        toAddress,
+			EncodedPayload:   payload,
+			GasLimit:         gasLimit,
+			ForwarderAddress: fwdr.Address,
+			Strategy:         txmgr.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
@@ -452,92 +437,6 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress, fwdrAddr)
-
-		config.AssertExpectations(t)
-	})
-
-	t.Run("skips forwarding when forwardable=false even with suitable forwarder setup.", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
-		pgtest.MustExec(t, db, `DELETE FROM evm_forwarders`)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-
-		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.TestLogger(t), cfg)
-		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
-		require.NoError(t, err)
-		require.Equal(t, fwdr.Address, fwdrAddr)
-
-		senders, err := evmtypes.MustGetABI(
-			authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"].Outputs.Pack(
-			[]gethcommon.Address{fromAddress})
-		require.NoError(t, err)
-		// mock getAuthorizedSenders to return [fromAddress]
-		ethClient.On("CallContract", mock.Anything,
-			ethereum.CallMsg{From: gethcommon.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
-			mock.Anything).Return(senders, nil).Maybe()
-
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: payload,
-			GasLimit:       gasLimit,
-			Meta:           &txmgr.EthTxMeta{},
-			Forwardable:    false,
-			Strategy:       txmgr.NewSendEveryStrategy(),
-		})
-		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
-
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
-
-		m, err := etx.GetMeta()
-		require.NoError(t, err)
-		require.Nil(t, m.FwdrDestAddress)
-		require.Equal(t, etx.ToAddress, toAddress)
-
-		config.AssertExpectations(t)
-	})
-
-	t.Run("skips forwarding tx when forwarder doesn't authorize sender", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
-		pgtest.MustExec(t, db, `DELETE FROM evm_forwarders`)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-
-		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.TestLogger(t), cfg)
-		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
-		require.NoError(t, err)
-		require.Equal(t, fwdr.Address, fwdrAddr)
-
-		senders, err := evmtypes.MustGetABI(
-			authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"].Outputs.Pack(
-			[]gethcommon.Address{})
-		require.NoError(t, err)
-		// mock getAuthorizedSenders to return empty array, indicating sender is not authorized to use forwarder.
-		ethClient.On("CallContract", mock.Anything,
-			ethereum.CallMsg{From: gethcommon.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
-			mock.Anything).Return(senders, nil).Once()
-
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: payload,
-			GasLimit:       gasLimit,
-			Forwardable:    true,
-			Meta:           &txmgr.EthTxMeta{},
-			Strategy:       txmgr.NewSendEveryStrategy(),
-		})
-		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
-
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
-
-		m, err := etx.GetMeta()
-		require.NoError(t, err)
-		require.Nil(t, m.FwdrDestAddress)
-		require.Equal(t, etx.ToAddress, toAddress)
 
 		config.AssertExpectations(t)
 	})
@@ -564,23 +463,24 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
 	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe()
-	cfg.On("EvmGasBumpWei").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasFeeCapDefault").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasBumpWei").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmGasFeeCapDefault").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmGasLimitMultiplier").Return(float32(42)).Maybe().Once()
-	cfg.On("EvmGasPriceDefault").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasTipCapDefault").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasPriceDefault").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmGasTipCapDefault").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmGasTipCapMinimum").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmMaxGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
+	cfg.On("EvmMinGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmUseForwarders").Return(true).Maybe()
 	cfg.On("LogSQL").Maybe().Return(false)
+	cfg.On("DatabaseDefaultQueryTimeout").Return(pg.DefaultQueryTimeout).Maybe()
 
 	return cfg
 }
 
 func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	etKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -599,8 +499,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 	kst := cltest.NewKeyStore(t, db, cfg)
 	txm := txmgr.NewTxm(db, ethClient, config, kst.Eth(), nil, lggr, &testCheckerFactory{}, lp)
 
@@ -696,8 +595,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
 
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory, lp)
 
 	head := cltest.Head(42)
@@ -867,13 +765,15 @@ func TestTxm_Reset(t *testing.T) {
 func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
 	var err error
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(true)
+	})
 
 	kst := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)
 	_, disabledAddress := cltest.MustInsertRandomKeyReturningState(t, kst, false)
 
-	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(true)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ethNodeNonce := uint64(22)

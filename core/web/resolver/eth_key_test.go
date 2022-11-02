@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -83,7 +82,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.balM.On("GetEthBalance", address).Return(assets.NewEth(1))
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
-				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(big.NewInt(1))
+				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
@@ -296,7 +295,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(big.NewInt(1))
+				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
@@ -346,7 +345,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.chain.On("BalanceMonitor").Return(nil)
-				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(big.NewInt(1))
+				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})

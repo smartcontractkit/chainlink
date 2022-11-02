@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -25,30 +24,7 @@ import (
 var _ = Describe("Cronjob suite @cron", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Cronjob suite on Simulated Network @simulated",
-				networks.SimulatedEVM,
-				defaultCronEnv(networks.SimulatedEVM),
-			),
-			Entry("Cronjob suite on General EVM Network read from env vars @general",
-				networks.GeneralEVM(),
-				defaultCronEnv(networks.GeneralEVM()),
-			),
-			Entry("Cronjob suite on Metis Stardust @metis",
-				networks.MetisStardust,
-				defaultCronEnv(networks.MetisStardust),
-			),
-			Entry("Cronjob suite on Sepolia Testnet @sepolia",
-				networks.SepoliaTestnet,
-				defaultCronEnv(networks.SepoliaTestnet),
-			),
-			Entry("Cronjob suite on Görli Testnet @goerli",
-				networks.GoerliTestnet,
-				defaultCronEnv(networks.GoerliTestnet),
-			),
-			Entry("Cronjob suite on Klaytn Baobab @klaytn",
-				networks.KlaytnBaobab,
-				defaultCronEnv(networks.KlaytnBaobab),
-			),
+			Entry("Cronjob suite on a default environment @default", defaultCronEnv()),
 		}
 
 		err             error
@@ -65,12 +41,10 @@ var _ = Describe("Cronjob suite @cron", func() {
 	})
 
 	DescribeTable("Cronjob suite on different EVM networks", func(
-		testNetwork *blockchain.EVMNetwork,
-		env *environment.Environment,
+		testInputs *smokeTestInputs,
 	) {
 		By("Deploying the environment")
-		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
+		testEnvironment = testInputs.environment
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred(), "Error deploying test environment")
 
@@ -114,7 +88,8 @@ var _ = Describe("Cronjob suite @cron", func() {
 	)
 })
 
-func defaultCronEnv(network *blockchain.EVMNetwork) *environment.Environment {
+func defaultCronEnv() *smokeTestInputs {
+	network := networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -123,11 +98,17 @@ func defaultCronEnv(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	env := environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"env": network.ChainlinkValuesMap(),
 		}))
+	return &smokeTestInputs{
+		environment: env,
+		network:     network,
+	}
 }

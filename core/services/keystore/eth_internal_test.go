@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -15,9 +14,8 @@ import (
 
 func Test_EthKeyStore(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := ExposedNewMaster(t, db, cfg)
+	keyStore := ExposedNewMaster(t, db, pgtest.NewQConfig(true))
 	err := keyStore.Unlock(testutils.Password)
 	require.NoError(t, err)
 	ks := keyStore.Eth()

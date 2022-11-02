@@ -8,12 +8,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -41,14 +43,15 @@ func TestPipelineORM_Integration(t *testing.T) {
         answer2 [type=bridge name=election_winner index=1];
     `
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
+	})
 	db := pgtest.NewSqlxDB(t)
-	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	var specID int32
 
@@ -143,13 +146,14 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 	t.Run("creates runs", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
-		cfg := cltest.NewTestGeneralConfig(t)
+		cfg := configtest2.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
+		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
-		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr, nil, nil)
+		runner := pipeline.NewRunner(orm, btORM, config, cc, nil, nil, lggr, nil, nil)
 		defer runner.Close()
-		jobORM := job.NewTestORM(t, db, cc, orm, keyStore, cfg)
+		jobORM := NewTestORM(t, db, cc, orm, btORM, keyStore, cfg)
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
