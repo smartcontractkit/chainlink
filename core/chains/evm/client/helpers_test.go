@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type TestNodeConfig struct {
@@ -36,7 +37,7 @@ func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPU
 
 	lggr := logger.TestLogger(t)
 	n := NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID)
-	n.(*node).setLatestReceivedBlockNumber(0)
+	n.(*node).setLatestReceived(0, utils.NewBigI(0))
 	primaries := []Node{n}
 
 	var sendonlys []SendOnlyNode
