@@ -189,7 +189,7 @@ func (o *orm) UpsertBridgeResponse(dotId string, specId int32, response []byte) 
 				DO UPDATE SET value = $3, finished_at = NOW();`
 
 	err := o.q.ExecQ(sql, dotId, specId, response)
-	return errors.Wrap(err, "failed to upsert good response")
+	return errors.Wrap(err, "failed to upsert bridge response")
 }
 
 // --- External Initiator
