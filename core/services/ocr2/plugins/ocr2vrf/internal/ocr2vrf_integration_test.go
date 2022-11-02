@@ -670,7 +670,13 @@ func setVRFConfig(
 	confDelaysSl []int,
 	keyID [32]byte,
 ) {
-	offchainConfig := ocr2vrf.OffchainConfig()
+	offchainConfig := ocr2vrf.OffchainConfig(&ocr2vrftypes.CoordinatorVars{
+		CacheEvictionWindowSeconds: 60,
+		BatchGasLimit:              5_000_000,
+		CoordinatorOverhead:        50_000,
+		CallbackOverhead:           50_000,
+		BlockGasOverhead:           50_000,
+	})
 
 	confDelays := make(map[uint32]struct{})
 	for _, c := range confDelaysSl {
