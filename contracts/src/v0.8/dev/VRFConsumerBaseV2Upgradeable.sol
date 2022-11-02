@@ -32,7 +32,7 @@ pragma solidity ^0.8.4;
  *
  * @dev   import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * @dev   contract VRFConsumer is Initializable, VRFConsumerBaseV2Upgradeable {
- * @dev     initialize(<other arguments>, address _vrfCoordinator) public {
+ * @dev     initialize(<other arguments>, address _vrfCoordinator) public initializer {
  * @dev         __VRFConsumerBaseV2_init(_vrfCoordinator);
  * @dev         <initialization with other arguments goes here>
  * @dev       }
@@ -94,14 +94,16 @@ pragma solidity ^0.8.4;
  * @dev that you can signal to an oracle you'd like them to wait longer before
  * @dev responding to the request (however this is not enforced in the contract
  * @dev and so remains effective only in the case of unmodified oracle software).
- * @dev The VRFConsumerBaseV2Upgradable is an upgradable variant of VRFConsumerBaseV2
- * @dev (see https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable).
- * @dev It's semantics are identical to VRFConsumerBaseV2 and can be inherited from
- * @dev to create an upgradeable VRF consumer contract.
  */
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
+/**
+ * @dev The VRFConsumerBaseV2Upgradable is an upgradable variant of VRFConsumerBaseV2
+ * @dev (see https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable).
+ * @dev It's semantics are identical to VRFConsumerBaseV2 and can be inherited from
+ * @dev to create an upgradeable VRF consumer contract.
+*/
 abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
   error OnlyCoordinatorCanFulfill(address have, address want);
   address private vrfCoordinator;
