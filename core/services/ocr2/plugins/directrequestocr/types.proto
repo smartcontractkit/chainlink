@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "core/services/ocr2/plugins/directrequestocr";
+
+package types;
+
+message Query {
+    repeated bytes requestIDs = 1;
+}
+
+message ProcessedRequest {
+    bytes requestID = 1;
+    bytes result = 2;
+    bytes error = 3;
+}
+
+message Observation {
+    repeated ProcessedRequest processedRequests = 1;
+}
