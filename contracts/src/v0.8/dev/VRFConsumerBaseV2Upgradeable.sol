@@ -110,10 +110,7 @@ abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
 
   // See https://github.com/OpenZeppelin/openzeppelin-sdk/issues/37.
   // Each uint256 covers a single storage slot, see https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html.
-  // NOTE: it's not clear if this is necessary for this base contract; it seems to be only relevant
-  // if we are going to add additional storage variables in the future to this contract, which seems
-  // unlikely, given the stability of the contract API so far.
-  uint256[50] private ______gap;
+  uint256[49] private __gap;
 
   /**
    * @param _vrfCoordinator the VRFCoordinatorV2 address.
