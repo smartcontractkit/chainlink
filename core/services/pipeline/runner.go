@@ -243,7 +243,6 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).orm = r.btORM
-			task.(*BridgeTask).trORM = r.orm
 			task.(*BridgeTask).specId = run.PipelineSpec.ID
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators

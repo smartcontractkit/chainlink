@@ -184,7 +184,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -227,7 +227,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
 			map[string]interface{}{
@@ -244,32 +244,6 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
-
-	// Insert in the -5s past.
-	err = trORM.InsertFinishedRuns(
-		[]*pipeline.Run{
-			{
-				PipelineSpecID: specID,
-				CreatedAt:      time.Now().Add(-10 * time.Second),
-				FinishedAt:     null.TimeFrom(time.Now().Add(-5 * time.Second)),
-				State:          pipeline.RunStatusCompleted,
-				PipelineTaskRuns: []pipeline.TaskRun{
-					{
-						DotID:      task.DotID(),
-						CreatedAt:  time.Now().Add(-10 * time.Second),
-						FinishedAt: null.TimeFrom(time.Now().Add(-5 * time.Second)),
-						Output:     pipeline.JSONSerializable{Val: []interface{}{result.Value}, Valid: true},
-					},
-				},
-				AllErrors:   make(pipeline.RunErrors, 1),
-				FatalErrors: make(pipeline.RunErrors, 1),
-				Outputs:     pipeline.JSONSerializable{Val: []interface{}{result.Value}, Valid: true},
-			},
-		},
-		true,
-		pg.WithParentCtx(testutils.Context(t)),
-	)
-	assert.NoError(t, err)
 
 	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
@@ -328,7 +302,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.True(t, runInfo.IsPending)
@@ -506,7 +480,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
-			task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -575,7 +549,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	mp := map[string]interface{}{"meta": metaDataForBridge}
 	res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
@@ -629,7 +603,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
-			task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -684,7 +658,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -723,7 +697,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -748,7 +722,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, trORM, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)

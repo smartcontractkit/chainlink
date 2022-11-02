@@ -143,27 +143,6 @@ func (_m *ORM) GetAllRuns() ([]pipeline.Run, error) {
 	return r0, r1
 }
 
-// GetLastGoodTaskRun provides a mock function with given fields: dotId, specId, maxElapsedSeconds
-func (_m *ORM) GetLastGoodTaskRun(dotId string, specId int32, maxElapsedSeconds time.Duration) (pipeline.TaskRun, error) {
-	ret := _m.Called(dotId, specId, maxElapsedSeconds)
-
-	var r0 pipeline.TaskRun
-	if rf, ok := ret.Get(0).(func(string, int32, time.Duration) pipeline.TaskRun); ok {
-		r0 = rf(dotId, specId, maxElapsedSeconds)
-	} else {
-		r0 = ret.Get(0).(pipeline.TaskRun)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string, int32, time.Duration) error); ok {
-		r1 = rf(dotId, specId, maxElapsedSeconds)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetQ provides a mock function with given fields:
 func (_m *ORM) GetQ() pg.Q {
 	ret := _m.Called()

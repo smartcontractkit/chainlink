@@ -29,7 +29,6 @@ type BridgeTask struct {
 
 	specId     int32
 	orm        bridges.ORM
-	trORM      ORM
 	config     Config
 	httpClient *http.Client
 }
@@ -114,23 +113,15 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
+	var cachedResponse bool
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
-		taskRun, terr := t.trORM.GetLastGoodTaskRun(t.dotID, t.specId, time.Duration(time.Second*time.Duration(cacheTTL)))
-		if terr != nil {
+		var cacheErr error
+		responseBytes, cacheErr = t.orm.GetLastGoodResponse(t.dotID, t.specId, time.Duration(time.Second*time.Duration(cacheTTL)))
+		if cacheErr != nil {
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
-
-		responseBytes, err = taskRun.Output.MarshalJSON()
-		if err != nil {
-			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
-		}
-
-		lggr.Debugw("Bridge task: using cached value",
-			"answer", string(responseBytes),
-			"url", url.String(),
-			"dotID", t.DotID(),
-		)
+		cachedResponse = true
 	}
 
 	if t.Async == "true" {
@@ -147,6 +138,13 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		}
 	}
 
+	if !cachedResponse && cacheTTL > 0 {
+		err := t.orm.UpsertGoodResponse(t.dotID, t.specId, responseBytes)
+		if err != nil {
+			lggr.Errorw("Bridge task: failed to upsert response in bridge cache", "err", err)
+		}
+	}
+
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
@@ -160,6 +158,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"answer", result.Value,
 		"url", url.String(),
 		"dotID", t.DotID(),
+		"cached", cachedResponse,
 	)
 	return result, runInfo
 }

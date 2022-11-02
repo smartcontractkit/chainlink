@@ -32,7 +32,6 @@ const (
 func (t *BridgeTask) HelperSetDependencies(
 	config Config,
 	orm bridges.ORM,
-	trORM ORM,
 	specId int32,
 	id uuid.UUID,
 	httpClient *http.Client) {
@@ -40,7 +39,6 @@ func (t *BridgeTask) HelperSetDependencies(
 	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
-	t.trORM = trORM
 	t.specId = specId
 }
 
