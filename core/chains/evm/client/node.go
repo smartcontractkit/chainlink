@@ -78,7 +78,7 @@ var (
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
 
-//go:generate mockery --name Node --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Node --output ../mocks/ --case=underscore
 
 // Node represents a client that connects to an ethereum-compatible RPC node
 type Node interface {

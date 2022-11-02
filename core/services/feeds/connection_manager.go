@@ -7,14 +7,15 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/connectivity"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/connectivity"
 )
 
-//go:generate mockery --name ConnectionsManager --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ConnectionsManager --output ./mocks/ --case=underscore
 
 type ConnectionsManager interface {
 	Connect(opts ConnectOpts)
