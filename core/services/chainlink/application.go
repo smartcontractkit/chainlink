@@ -61,7 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {

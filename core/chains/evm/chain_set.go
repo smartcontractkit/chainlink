@@ -37,7 +37,7 @@ var _ ChainSet = &chainSet{}
 
 type ChainConfigUpdater func(*types.ChainCfg) error
 
-//go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)

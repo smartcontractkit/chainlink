@@ -2,7 +2,7 @@ package headtracker
 
 import "time"
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 
 // Config represents a subset of options needed by head tracker
 type Config interface {

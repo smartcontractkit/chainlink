@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
+//go:generate mockery --quiet --name P2P --output ./mocks/ --case=underscore --filename p2p.go
 
 type P2P interface {
 	Get(id p2pkey.PeerID) (p2pkey.KeyV2, error)
