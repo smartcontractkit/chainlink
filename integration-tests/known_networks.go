@@ -33,7 +33,8 @@ var (
 	// generalEVM is a customizable network through environment variables
 	generalEVM *blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
 
-	NetworkAlpha = &blockchain.EVMNetwork{
+	// SimulatedevmNonDev1 represents a simulated network which can be used to deploy a non-dev geth node
+	SimulatedEVMNonDev1 = &blockchain.EVMNetwork{
 		Name:                 "source-chain",
 		Simulated:            true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
@@ -49,7 +50,8 @@ var (
 		GasEstimationBuffer:       10000,
 	}
 
-	NetworkBeta = &blockchain.EVMNetwork{
+	// SimulatedEVM_NON_DEV_2 represents a simulated network with chain id 2337 which can be used to deploy a non-dev geth node
+	SimulatedEVMNonDev2 = &blockchain.EVMNetwork{
 		Name:                 "dest-chain",
 		Simulated:            true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
@@ -139,8 +141,8 @@ var (
 
 	mappedNetworks = map[string]*blockchain.EVMNetwork{
 		"SIMULATED":       SimulatedEVM,
-		"SIMULATED_ALPHA": NetworkAlpha,
-		"SIMULATED_BETA":  NetworkBeta,
+		"SIMULATED_1":     SimulatedEVMNonDev1,
+		"SIMULATED_2":     SimulatedEVMNonDev2,
 		"GENERAL":         generalEVM,
 		"GOERLI":          GoerliTestnet,
 		"SEPOLIA":         SepoliaTestnet,

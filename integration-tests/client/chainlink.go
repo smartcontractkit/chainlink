@@ -1005,6 +1005,9 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 		}
 
 		peerID := p2pkeys.Data[0].Attributes.PeerID
+		// If there is already a txkey present for the chain skip creating a new one
+		// otherwise the test logic will need multiple key management (like funding all the keys,
+		// for ocr scenarios adding all keys to ocr config)
 		var txKey *TxKey
 		txKeys, _, err := n.ReadTxKeys(chainName)
 		if err != nil {
@@ -1018,6 +1021,7 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 				}
 			}
 		}
+		// if no txkey is found for the chain, create a new one
 		if txKey == nil {
 			txKey, _, err = n.CreateTxKey(chainName, chainId)
 			if err != nil {
