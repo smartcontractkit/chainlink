@@ -150,7 +150,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			encodedProvingKeys = append(encodedProvingKeys, provingKey)
 		}
 
-		By("randomness is fulfilled")
+		By("Randomness is Fulfilled")
 		words := uint32(10)
 		keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
 		Expect(err).ShouldNot(HaveOccurred())
@@ -166,7 +166,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			randomness, err := consumer.GetAllRandomWords(context.Background(), int(words))
 			g.Expect(err).ShouldNot(HaveOccurred())
 			for _, w := range randomness {
-				log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
+				log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness Fulfilled")
 				g.Expect(w.Uint64()).Should(Not(BeNumerically("==", 0)), "Expected the VRF job give an answer other than 0")
 			}
 		}, timeout, "1s").Should(Succeed())
