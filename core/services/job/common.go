@@ -8,8 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name Service --output ./mocks/ --case=underscore
-//go:generate mockery --name ServiceCtx --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ServiceCtx --output ./mocks/ --case=underscore
 
 type Service interface {
 	Start() error

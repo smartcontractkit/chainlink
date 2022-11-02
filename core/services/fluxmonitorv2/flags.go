@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Flags --output ./mocks/ --case=underscore --structname Flags --filename flags.go
+//go:generate mockery --quiet --name Flags --output ./mocks/ --case=underscore --structname Flags --filename flags.go
 
 type Flags interface {
 	ContractExists() bool

@@ -94,7 +94,7 @@ type ChainScopedOnlyConfig interface {
 	SetEvmGasPriceDefault(value *big.Int) error
 }
 
-//go:generate mockery --name ChainScopedConfig --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	config.BasicConfig
 	ChainScopedOnlyConfig

@@ -44,7 +44,7 @@ type ETHTxTask struct {
 	jobType           string
 }
 
-//go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ETHKeyStore --output ./mocks/ --case=underscore
 
 type ETHKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)

@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
 
 // TelemetryIngressBatchClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc

@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Chain --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	services.ServiceCtx
 	ID() *big.Int
