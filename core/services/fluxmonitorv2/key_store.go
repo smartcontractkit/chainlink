@@ -4,11 +4,12 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
-//go:generate mockery --name KeyStoreInterface --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name KeyStoreInterface --output ./mocks/ --case=underscore
 
 // KeyStoreInterface defines an interface to interact with the keystore
 type KeyStoreInterface interface {

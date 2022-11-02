@@ -35,12 +35,12 @@ type Delegate struct {
 	lggr logger.Logger
 }
 
-//go:generate mockery --name GethKeyStore --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
 type GethKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	EvmFinalityDepth() uint32
 	EvmGasLimitDefault() uint32

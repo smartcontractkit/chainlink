@@ -20,7 +20,7 @@ var (
 	_ Estimator = &l2SuggestedPriceEstimator{}
 )
 
-//go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
+//go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
 type rpcClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }

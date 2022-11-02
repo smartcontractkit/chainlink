@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name SendOnlyNode --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name SendOnlyNode --output ../mocks/ --case=underscore
 
 // SendOnlyNode represents one ethereum node used as a sendonly
 type SendOnlyNode interface {
@@ -34,14 +34,14 @@ type SendOnlyNode interface {
 	String() string
 }
 
-//go:generate mockery --name TxSender --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name TxSender --output ./mocks/ --case=underscore
 
 type TxSender interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	ChainID(context.Context) (*big.Int, error)
 }
 
-//go:generate mockery --name BatchSender --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name BatchSender --output ./mocks/ --case=underscore
 
 type BatchSender interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error

@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
 
 type PipelineParamUnmarshaler interface {
 	UnmarshalPipelineParam(val interface{}) error
