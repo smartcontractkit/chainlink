@@ -199,4 +199,4 @@ func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, er
 }
 
 // NodeStates implements evmclient.Client
-func (nc *NullClient) NodeStates() map[int32]string { return nil }
+func (nc *NullClient) NodeStates() map[string]string { return nil }

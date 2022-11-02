@@ -125,13 +125,13 @@ func setupOCR2VRFContracts(
 	require.NoError(t, err)
 	b.Commit()
 
-	coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
+	require.NoError(t, utils.JustError(coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
 		RedeemableRequestGasOverhead: 50_000,
 		CallbackRequestGasOverhead:   50_000,
 		StalenessSeconds:             60,
 		PremiumPercentage:            0,
 		FallbackWeiPerUnitLink:       assets.GWei(int(1e7)).ToInt(),
-	})
+	})))
 	b.Commit()
 
 	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
@@ -150,16 +150,16 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	// Set up coordinator subscription for billing.
-	coordinator.CreateSubscription(owner)
+	require.NoError(t, utils.JustError(coordinator.CreateSubscription(owner)))
 	b.Commit()
 	subID := uint64(1)
-	coordinator.AddConsumer(owner, subID, consumerAddress)
+	require.NoError(t, utils.JustError(coordinator.AddConsumer(owner, subID, consumerAddress)))
 	b.Commit()
-	coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)
+	require.NoError(t, utils.JustError(coordinator.AddConsumer(owner, subID, loadTestConsumerAddress)))
 	b.Commit()
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
 	require.NoError(t, err)
-	link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)
+	require.NoError(t, utils.JustError(link.TransferAndCall(owner, coordinatorAddress, big.NewInt(5e18), data)))
 	b.Commit()
 
 	_, err = dkg.AddClient(owner, keyID, beaconAddress)
@@ -242,7 +242,7 @@ func setupNodeOCR2(
 		// Add new sending key.
 		k, err := app.KeyStore.Eth().Create()
 		require.NoError(t, err)
-		app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID)
+		require.NoError(t, app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID))
 		sendingKeys = append(sendingKeys, k)
 		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
 
@@ -533,6 +533,16 @@ lookbackBlocks         	= %d # This is an integer
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
+		// Ensure a refund is provided. Refund amount comes out to ~23_800_000 million Gwei.
+		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
+		refundUpperBound := big.NewInt(0).Add(assets.GWei(25_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundLowerBound := big.NewInt(0).Add(assets.GWei(23_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		subAfterRefund, err := uni.coordinator.GetSubscription(nil, 1)
+		require.NoError(t, err)
+		if ok := ((subAfterRefund.Balance.Cmp(refundUpperBound) == -1) && (subAfterRefund.Balance.Cmp(refundLowerBound) == 1)); !ok {
+			return false
+		}
+
 		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, big.NewInt(0))
 		t.Logf("TestRedeemRandomness err: %+v", err1)
 		return err1 == nil

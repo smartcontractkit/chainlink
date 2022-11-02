@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GeneralConfig --output ./mocks/ --case=underscore
 
 // nolint
 var (

@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Chain --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	services.ServiceCtx
 	ID() *big.Int
@@ -94,7 +94,7 @@ func newDBChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, 
 func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (*chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
-	if chain.Enabled != nil && !*chain.Enabled {
+	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
 	cfg := v2.NewTOMLChainScopedConfig(opts.Config, chain, l)

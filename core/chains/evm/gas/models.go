@@ -81,7 +81,7 @@ type PriorAttempt interface {
 
 // Estimator provides an interface for estimating gas price and limit
 //
-//go:generate mockery --name Estimator --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
 	Start(context.Context) error
@@ -120,7 +120,7 @@ func applyMultiplier(gasLimit uint32, multiplier float32) uint32 {
 
 // Config defines an interface for configuration in the gas package
 //
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	BlockHistoryEstimatorBatchSize() uint32
 	BlockHistoryEstimatorBlockDelay() uint16

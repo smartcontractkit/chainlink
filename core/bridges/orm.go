@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name ORM --output ./mocks --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks --case=underscore
 
 type ORM interface {
 	FindBridge(name BridgeName) (bt BridgeType, err error)

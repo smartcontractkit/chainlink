@@ -414,10 +414,8 @@ func (c *coordinator) getBlockhashesMapping(
 func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled) map[uint64]struct{} {
 	fulfilledRequestIDs := make(map[uint64]struct{})
 	for _, r := range randomWordsFulfilledLogs {
-		for i, requestID := range r.RequestIDs {
-			if r.SuccessfulFulfillment[i] == 1 {
-				fulfilledRequestIDs[requestID.Uint64()] = struct{}{}
-			}
+		for _, requestID := range r.RequestIDs {
+			fulfilledRequestIDs[requestID.Uint64()] = struct{}{}
 		}
 	}
 	return fulfilledRequestIDs
@@ -489,6 +487,8 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					Requester:         r.Callback.Requester,
 					Arguments:         r.Callback.Arguments,
 					GasAllowance:      r.Callback.GasAllowance,
+					GasPrice:          r.Callback.GasPrice,
+					WeiPerUnitLink:    r.Callback.WeiPerUnitLink,
 				})
 				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
 			}
