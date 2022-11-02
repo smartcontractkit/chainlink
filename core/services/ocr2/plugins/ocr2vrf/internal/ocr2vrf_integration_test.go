@@ -535,8 +535,8 @@ lookbackBlocks         	= %d # This is an integer
 	gomega.NewWithT(t).Eventually(func() bool {
 		// Ensure a refund is provided. Refund amount comes out to ~23_800_000 million Gwei.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
-		var refundUpperBound = big.NewInt(0).Add(big.NewInt(assets.GWei(25_000_000).Int64()), subAfterBatchFulfillmentRequest.Balance)
-		var refundLowerBound = big.NewInt(0).Add(big.NewInt(assets.GWei(23_000_000).Int64()), subAfterBatchFulfillmentRequest.Balance)
+		refundUpperBound := big.NewInt(0).Add(assets.GWei(25_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundLowerBound := big.NewInt(0).Add(assets.GWei(23_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
 		subAfterRefund, err := uni.coordinator.GetSubscription(nil, 1)
 		require.NoError(t, err)
 		if ok := ((subAfterRefund.Balance.Cmp(refundUpperBound) == -1) && (subAfterRefund.Balance.Cmp(refundLowerBound) == 1)); !ok {
