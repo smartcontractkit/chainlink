@@ -118,6 +118,10 @@ abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
    * @dev addresses on your preferred network.
    */
   function __VRFConsumerBaseV2_init(address _vrfCoordinator) internal onlyInitializing {
+    if (_vrfCoordinator == address(0)) {
+      revert("must give valid coordinator address");
+    }
+
     vrfCoordinator = _vrfCoordinator;
   }
 
