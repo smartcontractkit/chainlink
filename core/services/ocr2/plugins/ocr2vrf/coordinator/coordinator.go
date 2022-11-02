@@ -489,6 +489,8 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					Requester:         r.Callback.Requester,
 					Arguments:         r.Callback.Arguments,
 					GasAllowance:      r.Callback.GasAllowance,
+					GasPrice:          r.Callback.GasPrice,
+					WeiPerUnitLink:    r.Callback.WeiPerUnitLink,
 				})
 				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
 			}
