@@ -409,7 +409,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1, 1000, coordinatorAddress),
 			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2, 1000, coordinatorAddress),
 			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3, 1000, coordinatorAddress),
-			newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1}, coordinatorAddress),
+			// Regardless of success or failure, if the fulfillment has been tried once do not report again.
+			newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 0, 0}, coordinatorAddress),
 			newOutputsServedLog(t, []vrf_coordinator.VRFBeaconTypesOutputServed{
 				{
 					Height:            195,
