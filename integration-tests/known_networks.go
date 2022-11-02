@@ -1,15 +1,20 @@
 package networks
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Pre-configured test networks and their connections
@@ -18,6 +23,7 @@ import (
 var (
 	// SelectedNetworks uses the SELECTED_NETWORKS env var to determine which network to run the test on.
 	// For use in tests that utilize multiple chains. For tests on one chain, see SelectedNetwork
+	// For CCIP use index 1 and 2 of SELECTED_NETWORKS to denote source and destination network respectively
 	SelectedNetworks []*blockchain.EVMNetwork = determineSelectedNetworks()
 	// SelectedNetwork uses the first listed network in SELECTED_NETWORKS, for use in tests on only one chain
 	SelectedNetwork *blockchain.EVMNetwork = SelectedNetworks[0]
@@ -26,6 +32,40 @@ var (
 	SimulatedEVM *blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 	// generalEVM is a customizable network through environment variables
 	generalEVM *blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
+
+	// SimulatedevmNonDev1 represents a simulated network which can be used to deploy a non-dev geth node
+	SimulatedEVMNonDev1 = &blockchain.EVMNetwork{
+		Name:                 "source-chain",
+		Simulated:            true,
+		ClientImplementation: blockchain.EthereumClientImplementation,
+		ChainID:              1337,
+		PrivateKeys: []string{
+			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		},
+		URLs:                      []string{"ws://source-chain-ethereum-geth:8546"},
+		HTTPURLs:                  []string{"http://source-chain-ethereum-geth:8544"},
+		ChainlinkTransactionLimit: 500000,
+		Timeout:                   2 * time.Minute,
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       10000,
+	}
+
+	// SimulatedEVM_NON_DEV_2 represents a simulated network with chain id 2337 which can be used to deploy a non-dev geth node
+	SimulatedEVMNonDev2 = &blockchain.EVMNetwork{
+		Name:                 "dest-chain",
+		Simulated:            true,
+		ClientImplementation: blockchain.EthereumClientImplementation,
+		ChainID:              2337,
+		PrivateKeys: []string{
+			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		},
+		URLs:                      []string{"ws://dest-chain-ethereum-geth:8546"},
+		HTTPURLs:                  []string{"http://dest-chain-ethereum-geth:8544"},
+		ChainlinkTransactionLimit: 500000,
+		Timeout:                   2 * time.Minute,
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       10000,
+	}
 
 	// sepoliaTestnet https://sepolia.dev/
 	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
@@ -101,6 +141,8 @@ var (
 
 	mappedNetworks = map[string]*blockchain.EVMNetwork{
 		"SIMULATED":       SimulatedEVM,
+		"SIMULATED_1":     SimulatedEVMNonDev1,
+		"SIMULATED_2":     SimulatedEVMNonDev2,
 		"GENERAL":         generalEVM,
 		"GOERLI":          GoerliTestnet,
 		"SEPOLIA":         SepoliaTestnet,
@@ -144,7 +186,8 @@ func determineSelectedNetworks() []*blockchain.EVMNetwork {
 func setURLs(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
-	if prefix == "SIMULATED" { // Use defaults or read from env values for SIMULATED
+
+	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
 		return
 	}
 
@@ -166,7 +209,8 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
-	if prefix == "SIMULATED" { // Use defaults or read from env values for SIMULATED
+
+	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
 		return
 	}
 
@@ -182,4 +226,25 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	keys := strings.Split(os.Getenv(envVar), ",")
 	network.PrivateKeys = keys
 	log.Info().Interface(envVar, keys).Msg("Read network Keys")
+}
+
+func DeriveEVMNodesFromNetworkSettings(networks ...blockchain.EVMNetwork) (string, error) {
+	var evmNodes []types.NewNode
+	for i, n := range networks {
+		evmNodes = append(evmNodes, types.NewNode{
+			Name:       fmt.Sprintf("network_%d", i),
+			EVMChainID: *utils.NewBigI(n.ChainID),
+			WSURL:      null.StringFrom(n.URLs[0]),
+			HTTPURL:    null.StringFrom(n.HTTPURLs[0]),
+			SendOnly:   false,
+		})
+	}
+	if len(evmNodes) > 0 {
+		evmNodes, err := json.Marshal(evmNodes)
+		if err != nil {
+			return "", err
+		}
+		return string(evmNodes), nil
+	}
+	return "", nil
 }
