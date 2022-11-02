@@ -1,6 +1,8 @@
 package config
 
-// The PluginConfig struct contains the custom arguments needed for the Median plugin.
+// This Config is part of the job spec.
+// TODO: Define which values should be in the config stored in the contract vs here.
+// https://app.shortcut.com/chainlinklabs/story/56615/config-for-reporting-plugin
 type PluginConfig struct {
 	MinIncomingConfirmations uint32 `json:"minIncomingConfirmations"`
 	MaxRequestsPerOCRRound   uint32 `json:"maxRequestsPerOCRRound"`
