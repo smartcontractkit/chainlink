@@ -1,0 +1,561 @@
+# This workflow will build a docker container, publish it to Google Container Registry, and deploy it to GKE when there is a push to the "develop" branch.
+#
+# To configure this workflow:
+#
+# 1. Ensure that your repository contains the necessary configuration for your Google Kubernetes Engine cluster, including deployment.yml, kustomization.yml, service.yml, etc.
+#
+# 2. Create and configure a Workload Identity Provider for GitHub (https://github.com/google-github-actions/auth#setting-up-workload-identity-federation)
+#
+# 3. Change the values for the GAR_LOCATION, GKE_ZONE, GKE_CLUSTER, IMAGE, REPOSITORY and DEPLOYMENT_NAME environment variables (below).
+#
+# For more support on how to run the workflow, please visit https://github.com/google-github-actions/setup-gcloud/tree/master/example-workflows/gke-kustomize
+
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches: [ "develop" ]
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GAR_LOCATION: us-central1 # TODO: update region of the Artifact Registry
+  GKE_CLUSTER: cluster-1    # TODO: update to cluster name
+  GKE_ZONE: us-central1-c   # TODO: update to cluster zone
+  DEPLOYMENT_NAME: gke-test # TODO: update to deployment name
+  REPOSITORY: samples # TODO: update to Artifact Registry docker repository
+  IMAGE: static-site
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # Configure Workload Identity Federation and generate an access token.
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v0'
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
+        service_account: 'my-service-account@my-project.iam.gserviceaccount.com'
+
+    # Alternative option - authentication via credentials json
+    # - id: 'auth'
+    #   uses: 'google-github-actions/auth@v0'
+    #   with:
+    #     credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Docker configuration
+      run: |-
+        echo ${{steps.auth.outputs.access_token}} | docker login -u oauth2accesstoken --password-stdin https://$GAR_LOCATION-docker.pkg.dev
+    # Get the GKE credentials so we can deploy to the cluster
+    - name: Set up GKE credentials
+      uses: google-github-actions/get-gke-credentials@v0
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+
+    # Build the Docker image
+    - name: Build
+      run: |-
+        docker build \
+          --tag "$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$GITHUB_SHA" \
+          --build-arg GITHUB_SHA="$GITHUB_SHA" \
+          --build-arg GITHUB_REF="$GITHUB_REF" \
+          .
+    # Push the Docker image to Google Artifact Registry
+    - name: Publish
+      run: |-
+        docker push "$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$GITHUB_SHA"
+    # Set up kustomize
+    - name: Set up Kustomize
+      run: |-
+        curl -sfLo kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64
+        chmod u+x ./kustomize
+    # Deploy the Docker image to the GKE cluster
+    - name: Deploy
+      run: |-
+        # replacing the image name in the k8s template
+        ./kustomize edit set image LOCATION-docker.pkg.dev/PROJECT_ID/REPOSITORY/IMAGE:TAG=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$GITHUB_SHA
+        ./kustomize build . | kubectl apply -f -
+        kubectl rollout status deployment/$DEPLOYMENT_NAME
+        kubectl get services -o wide
+
+
+ - name: Setup Go environment
+  uses: actions/setup-go@v3.3.1
+  with:
+    # The Go version to download (if necessary) and use. Supports semver spec and ranges.
+    go-version: # optional
+    # Path to the go.mod file.
+    go-version-file: # optional
+    # Set this option to true if you want the action to always check for the latest available version that satisfies the version spec
+    check-latest: # optional
+    # Used to pull node distributions from go-versions.  Since there's a default, this is typically not supplied by the user.
+    token: # optional, default is ${{ github.token }}
+    # Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
+    cache: # optional
+    # Used to specify the path to a dependency file - go.sum
+    cache-dependency-path: # optional
+    # Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.
+    architecture: # optional
+    
+    - name: Deploy Environment
+  # You may pin to the exact commit or the version.
+  # uses: parasoft/deploy-environment-action@486e9382c6c2958fcbaad60b895da799d16730c2
+  uses: parasoft/deploy-environment-action@1.0.2
+  with:
+    # CTP URL
+    ctpUrl: 
+    # CTP Username
+    ctpUsername: 
+    # CTP Password
+    ctpPassword: 
+    # Name of the system
+    system: 
+    # Name of the environment
+    environment: 
+    # Name of the environment instance to provision
+    instance: 
+    # Fail action and abort on provisioning failure
+    abortOnFailure: # optional
+    # Virtual assets in the environment will be replicated on another server
+    copyToVirtualize: # optional
+    # The environment assets will be copied to a Virtualize server matching this name
+    virtServerName: # optional
+    # The name for the replicated environment can be used to later destroy the environment
+    newEnvironmentName: # optional
+    # Duplicate associated data repositories before provisioning
+    duplicateDataRepo: # optional
+    # Where to duplicate data repository
+    duplicateType: # optional
+    # The host of the data repository server
+    repoHost: # optional
+    # The port of the data repository server
+    repoPort: # optional
+    # The username of the data repository server
+    repoUsername: # optional
+    # The password of the data repository server
+    repoPassword: # optional
+    
+    - name: Execute Job
+  # You may pin to the exact commit or the version.
+  # uses: parasoft/execute-job-action@1899d360584e281e027c537d2df0f75a1115776e
+  uses: parasoft/execute-job-action@1.0.7
+  with:
+    # CTP URL
+    ctpUrl: 
+    # CTP Username
+    ctpUsername: 
+    # CTP Password
+    ctpPassword: 
+    # CTP Test Execution Job Name
+    ctpJob: 
+    # Abort the job after timeout exceeded
+    abortOnTimeout: # optional
+    # Timeout value in minutes
+    timeoutInMinutes: # optional
+    # Publish test execution results to DTP
+    publishReport: # optional
+    # DTP URL
+    dtpUrl: # optional
+    # DTP Username
+    dtpUsername: # optional
+    # DTP Password
+    dtpPassword: # optional
+    # DTP Project Name
+    dtpProject: # optional
+    # Build ID to send to DTP
+    buildId: # optional
+    # Session Tag to send to DTP
+    sessionTag: # optional
+    # Append the test variable set environment name to the session tag
+    appendEnvironment: # optional
+    
+    - name: Bridgecrew Github Action
+  # You may pin to the exact commit or the version.
+  # uses: bridgecrewio/bridgecrew-action@e388196ade022d4c6f28c368c4428b05e4f5d33a
+  uses: bridgecrewio/bridgecrew-action@v1.177.2
+  with:
+    # directory with infrastructure code to scan
+    directory: # optional, default is .
+    # Run scan only on a specific check identifier (comma separated)
+    check: # optional
+    # Run scan on all checks but a specific check identifier (comma separated)
+    skip_check: # optional
+    # display only failed checks
+    quiet: # optional
+    # Environment variable name of the Bridgecrew API key from Bridgecrew app
+    api-key: # optional
+    # Runs checks but suppresses error code
+    soft-fail: # optional
+    # Directory for custom checks to be loaded
+    external-checks-dir: # optional
+    # Output Format (cli, cli+sarif, json, junitxml)
+    output_format: # optional, default is sarif
+    
+    - name: Veracode Static Analysis Pipeline Scan and SARIF import
+  # You may pin to the exact commit or the version.
+  # uses: veracode/veracode-pipeline-scan-results-to-sarif@c4e3ac33a116df4b7074d53747d8814e8fdf974b
+  uses: veracode/veracode-pipeline-scan-results-to-sarif@v0.1.5
+  with:
+    # location of the pipeline json result file
+    pipeline-results-json: # default is results.json
+    # the path to the SARIF file as an output of the transformation
+    output-results-sarif: # default is veracode-results.sarif
+    # a path prefix conversion before publish in the SARIF file
+    source-base-path-1: # optional, default is 
+    # a path prefix conversion before publish in the SARIF file
+    source-base-path-2: # optional, default is 
+    # a path prefix conversion before publish in the SARIF file
+    source-base-path-3: # optional, default is 
+    # The conversion rule of Veracode findings to GitHub level
+    finding-rule-level: # default is 4:3:0
+    
+    - name: Codefresh pipeline runner
+  # You may pin to the exact commit or the version.
+  # uses: codefresh-io/codefresh-pipeline-runner@c563a2bb98a7b8522192aaabf79ee9504141f8dc
+  uses: codefresh-io/codefresh-pipeline-runner@v7
+  with:
+    # codefresh cli build variables, see https://codefresh-io.github.io/cli/pipelines/run-pipeline/#setting-variables-through-the-command for more information.
+    args: # optional
+    
+   - name: action-git-diff-suggestions
+  # You may pin to the exact commit or the version.
+  # uses: getsentry/action-git-diff-suggestions@8c75946d0d7bbe80a92cf3579d544321512c30b7
+  uses: getsentry/action-git-diff-suggestions@v1
+  with:
+    # github token
+    github-token: # optional
+    # The message to prepend the review suggestion
+    message: # optional
+    - name: Coveralls GitHub Action
+  # You may pin to the exact commit or the version.
+  # uses: coverallsapp/github-action@9ba913c152ae4be1327bfb9085dc806cedb44057
+  uses: coverallsapp/github-action@1.1.3
+  with:
+    # 
+    github-token: 
+    # Path to lcov file
+    path-to-lcov: # default is ./coverage/lcov.info
+    # Job flag name, e.g. "Unit", "Functional", or "Integration". Will be shown in the Coveralls UI.
+    flag-name: # optional
+    # Set to true if you are running parallel jobs, then use "parallel_finished: true" for the last action.
+    parallel: # optional
+    # Set to true for the last action when using "parallel: true".
+    parallel-finished: # optional
+    # Coveralls Enterprise server (more info: https://enterprise.coveralls.io)
+    coveralls-endpoint: # optional, default is https://coveralls.io
+    # The root folder of the project that originally ran the tests
+    base-path: # optional
+    # Override the branch name
+    git-branch: # optional
+    # Override the commit sha
+    git-commit: # optional
+    
+    - name: Fortify ScanCentral Scan
+  # You may pin to the exact commit or the version.
+  # uses: fortify/gha-setup-scancentral-client@906d5cb5d8765c2e86e1ae7d32cd7b4bf45103f2
+  uses: fortify/gha-setup-scancentral-client@v1.2.0
+  with:
+    # Fortify ScanCentral Client version to use
+    version: # default is 20.2.0
+    # ScanCentral client authentication token
+    client-auth-token: # optional
+    
+    - name: Ponicode Unit Test
+  # You may pin to the exact commit or the version.
+  # uses: ponicode/unit-testing-action@197ac764140cfcbd03b49d3ad735f22b3042fa10
+  uses: ponicode/unit-testing-action@0.2.1
+  with:
+    # String: URL of the repo to be processed
+    repoUrl: 
+    # String: Ponicode UT user token from Github Secrets
+    ponicodeUtToken: 
+    # GitHub token to generate some comments into the PR
+    githubToken: 
+    # String[]: List of the files updated in the PR
+    impactedFiles: 
+    # String: branch on which the PR applies
+    branch: # default is master
+    # Comment the generated UT
+    commentUTs: 
+    
+    - name: Codecov
+  # You may pin to the exact commit or the version.
+  # uses: codecov/codecov-action@d9f34f8cd5cb3b3eb79b3e4b5dae3a16df499a70
+  uses: codecov/codecov-action@v3.1.1
+  with:
+    # Repository upload token - get it from codecov.io. Required only for private repositories
+    token: # optional
+    # Comma-separated list of files to upload
+    files: # optional
+    # Directory to search for coverage reports.
+    directory: # optional
+    # Flag upload to group coverage metrics (e.g. unittests | integration | ui,chrome)
+    flags: # optional
+    # The commit SHA of the parent for which you are uploading coverage. If not present, the parent will be determined using the API of your repository provider.  When using the repository providers API, the parent is determined via finding the closest ancestor to the commit.
+    commit_parent: # optional
+    # Don't upload files to Codecov
+    dry_run: # optional
+    # Environment variables to tag the upload with (e.g. PYTHON | OS,PYTHON)
+    env_vars: # optional
+    # Specify whether or not CI build should fail if Codecov runs into an error during upload
+    fail_ci_if_error: # optional
+    # Path to coverage file to upload
+    file: # optional
+    # Comma-separated list, see the README for options and their usage
+    functionalities: # optional
+    # Run with gcov support
+    gcov: # optional
+    # Extra arguments to pass to gcov
+    gcov_args: # optional
+    # Paths to ignore during gcov gathering
+    gcov_ignore: # optional
+    # Paths to include during gcov gathering
+    gcov_include: # optional
+    # Move discovered coverage reports to the trash
+    move_coverage_to_trash: # optional
+    # User defined upload name. Visible in Codecov UI
+    name: # optional
+    # Specify the branch name
+    override_branch: # optional
+    # Specify the build number
+    override_build: # optional
+    # Specify the commit SHA
+    override_commit: # optional
+    # Specify the pull request number
+    override_pr: # optional
+    # Specify the git tag
+    override_tag: # optional
+    # Override the assumed OS. Options are alpine | linux | macos | windows.
+    os: # optional
+    # Used when not in git/hg project to identify project root directory
+    root_dir: # optional
+    # Specify the slug manually (Enterprise use)
+    slug: # optional
+    # Change the upload host (Enterprise use)
+    url: # optional
+    # Specify whether the Codecov output should be verbose
+    verbose: # optional
+    # Specify which version of the Codecov Uploader should be used. Defaults to `latest`
+    version: # optional
+    # Directory in which to execute codecov.sh
+    working-directory: # optional
+    # Run with xcode support
+    xcode: # optional
+    # Specify the xcode archive path. Likely specified as the -resultBundlePath and should end in .xcresult
+    xcode_archive_path: # optional
+    
+    - name: Yor GitHub Action
+  # You may pin to the exact commit or the version.
+  # uses: bridgecrewio/yor-action@04bf3da0c4e8619a307c023ce8f0d196a2d8a4ee
+  uses: bridgecrewio/yor-action@0.3.0
+  with:
+    # directory with infrastructure code to scan
+    directory: # optional, default is .
+    # Run scan on all checks but a specific check identifier (comma separated)
+    tag_groups: # optional
+    # comma delimited list of yor tags to apply
+    tag: # optional
+    # comma delimited list of yor tags to not apply
+    skip_tags: # optional
+    # comma delimited list of paths for yor to skip tagging of
+    skip_dirs: # optional
+    # comma delimited list of paths to external (custom) tags & tag groups plugins
+    custom_tags: # optional
+    # The format of the output. cli, json
+    output_format: # optional
+    # log level
+    log_level: # optional
+    # Choose whether the action will commit changes. Changes will be commited if this is exactly "YES"
+    commit_changes: # optional, default is true
+    
+    - name: Sentry Release
+  # You may pin to the exact commit or the version.
+  # uses: getsentry/action-release@426b54786363ee2ecb27129f04b99cf714a36d38
+  uses: getsentry/action-release@v1.2.0
+  with:
+    # Set the environment for this release. E.g. "production" or "staging". Omit to skip adding deploy to release.
+    environment: # optional
+    # Space-separated list of paths to JavaScript sourcemaps. Omit to skip uploading sourcemaps.
+    sourcemaps: # optional
+    # When false, omit marking the release as finalized and released.
+    finalize: # optional, default is true
+    # When the flag is set and the previous release commit was not found in the repository, will create a release with the default commits count instead of failing the command.
+    ignore_missing: # optional
+    # When the flag is set, command will not fail and just exit silently if no new commits for a given release have been found.
+    ignore_empty: # optional
+    # Unix timestamp of the release start date. Omit for current time.
+    started_at: # optional
+    # Identifier that uniquely identifies the releases. Omit to auto-generate one.
+    version: # optional
+    # Value prepended to auto-generated version.
+    version_prefix: # optional
+    # Specify whether to set commits for the release. Either "auto" or "skip".
+    set_commits: # optional
+    # Space-separated list of projects. Defaults to the env variable "SENTRY_PROJECT" if not provided.
+    projects: # optional
+    # Adds a prefix to source map urls after stripping them.
+    url_prefix: # optional
+    # Will remove a common prefix from uploaded filenames. Useful for removing a path that is build-machine-specific.
+    strip_common_prefix: # optional
+    
+    - name: Glo Add Label To Cards
+  # You may pin to the exact commit or the version.
+  # uses: Axosoft/glo-action-label-card@2e09694cfad6ece65ac232fbe90d317786e3fe5c
+  uses: Axosoft/glo-action-label-card@v1
+  with:
+    # Auth token for user
+    authToken: 
+    # Array of { cardId, boardId } objects
+    cards: 
+    # Name of label to add to cards
+    label: 
+    
+    - name: Glo Add Assignee To Cards
+  # You may pin to the exact commit or the version.
+  # uses: Axosoft/glo-action-assign-card@c5bbc23bc4e7acfec6385554375e845faeb98007
+  uses: Axosoft/glo-action-assign-card@v1
+  with:
+    # Auth token for user
+    authToken: 
+    # Array of { cardId, boardId } objects
+    cards: 
+    # Username of user to assign to card
+    assignee: 
+    
+    - name: Add To GitHub projects
+  uses: actions/add-to-project@v0.3.0
+  with:
+    # URL of the project to add issues to
+    project-url: 
+    # A GitHub personal access token with write access to the project
+    github-token: 
+    # A comma-separated list of labels to use as a filter for issue to be added
+    labeled: # optional
+    # The behavior of the labels filter, AND to match all labels, OR to match any label, NOT to exclude any listed label (default is OR)
+    label-operator: # optional
+    
+    - name: RegEx Issue Labeler
+  uses: github/issue-labeler@v2.5
+  with:
+    # The GITHUB_TOKEN secret
+    repo-token: 
+    # Path to the labeler.yml configuration file
+    configuration-path: 
+    # Controls if versioned regex templates are being used
+    enable-versioned-regex: 
+    # The regex version number to use. Only required if using versioned regex files
+    versioned-regex: # optional
+    # Is optional and will result in any issues prior to this timestamp to be ignored
+    not-before: # optional
+    # The name of the label that should be added to an issue where the specified `version-regex` can not be found.
+    body-missing-regex-label: # optional
+    # Include the title in addition to the body in the regex target
+    include-title: # optional, default is 0
+    
+    - name: WakaTime Stat Update Action
+  # You may pin to the exact commit or the version.
+  # uses: avinal/Profile-Readme-WakaTime@c8465a8a2f2e6306191281c7f28cdb1387e2c6a3
+  uses: avinal/Profile-Readme-WakaTime@v3.0
+  with:
+    # Your WakaTime API Key
+    WAKATIME_API_KEY: 
+    # GitHub access token
+    GITHUB_TOKEN: # default is ${{ github.token }}
+    # Which branch is used for saving images
+    BRANCH: # optional, default is master
+    # Manual commit messages
+    COMMIT_MSG: # optional, default is Automated Coding Activity Update :alien:
+    
+    - name: Yet Another Automerge GitHub Action
+  # You may pin to the exact commit or the version.
+  # uses: DanySK/yaagha@bade429b2c88603688bab014d806533aed64c79f
+  uses: DanySK/yaagha@0.1.2
+  
+  - name: GitHub Release From Changelog
+  # You may pin to the exact commit or the version.
+  # uses: lsegal/github-release-from-changelog-action@478f6a3a7386a2d5c93cbd4a76c420acb8867445
+  uses: lsegal/github-release-from-changelog-action@v1
+  with:
+    # The tag to use for the release. Omit if triggering from a tag event.
+    tag: # optional, default is ${{ github.ref }}
+    # Optional filename of changelog (default searches across a range of changelog filenames).
+    filename: # optional, default is 
+    # Optional title formatting for release, defaults to "Release $tag".
+Use $tag as tag value.
+
+    title: # optional, default is Release $tag
+    # Generate a draft release if true
+    draft: # optional, default is false
+    # Generate a pre-release if true
+    prerelease: # optional, default is false
+    
+    - name: GitHub File Sync
+  # You may pin to the exact commit or the version.
+  # uses: jetersen/ghaction.file.sync@70a550c4e88b4b17bcab177b296bffb625e68cf8
+  uses: jetersen/ghaction.file.sync@v1.0.0
+  with:
+    # The GitHub Token used to create commits, branch and pull requests.
+In most cases you would want to provide an GitHub App credentials since you would be able to update Workflow files and access other repositories.
+You can get by with a private access token but do be careful.
+
+    githubToken: # optional, default is 
+    # The application id of a GitHub Application with permissions to Contents (Read/Write) and Pull Requests (Read/Write)
+    appId: # optional, default is 
+    # The private key for a GitHub Application to authenticate with.
+    privateKey: # optional, default is 
+    # 
+    dryRun: # optional, default is false
+    # 
+    configFile: # optional, default is .github/syncs.yml
+    
+    - name: HTTP Endpoints Timming
+  # You may pin to the exact commit or the version.
+  # uses: FlavioAandres/call-endpoints-action@39fadd2fff5ff17daf915982499e591d7d69c212
+  uses: FlavioAandres/call-endpoints-action@v1.0.1
+  with:
+    # A JSON File with the necessary information to run the tests.
+    config-file: 
+    
+    - name: Setup Statusfy
+  # You may pin to the exact commit or the version.
+  # uses: devkanro/setup-statusfy@ae32a99ae7430c75982aba14171e492d11412545
+  uses: devkanro/setup-statusfy@v1.1.0
+  with:
+    # Token to access GitHub APIs.
+    github-token: 
+    # Target statusfy branch.
+    branch: # optional, default is main
+    # Git user name for creating commit.
+    git-user: # optional
+    # Git user email for creating commit.
+    git-email: # optional
+  
+  - name: Free Weekend
+  # You may pin to the exact commit or the version.
+  # uses: Namchee/good-weekend@e143f906f14b96ad652aeebbec0bbb09f6d86236
+  uses: Namchee/good-weekend@v1.1
+  with:
+    # GitHub action token
+    access_token: 
+    # Timezone location, according to tz database
+    timezone: # optional, default is UTC
+    # Label to be added on pull requests
+    label: # optional, default is good-weekend
+    # Reply contents
+    message: # optional, default is I'm sorry, but I don't accept any pull requests on weekends. I think you should enjoy your holiday too!
+Feel free to re-submit it on weekdays according to my timezone.
+
+Closed.
+
