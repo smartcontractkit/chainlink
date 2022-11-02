@@ -1149,13 +1149,15 @@ func newRandomnessFulfillmentRequestedLog(
 	//  uint64 subID,
 	//  Callback callback
 	//);
-	e := vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested{
+	e := vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequested{
 		ConfDelay:              big.NewInt(confDelay),
 		NextBeaconOutputHeight: nextBeaconOutputHeight,
-		Callback: vrf_wrapper.VRFBeaconTypesCallback{
-			RequestID:    big.NewInt(requestID),
-			NumWords:     1,
-			GasAllowance: big.NewInt(gasAllowance),
+		Callback: vrf_coordinator.VRFBeaconTypesCallback{
+			RequestID:      big.NewInt(requestID),
+			NumWords:       1,
+			GasAllowance:   big.NewInt(gasAllowance),
+			GasPrice:       big.NewInt(0),
+			WeiPerUnitLink: big.NewInt(0),
 		},
 		SubID: 1,
 		Raw: types.Log{
@@ -1188,7 +1190,7 @@ func newRandomWordsFulfilledLog(
 	//  bytes successfulFulfillment,
 	//  bytes[] truncatedErrorData
 	//);
-	e := vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled{
+	e := vrf_coordinator.VRFCoordinatorRandomWordsFulfilled{
 		RequestIDs:            requestIDs,
 		SuccessfulFulfillment: successfulFulfillment,
 	}
