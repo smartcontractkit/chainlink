@@ -257,8 +257,8 @@ func (_m *ORM) UpdateBridgeType(bt *bridges.BridgeType, btr *bridges.BridgeTypeR
 	return r0
 }
 
-// UpsertGoodResponse provides a mock function with given fields: dotId, specId, response
-func (_m *ORM) UpsertGoodResponse(dotId string, specId int32, response []byte) error {
+// UpsertBridgeResponse provides a mock function with given fields: dotId, specId, response
+func (_m *ORM) UpsertBridgeResponse(dotId string, specId int32, response []byte) error {
 	ret := _m.Called(dotId, specId, response)
 
 	var r0 error

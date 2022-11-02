@@ -25,7 +25,7 @@ type ORM interface {
 	UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error
 
 	GetLastGoodResponse(dotId string, specId int32, maxElapsed time.Duration) ([]byte, error)
-	UpsertGoodResponse(dotId string, specId int32, response []byte) error
+	UpsertBridgeResponse(dotId string, specId int32, response []byte) error
 
 	ExternalInitiators(offset int, limit int) ([]ExternalInitiator, int, error)
 	CreateExternalInitiator(externalInitiator *ExternalInitiator) error
@@ -182,7 +182,7 @@ func (o *orm) GetLastGoodResponse(dotId string, specId int32, maxElapsed time.Du
 	return
 }
 
-func (o *orm) UpsertGoodResponse(dotId string, specId int32, response []byte) error {
+func (o *orm) UpsertBridgeResponse(dotId string, specId int32, response []byte) error {
 	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
 				VALUES($1, $2, $3, NOW())
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey

@@ -24,9 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -205,8 +207,9 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.SetBridgeCacheTTL(10 * time.Second)
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.WebServer.BridgeCacheTTL = models.MustNewDuration(10 * time.Second)
+	})
 
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -214,7 +217,6 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	cfg.Overrides.LogSQL = null.BoolFrom(true)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
@@ -245,7 +247,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 
-	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t),
+	result2, runInfo2 := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
 			map[string]interface{}{
 				"jobRun": map[string]interface{}{
@@ -257,7 +259,10 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 		),
 		nil)
 
-	require.NoError(t, result.Error)
+	require.NoError(t, result2.Error)
+	require.Equal(t, result.Value, result2.Value)
+	require.Equal(t, runInfo.IsPending, runInfo2.IsPending)
+	require.Equal(t, runInfo.IsRetryable, runInfo2.IsRetryable)
 }
 
 func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
@@ -302,7 +307,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, specID, id, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.True(t, runInfo.IsPending)

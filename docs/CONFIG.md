@@ -465,6 +465,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
+BridgeCacheTTL = '0s' # Default
 HTTPWriteTimeout = '10s' # Default
 HTTPPort = 6688 # Default
 SecureCookies = true # Default
@@ -491,8 +492,14 @@ BridgeResponseURL defines the URL for bridges to send a response to. This _must_
 
 Usually this will be the same as the URL/IP and port you use to connect to the Chainlink UI.
 
-### HTTPWriteTimeout<a id='WebServer-HTTPWriteTimeout'></a>
+### BridgeCacheTTL<a id='WebServer-BridgeCacheTTL'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+BridgeCacheTTL = '0s' # Default
+```
+BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure.
+
+### HTTPWriteTimeout<a id='WebServer-HTTPWriteTimeout'></a>
 ```toml
 HTTPWriteTimeout = '10s' # Default
 ```
