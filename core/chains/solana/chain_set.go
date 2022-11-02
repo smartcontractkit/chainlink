@@ -58,7 +58,7 @@ func (o *ChainSetOpts) NewChain(dbchain DBChain) (solana.Chain, error) {
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
-	if !*cfg.Enabled {
+	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.ORM, o.Logger)
