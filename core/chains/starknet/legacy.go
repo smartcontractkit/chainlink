@@ -9,13 +9,14 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	starknetdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type SetupConfig interface {
 	StarkNetNodes() string
-	LogSQL() bool
+	pg.QConfig
 }
 
 // SetupNodes is a hack/shim method to allow node operators to specify multiple nodes via ENV.

@@ -45,6 +45,9 @@ LogBackfillBatchSize = 100 # Default
 # **ADVANCED**
 # LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 LogPollInterval = '15s' # Default
+# **ADVANCED**
+# LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
+LogKeepBlocksDepth = 100000 # Default
 # MinContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 MinContractPayment = '10000000000000 juels' # Default
 # MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.
@@ -103,7 +106,8 @@ Enabled = true # Default
 #
 # - `FixedPrice` uses static configured values for gas price (can be set via API call).
 # - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-# - `L2Suggested`
+# - `Optimism2`/`L2Suggested` is a special mode only for use with Optimism and Metis blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+# - `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 #
 # Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
 #
@@ -118,7 +122,10 @@ Mode = 'BlockHistory' # Default
 # Can be used with the `chainlink setgasprice` to be updated while the node is still running.
 PriceDefault = '20 gwei' # Default
 # PriceMax is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
-PriceMax = '100 micro' # Default
+# This applies to both legacy and EIP1559 transactions.
+# Note that it is impossible to disable the maximum limit. Setting this value to zero will prevent paying anything for any transaction (which can be useful in some rare cases).
+# Most chains by default have the maximum set to 2**256-1 Wei which is the maximum allowed gas price on EVM-compatible chains, and is so large it may as well be unlimited.
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether' # Default
 # PriceMin is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
 #
 # (Only applies to legacy transactions)
@@ -170,11 +177,11 @@ BumpTxDepth = 10 # Default
 # Chainlink's implementation of EIP-1559 works as follows:
 #
 # If you are using FixedPriceEstimator:
-# - With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=GasTipCapDefault`
+# - With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=GasTipCapDefault`
 # - With gas bumping enabled, it will submit all transactions initially with `feecap=GasFeeCapDefault` and `tipcap=GasTipCapDefault`.
 #
 # If you are using BlockHistoryEstimator (default for most chains):
-# - With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
+# - With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=<calculated using past blocks>`
 # - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 #
 # Bumping works as follows:
@@ -194,8 +201,8 @@ BumpTxDepth = 10 # Default
 # - `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 # - `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
 # - `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
-# - `PriceMinWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
-# - `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
+# - `PriceMin` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
+# - `PriceMax` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 # - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
 EIP1559DynamicFees = false # Default
 # FeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
@@ -230,6 +237,15 @@ Keeper = 100_000 # Example
 BatchSize = 4 # Default
 # BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
 BlockHistorySize = 8 # Default
+# CheckInclusionBlocks is the number of recent blocks to use to detect if there is a transaction propagation/connectivity issue, and to prevent bumping in these cases.
+# This can help avoid the situation where RPC nodes are not propagating transactions for some non-price-related reason (e.g. go-ethereum bug, networking issue etc) and bumping gas would not help.
+#
+# Set to zero to disable connectivity checking completely.
+CheckInclusionBlocks = 12 # Default
+# CheckInclusionPercentile controls the percentile that a transaction must have been higher than for all the blocks in the inclusion check window in order to register as a connectivity issue.
+#
+# For example, if CheckInclusionBlocks=12 and CheckInclusionPercentile=90 then further bumping will be prevented for any transaction with any attempt that has a higher price than the 90th percentile for the most recent 12 blocks.
+CheckInclusionPercentile = 90 # Default
 # **ADVANCED**
 # EIP1559FeeCapBufferBlocks controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used.
 #
@@ -269,7 +285,7 @@ SamplingInterval = '1s' # Default
 [[EVM.KeySpecific]]
 # Key is the account to apply these settings to
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
-# GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMaxWei.
+# GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMax.
 GasEstimator.PriceMax = '79 gwei' # Example
 
 # The node pool manages multiple RPC endpoints.
@@ -306,3 +322,7 @@ WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
 # SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 SendOnly = false # Default
+
+[EVM.OCR2.Automation]
+# GasLimit controls the gas limit for transmit transactions from ocr2automation job.
+GasLimit = 5300000 # Default

@@ -43,7 +43,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 		D:         big.NewInt(1),
 	}
 	auth, _ := bind.NewKeyedTransactorWithChainID(&key, testutils.SimulatedChainID)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	parsed, err := abi.JSON(strings.NewReader(

@@ -23,6 +23,8 @@ DefaultIdleInTxSessionTimeout = '1h' # Default
 DefaultLockTimeout = '15s' # Default
 # DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
 DefaultQueryTimeout = '10s' # Default
+# LogQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
+LogQueries = false # Default
 # MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 #
 # Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
@@ -105,9 +107,28 @@ SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
 
+[AuditLogger]
+# Enabled determines if this logger should be configured at all
+Enabled = false # Default
+# ForwardToUrl is where you want to forward logs to
+ForwardToUrl = 'http://localhost:9898' # Example
+# JsonWrapperKey if set wraps the map of data under another single key to make parsing easier
+JsonWrapperKey = 'event' # Example
+# Headers is the set of headers you wish to pass along with each request
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
+
 [Log]
-# DatabaseQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
-DatabaseQueries = false # Default
+# Level determines both what is printed on the screen and what is written to the log file.
+#
+# The available levels are:
+#  - "debug": Useful for forensic debugging of issues.
+#  - "info": High-level informational messages. (default)
+#  - "warn": A mild error occurred that might require non-urgent action. Check these warnings semi-regularly to see if any of them require attention. These warnings usually happen due to factors outside of the control of the node operator. Examples: Unexpected responses from a remote API or misleading networking errors.
+#  - "error": An unexpected error occurred during the regular operation of a well-maintained node. Node operators might need to take action to remedy this error. Check these regularly to see if any of them require attention. Examples: Use of deprecated configuration options or incorrectly configured settings that cause a job to fail.
+#  - "crit": A critical error occurred. The node might be unable to function. Node operators should take immediate action to fix these errors. Examples: The node could not boot because a network socket could not be opened or the database became inaccessible.
+#  - "panic": An exceptional error occurred that could not be handled. If the node is unresponsive, node operators should try to restart their nodes and notify the Chainlink team of a potential bug.
+#  - "fatal": The node encountered an unrecoverable problem and had to exit.
+Level = 'info' # Default
 # JSONConsole enables JSON logging. Otherwise, the log is saved in a human-friendly console format.
 JSONConsole = false # Default
 # UnixTS enables legacy unix timestamps.
@@ -314,12 +335,14 @@ IncomingMessageBufferSize = 10 # Default
 # IncomingMessageBufferSize to give the remote enough space to process
 # them all in case we regained connection and now send a bunch at once
 OutgoingMessageBufferSize = 10 # Default
+# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
 
 [P2P.V1]
 # Enabled enables P2P V1.
-Enabled = false # Default
+Enabled = true # Default
 # AnnounceIP should be set as the externally reachable IP address of the Chainlink node.
 AnnounceIP = '1.2.3.4' # Example
 # AnnouncePort should be set as the externally reachable port of the Chainlink node.
@@ -356,8 +379,6 @@ ListenPort = 1337 # Example
 # it can't get a connection, but it is here anyway as a failsafe.
 # Set to 0 to disable any timeout on top of what libp2p gives us by default.
 NewStreamTimeout = '10s' # Default
-# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # **ADVANCED**
 # PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networking stack is persisted to the database.
 PeerstoreWriteInterval = '5m' # Default
@@ -446,8 +467,6 @@ GoroutineThreshold = 5000 # Default
 [Pyroscope]
 # ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
 ServerAddress = 'http://localhost:4040' # Example
-# AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
-AuthToken = 'randomly-oauth-generated-token' # Example
 # Environment sets the target environment tag in which profiles will be added to.
 Environment = 'mainnet' # Default
 
@@ -458,6 +477,6 @@ Debug = false # Default
 # DSN is the data source name where events will be sent. Sentry is completely disabled if this is left blank.
 DSN = 'sentry-dsn' # Example
 # Environment overrides the Sentry environment to the given value. Otherwise autodetects between dev/prod.
-Environment = 'prod' # Default
+Environment = 'my-custom-env' # Example
 # Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
 Release = 'v1.2.3' # Example

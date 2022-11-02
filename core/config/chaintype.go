@@ -10,20 +10,21 @@ type ChainType string
 
 // nolint
 const (
-	ChainArbitrum ChainType = "arbitrum"
-	ChainMetis    ChainType = "metis"
-	ChainOptimism ChainType = "optimism"
-	ChainXDai     ChainType = "xdai"
+	ChainArbitrum        ChainType = "arbitrum"
+	ChainMetis           ChainType = "metis"
+	ChainOptimism        ChainType = "optimism"
+	ChainOptimismBedrock ChainType = "optimismBedrock"
+	ChainXDai            ChainType = "xdai"
 )
 
 var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
-	string(ChainArbitrum), string(ChainMetis), string(ChainOptimism), string(ChainXDai),
+	string(ChainArbitrum), string(ChainMetis), string(ChainOptimism), string(ChainXDai), string(ChainOptimismBedrock),
 }, ", "))
 
 // IsValid returns true if the ChainType value is known or empty.
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainMetis, ChainOptimism, ChainXDai:
+	case "", ChainArbitrum, ChainMetis, ChainOptimism, ChainOptimismBedrock, ChainXDai:
 		return true
 	}
 	return false

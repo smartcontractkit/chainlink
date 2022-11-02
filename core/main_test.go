@@ -7,11 +7,11 @@ import (
 	"io"
 	"testing"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -22,15 +22,17 @@ func init() {
 
 func Run(args ...string) {
 	t := &testing.T{}
-	tc := cltest.NewTestGeneralConfig(t)
-	tc.SetRootDir("/foo")
-	tc.Overrides.Dev = null.BoolFrom(false)
+
+	tc := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = false
+		foo := "foo"
+		c.RootDir = &foo
+	})
 	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: io.Discard},
 		Config:                 tc,
 		Logger:                 lggr,
-		CloseLogger:            lggr.Sync,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
@@ -159,8 +161,9 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    dump         Dump a TOML file equivalent to the current environment and database configuration
-	//    list         Show the node's environment variables
+	//    dump         LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration
+	//    list         LEGACY CONFIG (ENV) ONLY - Show the node's environment variables
+	//    show         V2 CONFIG (TOML) ONLY - Show the application configuration
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
 	//    logsql       Enable/disable sql statement logging

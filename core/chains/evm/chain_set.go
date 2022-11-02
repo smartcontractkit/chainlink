@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -36,7 +37,7 @@ var _ ChainSet = &chainSet{}
 
 type ChainConfigUpdater func(*types.ChainCfg) error
 
-//go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
@@ -92,9 +93,10 @@ func (cll *chainSet) Start(ctx context.Context) error {
 			cll.startedChains = append(cll.startedChains, c)
 		}
 	} else {
-		for id, c := range cll.Chains() {
+		for _, c := range cll.Chains() {
 			if err := c.Start(ctx); err != nil {
-				cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %d failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", id, err), "evmChainID", id, "err", err)
+				id := c.ID().String()
+				cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", id, err), "evmChainID", id, "err", err)
 				continue
 			}
 			cll.startedChains = append(cll.startedChains, c)
@@ -174,6 +176,7 @@ func (cll *chainSet) Default() (Chain, error) {
 }
 
 // Requires a lock on chainsMu
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.DBChain) error {
 	// preload nodes
 	nodes, _, err := cll.opts.ORM.NodesForChain(dbchain.ID, 0, math.MaxInt)
@@ -387,7 +390,7 @@ func (cll *chainSet) addStateToNode(n *types.Node) {
 		n.State = "Unknown"
 		return
 	}
-	state, exists := states[n.ID]
+	state, exists := states[n.Name]
 	if exists {
 		n.State = state
 		return
@@ -412,8 +415,9 @@ type ChainSetOpts struct {
 	GenTxManager      func(*big.Int) txmgr.TxManager
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
-	if err := checkOpts(&opts); err != nil {
+	if err := opts.check(); err != nil {
 		return nil, err
 	}
 	if h, ok := opts.Config.(v2.HasEVMConfigs); ok {
@@ -439,7 +443,7 @@ func LoadChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 // NewDBChainSet returns a new ChainSet from legacy configuration.
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewDBChainSet(ctx context.Context, opts ChainSetOpts, dbchains []types.DBChain, nodes map[string][]types.Node) (ChainSet, error) {
-	if err := checkOpts(&opts); err != nil {
+	if err := opts.check(); err != nil {
 		return nil, err
 	}
 	opts.Logger = opts.Logger.Named("EVM")
@@ -471,17 +475,31 @@ func NewDBChainSet(ctx context.Context, opts ChainSetOpts, dbchains []types.DBCh
 
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
 func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts, chains []*v2.EVMConfig) (ChainSet, error) {
-	if err := checkOpts(&opts); err != nil {
+	if err := opts.check(); err != nil {
 		return nil, err
 	}
+	var enabled []*v2.EVMConfig
+	for i := range chains {
+		if chains[i].IsEnabled() {
+			enabled = append(enabled, chains[i])
+		}
+	}
 	opts.Logger = opts.Logger.Named("EVM")
+	defaultChainID := opts.Config.DefaultChainID()
+	if defaultChainID == nil && len(enabled) >= 1 {
+		defaultChainID = enabled[0].ChainID.ToInt()
+		if len(enabled) > 1 {
+			opts.Logger.Debugf("Multiple chains present, default chain: %s", defaultChainID.String())
+		}
+	}
 	var err error
 	cll := newChainSet(opts)
+	cll.defaultID = defaultChainID
 	cll.immutable = true
-	for i := range chains {
-		cid := chains[i].ChainID.String()
+	for i := range enabled {
+		cid := enabled[i].ChainID.String()
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := newTOMLChain(ctx, chains[i], opts)
+		chain, err2 := newTOMLChain(ctx, enabled[i], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
 			continue
@@ -503,7 +521,7 @@ func newChainSet(opts ChainSetOpts) *chainSet {
 	}
 }
 
-func checkOpts(opts *ChainSetOpts) error {
+func (opts *ChainSetOpts) check() error {
 	if opts.Logger == nil {
 		return errors.New("logger must be non-nil")
 	}
@@ -512,9 +530,6 @@ func checkOpts(opts *ChainSetOpts) error {
 	}
 
 	if tomlConfig, ok := opts.Config.(v2.HasEVMConfigs); ok {
-		if opts.ORM != nil {
-			return errors.New("cannot pre-set ORM with TOML config")
-		}
 		opts.ORM = chains.NewORMImmut[utils.Big, *types.ChainCfg, types.Node](tomlConfig.EVMConfigs())
 	} else if opts.ORM == nil {
 		// legacy config only
@@ -523,13 +538,13 @@ func checkOpts(opts *ChainSetOpts) error {
 	return nil
 }
 
-func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *big.Int) ChainConfigUpdater {
+func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *assets.Wei) ChainConfigUpdater {
 	return func(config *types.ChainCfg) error {
 		keyChainConfig, ok := config.KeySpecific[addr.Hex()]
 		if !ok {
 			keyChainConfig = types.ChainCfg{}
 		}
-		keyChainConfig.EvmMaxGasPriceWei = (*utils.Big)(maxGasPriceWei)
+		keyChainConfig.EvmMaxGasPriceWei = maxGasPriceWei
 		if config.KeySpecific == nil {
 			config.KeySpecific = map[string]types.ChainCfg{}
 		}

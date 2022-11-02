@@ -22,7 +22,7 @@ func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := terra.NewORM(db, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	orm := terra.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return db, orm
 }

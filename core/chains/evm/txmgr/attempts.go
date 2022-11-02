@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt, err error) {
@@ -24,7 +24,7 @@ func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasL
 	d := newDynamicFeeTransaction(
 		uint64(*etx.Nonce),
 		etx.ToAddress,
-		etx.Value.ToInt(),
+		&etx.Value,
 		gasLimit,
 		&c.chainID,
 		fee.TipCap,
@@ -37,8 +37,8 @@ func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasL
 	if err != nil {
 		return attempt, err
 	}
-	attempt.GasTipCap = utils.NewBig(fee.TipCap)
-	attempt.GasFeeCap = utils.NewBig(fee.FeeCap)
+	attempt.GasTipCap = fee.TipCap
+	attempt.GasFeeCap = fee.FeeCap
 	attempt.ChainSpecificGasLimit = gasLimit
 	attempt.TxType = 2
 	return attempt, nil
@@ -59,10 +59,10 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 	}
 	// Assertions from:	https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md
 	// Prevent impossibly large numbers
-	if gasFeeCap.Cmp(Max256BitUInt) > 0 {
+	if gasFeeCap.ToInt().Cmp(Max256BitUInt) > 0 {
 		return errors.New("impossibly large fee cap")
 	}
-	if gasTipCap.Cmp(Max256BitUInt) > 0 {
+	if gasTipCap.ToInt().Cmp(Max256BitUInt) > 0 {
 		return errors.New("impossibly large tip cap")
 	}
 	// The total must be at least as large as the tip
@@ -83,21 +83,21 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 	return nil
 }
 
-func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID, gasTipCap, gasFeeCap *big.Int, data []byte, accessList types.AccessList) types.DynamicFeeTx {
+func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
 	return types.DynamicFeeTx{
 		ChainID:    chainID,
 		Nonce:      nonce,
-		GasTipCap:  gasTipCap,
-		GasFeeCap:  gasFeeCap,
+		GasTipCap:  gasTipCap.ToInt(),
+		GasFeeCap:  gasFeeCap.ToInt(),
 		Gas:        uint64(gasLimit),
 		To:         &to,
-		Value:      value,
+		Value:      value.ToInt(),
 		Data:       data,
 		AccessList: accessList,
 	}
 }
 
-func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit uint32) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -120,7 +120,7 @@ func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit 
 	attempt.State = EthTxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
-	attempt.GasPrice = utils.NewBig(gasPrice)
+	attempt.GasPrice = gasPrice
 	attempt.Hash = hash
 	attempt.TxType = 0
 	attempt.ChainSpecificGasLimit = gasLimit
@@ -131,7 +131,7 @@ func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit 
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg Config, gasPrice *big.Int, gasLimit uint32, etx EthTx) error {
+func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx EthTx) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
@@ -161,13 +161,13 @@ func (c *ChainKeyStore) newSignedAttempt(etx EthTx, tx *types.Transaction) (atte
 	return attempt, nil
 }
 
-func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) types.LegacyTx {
+func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *assets.Wei, data []byte) types.LegacyTx {
 	return types.LegacyTx{
 		Nonce:    nonce,
 		To:       &to,
 		Value:    value,
 		Gas:      uint64(gasLimit),
-		GasPrice: gasPrice,
+		GasPrice: gasPrice.ToInt(),
 		Data:     data,
 	}
 }

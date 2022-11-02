@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name Eth --output mocks/ --case=underscore
+//go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
 
 // Eth is the external interface for EthKeyStore
 type Eth interface {

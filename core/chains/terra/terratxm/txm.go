@@ -49,7 +49,7 @@ type Txm struct {
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc func() (terraclient.ReaderWriter, error), gpe terraclient.ComposedGasPriceEstimator, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) *Txm {
+func NewTxm(db *sqlx.DB, tc func() (terraclient.ReaderWriter, error), gpe terraclient.ComposedGasPriceEstimator, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},

@@ -8,6 +8,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/gqltesting"
+	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
@@ -17,6 +18,7 @@ import (
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -52,6 +54,7 @@ type mocks struct {
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
 	txmORM      *txmgrMocks.ORM
+	auditLogger *audit.AuditLoggerService
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -109,7 +112,10 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
 		balM:        evmORMMocks.NewBalanceMonitor(t),
 		txmORM:      txmgrMocks.NewORM(t),
+		auditLogger: &audit.AuditLoggerService{},
 	}
+
+	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(audit.NoopLogger).Maybe()
 
 	f := &gqlTestFramework{
 		t:          t,

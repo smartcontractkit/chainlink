@@ -7,7 +7,7 @@ import cbor from 'cbor'
 
 /**
  * Convert string to hex bytes
- * @param data string to onvert to hex bytes
+ * @param data string to convert to hex bytes
  */
 export function stringToBytes(data: string): string {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data))

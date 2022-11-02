@@ -35,5 +35,8 @@ func NewSolanaNodesController(app chainlink.Application) NodesController {
 				SolanaChainID: request.SolanaChainID,
 				SolanaURL:     request.SolanaURL,
 			}, nil
-		})
+		},
+		app.GetLogger(),
+		app.GetAuditLogger(),
+	)
 }

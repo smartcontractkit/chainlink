@@ -20,20 +20,27 @@ type AdvisoryLock interface {
 	Release()
 }
 
+type AdvisoryLockConfig interface {
+	AdvisoryLockID() int64
+	AdvisoryLockCheckInterval() time.Duration
+	DatabaseDefaultQueryTimeout() time.Duration
+}
+
 // advisoryLock implements the Locker interface.
 type advisoryLock struct {
-	id            int64
-	db            *sqlx.DB
-	conn          *sqlx.Conn
-	checkInterval time.Duration
-	logger        logger.Logger
-	stop          func()
-	wgReleased    sync.WaitGroup
+	id         int64
+	db         *sqlx.DB
+	conn       *sqlx.Conn
+	cfg        AdvisoryLockConfig
+	logger     logger.Logger
+	stop       func()
+	wgReleased sync.WaitGroup
 }
 
 // NewAdvisoryLock returns an advisoryLocker
-func NewAdvisoryLock(db *sqlx.DB, id int64, lggr logger.Logger, checkInterval time.Duration) AdvisoryLock {
-	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id), func() {}, sync.WaitGroup{}}
+func NewAdvisoryLock(db *sqlx.DB, lggr logger.Logger, cfg AdvisoryLockConfig) AdvisoryLock {
+	id := cfg.AdvisoryLockID()
+	return &advisoryLock{id, db, nil, cfg, lggr.Named("AdvisoryLock").With("advisoryLockID", id), func() {}, sync.WaitGroup{}}
 }
 
 // TakeAndHold will block and wait indefinitely until it can get its first lock or ctx is cancelled.
@@ -48,7 +55,7 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 		var err error
 
 		err = func() error {
-			qctx, cancel := DefaultQueryCtxWithParent(ctx)
+			qctx, cancel := context.WithTimeout(ctx, l.cfg.DatabaseDefaultQueryTimeout())
 			defer cancel()
 			if l.conn == nil {
 				if err = l.checkoutConn(qctx); err != nil {
@@ -85,7 +92,7 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 				err = multierr.Combine(err, l.conn.Close())
 			}
 			return err
-		case <-time.After(utils.WithJitter(l.checkInterval)):
+		case <-time.After(utils.WithJitter(l.cfg.AdvisoryLockCheckInterval())):
 		}
 	}
 
@@ -139,13 +146,18 @@ const checkAdvisoryLockStmt = `SELECT EXISTS (SELECT 1 FROM pg_locks WHERE lockt
 func (l *advisoryLock) loop(ctx context.Context) {
 	defer l.wgReleased.Done()
 
-	ticker := time.NewTicker(utils.WithJitter(l.checkInterval))
-	defer ticker.Stop()
+	check := time.NewTicker(utils.WithJitter(l.cfg.AdvisoryLockCheckInterval()))
+	defer check.Stop()
+
+	stats := time.NewTicker(dbStatsInternal)
+	defer stats.Stop()
 
 	for {
 		select {
+		case <-stats.C:
+			publishStats(l.db.Stats())
 		case <-ctx.Done():
-			qctx, cancel := DefaultQueryCtx()
+			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DatabaseDefaultQueryTimeout())
 			err := multierr.Combine(
 				utils.JustError(l.conn.ExecContext(qctx, `SELECT pg_advisory_unlock($1)`, l.id)),
 				l.conn.Close(),
@@ -155,10 +167,10 @@ func (l *advisoryLock) loop(ctx context.Context) {
 				l.logger.Warnw("Error trying to unlock advisory lock on shutdown", "err", err)
 			}
 			return
-		case <-ticker.C:
+		case <-check.C:
 			var gotLock bool
 
-			qctx, cancel := DefaultQueryCtxWithParent(ctx)
+			qctx, cancel := context.WithTimeout(ctx, l.cfg.DatabaseDefaultQueryTimeout())
 			l.logger.Trace("Checking advisory lock")
 			err := l.conn.QueryRowContext(qctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
@@ -178,7 +190,7 @@ func (l *advisoryLock) loop(ctx context.Context) {
 				}
 				l.logger.Fatal("Another node has taken the advisory lock, exiting immediately")
 			}
-			ticker.Reset(utils.WithJitter(l.checkInterval))
+			check.Reset(utils.WithJitter(l.cfg.AdvisoryLockCheckInterval()))
 		}
 	}
 }
