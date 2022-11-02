@@ -184,6 +184,7 @@ func determineSelectedNetworks() []*blockchain.EVMNetwork {
 func setURLs(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
+
 	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
 		return
 	}
@@ -206,6 +207,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
+
 	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
 		return
 	}
