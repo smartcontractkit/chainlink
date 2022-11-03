@@ -37,6 +37,8 @@ type DRListenerUniverse struct {
 	logBroadcaster *log_mocks.Broadcaster
 }
 
+func ptr[T any](t T) *T { return &t }
+
 func NewDRListenerUniverse(t *testing.T) *DRListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
@@ -115,8 +117,9 @@ const (
 	RequestDBID         int64  = 666
 	ParseResultTaskName string = "parse_result"
 	ParseErrorTaskName  string = "parse_error"
-	ErrorData           string = "error message!"
-	ResultData          string = "success!"
+	CorrectResultData   string = "\"0x1234\""
+	CorrectErrorData    string = "\"0x424144\""
+	EmptyData           string = "\"\""
 )
 
 func TestDRListener_HandleOracleRequestLogSuccess(t *testing.T) {
@@ -126,9 +129,9 @@ func TestDRListener_HandleOracleRequestLogSuccess(t *testing.T) {
 	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(RequestDBID, nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(ResultData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte{}, nil) // no error
-	uni.pluginORM.On("SetResult", RequestDBID, mock.Anything, []byte(ResultData), mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(CorrectResultData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(EmptyData), nil)
+	uni.pluginORM.On("SetResult", RequestDBID, mock.Anything, []byte{0x12, 0x34}, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -143,9 +146,9 @@ func TestDRListener_HandleOracleRequestLogError(t *testing.T) {
 	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(RequestDBID, nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte{}, nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(ErrorData), nil)
-	uni.pluginORM.On("SetError", RequestDBID, mock.Anything, mock.Anything, ErrorData, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(CorrectErrorData), nil)
+	uni.pluginORM.On("SetError", RequestDBID, mock.Anything, mock.Anything, "BAD", mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -153,4 +156,29 @@ func TestDRListener_HandleOracleRequestLogError(t *testing.T) {
 	uni.service.Close()
 }
 
-func ptr[T any](t T) *T { return &t }
+func TestDRListener_ExtractRawBytes(t *testing.T) {
+	t.Parallel()
+
+	res, err := drocr_service.ExtractRawBytes([]byte("\"\""))
+	require.NoError(t, err)
+	require.Equal(t, []byte{}, res)
+
+	res, err = drocr_service.ExtractRawBytes([]byte("\"0xabcd\""))
+	require.NoError(t, err)
+	require.Equal(t, []byte{0xab, 0xcd}, res)
+
+	_, err = drocr_service.ExtractRawBytes([]byte(""))
+	require.Error(t, err)
+
+	_, err = drocr_service.ExtractRawBytes([]byte("0xab"))
+	require.Error(t, err)
+
+	_, err = drocr_service.ExtractRawBytes([]byte("\"0x\""))
+	require.Error(t, err)
+
+	_, err = drocr_service.ExtractRawBytes([]byte("\"0xabc\""))
+	require.Error(t, err)
+
+	_, err = drocr_service.ExtractRawBytes([]byte("\"0xqwer\""))
+	require.Error(t, err)
+}

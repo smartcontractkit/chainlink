@@ -58,7 +58,7 @@ func (o *ChainSetOpts) NewChain(dbchain DBChain) (solana.Chain, error) {
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
-	if !*cfg.Enabled {
+	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.ORM, o.Logger)
@@ -69,7 +69,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 	return c, nil
 }
 
-//go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
 
 // ChainSet extends solana.ChainSet with mutability.
 type ChainSet interface {
@@ -96,7 +96,7 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs SolanaConfigs) (ChainSet, error) {
 	solChains := map[string]solana.Chain{}
 	var err error
 	for _, chain := range cfgs {
-		if chain.Enabled == nil || !*chain.Enabled {
+		if !chain.IsEnabled() {
 			continue
 		}
 		var err2 error

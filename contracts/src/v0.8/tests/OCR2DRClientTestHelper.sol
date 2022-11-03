@@ -5,8 +5,6 @@ import "../dev/ocr2dr/OCR2DRClient.sol";
 
 contract OCR2DRClientTestHelper is OCR2DRClient {
   using OCR2DR for OCR2DR.Request;
-  using OCR2DR for OCR2DR.HttpQuery;
-  using OCR2DR for OCR2DR.HttpHeader;
 
   event FulfillRequestInvoked(bytes32 requestId, bytes response, bytes err);
 

@@ -70,6 +70,10 @@ go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their 
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
 	go generate ./core/gethwrappers/ocr2vrf
 
+.PHONY: generate
+generate: abigen ## Execute all go:generate commands.
+	go generate -x ./...
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run ./core/main.go local db preparetest
@@ -114,7 +118,7 @@ test_smoke: test_need_operator_assets ## Run all integration smoke tests, using 
 
 .PHONY: test_smoke_simulated
 test_smoke_simulated: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
-	SELECTED_NETWORKS="SIMULATED" ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 

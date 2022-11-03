@@ -15,6 +15,8 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
   bytes public lastResponse;
   bytes public lastError;
 
+  error UnexpectedRequestID(bytes32 requestId);
+
   constructor(address oracle) OCR2DRClient(oracle) ConfirmedOwner(msg.sender) {}
 
   /**
@@ -33,7 +35,7 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
     OCR2DR.Request memory req;
     req.initializeRequestForInlineJavaScript(source);
     if (secrets.length > 0) req.addInlineSecrets(secrets);
-    if (args.length > 0) req.addArgs(args);  
+    if (args.length > 0) req.addArgs(args);
     lastRequestId = sendRequest(req, subscriptionId);
   }
 
@@ -49,7 +51,9 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
     bytes memory response,
     bytes memory err
   ) internal override {
-    require(lastRequestId == requestId, "Unexpected requestID in a response");
+    if (lastRequestId != requestId) {
+      revert UnexpectedRequestID(requestId);
+    }
     lastResponse = response;
     lastError = err;
   }

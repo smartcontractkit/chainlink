@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -23,7 +24,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	configDigest := cltest.MakeConfigDigest(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
@@ -104,7 +105,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 func Test_DB_ReadWriteConfig(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
@@ -186,7 +187,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 func Test_DB_PendingTransmissions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 

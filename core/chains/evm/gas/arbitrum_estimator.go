@@ -23,7 +23,7 @@ type ArbConfig interface {
 	EvmGasLimitMax() uint32
 }
 
-//go:generate mockery --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
+//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
 type ethClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }

@@ -21,17 +21,17 @@ import (
 
 const queryTimeout = 10 * time.Second
 
-//go:generate mockery --name Client --output ../mocks/ --case=underscore
-//go:generate mockery --name Subscription --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Client --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Subscription --output ../mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
 	Dial(ctx context.Context) error
 	Close()
 	ChainID() *big.Int
-	// NodeStates returns a map of node ID->node state
+	// NodeStates returns a map of node Name->node state
 	// It might be nil or empty, e.g. for mock clients etc
-	NodeStates() map[int32]string
+	NodeStates() map[string]string
 
 	GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error)
@@ -83,14 +83,6 @@ type Subscription interface {
 	Unsubscribe()
 }
 
-// WithDefaultTimeout returns a context inherited from parent with a sensible sanity limit timeout for
-// queries to the eth node
-// This is a sanity limit to try to work around poorly behaved remote WS endpoints that fail to send us data that we requested
-// NO QUERY should ever take longer than this
-func WithDefaultTimeout(parent context.Context) (ctx context.Context, cancel context.CancelFunc) {
-	return context.WithTimeout(parent, queryTimeout)
-}
-
 func ContextWithDefaultTimeoutFromChan(chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
 	return utils.ContextFromChanWithDeadline(chStop, queryTimeout)
 }
@@ -127,10 +119,10 @@ func (client *client) Close() {
 	client.pool.Close()
 }
 
-func (client *client) NodeStates() (states map[int32]string) {
-	states = make(map[int32]string)
+func (client *client) NodeStates() (states map[string]string) {
+	states = make(map[string]string)
 	for _, n := range client.pool.nodes {
-		states[n.ID()] = n.State().String()
+		states[n.Name()] = n.State().String()
 	}
 	return
 }

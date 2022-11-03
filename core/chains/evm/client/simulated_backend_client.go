@@ -519,4 +519,4 @@ func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *
 }
 
 // NodeStates implements evmclient.Client
-func (c *SimulatedBackendClient) NodeStates() map[int32]string { return nil }
+func (c *SimulatedBackendClient) NodeStates() map[string]string { return nil }

@@ -2,7 +2,7 @@ package utils
 
 import "github.com/shirou/gopsutil/v3/disk"
 
-//go:generate mockery --name DiskStatsProvider --output ./mocks --case=underscore
+//go:generate mockery --quiet --name DiskStatsProvider --output ./mocks --case=underscore
 
 // DiskStatsProvider describes the abstraction to the `shirou/gopsutil/v3` for mocking purposes
 type DiskStatsProvider interface {

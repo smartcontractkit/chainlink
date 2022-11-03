@@ -17,7 +17,7 @@ type transmitter interface {
 	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
 }
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 // ORM defines an interface for database commands related to Flux Monitor v2
 type ORM interface {

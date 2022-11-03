@@ -20,7 +20,7 @@ type RequestRoundDB interface {
 
 var _ RequestRoundDB = &requestRoundDB{}
 
-//go:generate mockery --name RequestRoundDB --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name RequestRoundDB --output ./mocks/ --case=underscore
 type requestRoundDB struct {
 	*sql.DB
 	oracleSpecID int32
