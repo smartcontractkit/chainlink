@@ -248,3 +248,24 @@ func DeriveEVMNodesFromNetworkSettings(networks ...blockchain.EVMNetwork) (strin
 	}
 	return "", nil
 }
+
+var (
+	evmNetworkTOML = `[[EVM]]
+ChainID = '%d'`
+	evmNodeTOML = `[[EVM.Nodes]]
+Name = '%s'
+WSURL = '%s'`
+)
+
+func ChainlinkNetworksTOML(networks ...*blockchain.EVMNetwork) string {
+	final := ""
+	for _, network := range networks {
+		netString := fmt.Sprintf(evmNetworkTOML, network.ChainID)
+		for index, url := range network.URLs {
+			netString = fmt.Sprintf("%s\n%s", netString, fmt.Sprintf(evmNodeTOML, fmt.Sprintf("node-%d", index), url))
+		}
+		final = fmt.Sprintf("%s\n%s", final, netString)
+	}
+
+	return final
+}
