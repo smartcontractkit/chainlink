@@ -75,6 +75,27 @@ func FundChainlinkNodesAddress(
 	return client.WaitForEvents()
 }
 
+// FundChainlinkNodesAddress will fund all of the provided Chainlink nodes addresses with a set amount of native currency
+func FundChainlinkNodesAddresses(
+	nodes []*client.Chainlink,
+	client blockchain.EVMClient,
+	amount *big.Float,
+) error {
+	for _, cl := range nodes {
+		toAddress, err := cl.EthAddressesForChain(client.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, addr := range toAddress {
+			err = client.Fund(addr, amount)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return client.WaitForEvents()
+}
+
 // FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amount of native currency
 func FundChainlinkNodesLink(
 	nodes []*client.Chainlink,
