@@ -163,6 +163,7 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
 func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClient.MockserverClient, registryAddr string, chainID int64) {
 	bootstrapNode := chainlinkNodes[0]
+	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
@@ -171,22 +172,35 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClie
 		ChainID:    int(chainID),
 	})
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bootstrap job on bootstrap node")
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, "0.0.0.0", 6690)
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].PrimaryEthAddress()
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
 		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
-		nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+		var nodeOCRKeyId string
+		for _, key := range nodeOCRKeys.Data {
+			if key.Attributes.ChainType == string(chaintype.EVM) {
+				nodeOCRKeyId = key.ID
+				break
+			}
+		}
 
-		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&client.AutoOCR2JobSpec{
+		autoOCR2JobSpec := client.AutoOCR2JobSpec{
 			ContractID:         registryAddr,           // registryAddr
 			OCRKeyBundleID:     nodeOCRKeyId,           // get node ocr2config.ID
 			TransmitterID:      nodeTransmitterAddress, // node addr
 			P2Pv2Bootstrappers: P2Pv2Bootstrapper,      // bootstrap node key and address <p2p-key>@bootstrap:8000
 			ChainID:            int(chainID),
-		})
+		}
+		fmt.Printf("autoOCR2JobSpec:%d = %+v\n", nodeIndex, autoOCR2JobSpec)
+		// 4 = {ContractID:0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e
+		//OCRKeyBundleID:076c8fcbca5cc1f8c8e0e4be3fb3af52db98287469a5e2a4014c8dc15a2fe446
+		//TransmitterID:0x77E2d2A035b32fB6823D7c395d3Ad771D21dB0F9
+		//P2Pv2Bootstrappers:12D3KooWE8w645KCEh15p9HCLmf87Ls3oxGXrjnJdjJDfUg7nTLo@10.42.0.141:6690
+		//ChainID:1337}
+		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
 	log.Info().Msg("Done creating OCR automation jobs")

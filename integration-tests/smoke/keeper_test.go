@@ -936,6 +936,7 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 			"P2P_LISTEN_PORT":             "",
 			"CHAINLINK_TLS_PORT":          "0",
 			"P2PV2_LISTEN_ADDRESSES":      "0.0.0.0:6690",
+			"P2PV2_ANNOUNCE_ADDRESSES":    "0.0.0.0:6690",
 		}
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
@@ -1008,9 +1009,8 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
-					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
-						" for upkeep at index "+strconv.Itoa(i))
-					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(10)),
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+					g.Expect(counter.Int64()).Should(BeNumerically(">=", int64(10)),
 						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}

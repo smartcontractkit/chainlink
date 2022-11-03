@@ -826,6 +826,7 @@ schemaVersion = 1
 name = "ocr2keeper bootstrap node"
 contractID = "%s"
 relay = "evm"
+contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
 chainID = %d`
