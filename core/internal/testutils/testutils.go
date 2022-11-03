@@ -313,7 +313,7 @@ func IntToHex(n int) string {
 
 // TestInterval is just a sensible poll interval that gives fast tests without
 // risk of spamming
-const TestInterval = 10 * time.Millisecond
+const TestInterval = 100 * time.Millisecond
 
 // AssertEventually waits for f to return true
 func AssertEventually(t *testing.T, f func() bool) {
