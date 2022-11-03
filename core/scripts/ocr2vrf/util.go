@@ -198,7 +198,7 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 
 	onchainConfig := ocr2vrf.OnchainConfig(confDelays)
 
-	coordinatorVars := ocr2vrftypes.CoordinatorVars{
+	coordinatorConfig := ocr2vrftypes.CoordinatorConfig{
 		CacheEvictionWindowSeconds: 60,
 		BatchGasLimit:              5_000_000,
 		CoordinatorOverhead:        50_000,
@@ -215,7 +215,7 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 		c.maxRounds,
 		helpers.ParseIntSlice(c.schedule),
 		oracleIdentities,
-		ocr2vrf.OffchainConfig(&coordinatorVars), // off-chain config
+		ocr2vrf.OffchainConfig(&coordinatorConfig), // off-chain config
 		c.maxDurationQuery,
 		c.maxDurationObservation,
 		c.maxDurationReport,

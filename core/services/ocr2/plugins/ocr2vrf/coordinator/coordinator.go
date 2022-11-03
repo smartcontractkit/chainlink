@@ -93,7 +93,7 @@ type coordinator struct {
 	toBeTransmittedBlocks *ocrCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
 	toBeTransmittedCallbacks *ocrCache[callbackInReport]
-	coordinatorVars          *ocr2vrftypes.CoordinatorVars
+	coordinatorConfig        *ocr2vrftypes.CoordinatorConfig
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -144,7 +144,7 @@ func New(
 		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindow),
 		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindow),
 		// defaults
-		coordinatorVars: &ocr2vrftypes.CoordinatorVars{
+		coordinatorConfig: &ocr2vrftypes.CoordinatorConfig{
 			CacheEvictionWindowSeconds: cacheEvictionWindowSeconds,
 			BatchGasLimit:              5_000_000,
 			CoordinatorOverhead:        50_000,
@@ -217,7 +217,7 @@ func (c *coordinator) ReportBlocks(
 	defer c.logDurationOfFunction("ReportBlocks", now)
 
 	// Instantiate the gas used by this batch.
-	currentBatchGasLimit := c.coordinatorVars.CoordinatorOverhead
+	currentBatchGasLimit := c.coordinatorConfig.CoordinatorOverhead
 
 	// TODO: use head broadcaster instead?
 	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
@@ -305,13 +305,13 @@ func (c *coordinator) ReportBlocks(
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
-		if c.coordinatorVars.BatchGasLimit-currentBatchGasLimit >= c.coordinatorVars.BlockGasOverhead {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit >= c.coordinatorConfig.BlockGasOverhead {
 			blocks = append(blocks, ocr2vrftypes.Block{
 				Hash:              blockhashesMapping[block.blockNumber],
 				Height:            block.blockNumber,
 				ConfirmationDelay: block.confDelay,
 			})
-			currentBatchGasLimit += c.coordinatorVars.BlockGasOverhead
+			currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
 		} else {
 			break
 		}
@@ -462,7 +462,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		// Check if there is room left in the batch. If there is no room left, the coordinator
 		// will keep iterating, until it either finds a callback in a subsequent output height that
 		// can fit into the current batch or reaches the end of the sorted callbacks slice.
-		if c.coordinatorVars.BatchGasLimit-currentBatchGasLimit < (r.Callback.GasAllowance.Int64() + c.coordinatorVars.CallbackOverhead) {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (r.Callback.GasAllowance.Int64() + c.coordinatorConfig.CallbackOverhead) {
 			continue
 		}
 
@@ -910,7 +910,7 @@ func (c *coordinator) logDurationOfFunction(funcName string, startTime time.Time
 }
 
 func (c *coordinator) SetOffChainConfig(b []byte) error {
-	err := proto.Unmarshal(b, c.coordinatorVars)
+	err := proto.Unmarshal(b, c.coordinatorConfig)
 	if err != nil {
 		return errors.Wrap(err, "error setting offchain config on coordinator")
 	}
