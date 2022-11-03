@@ -203,7 +203,6 @@ type EthereumKeeperRegistry struct {
 	registry1_1 *ethereum.KeeperRegistry11
 	registry1_2 *ethereum.KeeperRegistry12
 	registry1_3 *ethereum.KeeperRegistry13
-	// go get github.com/smartcontractkit/chainlink-testing-framework@66f71dd0e8f5bc4f507bc6ec174a8f1dcfa66d17
 	registry2_0 *ethereum.KeeperRegistry20
 	address     *common.Address
 }
@@ -389,9 +388,8 @@ func (v *EthereumKeeperRegistry) SetMigrationPermissions(peerAddress common.Addr
 
 func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 	if v.version == ethereum.RegistryVersion_2_0 {
-		// do nothing we set the registrar in the set config step later
-		// the flow of steps is different for OCR and this is used in a larger deploy flow
-		return nil
+		// we short circuit and exit, so we don't create a new txs messing up the nonce before exiting
+		return fmt.Errorf("please use set config")
 	}
 
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
@@ -556,7 +554,8 @@ func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr s
 	case ethereum.RegistryVersion_1_3:
 		info, err = v.registry1_3.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
 	case ethereum.RegistryVersion_2_0:
-		//TODO info, err = v.registry2_0.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
+		// this is not used anywhere
+		return nil, fmt.Errorf("not supported")
 	}
 
 	if err != nil {
@@ -773,8 +772,6 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byte) error {
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2:
-		return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
 	case ethereum.RegistryVersion_1_3:
 		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 		if err != nil {
@@ -805,8 +802,6 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 // PauseUpkeep stops an upkeep from an upkeep
 func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2:
-		return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
 	case ethereum.RegistryVersion_1_3:
 		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 		if err != nil {
@@ -837,8 +832,6 @@ func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 // UnpauseUpkeep get list of all registered keeper addresses
 func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2:
-		return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
 	case ethereum.RegistryVersion_1_3:
 		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 		if err != nil {

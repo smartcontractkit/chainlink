@@ -55,7 +55,7 @@ func NewKeeperBlockTimeTest(inputs KeeperBlockTimeTestInputs) *KeeperBlockTimeTe
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBlockTimeTest) Setup(env *environment.Environment, ocr bool) {
+func (k *KeeperBlockTimeTest) Setup(env *environment.Environment) {
 	startTime := time.Now()
 	k.ensureInputValues()
 	k.env = env
@@ -77,8 +77,7 @@ func (k *KeeperBlockTimeTest) Setup(env *environment.Environment, ocr bool) {
 	err = k.chainClient.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
 
-	var registrar contracts.KeeperRegistrar
-	k.keeperRegistry, registrar, k.keeperConsumerContracts, _ = actions.DeployPerformanceKeeperContracts(
+	k.keeperRegistry, _, k.keeperConsumerContracts, _ = actions.DeployPerformanceKeeperContracts(
 		ethereum.RegistryVersion_1_1,
 		inputs.NumberOfContracts,
 		uint32(2500000), //upkeepGasLimit
@@ -92,12 +91,8 @@ func (k *KeeperBlockTimeTest) Setup(env *environment.Environment, ocr bool) {
 		inputs.CheckGasToBurn,
 		inputs.PerformGasToBurn,
 	)
-	var ocrConfig contracts.OCRConfig
-	if ocr {
-		ocrConfig = actions.BuildOCRConfigVars(k.chainlinkNodes, *k.Inputs.KeeperRegistrySettings, registrar.Address())
-	}
 	// Send keeper jobs to registry and chainlink nodes
-	actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistry, ocrConfig)
+	actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistry, contracts.OCRConfig{})
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Block Time Test Setup")
 }

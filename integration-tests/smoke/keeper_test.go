@@ -161,29 +161,25 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		consumerContract KeeperConsumerContracts,
 		testToRun KeeperTests,
 		linkFundsForEachUpkeep *big.Int,
-		OCR bool,
 	) {
 		By("Deploying the environment")
-		envVars := map[string]interface{}{
-			"MIN_INCOMING_CONFIRMATIONS": "1",
-			"KEEPER_TURN_FLAG_ENABLED":   "true",
-			"KEEPER_TURN_LOOK_BACK":      "0",
-		}
-
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
-				"env":      envVars,
+				"env": map[string]interface{}{
+					"MIN_INCOMING_CONFIRMATIONS": "1",
+					"KEEPER_TURN_FLAG_ENABLED":   "true",
+					"KEEPER_TURN_LOOK_BACK":      "0",
+				},
 			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		network := networks.SimulatedEVM
-		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
+		chainClient, err = blockchain.NewEVMClient(networks.SimulatedEVM, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
