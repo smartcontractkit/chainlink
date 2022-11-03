@@ -76,6 +76,7 @@ type ORM interface {
 	StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
+
 	// InsertFinishedRuns inserts all the given runs into the database.
 	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
 	InsertFinishedRuns(run []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
