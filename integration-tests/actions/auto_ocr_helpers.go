@@ -8,13 +8,13 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -32,7 +32,7 @@ func BuildOCRConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contr
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		10*time.Second,       // deltaProgress time.Duration,
 		10*time.Second,       // deltaResend time.Duration,
-		5*time.Second,        // deltaRound time.Duration,
+		3*time.Second,        // deltaRound time.Duration,
 		500*time.Millisecond, // deltaGrace time.Duration,
 		2*time.Second,        // deltaStage time.Duration,
 		3,                    // rMax uint8,
@@ -45,8 +45,8 @@ func BuildOCRConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contr
 		50*time.Millisecond, // maxDurationQuery time.Duration,
 		time.Second,         // maxDurationObservation time.Duration,
 		time.Second,         // maxDurationReport time.Duration,
-		time.Second,         // maxDurationShouldAcceptFinalizedReport time.Duration,
-		time.Second,         // maxDurationShouldTransmitAcceptedReport time.Duration,
+		50*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
+		50*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
 		1,                   // f int,
 		nil,                 // onchainConfig []byte,
 	)
@@ -102,66 +102,65 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(chainlinkNodes))
-	//var wg sync.WaitGroup
+	var wg sync.WaitGroup
 	for i, cl := range chainlinkNodes {
-		//wg.Add(1)
-		//go func(i int, cl *client.Chainlink) {
-		//	defer wg.Done()
+		wg.Add(1)
+		go func(i int, cl *client.Chainlink) {
+			defer wg.Done()
 
-		address, err := cl.PrimaryEthAddress()
-		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
-		ocr2Keys, err := cl.MustReadOCR2Keys()
-		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading OCR2 keys from node")
-		var ocr2Config client.OCR2KeyAttributes
-		for _, key := range ocr2Keys.Data {
-			if key.Attributes.ChainType == string(chaintype.EVM) {
-				ocr2Config = key.Attributes
-				break
+			address, err := cl.PrimaryEthAddress()
+			Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
+			ocr2Keys, err := cl.MustReadOCR2Keys()
+			Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading OCR2 keys from node")
+			var ocr2Config client.OCR2KeyAttributes
+			for _, key := range ocr2Keys.Data {
+				if key.Attributes.ChainType == string(chaintype.EVM) {
+					ocr2Config = key.Attributes
+					break
+				}
 			}
-		}
 
-		keys, err := cl.MustReadP2PKeys()
-		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from node")
-		p2pKeyID := keys.Data[0].Attributes.PeerID
+			keys, err := cl.MustReadP2PKeys()
+			Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from node")
+			p2pKeyID := keys.Data[0].Attributes.PeerID
 
-		offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
-		Expect(err).ShouldNot(HaveOccurred(), "failed to decode %s: %v", ocr2Config.OffChainPublicKey, err)
+			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
+			Expect(err).ShouldNot(HaveOccurred(), "failed to decode %s: %v", ocr2Config.OffChainPublicKey, err)
 
-		offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
-		n := copy(offchainPkBytesFixed[:], offchainPkBytes)
-		Expect(n).To(Equal(ed25519.PublicKeySize), "wrong num elements copied")
+			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
+			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
+			Expect(n).To(Equal(ed25519.PublicKeySize), "wrong num elements copied")
 
-		configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
-		Expect(err).ShouldNot(HaveOccurred(), "failed to decode %s: %v", ocr2Config.ConfigPublicKey, err)
+			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
+			Expect(err).ShouldNot(HaveOccurred(), "failed to decode %s: %v", ocr2Config.ConfigPublicKey, err)
 
-		configPkBytesFixed := [ed25519.PublicKeySize]byte{}
-		n = copy(configPkBytesFixed[:], configPkBytes)
-		//fmt.Println(n, ed25519.PublicKeySize, configPkBytesFixed, len(configPkBytesFixed), configPkBytes, len(configPkBytes))
-		Expect(n).To(Equal(ed25519.PublicKeySize), "wrong num elements copied")
+			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
+			n = copy(configPkBytesFixed[:], configPkBytes)
+			Expect(n).To(Equal(ed25519.PublicKeySize), "wrong num elements copied")
 
-		onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
-		Expect(err).ShouldNot(HaveOccurred(), "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
+			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
+			Expect(err).ShouldNot(HaveOccurred(), "failed to decode %s: %v", ocr2Config.OnChainPublicKey, err)
 
-		sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
-		oracleIdentities[i] = confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  onchainPkBytes,
-				OffchainPublicKey: offchainPkBytesFixed,
-				PeerID:            p2pKeyID,
-				TransmitAccount:   types.Account(address),
-			},
-			ConfigEncryptionPublicKey: configPkBytesFixed,
-		}
-		S[i] = 1
-		//}(i, cl)
+			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
+			oracleIdentities[i] = confighelper.OracleIdentityExtra{
+				OracleIdentity: confighelper.OracleIdentity{
+					OnchainPublicKey:  onchainPkBytes,
+					OffchainPublicKey: offchainPkBytesFixed,
+					PeerID:            p2pKeyID,
+					TransmitAccount:   types.Account(address),
+				},
+				ConfigEncryptionPublicKey: configPkBytesFixed,
+			}
+			S[i] = 1
+		}(i, cl)
 	}
-	//wg.Wait()
+	wg.Wait()
 	log.Info().Msg("Done fetching oracle identities")
 	return S, oracleIdentities
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
-func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClient.MockserverClient, registryAddr string, chainID int64) {
+func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string, chainID int64) {
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -194,12 +193,6 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, mockserver *ctfClie
 			P2Pv2Bootstrappers: P2Pv2Bootstrapper,      // bootstrap node key and address <p2p-key>@bootstrap:8000
 			ChainID:            int(chainID),
 		}
-		fmt.Printf("autoOCR2JobSpec:%d = %+v\n", nodeIndex, autoOCR2JobSpec)
-		// 4 = {ContractID:0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e
-		//OCRKeyBundleID:076c8fcbca5cc1f8c8e0e4be3fb3af52db98287469a5e2a4014c8dc15a2fe446
-		//TransmitterID:0x77E2d2A035b32fB6823D7c395d3Ad771D21dB0F9
-		//P2Pv2Bootstrappers:12D3KooWE8w645KCEh15p9HCLmf87Ls3oxGXrjnJdjJDfUg7nTLo@10.42.0.141:6690
-		//ChainID:1337}
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}

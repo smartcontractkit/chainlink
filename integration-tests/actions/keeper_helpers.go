@@ -278,7 +278,6 @@ func DeployKeeperRegistrar(
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying KeeperRegistrar contract shouldn't fail")
 	err = client.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for registrar to deploy")
-	// only sets it for non-OCR versions. For OCR it gets set in the config later.
 	err = registry.SetRegistrar(registrar.Address())
 	Expect(err).ShouldNot(HaveOccurred(), "Registering the registrar address on the registry shouldn't fail")
 	err = client.WaitForEvents()
