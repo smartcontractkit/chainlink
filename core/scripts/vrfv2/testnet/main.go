@@ -441,6 +441,13 @@ func main() {
 		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
 		deployBHS(e)
+	case "deploy-link-eth-feed":
+		cmd := flag.NewFlagSet("deploy-link-eth-feed", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		weiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "fallback wei per unit link")
+		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "fallback-wei-per-unit-link")
+		feedAddress := helpers.DeployLinkEthFeed(e, *linkAddress, decimal.RequireFromString(*weiPerUnitLink).BigInt())
+		fmt.Printf("Deployed LINK/ETH feed at %v", feedAddress.String())
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
