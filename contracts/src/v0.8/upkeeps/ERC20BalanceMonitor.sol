@@ -124,8 +124,6 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
         needsFunding[count] = watchList[idx];
         count++;
         contractBalance -= topUpAmount;
-      } else {
-        require(count != 0);
       }
     }
     if (count != watchList.length) {
