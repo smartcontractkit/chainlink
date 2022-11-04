@@ -165,6 +165,7 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a/go.mod h1:DAHtR1m6lCRdSC2Tm3DSWRPvIPr6xNKyeHdqDQSQT+A=
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
+github.com/ava-labs/coreth v0.8.14 h1:mEKIISP9n6WUtVVFD7PPQ3CUU7ykhf83XU1/6NLtuxo=
 github.com/aws/aws-lambda-go v1.13.3/go.mod h1:4UKl9IzQMoD+QF79YdCuzCwp8VbmG4VAQwij/eHl5CU=
 github.com/aws/aws-sdk-go v1.22.1/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go v1.23.20/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
@@ -1659,16 +1660,14 @@ github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220930034647-edd5a863b87
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb h1:oRKhJVdoXTVQqBVSPkvfC/hxYoxsL3hldTavEuZrWOk=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb/go.mod h1:FR8+xi6pmUuK6/PaH64B+OT5n/QOz7ox9pp9z05Dc2g=
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886 h1:VVB/jdEBD9O01uOPvONEWeUVJr2/crLjVVCfTl1fOLM=
-github.com/smartcontractkit/chainlink-testing-framework v1.7.6-0.20221028195953-93745b9c2101 h1:LFMOlnVL4ekMzyQcsM0sgFOieorozUtmUkuvTsuDfcE=
-github.com/smartcontractkit/chainlink-testing-framework v1.7.6-0.20221028195953-93745b9c2101/go.mod h1:WSxufhaN6qxWI5HbGaDeYKxXdNuA2lFoolDaoVkxtSw=
 github.com/smartcontractkit/chainlink-testing-framework v1.7.6-0.20221031161922-6ecb37fbba9c h1:VHOqr0Gd17Msh433avpnUOwWwMuKWu/hauXGfvdGyBg=
 github.com/smartcontractkit/chainlink-testing-framework v1.7.6-0.20221031161922-6ecb37fbba9c/go.mod h1:WSxufhaN6qxWI5HbGaDeYKxXdNuA2lFoolDaoVkxtSw=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCKJwt0AY15bAaorscflOcBs/FnmO7NoCh8Tons=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.4.7 h1:WvLqZtTlPOj2EBQg04Mg4hKiZCI/4Fa0aw8GuhdMm3Q=
 github.com/smartcontractkit/ocr2keepers v0.4.7/go.mod h1:6wSlAWYBmlJM7bDZ4Ewc5J5AJQszIRGDNaUAw35r3qc=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221017160540-1ebacaf4c7e7 h1:+BqHoR3VtOdTpVQf3QAK7n9YlMLQXN4/ouNxYLi75H8=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221017160540-1ebacaf4c7e7/go.mod h1:60/WayFm5nOAPIHtSThJ0DAd4sMKtytPQsjHAwYxGfU=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20221103213748-db2f67990850 h1:cZX0weC3QmHlS+stmLaliNgd4GfemmEl3tziZSYXKk8=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20221103213748-db2f67990850/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
 github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 h1:k+E0RKzVSG1QpxXakNUtcGUhq4ZMe0MAJ5Awg/l9oSc=

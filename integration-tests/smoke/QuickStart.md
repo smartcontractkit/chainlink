@@ -30,6 +30,19 @@ cd ~/go/src/github.com/chainlink
 make test_smoke_raw args="--focus-file=keeper_test.go"
  ``` 
 
+## Already have the initial stuff set up and just want to rebuild and run
+build+run
+```shell
+cd ~/go/src/github.com/chainlink
+env DOCKER_DEFAULT_PLATFORM=linux/amd64 docker buildx build --platform linux/amd64 -f ./core/chainlink.Dockerfile --build-arg ENVIRONMENT=release --build-arg COMMIT_SHA=$(git rev-parse HEAD) -t smartcontract/chainlink:develop-$(git rev-parse HEAD) .
+export CHAINLINK_VERSION=develop-$(git rev-parse HEAD)
+export TEST_LOG_LEVEL="debug"
+docker tag docker.io/smartcontract/chainlink:$CHAINLINK_VERSION k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
+docker push k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
+export CHAINLINK_IMAGE=k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink
+make test_smoke_raw args="--focus-file=keeper_test.go"
+ ``` 
+
 ## Step by Step
 
 1. Build a Docker image of the chainlink repo:
