@@ -23,7 +23,7 @@ func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
 
 func (e *erroringNode) Start(ctx context.Context) error { return errors.New(e.errMsg) }
 
-func (e *erroringNode) Close() {}
+func (e *erroringNode) Close() error { return nil }
 
 func (e *erroringNode) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
 	return errors.New(e.errMsg)
@@ -124,5 +124,5 @@ func (e *erroringNode) StateAndLatestBlockNumber() (NodeState, int64) {
 func (e *erroringNode) DeclareOutOfSync()            {}
 func (e *erroringNode) DeclareInSync()               {}
 func (e *erroringNode) DeclareUnreachable()          {}
-func (e *erroringNode) ID() int32                    { return 0 }
+func (e *erroringNode) Name() string                 { return "" }
 func (e *erroringNode) NodeStates() map[int32]string { return nil }

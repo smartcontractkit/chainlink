@@ -44,6 +44,7 @@ type ORM[I ID, C Config, N Node] interface {
 	// All existing nodes are dropped, and any missing chains are automatically created.
 	// Then all nodes are inserted, and conflicts are ignored.
 	SetupNodes(nodes []N, chainIDs []I) error
+	EnsureChains([]I, ...pg.QOpt) error
 }
 
 type orm[I ID, C Config, N Node] struct {
@@ -69,7 +70,7 @@ func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 			return err
 		}
 
-		if err := o.ensureChains(ids, tx); err != nil {
+		if err := o.EnsureChains(ids, tx); err != nil {
 			return err
 		}
 
@@ -126,7 +127,7 @@ func (o *chainsORM[I, C]) CreateChain(id I, config C, qopts ...pg.QOpt) (chain D
 	return
 }
 
-func (o *chainsORM[I, C]) ensureChains(ids []I, qopts ...pg.QOpt) (err error) {
+func (o *chainsORM[I, C]) EnsureChains(ids []I, qopts ...pg.QOpt) (err error) {
 	named := make([]struct{ ID I }, len(ids))
 	for i, id := range ids {
 		named[i].ID = id

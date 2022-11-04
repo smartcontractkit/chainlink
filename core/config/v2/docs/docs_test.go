@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestDoc(t *testing.T) {
@@ -51,7 +51,7 @@ func TestDoc(t *testing.T) {
 		// clean up KeySpecific as a special case
 		require.Equal(t, 1, len(docDefaults.KeySpecific))
 		ks := evmcfg.KeySpecific{Key: new(ethkey.EIP55Address),
-			GasEstimator: &evmcfg.KeySpecificGasEstimator{PriceMax: new(utils.Wei)}}
+			GasEstimator: evmcfg.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
 		require.Equal(t, ks, docDefaults.KeySpecific[0])
 		docDefaults.KeySpecific = nil
 
@@ -61,7 +61,7 @@ func TestDoc(t *testing.T) {
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.Keeper)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.VRF)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.FM)
-		docDefaults.GasEstimator.LimitJobType = nil
+		docDefaults.GasEstimator.LimitJobType = evmcfg.GasLimitJobType{}
 
 		// EIP1559FeeCapBufferBlocks doesn't have a constant default - it is derived from another field
 		require.Zero(t, *docDefaults.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks)
@@ -120,7 +120,8 @@ var (
 )
 
 func Test_generateDocs(t *testing.T) {
-	got, err := generateDocs(exampleTOML)
+	got, err := generateDocs(exampleTOML, `[//]: # (Generated - DO NOT EDIT.)
+`)
 	require.NoError(t, err)
 	assert.Equal(t, exampleMarkdown, got)
 }

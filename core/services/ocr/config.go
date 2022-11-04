@@ -1,15 +1,15 @@
 package ocr
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-)
 
-//go:generate mockery --name Config --output ../mocks/ --case=underscore
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+)
 
 // Config contains OCR configurations for a job.
 type Config interface {
-	LogSQL() bool
+	pg.QConfig
 }
 
 func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalConfig {

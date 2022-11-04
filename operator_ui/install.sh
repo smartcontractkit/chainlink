@@ -1,33 +1,58 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Dependencies:
-# gh cli ^2.15.0 https://github.com/cli/cli/releases/tag/v2.15.0
 # jq ^1.6 https://stedolan.github.io/jq/
 
-repo=smartcontractkit/operator-ui
-gitRoot=$(git rev-parse --show-toplevel)
+owner=smartcontractkit
+repo=operator-ui
+fullRepo=${owner}/${repo}
+gitRoot=$(git rev-parse --show-toplevel || pwd)
 cd "$gitRoot/operator_ui"
 unpack_dir="$gitRoot/core/web/assets"
 tag=$(cat TAG)
+# Remove the version prefix "v"
+strippedTag="${tag:1}"
+# Taken from https://github.com/kennyp/asdf-golang/blob/master/lib/helpers.sh
+msg() {
+  echo -e "\033[32m$1\033[39m" >&2
+}
 
-echo "Getting release $tag for $repo"
-release=$(gh release view "$tag" -R $repo --json 'assets')
-asset_name=$(echo "$release" | jq -r '.assets | map(select(.contentType == "application/x-gtar"))[0].name')
+err() {
+  echo -e "\033[31m$1\033[39m" >&2
+}
 
-echo "Downloading ${repo}:${tag} asset: $asset_name..."
-echo ""
-gh release download "$tag" -R "$repo" -p "$asset_name"
+fail() {
+  err "$1"
+  exit 1
+}
 
-echo "Unpacking asset $asset_name"
+msg "Getting release $tag for $fullRepo"
+# https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name
+asset_name=${owner}-${repo}-${strippedTag}.tgz
+download_url=https://github.com/${fullRepo}/releases/download/${tag}/${asset_name}
+
+# Inspired from https://github.com/kennyp/asdf-golang/blob/master/bin/download#L29
+msg "Download URL: ${download_url}"
+# Check if we're able to download first
+http_code=$(curl -LIs -w '%{http_code}' -o /dev/null "$download_url")
+if [ "$http_code" -eq 404 ] || [ "$http_code" -eq 403 ]; then
+  fail "URL: ${download_url} returned status ${http_code}"
+fi
+# Then go ahead if we get a success code
+msg "Downloading ${fullRepo}:${tag} asset: $asset_name..."
+msg ""
+curl -L -o "$asset_name" "$download_url"
+
+msg "Unpacking asset $asset_name"
 tar -xvzf "$asset_name"
 
-echo ""
-echo "Removing old contents of $unpack_dir"
+msg ""
+msg "Removing old contents of $unpack_dir"
 rm -rf "$unpack_dir"
-echo "Copying contents of package/artifacts to $unpack_dir"
+msg "Copying contents of package/artifacts to $unpack_dir"
 cp -rf package/artifacts/. "$unpack_dir" || true
 
-echo "Cleaning up"
+msg "Cleaning up"
 rm -r package
 rm "$asset_name"

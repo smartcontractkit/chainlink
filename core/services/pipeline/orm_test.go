@@ -10,9 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -26,11 +28,11 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	t.Helper()
 
 	if name != "" {
-		_, db = heavyweight.FullTestDB(t, name)
+		_, db = heavyweight.FullTestDBV2(t, name, nil)
 	} else {
 		db = pgtest.NewSqlxDB(t)
 	}
-	orm = pipeline.NewORM(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	orm = pipeline.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return
 }
@@ -498,14 +500,15 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	// The test configures single Keeper job with two running tasks.
 	// GetUnfinishedRuns() expects to catch both running tasks.
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest2.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	porm := pipeline.NewORM(db, lggr, config)
+	bridgeORM := bridges.NewORM(db, lggr, config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jorm := job.NewORM(db, cc, porm, keyStore, lggr, config)
+	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
 	defer jorm.Close()
 
 	timestamp := time.Now()
@@ -598,14 +601,15 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	// The test configures single DR job with two task runs: one is running and one is suspended.
 	// GetUnfinishedRuns() expects to catch the one that is running.
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest2.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	porm := pipeline.NewORM(db, lggr, config)
+	bridgeORM := bridges.NewORM(db, lggr, config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jorm := job.NewORM(db, cc, porm, keyStore, lggr, config)
+	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
 	defer jorm.Close()
 
 	timestamp := time.Now()

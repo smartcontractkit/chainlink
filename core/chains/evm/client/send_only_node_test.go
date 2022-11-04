@@ -82,7 +82,7 @@ func createSignedTx(t *testing.T, chainID *big.Int, nonce uint64, data []byte) *
 	require.NoError(t, err)
 	tx := types.NewTransaction(
 		nonce, sender.From,
-		assets.Ether(100),
+		assets.Ether(100).ToInt(),
 		21000, big.NewInt(1000000000), data,
 	)
 	signedTx, err := sender.Signer(sender.From, tx)

@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -27,8 +28,8 @@ type PeerWrapperConfig interface {
 	config.P2PNetworking
 	config.P2PV1Networking
 	config.P2PV2Networking
+	pg.QConfig
 	OCRTraceLogging() bool
-	LogSQL() bool
 	FeatureOffchainReporting() bool
 }
 

@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -26,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
-//go:generate mockery --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
+//go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
@@ -49,6 +48,14 @@ type LogPoller interface {
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 }
 
+type Client interface {
+	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
+	ChainID() *big.Int
+}
+
 var (
 	_                          LogPoller = &logPoller{}
 	ErrReplayAbortedByClient             = errors.New("replay aborted by client")
@@ -57,11 +64,12 @@ var (
 
 type logPoller struct {
 	utils.StartStopOnce
-	ec                client.Client
+	ec                Client
 	orm               *ORM
 	lggr              logger.Logger
 	pollPeriod        time.Duration // poll period set by block production rate
 	finalityDepth     int64         // finality depth is taken to mean that block (head - finality) is finalized
+	keepBlocksDepth   int64         // the number of blocks behind the head for which we keep the blocks. Must be greater than finality depth + 1.
 	backfillBatchSize int64         // batch size to use when backfilling finalized logs
 	rpcBatchSize      int64         // batch size to use for fallback RPC calls made in GetBlocks
 
@@ -93,7 +101,7 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize, rpcBatchSize int64) *logPoller {
+func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -105,6 +113,7 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
 		rpcBatchSize:      rpcBatchSize,
+		keepBlocksDepth:   keepBlocksDepth,
 		filters:           make(map[int]Filter),
 		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
@@ -121,8 +130,8 @@ type Filter struct {
 // the log poller will pick those up and save them. For topic specific queries see content based querying.
 // Clients may choose to MergeFilter and then Replay in order to ensure desired logs are present.
 // NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
-// MergeFilter(event1, addr1)
-// MergeFilter(event2, addr2)
+// RegisterFilter(event1, addr1)
+// RegisterFilter(event2, addr2)
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
@@ -213,11 +222,11 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
-	latest, err := lp.ec.HeaderByNumber(ctx, nil)
+	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if fromBlock < 1 || fromBlock > latest.Number.Int64() {
+	if fromBlock < 1 || fromBlock > latest.Number {
 		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
 	}
 	// Block until replay notification accepted or cancelled.
@@ -242,6 +251,11 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {
+	if lp.keepBlocksDepth < (lp.finalityDepth + 1) {
+		// We add 1 since for reorg detection on the first unfinalized block
+		// we need to keep 1 finalized block.
+		return errors.Errorf("keepBlocksDepth %d must be greater than finality %d + 1", lp.keepBlocksDepth, lp.finalityDepth)
+	}
 	return lp.StartOnce("LogPoller", func() error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
@@ -277,7 +291,8 @@ func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (i
 
 func (lp *logPoller) run() {
 	defer close(lp.done)
-	tick := time.After(0)
+	logPollTick := time.After(0)
+	blockPruneTick := time.After(0)
 	for {
 		select {
 		case <-lp.ctx.Done():
@@ -300,8 +315,8 @@ func (lp *logPoller) run() {
 				continue
 			case lp.replayComplete <- err:
 			}
-		case <-tick:
-			tick = time.After(utils.WithJitter(lp.pollPeriod))
+		case <-logPollTick:
+			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
 			// Always start from the latest block in the db.
 			var start int64
 			lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
@@ -313,12 +328,12 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latest, err := lp.ec.HeaderByNumber(lp.ctx, nil)
+				latest, err := lp.ec.HeadByNumber(lp.ctx, nil)
 				if err != nil {
 					lp.lggr.Warnw("unable to get latest for first poll", "err", err)
 					continue
 				}
-				latestNum := latest.Number.Int64()
+				latestNum := latest.Number
 				// Do not support polling chains with don't even have finality depth worth of blocks.
 				// Could conceivably support this but not worth the effort.
 				// Need finality depth + 1, no block 0.
@@ -332,6 +347,11 @@ func (lp *logPoller) run() {
 				start = lastProcessed.BlockNumber + 1
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
+		case <-blockPruneTick:
+			blockPruneTick = time.After(lp.pollPeriod * 1000)
+			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
+				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+			}
 		}
 	}
 }
@@ -399,11 +419,11 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 // 1. Find the LCA by following parent hashes.
 // 2. Delete all logs and blocks after the LCA
 // 3. Return the LCA+1, i.e. our new current (unprocessed) block.
-func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *types.Header) (*types.Header, error) {
+func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *evmtypes.Head) (*evmtypes.Head, error) {
 	var err1 error
 	if currentBlock == nil {
 		// If we don't have the current block already, lets get it.
-		currentBlock, err1 = lp.ec.HeaderByNumber(ctx, big.NewInt(currentBlockNumber))
+		currentBlock, err1 = lp.ec.HeadByNumber(ctx, big.NewInt(currentBlockNumber))
 		if err1 != nil {
 			lp.lggr.Warnw("Unable to get currentBlock", "err", err1, "currentBlockNumber", currentBlockNumber)
 			return nil, err1
@@ -413,9 +433,9 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
 			return nil, errors.Errorf("Got nil block for %d", currentBlockNumber)
 		}
-		if currentBlock.Number.Int64() != currentBlockNumber {
-			lp.lggr.Warnw("Unable to get currentBlock, rpc returned incorrect block", "currentBlockNumber", currentBlockNumber, "got", currentBlock.Number.Int64())
-			return nil, errors.Errorf("Block mismatch have %d want %d", currentBlock.Number.Int64(), currentBlockNumber)
+		if currentBlock.Number != currentBlockNumber {
+			lp.lggr.Warnw("Unable to get currentBlock, rpc returned incorrect block", "currentBlockNumber", currentBlockNumber, "got", currentBlock.Number)
+			return nil, errors.Errorf("Block mismatch have %d want %d", currentBlock.Number, currentBlockNumber)
 		}
 	}
 	// Does this currentBlock point to the same parent that we have saved?
@@ -443,7 +463,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			return nil, errors.New("Unable to find LCA after reorg, retrying")
 		}
 
-		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number.Int64(), "currentBlockNumber", currentBlockNumber)
+		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number, "currentBlockNumber", currentBlockNumber)
 		// We truncate all the blocks and logs after the LCA.
 		// We could preserve the logs for forensics, since its possible
 		// that applications see them and take action upon it, however that
@@ -454,12 +474,12 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			// These deletes are bounded by reorg depth, so they are
 			// fast and should not slow down the log readers.
-			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
+			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number, pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
 				return err3
 			}
-			err3 = lp.orm.DeleteLogsAfter(blockAfterLCA.Number.Int64(), pg.WithQueryer(tx))
+			err3 = lp.orm.DeleteLogsAfter(blockAfterLCA.Number, pg.WithQueryer(tx))
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err3)
 				return err3
@@ -482,19 +502,19 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 // conditions this would be equal to lastProcessed.BlockNumber + 1.
 func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
 	lp.lggr.Infow("Polling for logs", "currentBlockNumber", currentBlockNumber)
-	latestBlock, err := lp.ec.HeaderByNumber(ctx, nil)
+	latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "currentBlockNumber", currentBlockNumber)
 		return
 	}
-	latestBlockNumber := latestBlock.Number.Int64()
+	latestBlockNumber := latestBlock.Number
 	if currentBlockNumber > latestBlockNumber {
 		// Note there can also be a reorg "shortening" i.e. chain height decreases but TDD increases. In that case
 		// we also just wait until the new tip is longer and then detect the reorg.
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
 		return
 	}
-	var currentBlock *types.Header
+	var currentBlock *evmtypes.Head
 	if currentBlockNumber == latestBlockNumber {
 		// Can re-use our currentBlock and avoid an extra RPC call.
 		currentBlock = latestBlock
@@ -508,7 +528,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		lp.lggr.Errorw("Unable to get current block, retrying", "err", err)
 		return
 	}
-	currentBlockNumber = currentBlock.Number.Int64()
+	currentBlockNumber = currentBlock.Number
 
 	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs.
 	// Log insertion is idempotent so this is ok.
@@ -533,18 +553,18 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			lp.lggr.Errorw("Unable to get current block", "err", err)
 			return
 		}
-		currentBlockNumber = currentBlock.Number.Int64()
+		currentBlockNumber = currentBlock.Number
 	}
 
 	for {
-		h := currentBlock.Hash()
+		h := currentBlock.Hash
 		var logs []types.Log
 		logs, err = lp.ec.FilterLogs(ctx, lp.filter(nil, nil, &h))
 		if err != nil {
 			lp.lggr.Warnw("Unable to query for logs, retrying", "err", err, "block", currentBlockNumber)
 			return
 		}
-		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
+		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, pg.WithQueryer(tx)); err2 != nil {
 				return err2
@@ -571,43 +591,61 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			lp.lggr.Errorw("Unable to get current block", "err", err)
 			return
 		}
-		currentBlockNumber = currentBlock.Number.Int64()
+		currentBlockNumber = currentBlock.Number
 	}
 }
 
 // Find the first place where our chain and their chain have the same block,
 // that block number is the LCA. Return the block after that, where we want to resume polling.
-func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Header) (*types.Header, error) {
+func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.Head) (*evmtypes.Head, error) {
 	// Current is where the mismatch starts.
 	// Check its parent to see if its the same as ours saved.
-	parent, err := lp.ec.HeaderByHash(ctx, current.ParentHash)
+	parent, err := lp.ec.HeadByHash(ctx, current.ParentHash)
 	if err != nil {
 		return nil, err
 	}
 	blockAfterLCA := *current
-	reorgStart := parent.Number.Int64()
+	reorgStart := parent.Number
 	// We expect reorgs up to the block after (current - finalityDepth),
 	// since the block at (current - finalityDepth) is finalized.
 	// We loop via parent instead of current so current always holds the LCA+1.
 	// If the parent block number becomes < the first finalized block our reorg is too deep.
-	for parent.Number.Int64() >= (reorgStart - lp.finalityDepth) {
-		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number.Int64(), pg.WithParentCtx(ctx))
+	for parent.Number >= (reorgStart - lp.finalityDepth) {
+		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number, pg.WithParentCtx(ctx))
 		if err != nil {
 			return nil, err
 		}
-		if parent.Hash() == ourParentBlockHash.BlockHash {
+		if parent.Hash == ourParentBlockHash.BlockHash {
 			// If we do have the blockhash, return blockAfterLCA
 			return &blockAfterLCA, nil
 		}
 		// Otherwise get a new parent and update blockAfterLCA.
 		blockAfterLCA = *parent
-		parent, err = lp.ec.HeaderByHash(ctx, parent.ParentHash)
+		parent, err = lp.ec.HeadByHash(ctx, parent.ParentHash)
 		if err != nil {
 			return nil, err
 		}
 	}
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
 	return nil, errors.New("Reorg greater than finality depth")
+}
+
+// pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.
+func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
+	latest, err := lp.ec.HeadByNumber(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if latest == nil {
+		return errors.Errorf("received nil block from RPC")
+	}
+	if latest.Number <= lp.keepBlocksDepth {
+		// No-op, keep all blocks
+		return nil
+	}
+	// 1-2-3-4-5(latest), keepBlocksDepth=3
+	// Remove <= 2
+	return lp.orm.DeleteBlocksBefore(latest.Number-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,

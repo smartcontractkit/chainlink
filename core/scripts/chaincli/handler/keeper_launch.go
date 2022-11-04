@@ -50,7 +50,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 			"P2P_NETWORKING_STACK=V2",
 			"CHAINLINK_TLS_PORT=0",
 			"P2PV2_LISTEN_ADDRESSES=0.0.0.0:8000",
-			"ETH_GAS_LIMIT_OCR_JOB_TYPE=5000000",
 		}
 	}
 
@@ -293,11 +292,10 @@ func (k *Keeper) createLegacyKeeperJob(client cmd.HTTPClient, registryAddr, node
 }
 
 const ocr2keeperJobTemplate = `type = "offchainreporting2"
-pluginType = "ocr2keeper"
+pluginType = "ocr2automation"
 relay = "evm"
 name = "ocr2"
 schemaVersion = 1
-maxTaskDuration = "1s"
 contractID = "%s"
 ocrKeyBundleID = "%s"
 transmitterID = "%s"

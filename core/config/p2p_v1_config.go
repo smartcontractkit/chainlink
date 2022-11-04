@@ -118,22 +118,22 @@ func (c *generalConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
 
 // FIXME: Add comments to all of these
 func (c *generalConfig) P2PBootstrapCheckInterval() time.Duration {
-	if c.OCRBootstrapCheckInterval() != 0 {
-		return c.OCRBootstrapCheckInterval()
+	if c.ocrBootstrapCheckInterval() != 0 {
+		return c.ocrBootstrapCheckInterval()
 	}
 	return c.getWithFallback("P2PBootstrapCheckInterval", parse.Duration).(time.Duration)
 }
 
 func (c *generalConfig) P2PDHTLookupInterval() int {
-	if c.OCRDHTLookupInterval() != 0 {
-		return c.OCRDHTLookupInterval()
+	if c.ocrDHTLookupInterval() != 0 {
+		return c.ocrDHTLookupInterval()
 	}
 	return int(getEnvWithFallback(c, envvar.NewUint16("P2PDHTLookupInterval")))
 }
 
 func (c *generalConfig) P2PNewStreamTimeout() time.Duration {
-	if c.OCRNewStreamTimeout() != 0 {
-		return c.OCRNewStreamTimeout()
+	if c.ocrNewStreamTimeout() != 0 {
+		return c.ocrNewStreamTimeout()
 	}
 	return c.getWithFallback("P2PNewStreamTimeout", parse.Duration).(time.Duration)
 }

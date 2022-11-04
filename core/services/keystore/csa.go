@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 )
 
-//go:generate mockery --name CSA --output mocks/ --case=underscore
+//go:generate mockery --quiet --name CSA --output mocks/ --case=underscore
 
 // ErrCSAKeyExists describes the error when the CSA key already exists
 var ErrCSAKeyExists = errors.New("can only have 1 CSA key")

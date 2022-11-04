@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -27,7 +28,7 @@ var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersCh
 
 type Config interface {
 	gas.Config
-	LogSQL() bool
+	pg.QConfig
 }
 
 type FwdMgr struct {

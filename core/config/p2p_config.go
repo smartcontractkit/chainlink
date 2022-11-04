@@ -19,7 +19,6 @@ type P2PNetworking interface {
 	P2PPeerIDRaw() string
 	P2PIncomingMessageBufferSize() int
 	P2POutgoingMessageBufferSize() int
-	P2PDeprecated
 }
 
 // P2PNetworkingStack returns the preferred networking stack for libocr
@@ -57,50 +56,50 @@ func (c *generalConfig) P2PPeerIDRaw() string {
 }
 
 func (c *generalConfig) P2PIncomingMessageBufferSize() int {
-	if c.OCRIncomingMessageBufferSize() != 0 {
-		return c.OCRIncomingMessageBufferSize()
+	if c.ocrIncomingMessageBufferSize() != 0 {
+		return c.ocrIncomingMessageBufferSize()
 	}
 	return int(getEnvWithFallback(c, envvar.NewUint16("P2PIncomingMessageBufferSize")))
 }
 
 func (c *generalConfig) P2POutgoingMessageBufferSize() int {
-	if c.OCROutgoingMessageBufferSize() != 0 {
-		return c.OCROutgoingMessageBufferSize()
+	if c.ocrOutgoingMessageBufferSize() != 0 {
+		return c.ocrOutgoingMessageBufferSize()
 	}
 	return int(getEnvWithFallback(c, envvar.NewUint16("P2POutgoingMessageBufferSize")))
 }
 
 type P2PDeprecated interface {
 	// DEPRECATED - HERE FOR BACKWARDS COMPATIBILITY
-	OCRNewStreamTimeout() time.Duration
-	OCRBootstrapCheckInterval() time.Duration
-	OCRDHTLookupInterval() int
-	OCRIncomingMessageBufferSize() int
-	OCROutgoingMessageBufferSize() int
+	ocrNewStreamTimeout() time.Duration
+	ocrBootstrapCheckInterval() time.Duration
+	ocrDHTLookupInterval() int
+	ocrIncomingMessageBufferSize() int
+	ocrOutgoingMessageBufferSize() int
 }
 
 // DEPRECATED, do not use defaults, use only if specified and the
 // newer env vars is not
-func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
-	return getEnvWithFallback(c, envvar.NewDuration("OCRBootstrapCheckInterval"))
+func (c *generalConfig) ocrBootstrapCheckInterval() time.Duration {
+	return c.viper.GetDuration("OCRBootstrapCheckInterval")
 }
 
 // DEPRECATED
-func (c *generalConfig) OCRDHTLookupInterval() int {
-	return int(getEnvWithFallback(c, envvar.NewInt64("OCRDHTLookupInterval")))
+func (c *generalConfig) ocrDHTLookupInterval() int {
+	return c.viper.GetInt("OCRDHTLookupInterval")
 }
 
 // DEPRECATED
-func (c *generalConfig) OCRNewStreamTimeout() time.Duration {
-	return getEnvWithFallback(c, envvar.NewDuration("OCRNewStreamTimeout"))
+func (c *generalConfig) ocrNewStreamTimeout() time.Duration {
+	return c.viper.GetDuration("OCRNewStreamTimeout")
 }
 
 // DEPRECATED
-func (c *generalConfig) OCRIncomingMessageBufferSize() int {
-	return int(getEnvWithFallback(c, envvar.NewInt64("OCRIncomingMessageBufferSize")))
+func (c *generalConfig) ocrIncomingMessageBufferSize() int {
+	return c.viper.GetInt("OCRIncomingMessageBufferSize")
 }
 
 // DEPRECATED
-func (c *generalConfig) OCROutgoingMessageBufferSize() int {
-	return int(getEnvWithFallback(c, envvar.NewInt64("OCROutgoingMessageBufferSize")))
+func (c *generalConfig) ocrOutgoingMessageBufferSize() int {
+	return c.viper.GetInt("OCROutgoingMessageBufferSize")
 }

@@ -15,8 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,7 +35,7 @@ import (
 func TestHTTPTask_Happy(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
@@ -154,7 +157,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			t.Parallel()
 
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
 			defer s1.Close()
@@ -162,6 +165,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
+			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
@@ -170,7 +174,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 				RequestData: test.requestData,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 			err = test.vars.Set("meta", test.meta)
 			require.NoError(t, err)
@@ -203,7 +207,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -250,7 +254,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 func TestHTTPTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -283,7 +287,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
@@ -328,7 +332,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
 
 	t.Run("sends headers", func(t *testing.T) {
-		config := cltest.NewTestGeneralConfig(t)
+		config := configtest.NewTestGeneralConfig(t)
 		var headers http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			headers = r.Header
@@ -374,7 +378,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 	})
 
 	t.Run("allows to override content-type", func(t *testing.T) {
-		config := cltest.NewTestGeneralConfig(t)
+		config := configtest.NewTestGeneralConfig(t)
 		var headers http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			headers = r.Header

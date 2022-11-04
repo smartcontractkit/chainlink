@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -42,12 +43,6 @@ import (
 var (
 	batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 )
-
-type logconfig struct{}
-
-func (c logconfig) LogSQL() bool {
-	return false
-}
 
 func main() {
 	e := helpers.SetupEnv(false)
@@ -178,7 +173,7 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, logconfig{})
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pgtest.NewQConfig(false))
 		err = keyStore.Unlock(*keystorePassword)
 		helpers.PanicErr(err)
 
@@ -270,7 +265,7 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, logconfig{})
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pgtest.NewQConfig(false))
 		err = keyStore.Unlock(*keystorePassword)
 		helpers.PanicErr(err)
 
@@ -892,7 +887,7 @@ func main() {
 			}
 		}
 
-		result := binarySearch(assets.Ether(int64(*start*2)), big.NewInt(0), isWithdrawable)
+		result := binarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
 
 		fmt.Printf("Withdrawable amount for oracle %s is %s\n", oracleAddress.String(), result.String())
 

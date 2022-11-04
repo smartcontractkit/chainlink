@@ -23,8 +23,8 @@ func setup(t testing.TB) (*ORM, *ORM) {
 	lggr := logger.TestLogger(t)
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
-	o1 := NewORM(big.NewInt(137), db, lggr, pgtest.NewPGCfg(true))
-	o2 := NewORM(big.NewInt(138), db, lggr, pgtest.NewPGCfg(true))
+	o1 := NewORM(big.NewInt(137), db, lggr, pgtest.NewQConfig(true))
+	o2 := NewORM(big.NewInt(138), db, lggr, pgtest.NewQConfig(true))
 	return o1, o2
 }
 
@@ -492,6 +492,27 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 		assert.True(t, bytes.Equal(topic.Bytes(), l.EventSig.Bytes()) || bytes.Equal(topic2.Bytes(), l.EventSig.Bytes()), "wrong log topic")
 		assert.True(t, l.BlockNumber >= startBlock && l.BlockNumber <= endBlock)
 	}
+}
+
+func TestORM_DeleteBlocksBefore(t *testing.T) {
+	o1, _ := setup(t)
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 1))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 2))
+	require.NoError(t, o1.DeleteBlocksBefore(1))
+	// 1 should be gone.
+	_, err := o1.SelectBlockByNumber(1)
+	require.Equal(t, err, sql.ErrNoRows)
+	b, err := o1.SelectBlockByNumber(2)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), b.BlockNumber)
+	// Clear multiple
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1236"), 3))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1237"), 4))
+	require.NoError(t, o1.DeleteBlocksBefore(3))
+	_, err = o1.SelectBlockByNumber(2)
+	require.Equal(t, err, sql.ErrNoRows)
+	_, err = o1.SelectBlockByNumber(3)
+	require.Equal(t, err, sql.ErrNoRows)
 }
 
 func BenchmarkLogs(b *testing.B) {

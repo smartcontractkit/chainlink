@@ -98,8 +98,8 @@ func setupStarkNetKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, k
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.StarkNet().Add(cltest.DefaultStarkNetKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.StarkNet().Add(cltest.DefaultStarkNetKey))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 

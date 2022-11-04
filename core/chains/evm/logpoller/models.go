@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -39,4 +40,16 @@ func (l *Log) GetTopics() []common.Hash {
 		tps = append(tps, common.BytesToHash(topic))
 	}
 	return tps
+}
+
+func (l *Log) ToGethLog() types.Log {
+	return types.Log{
+		Data:        l.Data,
+		Address:     l.Address,
+		BlockHash:   l.BlockHash,
+		BlockNumber: uint64(l.BlockNumber),
+		Topics:      l.GetTopics(),
+		TxHash:      l.TxHash,
+		Index:       uint(l.LogIndex),
+	}
 }

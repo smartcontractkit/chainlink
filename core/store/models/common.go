@@ -519,8 +519,30 @@ func ParseURL(s string) (*URL, error) {
 	return (*URL)(u), nil
 }
 
+func MustParseURL(s string) *URL {
+	u, err := ParseURL(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
 func (u *URL) String() string {
 	return (*url.URL)(u).String()
+}
+
+// URL returns a copy of u as a *url.URL
+func (u *URL) URL() *url.URL {
+	if u == nil {
+		return nil
+	}
+	// defensive copy
+	r := url.URL(*u)
+	if u.User != nil {
+		r.User = new(url.Userinfo)
+		*r.User = *u.User
+	}
+	return &r
 }
 
 func (u *URL) IsZero() bool {

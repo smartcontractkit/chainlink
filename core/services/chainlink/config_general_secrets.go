@@ -3,40 +3,32 @@ package chainlink
 import "net/url"
 
 func (g *generalConfig) DatabaseURL() url.URL {
-	if g.secrets.DatabaseURL == nil {
+	if g.secrets.Database.URL == nil {
 		return url.URL{}
 	}
-	return *(*url.URL)(g.secrets.DatabaseURL)
+	return *g.secrets.Database.URL.URL()
 }
 
 func (g *generalConfig) DatabaseBackupURL() *url.URL {
-	return (*url.URL)(g.secrets.DatabaseBackupURL)
+	return g.secrets.Database.BackupURL.URL()
 }
 
 func (g *generalConfig) ExplorerAccessKey() string {
-	if g.secrets.ExplorerAccessKey == nil {
+	if g.secrets.Explorer.AccessKey == nil {
 		return ""
 	}
-	return *g.secrets.ExplorerAccessKey
+	return string(*g.secrets.Explorer.AccessKey)
 }
 
 func (g *generalConfig) ExplorerSecret() string {
-	if g.secrets.ExplorerSecret == nil {
+	if g.secrets.Explorer.Secret == nil {
 		return ""
 	}
-	return *g.secrets.ExplorerSecret
+	return string(*g.secrets.Explorer.Secret)
 }
-
-func (g *generalConfig) KeystorePassword() string {
-	if g.secrets.KeystorePassword == nil {
+func (g *generalConfig) PyroscopeAuthToken() string {
+	if g.secrets.Pyroscope.AuthToken == nil {
 		return ""
 	}
-	return *g.secrets.KeystorePassword
-}
-
-func (g *generalConfig) VRFPassword() string {
-	if g.secrets.VRFPassword == nil {
-		return ""
-	}
-	return *g.secrets.VRFPassword
+	return string(*g.secrets.Pyroscope.AuthToken)
 }

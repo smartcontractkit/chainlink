@@ -40,7 +40,7 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	db := pgtest.NewSqlxDB(t)
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
-	o := NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+	o := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 	owner := testutils.MustNewSimTransactor(t)
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
@@ -49,7 +49,7 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	}, 10e6)
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
-	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize)
+	lp := NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)

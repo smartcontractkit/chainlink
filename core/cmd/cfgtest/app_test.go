@@ -7,12 +7,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmcfg2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	cfg2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
@@ -24,29 +27,54 @@ func TestDefaultConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	chainID := utils.NewBigI(42991337)
 
-	newGeneral, err := chainlink.NewTOMLGeneralConfig(lggr, "", "", nil, nil)
+	newGeneral, err := chainlink.GeneralConfigOpts{SkipEnv: true}.New(lggr)
 	require.NoError(t, err)
 	legacyGeneral := config.NewGeneralConfig(lggr)
 
+	// we expect a mismatch on some methods with redefined defaults
+	redefined := []string{"BlockEmissionIdleWarningThreshold", "DatabaseLockingMode", "EVMEnabled", "EVMRPCEnabled"}
+
 	t.Run("general", func(t *testing.T) {
-		assertMethodsReturnEqual[config.GeneralConfig](t, legacyGeneral, newGeneral)
+		assertMethodsReturnEqual[config.GeneralConfig](t, legacyGeneral, newGeneral, redefined...)
 	})
-	newChain, _ := evmcfg2.Defaults(chainID)
+	t.Run("general-test", func(t *testing.T) {
+		assertMethodsReturnEqual[config.GeneralConfig](t, configtest.NewTestGeneralConfig(t), configtest2.NewTestGeneralConfig(t),
+			"KeystorePassword", // new has a dummy value to pass validation
+			"DatabaseURL",      // new has a dummy value to pass validation
+
+			// Legacy package cltest defaults that were made standard.
+			"JobPipelineReaperInterval",
+			"P2PEnabled",
+			"P2PNetworkingStack",
+			"P2PNetworkingStackRaw",
+			"ShutdownGracePeriod",
+
+			// Legacy overrides root with random, but none of these others picked that up.
+			// New uses test temp dir and inherits as expected.
+			"AutoPprofProfileRoot",
+			"CertFile",
+			"KeyFile",
+			"LogFileDir",
+			"RootDir",
+			"TLSDir",
+			"AuditLoggerEnvironment", // same problem being derived from Dev())
+		)
+	})
 	evmCfg := evmcfg2.EVMConfig{
 		ChainID: chainID,
-		Chain:   newChain,
+		Chain:   evmcfg2.DefaultsFrom(chainID, nil),
 	}
 	newConfig := evmcfg2.NewTOMLChainScopedConfig(newGeneral, &evmCfg, lggr)
 	legacyConfig := evmcfg.NewChainScopedConfig(chainID.ToInt(), evmtypes.ChainCfg{}, nil, lggr, legacyGeneral)
 
 	t.Run("chain-scoped", func(t *testing.T) {
-		assertMethodsReturnEqual[evmcfg.ChainScopedOnlyConfig](t, legacyConfig, newConfig)
+		assertMethodsReturnEqual[evmcfg.ChainScopedOnlyConfig](t, legacyConfig, newConfig, redefined...)
 	})
 }
 
 // assertMethodsReturnEqual calls each method from M on a and b, and asserts the returned values are equal.
 // Methods which accept arguments are skipped, allowe with a few other special cases.
-func assertMethodsReturnEqual[M any](t *testing.T, a, b M) {
+func assertMethodsReturnEqual[M any](t *testing.T, a, b M, redefined ...string) {
 	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
 	to := reflect.TypeOf((*M)(nil)).Elem()
 	for i := 0; i < to.NumMethod(); i++ {
@@ -61,8 +89,9 @@ func assertMethodsReturnEqual[M any](t *testing.T, a, b M) {
 				t.Skip("irrelevant")
 			case "P2PListenPort", "AppID":
 				t.Skip("randomized")
-			case "EVMEnabled", "P2PNetworkingStack", "P2PNetworkingStackRaw", "P2PEnabled", "BlockEmissionIdleWarningThreshold":
-				t.Skip("default redefined")
+			}
+			if slices.Contains(redefined, name) {
+				t.Skip("default redefined") // see core/cmd/chainlink/TestTOMLGeneralConfig_Defaults
 			}
 
 			defer func() {
@@ -107,7 +136,6 @@ func assertMethodsReturnEqual[M any](t *testing.T, a, b M) {
 					continue
 				}
 				assert.Equal(t, ai, bi, "%dth return arg", i)
-
 			}
 		})
 	}

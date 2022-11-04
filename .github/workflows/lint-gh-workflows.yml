@@ -15,6 +15,6 @@ jobs:
           this-job-name: Validate Github Action Workflows
         continue-on-error: true
       - name: Check out Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Run actionlint
-        uses: reviewdog/action-actionlint@a0541743e79d2ce4ee65276807ac493a93149b7c # v1.23.0
+        uses: reviewdog/action-actionlint@31863360b75778136a7171692ecf0fe26fb5d630 # v1.33.1
