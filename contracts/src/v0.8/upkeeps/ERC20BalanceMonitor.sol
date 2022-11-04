@@ -17,7 +17,6 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
 
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event TopUpSucceeded(address indexed topUpAddress);
-  event TopUpFailed(address indexed topUpAddress);
   event WatchlistUpdated(address[] oldWatchlist, address[] newWatchlist);
   event KeeperRegistryAddressUpdated(address oldAddress, address newAddress);
   event ERC20TokenAddressUpdated(address oldAddress, address newAddress);
@@ -152,14 +151,10 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
         contractBalance >= (target.topUpLevel - targetTokenBalance)
       ) {
         uint256 topUpAmount = target.topUpLevel - targetTokenBalance;
-        bool success = s_erc20Token.transfer(needsFunding[idx], topUpAmount);
-        if (success) {
-          s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
-          contractBalance -= topUpAmount;
-          emit TopUpSucceeded(needsFunding[idx]);
-        } else {
-          emit TopUpFailed(needsFunding[idx]);
-        }
+        s_erc20Token.transfer(needsFunding[idx], topUpAmount);
+        s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
+        contractBalance -= topUpAmount;
+        emit TopUpSucceeded(needsFunding[idx]);
       }
       if (gasleft() < MIN_GAS_FOR_TRANSFER) {
         return;
