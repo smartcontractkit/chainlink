@@ -137,6 +137,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
    */
   function topUp(uint64[] memory needsFunding) public whenNotPaused {
     uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
+    uint256 contractBalance = LINKTOKEN.balanceOf(address(this));
     Target memory target;
     for (uint256 idx = 0; idx < needsFunding.length; idx++) {
       target = s_targets[needsFunding[idx]];
@@ -144,7 +145,8 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
       if (
         target.isActive &&
         target.lastTopUpTimestamp + minWaitPeriodSeconds <= block.timestamp &&
-        subscriptionBalance < target.minBalanceJuels
+        subscriptionBalance < target.minBalanceJuels &&
+        contractBalance >= target.topUpAmountJuels
       ) {
         bool success = LINKTOKEN.transferAndCall(
           address(COORDINATOR),
