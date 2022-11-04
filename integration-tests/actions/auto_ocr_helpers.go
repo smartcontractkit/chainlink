@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -20,8 +21,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/umbracle/ethgo/abi"
+	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -166,10 +170,20 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
-	_, err = bootstrapNode.MustCreateJob(&client.AutoBootstrapOCR2JobSpec{
-		ContractID: registryAddr,
-		ChainID:    int(chainID),
-	})
+
+	bootstrapSpec := &client.OCR2TaskJobSpec{
+		Name:    "ocr2 bootstrap node",
+		JobType: "bootstrap",
+		OCR2OracleSpec: job.OCR2OracleSpec{
+			ContractID: registryAddr,
+			Relay:      "evm",
+			RelayConfig: map[string]interface{}{
+				"chainID": int(chainID),
+			},
+			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+		},
+	}
+	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bootstrap job on bootstrap node")
 	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 
@@ -186,12 +200,21 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 			}
 		}
 
-		autoOCR2JobSpec := client.AutoOCR2JobSpec{
-			ContractID:         registryAddr,           // registryAddr
-			OCRKeyBundleID:     nodeOCRKeyId,           // get node ocr2config.ID
-			TransmitterID:      nodeTransmitterAddress, // node addr
-			P2Pv2Bootstrappers: P2Pv2Bootstrapper,      // bootstrap node key and address <p2p-key>@bootstrap:8000
-			ChainID:            int(chainID),
+		autoOCR2JobSpec := client.OCR2TaskJobSpec{
+			Name:    "ocr2",
+			JobType: "offchainreporting2",
+			OCR2OracleSpec: job.OCR2OracleSpec{
+				PluginType: "ocr2automation",
+				Relay:      "evm",
+				RelayConfig: map[string]interface{}{
+					"chainID": int(chainID),
+				},
+				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+				ContractID:                        registryAddr,                            // registryAddr
+				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
+				TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
+				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:8000
+			},
 		}
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
