@@ -148,9 +148,9 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
         contractBalance >= (target.topUpLevel - targetTokenBalance)
       ) {
         uint256 topUpAmount = target.topUpLevel - targetTokenBalance;
-        s_erc20Token.transfer(needsFunding[idx], topUpAmount);
         s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
         contractBalance -= topUpAmount;
+        s_erc20Token.transfer(needsFunding[idx], topUpAmount);
         emit TopUpSucceeded(needsFunding[idx]);
       }
       if (gasleft() < MIN_GAS_FOR_TRANSFER) {
