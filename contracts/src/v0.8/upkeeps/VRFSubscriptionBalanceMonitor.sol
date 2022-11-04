@@ -89,6 +89,9 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
       if (topUpAmountsJuels[idx] == 0) {
         revert InvalidWatchList();
       }
+      if (topUpAmountJuels[idx] <= minBalanceJuels[idx]) {
+        revert InvalidWatchList();
+      }
       s_targets[subscriptionIds[idx]] = Target({
         isActive: true,
         minBalanceJuels: minBalancesJuels[idx],
