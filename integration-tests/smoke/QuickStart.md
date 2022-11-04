@@ -27,7 +27,7 @@ export CHAINLINK_IMAGE=k3d-myregistry.localhost:5001/docker.io/smartcontract/cha
 run the tests
  ```shell
 cd ~/go/src/github.com/chainlink
-make test_smoke_raw args="--focus-file=keeper_test.go"
+make test_smoke_simulated args="--focus-file=keeper_test.go"
  ``` 
 
 ## Already have the initial stuff set up and just want to rebuild and run
@@ -40,7 +40,7 @@ export TEST_LOG_LEVEL="debug"
 docker tag docker.io/smartcontract/chainlink:$CHAINLINK_VERSION k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
 docker push k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
 export CHAINLINK_IMAGE=k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink
-make test_smoke_raw args="--focus-file=keeper_test.go"
+make test_smoke_simulated args="--focus-file=keeper_test.go"
  ``` 
 
 ## Step by Step
@@ -95,7 +95,7 @@ make test_smoke_raw args="--focus-file=keeper_test.go"
 
 8. Finally, run make test_smoke inside the chainlink repo root folder to run all the integration tests. In case you want to only run some specific tests, you can do so with something like
     ```shell
-    make test_smoke_raw args="--focus-file=keeper_test.go"
+    make test_smoke_simulated args="--focus-file=keeper_test.go"
     ``` 
 
 this setup doc was modified from [notion](https://www.notion.so/chainlink/Setting-up-Integration-Tests-Framework-Locally-dc0e3db7718b45ad9249e97d7ef74c51)
