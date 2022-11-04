@@ -141,7 +141,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registr
 
 // newRegistryFromChain returns a Registry struct with fields synched from those on chain
 func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
-	fromAddress := rs.job.KeeperSpec.FromAddress
+	fromAddress := rs.effectiveKeeperAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 
 	registryConfig, err := rs.registryWrapper.GetConfig(nil)
@@ -154,7 +154,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	keeperMap := map[ethkey.EIP55Address]int32{}
 	for idx, address := range registryConfig.KeeperAddresses {
 		keeperMap[ethkey.EIP55AddressFromAddress(address)] = int32(idx)
-		if address == fromAddress.Address() {
+		if address == fromAddress {
 			keeperIndex = int32(idx)
 		}
 	}
@@ -166,7 +166,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		BlockCountPerTurn: registryConfig.BlockCountPerTurn,
 		CheckGas:          registryConfig.CheckGas,
 		ContractAddress:   contractAddress,
-		FromAddress:       fromAddress,
+		FromAddress:       rs.job.KeeperSpec.FromAddress,
 		JobID:             rs.job.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        int32(len(registryConfig.KeeperAddresses)),

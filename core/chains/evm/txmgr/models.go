@@ -279,15 +279,17 @@ func (e EthTx) GetChecker() (TransmitCheckerSpec, error) {
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
+var _ gas.PriorAttempt = EthTxAttempt{}
+
 type EthTxAttempt struct {
 	ID      int64
 	EthTxID int64
 	EthTx   EthTx
 	// GasPrice applies to LegacyTx
-	GasPrice *utils.Big
+	GasPrice *assets.Wei
 	// GasTipCap and GasFeeCap are used instead for DynamicFeeTx
-	GasTipCap *utils.Big
-	GasFeeCap *utils.Big
+	GasTipCap *assets.Wei
+	GasFeeCap *assets.Wei
 	// ChainSpecificGasLimit on the EthTxAttempt is always the same as the on-chain encoded value for gas limit
 	ChainSpecificGasLimit   uint32
 	SignedRawTx             []byte
@@ -311,9 +313,29 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 
 func (a EthTxAttempt) DynamicFee() gas.DynamicFee {
 	return gas.DynamicFee{
-		FeeCap: a.GasFeeCap.ToInt(),
-		TipCap: a.GasTipCap.ToInt(),
+		FeeCap: a.GasFeeCap,
+		TipCap: a.GasTipCap,
 	}
+}
+
+func (a EthTxAttempt) GetBroadcastBeforeBlockNum() *int64 {
+	return a.BroadcastBeforeBlockNum
+}
+
+func (a EthTxAttempt) GetChainSpecificGasLimit() uint32 {
+	return a.ChainSpecificGasLimit
+}
+
+func (a EthTxAttempt) GetGasPrice() *assets.Wei {
+	return a.GasPrice
+}
+
+func (a EthTxAttempt) GetHash() common.Hash {
+	return a.Hash
+}
+
+func (a EthTxAttempt) GetTxType() int {
+	return a.TxType
 }
 
 type EthReceipt struct {

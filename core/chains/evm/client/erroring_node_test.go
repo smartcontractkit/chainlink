@@ -95,6 +95,6 @@ func TestErroringNode(t *testing.T) {
 	n.DeclareOutOfSync()
 	n.DeclareUnreachable()
 
-	require.Zero(t, n.ID())
+	require.Zero(t, n.Name())
 	require.Nil(t, n.NodeStates())
 }

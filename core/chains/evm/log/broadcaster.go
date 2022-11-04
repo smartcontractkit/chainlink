@@ -23,9 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
-//go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
-//go:generate mockery --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
+//go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead

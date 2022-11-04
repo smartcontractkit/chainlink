@@ -156,9 +156,9 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 	var confirmationMsg string
 	if c.Bool("hard") {
 		query.Set("hard", "true")
-		confirmationMsg = "Deleted ETH key"
+		confirmationMsg = fmt.Sprintf("Deleted ETH key: %s", address)
 	} else {
-		confirmationMsg = "Archived ETH key"
+		confirmationMsg = fmt.Sprintf("Archived ETH key: %s", address)
 	}
 
 	deleteUrl.RawQuery = query.Encode()
@@ -172,7 +172,11 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, fmt.Sprintf("🔑 %s", confirmationMsg))
+	if resp.StatusCode != http.StatusNoContent {
+		return cli.errorOut(errors.Errorf("Delete ETH key failed: %s", resp.Body))
+	}
+	fmt.Println(confirmationMsg)
+	return nil
 }
 
 // ImportETHKey imports an Ethereum key,

@@ -2,11 +2,11 @@ package chainlink
 
 import (
 	"encoding/base64"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/gorilla/securecookie"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -23,8 +23,10 @@ type FilePersistedSecretGenerator struct{}
 
 func (f FilePersistedSecretGenerator) Generate(rootDir string) ([]byte, error) {
 	sessionPath := filepath.Join(rootDir, "secret")
-	if utils.FileExists(sessionPath) {
-		data, err := ioutil.ReadFile(sessionPath)
+	if exists, err := utils.FileExists(sessionPath); err != nil {
+		return nil, err
+	} else if exists {
+		data, err := os.ReadFile(sessionPath)
 		if err != nil {
 			return data, err
 		}

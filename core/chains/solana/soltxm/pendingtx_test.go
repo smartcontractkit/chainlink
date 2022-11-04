@@ -21,7 +21,8 @@ func TestPendingTxContext(t *testing.T) {
 	newProcess := func(i int) (solana.Signature, context.CancelFunc) {
 		// make random signature
 		sig := make([]byte, 64)
-		rand.Read(sig)
+		_, err := rand.Read(sig)
+		require.NoError(t, err)
 
 		// start subprocess to wait for context
 		ctx, cancel := context.WithCancel(ctx)

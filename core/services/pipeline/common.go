@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
@@ -39,8 +40,8 @@ const (
 	BootstrapJobType          string = "bootstrap"
 )
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --name Task --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -233,6 +234,34 @@ type JSONSerializable struct {
 	Valid bool
 }
 
+func reinterpetJsonNumbers(val interface{}) (interface{}, error) {
+	switch v := val.(type) {
+	case json.Number:
+		return getJsonNumberValue(v)
+	case []interface{}:
+		s := make([]interface{}, len(v))
+		for i, vv := range v {
+			ival, ierr := reinterpetJsonNumbers(vv)
+			if ierr != nil {
+				return nil, ierr
+			}
+			s[i] = ival
+		}
+		return s, nil
+	case map[string]interface{}:
+		m := make(map[string]interface{}, len(v))
+		for k, vv := range v {
+			ival, ierr := reinterpetJsonNumbers(vv)
+			if ierr != nil {
+				return nil, ierr
+			}
+			m[k] = ival
+		}
+		return m, nil
+	}
+	return val, nil
+}
+
 // UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
@@ -242,9 +271,27 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 		js.Valid = false
 		return nil
 	}
-	err := json.Unmarshal(bs, &js.Val)
-	js.Valid = err == nil && js.Val != nil
-	return err
+
+	var decoded interface{}
+	d := json.NewDecoder(bytes.NewReader(bs))
+	d.UseNumber()
+	if err := d.Decode(&decoded); err != nil {
+		return err
+	}
+
+	if decoded != nil {
+		reinterpreted, err := reinterpetJsonNumbers(decoded)
+		if err != nil {
+			return err
+		}
+
+		*js = JSONSerializable{
+			Valid: true,
+			Val:   reinterpreted,
+		}
+	}
+
+	return nil
 }
 
 // MarshalJSON implements custom marshaling logic
@@ -310,6 +357,8 @@ const (
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 	TaskTypeMerge            TaskType = "merge"
+	TaskTypeLength           TaskType = "length"
+	TaskTypeLessThan         TaskType = "lessthan"
 	TaskTypeLowercase        TaskType = "lowercase"
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeConditional      TaskType = "conditional"
@@ -393,6 +442,10 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMerge:
 		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLength:
+		task = &LengthTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLessThan:
+		task = &LessThanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeLowercase:
 		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeUppercase:
@@ -566,4 +619,28 @@ func uint8ArrayToSlice(arr interface{}) interface{} {
 	s := reflect.MakeSlice(reflect.SliceOf(t.Elem()), v.Len(), v.Len())
 	reflect.Copy(s, v)
 	return s.Interface()
+}
+
+func getJsonNumberValue(value json.Number) (interface{}, error) {
+	var result interface{}
+
+	bn, ok := new(big.Int).SetString(value.String(), 10)
+	if ok {
+		if bn.IsInt64() {
+			result = bn.Int64()
+		} else if bn.IsUint64() {
+			result = bn.Uint64()
+		} else {
+			result = bn
+		}
+	} else {
+		f, err := value.Float64()
+		if err == nil {
+			result = f
+		} else {
+			return nil, errors.Errorf("failed to parse json.Value: %v", err)
+		}
+	}
+
+	return result, nil
 }

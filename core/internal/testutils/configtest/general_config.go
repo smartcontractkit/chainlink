@@ -36,79 +36,83 @@ const (
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type GeneralConfigOverrides struct {
-	AdvisoryLockCheckInterval               *time.Duration
-	AdvisoryLockID                          null.Int
-	AllowOrigins                            null.String
-	BlockBackfillDepth                      null.Int
-	BlockBackfillSkip                       null.Bool
-	DatabaseURL                             null.String
-	DatabaseLockingMode                     null.String
-	DefaultChainID                          *big.Int
-	DefaultHTTPTimeout                      *time.Duration
-	HTTPServerWriteTimeout                  *time.Duration
-	Dev                                     null.Bool
-	ShutdownGracePeriod                     *time.Duration
-	Dialect                                 dialects.DialectName
-	EthereumURL                             null.String
-	GlobalBalanceMonitorEnabled             null.Bool
-	GlobalBlockEmissionIdleWarningThreshold *time.Duration
-	GlobalChainType                         null.String
-	GlobalEthTxReaperThreshold              *time.Duration
-	GlobalEthTxResendAfterThreshold         *time.Duration
-	GlobalEvmEIP1559DynamicFees             null.Bool
-	GlobalEvmFinalityDepth                  null.Int
-	GlobalEvmGasBumpPercent                 null.Int
-	GlobalEvmGasBumpTxDepth                 null.Int
-	GlobalEvmGasBumpWei                     *big.Int
-	GlobalEvmGasFeeCapDefault               *big.Int
-	GlobalEvmGasLimitDefault                null.Int
-	GlobalEvmGasLimitMax                    null.Int
-	GlobalEvmGasLimitMultiplier             null.Float
-	GlobalEvmGasPriceDefault                *big.Int
-	GlobalEvmGasTipCapDefault               *big.Int
-	GlobalEvmGasTipCapMinimum               *big.Int
-	GlobalEvmGasLimitOCRJobType             null.Int
-	GlobalEvmGasLimitDRJobType              null.Int
-	GlobalEvmGasLimitVRFJobType             null.Int
-	GlobalEvmGasLimitFMJobType              null.Int
-	GlobalEvmGasLimitKeeperJobType          null.Int
-	GlobalEvmHeadTrackerHistoryDepth        null.Int
-	GlobalEvmHeadTrackerMaxBufferSize       null.Int
-	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
-	GlobalEvmLogBackfillBatchSize           null.Int
-	GlobalEvmLogPollInterval                *time.Duration
-	GlobalEvmMaxGasPriceWei                 *big.Int
-	GlobalEvmMinGasPriceWei                 *big.Int
-	GlobalEvmNonceAutoSync                  null.Bool
-	GlobalEvmRPCDefaultBatchSize            null.Int
-	GlobalEvmUseForwarders                  null.Bool
-	GlobalFlagsContractAddress              null.String
-	GlobalGasEstimatorMode                  null.String
-	GlobalMinIncomingConfirmations          null.Int
-	GlobalMinimumContractPayment            *assets.Link
-	GlobalOCRObservationGracePeriod         time.Duration
-	KeeperCheckUpkeepGasPriceFeatureEnabled null.Bool
-	KeeperMaximumGracePeriod                null.Int
-	KeeperRegistrySyncInterval              *time.Duration
-	KeeperRegistrySyncUpkeepQueueSize       null.Int
-	KeeperTurnLookBack                      null.Int
-	KeeperTurnFlagEnabled                   null.Bool
-	LeaseLockDuration                       *time.Duration
-	LeaseLockRefreshInterval                *time.Duration
-	LogFileDir                              null.String
-	LogLevel                                *zapcore.Level
-	DefaultLogLevel                         *zapcore.Level
-	LogSQL                                  null.Bool
-	LogFileMaxSize                          null.String
-	LogFileMaxAge                           null.Int
-	LogFileMaxBackups                       null.Int
-	TriggerFallbackDBPollInterval           *time.Duration
-	KeySpecific                             map[string]types.ChainCfg
-	LinkContractAddress                     null.String
-	OperatorFactoryAddress                  null.String
-	NodeNoNewHeadsThreshold                 *time.Duration
-	JobPipelineReaperInterval               *time.Duration
+	AdvisoryLockCheckInterval                       *time.Duration
+	AdvisoryLockID                                  null.Int
+	AllowOrigins                                    null.String
+	BlockBackfillDepth                              null.Int
+	BlockBackfillSkip                               null.Bool
+	DatabaseURL                                     null.String
+	DatabaseLockingMode                             null.String
+	DefaultChainID                                  *big.Int
+	DefaultHTTPTimeout                              *time.Duration
+	HTTPServerWriteTimeout                          *time.Duration
+	Dev                                             null.Bool
+	ShutdownGracePeriod                             *time.Duration
+	Dialect                                         dialects.DialectName
+	EthereumURL                                     null.String
+	GlobalBalanceMonitorEnabled                     null.Bool
+	GlobalBlockEmissionIdleWarningThreshold         *time.Duration
+	GlobalBlockHistoryEstimatorCheckInclusionBlocks null.Int
+	GlobalChainType                                 null.String
+	GlobalEthTxReaperThreshold                      *time.Duration
+	GlobalEthTxResendAfterThreshold                 *time.Duration
+	GlobalEvmEIP1559DynamicFees                     null.Bool
+	GlobalEvmFinalityDepth                          null.Int
+	GlobalEvmGasBumpPercent                         null.Int
+	GlobalEvmGasBumpTxDepth                         null.Int
+	GlobalEvmGasBumpWei                             *assets.Wei
+	GlobalEvmGasFeeCapDefault                       *assets.Wei
+	GlobalEvmGasLimitDefault                        null.Int
+	GlobalEvmGasLimitMax                            null.Int
+	GlobalEvmGasLimitMultiplier                     null.Float
+	GlobalEvmGasPriceDefault                        *assets.Wei
+	GlobalEvmGasTipCapDefault                       *assets.Wei
+	GlobalEvmGasTipCapMinimum                       *assets.Wei
+	GlobalEvmGasLimitOCRJobType                     null.Int
+	GlobalEvmGasLimitDRJobType                      null.Int
+	GlobalEvmGasLimitVRFJobType                     null.Int
+	GlobalEvmGasLimitFMJobType                      null.Int
+	GlobalEvmGasLimitKeeperJobType                  null.Int
+	GlobalEvmHeadTrackerHistoryDepth                null.Int
+	GlobalEvmHeadTrackerMaxBufferSize               null.Int
+	GlobalEvmHeadTrackerSamplingInterval            *time.Duration
+	GlobalEvmLogBackfillBatchSize                   null.Int
+	GlobalEvmLogPollInterval                        *time.Duration
+	GlobalEvmMaxGasPriceWei                         *assets.Wei
+	GlobalEvmMinGasPriceWei                         *assets.Wei
+	GlobalEvmNonceAutoSync                          null.Bool
+	GlobalEvmRPCDefaultBatchSize                    null.Int
+	GlobalEvmUseForwarders                          null.Bool
+	GlobalFlagsContractAddress                      null.String
+	GlobalGasEstimatorMode                          null.String
+	GlobalMinIncomingConfirmations                  null.Int
+	GlobalMinimumContractPayment                    *assets.Link
+	GlobalOCRObservationGracePeriod                 time.Duration
+	GlobalOCR2AutomationGasLimit                    null.Int
+	KeeperCheckUpkeepGasPriceFeatureEnabled         null.Bool
+	KeeperRegistryMaxPerformDataSize                null.Int
+	KeeperMaximumGracePeriod                        null.Int
+	KeeperRegistrySyncInterval                      *time.Duration
+	KeeperRegistrySyncUpkeepQueueSize               null.Int
+	KeeperTurnLookBack                              null.Int
+	KeeperTurnFlagEnabled                           null.Bool
+	LeaseLockDuration                               *time.Duration
+	LeaseLockRefreshInterval                        *time.Duration
+	LogFileDir                                      null.String
+	LogLevel                                        *zapcore.Level
+	DefaultLogLevel                                 *zapcore.Level
+	LogSQL                                          null.Bool
+	LogFileMaxSize                                  null.String
+	LogFileMaxAge                                   null.Int
+	LogFileMaxBackups                               null.Int
+	TriggerFallbackDBPollInterval                   *time.Duration
+	KeySpecific                                     map[string]types.ChainCfg
+	LinkContractAddress                             null.String
+	OperatorFactoryAddress                          null.String
+	NodeNoNewHeadsThreshold                         *time.Duration
+	JobPipelineReaperInterval                       *time.Duration
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
@@ -135,7 +139,6 @@ type GeneralConfigOverrides struct {
 
 	// P2P v1 and V2
 	P2PPeerID          p2pkey.PeerID
-	P2PPeerIDError     error
 	P2PNetworkingStack ocrnetworking.NetworkingStack
 
 	// P2P v1
@@ -172,11 +175,6 @@ func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
 }
 
-// SetHTTPServerWriteTimeout sets test override value for HTTPServerWriteTimeout
-func (o *GeneralConfigOverrides) SetHTTPServerWriteTimeout(d time.Duration) {
-	o.HTTPServerWriteTimeout = &d
-}
-
 // SetP2PV2DeltaDial sets test override value for P2PV2DeltaDial
 func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 	o.P2PV2DeltaDial = &d
@@ -189,6 +187,7 @@ func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
 // gives but allows overriding certain methods
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type TestGeneralConfig struct {
 	config.GeneralConfig
 	t         testing.TB
@@ -196,10 +195,15 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
+// Deprecated: see v2.NewTestGeneralConfig
+// NewTestGeneralConfig returns a legacy *TestGeneralConfig. Use v2.NewTestGeneralConfig instead.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
+// Deprecated: see v2.NewGeneralConfig
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{
@@ -210,6 +214,7 @@ func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOver
 	}
 }
 
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func genRootDir(t testing.TB) string {
 	name := fmt.Sprintf("%d-%d", time.Now().UnixNano(), 0)
 	dir := filepath.Join(RootDir, name)
@@ -329,7 +334,7 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	}
 	// Always return txdb for tests, if you want a non-transactional database
 	// you must set an override explicitly
-	return "txdb"
+	return dialects.TransactionWrappedPostgres
 }
 
 func (c *TestGeneralConfig) DatabaseURL() url.URL {
@@ -441,6 +446,13 @@ func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 		return uint32(c.Overrides.KeeperRegistrySyncUpkeepQueueSize.Int64)
 	}
 	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
+}
+
+func (c *TestGeneralConfig) KeeperRegistryMaxPerformDataSize() uint32 {
+	if c.Overrides.KeeperRegistryMaxPerformDataSize.Valid {
+		return uint32(c.Overrides.KeeperRegistryMaxPerformDataSize.Int64)
+	}
+	return c.GeneralConfig.KeeperRegistryMaxPerformDataSize()
 }
 
 // KeeperCheckUpkeepGasPriceFeatureEnabled overrides
@@ -558,7 +570,7 @@ func (c *TestGeneralConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
 }
 
 // GlobalEvmGasFeeCapDefault is the override for EvmGasFeeCapDefault
-func (c *TestGeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasFeeCapDefault() (*assets.Wei, bool) {
 	if c.Overrides.GlobalEvmGasFeeCapDefault != nil {
 		return c.Overrides.GlobalEvmGasFeeCapDefault, true
 	}
@@ -621,7 +633,7 @@ func (c *TestGeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return c.GeneralConfig.GlobalEvmGasLimitMultiplier()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasBumpWei() (*assets.Wei, bool) {
 	if c.Overrides.GlobalEvmGasBumpWei != nil {
 		return c.Overrides.GlobalEvmGasBumpWei, true
 	}
@@ -635,7 +647,7 @@ func (c *TestGeneralConfig) GlobalEvmGasBumpPercent() (uint16, bool) {
 	return c.GeneralConfig.GlobalEvmGasBumpPercent()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasPriceDefault() (*assets.Wei, bool) {
 	if c.Overrides.GlobalEvmGasPriceDefault != nil {
 		return c.Overrides.GlobalEvmGasPriceDefault, true
 	}
@@ -670,14 +682,14 @@ func (c *TestGeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	return c.GeneralConfig.GlobalEvmLogPollInterval()
 }
 
-func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
+func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*assets.Wei, bool) {
 	if c.Overrides.GlobalEvmMaxGasPriceWei != nil {
 		return c.Overrides.GlobalEvmMaxGasPriceWei, true
 	}
 	return c.GeneralConfig.GlobalEvmMaxGasPriceWei()
 }
 
-func (c *TestGeneralConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
+func (c *TestGeneralConfig) GlobalEvmMinGasPriceWei() (*assets.Wei, bool) {
 	if c.Overrides.GlobalEvmMinGasPriceWei != nil {
 		return c.Overrides.GlobalEvmMinGasPriceWei, true
 	}
@@ -754,14 +766,14 @@ func (c *TestGeneralConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
 	return c.GeneralConfig.GlobalEvmEIP1559DynamicFees()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasTipCapDefault() (*assets.Wei, bool) {
 	if c.Overrides.GlobalEvmGasTipCapDefault != nil {
 		return c.Overrides.GlobalEvmGasTipCapDefault, true
 	}
 	return c.GeneralConfig.GlobalEvmGasTipCapDefault()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*assets.Wei, bool) {
 	if c.Overrides.GlobalEvmGasTipCapMinimum != nil {
 		return c.Overrides.GlobalEvmGasTipCapMinimum, true
 	}
@@ -796,6 +808,13 @@ func (c *TestGeneralConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Dura
 	return c.GeneralConfig.GlobalBlockEmissionIdleWarningThreshold()
 }
 
+func (c *TestGeneralConfig) GlobalBlockHistoryEstimatorCheckInclusionBlocks() (uint16, bool) {
+	if c.Overrides.GlobalBlockHistoryEstimatorCheckInclusionBlocks.Valid {
+		return uint16(c.Overrides.GlobalBlockHistoryEstimatorCheckInclusionBlocks.Int64), true
+	}
+	return c.GeneralConfig.GlobalBlockHistoryEstimatorCheckInclusionBlocks()
+}
+
 func (c *TestGeneralConfig) LogFileDir() string {
 	if c.Overrides.LogFileDir.Valid {
 		return c.Overrides.LogFileDir.String
@@ -809,6 +828,13 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 		return c.Overrides.LinkContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalLinkContractAddress()
+}
+
+func (c *TestGeneralConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
+	if c.Overrides.GlobalOCR2AutomationGasLimit.Valid {
+		return uint32(c.Overrides.GlobalOCR2AutomationGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalOCR2AutomationGasLimit()
 }
 
 // GlobalOperatorFactoryAddress allows to override the OperatorFactory contract address

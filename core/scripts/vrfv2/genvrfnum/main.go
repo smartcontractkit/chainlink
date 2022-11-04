@@ -219,8 +219,8 @@ func main() {
 }
 
 func preseed(keyHash common.Hash, sender common.Address, subID, nonce uint64) [32]byte {
-	encoded, err := utils.GenericEncode(
-		[]string{"bytes32", "address", "uint64", "uint64"},
+	encoded, err := utils.ABIEncode(
+		`[{"type":"bytes32"}, {"type":"address"}, {"type":"uint64"}, {"type", "uint64"}]`,
 		keyHash,
 		sender,
 		subID,

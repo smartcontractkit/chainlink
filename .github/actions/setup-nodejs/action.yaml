@@ -1,0 +1,30 @@
+name: Setup NodeJS
+inputs:
+  prod:
+    default: "false"
+    description: Set to 'true' to do a prod only install
+description: Setup pnpm for contracts
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@10693b3829bf86eb2572aef5f3571dcf5ca9287d #v2.2.2
+      with:
+        version: ^7.0.0
+
+    - uses: actions/setup-node@v3
+      with:
+        node-version: "16"
+        cache: "pnpm"
+        cache-dependency-path: "contracts/pnpm-lock.yaml"
+
+    - if: ${{ inputs.prod == 'false' }}
+      name: Install dependencies
+      shell: bash
+      run: pnpm i
+      working-directory: contracts
+
+    - if: ${{ inputs.prod == 'true' }}
+      name: Install prod dependencies
+      shell: bash
+      run: pnpm i --prod
+      working-directory: contracts

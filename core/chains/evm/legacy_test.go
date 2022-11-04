@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type legacyEthNodeConfig struct {
@@ -23,6 +24,7 @@ type legacyEthNodeConfig struct {
 	ethereumHTTPURL       *url.URL
 	ethereumSecondaryURLs []url.URL
 	evmNodes              string
+	pg.QConfig
 }
 
 func (c legacyEthNodeConfig) DefaultChainID() *big.Int {
@@ -45,8 +47,6 @@ func (c legacyEthNodeConfig) EthereumNodes() string {
 	return c.evmNodes
 }
 
-func (c legacyEthNodeConfig) LogSQL() bool { return false }
-
 func Test_ClobberDBFromEnv(t *testing.T) {
 	var fixtureChains int64 = 2
 	var fixtureNodes int64 = 1
@@ -59,6 +59,7 @@ func Test_ClobberDBFromEnv(t *testing.T) {
 			ethereumURL:           "ws://example.com/foo/ws",
 			ethereumHTTPURL:       cltest.MustParseURL(t, "http://example.com/foo"),
 			ethereumSecondaryURLs: []url.URL{*cltest.MustParseURL(t, "http://secondary1.example/foo"), *cltest.MustParseURL(t, "https://secondary2.example/bar")},
+			QConfig:               pgtest.NewQConfig(false),
 		}
 
 		err := evm.ClobberDBFromEnv(db, cfg, logger.TestLogger(t))
@@ -104,6 +105,7 @@ func Test_ClobberDBFromEnv(t *testing.T) {
 			ethereumURL:           "ws://example.com/foo/ws",
 			ethereumHTTPURL:       cltest.MustParseURL(t, "http://example.com/foo"),
 			ethereumSecondaryURLs: []url.URL{*cltest.MustParseURL(t, "http://example.com/foo"), *cltest.MustParseURL(t, "https://secondary2.example/bar")},
+			QConfig:               pgtest.NewQConfig(false),
 		}
 
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
@@ -184,6 +186,7 @@ func TestSetupNodes(t *testing.T) {
 
 	cfg := legacyEthNodeConfig{
 		evmNodes: s,
+		QConfig:  pgtest.NewQConfig(false),
 	}
 
 	err := evm.SetupNodes(db, cfg, logger.TestLogger(t))

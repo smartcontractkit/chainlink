@@ -2,7 +2,7 @@
 ChainID = '30'
 LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
 LogPollInterval = '30s'
-MinimumContractPayment = '0.001 link'
+MinContractPayment = '0.001 link'
 
 [GasEstimator]
 # It's about 100 times more expensive than Wei, very roughly speaking

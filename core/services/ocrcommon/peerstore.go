@@ -44,7 +44,7 @@ type (
 
 // NewPeerstoreWrapper creates a new database-backed peerstore wrapper scoped to the given jobID
 // Multiple peerstore wrappers should not be instantiated with the same jobID
-func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger, cfg pg.LogConfig) (*Pstorewrapper, error) {
+func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger, cfg pg.QConfig) (*Pstorewrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	namedLogger := lggr.Named("PeerStore")
 	q := pg.NewQ(db, namedLogger, cfg)

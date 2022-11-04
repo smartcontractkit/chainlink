@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/pprof"
@@ -31,7 +30,6 @@ import (
 	"github.com/ulule/limiter/drivers/store/memory"
 	"github.com/unrolled/secure"
 
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -40,13 +38,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
-// Router listens and responds to requests to the node for valid paths.
-func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+// NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
+func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
-		app.GetLogger().Panic(err)
+		return nil, err
 	}
 	sessionStore := sessions.NewCookieStore(secret)
 	sessionStore.Options(config.SessionOptions())
@@ -81,7 +79,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(engine, config, app.GetLogger())
+	guiAssetRoutes(engine, config.Dev(), app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger().Named("GQLHandler")),
@@ -89,7 +87,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		graphqlHandler(app),
 	)
 
-	return engine
+	return engine, nil
 }
 
 // Defining the Graphql handler
@@ -97,7 +95,7 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	rootSchema := schema.MustGetRootSchema()
 
 	// Disable introspection and set a max query depth in production.
-	schemaOpts := []graphql.SchemaOpt{}
+	var schemaOpts []graphql.SchemaOpt
 	if !app.GetConfig().Dev() {
 		schemaOpts = append(schemaOpts,
 			graphql.MaxDepth(10),
@@ -127,7 +125,7 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
-type WebSecurityConfig interface {
+type SecurityConfig interface {
 	AllowOrigins() string
 	Dev() bool
 	TLSRedirect() bool
@@ -136,7 +134,7 @@ type WebSecurityConfig interface {
 
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
-func secureOptions(cfg WebSecurityConfig) secure.Options {
+func secureOptions(cfg SecurityConfig) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
 		IsDevelopment: cfg.Dev(),
@@ -147,7 +145,7 @@ func secureOptions(cfg WebSecurityConfig) secure.Options {
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
+func secureMiddleware(cfg SecurityConfig) gin.HandlerFunc {
 	secureMiddleware := secure.New(secureOptions(cfg))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
@@ -168,36 +166,38 @@ func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
 
 	return secureFunc
 }
+
 func unauthenticatedDevOnlyMetricRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
 	if app.GetConfig().Dev() {
 		// No authentication because `go tool pprof` doesn't support it
-		metricRoutes(r)
+		metricRoutes(r, true)
 	}
 }
 
-func metricRoutes(r *gin.RouterGroup) {
+func metricRoutes(r *gin.RouterGroup, includeHeap bool) {
 	pprofGroup := r.Group("/debug/pprof")
-	pprofGroup.GET("/", pprofHandler(pprof.Index))
-	pprofGroup.GET("/cmdline", pprofHandler(pprof.Cmdline))
-	pprofGroup.GET("/profile", pprofHandler(pprof.Profile))
-	pprofGroup.POST("/symbol", pprofHandler(pprof.Symbol))
-	pprofGroup.GET("/symbol", pprofHandler(pprof.Symbol))
-	pprofGroup.GET("/trace", pprofHandler(pprof.Trace))
-	pprofGroup.GET("/allocs", pprofHandler(pprof.Handler("allocs").ServeHTTP))
-	pprofGroup.GET("/block", pprofHandler(pprof.Handler("block").ServeHTTP))
-	pprofGroup.GET("/goroutine", pprofHandler(pprof.Handler("goroutine").ServeHTTP))
-	pprofGroup.GET("/heap", pprofHandler(pprof.Handler("heap").ServeHTTP))
-	pprofGroup.GET("/mutex", pprofHandler(pprof.Handler("mutex").ServeHTTP))
-	pprofGroup.GET("/threadcreate", pprofHandler(pprof.Handler("threadcreate").ServeHTTP))
+	pprofGroup.GET("/", ginHandlerFromHTTP(pprof.Index))
+	pprofGroup.GET("/cmdline", ginHandlerFromHTTP(pprof.Cmdline))
+	pprofGroup.GET("/profile", ginHandlerFromHTTP(pprof.Profile))
+	pprofGroup.POST("/symbol", ginHandlerFromHTTP(pprof.Symbol))
+	pprofGroup.GET("/symbol", ginHandlerFromHTTP(pprof.Symbol))
+	pprofGroup.GET("/trace", ginHandlerFromHTTP(pprof.Trace))
+	pprofGroup.GET("/allocs", ginHandlerFromHTTP(pprof.Handler("allocs").ServeHTTP))
+	pprofGroup.GET("/block", ginHandlerFromHTTP(pprof.Handler("block").ServeHTTP))
+	pprofGroup.GET("/goroutine", ginHandlerFromHTTP(pprof.Handler("goroutine").ServeHTTP))
+	if includeHeap {
+		pprofGroup.GET("/heap", ginHandlerFromHTTP(pprof.Handler("heap").ServeHTTP))
+	}
+	pprofGroup.GET("/mutex", ginHandlerFromHTTP(pprof.Handler("mutex").ServeHTTP))
+	pprofGroup.GET("/threadcreate", ginHandlerFromHTTP(pprof.Handler("threadcreate").ServeHTTP))
 }
 
-func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
-	handler := http.HandlerFunc(h)
+func ginHandlerFromHTTP(h http.HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		handler.ServeHTTP(c.Writer, c.Request)
+		h.ServeHTTP(c.Writer, c.Request)
 	}
 }
 
@@ -267,7 +267,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
-		authv2.GET("/config/v2", auth.RequiresAdminRole(cc.Dump))
+		authv2.GET("/config/dump-v1-as-v2", auth.RequiresAdminRole(cc.Dump))
+		authv2.GET("/config/v2", auth.RequiresAdminRole(cc.Show))
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -354,6 +355,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/jobs", paginatedRequest(jc.Index))
 		authv2.GET("/jobs/:ID", jc.Show)
 		authv2.POST("/jobs", auth.RequiresEditRole(jc.Create))
+		authv2.PUT("/jobs/:ID", auth.RequiresEditRole(jc.Update))
 		authv2.DELETE("/jobs/:ID", auth.RequiresEditRole(jc.Delete))
 
 		// PipelineRunsController
@@ -416,11 +418,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/nodes/evm/forwarders/track", auth.RequiresEditRole(efc.Track))
 		authv2.DELETE("/nodes/evm/forwarders/:fwdID", auth.RequiresEditRole(efc.Delete))
 
-		build_info := BuildInfoController{app}
-		authv2.GET("/build_info", build_info.Show)
+		buildInfo := BuildInfoController{app}
+		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2)
+		metricRoutes(authv2, false)
 	}
 
 	ping := PingController{app}
@@ -442,10 +444,10 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
 	// Serve static files
-	assetsRouterHandlers := []gin.HandlerFunc{}
-	if !config.Dev() {
+	var assetsRouterHandlers []gin.HandlerFunc
+	if !devMode {
 		assetsRouterHandlers = append(assetsRouterHandlers, rateLimiter(
 			staticAssetsRateLimitPeriod,
 			staticAssetsRateLimit,
@@ -464,8 +466,8 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 	engine.GET("/assets/:file", assetsRouterHandlers...)
 
 	// Serve the index HTML file unless it is an api path
-	noRouteHandlers := []gin.HandlerFunc{}
-	if !config.Dev() {
+	var noRouteHandlers []gin.HandlerFunc
+	if !devMode {
 		noRouteHandlers = append(noRouteHandlers, rateLimiter(
 			indexRateLimitPeriod,
 			indexRateLimit,
@@ -510,12 +512,12 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 // Inspired by https://github.com/gin-gonic/gin/issues/961
 func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		buf, err := ioutil.ReadAll(c.Request.Body)
+		buf, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			lggr.Error("Web request log error: ", err.Error())
 			// Implicitly relies on limits.RequestSizeLimiter
 			// overriding of c.Request.Body to abort gin's Context
-			// inside ioutil.ReadAll.
+			// inside io.ReadAll.
 			// Functions as we would like, but horrible from an architecture
 			// and design pattern perspective.
 			if !c.IsAborted() {
@@ -524,7 +526,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 			return
 		}
 		rdr := bytes.NewBuffer(buf)
-		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(buf))
 
 		start := time.Now()
 		c.Next()
@@ -545,7 +547,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 }
 
 // Add CORS headers so UI can make api requests
-func uiCorsHandler(config WebSecurityConfig) gin.HandlerFunc {
+func uiCorsHandler(config SecurityConfig) gin.HandlerFunc {
 	c := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},

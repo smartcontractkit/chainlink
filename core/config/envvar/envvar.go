@@ -13,13 +13,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 )
 
-//nolint
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+// nolint
 var (
 	AdvisoryLockID                    = NewInt64("AdvisoryLockID")
 	AuthenticatedRateLimitPeriod      = NewDuration("AuthenticatedRateLimitPeriod")
 	AutoPprofPollInterval             = NewDuration("AutoPprofPollInterval")
 	AutoPprofGatherDuration           = NewDuration("AutoPprofGatherDuration")
 	AutoPprofGatherTraceDuration      = NewDuration("AutoPprofGatherTraceDuration")
+	DatabaseURL                       = New("DatabaseURL", parse.DatabaseURL)
 	BlockBackfillDepth                = NewUint64("BlockBackfillDepth")
 	HTTPServerWriteTimeout            = NewDuration("HTTPServerWriteTimeout")
 	JobPipelineMaxRunDuration         = NewDuration("JobPipelineMaxRunDuration")
@@ -28,9 +30,11 @@ var (
 	JobPipelineReaperThreshold        = NewDuration("JobPipelineReaperThreshold")
 	KeeperRegistryCheckGasOverhead    = NewUint32("KeeperRegistryCheckGasOverhead")
 	KeeperRegistryPerformGasOverhead  = NewUint32("KeeperRegistryPerformGasOverhead")
+	KeeperRegistryMaxPerformDataSize  = NewUint32("KeeperRegistryMaxPerformDataSize")
 	KeeperRegistrySyncInterval        = NewDuration("KeeperRegistrySyncInterval")
 	KeeperRegistrySyncUpkeepQueueSize = NewUint32("KeeperRegistrySyncUpkeepQueueSize")
 	LogLevel                          = New[zapcore.Level]("LogLevel", parse.LogLevel)
+	LogSQL                            = NewBool("LogSQL")
 	RootDir                           = New[string]("RootDir", parse.HomeDir)
 	JSONConsole                       = NewBool("JSONConsole")
 	LogFileMaxSize                    = New("LogFileMaxSize", parse.FileSize)

@@ -204,7 +204,7 @@ func main() {
 		}
 		link, err := linktoken.NewLinkToken(common.HexToAddress(*linkAddr), e.Ec)
 		helpers.PanicErr(err)
-		data, err := utils.GenericEncode([]string{"bytes32"}, common.HexToHash(*keyHash))
+		data, err := utils.ABIEncode(`[{"type":"bytes32"}]`, common.HexToHash(*keyHash))
 		helpers.PanicErr(err)
 		tx, err := link.TransferAndCall(e.Owner, common.HexToAddress(*consumerAddr), payment, data)
 		helpers.PanicErr(err)

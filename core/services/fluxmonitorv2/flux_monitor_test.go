@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	corenull "github.com/smartcontractkit/chainlink/core/null"
@@ -47,7 +48,7 @@ const oracleCount uint8 = 17
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
 	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.TransmitCheckerSpec{})
 }
 
@@ -179,7 +180,7 @@ func setup(t *testing.T, db *sqlx.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		tm.pipelineRunner,
 		job.Job{},
 		pipelineSpec,
-		pg.NewQ(db, lggr, cltest.NewTestGeneralConfig(t)),
+		pg.NewQ(db, lggr, pgtest.NewQConfig(true)),
 		options.orm,
 		tm.jobORM,
 		tm.pipelineORM,
@@ -265,8 +266,7 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true)).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	return db, nodeAddr
@@ -274,7 +274,7 @@ func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
-	cfg, db := heavyweight.FullTestDB(t, name)
+	cfg, db := heavyweight.FullTestDBV2(t, name, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -479,7 +479,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-			fm.SetOracleAddress()
+			require.NoError(t, fm.SetOracleAddress())
 			fm.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
 		})
 	}
@@ -688,7 +688,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once().
 		Run(func(mock.Arguments) { readyToAssert.ItHappened() })
 
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.Start(testutils.Context(t)))
 
 	var logBroadcasts []*logmocks.Broadcast
 
@@ -729,7 +729,6 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 	}
 
 	db, nodeAddr := setupStoreWithKey(t)
-	cfg := cltest.NewTestGeneralConfig(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	for _, tc := range testCases {
@@ -738,7 +737,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = newORM(t, db, cfg, nil)
+				orm = newORM(t, db, pgtest.NewQConfig(true), nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
@@ -767,7 +766,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				})
 			}
 
-			fm.Start(testutils.Context(t))
+			require.NoError(t, fm.Start(testutils.Context(t)))
 			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
 
 			if tc.expectedToSubmit {
@@ -1046,7 +1045,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	idleDurationOccured := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.Start(testutils.Context(t)))
 	t.Cleanup(func() { fm.Close() })
 
 	// Initial Poll
@@ -1129,11 +1128,10 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
-	cfg := cltest.NewTestGeneralConfig(t)
 
 	var (
 		oracles = []common.Address{nodeAddr, testutils.NewAddress()}
-		orm     = newORM(t, db, cfg, nil)
+		orm     = newORM(t, db, pgtest.NewQConfig(true), nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1165,9 +1163,9 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
-	fm.SetOracleAddress()
-	fm.ExportedRoundState()
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.SetOracleAddress())
+	fm.ExportedRoundState(t)
+	require.NoError(t, fm.Start(testutils.Context(t)))
 
 	g.Eventually(ch).Should(gomega.BeClosed())
 
@@ -1195,7 +1193,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 			var (
 				orm = newORM(t, db, cfg, nil)
 			)
@@ -1264,7 +1262,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			var (
 				orm = newORM(t, db, cfg, nil)
@@ -1328,7 +1326,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	var (
 		orm = newORM(t, db, cfg, nil)
@@ -1466,9 +1464,8 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		const (
-			olderRoundID = 2
-			roundID      = 3
-			answer       = 100
+			roundID = 3
+			answer  = 100
 		)
 
 		tm.keyStore.On("EnabledKeysForChain", testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
@@ -1512,7 +1509,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Return(nil)
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		fm.SetOracleAddress()
+		require.NoError(t, fm.SetOracleAddress())
 
 		tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
 			Answer:    big.NewInt(10),
@@ -1638,7 +1635,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		fm.SetOracleAddress()
+		require.NoError(t, fm.SetOracleAddress())
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time
@@ -1733,7 +1730,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		fm.SetOracleAddress()
+		require.NoError(t, fm.SetOracleAddress())
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time
@@ -1920,7 +1917,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 4, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}, nil).
 		Maybe()
 
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.Start(testutils.Context(t)))
 	defer fm.Close()
 
 	waitTime := 15 * time.Second

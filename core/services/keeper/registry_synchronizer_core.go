@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -29,6 +30,7 @@ type RegistrySynchronizerOptions struct {
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
+	EffectiveKeeperAddress   common.Address
 	newTurnEnabled           bool
 }
 
@@ -42,6 +44,7 @@ type RegistrySynchronizer struct {
 	logBroadcaster           log.Broadcaster
 	mbLogs                   *utils.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
+	effectiveKeeperAddress   common.Address
 	orm                      ORM
 	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
@@ -61,6 +64,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		mbLogs:                   utils.NewMailbox[log.Broadcast](5000), // Arbitrary limit, better to have excess capacity
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
+		effectiveKeeperAddress:   opts.EffectiveKeeperAddress,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 		newTurnEnabled:           opts.newTurnEnabled,
@@ -80,7 +84,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 				{},
 				{},
 				{
-					log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
+					log.Topic(rs.effectiveKeeperAddress.Hash()),
 				},
 			}
 		}
@@ -124,7 +128,6 @@ func (rs *RegistrySynchronizer) run() {
 			syncTicker.Reset(rs.interval)
 		case <-rs.mbLogs.Notify():
 			rs.processLogs()
-			syncTicker.Reset(rs.interval)
 		}
 	}
 }

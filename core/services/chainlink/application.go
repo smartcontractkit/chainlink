@@ -16,10 +16,11 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/sqlx"
+
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -59,13 +61,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
 	GetLogger() logger.Logger
+	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
@@ -129,10 +132,11 @@ type ChainlinkApplication struct {
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
 	explorerClient           synchronization.ExplorerClient
-	subservices              []services.ServiceCtx
+	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
+	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
@@ -144,11 +148,12 @@ type ChainlinkApplication struct {
 
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
+	Logger                   logger.Logger
 	EventBroadcaster         pg.EventBroadcaster
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	Chains                   Chains
-	Logger                   logger.Logger
+	AuditLogger              audit.AuditLogger
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
@@ -187,16 +192,22 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []services.ServiceCtx
+	var srvcs []services.ServiceCtx
+	auditLogger := opts.AuditLogger
 	db := opts.SqlxDB
 	cfg := opts.Config
-	keyStore := opts.KeyStore
 	chains := opts.Chains
-	globalLogger := opts.Logger
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
+	globalLogger := opts.Logger
+	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+
+	// If the audit logger is enabled
+	if auditLogger.Ready() == nil {
+		srvcs = append(srvcs, auditLogger)
+	}
 
 	var profiler *pyroscope.Profiler
 	if cfg.PyroscopeServerAddress() != "" {
@@ -251,7 +262,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
-	subservices = append(subservices, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
+	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
@@ -260,22 +271,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
-		subservices = append(subservices, databaseBackup)
+		srvcs = append(srvcs, databaseBackup)
 	} else {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	subservices = append(subservices, eventBroadcaster)
-	subservices = append(subservices, chains.services()...)
+	srvcs = append(srvcs, eventBroadcaster)
+	srvcs = append(srvcs, chains.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
-	subservices = append(subservices, promReporter)
+	srvcs = append(srvcs, promReporter)
 
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
 	)
 
@@ -341,7 +352,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, err
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
-		subservices = append(subservices, peerWrapper)
+		srvcs = append(srvcs, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
 	}
@@ -367,22 +378,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
 			relayers[relay.EVM] = evmRelayer
-			subservices = append(subservices, evmRelayer)
+			srvcs = append(srvcs, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
 			relayers[relay.Solana] = solanaRelayer
-			subservices = append(subservices, solanaRelayer)
+			srvcs = append(srvcs, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
 			relayers[relay.Terra] = terraRelayer
-			subservices = append(subservices, terraRelayer)
+			srvcs = append(srvcs, terraRelayer)
 		}
 		if cfg.StarkNetEnabled() {
 			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
 			relayers[relay.StarkNet] = starknetRelayer
-			subservices = append(subservices, starknetRelayer)
+			srvcs = append(srvcs, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
@@ -396,6 +407,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
+			keyStore.Eth(),
 			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
@@ -415,13 +427,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
-	subservices = append(subservices, jobSpawner, pipelineRunner)
+	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
 	if cfg.FeatureLogPoller() {
 		for _, c := range chains.EVM.Chains() {
-			subservices = append(subservices, c.LogPoller())
+			srvcs = append(srvcs, c.LogPoller())
 		}
 	}
 
@@ -461,18 +473,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		AuditLogger:              auditLogger,
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 
 		sqlxDB: opts.SqlxDB,
 
-		// NOTE: Can keep things clean by putting more things in subservices
-		// instead of manually start/closing
-		subservices: subservices,
+		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
+		srvcs: srvcs,
 	}
 
-	for _, service := range app.subservices {
+	for _, service := range app.srvcs {
 		checkable := service.(services.Checkable)
 		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
 			return nil, err
@@ -505,14 +517,16 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		}
 	}
 
-	for _, subservice := range app.subservices {
+	var ms services.MultiStart
+	for _, service := range app.srvcs {
 		if ctx.Err() != nil {
-			return errors.Wrap(ctx.Err(), "aborting start")
+			err := errors.Wrap(ctx.Err(), "aborting start")
+			return multierr.Combine(err, ms.Close())
 		}
 
-		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
+		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(service))
 
-		if err := subservice.Start(ctx); err != nil {
+		if err := ms.Start(ctx, service); err != nil {
 			return err
 		}
 	}
@@ -551,6 +565,9 @@ func (app *ChainlinkApplication) stop() (err error) {
 	}
 	app.shutdownOnce.Do(func() {
 		defer func() {
+			if app.closeLogger == nil {
+				return
+			}
 			if lerr := app.closeLogger(); lerr != nil {
 				err = multierr.Append(err, lerr)
 			}
@@ -558,8 +575,8 @@ func (app *ChainlinkApplication) stop() (err error) {
 		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
-		for i := len(app.subservices) - 1; i >= 0; i-- {
-			service := app.subservices[i]
+		for i := len(app.srvcs) - 1; i >= 0; i-- {
+			service := app.srvcs[i]
 			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			err = multierr.Append(err, service.Close())
 		}
@@ -598,6 +615,10 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 
 func (app *ChainlinkApplication) GetLogger() logger.Logger {
 	return app.logger
+}
+
+func (app *ChainlinkApplication) GetAuditLogger() audit.AuditLogger {
+	return app.AuditLogger
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() services.Checker {

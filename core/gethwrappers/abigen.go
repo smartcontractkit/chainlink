@@ -7,7 +7,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -75,7 +75,7 @@ func Abigen(a AbigenArgs) {
 }
 
 func ImproveAbigenOutput(path string, abiPath string) {
-	abiBytes, err := ioutil.ReadFile(abiPath)
+	abiBytes, err := os.ReadFile(abiPath)
 	if err != nil {
 		Exit("Error while improving abigen output", err)
 	}
@@ -84,7 +84,7 @@ func ImproveAbigenOutput(path string, abiPath string) {
 		Exit("Error while improving abigen output", err)
 	}
 
-	bs, err := ioutil.ReadFile(path)
+	bs, err := os.ReadFile(path)
 	if err != nil {
 		Exit("Error while improving abigen output", err)
 	}
@@ -100,7 +100,7 @@ func ImproveAbigenOutput(path string, abiPath string) {
 	fileNode = replaceAnonymousStructs(contractName, fileNode)
 	bs = generateCode(fset, fileNode)
 	bs = writeAdditionalMethods(contractName, logNames, abi, bs)
-	err = ioutil.WriteFile(path, bs, 0600)
+	err = os.WriteFile(path, bs, 0600)
 	if err != nil {
 		Exit("Error while writing improved abigen source", err)
 	}
@@ -110,7 +110,7 @@ func ImproveAbigenOutput(path string, abiPath string) {
 	bs = generateCode(fset, fileNode)
 	bs = addHeader(bs)
 
-	err = ioutil.WriteFile(path, bs, 0600)
+	err = os.WriteFile(path, bs, 0600)
 	if err != nil {
 		Exit("Error while writing improved abigen source", err)
 	}

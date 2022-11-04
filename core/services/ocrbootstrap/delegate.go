@@ -16,12 +16,13 @@ import (
 
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	db          *sqlx.DB
-	jobORM      job.ORM
-	peerWrapper *ocrcommon.SingletonPeerWrapper
-	cfg         validate.Config
-	lggr        logger.Logger
-	relayers    map[relay.Network]types.Relayer
+	db                *sqlx.DB
+	jobORM            job.ORM
+	peerWrapper       *ocrcommon.SingletonPeerWrapper
+	cfg               validate.Config
+	lggr              logger.Logger
+	relayers          map[relay.Network]types.Relayer
+	isNewlyCreatedJob bool
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -44,12 +45,16 @@ func NewDelegateBootstrap(
 }
 
 // JobType satisfies the job.Delegate interface.
-func (d Delegate) JobType() job.Type {
+func (d *Delegate) JobType() job.Type {
 	return job.Bootstrap
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {
+	d.isNewlyCreatedJob = true
+}
+
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
 	spec := jobSpec.BootstrapSpec
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
@@ -57,7 +62,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 	if d.peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
 	} else if !d.peerWrapper.IsStarted() {
-		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
@@ -67,6 +72,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
 	})
 	if err != nil {

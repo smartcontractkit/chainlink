@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"log"
 	"math/big"
 	"os"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -41,12 +43,6 @@ import (
 var (
 	batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 )
-
-type logconfig struct{}
-
-func (c logconfig) LogSQL() bool {
-	return false
-}
 
 func main() {
 	e := helpers.SetupEnv(false)
@@ -177,7 +173,7 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, logconfig{})
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pgtest.NewQConfig(false))
 		err = keyStore.Unlock(*keystorePassword)
 		helpers.PanicErr(err)
 
@@ -269,7 +265,7 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, logconfig{})
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pgtest.NewQConfig(false))
 		err = keyStore.Unlock(*keystorePassword)
 		helpers.PanicErr(err)
 
@@ -357,14 +353,35 @@ func main() {
 	case "batch-bhs-backwards":
 		cmd := flag.NewFlagSet("batch-bhs-backwards", flag.ExitOnError)
 		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		bhsAddr := cmd.String("bhs-address", "", "address of the bhs contract")
 		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
 		endBlock := cmd.Int64("end-block", -1, "block number to end at. Must be less than startBlock")
 		batchSize := cmd.Int64("batch-size", -1, "batch size")
 		gasMultiplier := cmd.Int64("gas-price-multiplier", 1, "gas price multiplier to use, defaults to 1 (no multiplication)")
-		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "end-block", "batch-size")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "bhs-address", "end-block", "batch-size")
 
 		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), e.Ec)
 		helpers.PanicErr(err)
+
+		bhs, err := blockhash_store.NewBlockhashStore(common.HexToAddress(*bhsAddr), e.Ec)
+		helpers.PanicErr(err)
+
+		// Sanity check BHS address in the Batch BHS.
+		bhsAddressBatchBHS, err := batchBHS.BHS(nil)
+		helpers.PanicErr(err)
+
+		if bhsAddressBatchBHS != common.HexToAddress(*bhsAddr) {
+			log.Panicf("Mismatch in bhs addresses: batch bhs has %s while given %s", bhsAddressBatchBHS.String(), *bhsAddr)
+		}
+
+		if *startBlock == -1 {
+			tx, err2 := bhs.StoreEarliest(e.Owner)
+			helpers.PanicErr(err2)
+			receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
+			// storeEarliest will store receipt block number minus 256 which is the earliest block
+			// the blockhash() instruction will work on.
+			*startBlock = receipt.BlockNumber.Int64() - 256
+		}
 
 		// Check if the provided start block is in the BHS. If it's not, print out an appropriate
 		// helpful error message. Otherwise users would get the cryptic "header has unknown blockhash"
@@ -689,7 +706,7 @@ func main() {
 		bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 		helpers.PanicErr(err)
 		fmt.Println("OWNER BALANCE", bal, e.Owner.From.String(), amount.String())
-		b, err := utils.GenericEncode([]string{"uint64"}, created.SubId)
+		b, err := utils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
 		helpers.PanicErr(err)
 		e.Owner.GasLimit = 500000
 		tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
@@ -870,7 +887,7 @@ func main() {
 			}
 		}
 
-		result := binarySearch(assets.Ether(int64(*start*2)), big.NewInt(0), isWithdrawable)
+		result := binarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
 
 		fmt.Printf("Withdrawable amount for oracle %s is %s\n", oracleAddress.String(), result.String())
 

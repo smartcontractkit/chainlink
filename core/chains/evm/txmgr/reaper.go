@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name ReaperConfig --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ReaperConfig --output ./mocks/ --case=underscore
 
 // ReaperConfig is the config subset used by the reaper
 type ReaperConfig interface {

@@ -4,16 +4,18 @@ import (
 	"fmt"
 	"testing"
 
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/sqlx"
-
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -56,11 +58,13 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec)
 }
 
 func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
-	config := NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	keyStore := NewKeyStore(t, db, config)
-	pipelineORM = pipeline.NewORM(db, logger.TestLogger(t), config)
+	lggr := logger.TestLogger(t)
+	pipelineORM = pipeline.NewORM(db, lggr, config)
+	bridgeORM := bridges.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM = job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t), config)
+	jobORM = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	t.Cleanup(func() { jobORM.Close() })
 	return
 }

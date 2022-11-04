@@ -69,7 +69,7 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
+func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{
@@ -81,7 +81,7 @@ func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient
 	}
 }
 
-// SyncAll syncs nonces for all keys in parallel
+// SyncAll syncs nonces for all enabled keys in parallel
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
@@ -89,8 +89,11 @@ func (s NonceSyncer) SyncAll(ctx context.Context, keyStates []ethkey.State) (mer
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 
-	wg.Add(len(keyStates))
 	for _, keyState := range keyStates {
+		if keyState.Disabled {
+			continue
+		}
+		wg.Add(1)
 		go func(k ethkey.State) {
 			defer wg.Done()
 			if err := s.fastForwardNonceIfNecessary(ctx, k.Address.Address()); err != nil {

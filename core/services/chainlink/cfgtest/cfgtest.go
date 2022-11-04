@@ -15,7 +15,8 @@ import (
 
 func AssertFieldsNotNil(t *testing.T, s interface{}) {
 	err := assertValNotNil(t, "", reflect.ValueOf(s))
-	assert.NoError(t, err, utils.MultiErrorList(err))
+	_, err = utils.MultiErrorList(err)
+	assert.NoError(t, err)
 }
 
 // assertFieldsNotNil recursively checks the struct s for nil fields.
@@ -75,7 +76,7 @@ func assertValNotNil(t *testing.T, key string, val reflect.Value) error {
 	t.Helper()
 	k := val.Kind()
 	switch k { //nolint:exhaustive
-	case reflect.Ptr, reflect.Map, reflect.Slice:
+	case reflect.Ptr, reflect.Map:
 		if val.IsNil() {
 			return fmt.Errorf("%s: nil", key)
 		}
@@ -95,6 +96,9 @@ func assertValNotNil(t *testing.T, key string, val reflect.Value) error {
 	case reflect.Map:
 		return assertValuesNotNil(t, key, val)
 	case reflect.Slice:
+		if val.IsNil() {
+			return nil // not actually a problem
+		}
 		return assertElementsNotNil(t, key, val)
 	default:
 		return nil

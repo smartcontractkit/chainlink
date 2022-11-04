@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -33,7 +34,7 @@ func newEthClientMock(t *testing.T) *evmmocks.Client {
 func TestBalanceMonitor_Start(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
@@ -138,7 +139,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
@@ -199,7 +200,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
