@@ -356,7 +356,11 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		return errors.New("You must specify at least one port to listen on")
 	}
 
-	server := server{handler: web.Router(app.(*chainlink.ChainlinkApplication), prometheus), lggr: app.GetLogger()}
+	handler, err := web.NewRouter(app, prometheus)
+	if err != nil {
+		return errors.Wrap(err, "failed to create web router")
+	}
+	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
 	if config.Port() != 0 {
