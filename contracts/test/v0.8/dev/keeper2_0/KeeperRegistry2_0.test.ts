@@ -506,7 +506,7 @@ describe('KeeperRegistry2_0', () => {
     for (let i = 0; i < 26; i++) {
       keeperAddresses.push(randomAddress())
       payees.push(randomAddress())
-      signers.push(new ethers.Wallet(randomAddress()))
+      signers.push(ethers.Wallet.createRandom())
     }
     signerAddresses = []
     for (let signer of signers) {
@@ -1163,8 +1163,8 @@ describe('KeeperRegistry2_0', () => {
         ])
         const reportContext = [configDigest, epochAndRound5_1, emptyBytes32] // wrong config digest
         const sigs = signReport(reportContext, report, [
-          new ethers.Wallet(randomAddress()),
-          new ethers.Wallet(randomAddress()),
+          new ethers.Wallet(ethers.Wallet.createRandom()),
+          new ethers.Wallet(ethers.Wallet.createRandom()),
         ])
         await evmRevert(
           registry
