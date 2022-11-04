@@ -22,7 +22,7 @@ import (
 
 func Test_ORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(false)
+	cfg := pgtest.NewQConfig(false)
 
 	orm := keystore.NewORM(db, logger.TestLogger(t), cfg)
 

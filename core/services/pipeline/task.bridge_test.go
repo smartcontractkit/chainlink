@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -120,7 +121,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -128,6 +129,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
@@ -136,7 +138,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -157,7 +159,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	id := uuid.NewV4()
 
@@ -183,6 +185,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
@@ -191,7 +194,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		Async:       "true",
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(cfg, db, id, c)
+	task.HelperSetDependencies(cfg, orm, id, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.True(t, runInfo.IsPending)
@@ -348,7 +351,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			t.Parallel()
 
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
 			defer s1.Close()
@@ -356,6 +359,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
+			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
@@ -365,7 +369,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -396,7 +400,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	var empty adapterResponse
 
@@ -422,6 +426,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
@@ -430,7 +435,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		Name:        bridge.Name.String(),
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 	mp := map[string]interface{}{"meta": metaDataForBridge}
 	res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
@@ -463,7 +468,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), test.includeInputAtKey, test.expectedInput))
 			defer s1.Close()
@@ -471,6 +476,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
+			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
@@ -480,7 +486,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -508,7 +514,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -524,6 +530,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
@@ -531,7 +538,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -545,7 +552,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -559,6 +566,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
@@ -566,7 +574,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -580,14 +588,15 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	task := pipeline.BridgeTask{
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)

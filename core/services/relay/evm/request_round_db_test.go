@@ -37,7 +37,8 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
-		err := pg.SqlxTransactionWithDefaultCtx(sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
+		ctx := testutils.Context(t)
+		err := pg.SqlxTransaction(ctx, sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
 			return db.SaveLatestRoundRequested(q, rr)
 		})
 		require.NoError(t, err)
@@ -53,7 +54,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = pg.SqlxTransactionWithDefaultCtx(sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
+		err = pg.SqlxTransaction(ctx, sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
 			return db.SaveLatestRoundRequested(q, rr)
 		})
 		require.NoError(t, err)

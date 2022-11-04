@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//go:generate mockery --name iLogPool --output ./ --inpackage --testonly
+//go:generate mockery --quiet --name iLogPool --output ./ --inpackage --testonly
 
 // The Log Pool interface.
 type iLogPool interface {

@@ -17,7 +17,7 @@ import (
 
 var _ VRFBeaconCoordinator = &vrfRouter{}
 
-//go:generate mockery --name VRFBeaconCoordinator --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name VRFBeaconCoordinator --output ./mocks/ --case=underscore
 
 // VRFProxy routes requests to VRFBeacon and VRFCoordinator go wrappers and implements VRFBeaconCoordinator interface
 type vrfRouter struct {

@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Chain --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	services.ServiceCtx
 	ID() *big.Int
@@ -94,7 +94,7 @@ func newDBChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, 
 func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (*chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
-	if chain.Enabled != nil && !*chain.Enabled {
+	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
 	cfg := v2.NewTOMLChainScopedConfig(opts.Config, chain, l)
@@ -132,7 +132,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
 	if opts.GenLogPoller != nil {
 		logPoller = opts.GenLogPoller(chainID)
 	}

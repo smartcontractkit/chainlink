@@ -335,6 +335,29 @@ func (_m *Client) GetLINKBalance(ctx context.Context, linkAddress common.Address
 	return r0, r1
 }
 
+// HeadByHash provides a mock function with given fields: ctx, n
+func (_m *Client) HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error) {
+	ret := _m.Called(ctx, n)
+
+	var r0 *evmtypes.Head
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *evmtypes.Head); ok {
+		r0 = rf(ctx, n)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evmtypes.Head)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(ctx, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HeadByNumber provides a mock function with given fields: ctx, n
 func (_m *Client) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	ret := _m.Called(ctx, n)
@@ -405,15 +428,15 @@ func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Head
 }
 
 // NodeStates provides a mock function with given fields:
-func (_m *Client) NodeStates() map[int32]string {
+func (_m *Client) NodeStates() map[string]string {
 	ret := _m.Called()
 
-	var r0 map[int32]string
-	if rf, ok := ret.Get(0).(func() map[int32]string); ok {
+	var r0 map[string]string
+	if rf, ok := ret.Get(0).(func() map[string]string); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[int32]string)
+			r0 = ret.Get(0).(map[string]string)
 		}
 	}
 

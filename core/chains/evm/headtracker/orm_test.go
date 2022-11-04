@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -21,7 +22,7 @@ func TestORM_IdempotentInsertHead(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
 	// Returns nil when inserting first head
@@ -47,7 +48,7 @@ func TestORM_TrimOldHeads(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
 	for i := 0; i < 10; i++ {
@@ -72,7 +73,7 @@ func TestORM_HeadByHash(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
 	var hash common.Hash
@@ -95,7 +96,7 @@ func TestORM_HeadByHash_NotFound(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
 	hash := cltest.Head(123).Hash
@@ -110,7 +111,7 @@ func TestORM_LatestHeads_NoRows(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
 	heads, err := orm.LatestHeads(testutils.Context(t), 100)

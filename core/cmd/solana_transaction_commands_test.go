@@ -8,14 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
+	solanago "github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
@@ -23,25 +25,23 @@ import (
 func TestClient_SolanaSendSol(t *testing.T) {
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
-	app := solanaStartNewApplication(t)
+	node := solcfg.Node{
+		Name: ptr(t.Name()),
+		URL:  utils.MustParseURL(url),
+	}
+	cfg := solana.SolanaConfig{
+		ChainID: &chainID,
+		Enabled: ptr(true),
+		Nodes:   solana.SolanaNodes{&node},
+	}
+	app := solanaStartNewApplication(t, &cfg)
 	from, err := app.GetKeyStore().Solana().Create()
 	require.NoError(t, err)
-	to, err := solana.NewRandomPrivateKey()
+	to, err := solanago.NewRandomPrivateKey()
 	require.NoError(t, err)
-	solanaClient.FundTestAccounts(t, []solana.PublicKey{from.PublicKey()}, url)
+	solanaClient.FundTestAccounts(t, []solanago.PublicKey{from.PublicKey()}, url)
 
-	chains := app.GetChains()
-	_, err = chains.Solana.Add(testutils.Context(t), chainID, nil)
-	require.NoError(t, err)
-	chain, err := chains.Solana.Chain(testutils.Context(t), chainID)
-	require.NoError(t, err)
-
-	ctx := testutils.Context(t)
-	_, err = chains.Solana.CreateNode(ctx, solanadb.Node{
-		Name:          t.Name(),
-		SolanaChainID: chainID,
-		SolanaURL:     url,
-	})
+	chain, err := app.GetChains().Solana.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
 	reader, err := chain.Reader()
@@ -52,7 +52,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return false
 		}
-		return coin == 100*solana.LAMPORTS_PER_SOL
+		return coin == 100*solanago.LAMPORTS_PER_SOL
 	}, time.Minute, 5*time.Second)
 
 	client, r := app.NewClientAndRenderer()

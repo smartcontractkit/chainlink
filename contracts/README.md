@@ -3,8 +3,8 @@
 ## Installation
 
 ```sh
-# via Yarn
-$ yarn add @chainlink/contracts
+# via pnpm
+$ pnpm add @chainlink/contracts
 # via npm
 $ npm install @chainlink/contracts --save
 ```
@@ -43,10 +43,10 @@ Note: Contracts in `dev/` directories are under active development and are likel
 ```bash
 # Clone Chainlink repository
 $ git clone https://github.com/smartcontractkit/chainlink.git
-# Continuing via Yarn
+# Continuing via pnpm
 $ cd contracts/
-$ yarn
-$ yarn test
+$ pnpm
+$ pnpm test
 ```
 
 ## Contributing

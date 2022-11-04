@@ -18,16 +18,20 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/solanatest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_SolanaChainsController_Create(t *testing.T) {
 	t.Parallel()
 
@@ -86,18 +90,14 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 			inputId: validId,
 			name:    "success",
 			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
-				newChainConfig := db.ChainCfg{
-					SkipPreflight: null.BoolFrom(false),
-					TxTimeout:     utils.MustNewDuration(time.Hour),
-				}
-
 				chain := db.Chain{
 					ID:      validId,
 					Enabled: true,
-					Cfg:     newChainConfig,
+					Cfg: db.ChainCfg{
+						SkipPreflight: null.BoolFrom(false),
+						TxTimeout:     utils.MustNewDuration(time.Hour),
+					},
 				}
-				solanatest.MustInsertChain(t, app.GetSqlxDB(), &chain)
-
 				return &chain
 			},
 			wantStatusCode: http.StatusOK,
@@ -118,7 +118,12 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupSolanaChainsControllerTest(t)
+			controller := setupSolanaChainsControllerTestV2(t, &solana.SolanaConfig{ChainID: ptr(validId),
+				Enabled: ptr(true), Chain: config.Chain{
+					SkipPreflight: ptr(false),
+					TxTimeout:     utils.MustNewDuration(time.Hour),
+				},
+			})
 
 			wantedResult := tc.want(t, controller.app)
 			resp, cleanup := controller.client.Get(
@@ -143,31 +148,21 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	controller := setupSolanaChainsControllerTest(t)
-
-	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
-		{
-			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
-			Config: &db.ChainCfg{
-				TxTimeout: utils.MustNewDuration(time.Hour),
-			},
-		},
-		{
-			ID: fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999)),
-			Config: &db.ChainCfg{
-				SkipPreflight: null.BoolFrom(false),
-			},
+	chainA := &solana.SolanaConfig{
+		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
+		Enabled: ptr(true),
+		Chain: config.Chain{
+			TxTimeout: utils.MustNewDuration(time.Hour),
 		},
 	}
-
-	for _, newChain := range newChains {
-		ch := newChain
-		solanatest.MustInsertChain(t, controller.app.GetSqlxDB(), &db.Chain{
-			ID:      ch.ID,
-			Enabled: true,
-			Cfg:     *ch.Config,
-		})
+	chainB := &solana.SolanaConfig{
+		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
+		Enabled: ptr(true),
+		Chain: config.Chain{
+			SkipPreflight: ptr(false),
+		},
 	}
+	controller := setupSolanaChainsControllerTestV2(t, chainA, chainB)
 
 	badResp, cleanup := controller.client.Get("/v2/chains/solana?size=asd")
 	t.Cleanup(cleanup)
@@ -181,7 +176,7 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	require.NoError(t, err)
-	require.Equal(t, len(newChains), metaCount)
+	require.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
 
@@ -192,9 +187,9 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[0].ID, chains[0].ID)
-	assert.Equal(t, newChains[0].Config.SkipPreflight, chains[0].Config.SkipPreflight)
-	assert.Equal(t, newChains[0].Config.TxTimeout, chains[0].Config.TxTimeout)
+	assert.Equal(t, *chainA.ChainID, chains[0].ID)
+	assert.Equal(t, *chainA.Chain.SkipPreflight, chains[0].Config.SkipPreflight.Bool)
+	assert.Equal(t, chainA.Chain.TxTimeout.Duration(), chains[0].Config.TxTimeout.Duration())
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
@@ -207,11 +202,12 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	assert.NotEmpty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[1].ID, chains[0].ID)
-	assert.Equal(t, newChains[1].Config.SkipPreflight, chains[0].Config.SkipPreflight)
-	assert.Equal(t, newChains[1].Config.TxTimeout, chains[0].Config.TxTimeout)
+	assert.Equal(t, *chainB.ChainID, chains[0].ID)
+	assert.Equal(t, *chainB.Chain.SkipPreflight, chains[0].Config.SkipPreflight.Bool)
+	assert.Equal(t, chainB.Chain.TxTimeout.Duration(), chains[0].Config.TxTimeout.Duration())
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_SolanaChainsController_Update(t *testing.T) {
 	t.Parallel()
 
@@ -295,6 +291,7 @@ func Test_SolanaChainsController_Update(t *testing.T) {
 	}
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_SolanaChainsController_Delete(t *testing.T) {
 	t.Parallel()
 
@@ -350,11 +347,31 @@ type TestSolanaChainsController struct {
 	client cltest.HTTPClientCleaner
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func setupSolanaChainsControllerTest(t *testing.T) *TestSolanaChainsController {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.SolanaEnabled = null.BoolFrom(true)
 	cfg.Overrides.EVMEnabled = null.BoolFrom(false)
 	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	app := cltest.NewApplicationWithConfig(t, cfg)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+
+	return &TestSolanaChainsController{
+		app:    app,
+		client: client,
+	}
+}
+
+func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*solana.SolanaConfig) *TestSolanaChainsController {
+	for i := range cfgs {
+		cfgs[i].SetDefaults()
+	}
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana = cfgs
+		c.EVM = nil
+	})
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 

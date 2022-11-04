@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ksORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ksORM {
 	namedLogger := lggr.Named("KeystoreORM")
 	return ksORM{
 		q:    pg.NewQ(db, namedLogger, cfg),

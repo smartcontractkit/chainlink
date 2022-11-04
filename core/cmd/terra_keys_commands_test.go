@@ -55,7 +55,7 @@ func TestTerraKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestClient_TerraKeys(t *testing.T) {
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Terra()
 	cleanup := func() {
 		keys, err := ks.GetAll()

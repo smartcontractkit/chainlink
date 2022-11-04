@@ -15,7 +15,7 @@ import (
 func TestClient_SolanaInit(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	newNode := db.NewNode{

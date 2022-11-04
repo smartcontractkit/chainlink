@@ -17,7 +17,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -38,7 +38,7 @@ func Test_EthKeyStore(t *testing.T) {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 	const statesTableName = "evm_key_states"
 
@@ -103,6 +103,25 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
+	t.Run("Delete removes key even if eth_txes are present", func(t *testing.T) {
+		defer reset()
+		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+		require.NoError(t, err)
+		// ensure at least one state is present
+		cltest.AssertCount(t, db, statesTableName, 1)
+
+		// add one eth_tx
+		borm := cltest.NewTxmORM(t, db, cfg)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, key.Address)
+
+		_, err = ethKeyStore.Delete(key.ID())
+		require.NoError(t, err)
+		retrievedKeys, err := ethKeyStore.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(retrievedKeys))
+		cltest.AssertCount(t, db, statesTableName, 0)
+	})
+
 	t.Run("EnsureKeys / EnabledKeysForChain", func(t *testing.T) {
 		defer reset()
 		err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
@@ -149,7 +168,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethKeyStore := keyStore.Eth()
@@ -297,7 +316,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 
 	t.Run("initializes with an empty state", func(t *testing.T) {

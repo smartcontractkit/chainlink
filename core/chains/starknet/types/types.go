@@ -24,6 +24,7 @@ type ORM interface {
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
 
 	SetupNodes([]db.Node, []string) error
+	EnsureChains([]string, ...pg.QOpt) error
 
 	StoreString(chainID string, key, val string) error
 	Clear(chainID string, key string) error
