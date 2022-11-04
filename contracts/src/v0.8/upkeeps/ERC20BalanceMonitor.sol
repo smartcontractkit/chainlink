@@ -83,9 +83,6 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      if (topUpLevels[idx] == 0) {
-        revert InvalidWatchList();
-      }
       if (topUpLevels[idx] <= minBalances[idx]) {
         revert InvalidWatchList();
       }
