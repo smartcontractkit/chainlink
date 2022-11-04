@@ -37,7 +37,7 @@ type ContractDeployer interface {
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
 	DeployMockGasFeed(answer *big.Int) (MockGasFeed, error)
-	DeployKeeperRegistrar(linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error)
+	DeployKeeperRegistrar(registryVersion ethereum.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error)
 	DeployUpkeepTranscoder() (UpkeepTranscoder, error)
 	DeployKeeperRegistry(opts *KeeperRegistryOpts) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
@@ -440,31 +440,56 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployKeeperRegistrar(linkAddr string,
+func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereum.KeeperRegistryVersion, linkAddr string,
 	registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 
-	address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
-		opts *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
-			registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
-	})
+	if registryVersion == ethereum.RegistryVersion_2_0 {
+		// deploy registrar 2.0
+		address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
+			opts *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistrar20(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
+				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
+		})
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+
+		return &EthereumKeeperRegistrar{
+			client:      e.client,
+			registrar20: instance.(*ethereum.KeeperRegistrar20),
+			address:     address,
+		}, err
+	} else {
+		// non OCR registrar
+		address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
+			opts *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistrar(opts, backend, common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
+				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return &EthereumKeeperRegistrar{
+			client:    e.client,
+			registrar: instance.(*ethereum.KeeperRegistrar),
+			address:   address,
+		}, err
 	}
 
-	return &EthereumKeeperRegistrar{
-		client:    e.client,
-		registrar: instance.(*ethereum.KeeperRegistrar),
-		address:   address,
-	}, err
 }
 
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
+	paymentModel := uint8(0)
+	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_1", func(
@@ -544,8 +569,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return ethereum.DeployKeeperRegistryLogic13(
 				auth,
 				backend,
-				uint8(0),          // Default payment model
-				big.NewInt(80000), // Registry gas overhead
+				paymentModel,        // Default payment model
+				registryGasOverhead, // Registry gas overhead
 				common.HexToAddress(opts.LinkAddr),
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
@@ -592,6 +617,48 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			registry1_1: nil,
 			registry1_2: nil,
 			registry1_3: instance.(*ethereum.KeeperRegistry13),
+			address:     address,
+		}, err
+	case ethereum.RegistryVersion_2_0:
+		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic2_0", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return ethereum.DeployKeeperRegistryLogic20(
+				auth,
+				backend,
+				paymentModel, // Default payment model
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = e.client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+
+		address, _, instance, err := e.client.DeployContract("KeeperRegistry2_0", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+
+			return ethereum.DeployKeeperRegistry20(
+				auth,
+				backend,
+				*logicAddress,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistry{
+			client:      e.client,
+			version:     ethereum.RegistryVersion_2_0,
+			registry2_0: instance.(*ethereum.KeeperRegistry20),
 			address:     address,
 		}, err
 
