@@ -51,6 +51,11 @@ func (m *MultiStart) Close() (err error) {
 	return
 }
 
+// CloseBecause calls Close and returns reason along with any additional errors.
+func (m *MultiStart) CloseBecause(reason error) (err error) {
+	return multierr.Append(reason, m.Close())
+}
+
 // MultiClose is a utility for closing multiple services concurrently.
 type MultiClose []io.Closer
 
