@@ -5,9 +5,11 @@ import (
 	"math/big"
 )
 
+// FeedParser is the interface for deserializing feed configuration data for each chain integration.
 type FeedsParser func(buf io.ReadCloser) ([]FeedConfig, error)
 
 // FeedConfig is the interface for feed configurations extracted from the RDD.
+// Implementation can add more fields as needed, but this subset is required by the framework.
 type FeedConfig interface {
 	// This functions as a feed identifier.
 	GetID() string
