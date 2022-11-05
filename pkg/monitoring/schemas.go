@@ -8,7 +8,10 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/avro"
 )
 
+// This files contains Avro schemas for encoding message to be published to kafka.
 // See https://avro.apache.org/docs/current/spec.html#schemas
+// Note that changes to these schemas need to be both forward and backward compatible, ie. FULL_TRANSITIVE.
+// See https://docs.confluent.io/platform/current/schema-registry/avro.html
 
 var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "link.chain.ocr2"}, avro.Fields{
 	avro.Field("block_number", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),

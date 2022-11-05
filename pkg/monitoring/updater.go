@@ -2,7 +2,7 @@ package monitoring
 
 import "context"
 
-// Updater is a generic interface for polling and subscribing.
+// Updater is a generic interface implemented by either polling or subscribing.
 type Updater interface {
 	// Run should be executed as a goroutine otherwise it will block.
 	Run(context.Context)

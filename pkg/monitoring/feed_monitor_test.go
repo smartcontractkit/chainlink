@@ -121,7 +121,7 @@ func TestFeedMonitor(t *testing.T) {
 				countEnvelopes += 1
 			case sourceFactory2.updates <- envelope:
 				countEnvelopes += 1
-			case _ = <-producer.sendCh:
+			case <-producer.sendCh:
 				countMessages += 1
 			case <-ctx.Done():
 				break LOOP

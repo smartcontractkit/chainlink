@@ -129,27 +129,3 @@ func jsonMarshalToString(t *testing.T, i interface{}) string {
 	require.NoError(t, err)
 	return string(s)
 }
-
-func interfaceArrToUint32Arr(in []interface{}) []int64 {
-	out := []int64{}
-	for _, i := range in {
-		out = append(out, i.(int64))
-	}
-	return out
-}
-
-func interfaceArrToBytesArr(in []interface{}) [][]byte {
-	out := [][]byte{}
-	for _, i := range in {
-		out = append(out, i.([]byte))
-	}
-	return out
-}
-
-func interfaceArrToStringArr(in []interface{}) []string {
-	out := []string{}
-	for _, i := range in {
-		out = append(out, i.(string))
-	}
-	return out
-}

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// NewInstrumentedSourceFactory wraps a Source and transparently monitors it.
 func NewInstrumentedSourceFactory(sourceFactory SourceFactory, chainMetrics ChainMetrics) SourceFactory {
 	return &instrumentedSourceFactory{sourceFactory, chainMetrics}
 }
