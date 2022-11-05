@@ -9,6 +9,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.0
 	github.com/riferrei/srclient v0.4.1-0.20211229125508-8edc580da179
+	github.com/satori/go.uuid v1.2.0
 	github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/atomic v1.7.0
