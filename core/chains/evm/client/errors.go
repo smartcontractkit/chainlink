@@ -185,11 +185,11 @@ var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate,
 // https://github.com/klaytn/klaytn/blob/dev/blockchain/tx_pool.go
 var klaytn = ClientErrors{
 	NonceTooLow:                 regexp.MustCompile(`(: |^)nonce too low$`),
-	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(known transaction|there is another tx which has the same nonce in the tx pool)`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(known transaction|there is another tx which has the same nonce in the tx pool$)`), // `known transaction` error could end with additional information
 	TerminallyUnderpriced:       regexp.MustCompile(`(: |^)(transaction underpriced|^intrinsic gas too low)`),
 	LimitReached:                regexp.MustCompile(`(: |^)txpool is full`),
 	InsufficientEth:             regexp.MustCompile(`(: |^)insufficient funds`),
-	TxFeeExceedsCap:             regexp.MustCompile(`(: |^)(invalid gas fee cap|^max fee per gas higher than max priority fee per gas)`),
+	TxFeeExceedsCap:             regexp.MustCompile(`(: |^)(invalid gas fee cap|max fee per gas higher than max priority fee per gas)`),
 	Fatal:                       gethFatal,
 }
 
