@@ -51,8 +51,9 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the flux monitor service for the job spec
 func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
@@ -63,7 +64,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if err != nil {
 		return nil, err
 	}
-	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
+	cfg := chain.Config()
+	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FMDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
 	var checker txmgr.TransmitCheckerSpec
 	if chain.Config().FMSimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate

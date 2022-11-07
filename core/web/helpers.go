@@ -4,10 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"testing"
 
+	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -67,4 +72,10 @@ func jsonAPIResponseWithStatus(c *gin.Context, resource interface{}, name string
 
 func jsonAPIResponse(c *gin.Context, resource interface{}, name string) {
 	jsonAPIResponseWithStatus(c, resource, name, http.StatusOK)
+}
+
+func Router(t testing.TB, app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+	r, err := NewRouter(app, prometheus)
+	require.NoError(t, err)
+	return r
 }

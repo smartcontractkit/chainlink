@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // Return types:
@@ -26,7 +25,7 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 
-	queryer    pg.Queryer
+	orm        bridges.ORM
 	config     Config
 	httpClient *http.Client
 }
@@ -146,8 +145,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 }
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	var bt bridges.BridgeType
-	err := t.queryer.Get(&bt, "SELECT * FROM bridge_types WHERE name = $1", string(name))
+	bt, err := t.orm.FindBridge(bridges.BridgeName(name))
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

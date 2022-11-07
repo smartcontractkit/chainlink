@@ -30,7 +30,6 @@ import (
 	"github.com/ulule/limiter/drivers/store/memory"
 	"github.com/unrolled/secure"
 
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -39,13 +38,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
-// Router listens and responds to requests to the node for valid paths.
-func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+// NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
+func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
-		app.GetLogger().Panic(err)
+		return nil, err
 	}
 	sessionStore := sessions.NewCookieStore(secret)
 	sessionStore.Options(config.SessionOptions())
@@ -80,7 +79,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(engine, config, app.GetLogger())
+	guiAssetRoutes(engine, config.Dev(), app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger().Named("GQLHandler")),
@@ -88,7 +87,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		graphqlHandler(app),
 	)
 
-	return engine
+	return engine, nil
 }
 
 // Defining the Graphql handler
@@ -268,7 +267,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
-		authv2.GET("/config/v2", auth.RequiresAdminRole(cc.Dump))
+		authv2.GET("/config/dump-v1-as-v2", auth.RequiresAdminRole(cc.Dump))
+		authv2.GET("/config/v2", auth.RequiresAdminRole(cc.Show))
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -355,6 +355,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/jobs", paginatedRequest(jc.Index))
 		authv2.GET("/jobs/:ID", jc.Show)
 		authv2.POST("/jobs", auth.RequiresEditRole(jc.Create))
+		authv2.PUT("/jobs/:ID", auth.RequiresEditRole(jc.Update))
 		authv2.DELETE("/jobs/:ID", auth.RequiresEditRole(jc.Delete))
 
 		// PipelineRunsController
@@ -443,10 +444,10 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
 	// Serve static files
 	var assetsRouterHandlers []gin.HandlerFunc
-	if !config.Dev() {
+	if !devMode {
 		assetsRouterHandlers = append(assetsRouterHandlers, rateLimiter(
 			staticAssetsRateLimitPeriod,
 			staticAssetsRateLimit,
@@ -466,7 +467,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 
 	// Serve the index HTML file unless it is an api path
 	var noRouteHandlers []gin.HandlerFunc
-	if !config.Dev() {
+	if !devMode {
 		noRouteHandlers = append(noRouteHandlers, rateLimiter(
 			indexRateLimitPeriod,
 			indexRateLimit,

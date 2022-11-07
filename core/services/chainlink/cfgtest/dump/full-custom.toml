@@ -10,6 +10,7 @@ FeedsManager = true
 DefaultIdleInTxSessionTimeout = '1h0m0s'
 DefaultLockTimeout = '1m0s'
 DefaultQueryTimeout = '1s'
+LogQueries = true
 MaxIdleConns = 5
 MaxOpenConns = 12
 MigrateOnStartup = false
@@ -40,8 +41,14 @@ SendInterval = '10s'
 SendTimeout = '1m0s'
 UseBatchSend = false
 
+[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
+
 [Log]
-DatabaseQueries = true
+Level = 'warn'
 JSONConsole = true
 UnixTS = true
 
@@ -116,6 +123,7 @@ TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 [P2P]
 IncomingMessageBufferSize = 747
 OutgoingMessageBufferSize = 42
+PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 TraceLogging = true
 
 [P2P.V1]
@@ -129,7 +137,6 @@ DHTLookupInterval = 6
 ListenIP = '4.3.2.1'
 ListenPort = 4242
 NewStreamTimeout = '1m0s'
-PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 PeerstoreWriteInterval = '10m0s'
 
 [P2P.V2]
@@ -172,7 +179,6 @@ MemThreshold = '1.00gb'
 GoroutineThreshold = 50
 
 [Pyroscope]
-AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 
@@ -238,6 +244,8 @@ Keeper = 9905
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 13
 BlockHistorySize = 56
+CheckInclusionBlocks = 14
+CheckInclusionPercentile = 61
 EIP1559FeeCapBufferBlocks = 97
 TransactionPercentile = 42
 

@@ -32,6 +32,8 @@ func Test_Serialize_Deserialize(t *testing.T) {
 				SubscriptionID: 5,
 				GasAllowance:   big.NewInt(6),
 				Price:          big.NewInt(7),
+				GasPrice:       big.NewInt(0),
+				WeiPerUnitLink: big.NewInt(0),
 			}},
 		}},
 	}

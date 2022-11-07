@@ -18,7 +18,7 @@ import (
 )
 
 type ChainSetOpts struct {
-	Config   coreconfig.GeneralConfig
+	Config   coreconfig.BasicConfig
 	Logger   logger.Logger
 	KeyStore keystore.StarkNet
 	ORM      types.ORM
@@ -56,7 +56,7 @@ func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (starkchain.Chain, error)
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, error) {
-	if !*cfg.Enabled {
+	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.ORM, o.Logger)
@@ -91,6 +91,9 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error)
 	stkChains := map[string]starkchain.Chain{}
 	var err error
 	for _, chain := range cfgs {
+		if !chain.IsEnabled() {
+			continue
+		}
 		var err2 error
 		stkChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
 		if err2 != nil {

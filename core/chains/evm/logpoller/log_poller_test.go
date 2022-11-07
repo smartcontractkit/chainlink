@@ -100,7 +100,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		t.Log("Starting test", mineOrReorg)
 		chainID := testutils.NewRandomEVMChainID()
 		// Set up a test chain with a log emitting contract deployed.
-		orm := NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+		orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 		// Note this property test is run concurrently and the sim is not threadsafe.
 		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 			owner.From: {
@@ -109,7 +109,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		}, 10e6)
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
-		lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3, 2)
+		lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3, 2, 1000)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
@@ -419,7 +419,7 @@ func TestLogPoller_Logs(t *testing.T) {
 }
 
 func TestLogPoller_RegisterFilter(t *testing.T) {
-	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2)
+	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1, 2, 1000)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 
@@ -586,7 +586,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 	lggr := logger.TestLogger(b)
-	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2)
+	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2, 1000)
 	for i := 0; i < nFilters; i++ {
 		var addresses []common.Address
 		var events []common.Hash

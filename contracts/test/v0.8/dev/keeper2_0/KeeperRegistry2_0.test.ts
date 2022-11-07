@@ -286,7 +286,7 @@ describe('KeeperRegistry2_0', () => {
     return {
       total: gasPayment.add(premium),
       gasPaymemnt: gasPayment,
-      premium: premium,
+      premium,
     }
   }
 
@@ -506,7 +506,7 @@ describe('KeeperRegistry2_0', () => {
     for (let i = 0; i < 26; i++) {
       keeperAddresses.push(randomAddress())
       payees.push(randomAddress())
-      signers.push(new ethers.Wallet(randomAddress()))
+      signers.push(ethers.Wallet.createRandom())
     }
     signerAddresses = []
     for (let signer of signers) {
@@ -1163,8 +1163,8 @@ describe('KeeperRegistry2_0', () => {
         ])
         const reportContext = [configDigest, epochAndRound5_1, emptyBytes32] // wrong config digest
         const sigs = signReport(reportContext, report, [
-          new ethers.Wallet(randomAddress()),
-          new ethers.Wallet(randomAddress()),
+          new ethers.Wallet(ethers.Wallet.createRandom()),
+          new ethers.Wallet(ethers.Wallet.createRandom()),
         ])
         await evmRevert(
           registry
@@ -3098,7 +3098,7 @@ describe('KeeperRegistry2_0', () => {
       assert(oldState.totalPremium.eq(updatedState.totalPremium))
 
       // Old signer addresses which are not in new signers should be non active
-      for (var i = 0; i < signerAddresses.length; i++) {
+      for (let i = 0; i < signerAddresses.length; i++) {
         let signer = signerAddresses[i]
         if (!newSigners.includes(signer)) {
           assert((await registry.getSignerInfo(signer)).active == false)
@@ -3106,13 +3106,13 @@ describe('KeeperRegistry2_0', () => {
         }
       }
       // New signer addresses should be active
-      for (var i = 0; i < newSigners.length; i++) {
+      for (let i = 0; i < newSigners.length; i++) {
         let signer = newSigners[i]
         assert((await registry.getSignerInfo(signer)).active == true)
         assert((await registry.getSignerInfo(signer)).index == i)
       }
       // Old transmitter addresses which are not in new transmitter should be non active, update lastCollected but retain other info
-      for (var i = 0; i < keeperAddresses.length; i++) {
+      for (let i = 0; i < keeperAddresses.length; i++) {
         let transmitter = keeperAddresses[i]
         if (!newKeepers.includes(transmitter)) {
           assert(
@@ -3127,7 +3127,7 @@ describe('KeeperRegistry2_0', () => {
         }
       }
       // New transmitter addresses should be active
-      for (var i = 0; i < newKeepers.length; i++) {
+      for (let i = 0; i < newKeepers.length; i++) {
         let transmitter = newKeepers[i]
         assert((await registry.getTransmitterInfo(transmitter)).active == true)
         assert((await registry.getTransmitterInfo(transmitter)).index == i)

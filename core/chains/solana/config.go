@@ -53,15 +53,17 @@ func (cs SolanaConfigs) Chains(ids ...string) (chains []DBChain) {
 		if ch == nil {
 			continue
 		}
-		var match bool
-		for _, id := range ids {
-			if id == *ch.ChainID {
-				match = true
-				break
+		if len(ids) > 0 {
+			var match bool
+			for _, id := range ids {
+				if id == *ch.ChainID {
+					match = true
+					break
+				}
 			}
-		}
-		if !match {
-			continue
+			if !match {
+				continue
+			}
 		}
 		chains = append(chains, ch.AsV1())
 	}
@@ -95,7 +97,7 @@ func (cs SolanaConfigs) NodesByID(chainIDs ...string) (ns []soldb.Node) {
 	for i := range cs {
 		var match bool
 		for _, id := range chainIDs {
-			if id != *cs[i].ChainID {
+			if id == *cs[i].ChainID {
 				match = true
 				break
 			}
@@ -128,6 +130,10 @@ type SolanaConfig struct {
 	Enabled *bool
 	solcfg.Chain
 	Nodes SolanaNodes
+}
+
+func (c *SolanaConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
 }
 
 func (c *SolanaConfig) SetFromDB(ch DBChain, nodes []soldb.Node) error {
@@ -163,7 +169,7 @@ func (c *SolanaConfig) ValidateConfig() (err error) {
 func (c *SolanaConfig) AsV1() DBChain {
 	return DBChain{
 		ID:      *c.ChainID,
-		Enabled: *c.Enabled,
+		Enabled: c.IsEnabled(),
 		Cfg: &soldb.ChainCfg{
 			BalancePollPeriod:   c.Chain.BalancePollPeriod,
 			ConfirmPollPeriod:   c.Chain.ConfirmPollPeriod,

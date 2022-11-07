@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 )
 
-//go:generate mockery --name VRFBeaconCoordinator --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name VRFBeaconCoordinator --output ./mocks/ --case=underscore
 
 // VRFBeaconCoordinator is an interface that defines methods needed by the off-chain coordinator
 type VRFBeaconCoordinator interface {

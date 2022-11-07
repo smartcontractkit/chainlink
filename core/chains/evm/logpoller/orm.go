@@ -20,7 +20,7 @@ type ORM struct {
 }
 
 // NewORM creates an ORM scoped to chainID.
-func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
+func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
 	namedLogger := lggr.Named("ORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{
@@ -78,9 +78,17 @@ func (o *ORM) SelectLatestLogEventSigWithConfs(eventSig common.Hash, address com
 	return &l, nil
 }
 
+// DeleteBlocksAfter delete all blocks after and including start.
 func (o *ORM) DeleteBlocksAfter(start int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	return q.ExecQ(`DELETE FROM log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, utils.NewBig(o.chainID))
+}
+
+// DeleteBlocksBefore delete all blocks before and including end.
+func (o *ORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	_, err := q.Exec(`DELETE FROM log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, end, utils.NewBig(o.chainID))
+	return err
 }
 
 func (o *ORM) DeleteLogsAfter(start int64, qopts ...pg.QOpt) error {
