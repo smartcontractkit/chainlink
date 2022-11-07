@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
 type DirectRequestReportingPluginFactory struct {
@@ -22,36 +23,46 @@ type DirectRequestReportingPluginFactory struct {
 var _ types.ReportingPluginFactory = (*DirectRequestReportingPluginFactory)(nil)
 
 type directRequestReporting struct {
-	logger      commontypes.Logger
-	pluginORM   directrequestocr.ORM
-	jobID       uuid.UUID
-	reportCodec *reportCodec
+	logger         commontypes.Logger
+	pluginORM      directrequestocr.ORM
+	jobID          uuid.UUID
+	reportCodec    *reportCodec
+	genericConfig  *types.ReportingPluginConfig
+	specificConfig *config.ReportingPluginConfigWrapper
 }
 
 var _ types.ReportingPlugin = &directRequestReporting{}
 
 // NewReportingPlugin complies with ReportingPluginFactory
-func (f DirectRequestReportingPluginFactory) NewReportingPlugin(types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	info := types.ReportingPluginInfo{
-		Name:          "directRequestReporting",
-		UniqueReports: true, // Enforces (N+F+1)/2 signatures. Must match setting in OCR2Base.sol.
-		// TODO move to config
-		// https://app.shortcut.com/chainlinklabs/story/56615/config-for-reporting-plugin
-		Limits: types.ReportingPluginLimits{
-			MaxQueryLength:       10_000,
-			MaxObservationLength: 10_000,
-			MaxReportLength:      10_000,
-		},
+func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+	pluginConfig, err := config.DecodeReportingPluginConfig(rpConfig.OffchainConfig)
+	if err != nil {
+		f.Logger.Error("unable to decode reporting plugin config", commontypes.LogFields{
+			"digest": rpConfig.ConfigDigest.String(),
+		})
+		return nil, types.ReportingPluginInfo{}, err
 	}
 	codec, err := NewReportCodec()
 	if err != nil {
-		return nil, info, err
+		f.Logger.Error("unable to create a report codec object", commontypes.LogFields{})
+		return nil, types.ReportingPluginInfo{}, err
+	}
+	info := types.ReportingPluginInfo{
+		Name:          "directRequestReporting",
+		UniqueReports: pluginConfig.Config.GetUniqueReports(), // Enforces (N+F+1)/2 signatures. Must match setting in OCR2Base.sol.
+		Limits: types.ReportingPluginLimits{
+			MaxQueryLength:       int(pluginConfig.Config.GetMaxQueryLengthBytes()),
+			MaxObservationLength: int(pluginConfig.Config.GetMaxObservationLengthBytes()),
+			MaxReportLength:      int(pluginConfig.Config.GetMaxReportLengthBytes()),
+		},
 	}
 	plugin := directRequestReporting{
-		logger:      f.Logger,
-		pluginORM:   f.PluginORM,
-		jobID:       f.JobID,
-		reportCodec: codec,
+		logger:         f.Logger,
+		pluginORM:      f.PluginORM,
+		jobID:          f.JobID,
+		reportCodec:    codec,
+		genericConfig:  &rpConfig,
+		specificConfig: pluginConfig,
 	}
 	return &plugin, info, nil
 }
@@ -62,9 +73,7 @@ func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimes
 		"epoch": ts.Epoch,
 		"round": ts.Round,
 	})
-	// TODO add batch size to config
-	// https://app.shortcut.com/chainlinklabs/story/56615/config-for-reporting-plugin
-	const maxBatchSize = 10
+	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
 	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize)
 	if err != nil {
 		return nil, err
