@@ -59,7 +59,6 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	c.WebServer.SessionTimeout = models.MustNewDuration(2 * time.Minute)
 	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
-	c.WebServer.BridgeCacheTTL = models.MustNewDuration(0)
 
 	chainID := utils.NewBigI(evmclient.NullClientChainID)
 	enabled := true
