@@ -468,7 +468,7 @@ lookbackBlocks         	= %d # This is an integer
 		require.NoError(t, err)
 		t.Log("proving keyhash:", hexutil.Encode(kh[:]))
 		return crypto.Keccak256Hash(kh[:]) != emptyHash
-	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t)*2, 5*time.Second).Should(gomega.BeTrue())
 
 	t.Log("DKG key written, setting VRF config")
 
