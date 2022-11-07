@@ -113,7 +113,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		var ms services.MultiStart
 		for _, n := range p.nodes {
 			if n.ChainID().Cmp(p.chainID) != 0 {
-				return errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String())
+				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String()))
 			}
 			rawNode, ok := n.(*node)
 			if ok {
@@ -130,7 +130,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		}
 		for _, s := range p.sendonlys {
 			if s.ChainID().Cmp(p.chainID) != 0 {
-				return errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String())
+				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String()))
 			}
 			if err := ms.Start(ctx, s); err != nil {
 				return err
