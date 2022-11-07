@@ -39,7 +39,7 @@ func (b *fixedBlockhashProvider) OnchainVerifiableBlocks(
 
 	fromBlock := uint64(0)
 	if toBlock > b.lookbackBlocks {
-		fromBlock = toBlock - b.lookbackBlocks
+		fromBlock = toBlock - b.lookbackBlocks + 1
 	}
 
 	var blockHeights []uint64
