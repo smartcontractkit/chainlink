@@ -207,9 +207,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.BridgeCacheTTL = models.MustNewDuration(10 * time.Second)
-	})
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -224,6 +222,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 		Name:        bridge.Name.String(),
 		RequestData: btcUSDPairing,
+		CacheTTL:    "30s", // standard duration string format
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)

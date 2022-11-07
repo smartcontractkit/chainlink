@@ -57,7 +57,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
-		errors.Wrap(ResolveParam(&cacheTTL, From(VarExpr(t.CacheTTL, vars), NonemptyString(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
+		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -116,9 +116,20 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	var cachedResponse bool
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
+		if cacheTTL == 0 {
+			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+		}
+
+		lggr.Debugw("Bridge task: request failed, falling back to cache",
+			"url", url.String(),
+		)
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetLastGoodResponse(t.dotID, t.specId, time.Duration(time.Second*time.Duration(cacheTTL)))
+		responseBytes, cacheErr = t.orm.GetLastGoodResponse(t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
 		if cacheErr != nil {
+			lggr.Debugw("Bridge task: cache fallback failed",
+				"err", cacheErr.Error(),
+				"url", url.String(),
+			)
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 		cachedResponse = true
