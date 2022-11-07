@@ -26,7 +26,8 @@ contract OCR2DROracleFactory is TypeAndVersionInterface {
   }
 
   /**
-   * @notice creates a new Oracle contract with the msg.sender as owner
+   * @notice creates a new Oracle contract with the msg.sender as the proposed owner
+   * @notice msg.sender will still need to call oracle.acceptOwnership()
    * @return address Address of a newly deployed oracle
    */
   function deployNewOracle() external returns (address) {
