@@ -575,7 +575,7 @@ describe('KeeperRegistrar2_0', () => {
           adminAddress: await admin.getAddress(),
           checkData: emptyBytes,
           offchainConfig: emptyBytes,
-          amount: amount,
+          amount,
           encryptedEmail: emptyBytes,
         }),
         '',
@@ -629,8 +629,8 @@ describe('KeeperRegistrar2_0', () => {
         gasLimit: executeGas,
         adminAddress: await admin.getAddress(),
         checkData: emptyBytes,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         encryptedEmail: emptyBytes,
       })
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // 0 -> 1
