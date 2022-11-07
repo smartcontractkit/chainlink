@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +16,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	goabi "github.com/umbracle/ethgo/abi"
+
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
@@ -213,6 +214,26 @@ func (v *EthereumKeeperRegistry) Address() string {
 
 func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount)
+}
+
+func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {
+	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
+	onchainConfig, err := goabi.Encode(map[string]interface{}{
+		"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
+		"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
+		"checkGasLimit":        rcs.CheckGasLimit,
+		"stalenessSeconds":     rcs.StalenessSeconds,
+		"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
+		"minUpkeepSpend":       rcs.MinUpkeepSpend,
+		"maxPerformGas":        rcs.MaxPerformGas,
+		"maxCheckDataSize":     rcs.MaxCheckDataSize,
+		"maxPerformDataSize":   rcs.MaxPerformDataSize,
+		"fallbackGasPrice":     rcs.FallbackGasPrice,
+		"fallbackLinkPrice":    rcs.FallbackLinkPrice,
+		"transcoder":           common.Address{},
+		"registrar":            registrar,
+	}, configType)
+	return onchainConfig, err
 }
 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRConfig) error {

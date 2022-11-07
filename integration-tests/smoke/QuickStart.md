@@ -27,7 +27,7 @@ export CHAINLINK_IMAGE=k3d-myregistry.localhost:5001/docker.io/smartcontract/cha
 run the tests
  ```shell
 cd ~/go/src/github.com/chainlink
-make test_smoke_simulated args="--focus-file=keeper_test.go"
+make test_smoke_simulated args="--focus-file=auto_ocr_test.go"
  ``` 
 
 ## Already have the initial stuff set up and just want to rebuild and run
@@ -40,7 +40,7 @@ export TEST_LOG_LEVEL="debug"
 docker tag docker.io/smartcontract/chainlink:$CHAINLINK_VERSION k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
 docker push k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
 export CHAINLINK_IMAGE=k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink
-make test_smoke_simulated args="--focus-file=keeper_test.go"
+make test_smoke_simulated args="--focus-file=auto_ocr_test.go"
  ``` 
 
 ## Step by Step

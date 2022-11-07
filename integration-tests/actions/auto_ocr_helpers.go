@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
-	"github.com/umbracle/ethgo/abi"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -30,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
-func BuildOCRConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contracts.KeeperRegistrySettings, registrar string) contracts.OCRConfig {
+func BuildAutoOCR2ConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contracts.KeeperRegistrySettings, registrar string) contracts.OCRConfig {
 	S, oracleIdentities := getOracleIdentities(chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
@@ -68,7 +67,7 @@ func BuildOCRConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contr
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := encodeOnChainConfig(registryConfig, registrar)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail encoding config")
 
 	log.Info().Msg("Done building OCR config")
@@ -80,26 +79,6 @@ func BuildOCRConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contr
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
 	}
-}
-
-func encodeOnChainConfig(registryConfig contracts.KeeperRegistrySettings, registrar string) ([]byte, error) {
-	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
-		"paymentPremiumPPB":    registryConfig.PaymentPremiumPPB,
-		"flatFeeMicroLink":     registryConfig.FlatFeeMicroLINK,
-		"checkGasLimit":        registryConfig.CheckGasLimit,
-		"stalenessSeconds":     registryConfig.StalenessSeconds,
-		"gasCeilingMultiplier": registryConfig.GasCeilingMultiplier,
-		"minUpkeepSpend":       registryConfig.MinUpkeepSpend,
-		"maxPerformGas":        registryConfig.MaxPerformGas,
-		"maxCheckDataSize":     registryConfig.MaxCheckDataSize,
-		"maxPerformDataSize":   registryConfig.MaxPerformDataSize,
-		"fallbackGasPrice":     registryConfig.FallbackGasPrice,
-		"fallbackLinkPrice":    registryConfig.FallbackLinkPrice,
-		"transcoder":           ZeroAddress.Hex(),
-		"registrar":            registrar,
-	}, configType)
-	return onchainConfig, err
 }
 
 func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
