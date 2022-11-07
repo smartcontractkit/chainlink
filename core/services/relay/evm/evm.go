@@ -311,7 +311,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	}
 
 	var relayConfig RelayConfig
-	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+	if err = json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
@@ -14,20 +15,43 @@ import (
 func Test_ReportCodec(t *testing.T) {
 	r := ReportCodec{}
 
-	t.Run("BuildReport constructs a report", func(t *testing.T) {
+	t.Run("BuildReport errors if observations are empty", func(t *testing.T) {
+		paos := []median.ParsedAttributedObservation{}
+		_, err := r.BuildReport(paos)
+		assert.Error(t, err)
+	})
+	t.Run("BuildReport constructs a report from observations", func(t *testing.T) {
 		paos := []median.ParsedAttributedObservation{
 			{
-	Timestamp       uint32
-	Value           *big.Int
-	JuelsPerFeeCoin *big.Int
-	Observer        commontypes.OracleID
+				Timestamp:       uint32(42),
+				Value:           big.NewInt(43),
+				JuelsPerFeeCoin: big.NewInt(44),
+				Observer:        commontypes.OracleID(45),
 			},
 			{
+				Timestamp:       uint32(142),
+				Value:           big.NewInt(143),
+				JuelsPerFeeCoin: big.NewInt(144),
+				Observer:        commontypes.OracleID(145),
 			},
-			{},
-			{},
+			{
+				Timestamp:       uint32(242),
+				Value:           big.NewInt(243),
+				JuelsPerFeeCoin: big.NewInt(244),
+				Observer:        commontypes.OracleID(245),
+			},
+			{
+				Timestamp:       uint32(342),
+				Value:           big.NewInt(343),
+				JuelsPerFeeCoin: big.NewInt(344),
+				Observer:        commontypes.OracleID(246),
+			},
 		}
-		r.BuildReport(pao)
+		rep, err := r.BuildReport(paos)
+		require.NoError(t, err)
+
+		assert.Equal(t, types.Report(types.Report{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xf3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xf4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xf2}), rep)
+		assert.LessOrEqual(t, len(rep), r.MaxReportLength(42))
 	})
 
 	t.Run("MedianFromReport gets the median", func(t *testing.T) {
@@ -37,8 +61,5 @@ func Test_ReportCodec(t *testing.T) {
 		median, err := r.MedianFromReport(sampleReport)
 		assert.NoError(t, err)
 		assert.Equal(t, big.NewInt(69000), median)
-	})
-
-	t.Run("Report has len less than or equal to MaxReportLength", func(t *testing.T) {
 	})
 }

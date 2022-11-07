@@ -24,7 +24,8 @@ func Test_MercuryTransmitter_MercuryReport_Marshal_Unmarshal(t *testing.T) {
 	assert.JSONEq(t, sampleMercuryReport, string(b))
 
 	nmr := MercuryReport{}
-	json.Unmarshal(b, &nmr)
+	err = json.Unmarshal(b, &nmr)
+	require.NoError(t, err)
 
 	assert.Equal(t, mr, nmr)
 }

@@ -5,16 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 var _ ocrtypes.ContractTransmitter = &MercuryTransmitter{}
@@ -101,7 +102,7 @@ func (mt *MercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(mt.username, mt.password)
-	req.WithContext(ctx)
+	req = req.WithContext(ctx)
 
 	res, err := mt.httpClient.Do(req)
 	if err != nil {
@@ -111,7 +112,7 @@ func (mt *MercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 
 	// It's only used for logging, keep it short
 	safeLimitResp := http.MaxBytesReader(nil, res.Body, 1024)
-	respBody, err := ioutil.ReadAll(safeLimitResp)
+	respBody, err := io.ReadAll(safeLimitResp)
 	if err != nil {
 		mt.lggr.Errorw("Failed to read response body", "err", err)
 	}
