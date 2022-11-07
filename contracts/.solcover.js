@@ -29,6 +29,6 @@ module.exports = {
     deduplicate: false,
     cse: false,
     constantOptimizer: false,
-    yul: true
-  }
+    yul: true,
+  },
 }
