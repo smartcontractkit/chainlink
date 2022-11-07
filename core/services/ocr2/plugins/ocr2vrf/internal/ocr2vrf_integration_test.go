@@ -298,12 +298,10 @@ func setupNodeOCR2(
 }
 
 func TestIntegration_OCR2VRF_ForwarderFlow(t *testing.T) {
-	t.Parallel()
 	runOCR2VRFTest(t, true)
 }
 
 func TestIntegration_OCR2VRF(t *testing.T) {
-	t.Parallel()
 	runOCR2VRFTest(t, false)
 }
 

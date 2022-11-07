@@ -1104,7 +1104,7 @@ func TestTopics_DKGConfigSet_VRFConfigSet(t *testing.T) {
 	assert.Equal(t, dkgConfigSetTopic, vrfConfigSetTopic, "config set topics of vrf and dkg must be equal")
 }
 
-func TestSet_Off_Chain_Config(t *testing.T) {
+func Test_SetOffchainConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("valid binary", func(t *testing.T) {
