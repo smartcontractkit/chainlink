@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	drocr_serv "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
 func PreparePlugin(t *testing.T) (types.ReportingPlugin, drocr_serv.ORM) {
@@ -27,7 +28,18 @@ func PreparePlugin(t *testing.T) (types.ReportingPlugin, drocr_serv.ORM) {
 		PluginORM: orm,
 	}
 
-	plugin, _, _ := factory.NewReportingPlugin(types.ReportingPluginConfig{})
+	pluginConfig := config.ReportingPluginConfigWrapper{
+		Config: &config.ReportingPluginConfig{
+			MaxRequestBatchSize: 10,
+		},
+	}
+	pluginConfigBytes, err := config.EncodeReportingPluginConfig(&pluginConfig)
+	require.NoError(t, err)
+	plugin, _, _ := factory.NewReportingPlugin(types.ReportingPluginConfig{
+		N:              4,
+		F:              1,
+		OffchainConfig: pluginConfigBytes,
+	})
 	return plugin, orm
 }
 

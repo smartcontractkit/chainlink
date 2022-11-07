@@ -139,6 +139,18 @@ var (
 		GasEstimationBuffer:       0,
 	}
 
+	// rskTestnet https://www.rsk.co/
+	RSKTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "RSK Testnet",
+		ClientImplementation:      blockchain.RSKClientImplementation,
+		ChainID:                   31,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
 	mappedNetworks = map[string]*blockchain.EVMNetwork{
 		"SIMULATED":       SimulatedEVM,
 		"SIMULATED_1":     SimulatedEVMNonDev1,
@@ -150,6 +162,7 @@ var (
 		"METIS_STARDUST":  MetisStardust,
 		"ARBITRUM_GOERLI": ArbitrumGoerli,
 		"OPTIMISM_GOERLI": OptimismGoerli,
+		"RSK":             RSKTestnet,
 	}
 )
 
