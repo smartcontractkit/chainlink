@@ -1,25 +1,30 @@
-package ocr
+package ocr_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
+
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
 	var tt = []struct {
-		name         string
-		toml         string
-		setGlobalCfg func(t *testing.T, c *configtest.TestGeneralConfig)
-		assertion    func(t *testing.T, os job.Job, err error)
+		name      string
+		toml      string
+		overrides func(c *chainlink.Config, s *chainlink.Secrets)
+		assertion func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "minimal non-bootstrap oracle spec",
@@ -155,13 +160,33 @@ observationSource = """
 			},
 		},
 		{
-			name: "invalid peer address",
+			name: "invalid v1 bootstrap peer address",
 			toml: `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/invalid/peer/address"]
+isBootstrapPeer    = false
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid v2 bootstrapper address",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+p2pv2Bootstrappers = ["invalid bootstrapper /#@ address"]
 isBootstrapPeer    = false
 observationSource = """
 blah
@@ -179,6 +204,9 @@ schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+p2pv2Bootstrappers = [
+"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+]
 isBootstrapPeer    = false
 blockchainTimeout  = "0s"
 observationSource = """
@@ -197,6 +225,9 @@ schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+p2pv2Bootstrappers = [
+"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+]
 isBootstrapPeer    = false
 databaseTimeout  = "0s"
 observationSource = """
@@ -269,11 +300,12 @@ schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
+p2pv2Bootstrappers = []
 isBootstrapPeer    = true
 monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, "toml error on load: (8, 23): invalid escape sequence: \\2")
+				require.EqualError(t, err, "toml error on load: (9, 23): invalid escape sequence: \\2")
 			},
 		},
 		{
@@ -358,23 +390,24 @@ answer1      [type=median index=0];
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "data source timeout must be between 1s and 20s, but is currently 20m0s")
 			},
-			setGlobalCfg: func(t *testing.T, c *configtest.TestGeneralConfig) {
-				d := (20 * time.Minute)
-				c.Overrides.OCRObservationTimeout = &d
+			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.OCR.ObservationTimeout = models.MustNewDuration(20 * time.Minute)
 			},
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := configtest.NewTestGeneralConfig(t)
-			c.Overrides.Dev = null.BoolFrom(false)
-			c.Overrides.EVMRPCEnabled = null.BoolFrom(false)
-			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: c})
-			if tc.setGlobalCfg != nil {
-				tc.setGlobalCfg(t, c)
-			}
-			s, err := ValidatedOracleSpecToml(cc, tc.toml)
+			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.DevMode = false
+				if tc.overrides != nil {
+					tc.overrides(c, s)
+				}
+			})
+
+			s, err := ocr.ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
+				return evmtest.NewChainScopedConfig(t, c), nil
+			}, tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

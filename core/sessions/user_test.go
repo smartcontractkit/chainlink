@@ -3,6 +3,7 @@ package sessions_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
@@ -16,26 +17,29 @@ func TestNewUser(t *testing.T) {
 
 	tests := []struct {
 		email, pwd string
+		role       sessions.UserRole
 		wantError  bool
 	}{
-		{"good@email.com", "goodpassword", false},
-		{"notld@email", "goodpassword", false},
-		{"good@email.com", "badpd", true},
-		{"bademail", "goodpassword", true},
-		{"bad@", "goodpassword", true},
-		{"@email", "goodpassword", true},
-		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa50", false},
-		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa51", true},
+		{"good@email.com", cltest.Password, sessions.UserRoleAdmin, false},
+		{"notld@email", cltest.Password, sessions.UserRoleEdit, false},
+		{"view@email", cltest.Password, sessions.UserRoleView, false},
+		{"good@email.com", "badpd", sessions.UserRoleAdmin, true},
+		{"bademail", cltest.Password, sessions.UserRoleAdmin, true},
+		{"bad@", cltest.Password, sessions.UserRoleAdmin, true},
+		{"@email", cltest.Password, sessions.UserRoleAdmin, true},
+		{"good@email.com", cltest.Password, sessions.UserRoleRun, false},
+		{"good@email-pass-too-long.com", cltest.Password + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sessions.UserRoleAdmin, true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.email, func(t *testing.T) {
-			user, err := sessions.NewUser(test.email, test.pwd)
+			user, err := sessions.NewUser(test.email, test.pwd, test.role)
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
+				assert.Equal(t, test.role, user.Role)
 				assert.NotEmpty(t, user.HashedPassword)
 				newHash, _ := utils.HashPassword(test.pwd)
 				assert.NotEqual(t, newHash, user.HashedPassword, "Salt should prevent equality")

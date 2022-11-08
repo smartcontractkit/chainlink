@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
 type (
 	promReporter struct {
 		db           *sql.DB

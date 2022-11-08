@@ -15,10 +15,7 @@ import (
 	"github.com/smartcontractkit/terra.go/msg"
 )
 
-var (
-	curve              = crypto.S256()
-	secpSigningAlgo, _ = keyring.NewSigningAlgoFromString(string(hd.Secp256k1Type), []keyring.SignatureAlgo{hd.Secp256k1})
-)
+var secpSigningAlgo, _ = keyring.NewSigningAlgoFromString(string(hd.Secp256k1Type), []keyring.SignatureAlgo{hd.Secp256k1})
 
 type Raw []byte
 

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
@@ -15,19 +17,22 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
 	_ log.Listener   = &listenerV1{}
 	_ job.ServiceCtx = &listenerV1{}
 )
+
+const callbacksTimeout = 10 * time.Second
 
 type request struct {
 	confirmedAtBlock uint64
@@ -122,6 +127,7 @@ func (lsn *listenerV1) Start(context.Context) error {
 			// called.
 			// We listen one block early so that the log can be stored in pendingRequests to avoid this.
 			MinIncomingConfirmations: spec.MinIncomingConfirmations - 1,
+			ReplayStartedCallback:    lsn.ReplayStartedCallback,
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
@@ -190,9 +196,12 @@ func (lsn *listenerV1) pruneConfirmedRequestCounts() {
 
 // Listen for new heads
 func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
+	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	defer cancel()
+
 	for {
 		select {
-		case <-lsn.chStop:
+		case <-ctx.Done():
 			unsubscribe()
 			lsn.waitOnStop <- struct{}{}
 			return
@@ -201,7 +210,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 				toProcess := lsn.extractConfirmedLogs()
 				var toRetry []request
 				for _, r := range toProcess {
-					if success := lsn.ProcessRequest(r); !success {
+					if success := lsn.ProcessRequest(ctx, r); !success {
 						toRetry = append(toRetry, r)
 					}
 				}
@@ -242,25 +251,35 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 }
 
 func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
-	lsn.l.Infow("Log received", lb.String(), lb.DecodedLog())
+	lggr := lsn.l.With(
+		"log", lb.String(),
+		"decodedLog", lb.DecodedLog(),
+		"blockNumber", lb.RawLog().BlockNumber,
+		"blockHash", lb.RawLog().BlockHash,
+		"txHash", lb.RawLog().TxHash,
+	)
+
+	lggr.Infow("Log received")
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
+		lggr.Debugw("Got fulfillment log",
+			"requestID", hex.EncodeToString(v.RequestId[:]))
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
 		lsn.respCountMu.Lock()
 		lsn.respCount[v.RequestId]++
-		lsn.respCountMu.Unlock()
 		lsn.blockNumberToReqID.Insert(fulfilledReq{
 			blockNumber: v.Raw.BlockNumber,
 			reqID:       v.RequestId,
 		})
+		lsn.respCountMu.Unlock()
 		lsn.markLogAsConsumed(lb)
 		return
 	}
 
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
-		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lggr.Errorw("Failed to parse RandomnessRequest log", "err", err)
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
@@ -278,7 +297,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
-	lsn.l.Debugw("Enqueued randomness request",
+	lggr.Infow("Enqueued randomness request",
 		"requestID", hex.EncodeToString(req.RequestID[:]),
 		"requestJobID", hex.EncodeToString(req.JobID[:]),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
@@ -318,7 +337,7 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,
 			"blockHash", req.Raw.BlockHash,
-			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"requestID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 		incDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
 	}
@@ -326,12 +345,25 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 }
 
 // ProcessRequest attempts to process the VRF request. Returns true if successful, false otherwise.
-func (lsn *listenerV1) ProcessRequest(req request) bool {
+func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
 	if !lsn.shouldProcessLog(req.lb) {
 		return true
 	}
+
+	lggr := lsn.l.With(
+		"log", req.lb.String(),
+		"requestID", hex.EncodeToString(req.req.RequestID[:]),
+		"txHash", req.req.Raw.TxHash,
+		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+		"jobID", hex.EncodeToString(req.req.JobID[:]),
+		"sender", req.req.Sender.Hex(),
+		"blockNumber", req.req.Raw.BlockNumber,
+		"blockHash", req.req.Raw.BlockHash,
+		"seed", req.req.Seed,
+		"fee", req.req.Fee,
+	)
 
 	// Check if the vrf req has already been fulfilled
 	// Note we have to do this after the log has been confirmed.
@@ -343,34 +375,34 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 	// 4. The eth node sees the request reorg and tells us about it. We do our fulfillment
 	// check and the node says its already fulfilled (hasn't seen the fulfillment reorged yet),
 	// so we don't process the request.
-	callback, err := lsn.coordinator.Callbacks(nil, req.req.RequestID)
+	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not
+	// found" errors.
+	currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
+	m := bigmath.Max(req.confirmedAtBlock, currBlock)
+	ctx, cancel := context.WithTimeout(ctx, callbacksTimeout)
+	defer cancel()
+	callback, err := lsn.coordinator.Callbacks(&bind.CallOpts{
+		BlockNumber: m,
+		Context:     ctx,
+	}, req.req.RequestID)
 	if err != nil {
-		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.req.Raw.TxHash)
+		lggr.Errorw("Unable to check if already fulfilled, processing anyways", "err", err)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
-		lsn.l.Infow("Request already fulfilled", "txHash", req.req.Raw.TxHash, "reqID", req.req.RequestID)
+		lggr.Infow("Request already fulfilled")
 		lsn.markLogAsConsumed(req.lb)
 		return true
 	}
 
 	// Check if we can ignore the request due to its age.
 	if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
-		lsn.l.Infow("Request too old, dropping it",
-			"txHash", req.req.Raw.TxHash, "reqID", req.req.RequestID)
+		lggr.Infow("Request too old, dropping it")
 		lsn.markLogAsConsumed(req.lb)
 		return true
 	}
 
-	lsn.l.Infow("Received log request",
-		"log", req.lb.String(),
-		"reqID", hex.EncodeToString(req.req.RequestID[:]),
-		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-		"txHash", req.req.Raw.TxHash,
-		"blockNumber", req.req.Raw.BlockNumber,
-		"blockHash", req.req.Raw.BlockHash,
-		"seed", req.req.Seed,
-		"fee", req.req.Fee)
+	lggr.Infow("Processing log request")
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -391,27 +423,22 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
-	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
+	if _, err = lsn.pipelineRunner.Run(ctx, &run, lggr, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
-			lsn.l.Errorw("Failed mark consumed", "err", err)
+			lggr.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
 	}); err != nil {
-		lsn.l.Errorw("Failed executing run",
-			"err", err,
-			"reqID", hex.EncodeToString(req.req.RequestID[:]),
-			"reqTxHash", req.req.Raw.TxHash)
+		lggr.Errorw("Failed to execute VRFV1 pipeline run",
+			"err", err)
 		return false
 	}
 
 	// At this point the pipeline runner has completed the run of the pipeline,
 	// but it may have errored out.
 	if run.HasErrors() || run.HasFatalErrors() {
-		lsn.l.Error("VRFV1 pipeline run failed with errors",
-			"reqID", hex.EncodeToString(req.req.RequestID[:]),
-			"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-			"reqTxHash", req.req.Raw.TxHash,
+		lggr.Error("VRFV1 pipeline run failed with errors",
 			"runErrors", run.AllErrors.ToError(),
 			"runFatalErrors", run.FatalErrors.ToError(),
 		)
@@ -420,11 +447,7 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 
 	// At this point, the pipeline run executed successfully, and we mark
 	// the request as processed.
-	lsn.l.Debugw("Executed VRFV1 fulfillment run",
-		"reqID", hex.EncodeToString(req.req.RequestID[:]),
-		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-		"reqTxHash", req.req.Raw.TxHash,
-	)
+	lggr.Infow("Executed VRFV1 fulfillment run")
 	incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
 	return true
 }
@@ -447,7 +470,7 @@ func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
-		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
+		lsn.l.Error("log mailbox is over capacity - dropped the oldest log")
 		incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, reasonMailboxSize)
 	}
 }
@@ -463,4 +486,11 @@ func (lsn *listenerV1) fromAddresses() []common.Address {
 // Job complies with log.Listener
 func (lsn *listenerV1) JobID() int32 {
 	return lsn.job.ID
+}
+
+// ReplayStartedCallback is called by the log broadcaster when a replay is about to start.
+func (lsn *listenerV1) ReplayStartedCallback() {
+	// Clear the log deduper cache so that we don't incorrectly ignore logs that have been sent that
+	// are already in the cache.
+	lsn.deduper.clear()
 }

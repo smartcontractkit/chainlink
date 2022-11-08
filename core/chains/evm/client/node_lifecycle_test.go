@@ -29,14 +29,13 @@ func newTestNodeWithCallback(t *testing.T, cfg NodeConfig, callback testutils.JS
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, callback)
 	iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 	n := iN.(*node)
-	t.Cleanup(s.Close)
 	return n
 }
 
 // dial sets up the node and puts it into the live state, bypassing the
 // normal Start() method which would fire off unwanted goroutines
 func dial(t *testing.T, n *node) {
-	ctx := testutils.TestCtx(t)
+	ctx := testutils.Context(t)
 	require.NoError(t, n.dial(ctx))
 	n.setState(NodeStateAlive)
 	start(t, n)
@@ -60,6 +59,8 @@ func makeNewHeadWSMessage(n int) string {
 }
 
 func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("with no poll and sync timeouts, exits on close", func(t *testing.T) {
 		pollAndSyncTimeoutsDisabledCfg := TestNodeConfig{}
 		n := newTestNode(t, pollAndSyncTimeoutsDisabledCfg)
@@ -71,7 +72,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			defer close(ch)
 			n.aliveLoop()
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected aliveLoop to exit")
 	})
 
@@ -89,7 +90,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				}
 				return "this will error", ""
 			default:
-				t.Fatalf("unexpected RPC method: %s", method)
+				t.Errorf("unexpected RPC method: %s", method)
 			}
 			return "", ""
 		})
@@ -132,7 +133,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				defer calls.Inc()
 				return "this will error", ""
 			default:
-				t.Fatalf("unexpected RPC method: %s", method)
+				t.Errorf("unexpected RPC method: %s", method)
 			}
 			return "", ""
 		})
@@ -192,11 +193,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 					}
 					return `"test client version 2"`, ""
 				default:
-					t.Fatalf("unexpected RPC method: %s", method)
+					t.Errorf("unexpected RPC method: %s", method)
 				}
 				return "", ""
 			})
-		defer s.Close()
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
@@ -233,14 +233,14 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 					default:
 					}
 					return `"0x00"`, makeHeadResult(0)
+				case "eth_unsubscribe":
 				case "web3_clientVersion":
 					return `"test client version 2"`, ""
 				default:
-					t.Fatalf("unexpected RPC method: %s", method)
+					t.Errorf("unexpected RPC method: %s", method)
 				}
 				return "", ""
 			})
-		defer s.Close()
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
@@ -269,13 +269,13 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				switch method {
 				case "eth_subscribe":
 					return `"0x00"`, makeHeadResult(0)
+				case "eth_unsubscribe":
 				default:
-					t.Fatalf("unexpected RPC method: %s", method)
+					t.Errorf("unexpected RPC method: %s", method)
 				}
 				return "", ""
 			})
 
-		defer s.Close()
 		iN := NewNode(pollDisabledCfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
 		n.nLiveNodes = func() int { return 1 }
@@ -294,6 +294,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 }
 
 func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("exits on close", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)
@@ -307,7 +309,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			defer close(ch)
 			n.aliveLoop()
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
 	})
 
@@ -337,11 +339,10 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 					}
 					return `"0x00"`, makeHeadResult(0)
 				default:
-					t.Fatalf("unexpected RPC method: %s", method)
+					t.Errorf("unexpected RPC method: %s", method)
 				}
 				return "", ""
 			})
-		defer s.Close()
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
@@ -384,11 +385,10 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 					return `"0x00"`, makeNewHeadWSMessage(42)
 				case "eth_unsubscribe":
 				default:
-					t.Fatalf("unexpected RPC method: %s", method)
+					t.Errorf("unexpected RPC method: %s", method)
 				}
 				return "", ""
 			})
-		defer s.Close()
 
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID)
 		n := iN.(*node)
@@ -434,12 +434,12 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 					default:
 					}
 					return `"0x00"`, makeHeadResult(0)
+				case "eth_unsubscribe":
 				default:
-					t.Fatalf("unexpected RPC method: %s", method)
+					t.Errorf("unexpected RPC method: %s", method)
 				}
 				return "", ""
 			})
-		defer s.Close()
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
@@ -460,6 +460,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 }
 func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("exits on close", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)
@@ -472,7 +474,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			n.unreachableLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected unreachableLoop to exit")
 	})
 
@@ -494,7 +496,6 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	t.Run("on successful redial but failed verify, transitions to invalid chain ID", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
-		t.Cleanup(s.Close)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
 		n := iN.(*node)
@@ -530,6 +531,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 }
 func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("exits on close", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)
@@ -542,7 +545,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 			n.invalidChainIDLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected invalidChainIDLoop to exit")
 	})
 
@@ -564,7 +567,6 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	t.Run("on failed verify, keeps checking", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
-		t.Cleanup(s.Close)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
 		n := iN.(*node)

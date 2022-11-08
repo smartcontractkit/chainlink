@@ -19,7 +19,6 @@ type OCR2Config interface {
 	OCR2DatabaseTimeout() time.Duration
 	OCR2ContractPollInterval() time.Duration
 	OCR2ContractSubscribeInterval() time.Duration
-	OCR2MonitoringEndpoint() string
 	OCR2KeyBundleID() (string, error)
 	// OCR2 config, cannot override in jobs
 	OCR2TraceLogging() bool
@@ -49,16 +48,12 @@ func (c *generalConfig) OCR2DatabaseTimeout() time.Duration {
 	return c.getWithFallback("OCR2DatabaseTimeout", parse.Duration).(time.Duration)
 }
 
-func (c *generalConfig) OCR2MonitoringEndpoint() string {
-	return c.viper.GetString(envvar.Name("OCR2MonitoringEndpoint"))
-}
-
 func (c *generalConfig) OCR2KeyBundleID() (string, error) {
 	kbStr := c.viper.GetString(envvar.Name("OCR2KeyBundleID"))
 	if kbStr != "" {
 		_, err := models.Sha256HashFromHex(kbStr)
 		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
+			return "", errors.Wrapf(ErrEnvInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
 		}
 	}
 	return kbStr, nil

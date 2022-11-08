@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"github.com/getsentry/sentry-go"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 

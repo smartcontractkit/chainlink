@@ -1,7 +1,6 @@
 package loader
 
 import (
-	"context"
 	"database/sql"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -30,7 +30,7 @@ func TestLoader_Chains(t *testing.T) {
 	t.Parallel()
 
 	app := &coremocks.Application{}
-	ctx := InjectDataloader(context.Background(), app)
+	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app)
@@ -75,11 +75,9 @@ func TestLoader_Chains(t *testing.T) {
 func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
 
-	evmChainSet := new(evmmocks.ChainSet)
-	evmChainSet.Test(t)
-	app := &coremocks.Application{}
-	app.Test(t)
-	ctx := InjectDataloader(context.Background(), app)
+	evmChainSet := evmmocks.NewChainSet(t)
+	app := coremocks.NewApplication(t)
+	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app, evmChainSet)
@@ -129,7 +127,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 
 	fsvc := &feedsMocks.Service{}
 	app := &coremocks.Application{}
-	ctx := InjectDataloader(context.Background(), app)
+	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app, fsvc)
@@ -172,7 +170,7 @@ func TestLoader_JobProposals(t *testing.T) {
 
 	fsvc := &feedsMocks.Service{}
 	app := &coremocks.Application{}
-	ctx := InjectDataloader(context.Background(), app)
+	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app, fsvc)
@@ -215,7 +213,7 @@ func TestLoader_JobRuns(t *testing.T) {
 
 	jobsORM := &jobORMMocks.ORM{}
 	app := &coremocks.Application{}
-	ctx := InjectDataloader(context.Background(), app)
+	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app, jobsORM)
@@ -249,7 +247,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 
 		jobsORM := &jobORMMocks.ORM{}
 		app := &coremocks.Application{}
-		ctx := InjectDataloader(context.Background(), app)
+		ctx := InjectDataloader(testutils.Context(t), app)
 
 		defer t.Cleanup(func() {
 			mock.AssertExpectationsForObjects(t, app, jobsORM)
@@ -280,7 +278,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 
 		jobsORM := &jobORMMocks.ORM{}
 		app := &coremocks.Application{}
-		ctx := InjectDataloader(context.Background(), app)
+		ctx := InjectDataloader(testutils.Context(t), app)
 
 		defer t.Cleanup(func() {
 			mock.AssertExpectationsForObjects(t, app, jobsORM)
@@ -308,7 +306,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 
 		jobsORM := &jobORMMocks.ORM{}
 		app := &coremocks.Application{}
-		ctx := InjectDataloader(context.Background(), app)
+		ctx := InjectDataloader(testutils.Context(t), app)
 
 		defer t.Cleanup(func() {
 			mock.AssertExpectationsForObjects(t, app, jobsORM)
@@ -335,7 +333,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 
 	txmORM := &txmgrMocks.ORM{}
 	app := &coremocks.Application{}
-	ctx := InjectDataloader(context.Background(), app)
+	ctx := InjectDataloader(testutils.Context(t), app)
 
 	defer t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t, app, txmORM)
@@ -376,7 +374,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 
 		jobsORM := &jobORMMocks.ORM{}
 		app := &coremocks.Application{}
-		ctx := InjectDataloader(context.Background(), app)
+		ctx := InjectDataloader(testutils.Context(t), app)
 
 		defer t.Cleanup(func() {
 			mock.AssertExpectationsForObjects(t, app, jobsORM)
@@ -407,7 +405,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 
 		jobsORM := &jobORMMocks.ORM{}
 		app := &coremocks.Application{}
-		ctx := InjectDataloader(context.Background(), app)
+		ctx := InjectDataloader(testutils.Context(t), app)
 
 		defer t.Cleanup(func() {
 			mock.AssertExpectationsForObjects(t, app, jobsORM)

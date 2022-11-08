@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,14 +21,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
-//go:generate mockery --name Service --output ./mocks/ --case=underscore
-//go:generate mockery --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 var (
 	ErrOCRDisabled          = errors.New("ocr is disabled")
@@ -44,24 +47,24 @@ var (
 
 // Service represents a behavior of the feeds service
 type Service interface {
-	Start() error
+	Start(ctx context.Context) error
 	Close() error
 
 	CountManagers() (int64, error)
 	GetManager(id int64) (*FeedsManager, error)
 	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
-	RegisterManager(params RegisterManagerParams) (int64, error)
+	RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error)
 	UpdateManager(ctx context.Context, mgr FeedsManager) error
 
 	GetChainConfig(id int64) (*ChainConfig, error)
-	CreateChainConfig(cfg ChainConfig) (int64, error)
-	DeleteChainConfig(id int64) (int64, error)
+	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
+	DeleteChainConfig(ctx context.Context, id int64) (int64, error)
 	ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error)
-	UpdateChainConfig(cfg ChainConfig) (int64, error)
+	UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 
 	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
-	SyncNodeInfo(id int64) error
+	SyncNodeInfo(ctx context.Context, id int64) error
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
 
 	GetJobProposal(id int64) (*JobProposal, error)
@@ -139,7 +142,7 @@ type RegisterManagerParams struct {
 // connection.
 //
 // Only a single feeds manager is currently supported.
-func (s *service) RegisterManager(params RegisterManagerParams) (int64, error) {
+func (s *service) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
 	count, err := s.CountManagers()
 	if err != nil {
 		return 0, err
@@ -178,13 +181,13 @@ func (s *service) RegisterManager(params RegisterManagerParams) (int64, error) {
 
 	// Establish a connection
 	mgr.ID = id
-	s.connectFeedManager(mgr, privkey)
+	s.connectFeedManager(ctx, mgr, privkey)
 
 	return id, nil
 }
 
 // SyncNodeInfo syncs the node's information with FMS
-func (s *service) SyncNodeInfo(id int64) error {
+func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 	// Get the FMS RPC client
 	fmsClient, err := s.connMgr.GetClient(id)
 	if err != nil {
@@ -208,7 +211,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
-	if _, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
+	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
 	}); err != nil {
@@ -234,7 +237,7 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 		return err
 	}
 
-	if err := s.restartConnection(mgr); err != nil {
+	if err := s.restartConnection(ctx, mgr); err != nil {
 		s.lggr.Errorf("could not restart FMS connection: %w", err)
 	}
 
@@ -280,13 +283,21 @@ func (s *service) ListManagersByIDs(ids []int64) ([]FeedsManager, error) {
 	return managers, nil
 }
 
-// CountManagerServices gets the total number of manager services
+// CountManagers gets the total number of manager services
 func (s *service) CountManagers() (int64, error) {
 	return s.orm.CountManagers()
 }
 
 // CreateChainConfig creates a chain config.
-func (s *service) CreateChainConfig(cfg ChainConfig) (int64, error) {
+func (s *service) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
+	var err error
+	if cfg.AdminAddress != "" {
+		_, err = common.NewMixedcaseAddressFromString(cfg.AdminAddress)
+		if err != nil {
+			return 0, fmt.Errorf("invalid admin address: %v", cfg.AdminAddress)
+		}
+	}
+
 	id, err := s.orm.CreateChainConfig(cfg)
 	if err != nil {
 		return 0, errors.Wrap(err, "CreateChainConfig failed")
@@ -297,7 +308,7 @@ func (s *service) CreateChainConfig(cfg ChainConfig) (int64, error) {
 		return 0, errors.Wrap(err, "CreateChainConfig: failed to fetch manager")
 	}
 
-	if err := s.SyncNodeInfo(mgr.ID); err != nil {
+	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
 		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
 	}
 
@@ -305,7 +316,7 @@ func (s *service) CreateChainConfig(cfg ChainConfig) (int64, error) {
 }
 
 // DeleteChainConfig deletes the chain config by id.
-func (s *service) DeleteChainConfig(id int64) (int64, error) {
+func (s *service) DeleteChainConfig(ctx context.Context, id int64) (int64, error) {
 	cfg, err := s.orm.GetChainConfig(id)
 	if err != nil {
 		return 0, errors.Wrap(err, "DeleteChainConfig failed: could not get chain config")
@@ -321,7 +332,7 @@ func (s *service) DeleteChainConfig(id int64) (int64, error) {
 		return 0, errors.Wrap(err, "DeleteChainConfig: failed to fetch manager")
 	}
 
-	if err := s.SyncNodeInfo(mgr.ID); err != nil {
+	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
 		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
 	}
 
@@ -343,7 +354,15 @@ func (s *service) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, e
 	return cfgs, errors.Wrap(err, "ListChainConfigsByManagerIDs failed")
 }
 
-func (s *service) UpdateChainConfig(cfg ChainConfig) (int64, error) {
+func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
+	var err error
+	if cfg.AdminAddress != "" {
+		_, err = common.NewMixedcaseAddressFromString(cfg.AdminAddress)
+		if err != nil {
+			return 0, fmt.Errorf("invalid admin address: %v", cfg.AdminAddress)
+		}
+	}
+
 	id, err := s.orm.UpdateChainConfig(cfg)
 	if err != nil {
 		return 0, errors.Wrap(err, "UpdateChainConfig failed")
@@ -354,7 +373,7 @@ func (s *service) UpdateChainConfig(cfg ChainConfig) (int64, error) {
 		return 0, errors.Wrap(err, "UpdateChainConfig failed: could not get chain config")
 	}
 
-	if err := s.SyncNodeInfo(ccfg.FeedsManagerID); err != nil {
+	if err := s.SyncNodeInfo(ctx, ccfg.FeedsManagerID); err != nil {
 		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
 	}
 
@@ -426,9 +445,8 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 	}
 
-	// TODO - Use parent context
 	var id int64
-	q := s.q.WithOpts(pg.WithParentCtx(context.Background()))
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var txerr error
 		// Upsert job proposal
@@ -709,7 +727,7 @@ func (s *service) UpdateSpecDefinition(ctx context.Context, id int64, defn strin
 }
 
 // Start starts the service.
-func (s *service) Start() error {
+func (s *service) Start(ctx context.Context) error {
 	return s.StartOnce("FeedsService", func() error {
 		privkey, err := s.getCSAPrivateKey()
 		if err != nil {
@@ -726,7 +744,7 @@ func (s *service) Start() error {
 		}
 
 		mgr := mgrs[0]
-		s.connectFeedManager(mgr, privkey)
+		s.connectFeedManager(ctx, mgr, privkey)
 
 		return nil
 	})
@@ -743,7 +761,7 @@ func (s *service) Close() error {
 }
 
 // connectFeedManager connects to a feeds manager
-func (s *service) connectFeedManager(mgr FeedsManager, privkey []byte) {
+func (s *service) connectFeedManager(ctx context.Context, mgr FeedsManager, privkey []byte) {
 	s.connMgr.Connect(ConnectOpts{
 		FeedsManagerID: mgr.ID,
 		URI:            mgr.URI,
@@ -755,7 +773,7 @@ func (s *service) connectFeedManager(mgr FeedsManager, privkey []byte) {
 		},
 		OnConnect: func(pb.FeedsManagerClient) {
 			// Sync the node's information with FMS once connected
-			err := s.SyncNodeInfo(mgr.ID)
+			err := s.SyncNodeInfo(ctx, mgr.ID)
 			if err != nil {
 				s.lggr.Infof("Error syncing node info: %v", err)
 			}
@@ -959,7 +977,7 @@ func (s *service) validateProposeJobArgs(args ProposeJobArgs) error {
 	return nil
 }
 
-func (s *service) restartConnection(mgr FeedsManager) error {
+func (s *service) restartConnection(ctx context.Context, mgr FeedsManager) error {
 	s.lggr.Infof("Restarting connection")
 
 	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
@@ -972,7 +990,7 @@ func (s *service) restartConnection(mgr FeedsManager) error {
 		return err
 	}
 
-	s.connectFeedManager(mgr, privkey)
+	s.connectFeedManager(ctx, mgr, privkey)
 
 	return nil
 }
@@ -984,8 +1002,8 @@ var _ Service = &NullService{}
 type NullService struct{}
 
 //revive:disable
-func (ns NullService) Start() error { return nil }
-func (ns NullService) Close() error { return nil }
+func (ns NullService) Start(ctx context.Context) error { return nil }
+func (ns NullService) Close() error                    { return nil }
 func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return ErrFeedsManagerDisabled
 }
@@ -1015,20 +1033,19 @@ func (ns NullService) GetSpec(id int64) (*JobProposalSpec, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 func (ns NullService) ListManagers() ([]FeedsManager, error) { return nil, nil }
-func (ns NullService) CreateChainConfig(cfg ChainConfig) (int64, error) {
+func (ns NullService) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
-
 func (ns NullService) GetChainConfig(id int64) (*ChainConfig, error) {
 	return nil, ErrFeedsManagerDisabled
 }
-func (ns NullService) DeleteChainConfig(id int64) (int64, error) {
+func (ns NullService) DeleteChainConfig(ctx context.Context, id int64) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error) {
 	return nil, ErrFeedsManagerDisabled
 }
-func (ns NullService) UpdateChainConfig(cfg ChainConfig) (int64, error) {
+func (ns NullService) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) ListJobProposals() ([]JobProposal, error) { return nil, nil }
@@ -1038,13 +1055,13 @@ func (ns NullService) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal,
 func (ns NullService) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
-func (ns NullService) RegisterManager(params RegisterManagerParams) (int64, error) {
+func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
 func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) SyncNodeInfo(id int64) error { return nil }
+func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return nil }
 func (ns NullService) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }

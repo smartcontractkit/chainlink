@@ -8,14 +8,65 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+
+	"github.com/smartcontractkit/sqlx"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+// KeepersObservationSource is the same for all keeper jobs and it is not persisted in DB
+const KeepersObservationSource = `
+    encode_check_upkeep_tx      [type=ethabiencode
+                                 abi="checkUpkeep(uint256 id, address from)"
+                                 data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.effectiveKeeperAddress)}"]
+    check_upkeep_tx             [type=ethcall
+                                 failEarly=true
+                                 extractRevertReason=true
+                                 evmChainID="$(jobSpec.evmChainID)"
+                                 contract="$(jobSpec.contractAddress)"
+                                 gasUnlimited=true
+                                 gasPrice="$(jobSpec.gasPrice)"
+                                 gasTipCap="$(jobSpec.gasTipCap)"
+                                 gasFeeCap="$(jobSpec.gasFeeCap)"
+                                 data="$(encode_check_upkeep_tx)"]
+    decode_check_upkeep_tx      [type=ethabidecode
+                                 abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+    calculate_perform_data_len  [type=length
+                                 input="$(decode_check_upkeep_tx.performData)"]
+    perform_data_lessthan_limit [type=lessthan
+                                 left="$(calculate_perform_data_len)"
+                                 right="$(jobSpec.maxPerformDataSize)"]
+    check_perform_data_limit    [type=conditional
+                                 failEarly=true
+                                 data="$(perform_data_lessthan_limit)"]
+    encode_perform_upkeep_tx    [type=ethabiencode
+                                 abi="performUpkeep(uint256 id, bytes calldata performData)"
+                                 data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
+    simulate_perform_upkeep_tx  [type=ethcall
+                                 extractRevertReason=true
+                                 evmChainID="$(jobSpec.evmChainID)"
+                                 contract="$(jobSpec.contractAddress)"
+                                 from="$(jobSpec.effectiveKeeperAddress)"
+                                 gasUnlimited=true
+                                 data="$(encode_perform_upkeep_tx)"]
+    decode_check_perform_tx     [type=ethabidecode
+                                 abi="bool success"]
+    check_success            	[type=conditional
+                                 failEarly=true
+                                 data="$(decode_check_perform_tx.success)"]
+    perform_upkeep_tx        	[type=ethtx
+                                 minConfirmations=0
+                                 to="$(jobSpec.contractAddress)"
+                                 from="[$(jobSpec.fromAddress)]"
+                                 evmChainID="$(jobSpec.evmChainID)"
+                                 data="$(encode_perform_upkeep_tx)"
+                                 gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                                 txMeta="{\"jobID\":$(jobSpec.jobID),\"upkeepID\":$(jobSpec.prettyID)}"]
+    encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> calculate_perform_data_len -> perform_data_lessthan_limit -> check_perform_data_limit -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx
+`
+
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	CreateSpec(pipeline Pipeline, maxTaskTimeout models.Interval, qopts ...pg.QOpt) (int32, error)
@@ -44,7 +95,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 	return &orm{pg.NewQ(db, lggr, cfg), lggr}
 }
 
@@ -144,8 +195,8 @@ func (o *orm) StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error) {
 			}
 		} else {
 			// Simply finish the run, no need to do any sort of locking
-			if run.Outputs.Val == nil || len(run.FatalErrors) == 0 {
-				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.FatalErrors)
+			if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
+				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
 			}
 			sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, all_errors= :all_errors, fatal_errors= :fatal_errors, outputs = :outputs WHERE id = :id`
 			if _, err = sqlx.NamedExec(tx, sql, run); err != nil {
@@ -212,7 +263,6 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 			start = true
 			run.State = RunStatusRunning
 
-			// We're going to restart the run, so set it back to "in progress"
 			sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
 			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
 				return errors.Wrap(err, "UpdateTaskRunResult")
@@ -281,8 +331,8 @@ func (o *orm) checkFinishedRun(run *Run, saveSuccessfulTaskRuns bool) error {
 	if run.FinishedAt.IsZero() {
 		return errors.New("run.FinishedAt must be set")
 	}
-	if run.Outputs.Val == nil || len(run.FatalErrors) == 0 {
-		return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.FatalErrors)
+	if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
+		return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
 	}
 	if len(run.PipelineTaskRuns) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return errors.New("must provide task run results")
@@ -333,11 +383,14 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
+// Caller is expected to set timeout on calling context.
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
-	// Added 1 minute timeout to account for big databases
-	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
+	start := time.Now()
 
-	queryThreshold := time.Now().Add(-threshold)
+	q := o.q.WithOpts(pg.WithParentCtxInheritTimeout(ctx))
+
+	queryThreshold := start.Add(-threshold)
+
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		result, cancel, err := q.ExecQIter(`
 WITH batched_pipeline_runs AS (
@@ -366,6 +419,19 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 	})
 	if err != nil {
 		return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	}
+
+	deleteTS := time.Now()
+
+	o.lggr.Debugw("pipeline_runs reaper DELETE query completed", "duration", deleteTS.Sub(start))
+	defer func(start time.Time) {
+		o.lggr.Debugw("pipeline_runs reaper VACUUM ANALYZE query completed", "duration", time.Since(start))
+	}(deleteTS)
+
+	err = q.ExecQ("VACUUM ANALYZE pipeline_runs")
+	if err != nil {
+		o.lggr.Warnw("DeleteRunsOlderThan successfully deleted old pipeline_runs rows, but failed to run VACUUM ANALYZE", "err", err)
+		return nil
 	}
 
 	return nil
@@ -446,10 +512,13 @@ func loadAssociations(q pg.Queryer, runs []*Run) error {
 			pipelineSpecIDM[run.PipelineSpecID] = Spec{}
 		}
 	}
-	if err := q.Select(&specs, `SELECT ps.id , ps.dot_dag_source, ps.created_at, ps.max_task_duration, coalesce(jobs.id, 0) "job_id", coalesce(jobs.name, '') "job_name" FROM pipeline_specs ps LEFT OUTER JOIN jobs ON jobs.pipeline_spec_id=ps.id WHERE ps.id = ANY($1)`, pipelineSpecIDs); err != nil {
+	if err := q.Select(&specs, `SELECT ps.id, ps.dot_dag_source, ps.created_at, ps.max_task_duration, coalesce(jobs.id, 0) "job_id", coalesce(jobs.name, '') "job_name", coalesce(jobs.type, '') "job_type" FROM pipeline_specs ps LEFT OUTER JOIN jobs ON jobs.pipeline_spec_id=ps.id WHERE ps.id = ANY($1)`, pipelineSpecIDs); err != nil {
 		return errors.Wrap(err, "failed to postload pipeline_specs for runs")
 	}
 	for _, spec := range specs {
+		if spec.JobType == "keeper" {
+			spec.DotDagSource = KeepersObservationSource
+		}
 		pipelineSpecIDM[spec.ID] = spec
 	}
 

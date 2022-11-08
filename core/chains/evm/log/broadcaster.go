@@ -15,7 +15,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -23,9 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
-//go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
-//go:generate mockery --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
+//go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
@@ -175,7 +173,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		evmChainID:             *ethClient.ChainID(),
 		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
 		registrations:          newRegistrations(lggr, *ethClient.ChainID()),
-		logPool:                newLogPool(),
+		logPool:                newLogPool(lggr),
 		changeSubscriberStatus: utils.NewMailbox[changeSubscriberStatus](100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
 		newHeads:               utils.NewMailbox[*evmtypes.Head](1),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
@@ -496,7 +494,7 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 
 func (b *broadcaster) invalidatePool() int64 {
 	if min := b.logPool.heap.FindMin(); min != nil {
-		b.logPool = newLogPool()
+		b.logPool = newLogPool(b.logger)
 		// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
 		blockNum := int64(min.(Uint64))
 		b.backfillBlockNumber.SetValid(blockNum)
@@ -510,9 +508,11 @@ func (b *broadcaster) onNewLog(log types.Log) {
 
 	if log.Removed {
 		// Remove the whole block that contained this log.
+		b.logger.Debugw("Found reverted log", "log", log)
 		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
+		b.logger.Debugw("Found unregistered address", "address", log.Address)
 		return
 	}
 	if b.logPool.addLog(log) {
@@ -722,6 +722,18 @@ func (b *broadcaster) Resume() {
 // test only
 func (b *broadcaster) LogsFromBlock(bh common.Hash) int {
 	return b.logPool.testOnly_getNumLogsForBlock(bh)
+}
+
+func topicsToHex(topics [][]Topic) [][]common.Hash {
+	var topicsInHex [][]common.Hash
+	for i := range topics {
+		var hexes []common.Hash
+		for j := range topics[i] {
+			hexes = append(hexes, common.Hash(topics[i][j]))
+		}
+		topicsInHex = append(topicsInHex, hexes)
+	}
+	return topicsInHex
 }
 
 var _ BroadcasterInTest = &NullBroadcaster{}

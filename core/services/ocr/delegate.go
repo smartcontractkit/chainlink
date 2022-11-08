@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -16,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -67,15 +68,16 @@ func NewDelegate(
 	}
 }
 
-func (d Delegate) JobType() job.Type {
+func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the OCR services that need to run for this job
-func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
@@ -129,7 +131,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
 	} else if !peerWrapper.IsStarted() {
-		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running p2p peer")
 	}
 
 	var v1BootstrapPeers []string
@@ -142,8 +144,16 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 	}
 
-	// OCR1 job spec does not support overriding v2 bootstrap nodes, they must be set in env var
-	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
+	v2Bootstrappers, err := ocrcommon.ParseBootstrapPeers(concreteSpec.P2PV2Bootstrappers)
+	if err != nil {
+		return nil, err
+	} else if len(v2Bootstrappers) == 0 {
+		// ParseBootstrapPeers() does not distinguish between no p2pv2Bootstrappers field
+		//  present in job spec, and p2pv2Bootstrappers = [].  So even if an empty list is
+		//  passed explicitly, this will still fall back to using the V2 bootstappers defined
+		//  in P2PV2_BOOTSTRAPPERS config var.  Only a non-empty list will override the default list.
+		v2Bootstrappers = peerWrapper.Config().P2PV2Bootstrappers()
+	}
 
 	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
@@ -158,9 +168,9 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	if concreteSpec.IsBootstrapPeer {
 		var bootstrapper *ocr.BootstrapNode
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
-			BootstrapperFactory:   peerWrapper.Peer,
+			BootstrapperFactory:   peerWrapper.Peer1,
 			V1Bootstrappers:       v1BootstrapPeers,
-			V2Bootstrappers:       v2BootstrapPeers,
+			V2Bootstrappers:       v2Bootstrappers,
 			ContractConfigTracker: tracker,
 			Database:              ocrDB,
 			LocalConfig:           lc,
@@ -172,12 +182,18 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		bootstrapperCtx := job.NewServiceAdapter(bootstrapper)
 		services = append(services, bootstrapperCtx)
 	} else {
-		if peerWrapper.Config().P2PNetworkingStack() == ocrnetworking.NetworkingStackV1 {
+		// In V1 or V1V2 mode, p2pv1BootstrapPeers must be defined either in
+		//   node config or in job spec
+		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV2 {
 			if len(v1BootstrapPeers) < 1 {
 				return nil, errors.New("Need at least one v1 bootstrap peer defined")
 			}
-		} else {
-			if len(v2BootstrapPeers) < 1 {
+		}
+
+		// In V1V2 or V2 mode, p2pv2Bootstrappers must be defined either in
+		//   node config or in job spec
+		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV1 {
+			if len(v2Bootstrappers) < 1 {
 				return nil, errors.New("Need at least one v2 bootstrap peer defined")
 			}
 		}
@@ -191,7 +207,8 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
+		cfg := chain.Config()
+		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
 
 		var checker txmgr.TransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {
@@ -202,19 +219,36 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.New("TransmitterAddress is missing")
 		}
 
+		var jsGasLimit *uint32
+		if jb.GasLimit.Valid {
+			jsGasLimit = &jb.GasLimit.Uint32
+		}
+		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
+
+		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
+		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
+		effectiveTransmitterAddress := concreteSpec.TransmitterAddress.Address()
+		if jb.ForwardingAllowed {
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(concreteSpec.TransmitterAddress.Address())
+			if fwderr == nil {
+				effectiveTransmitterAddress = fwdrAddress
+			} else {
+				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
+			}
+		}
+
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), []common.Address{concreteSpec.TransmitterAddress.Address()}, gasLimit, effectiveTransmitterAddress, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
+			effectiveTransmitterAddress,
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
-		jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
-		jb.PipelineSpec.JobID = jb.ID
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
@@ -248,10 +282,10 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,
 			PrivateKeys:                  ocrkey,
-			BinaryNetworkEndpointFactory: peerWrapper.Peer,
+			BinaryNetworkEndpointFactory: peerWrapper.Peer1,
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              v1BootstrapPeers,
-			V2Bootstrappers:              v2BootstrapPeers,
+			V2Bootstrappers:              v2Bootstrappers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String()),
 			ConfigOverrider:              configOverrider,
 		})

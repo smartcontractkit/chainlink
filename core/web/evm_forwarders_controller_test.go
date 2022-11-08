@@ -11,8 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -23,13 +26,13 @@ type TestEVMForwardersController struct {
 	client cltest.HTTPClientCleaner
 }
 
-func setupEVMForwardersControllerTest(t *testing.T) *TestEVMForwardersController {
+func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) *TestEVMForwardersController {
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
-	app := cltest.NewApplication(t)
+	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestEVMForwardersController{
 		app:    app,
@@ -37,27 +40,26 @@ func setupEVMForwardersControllerTest(t *testing.T) *TestEVMForwardersController
 	}
 }
 
-func Test_EVMForwardersController_Create(t *testing.T) {
+func Test_EVMForwardersController_Track(t *testing.T) {
 	t.Parallel()
 
-	controller := setupEVMForwardersControllerTest(t)
-
-	// Setting up chain
-	chainId := testutils.NewRandomEVMChainID()
-	chainSet := controller.app.GetChains().EVM
-	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId), nil)
-	require.NoError(t, err)
+	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
+	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM = evmcfg.EVMConfigs{
+			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.DefaultsFrom(chainId, nil)},
+		}
+	})
 
 	// Build EVMForwarderRequest
 	address := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
-	body, err := json.Marshal(web.CreateEVMForwarderRequest{
-		EVMChainID: &dbChain.ID,
+	body, err := json.Marshal(web.TrackEVMForwarderRequest{
+		EVMChainID: chainId,
 		Address:    address,
 	},
 	)
 	require.NoError(t, err)
 
-	resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders", bytes.NewReader(body))
+	resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(body))
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -71,35 +73,34 @@ func Test_EVMForwardersController_Create(t *testing.T) {
 func Test_EVMForwardersController_Index(t *testing.T) {
 	t.Parallel()
 
-	controller := setupEVMForwardersControllerTest(t)
-
-	// Setting up chain
-	chainId := testutils.NewRandomEVMChainID()
-	chainSet := controller.app.GetChains().EVM
-	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId), nil)
-	require.NoError(t, err)
+	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
+	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM = evmcfg.EVMConfigs{
+			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.DefaultsFrom(chainId, nil)},
+		}
+	})
 
 	// Build EVMForwarderRequest
-	fwdrs := []web.CreateEVMForwarderRequest{
+	fwdrs := []web.TrackEVMForwarderRequest{
 		{
-			EVMChainID: &dbChain.ID,
+			EVMChainID: chainId,
 			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 		},
 		{
-			EVMChainID: &dbChain.ID,
+			EVMChainID: chainId,
 			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d82"),
 		},
 	}
 	for _, fwdr := range fwdrs {
 
-		body, err := json.Marshal(web.CreateEVMForwarderRequest{
-			EVMChainID: &dbChain.ID,
+		body, err := json.Marshal(web.TrackEVMForwarderRequest{
+			EVMChainID: chainId,
 			Address:    fwdr.Address,
 		},
 		)
 		require.NoError(t, err)
 
-		resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders", bytes.NewReader(body))
+		resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(body))
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	}

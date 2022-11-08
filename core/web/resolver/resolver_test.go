@@ -16,7 +16,9 @@ import (
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -52,6 +54,7 @@ type mocks struct {
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
 	txmORM      *txmgrMocks.ORM
+	auditLogger *audit.AuditLoggerService
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -76,68 +79,43 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 	t.Helper()
 
 	var (
-		app        = &coremocks.Application{}
+		app        = coremocks.NewApplication(t)
 		rootSchema = graphql.MustParseSchema(
 			schema.MustGetRootSchema(),
 			&Resolver{App: app},
 		)
-		ctx = loader.InjectDataloader(context.Background(), app)
+		ctx = loader.InjectDataloader(testutils.Context(t), app)
 	)
 
 	// Setup mocks
 	// Note - If you add a new mock make sure you assert it's expectation below.
 	m := &mocks{
-		bridgeORM:   &bridgeORMMocks.ORM{},
+		bridgeORM:   bridgeORMMocks.NewORM(t),
 		evmORM:      evmtest.NewMockORM(nil, nil),
-		jobORM:      &jobORMMocks.ORM{},
-		feedsSvc:    &feedsMocks.Service{},
-		sessionsORM: &sessionsMocks.ORM{},
-		pipelineORM: &pipelineMocks.ORM{},
-		cfg:         &configMocks.GeneralConfig{},
-		scfg:        &evmConfigMocks.ChainScopedConfig{},
-		ocr:         &keystoreMocks.OCR{},
-		ocr2:        &keystoreMocks.OCR2{},
-		csa:         &keystoreMocks.CSA{},
-		keystore:    &keystoreMocks.Master{},
-		ethKs:       &keystoreMocks.Eth{},
-		p2p:         &keystoreMocks.P2P{},
-		vrf:         &keystoreMocks.VRF{},
-		solana:      &keystoreMocks.Solana{},
-		chain:       &evmORMMocks.Chain{},
-		chainSet:    &evmORMMocks.ChainSet{},
-		ethClient:   &evmORMMocks.Client{},
-		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
-		balM:        &evmORMMocks.BalanceMonitor{},
-		txmORM:      &txmgrMocks.ORM{},
+		jobORM:      jobORMMocks.NewORM(t),
+		feedsSvc:    feedsMocks.NewService(t),
+		sessionsORM: sessionsMocks.NewORM(t),
+		pipelineORM: pipelineMocks.NewORM(t),
+		cfg:         configMocks.NewGeneralConfig(t),
+		scfg:        evmConfigMocks.NewChainScopedConfig(t),
+		ocr:         keystoreMocks.NewOCR(t),
+		ocr2:        keystoreMocks.NewOCR2(t),
+		csa:         keystoreMocks.NewCSA(t),
+		keystore:    keystoreMocks.NewMaster(t),
+		ethKs:       keystoreMocks.NewEth(t),
+		p2p:         keystoreMocks.NewP2P(t),
+		vrf:         keystoreMocks.NewVRF(t),
+		solana:      keystoreMocks.NewSolana(t),
+		chain:       evmORMMocks.NewChain(t),
+		chainSet:    evmORMMocks.NewChainSet(t),
+		ethClient:   evmORMMocks.NewClient(t),
+		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
+		balM:        evmORMMocks.NewBalanceMonitor(t),
+		txmORM:      txmgrMocks.NewORM(t),
+		auditLogger: &audit.AuditLoggerService{},
 	}
 
-	// Assert expectations for any mocks that we set up
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			app,
-			m.bridgeORM,
-			m.jobORM,
-			m.sessionsORM,
-			m.pipelineORM,
-			m.feedsSvc,
-			m.cfg,
-			m.scfg,
-			m.ocr,
-			m.ocr2,
-			m.csa,
-			m.keystore,
-			m.ethKs,
-			m.p2p,
-			m.vrf,
-			m.solana,
-			m.chain,
-			m.chainSet,
-			m.ethClient,
-			m.eIMgr,
-			m.balM,
-			m.txmORM,
-		)
-	})
+	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(audit.NoopLogger).Maybe()
 
 	f := &gqlTestFramework{
 		t:          t,
@@ -165,7 +143,7 @@ func (f *gqlTestFramework) Timestamp() time.Time {
 func (f *gqlTestFramework) injectAuthenticatedUser() {
 	f.t.Helper()
 
-	user := clsessions.User{Email: "gqltester@chain.link"}
+	user := clsessions.User{Email: "gqltester@chain.link", Role: clsessions.UserRoleAdmin}
 
 	f.Ctx = auth.SetGQLAuthenticatedSession(f.Ctx, user, "gqltesterSession")
 }

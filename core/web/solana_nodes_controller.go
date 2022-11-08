@@ -13,7 +13,7 @@ import (
 )
 
 // ErrSolanaNotEnabled is returned when SOLANA_ENABLED is not true.
-var ErrSolanaNotEnabled = errors.New("Solana is disabled. Set SOLANA_ENABLED=true to enable.")
+var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", envVar: "SOLANA_ENABLED"}
 
 func NewSolanaNodesController(app chainlink.Application) NodesController {
 	parse := func(s string) (string, error) { return s, nil }
@@ -35,5 +35,8 @@ func NewSolanaNodesController(app chainlink.Application) NodesController {
 				SolanaChainID: request.SolanaChainID,
 				SolanaURL:     request.SolanaURL,
 			}, nil
-		})
+		},
+		app.GetLogger(),
+		app.GetAuditLogger(),
+	)
 }

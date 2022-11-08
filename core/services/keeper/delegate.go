@@ -44,16 +44,12 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (Delegate) AfterJobCreated(spec job.Job) {}
-
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
-	// TODO: we need to fill these out manually, find a better fix
-	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
-	spec.PipelineSpec.JobID = spec.ID
-
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
@@ -63,7 +59,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
 
-	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
+	cfg := chain.Config()
+	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, cfg.KeeperDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
 	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
@@ -81,6 +78,18 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}
 
+	// effectiveKeeperAddress is the keeper address registered on the registry. This is by default the EOA account on the node.
+	// In the case of forwarding, the keeper address is the forwarder contract deployed onchain between EOA and Registry.
+	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
+	if spec.ForwardingAllowed {
+		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
+		if fwderr == nil {
+			effectiveKeeperAddress = fwdrAddress
+		} else {
+			svcLogger.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", spec.Name, "err", fwderr)
+		}
+	}
+
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
 		RegistryWrapper:          *registryWrapper,
@@ -91,6 +100,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+		EffectiveKeeperAddress:   effectiveKeeperAddress,
 		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 	})
 	upkeepExecuter := NewUpkeepExecuter(
@@ -102,6 +112,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		chain.TxManager().GetGasEstimator(),
 		svcLogger,
 		chain.Config(),
+		effectiveKeeperAddress,
 	)
 
 	return []job.ServiceCtx{

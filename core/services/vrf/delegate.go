@@ -11,12 +11,13 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -34,16 +35,17 @@ type Delegate struct {
 	lggr logger.Logger
 }
 
-//go:generate mockery --name GethKeyStore --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
 type GethKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	EvmFinalityDepth() uint32
-	EvmGasLimitDefault() uint64
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	EvmGasLimitDefault() uint32
+	EvmGasLimitVRFJobType() *uint32
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
 }
 
@@ -54,7 +56,7 @@ func NewDelegate(
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg pg.LogConfig) *Delegate {
+	cfg pg.QConfig) *Delegate {
 	return &Delegate{
 		q:    pg.NewQ(db, lggr, cfg),
 		ks:   ks,
@@ -69,6 +71,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 

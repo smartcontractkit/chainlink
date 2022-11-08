@@ -8,6 +8,8 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 )
 
 type NodesController interface {
@@ -25,6 +27,7 @@ type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
 	errNotEnabled error
 	newResource   func(N) R
 	createNode    func(*gin.Context) (N, error)
+	auditLogger   audit.AuditLogger
 }
 
 func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
@@ -33,6 +36,8 @@ func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
 	parseChainID func(string) (I, error),
 	newResource func(N) R,
 	createNode func(*gin.Context) (N, error),
+	lggr logger.Logger,
+	auditLogger audit.AuditLogger,
 ) NodesController {
 	return &nodesController[I, N, R]{
 		nodeSet:       nodeSet,
@@ -40,6 +45,7 @@ func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
 		parseChainID:  parseChainID,
 		newResource:   newResource,
 		createNode:    createNode,
+		auditLogger:   auditLogger,
 	}
 }
 
@@ -58,12 +64,11 @@ func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int)
 	if id == "" {
 		// fetch all nodes
 		nodes, count, err = n.nodeSet.GetNodes(c, offset, size)
-
 	} else {
 		// fetch nodes for chain ID
-		chainID, err := n.parseChainID(id)
-		if err != nil {
-			jsonAPIError(c, http.StatusBadRequest, err)
+		chainID, err2 := n.parseChainID(id)
+		if err2 != nil {
+			jsonAPIError(c, http.StatusBadRequest, err2)
 			return
 		}
 		nodes, count, err = n.nodeSet.GetNodesForChain(c, chainID, offset, size)
@@ -95,6 +100,8 @@ func (n *nodesController[I, N, R]) Create(c *gin.Context) {
 		return
 	}
 
+	n.auditLogger.Audit(audit.ChainRpcNodeAdded, map[string]interface{}{})
+
 	jsonAPIResponse(c, n.newResource(node), "node")
 }
 
@@ -116,6 +123,8 @@ func (n *nodesController[I, N, R]) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	n.auditLogger.Audit(audit.ChainDeleted, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, "node", http.StatusNoContent)
 }

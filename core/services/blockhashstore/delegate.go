@@ -8,9 +8,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	v2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
+	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	v2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -63,13 +63,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			chain.Config().EvmFinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
 	}
 
-	keys, err := d.ks.SendingKeys(chain.ID())
+	keys, err := d.ks.EnabledKeysForChain(chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
+	}
 	fromAddress := keys[0].Address
 	if jb.BlockhashStoreSpec.FromAddress != nil {
-		fromAddress = *jb.BlockhashStoreSpec.FromAddress
+		fromAddress = jb.BlockhashStoreSpec.FromAddress.Address()
 	}
 
 	bhs, err := blockhash_store.NewBlockhashStore(
@@ -98,7 +101,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coordinators = append(coordinators, NewV2Coordinator(c))
 	}
 
-	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddress.Address(), chain.TxManager(), bhs)
+	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddress, chain.TxManager(), bhs)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
@@ -123,13 +126,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
-		stop:       make(chan struct{}),
 		done:       make(chan struct{}),
 	}}, nil
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
+
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 
 // BeforeJobDeleted satisfies the job.Delegate interface.
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
@@ -138,7 +142,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 type service struct {
 	utils.StartStopOnce
 	feeder     *Feeder
-	stop, done chan struct{}
+	done       chan struct{}
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
@@ -159,7 +163,7 @@ func (s *service) Start(context.Context) error {
 				select {
 				case <-ticker.C:
 					s.runFeeder()
-				case <-s.stop:
+				case <-s.parentCtx.Done():
 					return
 				}
 			}
@@ -172,7 +176,6 @@ func (s *service) Start(context.Context) error {
 func (s *service) Close() error {
 	return s.StopOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Stopping BHS feeder")
-		close(s.stop)
 		s.cancel()
 		<-s.done
 		return nil

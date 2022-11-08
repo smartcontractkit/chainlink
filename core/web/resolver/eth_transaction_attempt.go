@@ -26,7 +26,7 @@ func NewEthTransactionsAttempts(results []txmgr.EthTxAttempt) []*EthTransactionA
 }
 
 func (r *EthTransactionAttemptResolver) GasPrice() string {
-	return r.attmpt.GasPrice.String()
+	return r.attmpt.GasPrice.ToInt().String()
 }
 
 func (r *EthTransactionAttemptResolver) Hash() string {

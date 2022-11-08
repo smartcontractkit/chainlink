@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
@@ -19,14 +20,28 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --name Task --output ./mocks/ --case=underscore
+const (
+	CronJobType               string = "cron"
+	DirectRequestJobType      string = "directrequest"
+	FluxMonitorJobType        string = "fluxmonitor"
+	OffchainReportingJobType  string = "offchainreporting"
+	OffchainReporting2JobType string = "offchainreporting2"
+	KeeperJobType             string = "keeper"
+	VRFJobType                string = "vrf"
+	BlockhashStoreJobType     string = "blockhashstore"
+	WebhookJobType            string = "webhook"
+	BootstrapJobType          string = "bootstrap"
+)
+
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -219,6 +234,34 @@ type JSONSerializable struct {
 	Valid bool
 }
 
+func reinterpetJsonNumbers(val interface{}) (interface{}, error) {
+	switch v := val.(type) {
+	case json.Number:
+		return getJsonNumberValue(v)
+	case []interface{}:
+		s := make([]interface{}, len(v))
+		for i, vv := range v {
+			ival, ierr := reinterpetJsonNumbers(vv)
+			if ierr != nil {
+				return nil, ierr
+			}
+			s[i] = ival
+		}
+		return s, nil
+	case map[string]interface{}:
+		m := make(map[string]interface{}, len(v))
+		for k, vv := range v {
+			ival, ierr := reinterpetJsonNumbers(vv)
+			if ierr != nil {
+				return nil, ierr
+			}
+			m[k] = ival
+		}
+		return m, nil
+	}
+	return val, nil
+}
+
 // UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
@@ -228,9 +271,27 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 		js.Valid = false
 		return nil
 	}
-	err := json.Unmarshal(bs, &js.Val)
-	js.Valid = err == nil && js.Val != nil
-	return err
+
+	var decoded interface{}
+	d := json.NewDecoder(bytes.NewReader(bs))
+	d.UseNumber()
+	if err := d.Decode(&decoded); err != nil {
+		return err
+	}
+
+	if decoded != nil {
+		reinterpreted, err := reinterpetJsonNumbers(decoded)
+		if err != nil {
+			return err
+		}
+
+		*js = JSONSerializable{
+			Valid: true,
+			Val:   reinterpreted,
+		}
+	}
+
+	return nil
 }
 
 // MarshalJSON implements custom marshaling logic
@@ -296,9 +357,15 @@ const (
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 	TaskTypeMerge            TaskType = "merge"
+	TaskTypeLength           TaskType = "length"
+	TaskTypeLessThan         TaskType = "lessthan"
 	TaskTypeLowercase        TaskType = "lowercase"
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeConditional      TaskType = "conditional"
+	TaskTypeHexDecode        TaskType = "hexdecode"
+	TaskTypeHexEncode        TaskType = "hexencode"
+	TaskTypeBase64Decode     TaskType = "base64decode"
+	TaskTypeBase64Encode     TaskType = "base64encode"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -375,12 +442,24 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMerge:
 		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLength:
+		task = &LengthTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLessThan:
+		task = &LessThanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeLowercase:
 		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeUppercase:
 		task = &UppercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeConditional:
 		task = &ConditionalTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeHexDecode:
+		task = &HexDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeHexEncode:
+		task = &HexEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeBase64Decode:
+		task = &Base64DecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeBase64Encode:
+		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
@@ -444,6 +523,31 @@ func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
 	}
 	return chainSet.Get(id)
+}
+
+func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint32 {
+	if specGasLimit != nil {
+		return *specGasLimit
+	}
+
+	var jobTypeGasLimit *uint32
+	switch jobType {
+	case DirectRequestJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
+	case FluxMonitorJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
+	case OffchainReportingJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+	case KeeperJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
+	case VRFJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
+	}
+
+	if jobTypeGasLimit != nil {
+		return *jobTypeGasLimit
+	}
+	return cfg.EvmGasLimitDefault()
 }
 
 // replaceBytesWithHex replaces all []byte with hex-encoded strings
@@ -515,4 +619,28 @@ func uint8ArrayToSlice(arr interface{}) interface{} {
 	s := reflect.MakeSlice(reflect.SliceOf(t.Elem()), v.Len(), v.Len())
 	reflect.Copy(s, v)
 	return s.Interface()
+}
+
+func getJsonNumberValue(value json.Number) (interface{}, error) {
+	var result interface{}
+
+	bn, ok := new(big.Int).SetString(value.String(), 10)
+	if ok {
+		if bn.IsInt64() {
+			result = bn.Int64()
+		} else if bn.IsUint64() {
+			result = bn.Uint64()
+		} else {
+			result = bn
+		}
+	} else {
+		f, err := value.Float64()
+		if err == nil {
+			result = f
+		} else {
+			return nil, errors.Errorf("failed to parse json.Value: %v", err)
+		}
+	}
+
+	return result, nil
 }

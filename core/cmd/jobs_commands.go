@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"time"
 
 	"github.com/pkg/errors"
@@ -207,7 +207,7 @@ func (cli *Client) CreateJob(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode >= 400 {
-		body, rerr := ioutil.ReadAll(resp.Body)
+		body, rerr := io.ReadAll(resp.Body)
 		if err != nil {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)

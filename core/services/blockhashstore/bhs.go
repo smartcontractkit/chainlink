@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -12,14 +13,15 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
-	EvmGasLimitDefault() uint64
+	EvmGasLimitDefault() uint32
+	DatabaseDefaultQueryTimeout() time.Duration
 }
 
 // BulletproofBHS is an implementation of BHS that writes "store" transactions to a bulletproof
@@ -70,7 +72,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
-		Strategy: txmgr.NewQueueingTxStrategy(c.jobID, 256),
+		Strategy: txmgr.NewQueueingTxStrategy(c.jobID, 256, c.config.DatabaseDefaultQueryTimeout()),
 	}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")

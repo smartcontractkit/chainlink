@@ -7,18 +7,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 type (
+	NonceSyncerKeyStore interface {
+		GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	}
 	// NonceSyncer manages the delicate task of syncing the local nonce with the
 	// chain nonce in case of divergence.
 	//
@@ -56,6 +59,7 @@ type (
 		ethClient evmclient.Client
 		chainID   *big.Int
 		logger    logger.Logger
+		kst       NonceSyncerKeyStore
 	}
 	// NSinserttx represents an EthTx and Attempt to be inserted together
 	NSinserttx struct {
@@ -65,7 +69,7 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient evmclient.Client) *NonceSyncer {
+func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{
@@ -73,10 +77,11 @@ func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient
 		ethClient,
 		ethClient.ChainID(),
 		lggr,
+		kst,
 	}
 }
 
-// SyncAll syncs nonces for all keys in parallel
+// SyncAll syncs nonces for all enabled keys in parallel
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
@@ -84,8 +89,11 @@ func (s NonceSyncer) SyncAll(ctx context.Context, keyStates []ethkey.State) (mer
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 
-	wg.Add(len(keyStates))
 	for _, keyState := range keyStates {
+		if keyState.Disabled {
+			continue
+		}
+		wg.Add(1)
 		go func(k ethkey.State) {
 			defer wg.Done()
 			if err := s.fastForwardNonceIfNecessary(ctx, k.Address.Address()); err != nil {
@@ -110,11 +118,12 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		return nil
 	}
 
-	q := s.q.WithOpts(pg.WithParentCtx(ctx))
-	keyNextNonce, err := GetNextNonce(q, address, s.chainID)
+	keyNextNonce, err := s.kst.GetNextNonce(address, s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
+
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 
 	localNonce := keyNextNonce
 	hasInProgressTransaction, err := s.hasInProgressTransaction(q, address)
@@ -145,7 +154,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
 	return q.Transaction(func(tx pg.Queryer) error {
-		res, err := tx.Exec(`UPDATE eth_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
+		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
 		}

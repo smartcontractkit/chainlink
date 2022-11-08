@@ -51,6 +51,17 @@ func Max(x, y interface{}) *big.Int {
 	return yBig
 }
 
+// Min returns the min of the two given values after coercing them to big.Int,
+// or panics if it cannot.
+func Min(x, y interface{}) *big.Int {
+	xBig := bnIfy(x)
+	yBig := bnIfy(y)
+	if xBig.Cmp(yBig) == -1 {
+		return xBig
+	}
+	return yBig
+}
+
 // Accumulate returns the sum of the given slice after coercing all elements
 // to a big.Int, or panics if it cannot.
 func Accumulate(s []interface{}) (r *big.Int) {
@@ -104,7 +115,7 @@ func bnIfy(val interface{}) *big.Int {
 	}
 }
 
-//nolint
+// nolint
 var (
 	Zero  = big.NewInt(0)
 	One   = big.NewInt(1)

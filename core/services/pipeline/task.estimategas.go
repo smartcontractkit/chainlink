@@ -29,7 +29,9 @@ type EstimateGasLimitTask struct {
 	Data       string `json:"data"`
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	chainSet evm.ChainSet
+	specGasLimit *uint32
+	chainSet     evm.ChainSet
+	jobType      string
 }
 
 type GasEstimator interface {
@@ -45,7 +47,7 @@ func (t *EstimateGasLimitTask) Type() TaskType {
 	return TaskTypeEstimateGasLimit
 }
 
-func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		fromAddr   AddressParam
 		toAddr     AddressParam
@@ -67,9 +69,9 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	maximumGasLimit := chain.Config().EvmGasLimitDefault()
+	maximumGasLimit := SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
-	gasLimit, err := chain.Client().EstimateGas(context.Background(), ethereum.CallMsg{
+	gasLimit, err := chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From: common.Address(fromAddr),
 		To:   &to,
 		Data: data,
@@ -92,7 +94,7 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	if !gasLimitWithMultiplier.IsUint64() {
 		return Result{Error: ErrInvalidMultiplier}, retryableRunInfo()
 	}
-	gasLimitFinal := gasLimitWithMultiplier.Uint64()
+	gasLimitFinal := uint32(gasLimitWithMultiplier.Uint64())
 	if gasLimitFinal > maximumGasLimit {
 		lggr.Warnw("EstimateGas: estimated amount is greater than configured limit, fallback to configured limit",
 			"estimate", gasLimitFinal,

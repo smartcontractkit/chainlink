@@ -1,10 +1,7 @@
 # Chains
-/core/chains/evm/bulletprooftxmanager @samsondav @archseer
-/core/chains/evm/client @spooktheducks @samsondav
-/core/chains/evm/estimator @samsondav @archseer
-/core/chains/evm/headtracker @pinebit @samsondav
-/core/chains/evm/log @jmank88 @spooktheducks 
-/core/chains/evm @samsondav
+/core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
+/core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
+/core/chains/evm @samsondav @prashantkumar1982
 /core/chains/terra @connorwstein @jmank88
 
 # Services
@@ -12,18 +9,27 @@
 /core/services/directrequest @spooktheducks @connorwstein @samsondav
 /core/services/feeds @jkongie
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
-/core/services/health @archseer @samsondav
-/core/services/job @spooktheducks @connorwstein @archseer
-/core/services/keeper @smartcontractkit/keepers
+/core/services/health @samsondav
+/core/services/job @spooktheducks @connorwstein
 /core/services/keystore @RyanRHall
-/core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
+/core/services/offchainreporting @spooktheducks @connorwstein @samsondav
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pg @samsondav
-/core/services/pipeline @spooktheducks @connorwstein @archseer @prashantkumar1982
+/core/services/pipeline @spooktheducks @connorwstein @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
-/core/services/vrf @connorwstein @Nic0s @makramkd
-/core/services/webhook @spooktheducks @archseer
+
+# VRF-related services
+/core/services/vrf @smartcontractkit/vrf-team
+/core/services/blockhashstore @smartcontractkit/vrf-team
+/core/services/ocr2/plugins/dkg @smartcontractkit/vrf-team
+/core/services/ocr2/plugins/ocr2vrf @smartcontractkit/vrf-team
+
+# Keeper/Automation-related services
+/core/services/keeper @smartcontractkit/keepers
+/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/keepers
+
+/core/services/webhook @spooktheducks
 
 # API
 /core/web @jkongie
@@ -36,27 +42,40 @@
 
 # Contracts
 /contracts/ @alexroan @se3000 @connorwstein
-/contracts/**/Keeper* @smartcontractkit/keepers
+/contracts/**/*Keeper* @smartcontractkit/keepers
+/contracts/**/*Upkeep* @smartcontractkit/keepers
 
 # Tests
-/integration-tests/ @kalverra
+/integration-tests/ @kalverra @tateexon @skudasov @anieeg
+/integration-tests/**/*keeper* @smartcontractkit/keepers
 
 # Misc
-/core/store @archseer @samsondav @jmank88
+/core/store @samsondav @jmank88
 /core/chains @samsondav
 /core/logger @jmank88
-/core/internal @samsondav @jmank88 @archseer
+/core/internal @samsondav @jmank88
 
 # CI/CD
 /.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
+/.github/workflows/integration-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/integration-chaos-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/performance-tests.yml @kalverra @tateexon @skudasov @anieeg
+/core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
 .tool-versions @smartcontractkit/prodsec-public
 .nvmrc @smartcontractkit/prodsec-public
-package.json @smartcontractkit/prodsec-public
-yarn.lock @smartcontractkit/prodsec-public
+contracts/package.json @smartcontractkit/prodsec-public
+contracts/pnpm.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public
 go.sum @smartcontractkit/prodsec-public
+integration-tests/go.mod @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/prodsec-public
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
+
+# Config
+./core/config @samsondav @jmank88
+./docs/CONFIG.md @samsondav @jmank88 @dwightjl
+./internal/config/docs.toml @samsondav @jmank88 @dwightjl

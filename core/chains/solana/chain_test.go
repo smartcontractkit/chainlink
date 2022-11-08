@@ -2,7 +2,7 @@ package solana
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -50,16 +51,16 @@ func TestSolanaChain_GetClient(t *testing.T) {
 		orm:         solORM,
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]cachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 
 	// random nodes (happy path, all valid)
 	solORM.nodesForChain = []db.Node{
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/2",
 		},
@@ -69,23 +70,23 @@ func TestSolanaChain_GetClient(t *testing.T) {
 
 	// random nodes (happy path, 1 valid + multiple invalid)
 	solORM.nodesForChain = []db.Node{
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/2",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/3",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/4",
 		},
@@ -100,17 +101,17 @@ func TestSolanaChain_GetClient(t *testing.T) {
 
 	// no valid nodes to select from
 	solORM.nodesForChain = []db.Node{
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/2",
 		},
 	}
 	_, err = testChain.getClient()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSolanaChain_VerifiedClient(t *testing.T) {
@@ -118,16 +119,18 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		out := `{ "jsonrpc": "2.0", "result": 1234, "id": 1 }` // getSlot response
 
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 
 		// handle getGenesisHash request
 		if strings.Contains(string(body), "getGenesisHash") {
 			// should only be called once, chainID will be cached in chain
-			if called {
+			// allowing `mismatch` to be ignored, since invalid nodes will try to verify the chain ID
+			// if it is not verified
+			if !strings.Contains(r.URL.Path, "/mismatch") && called {
 				assert.NoError(t, errors.New("rpc has been called once already"))
 			}
-			// devnet gensis hash
+			// devnet genesis hash
 			out = fmt.Sprintf(TestSolanaGenesisHashTemplate, client.DevnetGenesisHash)
 		}
 		_, err = w.Write([]byte(out))
@@ -140,7 +143,7 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	testChain := chain{
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]cachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
@@ -156,10 +159,14 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(1234), slot)
 
-	// expect error from id mismatch (even if using a cached client)
+	node.SolanaURL = mockServer.URL + "/mismatch"
 	testChain.id = "incorrect"
-	_, err = testChain.verifiedClient(node)
+	c, err = testChain.verifiedClient(node)
+	assert.NoError(t, err)
+	_, err = c.ChainID()
+	// expect error from id mismatch (even if using a cached client) when performing RPC calls
 	assert.Error(t, err)
+	assert.Equal(t, fmt.Sprintf("client returned mismatched chain id (expected: %s, got: %s): %s", "incorrect", "devnet", node.SolanaURL), err.Error())
 }
 
 func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
@@ -175,7 +182,7 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 		id:          "devnet",
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]cachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
@@ -200,9 +207,10 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	}()
 
 	wg.Wait()
+
 	// check if pointers are all the same
-	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client0)
-	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client1)
+	assert.Equal(t, testChain.clientCache[mockServer.URL], client0)
+	assert.Equal(t, testChain.clientCache[mockServer.URL], client1)
 }
 
 var _ ORM = &mockORM{}
@@ -255,12 +263,11 @@ func (m *mockORM) CreateNode(node db.Node, opt ...pg.QOpt) (db.Node, error) {
 
 func (m *mockORM) DeleteNode(i int32, opt ...pg.QOpt) error { panic("unimplemented") }
 
-func (m *mockORM) Node(i int32, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
-
 func (m *mockORM) NodeNamed(s string, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
 
 func (m *mockORM) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
 	panic("unimplemented")
 }
 
-func (m *mockORM) SetupNodes([]db.Node, []string) error { panic("unimplemented") }
+func (m *mockORM) SetupNodes([]db.Node, []string) error    { panic("unimplemented") }
+func (m *mockORM) EnsureChains([]string, ...pg.QOpt) error { panic("unimplemented") }

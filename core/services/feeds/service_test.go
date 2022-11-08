@@ -11,11 +11,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/proto"
@@ -72,59 +75,39 @@ type TestService struct {
 	p2pKeystore  *ksmocks.P2P
 	ocr1Keystore *ksmocks.OCR
 	ocr2Keystore *ksmocks.OCR2
-	cfg          *mocks.Config
 	cc           evm.ChainSet
 }
 
 func setupTestService(t *testing.T) *TestService {
-	var (
-		orm          = &mocks.ORM{}
-		jobORM       = &jobmocks.ORM{}
-		connMgr      = &mocks.ConnectionsManager{}
-		spawner      = &jobmocks.Spawner{}
-		fmsClient    = &mocks.FeedsManagerClient{}
-		csaKeystore  = &ksmocks.CSA{}
-		p2pKeystore  = &ksmocks.P2P{}
-		ocr1Keystore = &ksmocks.OCR{}
-		ocr2Keystore = &ksmocks.OCR2{}
-		cfg          = &mocks.Config{}
-	)
-	orm.Test(t)
-	jobORM.Test(t)
-	connMgr.Test(t)
-	spawner.Test(t)
-	fmsClient.Test(t)
-	csaKeystore.Test(t)
-	p2pKeystore.Test(t)
-	ocr1Keystore.Test(t)
-	ocr2Keystore.Test(t)
-	cfg.Test(t)
+	return setupTestServiceCfg(t, nil)
+}
 
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			orm,
-			jobORM,
-			connMgr,
-			spawner,
-			fmsClient,
-			csaKeystore,
-			p2pKeystore,
-			ocr1Keystore,
-			ocr2Keystore,
-			cfg,
-		)
-	})
+func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *chainlink.Secrets)) *TestService {
+	var (
+		orm          = mocks.NewORM(t)
+		jobORM       = jobmocks.NewORM(t)
+		connMgr      = mocks.NewConnectionsManager(t)
+		spawner      = jobmocks.NewSpawner(t)
+		fmsClient    = mocks.NewFeedsManagerClient(t)
+		csaKeystore  = ksmocks.NewCSA(t)
+		p2pKeystore  = ksmocks.NewP2P(t)
+		ocr1Keystore = ksmocks.NewOCR(t)
+		ocr2Keystore = ksmocks.NewOCR2(t)
+	)
+
+	lggr := logger.TestLogger(t)
 
 	db := pgtest.NewSqlxDB(t)
-	gcfg := configtest.NewTestGeneralConfig(t)
-	gcfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
+	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
+	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
+		HeadTracker: headtracker.NullTracker})
 	keyStore := new(ksmocks.Master)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, cfg, cc, logger.TestLogger(t), "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig, cc, lggr, "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -138,7 +121,6 @@ func setupTestService(t *testing.T) *TestService {
 		p2pKeystore:  p2pKeystore,
 		ocr1Keystore: ocr1Keystore,
 		ocr2Keystore: ocr2Keystore,
-		cfg:          cfg,
 		cc:           cc,
 	}
 }
@@ -179,10 +161,10 @@ func Test_Service_RegisterManager(t *testing.T) {
 		Return([]int64{}, nil)
 	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
-	actual, err := svc.RegisterManager(params)
+	actual, err := svc.RegisterManager(testutils.Context(t), params)
 	// We need to stop the service because the manager will attempt to make a
 	// connection
 	defer svc.Close()
@@ -242,7 +224,7 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
-	err := svc.UpdateManager(context.Background(), mgr)
+	err := svc.UpdateManager(testutils.Context(t), mgr)
 	require.NoError(t, err)
 }
 
@@ -284,7 +266,6 @@ func Test_Service_CountManagers(t *testing.T) {
 
 func Test_Service_CreateChainConfig(t *testing.T) {
 	var (
-		ctx         = context.Background()
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
@@ -293,8 +274,8 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			FeedsManagerID: mgr.ID,
 			ChainID:        "42",
 			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0000",
-			AdminAddress:   "0x0001",
+			AccountAddress: "0x0000000000000000000000000000000000000000",
+			AdminAddress:   "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -313,7 +294,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 	svc.orm.On("GetManager", mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version: nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{
 			{
@@ -330,14 +311,34 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	actual, err := svc.CreateChainConfig(cfg)
+	actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
 }
 
+func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.CreateChainConfig(testutils.Context(t), cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
+}
+
 func Test_Service_DeleteChainConfig(t *testing.T) {
 	var (
-		ctx         = context.Background()
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
@@ -355,12 +356,12 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	svc.orm.On("GetManager", mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version:      nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	actual, err := svc.DeleteChainConfig(cfg.ID)
+	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
 }
@@ -386,7 +387,6 @@ func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
 
 func Test_Service_UpdateChainConfig(t *testing.T) {
 	var (
-		ctx         = context.Background()
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
@@ -395,8 +395,8 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			FeedsManagerID:    mgr.ID,
 			ChainID:           "42",
 			ChainType:         feeds.ChainTypeEVM,
-			AccountAddress:    "0x0000",
-			AdminAddress:      "0x0001",
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
 			OCR2Config:        feeds.OCR2Config{Enabled: false},
@@ -409,7 +409,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 	svc.orm.On("GetChainConfig", cfg.ID).Return(&cfg, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version: nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{
 			{
@@ -426,9 +426,30 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	actual, err := svc.UpdateChainConfig(cfg)
+	actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
+}
+
+func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
 func Test_Service_ProposeJob(t *testing.T) {
@@ -467,7 +488,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "Create success",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
 				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
@@ -478,7 +498,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "Update success",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
 					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
@@ -499,10 +518,8 @@ func Test_Service_ProposeJob(t *testing.T) {
 			wantErr: "invalid job type",
 		},
 		{
-			name: "must be an ocr job to include bootstraps",
-			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-			},
+			name:   "must be an ocr job to include bootstraps",
+			before: func(svc *TestService) {},
 			args: &feeds.ProposeJobArgs{
 				Spec:       TestSpec,
 				Multiaddrs: pq.StringArray{"/dns4/example.com"},
@@ -512,7 +529,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "ensure an upsert validates the job proposal belongs to the feeds manager",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
 					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
@@ -526,7 +542,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "spec version already exists",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
 					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
@@ -542,7 +557,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "upsert error",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(int64(0), errors.New("orm error"))
 			},
@@ -552,7 +566,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "Create spec error",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
 				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(0), errors.New("orm error"))
@@ -568,12 +581,14 @@ func Test_Service_ProposeJob(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			svc := setupTestService(t)
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
+			})
 			if tc.before != nil {
 				tc.before(svc)
 			}
 
-			actual, err := svc.ProposeJob(context.Background(), tc.args)
+			actual, err := svc.ProposeJob(testutils.Context(t), tc.args)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -594,7 +609,6 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		ctx       = context.Background()
 		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
 		mgr       = &feeds.FeedsManager{ID: 1}
 		ccfg      = feeds.ChainConfig{
@@ -632,7 +646,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.p2pKeystore.On("Get", p2pKey.PeerID()).Return(p2pKey, nil)
 	svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version: nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{
 			{
@@ -666,7 +680,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	err = svc.SyncNodeInfo(mgr.ID)
+	err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
 	require.NoError(t, err)
 }
 
@@ -674,7 +688,7 @@ func Test_Service_IsJobManaged(t *testing.T) {
 	t.Parallel()
 
 	svc := setupTestService(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	jobID := int64(1)
 
 	svc.orm.On("IsJobManaged", jobID, mock.Anything).Return(true, nil)
@@ -915,7 +929,7 @@ func Test_Service_CancelSpec(t *testing.T) {
 				tc.before(svc)
 			}
 
-			err := svc.CancelSpec(context.Background(), tc.specID)
+			err := svc.CancelSpec(testutils.Context(t), tc.specID)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -971,7 +985,7 @@ func Test_Service_ApproveSpec(t *testing.T) {
 	address := ethkey.EIP55AddressFromAddress(common.Address{})
 
 	var (
-		ctx  = context.Background()
+		ctx  = testutils.Context(t)
 		defn = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
 schemaVersion = 1
@@ -1026,17 +1040,17 @@ answer1 [type=median index=0];
 	)
 
 	testCases := []struct {
-		name    string
-		before  func(svc *TestService)
-		id      int64
-		force   bool
-		wantErr string
+		name        string
+		httpTimeout *models.Duration
+		before      func(svc *TestService)
+		id          int64
+		force       bool
+		wantErr     string
 	}{
 		{
-			name: "pending job success",
+			name:        "pending job success",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -1069,10 +1083,9 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
-			name: "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when it is the latest spec",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -1131,10 +1144,9 @@ answer1 [type=median index=0];
 			wantErr: "cannot approve a rejected spec",
 		},
 		{
-			name: "already existing job replacement error",
+			name:        "already existing job replacement error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -1146,10 +1158,9 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
 		},
 		{
-			name: "already existing job replacement success if forced",
+			name:        "already existing job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -1238,10 +1249,9 @@ answer1 [type=median index=0];
 			wantErr: "fms rpc client: Not Connected",
 		},
 		{
-			name: "create job error",
+			name:        "create job error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
@@ -1262,10 +1272,9 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: could not save",
 		},
 		{
-			name: "approve spec orm error",
+			name:        "approve spec orm error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
@@ -1292,10 +1301,9 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: failure",
 		},
 		{
-			name: "fms call error",
+			name:        "fms call error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
@@ -1333,7 +1341,11 @@ answer1 [type=median index=0];
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			svc := setupTestService(t)
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				if tc.httpTimeout != nil {
+					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
+				}
+			})
 
 			if tc.before != nil {
 				tc.before(svc)
@@ -1353,7 +1365,7 @@ answer1 [type=median index=0];
 
 func Test_Service_RejectSpec(t *testing.T) {
 	var (
-		ctx = context.Background()
+		ctx = testutils.Context(t)
 		jp  = &feeds.JobProposal{
 			ID:             1,
 			FeedsManagerID: 100,
@@ -1478,7 +1490,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 
 func Test_Service_UpdateSpecDefinition(t *testing.T) {
 	var (
-		ctx         = context.Background()
+		ctx         = testutils.Context(t)
 		specID      = int64(1)
 		updatedSpec = "updated spec"
 		spec        = &feeds.JobProposalSpec{
@@ -1589,7 +1601,7 @@ func Test_Service_StartStop(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 	svc.connMgr.On("Close")
 
-	err = svc.Start()
+	err = svc.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	svc.Close()

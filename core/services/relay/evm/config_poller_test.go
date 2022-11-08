@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -20,9 +19,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -33,6 +32,7 @@ func TestConfigPoller(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	require.NoError(t, err)
 	b := backends.NewSimulatedBackend(core.GenesisAlloc{
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
@@ -55,17 +55,18 @@ func TestConfigPoller(t *testing.T) {
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(false)
-	ethClient := eth.NewSimulatedBackendClient(t, b, big.NewInt(1337))
+	cfg := pgtest.NewQConfig(false)
+	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
-	logPoller := NewConfigPoller(lggr, lp, ocrAddress)
+	logPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
+	require.NoError(t, err)
 	// Should have no config to begin with.
-	_, config, err := logPoller.LatestConfigDetails(context.Background())
+	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
 	// Set the config
@@ -77,23 +78,23 @@ func TestConfigPoller(t *testing.T) {
 		DeltaC:              10,
 	}, ocrContract, user)
 	b.Commit()
-	latest, err := b.BlockByNumber(context.Background(), nil)
+	latest, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	// Ensure we capture this config set log.
-	require.NoError(t, lp.Replay(context.Background(), latest.Number().Int64()-1))
+	require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1))
 
 	// Send blocks until we see the config updated.
 	var configBlock uint64
 	var digest [32]byte
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		b.Commit()
-		configBlock, digest, err = logPoller.LatestConfigDetails(context.Background())
+		configBlock, digest, err = logPoller.LatestConfigDetails(testutils.Context(t))
 		require.NoError(t, err)
 		return ocrtypes2.ConfigDigest{} != digest
 	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Assert the config returned is the one we configured.
-	newConfig, err := logPoller.LatestConfig(context.Background(), configBlock)
+	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
@@ -137,6 +138,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		1, // faults
 		nil,
 	)
+	require.NoError(t, err)
 	signerAddresses, err := OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
 	transmitterAddresses, err := AccountToAddress(transmitters)

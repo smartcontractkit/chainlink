@@ -18,9 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 )
@@ -79,9 +80,9 @@ func TestFactory(t *testing.T) {
 }
 
 func TestTransmitCheckers(t *testing.T) {
-	client := cltest.NewEthClientMockWithDefaultChain(t)
+	client := evmtest.NewEthClientMockWithDefaultChain(t)
 	log := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	t.Run("no checker", func(t *testing.T) {
 		checker := txmgr.NoChecker
@@ -115,7 +116,6 @@ func TestTransmitCheckers(t *testing.T) {
 				}), "latest").Return(nil).Once()
 
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
-			client.AssertExpectations(t)
 		})
 
 		t.Run("revert", func(t *testing.T) {
@@ -133,7 +133,6 @@ func TestTransmitCheckers(t *testing.T) {
 			err := checker.Check(ctx, log, tx, attempt)
 			expErrMsg := "transaction reverted during simulation: json-rpc error { Code = 42, Message = 'oh no, it reverted', Data = 'KqYi' }"
 			require.EqualError(t, err, expErrMsg)
-			client.AssertExpectations(t)
 		})
 
 		t.Run("non revert error", func(t *testing.T) {
@@ -146,7 +145,6 @@ func TestTransmitCheckers(t *testing.T) {
 			// Non-revert errors are logged but should not prevent transmission, and do not need
 			// to be passed to the caller
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
-			client.AssertExpectations(t)
 		})
 	})
 

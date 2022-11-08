@@ -9,19 +9,18 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
 
 func TestClient_IndexTransactions(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
@@ -54,7 +53,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 func TestClient_ShowTransaction(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	db := app.GetSqlxDB()
@@ -76,7 +75,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 func TestClient_IndexTxAttempts(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
@@ -109,23 +108,22 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
-	fromAddress := key.Address.Address()
+	fromAddress := key.Address
 
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
 	ethMock := newEthMockWithTransactionsOnBlocksAssertions(t)
 
-	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withKey(),
 		withMocks(ethMock, key),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(true)
-		}),
 	)
 	client, r := app.NewClientAndRenderer()
 	db := app.GetSqlxDB()
@@ -156,23 +154,22 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
-	fromAddress := key.Address.Address()
+	fromAddress := key.Address
 
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
 	ethMock := newEthMockWithTransactionsOnBlocksAssertions(t)
 
-	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
-	app := startNewApplication(t,
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
 		withKey(),
 		withMocks(ethMock, key),
-		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMEnabled = null.BoolFrom(true)
-			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(true)
-		}),
 	)
 	client, r := app.NewClientAndRenderer()
 	db := app.GetSqlxDB()

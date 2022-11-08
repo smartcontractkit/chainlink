@@ -17,7 +17,7 @@ func TestOCRWrapper(t *testing.T) {
 	args := []interface{}{"msg"}
 	args = append(args, toKeysAndValues(testFields)...)
 
-	ml := &MockLogger{}
+	ml := NewMockLogger(t)
 	ml.On("Helper", 2).Return(ml).Once()
 	ml.On("Debugw", args...).Twice() // due to Trace
 	ml.On("Infow", args...).Once()
@@ -38,20 +38,14 @@ func TestOCRWrapper(t *testing.T) {
 	w.Critical("msg", testFields)
 	w.Error("msg", testFields)
 	assert.Equal(t, "msg", savedError)
-
-	ok := ml.AssertExpectations(t)
-	assert.True(t, ok)
 }
 
 func TestOCRWrapper_NoTrace(t *testing.T) {
 	t.Parallel()
 
-	ml := &MockLogger{}
+	ml := NewMockLogger(t)
 	ml.On("Helper", 2).Return(ml).Once()
 
 	w := NewOCRWrapper(ml, false, nil)
 	w.Trace("msg", commontypes.LogFields{})
-
-	ok := ml.AssertExpectations(t)
-	assert.True(t, ok)
 }

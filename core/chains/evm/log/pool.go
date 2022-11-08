@@ -7,9 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	heaps "github.com/theodesp/go-heaps"
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//go:generate mockery --name iLogPool --output ./ --inpackage --testonly
+//go:generate mockery --quiet --name iLogPool --output ./ --inpackage --testonly
 
 // The Log Pool interface.
 type iLogPool interface {
@@ -44,20 +46,22 @@ type logPool struct {
 	// the logs in the pool.
 	hashesByBlockNumbers map[uint64]map[common.Hash]struct{}
 
-	// A mapping of block hashes, to log index within block, to logs
-	logsByBlockHash map[common.Hash]map[uint]types.Log
+	// A mapping of block hashes, to tx index within block, to log index, to logs
+	logsByBlockHash map[common.Hash]map[uint]map[uint]types.Log
 
 	// This min-heap maintains block numbers of logs in the pool.
 	// it helps us easily determine the minimum log block number
 	// in the pool (while the set of log block numbers is dynamically changing).
-	heap *pairingHeap.PairHeap
+	heap   *pairingHeap.PairHeap
+	logger logger.Logger
 }
 
-func newLogPool() *logPool {
+func newLogPool(lggr logger.Logger) *logPool {
 	return &logPool{
 		hashesByBlockNumbers: make(map[uint64]map[common.Hash]struct{}),
-		logsByBlockHash:      make(map[common.Hash]map[uint]types.Log),
+		logsByBlockHash:      make(map[common.Hash]map[uint]map[uint]types.Log),
 		heap:                 pairingHeap.New(),
+		logger:               lggr.Named("LogPool"),
 	}
 }
 
@@ -68,11 +72,15 @@ func (pool *logPool) addLog(log types.Log) bool {
 	}
 	pool.hashesByBlockNumbers[log.BlockNumber][log.BlockHash] = struct{}{}
 	if _, exists := pool.logsByBlockHash[log.BlockHash]; !exists {
-		pool.logsByBlockHash[log.BlockHash] = make(map[uint]types.Log)
+		pool.logsByBlockHash[log.BlockHash] = make(map[uint]map[uint]types.Log)
 	}
-	pool.logsByBlockHash[log.BlockHash][log.Index] = log
+	if _, exists := pool.logsByBlockHash[log.BlockHash][log.TxIndex]; !exists {
+		pool.logsByBlockHash[log.BlockHash][log.TxIndex] = make(map[uint]types.Log)
+	}
+	pool.logsByBlockHash[log.BlockHash][log.TxIndex][log.Index] = log
 	min := pool.heap.FindMin()
 	pool.heap.Insert(Uint64(log.BlockNumber))
+	pool.logger.Debugw("Inserted block to log pool", "blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "index", log.Index, "prevMinBlockNumber", min)
 	// first or new min
 	return min == nil || log.BlockNumber < uint64(min.(Uint64))
 }
@@ -154,7 +162,11 @@ func (pool *logPool) removeBlock(hash common.Hash, number uint64) {
 }
 
 func (pool *logPool) testOnly_getNumLogsForBlock(bh common.Hash) int {
-	return len(pool.logsByBlockHash[bh])
+	var numLogs int
+	for _, txLogs := range pool.logsByBlockHash[bh] {
+		numLogs += len(txLogs)
+	}
+	return numLogs
 }
 
 type Uint64 uint64
@@ -177,10 +189,12 @@ type logsOnBlock struct {
 	Logs        []types.Log
 }
 
-func newLogsOnBlock(num uint64, logsMap map[uint]types.Log) logsOnBlock {
+func newLogsOnBlock(num uint64, logsMap map[uint]map[uint]types.Log) logsOnBlock {
 	logs := make([]types.Log, 0, len(logsMap))
-	for _, l := range logsMap {
-		logs = append(logs, l)
+	for _, txLogs := range logsMap {
+		for _, l := range txLogs {
+			logs = append(logs, l)
+		}
 	}
 	return logsOnBlock{num, logs}
 }

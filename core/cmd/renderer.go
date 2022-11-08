@@ -222,7 +222,7 @@ func (rt RendererTable) renderPipelineRun(run webpresenters.PipelineRunResource)
 
 	var finishedAt string
 	if !run.FinishedAt.IsZero() {
-		finishedAt = run.FinishedAt.String()
+		finishedAt = run.FinishedAt.ValueOrZero().String()
 	}
 
 	row := []string{

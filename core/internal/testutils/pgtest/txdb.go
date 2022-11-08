@@ -4,15 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"flag"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
+	"testing"
 
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 )
 
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
@@ -32,9 +36,26 @@ import (
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
 func init() {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		panic("you must provide a DATABASE_URL environment variable")
+	testing.Init()
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+	if testing.Short() {
+		// -short tests don't need a DB
+		return
+	}
+	var dbURL, which string
+	v1, v2 := os.Getenv("DATABASE_URL"), os.Getenv("CL_DATABASE_URL")
+	if v1 == "" && v2 == "" {
+		panic("you must provide a DATABASE_URL or CL_DATABASE_URL environment variable")
+	} else if v1 == "" {
+		dbURL = v2
+		which = "CL_DATABASE_URL"
+	} else if v2 == "" || v1 == v2 {
+		dbURL = v1
+		which = "DATABASE_URL"
+	} else {
+		panic("you must only set one of DATABASE_URL and CL_DATABASE_URL environment variables, not both")
 	}
 
 	parsed, err := url.Parse(dbURL)
@@ -42,18 +63,19 @@ func init() {
 		panic(err)
 	}
 	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid DATABASE_URL: `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.String())
+		msg := fmt.Sprintf("invalid %s: `%s`. You must set %s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", which, parsed.String(), which, which)
 		panic(msg)
 	}
 	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:])
+		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:], which)
 		panic(msg)
 	}
-	sql.Register("txdb", &txDriver{
+	name := string(dialects.TransactionWrappedPostgres)
+	sql.Register(name, &txDriver{
 		dbURL: dbURL,
 		conns: make(map[string]*conn),
 	})
-	sqlx.BindDriver("txdb", sqlx.DOLLAR)
+	sqlx.BindDriver(name, sqlx.DOLLAR)
 }
 
 var _ driver.Conn = &conn{}

@@ -73,6 +73,17 @@ func (m *Mailbox[T]) Retrieve() (t T, ok bool) {
 	return
 }
 
+func (m *Mailbox[T]) RetrieveAll() []T {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	queue := m.queue
+	m.queue = nil
+	for i, j := 0, len(queue)-1; i < j; i, j = i+1, j-1 {
+		queue[i], queue[j] = queue[j], queue[i]
+	}
+	return queue
+}
+
 // RetrieveLatestAndClear returns the latest value (or nil), and clears the queue.
 func (m *Mailbox[T]) RetrieveLatestAndClear() (t T) {
 	m.mu.Lock()

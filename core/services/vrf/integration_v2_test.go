@@ -1,7 +1,6 @@
 package vrf_test
 
 import (
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -27,25 +26,28 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_reverting_example"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_malicious_consumer_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -82,6 +84,7 @@ type coordinatorV2Universe struct {
 	batchCoordinatorContractAddress  common.Address
 	linkContract                     *link_token_interface.LinkToken
 	linkContractAddress              common.Address
+	linkEthFeedAddress               common.Address
 	bhsContract                      *blockhash_store.BlockhashStore
 	bhsContractAddress               common.Address
 	maliciousConsumerContract        *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2
@@ -110,37 +113,38 @@ var (
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
 	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
-	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
+	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 	var (
-		sergey       = newIdentity(t)
-		neil         = newIdentity(t)
-		ned          = newIdentity(t)
-		evil         = newIdentity(t)
-		reverter     = newIdentity(t)
+		sergey       = testutils.MustNewSimTransactor(t)
+		neil         = testutils.MustNewSimTransactor(t)
+		ned          = testutils.MustNewSimTransactor(t)
+		evil         = testutils.MustNewSimTransactor(t)
+		reverter     = testutils.MustNewSimTransactor(t)
 		nallory      = oracleTransactor
 		vrfConsumers = []*bind.TransactOpts{}
 	)
 
 	// Create consumer contract deployer identities
 	for i := 0; i < numConsumers; i++ {
-		vrfConsumers = append(vrfConsumers, newIdentity(t))
+		vrfConsumers = append(vrfConsumers, testutils.MustNewSimTransactor(t))
 	}
 
 	genesisData := core.GenesisAlloc{
-		sergey.From:   {Balance: assets.Ether(1000)},
-		neil.From:     {Balance: assets.Ether(1000)},
-		ned.From:      {Balance: assets.Ether(1000)},
-		nallory.From:  {Balance: assets.Ether(1000)},
-		evil.From:     {Balance: assets.Ether(1000)},
-		reverter.From: {Balance: assets.Ether(1000)},
+		sergey.From:   {Balance: assets.Ether(1000).ToInt()},
+		neil.From:     {Balance: assets.Ether(1000).ToInt()},
+		ned.From:      {Balance: assets.Ether(1000).ToInt()},
+		nallory.From:  {Balance: assets.Ether(1000).ToInt()},
+		evil.From:     {Balance: assets.Ether(1000).ToInt()},
+		reverter.From: {Balance: assets.Ether(1000).ToInt()},
 	}
 	for _, consumer := range vrfConsumers {
 		genesisData[consumer.From] = core.GenesisAccount{
-			Balance: assets.Ether(1000),
+			Balance: assets.Ether(1000).ToInt(),
 		}
 	}
 
-	gasLimit := ethconfig.Defaults.Miner.GasCeil
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	consumerABI, err := abi.JSON(strings.NewReader(
 		vrf_consumer_v2.VRFConsumerV2ABI))
 	require.NoError(t, err)
@@ -187,7 +191,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 			vrf_consumer_v2.DeployVRFConsumerV2(
 				author, backend, coordinatorAddress, linkAddress)
 		require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
-		_, err = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500)) // Actually, LINK
+		_, err = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
 		require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 
 		consumerContracts = append(consumerContracts, consumerContract)
@@ -201,7 +205,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		vrf_malicious_consumer_v2.DeployVRFMaliciousConsumerV2(
 			evil, backend, coordinatorAddress, linkAddress)
 	require.NoError(t, err, "failed to deploy VRFMaliciousConsumer contract to simulated ethereum blockchain")
-	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, assets.Ether(1)) // Actually, LINK
+	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, assets.Ether(1).ToInt()) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
 
@@ -210,7 +214,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		reverter, backend, coordinatorAddress, linkAddress,
 	)
 	require.NoError(t, err, "failed to deploy VRFRevertingExample contract to simulated eth blockchain")
-	_, err = linkContract.Transfer(sergey, revertingConsumerContractAddress, assets.Ether(500)) // Actually, LINK
+	_, err = linkContract.Transfer(sergey, revertingConsumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFRevertingExample contract on simulated eth blockchain")
 	backend.Commit()
 
@@ -251,6 +255,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		rootContractAddress:              coordinatorAddress,
 		linkContract:                     linkContract,
 		linkContractAddress:              linkAddress,
+		linkEthFeedAddress:               linkEthFeed,
 		bhsContract:                      bhsContract,
 		bhsContractAddress:               bhsAddress,
 		maliciousConsumerContract:        maliciousConsumerContract,
@@ -270,13 +275,13 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 // Send eth from prefunded account.
 // Amount is number of ETH not wei.
 func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to common.Address, eth int) {
-	nonce, err := ec.PendingNonceAt(context.Background(), key.Address.Address())
+	nonce, err := ec.PendingNonceAt(testutils.Context(t), key.Address)
 	require.NoError(t, err)
 	tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 		ChainID:   big.NewInt(1337),
 		Nonce:     nonce,
 		GasTipCap: big.NewInt(1),
-		GasFeeCap: big.NewInt(10e9), // block base fee in sim
+		GasFeeCap: assets.GWei(10).ToInt(), // block base fee in sim
 		Gas:       uint64(21_000),
 		To:        &to,
 		Value:     big.NewInt(0).Mul(big.NewInt(int64(eth)), big.NewInt(1e18)),
@@ -284,7 +289,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to c
 	})
 	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(big.NewInt(1337)), key.ToEcdsaPrivKey())
 	require.NoError(t, err)
-	err = ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	ec.Commit()
 }
@@ -359,7 +364,7 @@ func createVRFJobs(
 			}
 		}
 		return count == len(fromKeys)
-	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
 	// To avoid confirming
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
@@ -368,6 +373,54 @@ func createVRFJobs(
 	time.Sleep(2 * time.Second)
 
 	return
+}
+
+func requestRandomnessForWrapper(
+	t *testing.T,
+	vrfWrapperConsumer vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExample,
+	consumerOwner *bind.TransactOpts,
+	keyHash common.Hash,
+	subID uint64,
+	numWords uint32,
+	cbGasLimit uint32,
+	uni coordinatorV2Universe,
+	wrapperOverhead uint32,
+) (*big.Int, uint64) {
+	minRequestConfirmations := uint16(3)
+	_, err := vrfWrapperConsumer.MakeRequest(
+		consumerOwner,
+		cbGasLimit,
+		minRequestConfirmations,
+		numWords,
+	)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	iter, err := uni.rootContract.FilterRandomWordsRequested(nil, nil, []uint64{subID}, nil)
+	require.NoError(t, err, "could not filter RandomWordsRequested events")
+
+	events := []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}
+	for iter.Next() {
+		events = append(events, iter.Event)
+	}
+
+	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(nil, nil)
+	require.NoError(t, err, "could not filter WrapperRequestMade events")
+
+	wrapperConsumerEvents := []*vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExampleWrapperRequestMade{}
+	for wrapperIter.Next() {
+		wrapperConsumerEvents = append(wrapperConsumerEvents, wrapperIter.Event)
+	}
+
+	event := events[len(events)-1]
+	wrapperConsumerEvent := wrapperConsumerEvents[len(wrapperConsumerEvents)-1]
+	require.Equal(t, event.RequestId, wrapperConsumerEvent.RequestId, "request ID in consumer log does not match request ID in coordinator log")
+	require.Equal(t, keyHash.Bytes(), event.KeyHash[:], "key hash of event (%s) and of request not equal (%s)", hex.EncodeToString(event.KeyHash[:]), keyHash.String())
+	require.Equal(t, cbGasLimit+(cbGasLimit/63+1)+wrapperOverhead, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
+	require.Equal(t, minRequestConfirmations, event.MinimumRequestConfirmations, "min request confirmations of event and of request not equal")
+	require.Equal(t, numWords, event.NumWords, "num words of event and of request not equal")
+
+	return event.RequestId, event.Raw.BlockNumber
 }
 
 // requestRandomness requests randomness from the given vrf consumer contract
@@ -505,7 +558,7 @@ func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Unive
 		require.NoError(t, err)
 		t.Log("num txs", len(txs))
 		return len(txs) == 1
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
@@ -538,16 +591,23 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 		}
 		t.Log("requestIDMap:", requestIDMap)
 		return foundAll
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_happypath")
+	key1 := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_batch_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(5e6, true)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
@@ -555,15 +615,8 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 	// Create a subscription and fund with 5 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
-	// Create gas lane.
-	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		key1.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-	}, big.NewInt(10e9))
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
@@ -585,7 +638,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 5
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	mineBatch(t, reqIDs, subID, uni, db)
 
@@ -605,12 +658,19 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_bigcallback")
+	key1 := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_batch_bigcallback", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(5e6, true)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
@@ -618,15 +678,8 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 	// Create a subscription and fund with 5 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
-	// Create gas lane.
-	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		key1.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-	}, big.NewInt(10e9))
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
@@ -654,7 +707,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 6
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	mineBatch(t, reqIDs, subID, uni, db)
 
@@ -674,12 +727,23 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath")
+	key1 := cltest.MustGenerateRandomKey(t)
+	key2 := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		}, v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key2.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
@@ -687,21 +751,9 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	// Create a subscription and fund with 5 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
-	// Create gas lane.
-	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	key2, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
-	sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		key1.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-		key2.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-	}, big.NewInt(10e9))
+	// Fund gas lanes.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
@@ -719,7 +771,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID1, subID, uni, db)
@@ -735,7 +787,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 2
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 	mine(t, requestID2, subID, uni, db)
 	assertRandomWordsFulfilled(t, requestID2, true, uni)
 
@@ -743,24 +795,293 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	assertNumRandomWords(t, consumerContract, numWords)
 
 	// Assert that both send addresses were used to fulfill the requests
-	n, err := uni.backend.PendingNonceAt(context.Background(), key1.Address.Address())
+	n, err := uni.backend.PendingNonceAt(testutils.Context(t), key1.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
-	n, err = uni.backend.PendingNonceAt(context.Background(), key2.Address.Address())
+	n, err = uni.backend.PendingNonceAt(testutils.Context(t), key2.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_needs_blockhash_store")
+func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
+
+	callBackGasLimit := int64(2_500_000)            // base callback gas.
+	eip150Fee := callBackGasLimit / 64              // premium needed for callWithExactGas
+	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
+	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
+
+	key1 := cltest.MustGenerateRandomKey(t)
+	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+	// Create a subscription and fund with 500 LINK.
+	subAmount := big.NewInt(1).Mul(big.NewInt(5e18), big.NewInt(100))
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, subAmount, uni)
+
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Make the first randomness request.
+	numWords := uint32(1)
+	requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uint32(callBackGasLimit), uni)
+
+	// Wait for simulation to pass.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	t.Log("Done!")
+}
+
+func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
+	callBackGasLimit := int64(2_500_000)            // base callback gas.
+	eip150Fee := int64(0)                           // no premium given for callWithExactGas
+	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
+	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
+
+	key1 := cltest.MustGenerateRandomKey(t)
+	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+	// Create a subscription and fund with 500 LINK.
+	subAmount := big.NewInt(1).Mul(big.NewInt(5e18), big.NewInt(100))
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, subAmount, uni)
+
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Make the first randomness request.
+	numWords := uint32(1)
+	requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uint32(callBackGasLimit), uni)
+
+	// Simulation should not pass.
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 0
+	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+
+	t.Log("Done!")
+}
+
+func deployWrapper(t *testing.T, uni coordinatorV2Universe, wrapperOverhead uint32, coordinatorOverhead uint32, keyHash common.Hash, maxNumWords uint32) (
+	wrapper *vrfv2_wrapper.VRFV2Wrapper,
+	wrapperAddress common.Address,
+	wrapperConsumer *vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExample,
+	wrapperConsumerAddress common.Address,
+) {
+	wrapperAddress, _, wrapper, err := vrfv2_wrapper.DeployVRFV2Wrapper(uni.neil, uni.backend, uni.linkContractAddress, uni.linkEthFeedAddress, uni.rootContractAddress)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	_, err = wrapper.SetConfig(uni.neil, wrapperOverhead, coordinatorOverhead, 0, keyHash, 10)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	wrapperConsumerAddress, _, wrapperConsumer, err = vrfv2_wrapper_consumer_example.DeployVRFV2WrapperConsumerExample(uni.neil, uni.backend, uni.linkContractAddress, wrapperAddress)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	return
+}
+
+func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
+
+	wrapperOverhead := uint32(30_000)
+	coordinatorOverhead := uint32(90_000)
+	maxNumWords := uint32(10)
+
+	callBackGasLimit := int64(100_000) // base callback gas.
+	key1 := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_wrapper", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
+
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash, maxNumWords)
+
+	// Fetch Subscription ID for Wrapper.
+	wrapperSubID, err := wrapper.SUBSCRIPTIONID(nil)
+	require.NoError(t, err)
+
+	// Fund Subscription.
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, wrapperSubID)
+	require.NoError(t, err)
+	_, err = uni.linkContract.TransferAndCall(uni.sergey, uni.rootContractAddress, assets.Ether(100).ToInt(), b)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	// Fund Consumer Contract.
+	_, err = uni.linkContract.Transfer(uni.sergey, consumerAddress, assets.Ether(100).ToInt())
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	// Make the first randomness request.
+	numWords := uint32(1)
+	requestID, _ := requestRandomnessForWrapper(t, *consumer, uni.neil, keyHash, wrapperSubID, numWords, uint32(callBackGasLimit), uni, wrapperOverhead)
+
+	// Wait for simulation to pass.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	mine(t, requestID, wrapperSubID, uni, db)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	assertRandomWordsFulfilled(t, requestID, true, uni)
+
+	t.Log("Done!")
+}
+
+func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
+	wrapperOverhead := uint32(30_000)
+	coordinatorOverhead := uint32(90_000)
+	maxNumWords := uint32(10)
+
+	key1 := cltest.MustGenerateRandomKey(t)
+	callBackGasLimit := int64(2_000_000) // base callback gas.
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_wrapper_high_gas_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
+
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash, maxNumWords)
+
+	// Fetch Subscription ID for Wrapper.
+	wrapperSubID, err := wrapper.SUBSCRIPTIONID(nil)
+	require.NoError(t, err)
+
+	// Fund Subscription.
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, wrapperSubID)
+	require.NoError(t, err)
+	_, err = uni.linkContract.TransferAndCall(uni.sergey, uni.rootContractAddress, assets.Ether(100).ToInt(), b)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	// Fund Consumer Contract.
+	_, err = uni.linkContract.Transfer(uni.sergey, consumerAddress, assets.Ether(100).ToInt())
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	// Make the first randomness request.
+	numWords := uint32(1)
+	requestID, _ := requestRandomnessForWrapper(t, *consumer, uni.neil, keyHash, wrapperSubID, numWords, uint32(callBackGasLimit), uni, wrapperOverhead)
+
+	// Wait for simulation to pass.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	mine(t, requestID, wrapperSubID, uni, db)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	assertRandomWordsFulfilled(t, requestID, true, uni)
+
+	t.Log("Done!")
+}
+
+func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
+	vrfKey := cltest.MustGenerateRandomKey(t)
+	bhsKey := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(vrfKey.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		}, v2.KeySpecific{
+			Key:          ptr(bhsKey.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhsKey)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
@@ -768,26 +1089,12 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	// Create a subscription and fund with 0 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, new(big.Int), uni)
 
-	// Create gas lane.
-	vrfKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, vrfKey.Address.Address(), 10)
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	// Create BHS key
-	bhsKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, bhsKey.Address.Address(), 10)
-
-	// Configure VRF and BHS keys
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		vrfKey.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-		bhsKey.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-	}, big.NewInt(10e9))
+	// Fund BHS key
+	sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 
 	// Create VRF job.
 	vrfJobs := createVRFJobs(t, [][]ethkey.KeyV2{{vrfKey}}, app, uni, false)
@@ -823,7 +1130,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 			t.Fatal(err)
 			return false
 		}
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Wait another 160 blocks so that the request is outside of the 256 block window
 	for i := 0; i < 160; i++ {
@@ -831,7 +1138,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	}
 
 	// Fund the subscription
-	_, err = consumerContract.TopUpSubscription(consumer, big.NewInt(5e18 /* 5 LINK */))
+	_, err := consumerContract.TopUpSubscription(consumer, big.NewInt(5e18 /* 5 LINK */))
 	require.NoError(t, err)
 
 	// Wait for fulfillment to be queued.
@@ -841,7 +1148,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID, subID, uni, db)
@@ -854,12 +1161,18 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup")
+	key := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_needstopup", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(1000), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(1000)},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
@@ -867,15 +1180,8 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	// Create a subscription and fund with 1 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(1e18), uni)
 
-	// Create expensive gas lane.
-	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		key.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000e9)), // 1000 gwei
-		},
-	}, big.NewInt(1000e9))
+	// Fund expensive gas lane.
+	sendEth(t, ownerKey, uni.backend, key.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
@@ -895,7 +1201,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Top up subscription with enough LINK to see the job through. 100 LINK should do the trick.
-	_, err = consumerContract.TopUpSubscription(consumer, decimal.RequireFromString("100e18").BigInt())
+	_, err := consumerContract.TopUpSubscription(consumer, decimal.RequireFromString("100e18").BigInt())
 	require.NoError(t, err)
 
 	// Wait for fulfillment to go through.
@@ -905,7 +1211,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("assert 2", "runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
@@ -919,27 +1225,27 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_bigcallback_sandwich")
 	ownerKey := cltest.MustGenerateRandomKey(t)
+	key1 := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_bigcallback_sandwich", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(100), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(100)},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(5e6, true)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
 
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, assets.Ether(2), uni)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, assets.Ether(2).ToInt(), uni)
 
-	// Create gas lane.
-	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		key1.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(100)),
-		},
-	}, assets.GWei(100))
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
@@ -958,6 +1264,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 
 	// Assert that we've completed 0 runs before adding 3 new requests.
 	runs, err := app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
 	assert.Equal(t, 0, len(runs))
 	assert.Equal(t, 3, len(reqIDs))
 
@@ -968,7 +1275,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// After the first successful request, no more will be enqueued.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
@@ -987,14 +1294,13 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 
 	// Assert that we've still only completed 1 run before adding new requests.
 	runs, err = app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
 	assert.Equal(t, 1, len(runs))
 
 	// Make some randomness requests, each one block apart, this time without a low-gas request present in the callbackGasLimit slice.
-	reqIDs = []*big.Int{}
 	callbackGasLimits = []uint32{2_500_000, 2_500_000, 2_500_000}
 	for _, limit := range callbackGasLimits {
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
-		reqIDs = append(reqIDs, requestID)
+		_, _ = requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
 		uni.backend.Commit()
 	}
 
@@ -1011,12 +1317,23 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes")
+	cheapKey := cltest.MustGenerateRandomKey(t)
+	expensiveKey := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_multiplegaslanes", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Cheap gas lane.
+			Key:          ptr(cheapKey.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		}, v2.KeySpecific{
+			// Expensive gas lane.
+			Key:          ptr(expensiveKey.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(1000)},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, cheapKey, expensiveKey)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
@@ -1024,22 +1341,9 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	// Create a subscription and fund with 5 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
-	// Create cheap gas lane.
-	cheapKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, cheapKey.Address.Address(), 10)
-	// Create expensive gas lane.
-	expensiveKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, expensiveKey.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		cheapKey.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-		expensiveKey.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000e9)), // 1000 gwei
-		},
-	}, big.NewInt(10e9))
+	// Fund gas lanes.
+	sendEth(t, ownerKey, uni.backend, cheapKey.Address, 10)
+	sendEth(t, ownerKey, uni.backend, expensiveKey.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF jobs.
@@ -1057,7 +1361,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, cheapRequestID, subID, uni, db)
@@ -1080,7 +1384,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Top up subscription with enough LINK to see the job through. 100 LINK should do the trick.
-	_, err = consumerContract.TopUpSubscription(consumer, decimal.RequireFromString("100e18").BigInt())
+	_, err := consumerContract.TopUpSubscription(consumer, decimal.RequireFromString("100e18").BigInt())
 	require.NoError(t, err)
 
 	// Wait for fulfillment to be queued for expensive key hash.
@@ -1090,7 +1394,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 2
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, expensiveRequestID, subID, uni, db)
@@ -1103,12 +1407,18 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback")
 	ownerKey := cltest.MustGenerateRandomKey(t)
+	key := cltest.MustGenerateRandomKey(t)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_alwaysrevertingcallback", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 	consumer := uni.reverter
 	consumerContract := uni.revertingConsumerContract
 	consumerContractAddress := uni.revertingConsumerContractAddress
@@ -1116,15 +1426,8 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	// Create a subscription and fund with 5 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
-	// Create gas lane.
-	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		key.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
-		},
-	}, big.NewInt(10e9))
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
@@ -1142,7 +1445,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID, subID, uni, db)
@@ -1152,27 +1455,26 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	t.Log("Done!")
 }
 
-func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
-	zero := models.MustMakeDuration(0 * time.Millisecond)
-	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
-	app.Chains.EVM.Configure(
-		testutils.Context(t),
-		*utils.NewBigI(1337),
-		true,
-		&types.ChainCfg{
-			GasEstimatorMode:               null.StringFrom("FixedPrice"),
-			EvmGasPriceDefault:             utils.NewBig(defaultGasPrice),
-			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:      &zero,
-			EvmFinalityDepth:               null.IntFrom(15),
-			EthTxReaperThreshold:           &reaperThreshold,
-			MinIncomingConfirmations:       null.IntFrom(1),
-			MinimumContractPayment:         assets.NewLinkFromJuels(100),
-			EvmGasLimitDefault:             null.NewInt(2000000, true),
-			KeySpecific:                    ks,
-		},
-	)
+func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...v2.KeySpecific) func(*chainlink.Config, *chainlink.Secrets) {
+	return func(c *chainlink.Config, s *chainlink.Secrets) {
+		require.Zero(t, testutils.SimulatedChainID.Cmp(c.EVM[0].ChainID.ToInt()))
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		if defaultGasPrice != nil {
+			c.EVM[0].GasEstimator.PriceDefault = defaultGasPrice
+		}
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
+
+		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
+		c.EVM[0].HeadTracker.SamplingInterval = models.MustNewDuration(0) // Head sampling disabled
+
+		c.EVM[0].Transactions.ResendAfterThreshold = models.MustNewDuration(0)
+		c.EVM[0].Transactions.ReaperThreshold = models.MustNewDuration(100 * time.Millisecond)
+
+		c.EVM[0].FinalityDepth = ptr[uint32](15)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+		c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
+		c.EVM[0].KeySpecific = ks
+	}
 }
 
 func registerProvingKeyHelper(t *testing.T, uni coordinatorV2Universe, vrfkey vrfkey.KeyV2) {
@@ -1186,13 +1488,13 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2Universe, vrfkey vr
 }
 
 func TestExternalOwnerConsumerExample(t *testing.T) {
-	owner := newIdentity(t)
-	random := newIdentity(t)
+	owner := testutils.MustNewSimTransactor(t)
+	random := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
-		owner.From:  {Balance: assets.Ether(10)},
-		random.From: {Balance: assets.Ether(10)},
+		owner.From:  {Balance: assets.Ether(10).ToInt()},
+		random.From: {Balance: assets.Ether(10).ToInt()},
 	}
-	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		owner, backend)
 	require.NoError(t, err)
@@ -1217,16 +1519,16 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	consumerAddress, _, consumer, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(owner, backend, coordinatorAddress, linkAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = linkContract.Transfer(owner, consumerAddress, assets.Ether(2))
+	_, err = linkContract.Transfer(owner, consumerAddress, assets.Ether(2).ToInt())
 	require.NoError(t, err)
 	backend.Commit()
-	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress}, []*big.Int{assets.Ether(999_999_998), assets.Ether(2)})
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress}, []*big.Int{assets.Ether(999_999_998).ToInt(), assets.Ether(2).ToInt()})
 
 	// Create sub, fund it and assign consumer
 	_, err = coordinator.CreateSubscription(owner)
 	require.NoError(t, err)
 	backend.Commit()
-	b, err := utils.GenericEncode([]string{"uint64"}, uint64(1))
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, uint64(1))
 	require.NoError(t, err)
 	_, err = linkContract.TransferAndCall(owner, coordinatorAddress, big.NewInt(0), b)
 	require.NoError(t, err)
@@ -1247,12 +1549,12 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 }
 
 func TestSimpleConsumerExample(t *testing.T) {
-	owner := newIdentity(t)
-	random := newIdentity(t)
+	owner := testutils.MustNewSimTransactor(t)
+	random := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
-		owner.From: {Balance: assets.Ether(10)},
+		owner.From: {Balance: assets.Ether(10).ToInt()},
 	}
-	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		owner, backend)
 	require.NoError(t, err)
@@ -1265,49 +1567,49 @@ func TestSimpleConsumerExample(t *testing.T) {
 	consumerAddress, _, consumer, err := vrf_single_consumer_example.DeployVRFSingleConsumerExample(owner, backend, coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{})
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = linkContract.Transfer(owner, consumerAddress, assets.Ether(2))
+	_, err = linkContract.Transfer(owner, consumerAddress, assets.Ether(2).ToInt())
 	require.NoError(t, err)
 	backend.Commit()
-	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress}, []*big.Int{assets.Ether(999_999_998), assets.Ether(2)})
-	_, err = consumer.TopUpSubscription(owner, assets.Ether(1))
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress}, []*big.Int{assets.Ether(999_999_998).ToInt(), assets.Ether(2).ToInt()})
+	_, err = consumer.TopUpSubscription(owner, assets.Ether(1).ToInt())
 	require.NoError(t, err)
 	backend.Commit()
-	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(999_999_998), assets.Ether(1), assets.Ether(1)})
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(999_999_998).ToInt(), assets.Ether(1).ToInt(), assets.Ether(1).ToInt()})
 	// Non-owner cannot withdraw
-	_, err = consumer.Withdraw(random, assets.Ether(1), owner.From)
+	_, err = consumer.Withdraw(random, assets.Ether(1).ToInt(), owner.From)
 	require.Error(t, err)
-	_, err = consumer.Withdraw(owner, assets.Ether(1), owner.From)
+	_, err = consumer.Withdraw(owner, assets.Ether(1).ToInt(), owner.From)
 	require.NoError(t, err)
 	backend.Commit()
-	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(999_999_999), assets.Ether(0), assets.Ether(1)})
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(999_999_999).ToInt(), assets.Ether(0).ToInt(), assets.Ether(1).ToInt()})
 	_, err = consumer.Unsubscribe(owner, owner.From)
 	require.NoError(t, err)
 	backend.Commit()
-	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(1_000_000_000), assets.Ether(0), assets.Ether(0)})
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(1_000_000_000).ToInt(), assets.Ether(0).ToInt(), assets.Ether(0).ToInt()})
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration")
+	// Reconfigure the sim chain with a default gas price of 1 gwei,
+	// max gas limit of 2M and a key specific max 10 gwei price.
+	// Keep the prices low so we can operate with small link balance subscriptions.
+	gasPrice := assets.GWei(1)
 	key := cltest.MustGenerateRandomKey(t)
+	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, gasPrice, v2.KeySpecific{
+			Key:          &key.EIP55Address,
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
 
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
-	keys, err := app.KeyStore.Eth().SendingKeys(nil)
-
-	// Reconfigure the sim chain with a default gas price of 1 gwei,
-	// max gas limit of 2M and a key specific max 10 gwei price.
-	// Keep the prices low so we can operate with small link balance subscriptions.
-	gasPrice := decimal.NewFromBigInt(big.NewInt(1000000000), 0)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		keys[0].Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)),
-		},
-	}, gasPrice.BigInt())
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
+	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	require.NoError(t, err)
+	require.Zero(t, key.Cmp(keys[0]))
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 	vrfkey, err := app.GetKeyStore().VRF().Create()
@@ -1322,7 +1624,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
 		PublicKey:                vrfkey.PublicKey.String(),
-		FromAddresses:            []string{keys[0].Address.String()},
+		FromAddresses:            []string{key.EIP55Address.String()},
 		V2:                       true,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
@@ -1338,8 +1640,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 		carolContractAddress,
 		uni.rootContractAddress,
 	}, []*big.Int{
-		assets.Ether(500), // 500 link
-		big.NewInt(0),     // 0 link
+		assets.Ether(500).ToInt(), // 500 link
+		big.NewInt(0),             // 0 link
 	})
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = carolContract.TestCreateSubscriptionAndFund(carol,
@@ -1351,8 +1653,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 		uni.nallory.From, // Oracle's own address should have nothing
 	}, []*big.Int{
-		assets.Ether(499),
-		assets.Ether(1),
+		assets.Ether(499).ToInt(),
+		assets.Ether(1).ToInt(),
 		big.NewInt(0),
 	})
 	subId, err := carolContract.SSubId(nil)
@@ -1389,7 +1691,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Wait for the request to be fulfilled on-chain.
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
@@ -1401,9 +1703,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 			rf = append(rf, rfIterator.Event)
 		}
 		return len(rf) == 1
-	}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 	assert.True(t, rf[0].Success, "expected callback to succeed")
-	fulfillReceipt, err := uni.backend.TransactionReceipt(context.Background(), rf[0].Raw.TxHash)
+	fulfillReceipt, err := uni.backend.TransactionReceipt(testutils.Context(t), rf[0].Raw.TxHash)
 	require.NoError(t, err)
 
 	// Assert all the random words received by the consumer are different and non-zero.
@@ -1440,12 +1742,13 @@ func TestIntegrationVRFV2(t *testing.T) {
 	linkWeiCharged := start.Sub(end)
 	// Remove flat fee of 0.001 to get fee for just gas.
 	linkCharged := linkWeiCharged.Sub(decimal.RequireFromString("1000000000000000")).Div(wei)
-	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPrice.Div(gwei), weiPerUnitLink.Div(wei))
-	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPrice).Div(weiPerUnitLink)
+	gasPriceD := decimal.NewFromBigInt(gasPrice.ToInt(), 0)
+	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPriceD.Div(gwei), weiPerUnitLink.Div(wei))
+	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPriceD).Div(weiPerUnitLink)
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
 	// The expected sub charge should be within 200 gas of the actual gas usage.
 	// wei/link * link / wei/gas = wei / (wei/gas) = gas
-	gasDiff := linkCharged.Sub(expected).Mul(weiPerUnitLink).Div(gasPrice).Abs().IntPart()
+	gasDiff := linkCharged.Sub(expected).Mul(weiPerUnitLink).Div(gasPriceD).Abs().IntPart()
 	t.Log("gasDiff", gasDiff)
 	assert.Less(t, gasDiff, int64(200))
 
@@ -1462,7 +1765,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 		uni.nallory.From, // Oracle's own address should have nothing
 	}, []*big.Int{
-		assets.Ether(499),
+		assets.Ether(499).ToInt(),
 		subFunding.Sub(linkWeiCharged).BigInt(),
 		linkWeiCharged.BigInt(),
 	})
@@ -1478,16 +1781,17 @@ func TestIntegrationVRFV2(t *testing.T) {
 }
 
 func TestMaliciousConsumer(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_malicious")
+	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration_malicious", func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
+		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
+		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
+	})
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
-	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
-	config.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1)
-	config.Overrides.GlobalEvmGasPriceDefault = assets.GWei(1)
-	config.Overrides.GlobalEvmGasFeeCapDefault = assets.GWei(1)
 
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	err := app.GetKeyStore().Unlock(cltest.Password)
@@ -1546,12 +1850,12 @@ func TestMaliciousConsumer(t *testing.T) {
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
 		return len(attempts) == 1 && attempts[0].EthTx.State == txmgr.EthTxConfirmed
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
 	ch, err := app.GetChains().EVM.Default()
 	require.NoError(t, err)
-	r, err := ch.Client().TransactionReceipt(context.Background(), attempts[0].Hash)
+	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)
 
@@ -1582,8 +1886,8 @@ func TestRequestCost(t *testing.T) {
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
+	cfg := configtest.NewGeneralConfigSimulated(t, nil)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
@@ -1625,8 +1929,8 @@ func TestMaxConsumersCost(t *testing.T) {
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
+	cfg := configtest.NewGeneralConfigSimulated(t, nil)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	_, err := carolContract.TestCreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
@@ -1660,8 +1964,8 @@ func TestFulfillmentCost(t *testing.T) {
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
+	cfg := configtest.NewGeneralConfigSimulated(t, nil)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
@@ -1711,7 +2015,7 @@ func TestFulfillmentCost(t *testing.T) {
 }
 
 func TestStartingCountsV1(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBNoFixtures(t, "vrf_test_starting_counts")
+	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "vrf_test_starting_counts", nil)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES (1337, NOW(), NOW())`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO evm_heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)
@@ -1724,7 +2028,7 @@ func TestStartingCountsV1(t *testing.T) {
 	counts := vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 0, len(counts))
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
-	err = ks.Unlock("p4SsW0rD1!@#_")
+	err = ks.Unlock(testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
@@ -1748,7 +2052,7 @@ func TestStartingCountsV1(t *testing.T) {
 	confirmedTxes := []txmgr.EthTx{
 		{
 			Nonce:              &n1,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -1760,7 +2064,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n2,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -1772,7 +2076,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n3,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -1784,7 +2088,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n4,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -1807,7 +2111,7 @@ func TestStartingCountsV1(t *testing.T) {
 		newNonce := i + 1
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.EthTx{
 			Nonce:              &newNonce,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
 			State:              txmgr.EthTxUnconfirmed,
@@ -1832,25 +2136,25 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	for i := range confirmedTxes {
 		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
 			EthTxID:                 int64(i + 1),
-			GasPrice:                utils.NewBig(big.NewInt(100)),
+			GasPrice:                assets.NewWeiI(100),
 			SignedRawTx:             []byte(`blah`),
 			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgr.EthTxAttemptBroadcast,
 			CreatedAt:               time.Now(),
-			ChainSpecificGasLimit:   uint64(100),
+			ChainSpecificGasLimit:   uint32(100),
 		})
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
 		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
 			EthTxID:               int64(i + 1 + len(confirmedTxes)),
-			GasPrice:              utils.NewBig(big.NewInt(100)),
+			GasPrice:              assets.NewWeiI(100),
 			SignedRawTx:           []byte(`blah`),
 			Hash:                  utils.NewHash(),
 			State:                 txmgr.EthTxAttemptInProgress,
 			CreatedAt:             time.Now(),
-			ChainSpecificGasLimit: uint64(100),
+			ChainSpecificGasLimit: uint32(100),
 		})
 	}
 	for _, txAttempt := range txAttempts {
@@ -1907,7 +2211,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 			rf = append(rf, rfIterator.Event)
 		}
 		return len(rf) >= 1
-	}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 	latest := len(rf) - 1
 	return rf[latest]
 }
@@ -1920,3 +2224,5 @@ func AssertLinkBalances(t *testing.T, linkContract *link_token_interface.LinkTok
 		assert.Equal(t, balances[i].String(), b.String(), "invalid balance for %v", a)
 	}
 }
+
+func ptr[T any](t T) *T { return &t }

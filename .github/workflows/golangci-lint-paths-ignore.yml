@@ -17,9 +17,15 @@ on:
       - rollup
     paths-ignore:
       - '**.go'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '.golangci.yml'
   pull_request:
     paths-ignore:
       - '**.go'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '.golangci.yml'
 
 jobs:
   golangci:

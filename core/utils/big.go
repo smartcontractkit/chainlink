@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 

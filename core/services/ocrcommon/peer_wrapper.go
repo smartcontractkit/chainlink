@@ -2,18 +2,19 @@ package ocrcommon
 
 import (
 	"context"
+	"io"
 
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
-
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"go.uber.org/multierr"
 
@@ -27,18 +28,18 @@ type PeerWrapperConfig interface {
 	config.P2PNetworking
 	config.P2PV1Networking
 	config.P2PV2Networking
+	pg.QConfig
 	OCRTraceLogging() bool
-	LogSQL() bool
 	FeatureOffchainReporting() bool
 }
 
 type (
-	peerAdapter struct {
-		ocrtypes.BinaryNetworkEndpointFactory
-		ocrtypes.BootstrapperFactory
+	peerAdapterOCR1 struct {
+		ocr1types.BinaryNetworkEndpointFactory
+		ocr1types.BootstrapperFactory
 	}
 
-	peerAdapter2 struct {
+	peerAdapterOCR2 struct {
 		ocr2types.BinaryNetworkEndpointFactory
 		ocr2types.BootstrapperFactory
 	}
@@ -53,11 +54,14 @@ type (
 		PeerID        p2pkey.PeerID
 		pstoreWrapper *Pstorewrapper
 
-		// V1V2 adapter
-		Peer *peerAdapter
+		// Used at shutdown to stop all of this peer's goroutines
+		peerCloser io.Closer
 
-		// V2 peer
-		Peer2 *peerAdapter2
+		// OCR1 peer adapter
+		Peer1 *peerAdapterOCR1
+
+		// OCR2 peer adapter
+		Peer2 *peerAdapterOCR2
 	}
 )
 
@@ -77,22 +81,12 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 		if len(config.P2PV2ListenAddresses()) == 0 {
 			return errors.New("networking stack v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
 		}
-		// In V2 mode, OCR2 jobs don't need a default list of v2 bootstrappers, but OCR jobs do if enabled
-		//  since there is no way to override it for them.
-		if config.FeatureOffchainReporting() && len(config.P2PV2Bootstrappers()) == 0 {
-			return errors.New("FEATURE_OFFCHAIN_REPORTING enabled in v2 networking mode, but no P2PV2Bootstrappers specified")
-		}
 	case ocrnetworking.NetworkingStackV1V2:
 		if config.P2PListenPort() == 0 {
 			return errors.New("networking stack v1v2 selected but no P2P_LISTEN_PORT specified")
 		}
 		if len(config.P2PV2ListenAddresses()) == 0 {
 			return errors.New("networking stack v1v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
-		}
-		// Because there is no way to specify v2 bootstrappers in OCR jobs, we require they be set
-		//  in the environment. v1 bootstrap peers can be specified either here or in the OCR jobspec
-		if len(config.P2PV2Bootstrappers()) == 0 {
-			return errors.New("networking stack v1v2 selected but no P2PV2Bootstrappers specified")
 		}
 	default:
 		return errors.New("unknown networking stack")
@@ -203,14 +197,15 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "error calling NewPeer")
 		}
-		p.Peer = &peerAdapter{
+		p.Peer1 = &peerAdapterOCR1{
 			peer.OCR1BinaryNetworkEndpointFactory(),
 			peer.OCR1BootstrapperFactory(),
 		}
-		p.Peer2 = &peerAdapter2{
+		p.Peer2 = &peerAdapterOCR2{
 			peer.OCR2BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
+		p.peerCloser = peer
 		return nil
 	})
 }
@@ -218,6 +213,9 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 // Close closes the peer and peerstore
 func (p *SingletonPeerWrapper) Close() error {
 	return p.StopOnce("SingletonPeerWrapper", func() (err error) {
+		if p.peerCloser != nil {
+			err = p.peerCloser.Close()
+		}
 		if p.pstoreWrapper != nil {
 			err = multierr.Combine(err, p.pstoreWrapper.Close())
 		}

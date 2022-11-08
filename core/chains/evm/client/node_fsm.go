@@ -94,11 +94,18 @@ func init() {
 
 // FSM methods
 
-// State allows reading the current state of the node
+// State allows reading the current state of the node.
 func (n *node) State() NodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state
+}
+
+// StateAndLatestBlockNumber returns the current state of the node with the latest received block number.
+func (n *node) StateAndLatestBlockNumber() (NodeState, int64) {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.state, n.latestReceivedBlockNumber
 }
 
 // setState is only used by internal state management methods.
@@ -233,7 +240,7 @@ func (n *node) transitionToInvalidChainID(fn func()) {
 		return
 	}
 	switch n.state {
-	case NodeStateDialed:
+	case NodeStateDialed, NodeStateOutOfSync:
 		n.disconnectAll()
 		n.state = NodeStateInvalidChainID
 	default:

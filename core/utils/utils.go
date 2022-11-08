@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	mrand "math/rand"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+	"golang.org/x/exp/constraints"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -242,39 +244,6 @@ func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 			continue
 		}
 	}
-}
-
-// MaxUint32 finds the maximum value of a list of uint32s.
-func MaxUint32(first uint32, uints ...uint32) uint32 {
-	max := first
-	for _, n := range uints {
-		if n > max {
-			max = n
-		}
-	}
-	return max
-}
-
-// MaxInt finds the maximum value of a list of ints.
-func MaxInt(first int, ints ...int) int {
-	max := first
-	for _, n := range ints {
-		if n > max {
-			max = n
-		}
-	}
-	return max
-}
-
-// MinUint finds the minimum value of a list of uints.
-func MinUint(first uint, vals ...uint) uint {
-	min := first
-	for _, n := range vals {
-		if n < min {
-			min = n
-		}
-	}
-	return min
 }
 
 // UnmarshalToMap takes an input json string and returns a map[string]interface i.e. a raw object
@@ -650,11 +619,11 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 // WrapIfError decorates an error with the given message.  It is intended to
 // be used with `defer` statements, like so:
 //
-// func SomeFunction() (err error) {
-//     defer WrapIfError(&err, "error in SomeFunction:")
+//	func SomeFunction() (err error) {
+//	    defer WrapIfError(&err, "error in SomeFunction:")
 //
-//     ...
-// }
+//	    ...
+//	}
 func WrapIfError(err *error, msg string) {
 	if *err != nil {
 		*err = errors.Wrap(*err, msg)
@@ -841,6 +810,11 @@ func (e *errNotStarted) Error() string {
 	return fmt.Sprintf("service is %q, not started", e.state)
 }
 
+var (
+	ErrAlreadyStopped      = errors.New("already stopped")
+	ErrCannotStopUnstarted = errors.New("cannot stop unstarted service")
+)
+
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
 	state        atomic.Int32
@@ -850,13 +824,15 @@ type StartStopOnce struct {
 // StartStopOnceState holds the state for StartStopOnce
 type StartStopOnceState int32
 
-//nolint
+// nolint
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
 	StartStopOnce_Starting
+	StartStopOnce_StartFailed
 	StartStopOnce_Stopping
 	StartStopOnce_Stopped
+	StartStopOnce_StopFailed
 )
 
 func (s StartStopOnceState) String() string {
@@ -867,10 +843,14 @@ func (s StartStopOnceState) String() string {
 		return "Started"
 	case StartStopOnce_Starting:
 		return "Starting"
+	case StartStopOnce_StartFailed:
+		return "StartFailed"
 	case StartStopOnce_Stopping:
 		return "Stopping"
 	case StartStopOnce_Stopped:
 		return "Stopped"
+	case StartStopOnce_StopFailed:
+		return "StopFailed"
 	default:
 		return fmt.Sprintf("unrecognized state: %d", s)
 	}
@@ -883,7 +863,7 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
 	if !success {
-		return errors.Errorf("%v has already started once", name)
+		return errors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
 	}
 
 	once.Lock()
@@ -891,7 +871,11 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 
 	err := fn()
 
-	success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+	if err == nil {
+		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+	} else {
+		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
+	}
 
 	if !success {
 		// SAFETY: If this is reached, something must be very wrong: once.state
@@ -913,12 +897,24 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
-		return errors.Errorf("%v is unstarted or has already stopped once", name)
+		state := once.state.Load()
+		switch state {
+		case int32(StartStopOnce_Stopped):
+			return errors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
+		case int32(StartStopOnce_Unstarted):
+			return errors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
+		default:
+			return errors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
+		}
 	}
 
 	err := fn()
 
-	success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
+	if err == nil {
+		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
+	} else {
+		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
+	}
 
 	if !success {
 		// SAFETY: If this is reached, something must be very wrong: once.state
@@ -980,6 +976,16 @@ func (once *StartStopOnce) Healthy() error {
 		return nil
 	}
 	return &errNotStarted{state: state}
+}
+
+// EnsureClosed closes the io.Closer, returning nil if it was already
+// closed or not started yet
+func EnsureClosed(c io.Closer) error {
+	err := c.Close()
+	if errors.Is(err, ErrAlreadyStopped) || errors.Is(err, ErrCannotStopUnstarted) {
+		return nil
+	}
+	return err
 }
 
 // WithJitter adds +/- 10% to a duration
@@ -1086,4 +1092,24 @@ func TryParseHex(s string) (b []byte, err error) {
 		b, err = hex.DecodeString(s)
 	}
 	return
+}
+
+// MinKey returns the minimum value of the given element array with respect
+// to the given key function. In the event U is not a compound type (e.g a
+// struct) an identity function can be provided.
+func MinKey[U any, T constraints.Ordered](elems []U, key func(U) T) T {
+	var min T
+	if len(elems) == 0 {
+		return min
+	}
+
+	min = key(elems[0])
+	for i := 1; i < len(elems); i++ {
+		v := key(elems[i])
+		if v < min {
+			min = v
+		}
+	}
+
+	return min
 }

@@ -41,7 +41,7 @@ func TestTerraKeysController_Create_HappyPath(t *testing.T) {
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/terra", nil)
@@ -96,9 +96,9 @@ func setupTerraKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keys
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.Terra().Add(cltest.DefaultTerraKey)
+	require.NoError(t, app.KeyStore.Terra().Add(cltest.DefaultTerraKey))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return client, app.GetKeyStore()
 }

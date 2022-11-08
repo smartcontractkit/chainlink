@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,7 +35,7 @@ import (
 func TestHTTPTask_Happy(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
@@ -45,7 +48,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(config, c, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -55,7 +58,8 @@ func TestHTTPTask_Happy(t *testing.T) {
 			Result decimal.Decimal `json:"result"`
 		} `json:"data"`
 	}
-	json.Unmarshal([]byte(result.Value.(string)), &x)
+	err := json.Unmarshal([]byte(result.Value.(string)), &x)
+	require.NoError(t, err)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
@@ -153,7 +157,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			t.Parallel()
 
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
 			defer s1.Close()
@@ -161,6 +165,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
+			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
@@ -169,12 +174,12 @@ func TestHTTPTask_Variables(t *testing.T) {
 				RequestData: test.requestData,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg, orm, uuid.UUID{}, c)
 
 			err = test.vars.Set("meta", test.meta)
 			require.NoError(t, err)
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
@@ -191,7 +196,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 						Result decimal.Decimal `json:"result"`
 					} `json:"data"`
 				}
-				json.Unmarshal([]byte(result.Value.(string)), &x)
+				err := json.Unmarshal([]byte(result.Value.(string)), &x)
+				require.NoError(t, err)
 				require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 			}
 		})
@@ -201,7 +207,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -222,7 +228,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	u := clhttp.NewUnrestrictedHTTPClient()
 	task.HelperSetDependencies(config, r, u)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -230,7 +236,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	task.URL = "$(url)"
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{"url": server.URL})
-	result, runInfo = task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -239,7 +245,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 
 	task.AllowUnrestrictedNetworkAccess = "true"
 
-	result, runInfo = task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -248,7 +254,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 func TestHTTPTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -269,7 +275,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetDependencies(config, c, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 
@@ -281,7 +287,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
@@ -300,7 +306,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(config, c, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -311,7 +317,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 func TestHTTPTask_Headers(t *testing.T) {
 	allHeaders := func(headers http.Header) (s []string) {
 		var keys []string
-		for k, _ := range headers {
+		for k := range headers {
 			keys = append(keys, k)
 		}
 		// get it in a consistent order
@@ -326,7 +332,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
 
 	t.Run("sends headers", func(t *testing.T) {
-		config := cltest.NewTestGeneralConfig(t)
+		config := configtest.NewTestGeneralConfig(t)
 		var headers http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			headers = r.Header
@@ -348,7 +354,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		task.HelperSetDependencies(config, c, c)
 
-		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
 		assert.Nil(t, result.Error)
@@ -364,7 +370,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar", "odd one out"]`,
 		}
 
-		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.NotNil(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
@@ -372,7 +378,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 	})
 
 	t.Run("allows to override content-type", func(t *testing.T) {
-		config := cltest.NewTestGeneralConfig(t)
+		config := configtest.NewTestGeneralConfig(t)
 		var headers http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			headers = r.Header
@@ -394,7 +400,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		task.HelperSetDependencies(config, c, c)
 
-		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 3}`, result.Value)
 		assert.Nil(t, result.Error)

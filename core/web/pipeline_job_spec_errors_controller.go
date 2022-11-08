@@ -1,13 +1,13 @@
 package web
 
 import (
-	"context"
 	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
@@ -27,7 +27,7 @@ func (psec *PipelineJobSpecErrorsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	err = psec.App.JobORM().DismissError(context.Background(), jobSpec.ID)
+	err = psec.App.JobORM().DismissError(c.Request.Context(), jobSpec.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("PipelineJobSpecError not found"))
 		return
@@ -37,5 +37,6 @@ func (psec *PipelineJobSpecErrorsController) Destroy(c *gin.Context) {
 		return
 	}
 
+	psec.App.GetAuditLogger().Audit(audit.JobErrorDismissed, map[string]interface{}{"id": jobSpec.ID})
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

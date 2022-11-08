@@ -5,25 +5,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/test-go/testify/mock"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap/zapcore"
 )
 
-type TestingLogger interface {
-	prometheusLogger | sentryLogger
-}
-
-var errTest error = errors.New("error")
+var errTest = errors.New("error")
 
 func TestLogger_Passthrough(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
-		create func(t *testing.T, passthrough Logger) Logger
+		create func(passthrough Logger) Logger
 	}{
-		{"prometheus", createTestLogger[prometheusLogger]},
-		{"sentry", createTestLogger[sentryLogger]},
+		{"prometheus", newPrometheusLogger},
+		{"sentry", newSentryLogger},
 	}
 
 	for _, test := range tests {
@@ -32,8 +28,8 @@ func TestLogger_Passthrough(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			m := setupMockLogger()
-			l := test.create(t, m)
+			m := setupMockLogger(t)
+			l := test.create(m)
 
 			l.With()
 			l.Named("xxx")
@@ -70,27 +66,12 @@ func TestLogger_Passthrough(t *testing.T) {
 			assert.ErrorIs(t, err, errTest)
 
 			l.Recover(errTest)
-
-			ok := m.AssertExpectations(t)
-			assert.True(t, ok)
 		})
 	}
 }
 
-func createTestLogger[TL TestingLogger](t *testing.T, passthrough Logger) Logger {
-	var ret TL
-	switch any(&ret).(type) {
-	case *prometheusLogger:
-		return newPrometheusLogger(passthrough)
-	case *sentryLogger:
-		return newSentryLogger(passthrough)
-	}
-	t.Fatal("unsupported logger")
-	return nil
-}
-
-func setupMockLogger() *MockLogger {
-	ml := &MockLogger{}
+func setupMockLogger(t *testing.T) *MockLogger {
+	ml := NewMockLogger(t)
 
 	ml.On("Helper", 1).Return(ml).Once()
 	ml.On("With", mock.Anything, mock.Anything).Return(ml)

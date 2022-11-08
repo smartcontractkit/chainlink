@@ -16,6 +16,7 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -27,7 +28,7 @@ import (
 
 var (
 	checkData  = common.Hex2Bytes("ABC123")
-	executeGas = uint64(10_000)
+	executeGas = uint32(10_000)
 )
 
 func setupKeeperDB(t *testing.T) (
@@ -35,7 +36,7 @@ func setupKeeperDB(t *testing.T) (
 	evmconfig.ChainScopedConfig,
 	keeper.ORM,
 ) {
-	gcfg := cltest.NewTestGeneralConfig(t)
+	gcfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	orm := keeper.NewORM(db, logger.TestLogger(t), cfg, txmgr.SendEveryStrategy{})
@@ -125,7 +126,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	var upkeepFromDB keeper.UpkeepRegistration
 	err = db.Get(&upkeepFromDB, `SELECT * FROM upkeep_registrations ORDER BY id LIMIT 1`)
 	require.NoError(t, err)
-	require.Equal(t, uint64(20_000), upkeepFromDB.ExecuteGas)
+	require.Equal(t, uint32(20_000), upkeepFromDB.ExecuteGas)
 	require.Equal(t, "8888", common.Bytes2Hex(upkeepFromDB.CheckData))
 	require.Equal(t, int64(1), upkeepFromDB.LastRunBlockHeight) // shouldn't change on upsert
 }
@@ -405,16 +406,24 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	require.NoError(t, err, "UPDATE keeper_registries")
 
 	// update
-	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress))
+	rowsAffected, err := orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress)
+	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(1))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to lower block height not allowed
-	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, registry.FromAddress))
+	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, registry.FromAddress)
+	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(0))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to same block height allowed
-	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, ethkey.EIP55AddressFromAddress(utils.ZeroAddress)))
+	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, ethkey.EIP55AddressFromAddress(utils.ZeroAddress))
+	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(1))
 	assertLastRunHeight(t, db, upkeep, 100, 1)
 	// update to higher block height allowed
-	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress))
+	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress)
+	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(1))
 	assertLastRunHeight(t, db, upkeep, 101, 0)
 }
 

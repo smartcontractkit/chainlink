@@ -274,5 +274,58 @@ describe('VRFCoordinatorV2Mock', () => {
         oneLink.sub(receipt.events[0].args['payment']),
       )
     })
+    it('Correctly allows for user override of fulfillRandomWords [ @skip-coverage ]', async function () {
+      let subId = await createSubscription()
+      await vrfCoordinatorV2Mock
+        .connect(subOwner)
+        .addConsumer(subId, vrfConsumerV2.address)
+      await expect(
+        vrfCoordinatorV2Mock.connect(subOwner).fundSubscription(subId, oneLink),
+      ).to.not.be.reverted
+
+      // Call requestRandomWords from the consumer contract so that the requestId
+      // member variable on the consumer is appropriately set.
+      expect(
+        await vrfConsumerV2
+          .connect(subOwner)
+          .testRequestRandomness(keyhash, subId, 3, 500_000, 2),
+      )
+        .to.emit(vrfCoordinatorV2Mock, 'RandomWordsRequested')
+        .withArgs(keyhash, 1, 100, subId, 3, 500_000, 2, vrfConsumerV2.address)
+
+      // Call override with incorrect word count.
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(random)
+          .fulfillRandomWordsWithOverride(
+            1,
+            vrfConsumerV2.address,
+            [1, 2, 3, 4, 5],
+          ),
+      ).to.be.revertedWith('InvalidRandomWords')
+
+      // Call override correctly.
+      let tx = await vrfCoordinatorV2Mock
+        .connect(random)
+        .fulfillRandomWordsWithOverride(1, vrfConsumerV2.address, [2533, 1768])
+      let receipt = await tx.wait()
+      expect(receipt.events[0].event).to.equal('RandomWordsFulfilled')
+      expect(receipt.events[0].args['requestId']).to.equal(1)
+      expect(receipt.events[0].args['outputSeed']).to.equal(1)
+      expect(receipt.events[0].args['success']).to.equal(true)
+      assert(
+        receipt.events[0].args['payment']
+          .sub(BigNumber.from('100119017000000000'))
+          .lt(BigNumber.from('10000000000')),
+      )
+
+      // Check that balance was subtracted
+      let sub = await vrfCoordinatorV2Mock
+        .connect(random)
+        .getSubscription(subId)
+      expect(sub.balance).to.equal(
+        oneLink.sub(receipt.events[0].args['payment']),
+      )
+    })
   })
 })

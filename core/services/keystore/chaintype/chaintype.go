@@ -17,10 +17,25 @@ const (
 	Solana ChainType = "solana"
 	// Terra for the Terra chain
 	Terra ChainType = "terra"
+	// StarkNet for the StarkNet chain
+	StarkNet ChainType = "starknet"
 )
 
+type ChainTypes []ChainType
+
+func (c ChainTypes) String() (out string) {
+	var sb strings.Builder
+	for i, chain := range c {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(string(chain))
+	}
+	return sb.String()
+}
+
 // SupportedChainTypes contain all chains that are supported
-var SupportedChainTypes = []ChainType{EVM, Solana, Terra}
+var SupportedChainTypes = ChainTypes{EVM, Solana, Terra, StarkNet}
 
 // ErrInvalidChainType is an error to indicate an unsupported chain type
 var ErrInvalidChainType error

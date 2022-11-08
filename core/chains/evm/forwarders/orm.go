@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
@@ -28,7 +26,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 	return &orm{pg.NewQ(db, lggr, cfg)}
 }
 

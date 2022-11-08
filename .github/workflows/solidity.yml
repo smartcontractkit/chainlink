@@ -1,87 +1,290 @@
-##
-# NOTE: any changes to the event triggers or the paths here should be reflected in:
-#       solidity-paths-ignore.yml
-##
-
 name: Solidity
 
 on:
   push:
-    branches:
-      - staging
-      - trying
-      - rollup
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
-  pull_request:
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
+
+env:
+  NODE_OPTIONS: --max_old_space_size=5120
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - 'contracts/**/*'
+              - '.github/workflows/solidity.yml'
+
+  split-tests:
+    name: Split Solidity Tests
+    runs-on: ubuntu-latest
+    outputs:
+      splits: ${{ steps.split.outputs.splits }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Split Solidity Tests
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Generate splits
+        id: split
+        uses: ./.github/actions/split-tests
+        with:
+          config: ./contracts/ci.json
+
+  solidity-coverage-splits:
+    needs: [changes, split-tests]
+    name: Solidity Coverage ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
+    runs-on: ubuntu20.04-4cores-16GB
+    steps:
+      - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity Coverage ${{ matrix.split.id }}
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-hardhat
+        with:
+          namespace: coverage
+      - name: Run coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        env:
+          SPLIT: ${{ matrix.split.coverageTests }}
+        shell: bash
+        run: pnpm coverage --testfiles "$SPLIT"
+        working-directory: contracts
+      - name: Push coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: ./tools/bin/codecov -f ./contracts/coverage.json
+      - name: Rename coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.split.idx }}.json
+      - name: Upload coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: solidity-coverage-${{ matrix.split.idx }}
+          path: ./contracts/coverage-${{ matrix.split.idx }}.json
+
   solidity-coverage:
-    name: Solidity Coverage
+    needs: [changes, solidity-coverage-splits]
+    name: Solidity Coverage ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: "16"
       - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+      - name: Make coverage directory
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: mkdir ./contracts/coverage-reports
+      - name: Download coverage
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: actions/download-artifact@v3
         with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - name: Run coverage
+          path: ./contracts/coverage-reports
+      - name: Display structure of downloaded files
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: ls -R coverage-reports
+        working-directory: contracts
+      - name: Generate merged report
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: pnpm istanbul report text text-summary
+        working-directory: contracts
+
+  solidity-splits:
+    needs: [changes, split-tests]
+    name: Solidity ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
+    runs-on: ubuntu20.04-4cores-16GB
+    steps:
+      - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity ${{ matrix.split.id }}
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-hardhat
+        with:
+          namespace: coverage
+      - name: Run tests
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         env:
-          NODE_OPTIONS: "--max-old-space-size=5120"
-        run: ./tools/ci/solidity_coverage
+          SPLIT: ${{ matrix.split.tests }}
+        working-directory: contracts
+        run: pnpm test -- $SPLIT
 
   solidity:
+    needs: [changes, solidity-splits]
     name: Solidity
     runs-on: ubuntu-latest
     steps:
-      - name: Setup node
-        uses: actions/setup-node@v2
+      - run: echo 'Solidity tests finished!'
+
+  prepublish-test:
+    needs: [changes]
+    name: Prepublish Test ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
         with:
-          node-version: "16"
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Prepublish Test
+        continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+      - name: Run Prepublish test
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        working-directory: contracts
+        run: pnpm prepublishOnly
+
+  native-compile:
+    needs: [changes]
+    name: Native Compilation ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
         with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - name: Compile all contracts
-        run: ./contracts/scripts/native_solc_compile_all
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Native Compilation
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Checkout diff-so-fancy
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          repository: so-fancy/diff-so-fancy
+          ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
+          path: diff-so-fancy
+      - name: Install diff-so-fancy
+        run: echo "$GITHUB_WORKSPACE/diff-so-fancy" >> $GITHUB_PATH
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-go
+      - name: Run native compile and generate wrappers
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: make go-solidity-wrappers
       - name: Verify local solc binaries
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ./tools/ci/check_solc_hashes
-      - name: Run tests
-        run: ./tools/ci/solidity_test_hardhat
-      - name: Run prepublish NPM test
-        run: ./tools/ci/prepublish_npm_test
+      - name: Check if Go solidity wrappers are updated
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: git diff --minimal --color --exit-code | diff-so-fancy
+      - name: Comment on fix instructions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        if: ${{ failure() }}
+        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make go-soldity-wrappers` command'
+
+  lint:
+    defaults:
+      run:
+        working-directory: contracts
+    needs: [changes]
+    name: Lint ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Lint
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+      - name: Run pnpm lint
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: pnpm lint
+
+  prettier:
+    defaults:
+      run:
+        working-directory: contracts
+    needs: [changes]
+    name: Prettier Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Prettier Formatting
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+      - name: Run prettier check
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: pnpm prettier:check

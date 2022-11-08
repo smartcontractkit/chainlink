@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name BalanceMonitor --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name BalanceMonitor --output ../mocks/ --case=underscore
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
@@ -37,7 +37,8 @@ type (
 		utils.StartStopOnce
 		logger         logger.Logger
 		ethClient      evmclient.Client
-		chainID        string
+		chainID        *big.Int
+		chainIDStr     string
 		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
@@ -53,6 +54,7 @@ func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, log
 		utils.StartStopOnce{},
 		logger,
 		ethClient,
+		ethClient.ChainID(),
 		ethClient.ChainID().String(),
 		ethKeyStore,
 		make(map[gethCommon.Address]*assets.Eth),
@@ -147,7 +149,7 @@ func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from gethCom
 		return
 	}
 
-	promETHBalance.WithLabelValues(from.Hex(), bm.chainID).Set(balanceFloat)
+	promETHBalance.WithLabelValues(from.Hex(), bm.chainIDStr).Set(balanceFloat)
 }
 
 type worker struct {
@@ -164,7 +166,7 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	keys, err := w.bm.ethKeyStore.SendingKeys(nil)
+	keys, err := w.bm.ethKeyStore.EnabledKeysForChain(w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
@@ -188,7 +190,7 @@ func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
 	ctx, cancel := context.WithTimeout(ctx, ethFetchTimeout)
 	defer cancel()
 
-	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address.Address(), nil)
+	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address, nil)
 	if err != nil {
 		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
 			"error", err,
@@ -201,7 +203,7 @@ func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
 		)
 	} else {
 		ethBal := assets.Eth(*bal)
-		w.bm.updateBalance(ethBal, k.Address.Address())
+		w.bm.updateBalance(ethBal, k.Address)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -207,7 +208,7 @@ func TestFeeder(t *testing.T) {
 					return test.latest, nil
 				})
 
-			err := feeder.Run(context.Background())
+			err := feeder.Run(testutils.Context(t))
 			if test.expectedErrMsg == "" {
 				require.NoError(t, err)
 			} else {
@@ -237,20 +238,20 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		})
 
 	// Should store block 100
-	require.NoError(t, feeder.Run(context.Background()))
+	require.NoError(t, feeder.Run(testutils.Context(t)))
 	require.ElementsMatch(t, []uint64{100}, bhs.stored)
 
 	// Remove 100 from the BHS and try again, it should not be stored since it's cached in the
 	// feeder
 	bhs.stored = nil
-	require.NoError(t, feeder.Run(context.Background()))
+	require.NoError(t, feeder.Run(testutils.Context(t)))
 	require.Empty(t, bhs.stored)
 
 	// Run the feeder on a later block and make sure the cache is pruned
 	feeder.latestBlock = func(ctx context.Context) (uint64, error) {
 		return 500, nil
 	}
-	require.NoError(t, feeder.Run(context.Background()))
+	require.NoError(t, feeder.Run(testutils.Context(t)))
 	require.Empty(t, feeder.stored)
 }
 

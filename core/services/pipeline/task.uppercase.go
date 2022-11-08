@@ -5,14 +5,14 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     string
 //
+//	string
 type UppercaseTask struct {
 	BaseTask `mapstructure:",squash"`
 	Input    string `json:"input"`
@@ -33,7 +33,7 @@ func (t *UppercaseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	var input StringParam
 
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo

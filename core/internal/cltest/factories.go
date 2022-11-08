@@ -2,7 +2,6 @@ package cltest
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -30,8 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -92,7 +92,7 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // MustCreateBridge creates a bridge
 // Be careful not to specify a name here unless you ABSOLUTELY need to
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
-func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.LogConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.QConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	err := orm.CreateBridgeType(bt)
@@ -137,7 +137,7 @@ func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.EthTx {
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
-		GasLimit:       uint64(1000000000),
+		GasLimit:       uint32(1000000000),
 		State:          txmgr.EthTxUnstarted,
 	}
 }
@@ -181,7 +181,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm txm
 	return etx
 }
 
-func MustInsertUnconfrimedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgr.EthTxAttemptState, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgr.EthTxAttemptState, opts ...interface{}) txmgr.EthTx {
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -317,7 +317,7 @@ func MustInsertUnstartedEthTx(t *testing.T, borm txmgr.ORM, fromAddress common.A
 }
 
 func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
-	gasPrice := utils.NewBig(big.NewInt(1))
+	gasPrice := assets.NewWeiI(1)
 	return txmgr.EthTxAttempt{
 		ChainSpecificGasLimit: 42,
 		EthTxID:               etxID,
@@ -331,8 +331,8 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 }
 
 func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
-	gasTipCap := utils.NewBig(big.NewInt(1))
-	gasFeeCap := utils.NewBig(big.NewInt(1))
+	gasTipCap := assets.NewWeiI(1)
+	gasFeeCap := assets.NewWeiI(1)
 	return txmgr.EthTxAttempt{
 		TxType:    0x2,
 		EthTxID:   etxID,
@@ -348,7 +348,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 }
 
 func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.EthReceipt {
-	transactionIndex := uint(NewRandomInt64())
+	transactionIndex := uint(NewRandomPositiveInt64())
 
 	receipt := evmtypes.Receipt{
 		BlockNumber:      big.NewInt(blockNumber),
@@ -401,17 +401,19 @@ func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.
 	k := MustGenerateRandomKey(t)
 	MustAddKeyToKeystore(t, k, &FixtureChainID, ethKeyStore)
 
-	return k, k.Address.Address()
+	return k, k.Address
 }
 
 func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethKeyStore keystore.Eth) {
 	t.Helper()
-	err := ethKeyStore.Add(key, chainID)
+	ethKeyStore.XXXTestingOnlyAdd(key)
+	err := ethKeyStore.Enable(key.Address, chainID)
 	require.NoError(t, err)
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
 // secure) key for testing
+// By default it is enabled for the fixture chain
 func MustInsertRandomKey(
 	t testing.TB,
 	keystore keystore.Eth,
@@ -419,37 +421,41 @@ func MustInsertRandomKey(
 ) (ethkey.KeyV2, common.Address) {
 	t.Helper()
 
-	chainID := *utils.NewBig(&FixtureChainID)
+	chainIDs := []utils.Big{*utils.NewBig(&FixtureChainID)}
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case utils.Big:
-			chainID = v
+			chainIDs[0] = v
+		case []utils.Big:
+			chainIDs = v
 		}
 	}
 
 	key := MustGenerateRandomKey(t)
-	require.NoError(t, keystore.Add(key, chainID.ToInt()))
-	state, err := keystore.GetState(key.ID())
-	require.NoError(t, err)
+	keystore.XXXTestingOnlyAdd(key)
 
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case int:
-			state.NextNonce = int64(v)
-		case int64:
-			state.NextNonce = v
-		case bool:
-			state.IsFunding = v
-		case utils.Big:
-			state.EVMChainID = v
-		default:
-			t.Fatalf("unrecognised option type: %T", v)
+	for _, cid := range chainIDs {
+		var nonce int64
+		enabled := true
+		for _, opt := range opts {
+			switch v := opt.(type) {
+			case int:
+				nonce = int64(v)
+			case int64:
+				nonce = v
+			case bool:
+				enabled = v
+			}
+		}
+		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
+		err := keystore.Reset(key.Address, cid.ToInt(), nonce)
+		require.NoError(t, err)
+		if !enabled {
+			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
 		}
 	}
-	err = keystore.SetState(state)
-	require.NoError(t, err)
 
-	return key, key.Address.Address()
+	return key, key.Address
 }
 
 func MustInsertRandomKeyReturningState(t testing.TB,
@@ -471,11 +477,11 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) evmtypes.Head {
+func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
-	err := horm.IdempotentInsertHead(context.Background(), &h)
+	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
 	return h
 }
@@ -501,7 +507,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:  pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), NewTestGeneralConfig(t))
+	jorm := job.NewORM(db, nil, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -540,8 +546,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
-	dds := keeper.ExpectedObservationSource
-	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
+	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
 
 	jb := job.Job{
@@ -553,10 +558,12 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 		PipelineSpec:   &pipelineSpec,
 		PipelineSpecID: pipelineSpec.ID,
 	}
-	cfg := NewTestGeneralConfig(t)
+
+	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg)
-	jrm := job.NewORM(db, nil, prm, nil, tlg, cfg)
+	btORM := bridges.NewORM(db, tlg, cfg)
+	jrm := job.NewORM(db, nil, prm, btORM, nil, tlg, cfg)
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -564,7 +571,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 
 func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
-	from := key.Address
+	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
 	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
@@ -591,7 +598,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, r
 	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
-		ExecuteGas: uint64(150_000),
+		ExecuteGas: uint32(150_000),
 		Registry:   registry,
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),

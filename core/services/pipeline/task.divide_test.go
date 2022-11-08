@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -83,47 +83,46 @@ func TestDivideTask_Happy(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
-
+		assertOK := func(result pipeline.Result, runInfo pipeline.RunInfo) {
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.expected.String(), result.Value.(decimal.Decimal).String())
+		}
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			vars := pipeline.NewVarsFrom(nil)
-			task := pipeline.DivideTask{
-				BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Divisor:   test.divisor,
-				Precision: test.precision,
-			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			require.NoError(t, result.Error)
-			require.Equal(t, test.expected.String(), result.Value.(decimal.Decimal).String())
-		})
-	}
-
-	for _, test := range tests {
-		test := test
-
-		t.Run(test.name+" (with pipeline.Vars)", func(t *testing.T) {
-			t.Parallel()
-
-			vars := pipeline.NewVarsFrom(map[string]interface{}{
-				"foo":    map[string]interface{}{"bar": test.input},
-				"chain":  map[string]interface{}{"link": test.divisor},
-				"sergey": map[string]interface{}{"steve": test.precision},
+			t.Run("without vars through job DAG", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.DivideTask{
+					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Divisor:   test.divisor,
+					Precision: test.precision,
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
-			task := pipeline.DivideTask{
-				BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Input:     "$(foo.bar)",
-				Divisor:   "$(chain.link)",
-				Precision: "$(sergey.steve)",
-			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{})
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			require.NoError(t, result.Error)
-			require.Equal(t, test.expected.String(), result.Value.(decimal.Decimal).String())
+			t.Run("without vars through input param", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.DivideTask{
+					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:     fmt.Sprintf("%v", test.input),
+					Divisor:   test.divisor,
+					Precision: test.precision,
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+			})
+			t.Run("with vars", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(map[string]interface{}{
+					"foo":    map[string]interface{}{"bar": test.input},
+					"chain":  map[string]interface{}{"link": test.divisor},
+					"sergey": map[string]interface{}{"steve": test.precision},
+				})
+				task := pipeline.DivideTask{
+					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:     "$(foo.bar)",
+					Divisor:   "$(chain.link)",
+					Precision: "$(sergey.steve)",
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+			})
 		})
 	}
 }
@@ -153,14 +152,12 @@ func TestDivideTask_Unhappy(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			task := pipeline.DivideTask{
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    test.input,
 				Divisor:  test.divisor,
 			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))
@@ -191,7 +188,7 @@ func TestDivideTask_Overflow(t *testing.T) {
 		"b": d2,
 	})
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.Equal(t, pipeline.ErrDivisionOverlow, errors.Cause(result.Error))

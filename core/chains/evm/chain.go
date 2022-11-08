@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"sync"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -19,14 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	cfgv2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Chain --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	services.ServiceCtx
 	ID() *big.Int
@@ -46,8 +46,10 @@ var _ Chain = &chain{}
 
 type chain struct {
 	utils.StartStopOnce
-	id              *big.Int
-	cfg             evmconfig.ChainScopedConfig
+	id  *big.Int
+	cfg evmconfig.ChainScopedConfig
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config - immutability becomes default
+	cfgImmutable    bool // toml config is immutable
 	client          evmclient.Client
 	txm             txmgr.TxManager
 	logger          logger.Logger
@@ -59,27 +61,61 @@ type chain struct {
 	keyStore        keystore.Eth
 }
 
-func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
+type errChainDisabled struct {
+	ChainID *utils.Big
+}
+
+func (e errChainDisabled) Error() string {
+	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
+}
+
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+func newDBChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !dbchain.Enabled {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID.String())
+		return nil, errChainDisabled{ChainID: &dbchain.ID}
 	}
 	cfg := evmconfig.NewChainScopedConfig(chainID, *dbchain.Cfg, opts.ORM, l, opts.Config)
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
+	v2ns := make([]*v2.Node, len(nodes))
+	for i, n := range nodes {
+		n2 := new(v2.Node)
+		if err := n2.SetFromDB(n); err != nil {
+			return nil, errors.Wrapf(err, "failed to convert node")
+		}
+		v2ns[i] = n2
+	}
+	return newChain(ctx, cfg, v2ns, opts)
+}
+
+func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (*chain, error) {
+	chainID := chain.ChainID
+	l := opts.Logger.With("evmChainID", chainID.String())
+	if !chain.IsEnabled() {
+		return nil, errChainDisabled{ChainID: chainID}
+	}
+	cfg := v2.NewTOMLChainScopedConfig(opts.Config, chain, l)
+	// note: per-chain validation is not ncessary at this point since everything is checked earlier on boot.
+	return newChain(ctx, cfg, chain.Nodes, opts)
+}
+
+func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.Node, opts ChainSetOpts) (*chain, error) {
+	chainID := cfg.ChainID()
+	l := opts.Logger.With("evmChainID", chainID.String())
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(cfg, l, dbchain, nodes)
+		client, err2 = newEthClientFromChain(cfg, l, cfg.ChainID(), nodes)
 		if err2 != nil {
-			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", dbchain.ID.String())
+			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", cfg.ChainID().String())
 		}
 	} else {
-		client = opts.GenEthClient(dbchain)
+		client = opts.GenEthClient(chainID)
 	}
 
 	db := opts.DB
@@ -93,12 +129,12 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
 		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver)
 	} else {
-		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
+		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
 
-	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
 	if opts.GenLogPoller != nil {
-		logPoller = opts.GenLogPoller(dbchain)
+		logPoller = opts.GenLogPoller(chainID)
 	}
 
 	var txm txmgr.TxManager
@@ -108,13 +144,13 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 		checker := &txmgr.CheckerFactory{Client: client}
 		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker, logPoller)
 	} else {
-		txm = opts.GenTxManager(dbchain)
+		txm = opts.GenTxManager(chainID)
 	}
 
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headSaver.LatestHeadFromDB(context.Background())
+	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +168,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 		logORM := log.NewORM(db, l, cfg, *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead)
 	} else {
-		logBroadcaster = opts.GenLogBroadcaster(dbchain)
+		logBroadcaster = opts.GenLogBroadcaster(chainID)
 	}
 
 	// AddDependent for this chain
@@ -158,7 +194,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 }
 
 func (c *chain) Start(ctx context.Context) error {
-	return c.StartOnce("Chain", func() (merr error) {
+	return c.StartOnce("Chain", func() error {
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
@@ -167,52 +203,18 @@ func (c *chain) Start(ctx context.Context) error {
 		}
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
-		merr = multierr.Combine(
-			c.txm.Start(ctx),
-			c.headBroadcaster.Start(ctx),
-			c.headTracker.Start(ctx),
-			c.logBroadcaster.Start(ctx),
-		)
+		var ms services.MultiStart
+		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
+			return err
+		}
 		if c.balanceMonitor != nil {
-			merr = multierr.Combine(merr, c.balanceMonitor.Start(ctx))
+			if err := ms.Start(ctx, c.balanceMonitor); err != nil {
+				return err
+			}
 		}
 
-		if merr != nil {
-			return merr
-		}
-
-		if !c.cfg.Dev() {
-			return nil
-		}
-		return c.checkKeys(ctx)
+		return nil
 	})
-}
-
-func (c *chain) checkKeys(ctx context.Context) error {
-	fundingKeys, err := c.keyStore.FundingKeys()
-	if err != nil {
-		return errors.New("failed to get funding keys")
-	}
-	var wg sync.WaitGroup
-	for _, key := range fundingKeys {
-		wg.Add(1)
-		go func(k ethkey.KeyV2) {
-			defer wg.Done()
-			balance, ethErr := c.client.BalanceAt(ctx, k.Address.Address(), nil)
-			if ethErr != nil {
-				c.logger.Errorw("Chain: failed to fetch balance for funding key", "address", k.Address, "err", ethErr)
-				return
-			}
-			if balance.Cmp(big.NewInt(0)) == 0 {
-				c.logger.Infow("The backup funding address does not have sufficient funds", "address", k.Address.Hex(), "balance", balance)
-			} else {
-				c.logger.Infow("Funding address ready", "address", k.Address.Hex(), "current-balance", balance)
-			}
-		}(key)
-	}
-	wg.Wait()
-
-	return nil
 }
 
 func (c *chain) Close() error {
@@ -266,10 +268,16 @@ func (c *chain) Healthy() (merr error) {
 	return
 }
 
-func (c *chain) ID() *big.Int                             { return c.id }
-func (c *chain) Client() evmclient.Client                 { return c.client }
-func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
-func (c *chain) UpdateConfig(cfg *types.ChainCfg)         { c.cfg.Configure(*cfg) }
+func (c *chain) ID() *big.Int                        { return c.id }
+func (c *chain) Client() evmclient.Client            { return c.client }
+func (c *chain) Config() evmconfig.ChainScopedConfig { return c.cfg }
+func (c *chain) UpdateConfig(cfg *types.ChainCfg) {
+	if c.cfgImmutable {
+		c.logger.Criticalw("TOML configuration cannot be updated", "err", cfgv2.ErrUnsupported)
+		return
+	}
+	c.cfg.Configure(*cfg)
+}
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
@@ -278,62 +286,28 @@ func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 
-func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.DBChain, nodes []types.Node) (evmclient.Client, error) {
-	chainID := big.Int(chain.ID)
+func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID *big.Int, nodes []*v2.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode
-	for _, node := range nodes {
-		if node.SendOnly {
-			sendonly, err := newSendOnly(lggr, node)
-			if err != nil {
-				return nil, err
-			}
+	for i, node := range nodes {
+		if node.SendOnly != nil && *node.SendOnly {
+			sendonly := evmclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			primary, err := newPrimary(cfg, lggr, node)
+			primary, err := newPrimary(cfg, lggr, node, int32(i), chainID)
 			if err != nil {
 				return nil, err
 			}
 			primaries = append(primaries, primary)
 		}
 	}
-	return evmclient.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
+	return evmclient.NewClientWithNodes(lggr, cfg, primaries, sendonlys, chainID)
 }
 
-func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n types.Node) (evmclient.Node, error) {
-	if n.SendOnly {
+func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
+	if n.SendOnly != nil && *n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
-	if !n.WSURL.Valid {
-		return nil, errors.New("primary node was missing WS url")
-	}
-	wsuri, err := url.Parse(n.WSURL.String)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid websocket uri")
-	}
-	var httpuri *url.URL
-	if n.HTTPURL.Valid {
-		u, err := url.Parse(n.HTTPURL.String)
-		if err != nil {
-			return nil, errors.Wrap(err, "invalid http uri")
-		}
-		httpuri = u
-	}
 
-	return evmclient.NewNode(cfg, lggr, *wsuri, httpuri, n.Name, n.ID, (*big.Int)(&n.EVMChainID)), nil
-}
-
-func newSendOnly(lggr logger.Logger, n types.Node) (evmclient.SendOnlyNode, error) {
-	if !n.SendOnly {
-		return nil, errors.New("cannot cast non send-only node to send-only node")
-	}
-	if !n.HTTPURL.Valid {
-		return nil, errors.New("send only node was missing HTTP url")
-	}
-	httpuri, err := url.Parse(n.HTTPURL.String)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid http uri")
-	}
-
-	return evmclient.NewSendOnlyNode(lggr, *httpuri, n.Name, (*big.Int)(&n.EVMChainID)), nil
+	return evmclient.NewNode(cfg, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID), nil
 }

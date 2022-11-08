@@ -18,7 +18,8 @@ import (
 // final representation will be consistent with the string produced by this
 // function due to differences in JSON implementations and information loss.
 // e.g:
-// 	JSON does not have a requirement to respect object key ordering.
+//
+//	JSON does not have a requirement to respect object key ordering.
 func NormalizedJSON(val []byte) (string, error) {
 	// Unmarshal into a generic interface{}
 	var data interface{}

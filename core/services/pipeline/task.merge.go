@@ -36,8 +36,8 @@ func (t *MergeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 		rMap MapParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&lMap, From(VarExpr(t.Left, vars), NonemptyString(t.Left), Input(inputs, 0))), "left-side"),
-		errors.Wrap(ResolveParam(&rMap, From(VarExpr(t.Right, vars), NonemptyString(t.Right))), "right-side"),
+		errors.Wrap(ResolveParam(&lMap, From(VarExpr(t.Left, vars), JSONWithVarExprs(t.Left, vars, false), Input(inputs, 0))), "left-side"),
+		errors.Wrap(ResolveParam(&rMap, From(VarExpr(t.Right, vars), JSONWithVarExprs(t.Right, vars, false))), "right-side"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo

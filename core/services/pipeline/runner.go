@@ -14,6 +14,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
@@ -23,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Runner --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
 	services.ServiceCtx
@@ -51,6 +52,7 @@ type Runner interface {
 
 type runner struct {
 	orm                    ORM
+	btORM                  bridges.ORM
 	config                 Config
 	chainSet               evm.ChainSet
 	ethKeyStore            ETHKeyStore
@@ -98,9 +100,10 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
+		btORM:                  btORM,
 		config:                 config,
 		chainSet:               chainSet,
 		ethKeyStore:            ethks,
@@ -121,9 +124,12 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 // Start starts Runner.
 func (r *runner) Start(context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
-		r.wgDone.Add(2)
+		r.wgDone.Add(1)
 		go r.scheduleUnfinishedRuns()
-		go r.runReaperLoop()
+		if r.config.JobPipelineReaperInterval() != time.Duration(0) {
+			r.wgDone.Add(1)
+			go r.runReaperLoop()
+		}
 		return nil
 	})
 }
@@ -236,7 +242,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).queryer = r.orm.GetQ()
+			task.(*BridgeTask).orm = r.btORM
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
@@ -244,15 +250,22 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).config = r.config
+			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
+			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).chainSet = r.chainSet
+			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
+			task.(*EstimateGasLimitTask).jobType = run.PipelineSpec.JobType
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).chainSet = r.chainSet
+			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
+			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
+			task.(*ETHTxTask).forwardingAllowed = run.PipelineSpec.ForwardingAllowed
 		default:
 		}
 	}
@@ -260,7 +273,11 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 	// retain old UUID values
 	for _, taskRun := range run.PipelineTaskRuns {
 		task := pipeline.ByDotID(taskRun.DotID)
-		task.Base().uuid = taskRun.ID
+		if task != nil && task.Base() != nil {
+			task.Base().uuid = taskRun.ID
+		} else {
+			return nil, errors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
+		}
 	}
 
 	return pipeline, nil
@@ -554,11 +571,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 }
 
 func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
-	result := Result{
+	run, start, err := r.orm.UpdateTaskRunResult(taskID, Result{
 		Value: value,
 		Error: err,
-	}
-	run, start, err := r.orm.UpdateTaskRunResult(taskID, result)
+	})
 	if err != nil {
 		return err
 	}
@@ -586,12 +602,15 @@ func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qo
 }
 
 func (r *runner) runReaper() {
-	ctx, cancel := utils.ContextFromChan(r.chStop)
+	r.lggr.Debugw("Pipeline run reaper starting")
+	ctx, cancel := utils.ContextFromChanWithDeadline(r.chStop, r.config.JobPipelineReaperInterval())
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
 	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
+	} else {
+		r.lggr.Debugw("Pipeline run reaper completed successfully")
 	}
 }
 
@@ -603,14 +622,21 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
 	now := time.Now()
 
-	// immediately run reaper so we don't consider runs that are too old
-	r.runReaper()
+	if r.config.JobPipelineReaperInterval() > time.Duration(0) {
+		// immediately run reaper so we don't consider runs that are too old
+		r.runReaper()
+	}
 
 	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
+	var wgRunsDone sync.WaitGroup
 	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {
+		wgRunsDone.Add(1)
+
 		go func() {
+			defer wgRunsDone.Done()
+
 			_, err := r.Run(ctx, &run, r.lggr, false, nil)
 			if ctx.Err() != nil {
 				return
@@ -618,8 +644,12 @@ func (r *runner) scheduleUnfinishedRuns() {
 				r.lggr.Errorw("Pipeline run init job resumption failed", "error", err)
 			}
 		}()
+
 		return nil
 	})
+
+	wgRunsDone.Wait()
+
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
