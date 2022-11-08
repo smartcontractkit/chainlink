@@ -464,8 +464,8 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ```toml
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
-BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
 BridgeCacheTTL = '0s' # Default
+BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
 HTTPWriteTimeout = '10s' # Default
 HTTPPort = 6688 # Default
 SecureCookies = true # Default
@@ -484,6 +484,12 @@ You should set this to the external URL that you use to access the Chainlink UI.
 
 You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
 
+### BridgeCacheTTL<a id='WebServer-BridgeCacheTTL'></a>
+```toml
+BridgeCacheTTL = '0s' # Default
+```
+BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
+
 ### BridgeResponseURL<a id='WebServer-BridgeResponseURL'></a>
 ```toml
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
@@ -492,14 +498,8 @@ BridgeResponseURL defines the URL for bridges to send a response to. This _must_
 
 Usually this will be the same as the URL/IP and port you use to connect to the Chainlink UI.
 
-### BridgeCacheTTL<a id='WebServer-BridgeCacheTTL'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-BridgeCacheTTL = '0s' # Default
-```
-BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure.
-
 ### HTTPWriteTimeout<a id='WebServer-HTTPWriteTimeout'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 HTTPWriteTimeout = '10s' # Default
 ```

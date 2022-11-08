@@ -25,7 +25,7 @@ type BridgeTask struct {
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
-	CacheTTL          string `json:"CacheTTL"`
+	CacheTTL          string `json:"cacheTTL"`
 
 	specId     int32
 	orm        bridges.ORM
@@ -120,18 +120,19 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 
-		lggr.Debugw("Bridge task: request failed, falling back to cache",
-			"url", url.String(),
-		)
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetLastGoodResponse(t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
+		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
 		if cacheErr != nil {
-			lggr.Debugw("Bridge task: cache fallback failed",
+			lggr.Errorw("Bridge task: cache fallback failed",
 				"err", cacheErr.Error(),
 				"url", url.String(),
 			)
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
+		lggr.Debugw("Bridge task: request failed, falling back to cache",
+			"response", string(responseBytes),
+			"url", url.String(),
+		)
 		cachedResponse = true
 	}
 

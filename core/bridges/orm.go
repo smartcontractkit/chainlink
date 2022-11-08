@@ -24,7 +24,7 @@ type ORM interface {
 	CreateBridgeType(bt *BridgeType) error
 	UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error
 
-	GetLastGoodResponse(dotId string, specId int32, maxElapsed time.Duration) ([]byte, error)
+	GetCachedResponse(dotId string, specId int32, maxElapsed time.Duration) ([]byte, error)
 	UpsertBridgeResponse(dotId string, specId int32, response []byte) error
 
 	ExternalInitiators(offset int, limit int) ([]ExternalInitiator, int, error)
@@ -170,7 +170,7 @@ func (o *orm) UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error {
 	return err
 }
 
-func (o *orm) GetLastGoodResponse(dotId string, specId int32, maxElapsed time.Duration) (response []byte, err error) {
+func (o *orm) GetCachedResponse(dotId string, specId int32, maxElapsed time.Duration) (response []byte, err error) {
 	stalenessThreshold := time.Now().Add(-maxElapsed)
 	sql := `SELECT value FROM bridge_last_value WHERE
 				dot_id = $1 AND 

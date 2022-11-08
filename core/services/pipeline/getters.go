@@ -53,7 +53,7 @@ func ValidDurationInSeconds(s string) GetterFunc {
 		if err != nil {
 			return nil, err
 		}
-		return dr.Seconds(), nil
+		return int(dr.Seconds()), nil
 	}
 }
 

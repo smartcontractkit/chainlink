@@ -4,7 +4,7 @@ CREATE TABLE bridge_last_value (
     spec_id int NOT NULL REFERENCES public.pipeline_specs(id) ON DELETE CASCADE DEFERRABLE,
     dot_id text NOT NULL,
     value bytea NOT NULL,
-    finished_at timestamptz NOT NULL,
+    finished_at timestamp NOT NULL,
     CONSTRAINT bridge_last_value_pkey PRIMARY KEY (spec_id, dot_id)
 );
 

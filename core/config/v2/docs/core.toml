@@ -161,7 +161,7 @@ MaxBackups = 1 # Default
 #
 # You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
-# BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure.
+# BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
 BridgeCacheTTL = '0s' # Default
 # BridgeResponseURL defines the URL for bridges to send a response to. This _must_ be set when using async external adapters.
 #

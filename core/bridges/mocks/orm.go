@@ -220,8 +220,8 @@ func (_m *ORM) FindExternalInitiatorByName(iname string) (bridges.ExternalInitia
 	return r0, r1
 }
 
-// GetLastGoodResponse provides a mock function with given fields: dotId, specId, maxElapsed
-func (_m *ORM) GetLastGoodResponse(dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
+// GetCachedResponse provides a mock function with given fields: dotId, specId, maxElapsed
+func (_m *ORM) GetCachedResponse(dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
 	ret := _m.Called(dotId, specId, maxElapsed)
 
 	var r0 []byte
