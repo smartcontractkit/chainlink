@@ -8,8 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// TODO: test this
-
 // Look up a field on a map
 //
 // Return types:
