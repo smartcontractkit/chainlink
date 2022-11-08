@@ -1,0 +1,13 @@
+[profile.default]
+auto_detect_solc = true
+optimizer_runs = 1000000
+
+src = 'contracts/src/v0.8'
+test = 'contracts/test/v0.8/foundry'
+out = 'contracts/foundry-artifacts'
+libs = ['contracts/node_modules', 'contracts/foundry-lib']
+cache_path  = 'contracts/foundry-cache'
+
+gas_price = 1
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config
