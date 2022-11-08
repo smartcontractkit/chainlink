@@ -7,7 +7,10 @@ test = 'contracts/test/v0.8/foundry'
 out = 'contracts/foundry-artifacts'
 libs = ['contracts/node_modules', 'contracts/foundry-lib']
 cache_path  = 'contracts/foundry-cache'
+ffi = false
 
+# default is zero, using a non-zero amount enables us to test e.g. billing based on
+# gas prices.
 gas_price = 1
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

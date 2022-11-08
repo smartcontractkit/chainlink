@@ -1,1 +1,1 @@
-foundry:testFoundry() (gas: 120)
+VRF:testV3AggregatorSuccess() (gas: 7545)
