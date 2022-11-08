@@ -44,6 +44,7 @@ endif
 	asdf plugin-add ginkgo || true
 	asdf plugin-add k3d || true
 	asdf plugin-add helm || true
+	asdf plugin-add kubectl || true
 	asdf install
 endif
 # Now install the helm charts that are needed (should be os agnostic)
