@@ -2,8 +2,6 @@ package chainlink
 
 import (
 	"encoding/base64"
-	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -24,46 +22,11 @@ type SecretGenerator interface {
 type FilePersistedSecretGenerator struct{}
 
 func (f FilePersistedSecretGenerator) Generate(rootDir string) ([]byte, error) {
-	err := os.Mkdir("./clroot", os.ModePerm)
+	err := os.MkdirAll(rootDir, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("FILE STRUCTURE")
-	fmt.Println("/")
-	files, err := ioutil.ReadDir("/")
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		fmt.Printf("File: /%s Dir: %t\n", file.Name(), file.IsDir())
-	}
-
-	fmt.Println("/home")
-	files, err = ioutil.ReadDir("/")
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		fmt.Printf("File: /home/%s Dir: %t\n", file.Name(), file.IsDir())
-	}
-
-	fmt.Println("/home/root")
-	files, err = ioutil.ReadDir("/")
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		fmt.Printf("File: /home/root/%s Dir: %t\n", file.Name(), file.IsDir())
-	}
-
-	fmt.Println("STARTING GENERATION")
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("CWD '%s'\n", wd)
 	sessionPath := filepath.Join(rootDir, "secret")
-	fmt.Printf("GENERATION PATH '%s' Root '%s'\n", sessionPath, rootDir)
 	if exists, err := utils.FileExists(sessionPath); err != nil {
 		return nil, err
 	} else if exists {
@@ -73,7 +36,6 @@ func (f FilePersistedSecretGenerator) Generate(rootDir string) ([]byte, error) {
 		}
 		return base64.StdEncoding.DecodeString(string(data))
 	}
-	fmt.Printf("File Doesn't Exist, Writing One '%s'\n", filepath.Join(wd, sessionPath))
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
 	err = utils.WriteFileWithMaxPerms(sessionPath, []byte(str), readWritePerms)

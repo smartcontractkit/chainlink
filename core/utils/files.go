@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -71,13 +70,11 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) (err err
 	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
-		fmt.Printf("Error opening file '%s'\n", filepath.Join(wd, path))
 		return err
 	}
 	defer func() { err = multierr.Combine(err, f.Close()) }()
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
-		fmt.Printf("Error ensuring file perms '%s'\n", path)
 		return
 	}
 	_, err = f.Write(data)
