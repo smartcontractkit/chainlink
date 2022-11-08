@@ -574,6 +574,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.WebServer = config.WebServer{
 		AllowOrigins:            envvar.NewString("AllowOrigins").ParsePtr(),
 		BridgeResponseURL:       envURL("BridgeResponseURL"),
+		BridgeCacheTTL:          envDuration("BridgeCacheTTL"),
 		HTTPWriteTimeout:        envDuration("HTTPServerWriteTimeout"),
 		HTTPPort:                envvar.NewUint16("Port").ParsePtr(),
 		SecureCookies:           envvar.NewBool("SecureCookies").ParsePtr(),
