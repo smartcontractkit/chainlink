@@ -1652,13 +1652,13 @@ github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220930034647-edd5a863b87
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb h1:oRKhJVdoXTVQqBVSPkvfC/hxYoxsL3hldTavEuZrWOk=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb/go.mod h1:FR8+xi6pmUuK6/PaH64B+OT5n/QOz7ox9pp9z05Dc2g=
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886 h1:VVB/jdEBD9O01uOPvONEWeUVJr2/crLjVVCfTl1fOLM=
-github.com/smartcontractkit/chainlink-testing-framework v1.7.7 h1:gSj4cqd3jWoWAWQUB5rLoq4+jQ7AinZo1WixtxTMYio=
-github.com/smartcontractkit/chainlink-testing-framework v1.7.7/go.mod h1:zaCknJvXOXhYfUFnmndpoOia2+TLqRE5vfeSwawn91M=
+github.com/smartcontractkit/chainlink-testing-framework v1.7.9 h1:ftDd7RJMj6LJocpdNZUK7N/U2e9P0r/tKUyQQKdqT90=
+github.com/smartcontractkit/chainlink-testing-framework v1.7.9/go.mod h1:fV2CQJ/AWNItqkfpLxS4mWAcmRb8McbIJirAInhYlbM=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCKJwt0AY15bAaorscflOcBs/FnmO7NoCh8Tons=
 github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.4.8 h1:pvCDWIsYaSJI/M6qw0xIIXpHs5MPQaYEpmWsJiyi6LM=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221101142607-77f2fe1d1723 h1:gCLsqDIQ0/QhW+vBZygDLKoTX6MzCRsPiYOPmaVginE=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221101142607-77f2fe1d1723/go.mod h1:60/WayFm5nOAPIHtSThJ0DAd4sMKtytPQsjHAwYxGfU=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20221103213748-db2f67990850 h1:cZX0weC3QmHlS+stmLaliNgd4GfemmEl3tziZSYXKk8=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20221103213748-db2f67990850/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
 github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 h1:k+E0RKzVSG1QpxXakNUtcGUhq4ZMe0MAJ5Awg/l9oSc=
