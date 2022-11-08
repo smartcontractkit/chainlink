@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
 // fixedBlockhashProvider returns blockhashes with fixed-sized windows relative to current block height
@@ -25,7 +26,7 @@ func NewFixedBlockhashProvider(logPoller logpoller.LogPoller, lggr logger.Logger
 	return &fixedBlockhashProvider{
 		lp:             logPoller,
 		logger:         lggr,
-		lookbackBlocks: lookbackBlocks,
+		lookbackBlocks: mathutil.Min(uint64(256), lookbackBlocks),
 	}
 }
 
