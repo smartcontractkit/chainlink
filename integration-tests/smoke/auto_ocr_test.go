@@ -57,14 +57,15 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 		testEnvironment      *environment.Environment
 
 		testScenarios = []TableEntry{
+			// working
 			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
+			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			// testing
+			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Removing one keeper test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			// BCPT change but OCR doesn't use it
 			Entry("v2.0 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 
 			//Entry("v2.0 Perform simulation test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			//Entry("v2.0 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
@@ -316,7 +317,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						Int64("Upkeep ID", int64(i)).
 						Msg("Number of upkeeps performed")
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 
 			newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, chainClient, linkToken,
 				registry, registrar, defaultUpkeepGasLimit, 1)
@@ -348,7 +349,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		if testToRun == AddFundsToUpkeepTest {
@@ -395,26 +396,20 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						" for upkeep with ID "+strconv.Itoa(upkeepID))
 					g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 
-			keepers, err := registry.GetKeeperList(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of Keepers")
 
 			// Remove the first keeper from the list
-			newKeeperList := keepers[1:]
+			removedNode := nodesWithoutBootstrap[1:]
 
-			// Construct the addresses of the payees required by the SetKeepers function
-			payees := make([]string, len(keepers)-1)
-			for i := 0; i < len(payees); i++ {
-				payees[i], err = chainlinkNodes[0].PrimaryEthAddress()
-				Expect(err).ShouldNot(HaveOccurred(), "Encountered error when building the payee list")
-			}
-
-			err = registry.SetKeepers(newKeeperList, payees, contracts.OCRConfig{})
+			ocrConfig = actions.BuildAutoOCR2ConfigVars(removedNode, registryConfig, registrar.Address())
+			err = registry.SetKeepers([]string{}, []string{}, ocrConfig)
 			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new list of Keepers")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
-			log.Info().Msg("Successfully removed keeper at address " + keepers[0] + " from the list of Keepers")
+
+			log.Info().Msg("Successfully removed keeper from OCR Config")
 
 			// The upkeeps should still perform and their counters should have increased compared to the first check
 			Eventually(func(g Gomega) {
@@ -425,7 +420,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 					g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
 						"than initial counter which was %s, but got %s", initialCounters[i], counter)
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		if testToRun == PauseRegistryTest {
@@ -439,7 +434,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d")
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 
 			// Pause the registry
 			err := registry.Pause()
@@ -541,7 +536,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 
 			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
 			firstHalfToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
