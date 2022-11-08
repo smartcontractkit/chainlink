@@ -102,6 +102,7 @@ type ConfigSchema struct {
 	AuthenticatedRateLimit         int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod   time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
 	BridgeResponseURL              url.URL         `env:"BRIDGE_RESPONSE_URL"`
+	BridgeCacheTTL                 time.Duration   `env:"BRIDGE_CACHE_TTL" default:"0s"`
 	HTTPServerWriteTimeout         time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
 	Port                           uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	SecureCookies                  bool            `env:"SECURE_COOKIES" default:"true"`
