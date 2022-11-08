@@ -5,7 +5,7 @@ pragma solidity ^0.8.4;
 import "../ConfirmedOwner.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../vendor/openzeppelin-solidity/v4.7.0/contracts/security/Pausable.sol";
-import "../vendor/openzeppelin-solidity/v4.6.0/contracts/token/ERC20/IERC20.sol";
+import "../vendor/openzeppelin-solidity/v4.7.0/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title The ERC20BalanceMonitor contract.
@@ -150,7 +150,7 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
         uint256 topUpAmount = target.topUpLevel - targetTokenBalance;
         s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
         contractBalance -= topUpAmount;
-        s_erc20Token.transfer(needsFunding[idx], topUpAmount);
+        SafeERC20.safeTransfer(s_erc20Token, needsFunding[idx], topUpAmount);
         emit TopUpSucceeded(needsFunding[idx]);
       }
       if (gasleft() < MIN_GAS_FOR_TRANSFER) {
@@ -192,8 +192,8 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
    */
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
     require(payee != address(0));
+    SafeERC20.safeTransfer(s_erc20Token, payee, amount);
     emit FundsWithdrawn(amount, payee);
-    s_erc20Token.transfer(payee, amount);
   }
 
   /**
