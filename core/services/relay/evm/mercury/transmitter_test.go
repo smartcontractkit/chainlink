@@ -62,6 +62,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				resp = new(http.Response)
 				resp.Body = io.NopCloser(bytes.NewBuffer([]byte{}))
 				resp.Status = "200 OK"
+				resp.StatusCode = 200
 				return resp, nil
 			},
 		}

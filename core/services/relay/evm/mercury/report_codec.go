@@ -35,9 +35,9 @@ func getReportTypes() abi.Arguments {
 	}
 	return abi.Arguments([]abi.Argument{
 		{Name: "feedId", Type: mustNewType("bytes32")},
-		{Name: "median", Type: mustNewType("int192")},
-		{Name: "observationsBlocknumber", Type: mustNewType("uint64")},
 		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
+		{Name: "observationsBlocknumber", Type: mustNewType("uint64")},
+		{Name: "median", Type: mustNewType("int192")},
 	})
 }
 
@@ -86,7 +86,7 @@ func (r ReportCodec) BuildReport(paos []median.ParsedAttributedObservation) (typ
 		return nil, fmt.Errorf("median is nil")
 	}
 
-	reportBytes, err := reportTypes.Pack(r.FeedID, median, uint64(blockNumber.Int64()), timestamp)
+	reportBytes, err := reportTypes.Pack(r.FeedID, timestamp, uint64(blockNumber.Int64()), median)
 	return types.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
