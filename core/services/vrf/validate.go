@@ -76,6 +76,12 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 			spec.BackoffMaxDelay.String(), spec.BackoffInitialDelay.String())
 	}
 
+	if spec.GasLanePriceGWei != nil {
+		if *spec.GasLanePriceGWei <= 0 {
+			return jb, fmt.Errorf("gasLanePriceGWei must be > 0, given: %d", *spec.GasLanePriceGWei)
+		}
+	}
+
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {
 		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 {
