@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -20,7 +19,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
@@ -162,6 +160,11 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
 		},
 	}
+
+	//bootstrapSpec := &client.AutoBootstrapOCR2JobSpec{
+	//	ContractID: registryAddr,
+	//	ChainID:    int(chainID),
+	//}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bootstrap job on bootstrap node")
 	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
@@ -179,21 +182,29 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 			}
 		}
 
-		autoOCR2JobSpec := client.OCR2TaskJobSpec{
-			Name:    "ocr2",
-			JobType: "offchainreporting2",
-			OCR2OracleSpec: job.OCR2OracleSpec{
-				PluginType: "ocr2automation",
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": int(chainID),
-				},
-				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
-				ContractID:                        registryAddr,                            // registryAddr
-				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
-				TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
-				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:8000
-			},
+		//autoOCR2JobSpec := client.OCR2TaskJobSpec{
+		//	Name:    "ocr2",
+		//	JobType: "offchainreporting2",
+		//	OCR2OracleSpec: job.OCR2OracleSpec{
+		//		PluginType: "ocr2automation",
+		//		Relay:      "evm",
+		//		RelayConfig: map[string]interface{}{
+		//			"chainID": int(chainID),
+		//		},
+		//		ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+		//		ContractID:                        registryAddr,                            // registryAddr
+		//		OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
+		//		TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
+		//		P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:8000
+		//	},
+		//}
+
+		autoOCR2JobSpec := client.AutoOCR2JobSpec{
+			ContractID:         registryAddr,           // registryAddr
+			OCRKeyBundleID:     nodeOCRKeyId,           // get node ocr2config.ID
+			TransmitterID:      nodeTransmitterAddress, // node addr
+			P2Pv2Bootstrappers: P2Pv2Bootstrapper,      // bootstrap node key and address <p2p-key>@bootstrap:8000
+			ChainID:            int(chainID),
 		}
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
@@ -223,6 +234,31 @@ func DeployAutoOCRRegistryAndRegistrar(
 
 func DeployConsumers(registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32) ([]contracts.KeeperConsumer, []*big.Int) {
 	upkeeps := DeployKeeperConsumers(contractDeployer, client, numberOfUpkeeps)
+	var upkeepsAddresses []string
+	for _, upkeep := range upkeeps {
+		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
+	}
+	upkeepIds := RegisterUpkeepContracts(linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses)
+	return upkeeps, upkeepIds
+}
+
+func DeployPerformanceConsumers(registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32,
+	blockRange, // How many blocks to run the test for
+	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
+	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
+) ([]contracts.KeeperConsumerPerformance, []*big.Int) {
+	upkeeps := DeployKeeperConsumersPerformance(contractDeployer, client, numberOfUpkeeps, blockRange, blockInterval, checkGasToBurn, performGasToBurn)
+	var upkeepsAddresses []string
+	for _, upkeep := range upkeeps {
+		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
+	}
+	upkeepIds := RegisterUpkeepContracts(linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses)
+	return upkeeps, upkeepIds
+}
+
+func DeployPerformDataCheckerConsumers(registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, expectedData []byte) ([]contracts.KeeperPerformDataChecker, []*big.Int) {
+	upkeeps := DeployPerformDataChecker(contractDeployer, client, numberOfUpkeeps, expectedData)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())

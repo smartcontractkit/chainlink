@@ -772,6 +772,70 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 	return marshallTemplate(k, "Keeper Job", keeperTemplateString)
 }
 
+// AutoOCR2JobSpec represents a V2 keeper spec
+type AutoOCR2JobSpec struct {
+	ContractID         string `toml:"contractID"`
+	OCRKeyBundleID     string `toml:"ocrKeyBundleID"`
+	TransmitterID      string `toml:"transmitterID"`
+	P2Pv2Bootstrappers string `toml:"p2pv2Bootstrappers"`
+	ChainID            int    `toml:"chainID"`
+}
+
+// Type returns the type of the job
+func (k *AutoOCR2JobSpec) Type() string { return "keeper" }
+
+// String representation of the job
+func (k *AutoOCR2JobSpec) String() (string, error) {
+	ocr2keeperJobTemplate := `type = "offchainreporting2"
+pluginType = "ocr2automation"
+relay = "evm"
+name = "ocr2"
+schemaVersion = 1
+contractID = "%s"
+ocrKeyBundleID = "%s"
+transmitterID = "%s"
+p2pv2Bootstrappers = [
+  "%s"
+]
+
+[relayConfig]
+chainID = %d
+
+[pluginConfig]`
+	return fmt.Sprintf(ocr2keeperJobTemplate,
+		k.ContractID,         // contractID
+		k.OCRKeyBundleID,     // ocrKeyBundleID
+		k.TransmitterID,      // transmitterID - node wallet address
+		k.P2Pv2Bootstrappers, // bootstrap node key and address
+		k.ChainID,            // chainID
+	), nil
+}
+
+type AutoBootstrapOCR2JobSpec struct {
+	ContractID string `toml:"contractID"`
+	ChainID    int    `toml:"chainID"`
+}
+
+// Type returns the type of the job
+func (k *AutoBootstrapOCR2JobSpec) Type() string { return "keeper" }
+
+// String representation of the job
+func (k *AutoBootstrapOCR2JobSpec) String() (string, error) {
+	bootstrapJobSpec := `type = "bootstrap"
+schemaVersion = 1
+name = "ocr2keeper bootstrap node"
+contractID = "%s"
+relay = "evm"
+contractConfigTrackerPollInterval = "1s"
+
+[relayConfig]
+chainID = %d`
+	return fmt.Sprintf(bootstrapJobSpec,
+		k.ContractID,
+		k.ChainID,
+	), nil
+}
+
 // OCRBootstrapJobSpec represents the spec for bootstrapping an OCR job, given to one node that then must be linked
 // back to by others by OCRTaskJobSpecs
 type OCRBootstrapJobSpec struct {
