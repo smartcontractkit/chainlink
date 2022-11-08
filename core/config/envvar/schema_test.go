@@ -44,6 +44,7 @@ func TestConfigSchema(t *testing.T) {
 		"BlockHistoryEstimatorEIP1559FeeCapBufferBlocks": "BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS",
 		"BlockHistoryEstimatorTransactionPercentile":     "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE",
 		"BridgeResponseURL":                              "BRIDGE_RESPONSE_URL",
+		"BridgeCacheTTL":                                 "BRIDGE_CACHE_TTL",
 		"ChainType":                                      "CHAIN_TYPE",
 		"DatabaseBackupDir":                              "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                        "DATABASE_BACKUP_FREQUENCY",
