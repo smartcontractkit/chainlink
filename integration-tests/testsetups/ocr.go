@@ -203,7 +203,7 @@ func (t *OCRSoakTest) Run() {
 			log.Warn().Msg("OCR round timed out")
 			expiredRoundTrigger = time.NewTimer(t.Inputs.RoundTimeout)
 			remainingExpectedAnswers = len(t.ocrInstances)
-			t.triggerNewRound(rand.Int()) // #nosec G404 | Just triggering a random number
+			t.triggerNewRound(rand.Intn(t.Inputs.StartingAdapterValue*25-1-t.Inputs.StartingAdapterValue) + t.Inputs.StartingAdapterValue) // #nosec G404 | Just triggering a random number
 		}
 	}
 }
