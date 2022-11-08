@@ -358,6 +358,17 @@ func (c *Chainlink) ReadOCR2Keys() (*OCR2Keys, *http.Response, error) {
 	return ocr2Keys, resp.RawResponse, err
 }
 
+// MustReadOCR2Keys reads all OCR2Keys from the Chainlink node returns err if response not 200
+func (c *Chainlink) MustReadOCR2Keys() (*OCR2Keys, error) {
+	ocr2Keys := &OCR2Keys{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading OCR2 Keys")
+	resp, err := c.APIClient.R().
+		SetResult(ocr2Keys).
+		Get("/v2/keys/ocr2")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	return ocr2Keys, err
+}
+
 // DeleteOCR2Key deletes an OCR2Key based on the provided ID
 func (c *Chainlink) DeleteOCR2Key(id string) (*http.Response, error) {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting OCR2 Key")
