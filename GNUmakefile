@@ -41,7 +41,7 @@ chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: docker ## Build the chainlink docker image
-docker: 
+docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
@@ -54,7 +54,7 @@ chainlink-build: operator-ui ## Build & install the chainlink binary.
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	./operator_ui/install.sh	
+	./operator_ui/install.sh
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -68,7 +68,11 @@ go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrapp
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
+	# replace the go:generate_disabled directive with the regular go:generate directive
+	sed -i '' 's/go:generate_disabled/go:generate/g' core/gethwrappers/ocr2vrf/go_generate.go
 	go generate ./core/gethwrappers/ocr2vrf
+	# put the go:generate_disabled directive back
+	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
 
 .PHONY: generate
 generate: abigen ## Execute all go:generate commands.
