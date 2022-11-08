@@ -481,6 +481,10 @@ func (g *generalConfig) BridgeResponseURL() *url.URL {
 	return g.c.WebServer.BridgeResponseURL.URL()
 }
 
+func (g *generalConfig) BridgeCacheTTL() time.Duration {
+	return g.c.WebServer.BridgeCacheTTL.Duration()
+}
+
 func (g *generalConfig) CertFile() string {
 	s := *g.c.WebServer.TLS.CertPath
 	if s == "" {

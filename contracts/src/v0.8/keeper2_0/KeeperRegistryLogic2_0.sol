@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
-import "../../interfaces/MigratableKeeperRegistryInterface.sol";
-import "../../interfaces/UpkeepTranscoderInterface.sol";
+import "../interfaces/MigratableKeeperRegistryInterface.sol";
+import "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
