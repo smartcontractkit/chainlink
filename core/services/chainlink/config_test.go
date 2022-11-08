@@ -287,6 +287,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.WebServer = config.WebServer{
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
+		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
 		HTTPWriteTimeout:        models.MustNewDuration(time.Minute),
 		HTTPPort:                ptr[uint16](56),
 		SecureCookies:           ptr(true),
@@ -673,6 +674,7 @@ MaxBackups = 9
 		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `[WebServer]
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
+BridgeCacheTTL = '10s'
 HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
