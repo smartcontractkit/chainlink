@@ -435,7 +435,6 @@ dkgContractAddress     	= "%s"
 vrfCoordinatorAddress   = "%s"
 linkEthFeedAddress     	= "%s"
 confirmationDelays     	= %s # This is an array
-lookbackBlocks         	= %d # This is an integer
 `, uni.beaconAddress.String(),
 			kbs[i].ID(),
 			transmitters[i],
@@ -447,7 +446,6 @@ lookbackBlocks         	= %d # This is an integer
 			uni.coordinatorAddress.String(),
 			uni.feedAddress.String(),
 			"[1, 2, 3, 4, 5, 6, 7, 8]", // conf delays
-			1000,                       // lookback blocks
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
 		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, jobSpec)
@@ -676,6 +674,7 @@ func setVRFConfig(
 		CoordinatorOverhead:        50_000,
 		CallbackOverhead:           50_000,
 		BlockGasOverhead:           50_000,
+		LookbackBlocks:             1_000,
 	})
 
 	confDelays := make(map[uint32]struct{})

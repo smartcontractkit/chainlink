@@ -53,7 +53,6 @@ type ocr2vrfTemplateArgs struct {
 	vrfCoordinatorAddress string
 	linkEthFeedAddress    string
 	confirmationDelays    string
-	lookbackBlocks        int64
 }
 
 const dkgTemplate = `
@@ -102,7 +101,6 @@ dkgContractAddress     = "%s"
 vrfCoordinatorAddress  = "%s"
 linkEthFeedAddress     = "%s"
 confirmationDelays     = %s # This is an array
-lookbackBlocks         = %d # This is an integer
 `
 
 const bootstrapTemplate = `
@@ -279,7 +277,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 			vrfBeaconAddress:      c.String("vrf-beacon-address"),
 			vrfCoordinatorAddress: c.String("vrf-coordinator-address"),
 			linkEthFeedAddress:    c.String("link-eth-feed-address"),
-			lookbackBlocks:        c.Int64("lookback-blocks"),
 			confirmationDelays:    c.String("confirmation-delays"),
 		})
 	} else {
@@ -413,7 +410,6 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.vrfCoordinatorAddress,
 		args.linkEthFeedAddress,
 		fmt.Sprintf("[%s]", args.confirmationDelays), // conf delays should be comma separated
-		args.lookbackBlocks,
 	)
 
 	var jb job.Job
