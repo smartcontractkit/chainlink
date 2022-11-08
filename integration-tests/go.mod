@@ -14,7 +14,7 @@ require (
 	github.com/slack-go/slack v0.11.3
 	github.com/smartcontractkit/chainlink v1.8.0
 	github.com/smartcontractkit/chainlink-env v0.2.49
-	github.com/smartcontractkit/chainlink-testing-framework v1.7.7
+	github.com/smartcontractkit/chainlink-testing-framework v1.7.9
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/atomic v1.9.0
@@ -280,7 +280,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20221025223751-9b407cff57eb // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb // indirect
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20221101142607-77f2fe1d1723 // indirect
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20221103213748-db2f67990850 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect

@@ -96,8 +96,8 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, *logListenerOpts)
 
 		go func() {
-			defer lbUnsubscribe()
 			defer rs.wgDone.Done()
+			defer lbUnsubscribe()
 			<-rs.chStop
 		}()
 		return nil
