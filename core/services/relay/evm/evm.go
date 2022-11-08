@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -317,21 +317,25 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 
 	var contractTransmitter ocrtypes.ContractTransmitter
 	var reportCodec median.ReportCodec
-	// HACK: For now, override on-chain transmitter with Mercury if the URL is
-	// set
-	if reportURL := os.Getenv("CL_MERCURY_REPORT_URL"); reportURL != "" {
+	// Override on-chain transmitter with Mercury if the relevant config is set
+	if relayConfig.MercuryConfig != nil {
+		r.lggr.Debugf("Mercury enabled for job %d", rargs.JobID)
+		reportURL := relayConfig.MercuryConfig.URL
+		if reportURL == nil {
+			return nil, errors.New("Mercury URL must be specified")
+		}
 		if !relayConfig.EffectiveTransmitterAddress.Valid {
 			return nil, errors.New("EffectiveTransmitterAddress must be specified")
 		}
 		effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-		username := os.Getenv("CL_MERCURY_USERNAME")
-		password := os.Getenv("CL_MERCURY_PASSWORD")
-		contractTransmitter = mercury.NewTransmitter(r.lggr, http.DefaultClient, effectiveTransmitterAddress, reportURL, username, password)
-		if relayConfig.FeedID == "" {
+		username := relayConfig.MercuryConfig.Username
+		password := relayConfig.MercuryConfig.Password
+		contractTransmitter = mercury.NewTransmitter(r.lggr, http.DefaultClient, effectiveTransmitterAddress, reportURL.String(), username, password)
+		if relayConfig.MercuryConfig.FeedID == "" {
 			return nil, errors.New("FeedID must be specified")
 		}
 		feedID := [32]byte{}
-		for i, ch := range []byte(relayConfig.FeedID) {
+		for i, ch := range []byte(relayConfig.MercuryConfig.FeedID) {
 			if i > 31 {
 				break
 			}
@@ -358,8 +362,17 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	}, nil
 }
 
+type MercuryConfig struct {
+	FeedID string      `json:"feedID"`
+	URL    *models.URL `json:"url"`
+	// NOTE: username/password here are temporary before we roll out proper
+	// wsrpc with more well developed auth
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type RelayConfig struct {
-	FeedID                      string         `json:"feedID"`
+	MercuryConfig               *MercuryConfig
 	ChainID                     *utils.Big     `json:"chainID"`
 	FromBlock                   uint64         `json:"fromBlock"`
 	EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`

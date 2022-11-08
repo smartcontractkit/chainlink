@@ -135,7 +135,8 @@ func (mt *MercuryTransmitter) FromAccount() ocrtypes.Account {
 // It is plugin independent, in particular avoids use of the plugin specific generated evm wrappers
 // by using the evm client Call directly for functions/events that are part of OCR2Abstract.
 func (mt *MercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (cd ocrtypes.ConfigDigest, epoch uint32, err error) {
-	// TODO: implement this
-	err = errors.New("TODO: implement this")
+	// ConfigDigest and epoch are not stored on the contract in mercury mode
+	// TODO: Do we need to support retrieving it from the server? Does it matter?
+	err = errors.New("Retrieving config digest/epoch is not supported in Mercury mode")
 	return
 }

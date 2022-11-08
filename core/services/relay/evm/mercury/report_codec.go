@@ -110,5 +110,5 @@ func (ReportCodec) MedianFromReport(report types.Report) (*big.Int, error) {
 }
 
 func (ReportCodec) MaxReportLength(_ int) int {
-	return 32 /* feedID */ + 32 /* median */ + 32 /* observationsBlocknumber */ + 32 /*observationsTimestamp*/
+	return 128
 }
