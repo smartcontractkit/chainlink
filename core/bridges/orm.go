@@ -2,7 +2,9 @@ package bridges
 
 import (
 	"database/sql"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -21,6 +23,9 @@ type ORM interface {
 	BridgeTypes(offset int, limit int) ([]BridgeType, int, error)
 	CreateBridgeType(bt *BridgeType) error
 	UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error
+
+	GetCachedResponse(dotId string, specId int32, maxElapsed time.Duration) ([]byte, error)
+	UpsertBridgeResponse(dotId string, specId int32, response []byte) error
 
 	ExternalInitiators(offset int, limit int) ([]ExternalInitiator, int, error)
 	CreateExternalInitiator(externalInitiator *ExternalInitiator) error
@@ -163,6 +168,28 @@ func (o *orm) UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error {
 	}
 
 	return err
+}
+
+func (o *orm) GetCachedResponse(dotId string, specId int32, maxElapsed time.Duration) (response []byte, err error) {
+	stalenessThreshold := time.Now().Add(-maxElapsed)
+	sql := `SELECT value FROM bridge_last_value WHERE
+				dot_id = $1 AND 
+				spec_id = $2 AND 
+				finished_at > ($3)	
+				ORDER BY finished_at 
+				DESC LIMIT 1;`
+	err = errors.Wrap(o.q.Get(&response, sql, dotId, specId, stalenessThreshold), fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId))
+	return
+}
+
+func (o *orm) UpsertBridgeResponse(dotId string, specId int32, response []byte) error {
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+				VALUES($1, $2, $3, NOW())
+			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+				DO UPDATE SET value = $3, finished_at = NOW();`
+
+	err := o.q.ExecQ(sql, dotId, specId, response)
+	return errors.Wrap(err, "failed to upsert bridge response")
 }
 
 // --- External Initiator

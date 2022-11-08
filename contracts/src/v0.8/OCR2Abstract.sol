@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/TypeAndVersionInterface.sol";
+import "./interfaces/TypeAndVersionInterface.sol";
 
 abstract contract OCR2Abstract is TypeAndVersionInterface {
   // Maximum number of oracles the offchain reporting protocol is designed for
