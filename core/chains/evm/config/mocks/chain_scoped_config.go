@@ -542,6 +542,20 @@ func (_m *ChainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16
 	return r0
 }
 
+// BridgeCacheTTL provides a mock function with given fields:
+func (_m *ChainScopedConfig) BridgeCacheTTL() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // BridgeResponseURL provides a mock function with given fields:
 func (_m *ChainScopedConfig) BridgeResponseURL() *url.URL {
 	ret := _m.Called()
