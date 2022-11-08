@@ -40,7 +40,7 @@ func (f FilePersistedSecretGenerator) Generate(rootDir string) ([]byte, error) {
 		}
 		return base64.StdEncoding.DecodeString(string(data))
 	}
-	fmt.Println("File Doesn't Exist, Writing One")
+	fmt.Printf("File Doesn't Exist, Writing One '%s'\n", filepath.Join(wd, sessionPath))
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
 	err = utils.WriteFileWithMaxPerms(sessionPath, []byte(str), readWritePerms)

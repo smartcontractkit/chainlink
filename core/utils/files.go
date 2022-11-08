@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -64,9 +65,13 @@ func EnsureDirAndMaxPerms(path string, perms os.FileMode) error {
 // WriteFileWithMaxPerms writes `data` to `path` and ensures that
 // the file has permissions that are no more permissive than the given ones.
 func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) (err error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
-		fmt.Printf("Error opening file '%s'\n", path)
+		fmt.Printf("Error opening file '%s'\n", filepath.Join(wd, path))
 		return err
 	}
 	defer func() { err = multierr.Combine(err, f.Close()) }()
