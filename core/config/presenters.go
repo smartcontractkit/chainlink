@@ -36,6 +36,7 @@ type EnvPrinter struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
+	BridgeCacheTTL                             time.Duration   `json:"BRIDGE_CACHE_TTL"`
 	ChainType                                  string          `json:"CHAIN_TYPE"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
@@ -159,6 +160,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			AllowOrigins:                   cfg.AllowOrigins(),
 			BlockBackfillDepth:             cfg.BlockBackfillDepth(),
 			BridgeResponseURL:              bridgeResponseURL,
+			BridgeCacheTTL:                 cfg.BridgeCacheTTL(),
 			DatabaseBackupFrequency:        cfg.DatabaseBackupFrequency(),
 			DatabaseBackupMode:             string(cfg.DatabaseBackupMode()),
 			DatabaseBackupOnVersionUpgrade: cfg.DatabaseBackupOnVersionUpgrade(),
