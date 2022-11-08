@@ -1614,10 +1614,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// Keep the prices low so we can operate with small link balance subscriptions.
 	gasPrice := assets.GWei(1)
 	key := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, gasPrice, v2.KeySpecific{
 			Key:          &key.EIP55Address,
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1632,27 +1633,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.Zero(t, key.Cmp(keys[0]))
 
 	require.NoError(t, app.Start(testutils.Context(t)))
-	vrfkey, err := app.GetKeyStore().VRF().Create()
-	require.NoError(t, err)
 
-	jid := uuid.NewV4()
-	incomingConfs := 2
-	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-		JobID:                    jid.String(),
-		Name:                     "vrf-primary",
-		CoordinatorAddress:       uni.rootContractAddress.String(),
-		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
-		MinIncomingConfirmations: incomingConfs,
-		PublicKey:                vrfkey.PublicKey.String(),
-		FromAddresses:            []string{key.EIP55Address.String()},
-		V2:                       true,
-	}).Toml()
-	jb, err := vrf.ValidatedVRFSpec(s)
-	require.NoError(t, err)
-	err = app.JobSpawner().CreateJob(&jb)
-	require.NoError(t, err)
-
-	registerProvingKeyHelper(t, uni, vrfkey)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false, gasLanePriceWei)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Create and fund a subscription.
 	// We should see that our subscription has 1 link.
@@ -1688,7 +1671,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500_000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = carolContract.TestRequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	_, err = carolContract.TestRequestRandomness(carol, keyHash, subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fulfilled should fail
