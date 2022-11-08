@@ -24,6 +24,10 @@ type SecretGenerator interface {
 type FilePersistedSecretGenerator struct{}
 
 func (f FilePersistedSecretGenerator) Generate(rootDir string) ([]byte, error) {
+	err := os.Mkdir("./clroot", os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
 	fmt.Println("FILE STRUCTURE")
 	fmt.Println("/")
 	files, err := ioutil.ReadDir("/")
