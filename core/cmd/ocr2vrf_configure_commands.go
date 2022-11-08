@@ -52,7 +52,6 @@ type ocr2vrfTemplateArgs struct {
 	vrfBeaconAddress      string
 	vrfCoordinatorAddress string
 	linkEthFeedAddress    string
-	confirmationDelays    string
 }
 
 const dkgTemplate = `
@@ -100,7 +99,6 @@ dkgContractAddress     = "%s"
 
 vrfCoordinatorAddress  = "%s"
 linkEthFeedAddress     = "%s"
-confirmationDelays     = %s # This is an array
 `
 
 const bootstrapTemplate = `
@@ -277,7 +275,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 			vrfBeaconAddress:      c.String("vrf-beacon-address"),
 			vrfCoordinatorAddress: c.String("vrf-coordinator-address"),
 			linkEthFeedAddress:    c.String("link-eth-feed-address"),
-			confirmationDelays:    c.String("confirmation-delays"),
 		})
 	} else {
 		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
@@ -409,7 +406,6 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.contractID,
 		args.vrfCoordinatorAddress,
 		args.linkEthFeedAddress,
-		fmt.Sprintf("[%s]", args.confirmationDelays), // conf delays should be comma separated
 	)
 
 	var jb job.Job

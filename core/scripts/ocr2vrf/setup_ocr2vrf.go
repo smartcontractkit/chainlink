@@ -156,7 +156,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		flagSet.String("vrf-beacon-address", vrfBeaconAddress.String(), "the contract address of the VRF Beacon")
 		flagSet.String("vrf-coordinator-address", vrfCoordinatorAddress.String(), "the contract address of the VRF Coordinator")
 		flagSet.String("link-eth-feed-address", feedAddress.Hex(), "link eth feed address")
-		flagSet.String("confirmation-delays", *confDelays, "confirmation delays")
 
 		// Apply forwarder args if using the forwarder.
 		if i > 0 && *useForwarder {
