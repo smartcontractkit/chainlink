@@ -41,9 +41,6 @@ var defaultTOML = `RootDir = './clroot'
 Level = 'debug'
 JSONConsole = true
 
-[Log.File]
-Dir = './clroot'
-
 [WebServer]
 AllowOrigins = '*'
 SecureCookies = false
