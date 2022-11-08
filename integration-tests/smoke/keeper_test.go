@@ -162,6 +162,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		linkFundsForEachUpkeep *big.Int,
 	) {
 		By("Deploying the environment")
+		chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(networks.SimulatedEVM).AddKeeperDefaults().String()
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
@@ -169,9 +170,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
 				"env": map[string]interface{}{
-					"MIN_INCOMING_CONFIRMATIONS": "1",
-					"KEEPER_TURN_FLAG_ENABLED":   "true",
-					"KEEPER_TURN_LOOK_BACK":      "0",
+					"cl_config": chainlinkTOML,
 				},
 			}))
 		err = testEnvironment.Run()

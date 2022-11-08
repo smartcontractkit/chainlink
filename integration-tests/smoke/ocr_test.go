@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("OCR Feed @ocr", func() {
+var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("OCR test on a default environment @default", defaultOCREnv()),
@@ -113,8 +113,7 @@ func defaultOCREnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	chainlinkTOML := networks.ChainlinkNetworksTOML(network)
-	fmt.Println(chainlinkTOML)
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(network).AddOCRDefaults().String()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).

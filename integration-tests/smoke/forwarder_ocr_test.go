@@ -131,8 +131,10 @@ func forwarderOCREnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	envValueMap := network.ChainlinkValuesMap()
-	envValueMap["ETH_USE_FORWARDERS"] = "true"
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(network).
+		AddOCRDefaults().
+		AddRaw("[EVM.Transactions]\nForwardersEnabled = true").
+		String()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
@@ -140,7 +142,9 @@ func forwarderOCREnv() *smokeTestInputs {
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env":      envValueMap,
+			"env": map[string]interface{}{
+				"cl_config": chainlinkTOML,
+			},
 			"replicas": 6,
 		}))
 	return &smokeTestInputs{

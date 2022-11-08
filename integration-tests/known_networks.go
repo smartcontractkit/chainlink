@@ -1,20 +1,15 @@
 package networks
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Pre-configured test networks and their connections
@@ -187,7 +182,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
 
-	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
+	if strings.Contains(prefix, "SIMULATED") { // Use defaults for SIMULATED
 		return
 	}
 
@@ -210,7 +205,7 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
 
-	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
+	if strings.Contains(prefix, "SIMULATED") { // Use defaults for SIMULATED
 		return
 	}
 
@@ -226,46 +221,4 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	keys := strings.Split(os.Getenv(envVar), ",")
 	network.PrivateKeys = keys
 	log.Info().Interface(envVar, keys).Msg("Read network Keys")
-}
-
-func DeriveEVMNodesFromNetworkSettings(networks ...blockchain.EVMNetwork) (string, error) {
-	var evmNodes []types.NewNode
-	for i, n := range networks {
-		evmNodes = append(evmNodes, types.NewNode{
-			Name:       fmt.Sprintf("network_%d", i),
-			EVMChainID: *utils.NewBigI(n.ChainID),
-			WSURL:      null.StringFrom(n.URLs[0]),
-			HTTPURL:    null.StringFrom(n.HTTPURLs[0]),
-			SendOnly:   false,
-		})
-	}
-	if len(evmNodes) > 0 {
-		evmNodes, err := json.Marshal(evmNodes)
-		if err != nil {
-			return "", err
-		}
-		return string(evmNodes), nil
-	}
-	return "", nil
-}
-
-var (
-	evmNetworkTOML = `[[EVM]]
-ChainID = '%d'`
-	evmNodeTOML = `[[EVM.Nodes]]
-Name = '%s'
-WSURL = '%s'`
-)
-
-func ChainlinkNetworksTOML(networks ...*blockchain.EVMNetwork) string {
-	final := ""
-	for _, network := range networks {
-		netString := fmt.Sprintf(evmNetworkTOML, network.ChainID)
-		for index, url := range network.URLs {
-			netString = fmt.Sprintf("%s\n%s", netString, fmt.Sprintf(evmNodeTOML, fmt.Sprintf("node-%d", index), url))
-		}
-		final = fmt.Sprintf("%s\n%s", final, netString)
-	}
-
-	return final
 }
