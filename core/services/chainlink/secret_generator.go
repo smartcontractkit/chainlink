@@ -3,6 +3,7 @@ package chainlink
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -23,6 +24,34 @@ type SecretGenerator interface {
 type FilePersistedSecretGenerator struct{}
 
 func (f FilePersistedSecretGenerator) Generate(rootDir string) ([]byte, error) {
+	fmt.Println("FILE STRUCTURE")
+	fmt.Println("/")
+	files, err := ioutil.ReadDir("/")
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		fmt.Printf("File: /%s Dir: %t\n", file.Name(), file.IsDir())
+	}
+
+	fmt.Println("/home")
+	files, err = ioutil.ReadDir("/")
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		fmt.Printf("File: /home/%s Dir: %t\n", file.Name(), file.IsDir())
+	}
+
+	fmt.Println("/home/root")
+	files, err = ioutil.ReadDir("/")
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		fmt.Printf("File: /home/root/%s Dir: %t\n", file.Name(), file.IsDir())
+	}
+
 	fmt.Println("STARTING GENERATION")
 	wd, err := os.Getwd()
 	if err != nil {
