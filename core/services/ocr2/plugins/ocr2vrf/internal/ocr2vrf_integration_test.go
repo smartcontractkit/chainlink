@@ -434,7 +434,6 @@ dkgContractAddress     	= "%s"
 
 vrfCoordinatorAddress   = "%s"
 linkEthFeedAddress     	= "%s"
-confirmationDelays     	= %s # This is an array
 `, uni.beaconAddress.String(),
 			kbs[i].ID(),
 			transmitters[i],
@@ -445,7 +444,6 @@ confirmationDelays     	= %s # This is an array
 			uni.dkgAddress.String(),
 			uni.coordinatorAddress.String(),
 			uni.feedAddress.String(),
-			"[1, 2, 3, 4, 5, 6, 7, 8]", // conf delays
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
 		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, jobSpec)
