@@ -1,6 +1,10 @@
 package chainlink
 
-import "net/url"
+import (
+	"net/url"
+
+	"github.com/pkg/errors"
+)
 
 func (g *generalConfig) DatabaseURL() url.URL {
 	if g.secrets.Database.URL == nil {
@@ -31,4 +35,22 @@ func (g *generalConfig) PyroscopeAuthToken() string {
 		return ""
 	}
 	return string(*g.secrets.Pyroscope.AuthToken)
+}
+
+func (g *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
+	if g.secrets.Mercury.Credentials == nil {
+		return "", "", errors.New("no Mercury credentials were specified in the config")
+	}
+	credentials, exists := g.secrets.Mercury.Credentials[url]
+	if !exists {
+		return "", "", errors.Errorf("no Mercury credentials specified for server URL: %q", url)
+	}
+	if credentials.Username == nil {
+		return "", "", errors.Errorf("no Mercury username specified for server URL: %q", url)
+	}
+	if credentials.Password == nil {
+		return "", "", errors.Errorf("no Mercury password specified for server URL: %q", url)
+	}
+	return string(*credentials.Username), string(*credentials.Password), nil
+
 }

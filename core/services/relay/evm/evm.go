@@ -36,17 +36,23 @@ import (
 
 var _ relaytypes.Relayer = &Relayer{}
 
+type RelayerConfig interface {
+	MercuryCredentials(url string) (username, password string, err error)
+}
+
 type Relayer struct {
 	db       *sqlx.DB
 	chainSet evm.ChainSet
 	lggr     logger.Logger
+	cfg      RelayerConfig
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger) *Relayer {
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig) *Relayer {
 	return &Relayer{
 		db:       db,
 		chainSet: chainSet,
 		lggr:     lggr.Named("Relayer"),
+		cfg:      cfg,
 	}
 }
 
@@ -328,8 +334,10 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 			return nil, errors.New("EffectiveTransmitterAddress must be specified")
 		}
 		effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-		username := relayConfig.MercuryConfig.Username
-		password := relayConfig.MercuryConfig.Password
+		username, password, err := r.cfg.MercuryCredentials(reportURL.String())
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get mercury credentials for URL: %s", reportURL.String())
+		}
 		contractTransmitter = mercury.NewTransmitter(r.lggr, http.DefaultClient, effectiveTransmitterAddress, reportURL.String(), username, password)
 		if relayConfig.MercuryConfig.FeedID == "" {
 			return nil, errors.New("FeedID must be specified")
@@ -350,7 +358,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		reportCodec = evmreportcodec.ReportCodec{}
 	}
 
-	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr)
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr, relayConfig.MercuryConfig != nil)
 	if err != nil {
 		return nil, err
 	}

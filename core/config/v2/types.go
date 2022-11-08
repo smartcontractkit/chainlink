@@ -113,6 +113,7 @@ type Secrets struct {
 	Explorer  ExplorerSecrets  `toml:",omitempty"`
 	Password  Passwords        `toml:",omitempty"`
 	Pyroscope PyroscopeSecrets `toml:",omitempty"`
+	Mercury   MercurySecrets   `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -160,6 +161,14 @@ func (p *Passwords) ValidateConfig() (err error) {
 
 type PyroscopeSecrets struct {
 	AuthToken *models.Secret
+}
+
+type MercuryCredentials struct {
+	Username *models.Secret
+	Password *models.Secret
+}
+type MercurySecrets struct {
+	Credentials map[string]MercuryCredentials
 }
 
 type Feature struct {
