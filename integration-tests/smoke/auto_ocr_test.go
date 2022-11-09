@@ -56,14 +56,12 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 		testEnvironment      *environment.Environment
 
 		testScenarios = []TableEntry{
-			// Basic
 			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
 			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Handle f keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			// PerformDataChecker consumer
 			Entry("v2.0 Update check data @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 		}
 	)
@@ -528,7 +526,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected consumer counter to not have increased more than %d, but got %d",
 						countersAfterNoMoreNodes[i].Int64()+1, latestCounter.Int64())
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed())
 		}
 
 		// PerformanceCounter
@@ -661,7 +659,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected perform data checker counter to be 0, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed())
 
 			for i := 0; i < len(upkeepIDs); i++ {
 				err = registry.UpdateCheckData(upkeepIDs[i], []byte(expectedData))
@@ -688,7 +686,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected perform data checker counter to be greater than 5, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		By("Printing gas stats")
