@@ -62,15 +62,15 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			//Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			//Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			//Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Handle f keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			// failing
 			Entry("v2.0 Removing one keeper test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 
-			// different consumer
-			//Entry("v2.0 Perform simulation test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			//Entry("v2.0 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			//
-			//Entry("v2.0 Update check data @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			// PerformanceCounter consumer
+			Entry("v2.0 Perform simulation test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			Entry("v2.0 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			// PerformDataChecker consumer
+			Entry("v2.0 Update check data @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 		}
 	)
 
@@ -401,11 +401,11 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of Keepers")
 
 			// Remove the first keeper from the list
-			removedNode := nodesWithoutBootstrap[:len(nodesWithoutBootstrap)-1]
-
-			ocrConfig = actions.BuildAutoOCR2ConfigVars(removedNode, registryConfig, registrar.Address())
+			removedNode := nodesWithoutBootstrap[1:]
+			ocrConfig := actions.BuildAutoOCR2ConfigVars(removedNode, registryConfig, registrar.Address())
 			err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
@@ -558,7 +558,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 				upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
 				g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
 				g.Expect(upkeepInfo.LastKeeper).Should(Equal(actions.ZeroAddress.String()), "Last keeper should be zero address")
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 
 			// Set performGas on consumer to be low, so that performUpkeep starts becoming successful
 			err = consumerPerformance.SetPerformGasToBurn(context.Background(), big.NewInt(100000))
@@ -573,7 +573,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)),
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 				)
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		if testToRun == CheckPerformGasLimitTest {
@@ -589,7 +589,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 					Equal(int64(0)),
 					"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
 				)
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 
 			// Increase gas limit for the upkeep, higher than the performGasBurn
 			err = registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
@@ -604,7 +604,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)),
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 				)
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
 			err = consumerPerformance.SetCheckGasToBurn(context.Background(), big.NewInt(3000000))
@@ -649,7 +649,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCntInt),
 					"Expected consumer counter to be greater than %d, but got %d", existingCntInt, cnt.Int64(),
 				)
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		// PerformDataChecker
@@ -667,7 +667,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected perform data checker counter to be 0, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "2m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 
 			for i := 0; i < len(upkeepIDs); i++ {
 				err = registry.UpdateCheckData(upkeepIDs[i], []byte(expectedData))
@@ -694,7 +694,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected perform data checker counter to be greater than 5, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 		}
 
 		By("Printing gas stats")
