@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -58,11 +57,11 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 
 		testScenarios = []TableEntry{
 			// working
-			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
-			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
+			//Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			// testing
-			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Removing one keeper test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
@@ -404,8 +403,10 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			removedNode := nodesWithoutBootstrap[1:]
 
 			ocrConfig = actions.BuildAutoOCR2ConfigVars(removedNode, registryConfig, registrar.Address())
-			err = registry.SetKeepers([]string{}, []string{}, ocrConfig)
-			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new list of Keepers")
+			err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
+			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+			//err = registry.SetKeepers([]string{}, []string{}, ocrConfig)
+			//Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new list of Keepers")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
@@ -464,64 +465,6 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			}, "1m", "1s").Should(Succeed())
 		}
 
-		if testToRun == MigrateUpkeepTest {
-			By("creates another registry and migrates one upkeep to the new registry")
-			// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
-			secondRegistry, _, _, _ := actions.DeployKeeperContracts(
-				ethereum.RegistryVersion_1_2,
-				defaultRegistryConfig,
-				defaultUpkeepsToDeploy,
-				defaultUpkeepGasLimit,
-				linkToken,
-				contractDeployer,
-				chainClient,
-				big.NewInt(defaultLinkFunds),
-			)
-
-			// Set the jobs for the second registry
-			actions.CreateKeeperJobs(chainlinkNodes, secondRegistry, contracts.OCRConfig{})
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
-
-			err = registry.SetMigrationPermissions(common.HexToAddress(secondRegistry.Address()), 3)
-			Expect(err).ShouldNot(HaveOccurred(), "Couldn't set bidirectional permissions for first registry")
-			err := secondRegistry.SetMigrationPermissions(common.HexToAddress(registry.Address()), 3)
-			Expect(err).ShouldNot(HaveOccurred(), "Couldn't set bidirectional permissions for second registry")
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for setting the permissions")
-
-			// Check that the first upkeep from the first registry is performing (before being migrated)
-			Eventually(func(g Gomega) {
-				counterBeforeMigration, err := consumers[0].Counter(context.Background())
-				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(counterBeforeMigration.Int64()).Should(BeNumerically(">", int64(0)),
-					"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
-			}, "1m", "1s").Should(Succeed())
-
-			// Migrate the upkeep with index 0 from the first to the second registry
-			err = registry.Migrate([]*big.Int{upkeepIDs[0]}, common.HexToAddress(secondRegistry.Address()))
-			Expect(err).ShouldNot(HaveOccurred(), "Couldn't migrate the first upkeep")
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for the migration")
-
-			// Pause the first registry, in that way we make sure that the upkeep is being performed by the second one
-			err = registry.Pause()
-			Expect(err).ShouldNot(HaveOccurred(), "Could not pause the registry")
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for the pausing of the first registry")
-
-			counterAfterMigration, err := consumers[0].Counter(context.Background())
-			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-
-			// Check that once we migrated the upkeep, the counter has increased
-			Eventually(func(g Gomega) {
-				currentCounter, err := consumers[0].Counter(context.Background())
-				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(currentCounter.Int64()).Should(BeNumerically(">", counterAfterMigration.Int64()),
-					"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
-			}, "1m", "1s").Should(Succeed())
-		}
-
 		if testToRun == HandleKeeperNodesGoingDown {
 			By("upkeeps are still performed if some keeper nodes go down")
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -539,7 +482,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			}, "5m", "1s").Should(Succeed())
 
 			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
-			firstHalfToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
+			firstHalfToTakeDown := nodesWithoutBootstrap[:len(nodesWithoutBootstrap)/2]
 			for _, nodeToTakeDown := range firstHalfToTakeDown {
 				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
@@ -561,7 +504,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			}, "3m", "1s").Should(Succeed())
 
 			// Take down the other half of the Keeper nodes
-			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2+1:]
+			secondHalfToTakeDown := nodesWithoutBootstrap[len(nodesWithoutBootstrap)/2:]
 			for _, nodeToTakeDown := range secondHalfToTakeDown {
 				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
