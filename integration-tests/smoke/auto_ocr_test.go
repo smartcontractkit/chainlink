@@ -481,7 +481,8 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			}, "5m", "1s").Should(Succeed())
 
 			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
-			firstHalfToTakeDown := nodesWithoutBootstrap[:len(nodesWithoutBootstrap)/2]
+			// OCR change to take just one node first
+			firstHalfToTakeDown := nodesWithoutBootstrap[0:1]
 			for _, nodeToTakeDown := range firstHalfToTakeDown {
 				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
@@ -502,8 +503,8 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 				}
 			}, "5m", "1s").Should(Succeed())
 
-			// Take down the other half of the Keeper nodes
-			secondHalfToTakeDown := nodesWithoutBootstrap[len(nodesWithoutBootstrap)/2:]
+			// Take down the rest
+			secondHalfToTakeDown := nodesWithoutBootstrap[1:]
 			for _, nodeToTakeDown := range secondHalfToTakeDown {
 				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
