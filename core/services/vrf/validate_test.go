@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
@@ -430,7 +431,7 @@ decode_log->vrf->encode_tx->submit_tx
 			},
 		},
 		{
-			name: "gas lane price gwei provided",
+			name: "gas lane price provided",
 			toml: `
 type            = "vrf"
 schemaVersion   = 1
@@ -441,7 +442,7 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
-gasLanePriceGWei = 200
+gasLanePrice = "200 gwei"
 observationSource = """
 decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
@@ -471,11 +472,11 @@ decode_log->vrf->encode_tx->submit_tx
 				require.Equal(t, time.Minute, s.VRFSpec.BackoffInitialDelay)
 				require.Equal(t, 2*time.Hour, s.VRFSpec.BackoffMaxDelay)
 				require.EqualValues(t, 25, s.VRFSpec.ChunkSize)
-				require.Equal(t, 200, *s.VRFSpec.GasLanePriceGWei)
+				require.Equal(t, assets.GWei(200), s.VRFSpec.GasLanePrice)
 			},
 		},
 		{
-			name: "invalid (negative) gas lane price gwei provided",
+			name: "invalid (negative) gas lane price provided",
 			toml: `
 type            = "vrf"
 schemaVersion   = 1
@@ -486,7 +487,7 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
-gasLanePriceGWei = -200
+gasLanePrice = "-200"
 observationSource = """
 decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
@@ -522,7 +523,7 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
-gasLanePriceGWei = 0
+gasLanePrice = "0 gwei"
 observationSource = """
 decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"

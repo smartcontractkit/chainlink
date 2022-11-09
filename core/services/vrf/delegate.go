@@ -185,14 +185,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 // If they don't match, this is a configuration error. An error is returned with all the keys that do
 // not match the provided gas lane price.
 func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
-	if jb.VRFSpec.GasLanePriceGWei != nil {
-		gasLanePrice := assets.GWei(*jb.VRFSpec.GasLanePriceGWei)
+	if jb.VRFSpec.GasLanePrice != nil {
 		for _, a := range jb.VRFSpec.FromAddresses {
-			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(gasLanePrice) {
+			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
 				err = multierr.Append(err,
 					fmt.Errorf(
-						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%d) specified in job spec",
-						a.Hex(), keySpecific.String(), *jb.VRFSpec.GasLanePriceGWei))
+						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
+						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
 			}
 		}
 	}

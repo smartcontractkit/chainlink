@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -76,9 +77,10 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 			spec.BackoffMaxDelay.String(), spec.BackoffInitialDelay.String())
 	}
 
-	if spec.GasLanePriceGWei != nil {
-		if *spec.GasLanePriceGWei <= 0 {
-			return jb, fmt.Errorf("gasLanePriceGWei must be > 0, given: %d", *spec.GasLanePriceGWei)
+	// Assert that the provided gas lane price is positive.
+	if spec.GasLanePrice != nil {
+		if spec.GasLanePrice.Cmp(assets.GWei(0)) <= 0 {
+			return jb, fmt.Errorf("gasLanePrice must be positive and nonzero, given: %s", spec.GasLanePrice.String())
 		}
 	}
 

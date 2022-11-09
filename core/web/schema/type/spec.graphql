@@ -108,7 +108,7 @@ type VRFSpec {
     chunkSize: Int!
     backoffInitialDelay: String!
     backoffMaxDelay: String!
-    gasLanePriceGWei: Int
+    gasLanePrice: String
 }
 
 type WebhookSpec {

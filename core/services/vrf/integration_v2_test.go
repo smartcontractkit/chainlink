@@ -320,11 +320,11 @@ func createVRFJobs(
 	app *cltest.TestApplication,
 	uni coordinatorV2Universe,
 	batchEnabled bool,
-	gasLanePricesWei ...*assets.Wei,
+	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job) {
-	if len(gasLanePricesWei) != len(fromKeys) {
-		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePricesWei) != len(fromKeys) [%d != %d]",
-			len(gasLanePricesWei), len(fromKeys))
+	if len(gasLanePrices) != len(fromKeys) {
+		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
+			len(gasLanePrices), len(fromKeys))
 	}
 	// Create separate jobs for each gas lane and register their keys
 	for i, keys := range fromKeys {
@@ -338,7 +338,6 @@ func createVRFJobs(
 
 		jid := uuid.NewV4()
 		incomingConfs := 2
-		gasLanePriceGWei := new(big.Int).Div(gasLanePricesWei[i].ToInt(), assets.GWei(1).ToInt())
 		s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			JobID:                    jid.String(),
 			Name:                     fmt.Sprintf("vrf-primary-%d", i),
@@ -351,7 +350,7 @@ func createVRFJobs(
 			BackoffInitialDelay:      10 * time.Millisecond,
 			BackoffMaxDelay:          time.Second,
 			V2:                       true,
-			GasLanePriceGWei:         int(gasLanePriceGWei.Int64()),
+			GasLanePrice:             gasLanePrices[i],
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())

@@ -698,11 +698,12 @@ func (r *VRFSpecResolver) BackoffMaxDelay() string {
 	return r.spec.BackoffMaxDelay.String()
 }
 
-func (r *VRFSpecResolver) GasLanePriceGWei() *int32 {
-	if r.spec.GasLanePriceGWei == nil {
+// GasLanePrice resolves the spec's gas lane price.
+func (r *VRFSpecResolver) GasLanePrice() *string {
+	if r.spec.GasLanePrice == nil {
 		return nil
 	}
-	gasLanePriceGWei := int32(*r.spec.GasLanePriceGWei)
+	gasLanePriceGWei := r.spec.GasLanePrice.String()
 	return &gasLanePriceGWei
 }
 

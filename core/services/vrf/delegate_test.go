@@ -457,7 +457,7 @@ func TestFulfilledCheck(t *testing.T) {
 }
 
 func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
-	t.Run("returns nil error if gasLanePriceGWei not set in job spec", func(tt *testing.T) {
+	t.Run("returns nil error if gasLanePrice not set in job spec", func(tt *testing.T) {
 		spec := `
 type            = "vrf"
 schemaVersion   = 1
@@ -513,7 +513,7 @@ decode_log->vrf->encode_tx->submit_tx
 				ChunkSize:           25,
 				BackoffInitialDelay: time.Minute,
 				BackoffMaxDelay:     time.Hour,
-				GasLanePriceGWei:    100,
+				GasLanePrice:        assets.GWei(100),
 			}).
 			Toml())
 		require.NoError(t, err)
@@ -530,7 +530,7 @@ decode_log->vrf->encode_tx->submit_tx
 		cfg := &vrf_mocks.Config{}
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
-		// last from address has wrong max gas price
+		// last from address has wrong key-specific max gas price
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
 		defer cfg.AssertExpectations(tt)
 
@@ -541,7 +541,7 @@ decode_log->vrf->encode_tx->submit_tx
 				ChunkSize:           25,
 				BackoffInitialDelay: time.Minute,
 				BackoffMaxDelay:     time.Hour,
-				GasLanePriceGWei:    100,
+				GasLanePrice:        assets.GWei(100),
 			}).
 			Toml())
 		require.NoError(t, err)
