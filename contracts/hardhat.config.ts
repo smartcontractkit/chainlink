@@ -34,7 +34,12 @@ export default {
     target: 'ethers-v5',
   },
   networks: {
-    hardhat: {},
+    hardhat: {
+      // XXX: otherwise VRFCoordinatorV2TestHelper will not deploy.
+      // Since VRFCoordinatorV2TestHelper is test-only this should be fine,
+      // however this might mask other contracts that are too large.
+      allowUnlimitedContractSize: true,
+    },
   },
   solidity: {
     compilers: [

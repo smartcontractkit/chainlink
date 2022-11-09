@@ -162,6 +162,13 @@ contract VRFCoordinatorV2 is
     int256 fallbackWeiPerUnitLink,
     FeeConfig feeConfig
   );
+  // s_subscriptionCancellationEnabled indicates whether subscriptions can be
+  // cancelled by owners of the subscription or not.
+  // Subscriptions are always cancellable by the owner of the VRF contract.
+  // This is true by default, but can be updated via setSubscriptionCancellationEnabled().
+  bool private s_subscriptionCancellationEnabled;
+  event SubscriptionCancellationStateUpdated(bool oldState, bool newState);
+  error SubscriptionCancellationDisabled();
 
   constructor(
     address link,
@@ -171,6 +178,7 @@ contract VRFCoordinatorV2 is
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
+    s_subscriptionCancellationEnabled = true;
   }
 
   /**
@@ -327,7 +335,12 @@ contract VRFCoordinatorV2 is
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
+    if (s_subscriptionCancellationEnabled) {
+      cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
+    } else {
+      // NOTE: there is really no better way than to do this, it seems.
+      cancelSubscriptionHelper(subId, owner());
+    }
   }
 
   /**
@@ -705,6 +718,20 @@ contract VRFCoordinatorV2 is
   }
 
   /**
+   * @notice set the s_subscriptionCancelEnabled field to the given value.
+   * @param enabled whether subscription cancellation should be enabled or not.
+  */
+  function setSubscriptionCancellationEnabled(bool enabled) external onlyOwner {
+    bool old = s_subscriptionCancellationEnabled;
+    s_subscriptionCancellationEnabled = enabled;
+    emit SubscriptionCancellationStateUpdated(old, enabled);
+  }
+
+  function getSubscriptionCancellationEnabled() external view returns (bool) {
+    return s_subscriptionCancellationEnabled;
+  }
+
+  /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
   function createSubscription() external override nonReentrant returns (uint64) {
@@ -802,6 +829,10 @@ contract VRFCoordinatorV2 is
    * @inheritdoc VRFCoordinatorV2Interface
    */
   function cancelSubscription(uint64 subId, address to) external override onlySubOwner(subId) nonReentrant {
+    if (!s_subscriptionCancellationEnabled) {
+      revert SubscriptionCancellationDisabled();
+    }
+
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }

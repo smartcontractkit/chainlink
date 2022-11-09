@@ -122,6 +122,8 @@ describe('VRFCoordinatorV2', () => {
       'getFeeTier',
       'pendingRequestExists',
       'getTotalBalance',
+      'getSubscriptionCancellationEnabled',
+      'setSubscriptionCancellationEnabled',
       // Oracle
       'requestRandomWords',
       'getCommitment', // Note we use this to check if a request is already fulfilled.
@@ -221,6 +223,15 @@ describe('VRFCoordinatorV2', () => {
       .connect(subOwner)
       .addConsumer(subId, await consumer.getAddress())
     return subId
+  }
+
+  async function setSubscriptionCancellation(state: boolean): Promise<boolean> {
+    const tx = await vrfCoordinatorV2
+      .connect(owner)
+      .setSubscriptionCancellationEnabled(state)
+    const receipt = await tx.wait()
+    const subscriptionCancellationState = receipt.events[0].args['newState']
+    return subscriptionCancellationState
   }
 
   async function createSubscriptionWithConsumers(
@@ -433,94 +444,147 @@ describe('VRFCoordinatorV2', () => {
   })
 
   describe('#cancelSubscription', async function () {
-    let subId: number
-    beforeEach(async () => {
-      subId = await createSubscription()
-    })
-    it('subscription must exist', async function () {
-      await expect(
-        vrfCoordinatorV2
+    describe('subscription cancellation enabled', async function () {
+      let subId: number
+      beforeEach(async () => {
+        subId = await createSubscription()
+      })
+      it('subscription must exist', async function () {
+        await expect(
+          vrfCoordinatorV2
+            .connect(subOwner)
+            .cancelSubscription(1203123123, subOwnerAddress),
+        ).to.be.revertedWith(`InvalidSubscription`)
+      })
+      it('must be owner', async function () {
+        await expect(
+          vrfCoordinatorV2
+            .connect(random)
+            .cancelSubscription(subId, subOwnerAddress),
+        ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+      })
+      it('can cancel', async function () {
+        await linkToken
           .connect(subOwner)
-          .cancelSubscription(1203123123, subOwnerAddress),
-      ).to.be.revertedWith(`InvalidSubscription`)
-    })
-    it('must be owner', async function () {
-      await expect(
-        vrfCoordinatorV2
-          .connect(random)
-          .cancelSubscription(subId, subOwnerAddress),
-      ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
-    })
-    it('can cancel', async function () {
-      await linkToken
-        .connect(subOwner)
-        .transferAndCall(
-          vrfCoordinatorV2.address,
-          BigNumber.from('1000'),
-          ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
+          .transferAndCall(
+            vrfCoordinatorV2.address,
+            BigNumber.from('1000'),
+            ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
+          )
+        await expect(
+          vrfCoordinatorV2
+            .connect(subOwner)
+            .cancelSubscription(subId, randomAddress),
         )
-      await expect(
-        vrfCoordinatorV2
+          .to.emit(vrfCoordinatorV2, 'SubscriptionCanceled')
+          .withArgs(subId, randomAddress, BigNumber.from('1000'))
+        const randomBalance = await linkToken.balanceOf(randomAddress)
+        assert.equal(randomBalance.toString(), '1000000000000001000')
+        await expect(
+          vrfCoordinatorV2.connect(subOwner).getSubscription(subId),
+        ).to.be.revertedWith('InvalidSubscription')
+      })
+      it('can add same consumer after canceling', async function () {
+        await linkToken
           .connect(subOwner)
-          .cancelSubscription(subId, randomAddress),
-      )
-        .to.emit(vrfCoordinatorV2, 'SubscriptionCanceled')
-        .withArgs(subId, randomAddress, BigNumber.from('1000'))
-      const randomBalance = await linkToken.balanceOf(randomAddress)
-      assert.equal(randomBalance.toString(), '1000000000000001000')
-      await expect(
-        vrfCoordinatorV2.connect(subOwner).getSubscription(subId),
-      ).to.be.revertedWith('InvalidSubscription')
-    })
-    it('can add same consumer after canceling', async function () {
-      await linkToken
-        .connect(subOwner)
-        .transferAndCall(
-          vrfCoordinatorV2.address,
-          BigNumber.from('1000'),
-          ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
-        )
-      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)
-      await vrfCoordinatorV2
-        .connect(subOwner)
-        .cancelSubscription(subId, randomAddress)
-      subId = await createSubscription()
-      // The cancel should have removed this consumer, so we can add it again.
-      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)
-    })
-    it('cannot cancel with pending req', async function () {
-      await linkToken
-        .connect(subOwner)
-        .transferAndCall(
-          vrfCoordinatorV2.address,
-          BigNumber.from('1000'),
-          ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
-        )
-      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)
-      const testKey = [BigNumber.from('1'), BigNumber.from('2')]
-      await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey)
-      await vrfCoordinatorV2.connect(owner).reg
-      const kh = await vrfCoordinatorV2.hashOfKey(testKey)
-      await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // keyhash
-        subId, // subId
-        1, // minReqConf
-        1000000, // callbackGasLimit
-        1, // numWords
-      )
-      // Should revert with outstanding requests
-      await expect(
-        vrfCoordinatorV2
+          .transferAndCall(
+            vrfCoordinatorV2.address,
+            BigNumber.from('1000'),
+            ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
+          )
+        await vrfCoordinatorV2
           .connect(subOwner)
-          .cancelSubscription(subId, randomAddress),
-      ).to.be.revertedWith('PendingRequestExists()')
-      // However the owner is able to cancel
-      // funds go to the sub owner.
-      await expect(
-        vrfCoordinatorV2.connect(owner).ownerCancelSubscription(subId),
-      )
-        .to.emit(vrfCoordinatorV2, 'SubscriptionCanceled')
-        .withArgs(subId, subOwnerAddress, BigNumber.from('1000'))
+          .addConsumer(subId, randomAddress)
+        await vrfCoordinatorV2
+          .connect(subOwner)
+          .cancelSubscription(subId, randomAddress)
+        subId = await createSubscription()
+        // The cancel should have removed this consumer, so we can add it again.
+        await vrfCoordinatorV2
+          .connect(subOwner)
+          .addConsumer(subId, randomAddress)
+      })
+      it('cannot cancel with pending req', async function () {
+        await linkToken
+          .connect(subOwner)
+          .transferAndCall(
+            vrfCoordinatorV2.address,
+            BigNumber.from('1000'),
+            ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
+          )
+        await vrfCoordinatorV2
+          .connect(subOwner)
+          .addConsumer(subId, randomAddress)
+        const testKey = [BigNumber.from('1'), BigNumber.from('2')]
+        await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey)
+        await vrfCoordinatorV2.connect(owner).reg
+        const kh = await vrfCoordinatorV2.hashOfKey(testKey)
+        await vrfCoordinatorV2.connect(consumer).requestRandomWords(
+          kh, // keyhash
+          subId, // subId
+          1, // minReqConf
+          1000000, // callbackGasLimit
+          1, // numWords
+        )
+        // Should revert with outstanding requests
+        await expect(
+          vrfCoordinatorV2
+            .connect(subOwner)
+            .cancelSubscription(subId, randomAddress),
+        ).to.be.revertedWith('PendingRequestExists()')
+        // However the owner is able to cancel
+        // funds go to the sub owner.
+        await expect(
+          vrfCoordinatorV2.connect(owner).ownerCancelSubscription(subId),
+        )
+          .to.emit(vrfCoordinatorV2, 'SubscriptionCanceled')
+          .withArgs(subId, subOwnerAddress, BigNumber.from('1000'))
+      })
+    })
+    describe('subscription cancellation disabled', async function () {
+      let subId: number
+      beforeEach(async () => {
+        subId = await createSubscription()
+        await setSubscriptionCancellation(false)
+      })
+
+      it('subscription must exist', async function () {
+        await expect(
+          vrfCoordinatorV2
+            .connect(subOwner)
+            .cancelSubscription(1203123123, owner.getAddress()),
+        ).to.be.revertedWith(`InvalidSubscription`)
+      })
+      it('cannot be cancelled by sub owner', async function () {
+        await expect(
+          vrfCoordinatorV2
+            .connect(subOwner)
+            .cancelSubscription(subId, subOwnerAddress),
+        ).to.be.revertedWith(`SubscriptionCancellationDisabled`)
+      })
+      it('can be cancelled by the contract owner', async function () {
+        const balanceBefore = await linkToken.balanceOf(owner.getAddress())
+        await linkToken
+          .connect(subOwner)
+          .transferAndCall(
+            vrfCoordinatorV2.address,
+            BigNumber.from('1000'),
+            ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
+          )
+        await expect(
+          vrfCoordinatorV2.connect(owner).ownerCancelSubscription(subId),
+        )
+          .to.emit(vrfCoordinatorV2, 'SubscriptionCanceled')
+          .withArgs(subId, await owner.getAddress(), BigNumber.from('1000'))
+        const balanceAfter = await linkToken.balanceOf(owner.getAddress())
+        assert.equal(
+          balanceAfter.toString(),
+          balanceBefore.add(BigNumber.from('1000')),
+        )
+        await expect(
+          vrfCoordinatorV2.connect(owner).getSubscription(subId),
+        ).to.be.revertedWith('InvalidSubscription')
+      })
     })
   })
 
