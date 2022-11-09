@@ -57,15 +57,16 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 
 		testScenarios = []TableEntry{
 			// working
-			//Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			//Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
-			//Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			//Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			// testing
-			Entry("v2.0 Removing one keeper test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
+			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			// failing
+			Entry("v2.0 Removing one keeper test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 
+			// different consumer
 			//Entry("v2.0 Perform simulation test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			//Entry("v2.0 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			//
@@ -400,13 +401,11 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of Keepers")
 
 			// Remove the first keeper from the list
-			removedNode := nodesWithoutBootstrap[1:]
+			removedNode := nodesWithoutBootstrap[:len(nodesWithoutBootstrap)-1]
 
 			ocrConfig = actions.BuildAutoOCR2ConfigVars(removedNode, registryConfig, registrar.Address())
 			err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
-			//err = registry.SetKeepers([]string{}, []string{}, ocrConfig)
-			//Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new list of Keepers")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
@@ -421,7 +420,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 					g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
 						"than initial counter which was %s, but got %s", initialCounters[i], counter)
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 		}
 
 		if testToRun == PauseRegistryTest {
@@ -501,7 +500,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 
 			// Take down the other half of the Keeper nodes
 			secondHalfToTakeDown := nodesWithoutBootstrap[len(nodesWithoutBootstrap)/2:]
@@ -525,15 +524,16 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			// Once all the nodes are taken down, there might be some straggling transactions which went through before
 			// all the nodes were taken down. Every keeper node can have at most 1 straggling transaction per upkeep,
 			// so a +6 on the upper limit side should be sufficient.
+			// with OCR changing this to just +1
 			Consistently(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs),
+					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+1),
 						"Expected consumer counter to not have increased more than %d, but got %d",
-						countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs, latestCounter.Int64())
+						countersAfterNoMoreNodes[i].Int64()+1, latestCounter.Int64())
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 		}
 
 		// PerformanceCounter
