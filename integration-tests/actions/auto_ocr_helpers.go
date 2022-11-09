@@ -196,13 +196,6 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 			},
 		}
 
-		//autoOCR2JobSpec := client.AutoOCR2JobSpec{
-		//	ContractID:         registryAddr,           // registryAddr
-		//	OCRKeyBundleID:     nodeOCRKeyId,           // get node ocr2config.ID
-		//	TransmitterID:      nodeTransmitterAddress, // node addr
-		//	P2Pv2Bootstrappers: P2Pv2Bootstrapper,      // bootstrap node key and address <p2p-key>@bootstrap:8000
-		//	ChainID:            int(chainID),
-		//}
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
