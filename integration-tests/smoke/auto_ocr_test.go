@@ -472,10 +472,9 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 				}
 			}, "5m", "1s").Should(Succeed())
 
-			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
-			// OCR change to take just one node first
-			firstHalfToTakeDown := nodesWithoutBootstrap[0:1]
-			for _, nodeToTakeDown := range firstHalfToTakeDown {
+			// OCR change to take just f nodes first in this case f=1
+			fNodesDown := nodesWithoutBootstrap[0:1]
+			for _, nodeToTakeDown := range fNodesDown {
 				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 				err = chainClient.WaitForEvents()
@@ -496,8 +495,8 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			}, "5m", "1s").Should(Succeed())
 
 			// Take down the rest
-			secondHalfToTakeDown := nodesWithoutBootstrap[1:]
-			for _, nodeToTakeDown := range secondHalfToTakeDown {
+			restOfNodesDown := nodesWithoutBootstrap[1:]
+			for _, nodeToTakeDown := range restOfNodesDown {
 				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 				err = chainClient.WaitForEvents()
@@ -515,9 +514,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			}
 
 			// Once all the nodes are taken down, there might be some straggling transactions which went through before
-			// all the nodes were taken down. Every keeper node can have at most 1 straggling transaction per upkeep,
-			// so a +6 on the upper limit side should be sufficient.
-			// with OCR changing this to just +1
+			// all the nodes were taken down
 			Consistently(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err := consumers[i].Counter(context.Background())
