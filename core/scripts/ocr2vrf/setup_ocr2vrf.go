@@ -30,7 +30,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	linkEthFeed := fs.String("link-eth-feed", "", "LINK-ETH feed address")
 	useForwarder := fs.Bool("use-forwarder", false, "boolean to use the forwarder")
 	confDelays := fs.String("conf-delays", "1,2,3,4,5,6,7,8", "8 confirmation delays")
-	lookbackBlocks := fs.Int64("lookback-blocks", 1000, "lookback blocks")
 	weiPerUnitLink := fs.String("wei-per-unit-link", "6e16", "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
 	subscriptionBalanceString := fs.String("subscription-balance", "1e19", "amount to fund subscription")
@@ -157,8 +156,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		flagSet.String("vrf-beacon-address", vrfBeaconAddress.String(), "the contract address of the VRF Beacon")
 		flagSet.String("vrf-coordinator-address", vrfCoordinatorAddress.String(), "the contract address of the VRF Coordinator")
 		flagSet.String("link-eth-feed-address", feedAddress.Hex(), "link eth feed address")
-		flagSet.Int64("lookback-blocks", *lookbackBlocks, "lookback blocks")
-		flagSet.String("confirmation-delays", *confDelays, "confirmation delays")
 
 		// Apply forwarder args if using the forwarder.
 		if i > 0 && *useForwarder {
