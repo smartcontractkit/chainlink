@@ -1,7 +1,9 @@
 package chainlink
 
 import (
+	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -41,16 +43,24 @@ func (g *generalConfig) MercuryCredentials(url string) (username, password strin
 	if g.secrets.Mercury.Credentials == nil {
 		return "", "", errors.New("no Mercury credentials were specified in the config")
 	}
-	credentials, exists := g.secrets.Mercury.Credentials[url]
-	if !exists {
-		return "", "", errors.Errorf("no Mercury credentials specified for server URL: %q", url)
+	for _, creds := range g.secrets.Mercury.Credentials {
+		if creds.URL != nil && creds.URL.URL().String() == url {
+			if creds.Username == nil {
+				return "", "", errors.Errorf("no Mercury username specified for server URL: %q", url)
+			}
+			if creds.Password == nil {
+				return "", "", errors.Errorf("no Mercury password specified for server URL: %q", url)
+			}
+			return string(*creds.Username), string(*creds.Password), nil
+		}
 	}
-	if credentials.Username == nil {
-		return "", "", errors.Errorf("no Mercury username specified for server URL: %q", url)
+	msg := fmt.Sprintf("no Mercury credentials specified for server URL: %q", url)
+	if len(g.secrets.Mercury.Credentials) > 0 {
+		urls := make([]string, len(g.secrets.Mercury.Credentials))
+		for i, creds := range g.secrets.Mercury.Credentials {
+			urls[i] = creds.URL.String()
+		}
+		msg += fmt.Sprintf(" (credentials available for these urls: %s)", strings.Join(urls, ","))
 	}
-	if credentials.Password == nil {
-		return "", "", errors.Errorf("no Mercury password specified for server URL: %q", url)
-	}
-	return string(*credentials.Username), string(*credentials.Password), nil
-
+	return "", "", errors.New(msg)
 }

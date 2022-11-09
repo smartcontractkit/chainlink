@@ -164,11 +164,12 @@ type PyroscopeSecrets struct {
 }
 
 type MercuryCredentials struct {
+	URL      *models.SecretURL
 	Username *models.Secret
 	Password *models.Secret
 }
 type MercurySecrets struct {
-	Credentials map[string]MercuryCredentials
+	Credentials []MercuryCredentials
 }
 
 type Feature struct {
