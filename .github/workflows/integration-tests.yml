@@ -8,8 +8,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ECR_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  ECR_IMAGE: cl-test-${{github.event.number}}
+  ECR_REGISTRY: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  ECR_IMAGE_TAG: cl-test-${{github.event.number}}
 
 jobs:
   changes:
@@ -65,7 +65,7 @@ jobs:
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
-          push_tag: ${{ env.ECR_REPO }}:${{ env.ECR_IMAGE }}
+          push_tag: ${{ env.ECR_REGISTRY }}:${{ env.ECR_IMAGE_TAG }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -138,7 +138,7 @@ jobs:
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-          cl_image_tag: ${{ env.ECR_IMAGE }}
+          cl_image_tag: ${{ env.ECR_IMAGE_TAG }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
@@ -262,7 +262,7 @@ jobs:
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-          cl_image_tag: ${{ env.ECR_IMAGE }}
+          cl_image_tag: ${{ env.ECR_IMAGE_TAG }}
           download_contract_artifacts_path: contracts/target/deploy
           artifacts_location: /home/runner/work/chainlink/chainlink/tests/e2e/smoke/logs
           publish_check_name: Solana Smoke Test Results
@@ -289,20 +289,14 @@ jobs:
       contents: read
     name: Push Latest Image On Merge
     runs-on: ubuntu-latest
-    needs: [build-chainlink]
     steps:
-      - name: test
-        run: |
-          echo "${{ github.event.pull_request.merge }}"
-          echo "${{ github.event.action }}"
-          echo "${{ github.base_ref }}"
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Build Chainlink Image
+          this-job-name: Push Latest Image On Merge
         continue-on-error: true
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -315,8 +309,8 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Push Image
+      - name: Tag test-develop-latest with these changes
         run: |
-          docker pull ${{ env.ECR_REPO }}:${{ env.ECR_IMAGE }}
-          docker tag ${{ env.ECR_REPO }}:${{ env.ECR_IMAGE }} ${{ env.ECR_REPO }}:test-develop-latest
-          docker push ${{ env.ECR_REPO }}:test-develop-latest
+          docker pull ${{ env.ECR_REGISTRY }}:${{ env.ECR_IMAGE_TAG }}
+          docker tag ${{ env.ECR_REGISTRY }}:${{ env.ECR_IMAGE_TAG }} ${{ env.ECR_REGISTRY }}:test-develop-latest
+          docker push ${{ env.ECR_REGISTRY }}:test-develop-latest
