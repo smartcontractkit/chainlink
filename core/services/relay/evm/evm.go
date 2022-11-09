@@ -334,7 +334,8 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 			return nil, errors.New("EffectiveTransmitterAddress must be specified")
 		}
 		effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-		username, password, err := r.cfg.MercuryCredentials(reportURL.String())
+		var username, password string
+		username, password, err = r.cfg.MercuryCredentials(reportURL.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get mercury credentials for URL: %s", reportURL.String())
 		}
