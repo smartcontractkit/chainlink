@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -44,7 +45,8 @@ type dkgSetConfigArgs struct {
 
 type vrfBeaconSetConfigArgs struct {
 	commonSetConfigArgs
-	confDelays string
+	confDelays        string
+	coordinatorConfig ocr2vrftypes.CoordinatorConfig
 }
 
 func main() {
@@ -171,6 +173,12 @@ func main() {
 		deltaRound := cmd.Duration("delta-round", 10*time.Second, "duration of delta round")
 		deltaGrace := cmd.Duration("delta-grace", 20*time.Second, "duration of delta grace")
 		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta stage")
+		cacheEvictionWindowSeconds := cmd.Int64("cache-eviction-window", 60, "cache eviction window, in seconds")
+		batchGasLimit := cmd.Int64("batch-gas-limit", 5_000_000, "batch gas limit")
+		coordinatorOverhead := cmd.Int64("coordinator-overhead", 50_000, "coordinator overhead")
+		callbackOverhead := cmd.Int64("callback-overhead", 50_000, "callback overhead")
+		blockGasOverhead := cmd.Int64("block-gas-overhead", 50_000, "block gas overhead")
+		lookbackBlocks := cmd.Int64("lookback-blocks", 1_000, "lookback blocks")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
@@ -210,6 +218,14 @@ func main() {
 				maxDurationTransmit:    *maxDurationTransmit,
 			},
 			confDelays: *confDelays,
+			coordinatorConfig: ocr2vrftypes.CoordinatorConfig{
+				CacheEvictionWindowSeconds: *cacheEvictionWindowSeconds,
+				BatchGasLimit:              *batchGasLimit,
+				CoordinatorOverhead:        *coordinatorOverhead,
+				CallbackOverhead:           *callbackOverhead,
+				BlockGasOverhead:           *blockGasOverhead,
+				LookbackBlocks:             *lookbackBlocks,
+			},
 		}
 
 		setVRFBeaconConfig(e, *beaconAddress, commands)

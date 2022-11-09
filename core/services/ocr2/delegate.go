@@ -373,7 +373,6 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			common.HexToAddress(cfg.VRFCoordinatorAddress),
 			common.HexToAddress(cfg.DKGContractAddress),
 			chain.Client(),
-			cfg.LookbackBlocks,
 			chain.LogPoller(),
 			chain.Config().EvmFinalityDepth(),
 		)
