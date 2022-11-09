@@ -74,6 +74,7 @@ func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtyp
 	if oc.mercuryMode {
 		// Bit of a hack, this must return the correct config digest at least
 		// TODO: Return the actual latest transmission details
+		// https://app.shortcut.com/chainlinklabs/story/57500/return-the-actual-latest-transmission-details
 		_, cd, err := oc.configTracker.LatestConfigDetails(ctx)
 		return cd, 0, 0, big.NewInt(0), time.Time{}, err
 	}

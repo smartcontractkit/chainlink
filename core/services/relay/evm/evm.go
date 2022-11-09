@@ -374,10 +374,6 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 type MercuryConfig struct {
 	FeedID string      `json:"feedID"`
 	URL    *models.URL `json:"url"`
-	// NOTE: username/password here are temporary before we roll out proper
-	// wsrpc with more well developed auth
-	Username string `json:"username"`
-	Password string `json:"password"`
 }
 
 type RelayConfig struct {

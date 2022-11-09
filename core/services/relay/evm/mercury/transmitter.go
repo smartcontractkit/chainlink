@@ -137,6 +137,7 @@ func (mt *MercuryTransmitter) FromAccount() ocrtypes.Account {
 func (mt *MercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (cd ocrtypes.ConfigDigest, epoch uint32, err error) {
 	// ConfigDigest and epoch are not stored on the contract in mercury mode
 	// TODO: Do we need to support retrieving it from the server? Does it matter?
+	// https://app.shortcut.com/chainlinklabs/story/57500/return-the-actual-latest-transmission-details
 	err = errors.New("Retrieving config digest/epoch is not supported in Mercury mode")
 	return
 }
