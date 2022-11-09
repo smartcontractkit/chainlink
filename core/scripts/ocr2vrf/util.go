@@ -204,6 +204,7 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 		CoordinatorOverhead:        50_000,
 		CallbackOverhead:           50_000,
 		BlockGasOverhead:           50_000,
+		LookbackBlocks:             1_000,
 	}
 
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
