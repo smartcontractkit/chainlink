@@ -94,7 +94,7 @@ jobs:
         with:
           name: ${{ matrix.cmd }}_${{ matrix.split.idx }}_logs
           path: |
-            ./output.txt
+            ./output.json
             ./race.*
             ./coverage.txt
       - name: Print postgres logs
@@ -136,7 +136,7 @@ jobs:
         id: sonarqube_report_paths
         shell: bash
         run: |
-          echo "sonarqube_tests_report_paths=$(find go_core_tests_*_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          echo "sonarqube_tests_report_paths=$(find go_core_tests_*_logs -name output.json | paste -sd "," -)" >> $GITHUB_OUTPUT
           echo "sonarqube_coverage_report_paths=$(find go_core_tests_*_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@7295e71c9583053f5bf40e9d4068a0c974603ec8 # v1.1.0

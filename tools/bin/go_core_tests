@@ -2,13 +2,15 @@
 set -o pipefail
 set +e
 
-SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
-OUTPUT_FILE="./output.txt"
+SCRIPT_PATH=$(dirname "$0"); SCRIPT_PATH=$(eval "cd \"$SCRIPT_PATH\" && pwd")
+OUTPUT_FILE="./output.json"
 
 echo "Failed tests and panics: ---------------------"
 echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-go test -ldflags "$GO_LDFLAGS" -tags integration -p 3 -coverprofile=coverage.txt -covermode=atomic $1 | tee $OUTPUT_FILE | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
+go test -json -ldflags "$GO_LDFLAGS" -tags integration -p 3 -coverprofile=coverage.txt -covermode=atomic $1 \
+	| tee $OUTPUT_FILE \
+	| grep --line-buffered --line-number -e '"Output":"FAIL' -e '"Output":"panic'
 EXITCODE=${PIPESTATUS[0]}
 echo ""
 echo "----------------------------------------------"
@@ -20,8 +22,8 @@ echo ""
 echo "Potentially related:"
 echo ""
 
-grep --after-context=2 --group-separator=$'---' "panic: " $OUTPUT_FILE
-grep --group-separator=$'---' "driver: bad connection" $OUTPUT_FILE
+ggrep --after-context=3 --group-separator=$'---' '"Output":"panic' $OUTPUT_FILE
+ggrep --group-separator=$'---' "driver: bad connection" $OUTPUT_FILE
 
 # Assert no known sensitive strings present in test logger output
 printf "\n----------------------------------------------\n\n"
