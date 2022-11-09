@@ -57,11 +57,11 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 
 		testScenarios = []TableEntry{
 			// working
-			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
-			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
+			//Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			//Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			// failing
 			Entry("v2.0 Removing one keeper test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
