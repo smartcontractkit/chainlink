@@ -1,6 +1,8 @@
 package chainlink
 
 import (
+	"fmt"
+
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -44,7 +46,10 @@ func (c *Config) TOMLString() (string, error) {
 }
 
 func (c *Config) Validate() error {
-	return config.Validate(c)
+	if err := config.Validate(c); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+	return nil
 }
 
 // setDefaults initializes unset fields with default values.
@@ -97,7 +102,10 @@ func (s *Secrets) TOMLString() (string, error) {
 }
 
 func (s *Secrets) Validate() error {
-	return config.Validate(s)
+	if err := config.Validate(s); err != nil {
+		return fmt.Errorf("invalid secrets: %w", err)
+	}
+	return nil
 }
 
 // setEnv overrides fields from ENV vars, if present.
