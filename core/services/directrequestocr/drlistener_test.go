@@ -63,7 +63,7 @@ func NewDRListenerUniverse(t *testing.T) *DRListenerUniverse {
 		OCR2OracleSpec: &job.OCR2OracleSpec{},
 	}
 
-	oracle, err := directrequestocr.NewDROracle(*jb, runner, jobORM, nil, pluginORM, chain, lggr, nil)
+	oracle, err := directrequestocr.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil)
 	require.NoError(t, err)
 
 	serviceArray, err := oracle.GetServices()
