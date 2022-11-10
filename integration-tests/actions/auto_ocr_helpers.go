@@ -159,7 +159,7 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 			RelayConfig: map[string]interface{}{
 				"chainID": int(chainID),
 			},
-			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -188,7 +188,7 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 				RelayConfig: map[string]interface{}{
 					"chainID": int(chainID),
 				},
-				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                            // registryAddr
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
 				TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr

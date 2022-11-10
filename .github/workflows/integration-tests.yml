@@ -84,23 +84,17 @@ jobs:
       fail-fast: false
       matrix:
         product:
-          - name: auto_ocr
-            nodes: 1
-            os: ubuntu-latest
           - name: cron
             nodes: 1
             os: ubuntu-latest
           - name: flux
             nodes: 1
             os: ubuntu-latest
-          - name: forwarder_ocr
-            nodes: 1
-            os: ubuntu-latest
           - name: keeper
             nodes: 27
             os: ubuntu20.04-32cores-128GB
           - name: ocr
-            nodes: 1
+            nodes: 3
             os: ubuntu-latest
           - name: runlog
             nodes: 1
