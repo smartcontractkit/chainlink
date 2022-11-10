@@ -80,7 +80,10 @@ var p2pV2 = `[P2P]
 [P2P.V2]
 Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
-AnnounceAddresses = ['0.0.0.0:6690']`
+AnnounceAddresses = ['0.0.0.0:6690']
+
+[Feature]
+LogPoller = true`
 
 func (t *TOMLBuilder) AddP2PNetworkingV2() *TOMLBuilder {
 	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", p2pV2))
