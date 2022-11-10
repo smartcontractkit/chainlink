@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
@@ -31,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	vrf_mocks "github.com/smartcontractkit/chainlink/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -452,4 +454,98 @@ func TestFulfilledCheck(t *testing.T) {
 	runs, err := vuni.prm.GetAllRuns()
 	require.NoError(t, err)
 	require.Equal(t, len(runs), 0)
+}
+
+func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
+	t.Run("returns nil error if gasLanePrice not set in job spec", func(tt *testing.T) {
+		spec := `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "2h"
+observationSource = """
+decode_log   [type=ethabidecodelog
+              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrf
+			  publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+encode_tx    [type=ethabiencode
+              abi="fulfillRandomnessRequest(bytes proof)"
+              data="{\\"proof\\": $(vrf)}"]
+submit_tx  [type=ethtx to="%s"
+			data="$(encode_tx)"
+            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
+decode_log->vrf->encode_tx->submit_tx
+"""
+`
+		jb, err := vrf.ValidatedVRFSpec(spec)
+		require.NoError(tt, err)
+
+		cfg := &vrf_mocks.Config{}
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+	})
+
+	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
+		}
+
+		cfg := &vrf_mocks.Config{}
+		for _, a := range fromAddresses {
+			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
+		}
+		defer cfg.AssertExpectations(tt)
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		require.NoError(t, err)
+
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+	})
+
+	t.Run("returns error on invalid setting", func(tt *testing.T) {
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
+		}
+
+		cfg := &vrf_mocks.Config{}
+		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
+		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
+		// last from address has wrong key-specific max gas price
+		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
+		defer cfg.AssertExpectations(tt)
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		require.NoError(t, err)
+
+		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+	})
 }
