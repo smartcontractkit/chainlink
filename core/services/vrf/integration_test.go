@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -42,16 +43,15 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559))
-			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
+			config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
+			})
 			key1 := cltest.MustGenerateRandomKey(t)
 			key2 := cltest.MustGenerateRandomKey(t)
 			cu := newVRFCoordinatorUniverse(t, key1, key2)
 			incomingConfs := 2
-			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key1)
+			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.backend, key1, key2)
 			require.NoError(t, app.Start(testutils.Context(t)))
-
-			cltest.MustAddKeyToKeystore(t, key2, cu.backend.Blockchain().Config().ChainID, app.KeyStore.Eth())
 
 			jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
 			require.NoError(t, app.JobSpawner().CreateJob(&jb))
@@ -120,13 +120,14 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 }
 
 func TestIntegration_VRF_WithBHS(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrf_with_bhs")
-	config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
+	config, _ := heavyweight.FullTestDBV2(t, "vrf_with_bhs", func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
+	})
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
 	incomingConfs := 2
-	config.Overrides.BlockBackfillDepth = null.IntFrom(500)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job but do not start it yet

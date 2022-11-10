@@ -219,6 +219,7 @@ func TestHeadTracker_Start_CancelContext(t *testing.T) {
 	}()
 	err := ht.headTracker.Start(ctx)
 	require.NoError(t, err)
+	require.NoError(t, ht.headTracker.Close())
 }
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {

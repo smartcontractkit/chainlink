@@ -603,10 +603,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		// Counters are prune to being in-accurate due to re-orgs.
 		if ec.config.EvmUseForwarders() {
 			meta, err := attempt.EthTx.GetMeta()
-			if err != nil || meta == nil {
-				continue
-			}
-			if meta.FwdrDestAddress != nil {
+			if err == nil && meta != nil && meta.FwdrDestAddress != nil {
 				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
 				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
 			}
@@ -1104,7 +1101,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.L
 			previousAttempt.State = EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
-		attempt, err = ec.bumpGas(etx, etx.EthTxAttempts)
+		attempt, err = ec.bumpGas(ctx, etx, etx.EthTxAttempts)
 
 		if gas.IsBumpErr(err) {
 			lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
@@ -1133,7 +1130,7 @@ func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interfa
 	}
 }
 
-func (ec *EthConfirmer) bumpGas(etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
+func (ec *EthConfirmer) bumpGas(ctx context.Context, etx EthTx, previousAttempts []EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
 	priorAttempts := make([]gas.PriorAttempt, len(previousAttempts))
 	// This feels a bit useless but until we get iterators there is no other
 	// way to cast an array of structs to an array of interfaces
@@ -1147,7 +1144,7 @@ func (ec *EthConfirmer) bumpGas(etx EthTx, previousAttempts []EthTxAttempt) (bum
 	case 0x0: // Legacy
 		var bumpedGasPrice *assets.Wei
 		var bumpedGasLimit uint32
-		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(ctx, previousAttempt.GasPrice, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
@@ -1157,7 +1154,7 @@ func (ec *EthConfirmer) bumpGas(etx EthTx, previousAttempts []EthTxAttempt) (bum
 		var bumpedFee gas.DynamicFee
 		var bumpedGasLimit uint32
 		original := previousAttempt.DynamicFee()
-		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(ctx, original, etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.TipCap.String(), "bumpedFeeCap", bumpedFee.FeeCap.String())...)
@@ -1230,7 +1227,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			logger.Sugared(ec.lggr).AssumptionViolationw(err.Error(), "err", err, "attempt", attempt, "ethTxAttempts", etx.EthTxAttempts)
 			return err
 		}
-		replacementAttempt, err := ec.bumpGas(etx, etx.EthTxAttempts)
+		replacementAttempt, err := ec.bumpGas(ctx, etx, etx.EthTxAttempts)
 		if err != nil {
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
@@ -1297,7 +1294,8 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		sendError = nil
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex(), "err", sendError)
-		return saveConfirmedMissingReceiptAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), ec.lggr, &attempt, now)
+		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		return saveConfirmedMissingReceiptAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), timeout, ec.lggr, &attempt, now)
 	}
 
 	if sendError.IsReplacementUnderpriced() {
@@ -1329,12 +1327,14 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
 		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
-		return saveInsufficientEthAttempt(ec.q, ec.lggr, &attempt, now)
+		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		return saveInsufficientEthAttempt(ec.q, timeout, ec.lggr, &attempt, now)
 	}
 
 	if sendError == nil {
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
-		return saveSentAttempt(ec.db, lggr, &attempt, now)
+		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		return saveSentAttempt(ec.db, timeout, lggr, &attempt, now)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the
@@ -1355,9 +1355,9 @@ func deleteInProgressAttempt(q pg.Q, attempt EthTxAttempt) error {
 	return errors.Wrap(err, "deleteInProgressAttempt failed")
 }
 
-func saveConfirmedMissingReceiptAttempt(q pg.Q, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveConfirmedMissingReceiptAttempt(q pg.Q, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
 	err := q.Transaction(func(tx pg.Queryer) error {
-		if err := saveSentAttempt(tx, lggr, attempt, broadcastAt); err != nil {
+		if err := saveSentAttempt(tx, timeout, lggr, attempt, broadcastAt); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`UPDATE eth_txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.EthTxID); err != nil {
@@ -1368,25 +1368,27 @@ func saveConfirmedMissingReceiptAttempt(q pg.Q, lggr logger.Logger, attempt *Eth
 	return errors.Wrap(err, "saveConfirmedMissingReceiptAttempt failed")
 }
 
-func saveSentAttempt(q pg.Queryer, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveSentAttempt(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = EthTxAttemptBroadcast
-	return errors.Wrap(saveAttemptWithNewState(q, lggr, *attempt, broadcastAt), "saveSentAttempt failed")
+	return errors.Wrap(saveAttemptWithNewState(q, timeout, lggr, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
-func saveInsufficientEthAttempt(q pg.Queryer, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveInsufficientEthAttempt(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
 	if !(attempt.State == EthTxAttemptInProgress || attempt.State == EthTxAttemptInsufficientEth) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
 	attempt.State = EthTxAttemptInsufficientEth
-	return errors.Wrap(saveAttemptWithNewState(q, lggr, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
+	return errors.Wrap(saveAttemptWithNewState(q, timeout, lggr, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 
 }
 
-func saveAttemptWithNewState(q pg.Queryer, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
-	return pg.SqlxTransactionWithDefaultCtx(q, lggr, func(tx pg.Queryer) error {
+func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return pg.SqlxTransaction(ctx, q, lggr, func(tx pg.Queryer) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error

@@ -647,7 +647,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
 }
 
-func TestEthConfirmer_CheckForReceipts_HandlesNilMetaWithForwardingEnabled(t *testing.T) {
+func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -670,6 +670,9 @@ func TestEthConfirmer_CheckForReceipts_HandlesNilMetaWithForwardingEnabled(t *te
 	attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 2)
 	attempt.EthTx.Meta = nil
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	dbtx, err := borm.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(dbtx.EthTxAttempts[0].EthReceipts))
 
 	txmReceipt := evmtypes.Receipt{
 		TxHash:           attempt.Hash,
@@ -689,6 +692,11 @@ func TestEthConfirmer_CheckForReceipts_HandlesNilMetaWithForwardingEnabled(t *te
 	}).Once()
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+
+	// Check receipt is inserted correctly.
+	dbtx, err = borm.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(dbtx.EthTxAttempts[0].EthReceipts))
 }
 
 func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {

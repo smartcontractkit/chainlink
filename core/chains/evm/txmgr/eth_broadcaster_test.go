@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	legacy "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -45,7 +44,7 @@ import (
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := legacy.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -253,13 +252,17 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.Len(t, attempt.EthReceipts, 0)
 	})
 
-	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
-		cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
-		rnd := int64(1000000000 + rand.Intn(5000))
-		cfg.Overrides.GlobalEvmGasTipCapDefault = assets.NewWeiI(rnd)
-		cfg.Overrides.GlobalEvmGasFeeCapDefault = assets.NewWeiI(rnd + 1)
-		cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.NewWeiI(rnd + 2)
+	rnd := int64(1000000000 + rand.Intn(5000))
+	cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+		c.EVM[0].GasEstimator.TipCapDefault = assets.NewWeiI(rnd)
+		c.EVM[0].GasEstimator.FeeCapDefault = assets.NewWeiI(rnd + 1)
+		c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(rnd + 2)
+	})
+	evmcfg = evmtest.NewChainScopedConfig(t, cfg)
+	eb = cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory)
 
+	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
 		eipTxWithoutAl := txmgr.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -560,7 +563,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
-	cfg, db := heavyweight.FullTestDB(t, "eth_broadcaster_optimistic_locking")
+	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -571,7 +574,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	chBlock := make(chan struct{})
 
 	estimator := gasmocks.NewEstimator(t)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, evmcfg.KeySpecificMaxGasPriceWei(fromAddress)).Return(assets.GWei(32), uint32(500), nil).Run(func(_ mock.Arguments) {
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, evmcfg.KeySpecificMaxGasPriceWei(fromAddress)).Return(assets.GWei(32), uint32(500), nil).Run(func(_ mock.Arguments) {
 		close(chStartEstimate)
 		<-chBlock
 	})
@@ -969,7 +972,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	encodedPayload := []byte{0, 1}
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -1518,14 +1521,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// In this scenario the node operator REALLY fucked up and set the bump
 		// to zero (even though that should not be possible due to config
 		// validation)
-		oldGasBumpWei := evmcfg.EvmGasBumpWei()
-		oldGasBumpPercent := evmcfg.EvmGasBumpPercent()
-		cfg.Overrides.GlobalEvmGasBumpWei = assets.NewWeiI(0)
-		cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(0)
-		defer func() {
-			cfg.Overrides.GlobalEvmGasBumpWei = oldGasBumpWei
-			cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(int64(oldGasBumpPercent))
-		}()
+		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.BumpMin = assets.NewWeiI(0)
+			c.EVM[0].GasEstimator.BumpPercent = ptr[uint16](0)
+		}))
+		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		etx := txmgr.EthTx{
 			FromAddress:    fromAddress,
@@ -1539,11 +1539,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// First was underpriced
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(evmcfg.EvmGasPriceDefault().ToInt()) == 0
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(evmcfg2.EvmGasPriceDefault().ToInt()) == 0
 		})).Return(errors.New(underpricedError)).Once()
 
 		// Do the thing
-		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		err, retryable := eb2.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas price of 20 gwei is equal to original gas price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
 		assert.True(t, retryable)
@@ -1590,7 +1590,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	})
 
 	pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
-	cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
 
 	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it in EIP-1559 mode", func(t *testing.T) {
 		// This happens if a transaction's gas price is below the minimum
@@ -1600,14 +1599,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// In this scenario the node operator REALLY fucked up and set the bump
 		// to zero (even though that should not be possible due to config
 		// validation)
-		oldGasBumpWei := evmcfg.EvmGasBumpWei()
-		oldGasBumpPercent := evmcfg.EvmGasBumpPercent()
-		cfg.Overrides.GlobalEvmGasBumpWei = assets.NewWeiI(0)
-		cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(0)
-		defer func() {
-			cfg.Overrides.GlobalEvmGasBumpWei = oldGasBumpWei
-			cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(int64(oldGasBumpPercent))
-		}()
+		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.EVM[0].GasEstimator.BumpMin = assets.NewWeiI(0)
+			c.EVM[0].GasEstimator.BumpPercent = ptr[uint16](0)
+		}))
+		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		etx := txmgr.EthTx{
 			FromAddress:    fromAddress,
@@ -1626,7 +1623,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(underpricedError)).Once()
 
 		// Check gas tip cap verification
-		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		err, retryable := eb2.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas tip cap of 1 wei is less than or equal to original gas tip cap of 1 wei")
 		assert.True(t, retryable)
@@ -1652,28 +1649,38 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, borm.InsertEthTx(&etx))
 
 		// Check gas tip cap verification
-		cfg.Overrides.GlobalEvmGasTipCapDefault = assets.NewWeiI(0)
-		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.EVM[0].GasEstimator.TipCapDefault = assets.NewWeiI(0)
+		}))
+		eb2 := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{})
+
+		err, retryable := eb2.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "specified gas tip cap of 0 is below min configured gas tip of 1 wei for key")
 		assert.True(t, retryable)
 
 		gasTipCapDefault := assets.NewWeiI(42)
-		cfg.Overrides.GlobalEvmGasTipCapDefault = gasTipCapDefault
+
+		evmcfg2 = evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.EVM[0].GasEstimator.TipCapDefault = gasTipCapDefault
+		}))
+		eb2 = cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg2, []ethkey.State{keyState}, &testCheckerFactory{})
 		// Second was underpriced but above minimum
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(gasTipCapDefault.ToInt()) == 0
 		})).Return(errors.New(underpricedError)).Once()
 		// Resend at the bumped price
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), evmcfg.EvmGasBumpWei().ToInt())) == 0
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), evmcfg2.EvmGasBumpWei().ToInt())) == 0
 		})).Return(errors.New(underpricedError)).Once()
 		// Final bump succeeds
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg.EvmGasBumpWei().ToInt(), big.NewInt(2)))) == 0
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg2.EvmGasBumpWei().ToInt(), big.NewInt(2)))) == 0
 		})).Return(nil).Once()
 
-		err, retryable = eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		err, retryable = eb2.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.NoError(t, err)
 		assert.False(t, retryable)
 
@@ -1795,7 +1802,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 
 func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
-	cfg, db := heavyweight.FullTestDB(t, "eth_tx_triggers")
+	cfg, db := heavyweight.FullTestDBV2(t, "eth_tx_triggers", nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)

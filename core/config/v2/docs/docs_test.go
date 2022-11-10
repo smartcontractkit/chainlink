@@ -120,7 +120,8 @@ var (
 )
 
 func Test_generateDocs(t *testing.T) {
-	got, err := generateDocs(exampleTOML)
+	got, err := generateDocs(exampleTOML, `[//]: # (Generated - DO NOT EDIT.)
+`)
 	require.NoError(t, err)
 	assert.Equal(t, exampleMarkdown, got)
 }

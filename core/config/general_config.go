@@ -25,13 +25,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GeneralConfig --output ./mocks/ --case=underscore
 
 // nolint
 var (
@@ -68,6 +69,7 @@ type BasicConfig interface {
 	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
+	SetPasswords(keystore, vrf *string)
 
 	FeatureFlags
 	audit.Config
@@ -92,12 +94,16 @@ type BasicConfig interface {
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
+	BridgeCacheTTL() time.Duration
 	CertFile() string
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
 	DatabaseBackupOnVersionUpgrade() bool
 	DatabaseBackupURL() *url.URL
+	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
+	DatabaseDefaultLockTimeout() time.Duration
+	DatabaseDefaultQueryTimeout() time.Duration
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
@@ -161,6 +167,10 @@ type BasicConfig interface {
 	ReaperExpiration() models.Duration
 	RootDir() string
 	SecureCookies() bool
+	SentryDSN() string
+	SentryDebug() bool
+	SentryEnvironment() string
+	SentryRelease() string
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
 	SolanaNodes() string
@@ -283,6 +293,9 @@ type generalConfig struct {
 	logMutex         sync.RWMutex
 	genAppID         sync.Once
 	appID            uuid.UUID
+
+	passwordKeystore, passwordVRF string
+	passwordMu                    sync.RWMutex // passwords are set after initialization
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -621,6 +634,11 @@ func (c *generalConfig) BridgeResponseURL() *url.URL {
 	return getEnvWithFallback(c, envvar.New("BridgeResponseURL", url.Parse))
 }
 
+// BridgeCacheTTL represents the max acceptable duration for a cached bridge value to be used in case of intermittent failure.
+func (c *generalConfig) BridgeCacheTTL() time.Duration {
+	return getEnvWithFallback(c, envvar.NewDuration("BridgeCacheTTL"))
+}
+
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUICSAKeys() bool {
 	return getEnvWithFallback(c, envvar.NewBool("FeatureUICSAKeys"))
@@ -670,6 +688,18 @@ func (c *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
 func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(envvar.Name("DatabaseBackupDir"))
+}
+
+func (c *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	return pg.DefaultIdleInTxSessionTimeout
+}
+
+func (c *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
+	return pg.DefaultLockTimeout
+}
+
+func (c *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	return pg.DefaultQueryTimeout
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
@@ -1163,6 +1193,22 @@ func (c *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("SessionTimeout")))
 }
 
+func (c *generalConfig) SentryDSN() string {
+	return os.Getenv("SENTRY_DSN")
+}
+
+func (c *generalConfig) SentryDebug() bool {
+	return os.Getenv("SENTRY_DEBUG") == "true"
+}
+
+func (c *generalConfig) SentryEnvironment() string {
+	return os.Getenv("SENTRY_ENVIRONMENT")
+}
+
+func (c *generalConfig) SentryRelease() string {
+	return os.Getenv("SENTRY_RELEASE")
+}
+
 // TLSCertPath represents the file system location of the TLS certificate
 // Chainlink should use for HTTPS.
 func (c *generalConfig) TLSCertPath() string {
@@ -1497,14 +1543,25 @@ func (c *generalConfig) LogFileDir() string {
 	return s
 }
 
-// Implemented only in config V2. V1 uses a --password flag.
-func (c *generalConfig) KeystorePassword() string {
-	c.lggr.Warn("Config V1 should use --password flag instead of calling KeystorePassword()")
-	return ""
+func (c *generalConfig) SetPasswords(keystore, vrf *string) {
+	c.passwordMu.Lock()
+	defer c.passwordMu.Unlock()
+	if keystore != nil {
+		c.passwordKeystore = *keystore
+	}
+	if vrf != nil {
+		c.passwordVRF = *vrf
+	}
 }
 
-// Implemented only in config V2. V1 uses a --vrfpassword flag.
+func (c *generalConfig) KeystorePassword() string {
+	c.passwordMu.RLock()
+	defer c.passwordMu.RUnlock()
+	return c.passwordKeystore
+}
+
 func (c *generalConfig) VRFPassword() string {
-	c.lggr.Warn("Config V1 should use --vrfpassword flag instead of calling VRFPassword()")
-	return ""
+	c.passwordMu.RLock()
+	defer c.passwordMu.RUnlock()
+	return c.passwordVRF
 }

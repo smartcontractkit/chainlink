@@ -40,8 +40,8 @@ const (
 	BootstrapJobType          string = "bootstrap"
 )
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --name Task --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -61,6 +61,7 @@ type (
 
 	Config interface {
 		BridgeResponseURL() *url.URL
+		BridgeCacheTTL() time.Duration
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration

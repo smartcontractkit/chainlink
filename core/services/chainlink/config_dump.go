@@ -519,13 +519,14 @@ func (c *Config) loadLegacyCoreEnv() {
 		Enabled:        envvar.NewBool("AuditLoggerEnabled").ParsePtr(),
 		ForwardToUrl:   envURL("AuditLoggerForwardToUrl"),
 		JsonWrapperKey: envvar.NewString("AuditLoggerJsonWrapperKey").ParsePtr(),
-		Headers:        audit.AuditLoggerHeaders.ParsePtr(),
+		Headers:        (*[]audit.ServiceHeader)(audit.AuditLoggerHeaders.ParsePtr()),
 	}
 
 	c.Database = config.Database{
 		DefaultIdleInTxSessionTimeout: mustParseDuration(os.Getenv("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT")),
 		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
 		DefaultQueryTimeout:           mustParseDuration(os.Getenv("DATABASE_DEFAULT_QUERY_TIMEOUT")),
+		LogQueries:                    envvar.LogSQL.ParsePtr(),
 		MigrateOnStartup:              envvar.NewBool("MigrateDatabase").ParsePtr(),
 		MaxIdleConns:                  envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		MaxOpenConns:                  envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
@@ -559,9 +560,9 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.Log = config.Log{
-		DatabaseQueries: envvar.NewBool("LogSQL").ParsePtr(),
-		JSONConsole:     envvar.JSONConsole.ParsePtr(),
-		UnixTS:          envvar.LogUnixTS.ParsePtr(),
+		Level:       (*config.LogLevel)(envvar.LogLevel.ParsePtr()),
+		JSONConsole: envvar.JSONConsole.ParsePtr(),
+		UnixTS:      envvar.LogUnixTS.ParsePtr(),
 		File: config.LogFile{
 			Dir:        envvar.NewString("LogFileDir").ParsePtr(),
 			MaxSize:    envvar.LogFileMaxSize.ParsePtr(),
@@ -573,6 +574,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.WebServer = config.WebServer{
 		AllowOrigins:            envvar.NewString("AllowOrigins").ParsePtr(),
 		BridgeResponseURL:       envURL("BridgeResponseURL"),
+		BridgeCacheTTL:          envDuration("BridgeCacheTTL"),
 		HTTPWriteTimeout:        envDuration("HTTPServerWriteTimeout"),
 		HTTPPort:                envvar.NewUint16("Port").ParsePtr(),
 		SecureCookies:           envvar.NewBool("SecureCookies").ParsePtr(),
@@ -719,22 +721,21 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.Pyroscope = config.Pyroscope{
-		AuthToken:     envvar.NewString("PyroscopeAuthToken").ParsePtr(),
 		ServerAddress: envvar.NewString("PyroscopeServerAddress").ParsePtr(),
 		Environment:   envvar.NewString("PyroscopeEnvironment").ParsePtr(),
 	}
 
 	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
-		c.Sentry = config.Sentry{DSN: &dsn}
-		if debug := os.Getenv("SENTRY_DEBUG") == "true"; debug {
-			c.Sentry.Debug = &debug
-		}
-		if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
-			c.Sentry.Environment = &env
-		}
-		if env := os.Getenv("SENTRY_RELEASE"); env != "" {
-			c.Sentry.Release = &env
-		}
+		c.Sentry.DSN = &dsn
+	}
+	if debug := os.Getenv("SENTRY_DEBUG") == "true"; debug {
+		c.Sentry.Debug = &debug
+	}
+	if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
+		c.Sentry.Environment = &env
+	}
+	if rel := os.Getenv("SENTRY_RELEASE"); rel != "" {
+		c.Sentry.Release = &rel
 	}
 }
 

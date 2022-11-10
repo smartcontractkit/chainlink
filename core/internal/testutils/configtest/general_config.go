@@ -36,6 +36,7 @@ const (
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type GeneralConfigOverrides struct {
 	AdvisoryLockCheckInterval                       *time.Duration
 	AdvisoryLockID                                  null.Int
@@ -45,6 +46,7 @@ type GeneralConfigOverrides struct {
 	DatabaseURL                                     null.String
 	DatabaseLockingMode                             null.String
 	DefaultChainID                                  *big.Int
+	BridgeCacheTTL                                  *time.Duration
 	DefaultHTTPTimeout                              *time.Duration
 	HTTPServerWriteTimeout                          *time.Duration
 	Dev                                             null.Bool
@@ -174,6 +176,11 @@ func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
 }
 
+// SetBridgeCacheTTL sets test override value for BridgeCacheTTL
+func (o *GeneralConfigOverrides) SetBridgeCacheTTL(d time.Duration) {
+	o.BridgeCacheTTL = &d
+}
+
 // SetP2PV2DeltaDial sets test override value for P2PV2DeltaDial
 func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 	o.P2PV2DeltaDial = &d
@@ -186,6 +193,7 @@ func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
 // gives but allows overriding certain methods
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 type TestGeneralConfig struct {
 	config.GeneralConfig
 	t         testing.TB
@@ -193,13 +201,14 @@ type TestGeneralConfig struct {
 	Overrides GeneralConfigOverrides
 }
 
+// Deprecated: see v2.NewTestGeneralConfig
 // NewTestGeneralConfig returns a legacy *TestGeneralConfig. Use v2.NewTestGeneralConfig instead.
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 	return NewTestGeneralConfigWithOverrides(t, GeneralConfigOverrides{})
 }
 
-// Deprecated: see v2.TOML
+// Deprecated: see v2.NewGeneralConfig
 // https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
@@ -211,6 +220,7 @@ func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOver
 	}
 }
 
+// Deprecated: https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func genRootDir(t testing.TB) string {
 	name := fmt.Sprintf("%d-%d", time.Now().UnixNano(), 0)
 	dir := filepath.Join(RootDir, name)
@@ -231,6 +241,13 @@ func (c *TestGeneralConfig) BridgeResponseURL() *url.URL {
 	uri, err := url.Parse("http://localhost:6688")
 	require.NoError(c.t, err)
 	return uri
+}
+
+func (c *TestGeneralConfig) BridgeCacheTTL() time.Duration {
+	if c.Overrides.BridgeCacheTTL != nil {
+		return *c.Overrides.BridgeCacheTTL
+	}
+	return c.GeneralConfig.BridgeCacheTTL()
 }
 
 func (c *TestGeneralConfig) DefaultChainID() *big.Int {

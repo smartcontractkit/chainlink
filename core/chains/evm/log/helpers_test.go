@@ -94,7 +94,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	}
 
 	globalConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Log.SQL = true
+		c.Database.LogQueries = ptr(true)
 		finality := uint32(10)
 		c.EVM[0].FinalityDepth = &finality
 
@@ -251,7 +251,7 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 type simpleLogListener struct {
 	name                string
 	lggr                logger.Logger
-	cfg                 pg.LogConfig
+	cfg                 pg.QConfig
 	received            *received
 	t                   *testing.T
 	db                  *sqlx.DB
@@ -295,7 +295,7 @@ func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
-	consumed := listener.handleLogBroadcast(listener.t, listener.lggr, listener.cfg, lb)
+	consumed := listener.handleLogBroadcast(lb)
 
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
@@ -333,17 +333,18 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	}
 }
 
-func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lggr logger.Logger, cfg pg.LogConfig, lb log.Broadcast) bool {
-	consumed, err := listener.WasAlreadyConsumed(listener.db, lggr, cfg, lb)
+func (listener *simpleLogListener) handleLogBroadcast(lb log.Broadcast) bool {
+	t := listener.t
+	consumed, err := listener.WasAlreadyConsumed(lb)
 	if !assert.NoError(t, err) {
 		return false
 	}
 	if !consumed && !listener.skipMarkingConsumed.Load() {
 
-		err = listener.MarkConsumed(listener.db, lggr, cfg, lb)
+		err = listener.MarkConsumed(lb)
 		if assert.NoError(t, err) {
 
-			consumed2, err := listener.WasAlreadyConsumed(listener.db, lggr, cfg, lb)
+			consumed2, err := listener.WasAlreadyConsumed(lb)
 			if assert.NoError(t, err) {
 				assert.True(t, consumed2)
 			}
@@ -352,12 +353,12 @@ func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lggr logger.
 	return consumed
 }
 
-func (listener *simpleLogListener) WasAlreadyConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) WasAlreadyConsumed(broadcast log.Broadcast) (bool, error) {
+	return log.NewORM(listener.db, listener.lggr, listener.cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
 
-func (listener *simpleLogListener) MarkConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) MarkConsumed(broadcast log.Broadcast) error {
+	return log.NewORM(listener.db, listener.lggr, listener.cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {

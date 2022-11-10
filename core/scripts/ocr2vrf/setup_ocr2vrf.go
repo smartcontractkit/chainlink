@@ -11,7 +11,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -24,9 +23,6 @@ const (
 )
 
 func setupOCR2VRFNodes(e helpers.Environment) {
-	client := newSetupClient()
-	app := cmd.NewApp(client)
-
 	fs := flag.NewFlagSet("ocr2vrf-setup", flag.ExitOnError)
 
 	keyID := fs.String("key-id", "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc", "key ID")
@@ -34,9 +30,9 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	linkEthFeed := fs.String("link-eth-feed", "", "LINK-ETH feed address")
 	useForwarder := fs.Bool("use-forwarder", false, "boolean to use the forwarder")
 	confDelays := fs.String("conf-delays", "1,2,3,4,5,6,7,8", "8 confirmation delays")
-	lookbackBlocks := fs.Int64("lookback-blocks", 1000, "lookback blocks")
-	weiPerUnitLink := fs.String("wei-per-unit-link", assets.GWei(60_000_000).String(), "wei per unit link price for feed")
+	weiPerUnitLink := fs.String("wei-per-unit-link", "6e16", "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
+	subscriptionBalanceString := fs.String("subscription-balance", "1e19", "amount to fund subscription")
 
 	apiFile := fs.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := fs.String("password", "../../../tools/secrets/password.txt", "password file")
@@ -80,7 +76,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
+	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
 
 	fmt.Println("Deploying VRF beacon...")
 	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
@@ -93,6 +89,21 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println("Deploying beacon consumer...")
 	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+
+	fmt.Println("Creating subscription...")
+	createSubscription(e, vrfCoordinatorAddress.String())
+	subID := 1
+
+	fmt.Println("Adding consumer to subscription...")
+	addConsumer(e, vrfCoordinatorAddress.String(), consumerAddress.String(), big.NewInt(int64(subID)))
+
+	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
+	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
+		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
+		eoaFundSubscription(e, vrfCoordinatorAddress.String(), link.String(), subscriptionBalance, uint64(subID))
+	} else {
+		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
+	}
 
 	var forwarderAddresses []common.Address
 	var forwarderAddressesStrings []string
@@ -110,6 +121,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println("Deploying batch beacon consumer...")
 	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), big.NewInt(int64(subID)))
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
@@ -122,10 +134,12 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		dkgSigners         []string
 		sendingKeys        [][]string
 	)
+
 	for i := 0; i < *nodeCount; i++ {
 		flagSet := flag.NewFlagSet("run-ocr2vrf-job-creation", flag.ExitOnError)
 		flagSet.String("api", *apiFile, "api file")
 		flagSet.String("password", *passwordFile, "password file")
+		flagSet.String("vrfpassword", *passwordFile, "vrf password file")
 		flagSet.String("bootstrapPort", fmt.Sprintf("%d", 8000), "port of bootstrap")
 		flagSet.Int64("chainID", e.ChainID, "the chain ID")
 
@@ -142,8 +156,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		flagSet.String("vrf-beacon-address", vrfBeaconAddress.String(), "the contract address of the VRF Beacon")
 		flagSet.String("vrf-coordinator-address", vrfCoordinatorAddress.String(), "the contract address of the VRF Coordinator")
 		flagSet.String("link-eth-feed-address", feedAddress.Hex(), "link eth feed address")
-		flagSet.Int64("lookback-blocks", *lookbackBlocks, "lookback blocks")
-		flagSet.String("confirmation-delays", *confDelays, "confirmation delays")
 
 		// Apply forwarder args if using the forwarder.
 		if i > 0 && *useForwarder {
@@ -159,12 +171,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		}
 		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
-		ctx := cli.NewContext(app, flagSet, nil)
-
-		resetDatabase(client, ctx, i, *databasePrefix, *databaseSuffixes)
-		configureEnvironmentVariables((*useForwarder) && (i > 0))
-
-		payload := setupOCR2VRFNodeFromClient(client, ctx)
+		payload := setupNode(flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder)
 
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)
 		offChainPublicKeys = append(offChainPublicKeys, payload.OffChainPublicKey)
@@ -204,6 +211,16 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 			nodesToFund = append(nodesToFund, t)
 		}
 	}
+
+	var payees []common.Address
+	var reportTransmitters []common.Address // all transmitters excluding bootstrap
+	for _, t := range transmitters[1:] {
+		payees = append(payees, e.Owner.From)
+		reportTransmitters = append(reportTransmitters, common.HexToAddress(t))
+	}
+
+	fmt.Printf("Setting EOA: %s as payee for transmitters: %v \n", e.Owner.From, reportTransmitters)
+	setPayees(e, vrfBeaconAddress.String(), reportTransmitters, payees)
 
 	fmt.Println("Funding transmitters...")
 	helpers.FundNodes(e, nodesToFund, big.NewInt(*fundingAmount))
@@ -266,4 +283,23 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		consumerAddress.Hex())
 	fmt.Println(redeemCommand)
 	fmt.Println()
+}
+
+func setupNode(flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool) *cmd.SetupOCR2VRFNodePayload {
+	client := newSetupClient()
+	app := cmd.NewApp(client)
+	ctx := cli.NewContext(app, flagSet, nil)
+
+	defer func() {
+		err := app.After(ctx)
+		helpers.PanicErr(err)
+	}()
+
+	err := app.Before(ctx)
+	helpers.PanicErr(err)
+
+	resetDatabase(client, ctx, nodeIdx, databasePrefix, databaseSuffixes)
+	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0))
+
+	return setupOCR2VRFNodeFromClient(client, ctx)
 }

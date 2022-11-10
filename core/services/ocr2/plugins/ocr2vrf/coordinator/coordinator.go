@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"google.golang.org/protobuf/proto"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -42,16 +43,10 @@ const (
 	randomnessFulfillmentRequestedEvent string = "RandomnessFulfillmentRequested"
 	randomWordsFulfilledEvent           string = "RandomWordsFulfilled"
 	newTransmissionEvent                string = "NewTransmission"
+	outputsServedEvent                  string = "OutputsServed"
 
 	// Both VRF and DKG contracts emit this, it's an OCR event.
 	configSetEvent = "ConfigSet"
-
-	// TODO: Add these defaults to the off-chain config, and get better gas estimates
-	// (these current values are very conservative).
-	cacheEvictionWindowSeconds = 60               // the maximum duration (in seconds) that an item stays in the cache
-	batchGasLimit              = int64(5_000_000) // maximum gas limit of a report
-	blockGasOverhead           = int64(50_000)    // cost of posting a randomness seed for a block on-chain
-	coordinatorOverhead        = int64(50_000)    // overhead costs of running the transmit transaction
 )
 
 // block is used to key into a set that tracks beacon blocks.
@@ -82,8 +77,7 @@ type coordinator struct {
 
 	lp logpoller.LogPoller
 	topics
-	lookbackBlocks int64
-	finalityDepth  uint32
+	finalityDepth uint32
 
 	onchainRouter      VRFBeaconCoordinator
 	coordinatorAddress common.Address
@@ -98,6 +92,7 @@ type coordinator struct {
 	toBeTransmittedBlocks *ocrCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
 	toBeTransmittedCallbacks *ocrCache[callbackInReport]
+	coordinatorConfig        *ocr2vrftypes.CoordinatorConfig
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -107,7 +102,6 @@ func New(
 	coordinatorAddress common.Address,
 	dkgAddress common.Address,
 	client evmclient.Client,
-	lookbackBlocks int64,
 	logPoller logpoller.LogPoller,
 	finalityDepth uint32,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
@@ -126,12 +120,13 @@ func New(
 			t.randomnessFulfillmentRequestedTopic,
 			t.randomWordsFulfilledTopic,
 			t.configSetTopic,
-			t.newTransmissionTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
+			t.outputsServedTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
 	if err != nil {
 		return nil, err
 	}
 
-	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * time.Second)
+	cacheEvictionWindowSeconds := int64(60)
+	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
 
 	return &coordinator{
 		onchainRouter:            onchainRouter,
@@ -140,12 +135,20 @@ func New(
 		dkgAddress:               dkgAddress,
 		lp:                       logPoller,
 		topics:                   t,
-		lookbackBlocks:           lookbackBlocks,
 		finalityDepth:            finalityDepth,
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
 		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindow),
 		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindow),
+		// defaults
+		coordinatorConfig: &ocr2vrftypes.CoordinatorConfig{
+			CacheEvictionWindowSeconds: cacheEvictionWindowSeconds,
+			BatchGasLimit:              5_000_000,
+			CoordinatorOverhead:        50_000,
+			BlockGasOverhead:           50_000,
+			CallbackOverhead:           50_000,
+			LookbackBlocks:             1_000,
+		},
 	}, nil
 }
 
@@ -212,7 +215,7 @@ func (c *coordinator) ReportBlocks(
 	defer c.logDurationOfFunction("ReportBlocks", now)
 
 	// Instantiate the gas used by this batch.
-	currentBatchGasLimit := coordinatorOverhead
+	currentBatchGasLimit := c.coordinatorConfig.CoordinatorOverhead
 
 	// TODO: use head broadcaster instead?
 	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
@@ -228,12 +231,13 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
-		currentHeight-c.lookbackBlocks,
+		currentHeight-c.coordinatorConfig.LookbackBlocks,
 		currentHeight,
 		[]common.Hash{
 			c.randomnessRequestedTopic,
 			c.randomnessFulfillmentRequestedTopic,
 			c.randomWordsFulfilledTopic,
+			c.outputsServedTopic,
 		},
 		c.coordinatorAddress,
 		pg.WithParentCtx(ctx))
@@ -242,34 +246,20 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	beaconLogs, err := c.lp.LogsWithSigs(
-		currentHeight-c.lookbackBlocks,
-		currentHeight,
-		[]common.Hash{
-			c.newTransmissionTopic,
-		},
-		c.beaconAddress,
-		pg.WithParentCtx(ctx))
-	if err != nil {
-		err = errors.Wrapf(err, "logs with topics. address: %s", c.beaconAddress)
-		return
-	}
-
-	logs = append(logs, beaconLogs...)
 	c.lggr.Trace(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs,
-		newTransmissionLogs,
+		outputsServedLogs,
 		err := c.unmarshalLogs(logs)
 	if err != nil {
 		err = errors.Wrap(err, "unmarshal logs")
 		return
 	}
 
-	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
-		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
+	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
+		randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, randomWordsFulfilledLogs, outputsServedLogs))
 
 	// Get blockhashes that pertain to requested blocks.
 	blockhashesMapping, err := c.getBlockhashesMappingFromRequests(ctx, randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, currentHeight)
@@ -303,7 +293,7 @@ func (c *coordinator) ReportBlocks(
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
-	fulfilledBlocks := c.getFulfilledBlocks(newTransmissionLogs)
+	fulfilledBlocks := c.getFulfilledBlocks(outputsServedLogs)
 	for _, f := range fulfilledBlocks {
 		delete(blocksRequested, f)
 	}
@@ -313,13 +303,13 @@ func (c *coordinator) ReportBlocks(
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
-		if batchGasLimit-currentBatchGasLimit >= blockGasOverhead {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit >= c.coordinatorConfig.BlockGasOverhead {
 			blocks = append(blocks, ocr2vrftypes.Block{
 				Hash:              blockhashesMapping[block.blockNumber],
 				Height:            block.blockNumber,
 				ConfirmationDelay: block.confDelay,
 			})
-			currentBatchGasLimit += blockGasOverhead
+			currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
 		} else {
 			break
 		}
@@ -387,8 +377,8 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	return
 }
 
-func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []*vrf_beacon.VRFBeaconNewTransmission) (fulfilled []block) {
-	for _, r := range newTransmissionLogs {
+func (c *coordinator) getFulfilledBlocks(outputsServedLogs []*vrf_coordinator.VRFCoordinatorOutputsServed) (fulfilled []block) {
+	for _, r := range outputsServedLogs {
 		for _, o := range r.OutputsServed {
 			fulfilled = append(fulfilled, block{
 				blockNumber: o.Height,
@@ -426,10 +416,8 @@ func (c *coordinator) getBlockhashesMapping(
 func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled) map[uint64]struct{} {
 	fulfilledRequestIDs := make(map[uint64]struct{})
 	for _, r := range randomWordsFulfilledLogs {
-		for i, requestID := range r.RequestIDs {
-			if r.SuccessfulFulfillment[i] == 1 {
-				fulfilledRequestIDs[requestID.Uint64()] = struct{}{}
-			}
+		for _, requestID := range r.RequestIDs {
+			fulfilledRequestIDs[requestID.Uint64()] = struct{}{}
 		}
 	}
 	return fulfilledRequestIDs
@@ -472,7 +460,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		// Check if there is room left in the batch. If there is no room left, the coordinator
 		// will keep iterating, until it either finds a callback in a subsequent output height that
 		// can fit into the current batch or reaches the end of the sorted callbacks slice.
-		if batchGasLimit-currentBatchGasLimit < r.Callback.GasAllowance.Int64() {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (r.Callback.GasAllowance.Int64() + c.coordinatorConfig.CallbackOverhead) {
 			continue
 		}
 
@@ -501,6 +489,8 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					Requester:         r.Callback.Requester,
 					Arguments:         r.Callback.Arguments,
 					GasAllowance:      r.Callback.GasAllowance,
+					GasPrice:          r.Callback.GasPrice,
+					WeiPerUnitLink:    r.Callback.WeiPerUnitLink,
 				})
 				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
 			}
@@ -604,7 +594,7 @@ func (c *coordinator) unmarshalLogs(
 	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	randomWordsFulfilledLogs []*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled,
-	newTransmissionLogs []*vrf_beacon.VRFBeaconNewTransmission,
+	outputsServedLogs []*vrf_wrapper.VRFCoordinatorOutputsServed,
 	err error,
 ) {
 	for _, lg := range logs {
@@ -652,24 +642,27 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
-		case c.newTransmissionTopic:
+		case c.outputsServedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
-				err = errors.Wrap(err2, "unmarshal NewTransmission log")
+				err = errors.Wrap(err2, "unmarshal OutputsServed log")
 				return
 			}
-			nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
+			nt, ok := unpacked.(*vrf_coordinator.VRFCoordinatorOutputsServed)
 			if !ok {
 				// should never happen
-				err = errors.New("cast to *vrf_beacon.VRFBeaconNewTransmission")
+				err = errors.New("cast to *vrf_coordinator.VRFCoordinatorOutputsServed")
 			}
-			newTransmissionLogs = append(newTransmissionLogs, nt)
+			outputsServedLogs = append(outputsServedLogs, nt)
 		default:
 			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", lg.EventSig))
-			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
-				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
-				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
+			c.lggr.Error(fmt.Sprintf("expected one of: %s (RandomnessRequested) %s (RandomnessFulfillmentRequested) %s (RandomWordsFulfilled) %s (OutputsServed), got %s",
+				hexutil.Encode(c.randomnessRequestedTopic[:]),
+				hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
+				hexutil.Encode(c.randomWordsFulfilledTopic[:]),
+				hexutil.Encode(c.outputsServedTopic[:]),
+				lg.EventSig))
 		}
 	}
 	return
@@ -912,4 +905,13 @@ func getCallbackCacheKey(requestID int64) common.Hash {
 // logDurationOfFunction logs the time in milliseconds a function took to execute.
 func (c *coordinator) logDurationOfFunction(funcName string, startTime time.Time) {
 	c.lggr.Debugf("%s took %d milliseconds to complete", funcName, time.Now().UTC().Sub(startTime).Milliseconds())
+}
+
+func (c *coordinator) SetOffChainConfig(b []byte) error {
+	err := proto.Unmarshal(b, c.coordinatorConfig)
+	if err != nil {
+		return errors.Wrap(err, "error setting offchain config on coordinator")
+	}
+
+	return nil
 }

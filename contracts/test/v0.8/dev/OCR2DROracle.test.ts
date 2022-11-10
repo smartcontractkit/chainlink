@@ -13,11 +13,19 @@ const stringToHex = (s: string) => {
 
 const anyValue = () => true
 
+const encodeReport = (requestId: string, result: string, err: string) => {
+  const abi = ethers.utils.defaultAbiCoder
+  return abi.encode(
+    ['bytes32[]', 'bytes[]', 'bytes[]'],
+    [[requestId], [result], [err]],
+  )
+}
+
 before(async () => {
   roles = (await getUsers()).roles
 
   ocr2drOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DROracle.sol:OCR2DROracle',
+    'src/v0.8/tests/OCR2DROracleHelper.sol:OCR2DROracleHelper',
     roles.defaultAccount,
   )
 
@@ -35,9 +43,7 @@ describe('OCR2DROracle', () => {
 
   beforeEach(async () => {
     const { roles } = await getUsers()
-    oracle = await ocr2drOracleFactory
-      .connect(roles.defaultAccount)
-      .deploy(await roles.defaultAccount.getAddress(), donPublicKey)
+    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
     client = await clientTestHelperFactory
       .connect(roles.consumer)
       .deploy(oracle.address)
@@ -51,8 +57,16 @@ describe('OCR2DROracle', () => {
     })
 
     it('returns DON public key set on this Oracle', async () => {
+      await expect(oracle.setDONPublicKey(donPublicKey)).not.to.be.reverted
       expect(await oracle.callStatic.getDONPublicKey()).to.be.equal(
         donPublicKey,
+      )
+    })
+
+    it('reverts setDONPublicKey for empty data', async () => {
+      const emptyPublicKey = stringToHex('')
+      await expect(oracle.setDONPublicKey(emptyPublicKey)).to.be.revertedWith(
+        'EmptyPublicKey',
       )
     })
   })
@@ -101,116 +115,170 @@ describe('OCR2DROracle', () => {
       return requestId
     }
 
-    const setAuthorizedSender = async (sender: string) => {
-      await expect(oracle.setAuthorizedSenders([sender])).not.to.be.reverted
-    }
-
     it('#fulfillRequest reverts for unknown requestId', async () => {
       const requestId =
         '0x67c6a2e151d4352a55021b5d0028c18121cfc24c7d73b179d22b17daff069c6e'
 
-      await expect(
-        oracle.fulfillRequest(
-          requestId,
-          stringToHex('response'),
-          stringToHex(''),
-        ),
-      ).to.be.revertedWith('InvalidRequestID')
-    })
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
+      )
 
-    it('#fulfillRequest reverts for unauthorized sender', async () => {
-      const requestId = await placeTestRequest()
-
-      await expect(
-        oracle.fulfillRequest(
-          requestId,
-          stringToHex('response'),
-          stringToHex(''),
-        ),
-      ).to.be.revertedWith('UnauthorizedSender')
-    })
-
-    it('#fulfillRequest reverts on low consumer gas', async () => {
-      const { roles } = await getUsers()
-      const sender = await roles.oracleNode.getAddress()
-      const requestId = await placeTestRequest()
-
-      await setAuthorizedSender(sender)
-
-      await expect(
-        oracle
-          .connect(roles.oracleNode)
-          .fulfillRequest(requestId, stringToHex('response'), stringToHex(''), {
-            gasLimit: 300000,
-          }),
-      ).to.be.revertedWith('LowGasForConsumer')
+      await expect(oracle.callReport(report)).to.be.revertedWith(
+        'InvalidRequestID',
+      )
     })
 
     it('#fulfillRequest emits OracleResponse', async () => {
       const { roles } = await getUsers()
-      const sender = await roles.oracleNode.getAddress()
       const requestId = await placeTestRequest()
 
-      await setAuthorizedSender(sender)
-
-      await expect(
-        oracle
-          .connect(roles.oracleNode)
-          .fulfillRequest(requestId, stringToHex('response'), stringToHex('')),
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
       )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
     })
 
-    it('#fulfillRequest invokes client fulfillRequest', async () => {
+    it('#fulfillRequest emits UserCallbackError if callback reverts', async () => {
       const { roles } = await getUsers()
-      const sender = await roles.oracleNode.getAddress()
       const requestId = await placeTestRequest()
 
-      await setAuthorizedSender(sender)
-
-      await expect(
-        oracle
-          .connect(roles.oracleNode)
-          .fulfillRequest(
-            requestId,
-            stringToHex('response'),
-            stringToHex('err'),
-          ),
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
       )
+
+      await client.setRevertFulfillRequest(true)
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'UserCallbackError')
+        .withArgs(requestId, 'asked to revert')
+    })
+
+    it('#fulfillRequest emits UserCallbackRawError if callback does invalid op', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await client.setDoInvalidOperation(true)
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'UserCallbackRawError')
+        .withArgs(requestId, anyValue)
+    })
+
+    it('#fulfillRequest invokes client fulfillRequest', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex('err'),
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(client, 'FulfillRequestInvoked')
         .withArgs(requestId, stringToHex('response'), stringToHex('err'))
     })
 
     it('#fulfillRequest invalidates requestId', async () => {
       const { roles } = await getUsers()
-      const sender = await roles.oracleNode.getAddress()
       const requestId = await placeTestRequest()
 
-      await setAuthorizedSender(sender)
-
-      await expect(
-        oracle
-          .connect(roles.oracleNode)
-          .fulfillRequest(
-            requestId,
-            stringToHex('response'),
-            stringToHex('err'),
-          ),
+      const report = encodeReport(
+        requestId,
+        stringToHex('response'),
+        stringToHex('err'),
       )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(client, 'FulfillRequestInvoked')
         .withArgs(requestId, stringToHex('response'), stringToHex('err'))
 
       // for second fulfill the requestId becomes invalid
       await expect(
-        oracle
-          .connect(roles.oracleNode)
-          .fulfillRequest(
-            requestId,
-            stringToHex('response'),
-            stringToHex('err'),
-          ),
+        oracle.connect(roles.oracleNode).callReport(report),
       ).to.be.revertedWith('InvalidRequestID')
+    })
+
+    it('#_report reverts for inconsistent encoding', async () => {
+      const { roles } = await getUsers()
+      const requestId = await placeTestRequest()
+
+      const abi = ethers.utils.defaultAbiCoder
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [[requestId], [], []],
+      )
+
+      await expect(
+        oracle.connect(roles.oracleNode).callReport(report),
+      ).to.be.revertedWith('InconsistentReportData')
+    })
+
+    it('#_report handles multiple reports', async () => {
+      const { roles } = await getUsers()
+      const requestId1 = await placeTestRequest()
+      const requestId2 = await placeTestRequest()
+      const result1 = stringToHex('result1')
+      const result2 = stringToHex('result2')
+      const err = stringToHex('')
+
+      const abi = ethers.utils.defaultAbiCoder
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [
+          [requestId1, requestId2],
+          [result1, result2],
+          [err, err],
+        ],
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(client, 'FulfillRequestInvoked')
+        .withArgs(requestId1, result1, err)
+        .to.emit(client, 'FulfillRequestInvoked')
+        .withArgs(requestId2, result2, err)
+    })
+
+    it('#_report handles multiple failures', async () => {
+      const { roles } = await getUsers()
+      const requestId1 = await placeTestRequest()
+      const requestId2 = await placeTestRequest()
+      const result1 = stringToHex('result1')
+      const result2 = stringToHex('result2')
+      const err = stringToHex('')
+
+      const abi = ethers.utils.defaultAbiCoder
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [
+          [requestId1, requestId2],
+          [result1, result2],
+          [err, err],
+        ],
+      )
+
+      await client.setRevertFulfillRequest(true)
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'UserCallbackError')
+        .withArgs(requestId1, 'asked to revert')
+        .to.emit(oracle, 'UserCallbackError')
+        .withArgs(requestId2, 'asked to revert')
     })
   })
 })

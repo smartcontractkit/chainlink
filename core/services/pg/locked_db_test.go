@@ -84,14 +84,13 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 func TestOpenUnlockedDB(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, nil)
-	lggr := logger.TestLogger(t)
 
-	db1, err1 := pg.OpenUnlockedDB(config, lggr)
+	db1, err1 := pg.OpenUnlockedDB(config)
 	require.NoError(t, err1)
 	require.NotNil(t, db1)
 
 	// should not block the second connection
-	db2, err2 := pg.OpenUnlockedDB(config, lggr)
+	db2, err2 := pg.OpenUnlockedDB(config)
 	require.NoError(t, err2)
 	require.NotNil(t, db2)
 

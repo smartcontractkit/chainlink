@@ -22,7 +22,7 @@ import (
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(true)
+	cfg := pgtest.NewQConfig(true)
 	borm := newBridgeORM(t, db, cfg)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
@@ -58,7 +58,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(true)
+	cfg := pgtest.NewQConfig(true)
 	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
@@ -97,7 +97,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(true)
+	cfg := pgtest.NewQConfig(true)
 	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{

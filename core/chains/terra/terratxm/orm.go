@@ -5,9 +5,10 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -20,7 +21,7 @@ type ORM struct {
 }
 
 // NewORM creates an ORM scoped to chainID.
-func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
+func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
 	namedLogger := lggr.Named("ORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{

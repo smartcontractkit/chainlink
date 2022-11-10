@@ -23,7 +23,7 @@ type ArbConfig interface {
 	EvmGasLimitMax() uint32
 }
 
-//go:generate mockery --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
+//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
 type ethClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }
@@ -89,8 +89,8 @@ func (a *arbitrumEstimator) Close() error {
 //   - Limit is computed from the dynamic values perL2Tx and perL1CalldataUnit, provided by the getPricesInArbGas() method
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
-func (a *arbitrumEstimator) GetLegacyGas(calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	gasPrice, _, err = a.Estimator.GetLegacyGas(calldata, l2GasLimit, maxGasPriceWei, opts...)
+func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+	gasPrice, _, err = a.Estimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
 	}
@@ -102,11 +102,17 @@ func (a *arbitrumEstimator) GetLegacyGas(calldata []byte, l2GasLimit uint32, max
 			case <-a.chStop:
 				err = errors.New("estimator stopped")
 				return
+			case <-ctx.Done():
+				err = ctx.Err()
+				return
 			}
 			select {
 			case <-ch:
 			case <-a.chStop:
 				err = errors.New("estimator stopped")
+				return
+			case <-ctx.Done():
+				err = ctx.Err()
 				return
 			}
 		}

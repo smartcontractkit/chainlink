@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	FindUser(email string) (User, error)
@@ -51,7 +51,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.LogConfig, auditLogger audit.AuditLogger) ORM {
+func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.QConfig, auditLogger audit.AuditLogger) ORM {
 	namedLogger := lggr.Named("SessionsORM")
 	return &orm{
 		q:               pg.NewQ(db, namedLogger, cfg),

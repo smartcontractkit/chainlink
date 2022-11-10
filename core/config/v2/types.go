@@ -31,8 +31,8 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
-	AppID               uuid.UUID `toml:"-"`
-	DevMode             bool      `toml:"-"`
+	AppID               uuid.UUID `toml:"-"` // random or test
+	DevMode             bool      `toml:"-"` // from environment
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string
@@ -109,53 +109,57 @@ func (c *Core) SetFrom(f *Core) {
 }
 
 type Secrets struct {
-	DatabaseURL       *models.URL
-	DatabaseBackupURL *models.URL
-
-	ExplorerAccessKey *string
-	ExplorerSecret    *string
-
-	KeystorePassword *string
-	VRFPassword      *string
-}
-
-func (s *Secrets) ValidateConfig() (err error) {
-	if s.DatabaseURL == nil || (*url.URL)(s.DatabaseURL).String() == "" {
-		err = multierr.Append(err, ErrEmpty{Name: "DatabaseURL", Msg: "must be provided and non-empty"})
-	} else {
-		if verr := config.ValidateDBURL((url.URL)(*s.DatabaseURL)); verr != nil {
-			err = multierr.Append(err, ErrInvalid{Name: "DatabaseURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
-		}
-	}
-	if s.DatabaseBackupURL != nil {
-		if verr := config.ValidateDBURL((url.URL)(*s.DatabaseBackupURL)); verr != nil {
-			err = multierr.Append(err, ErrInvalid{Name: "DatabaseBackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
-		}
-	}
-	if s.KeystorePassword == nil || *s.KeystorePassword == "" {
-		err = multierr.Append(err, ErrEmpty{Name: "KeystorePassword", Msg: "must be provided and non-empty"})
-	}
-	return err
+	Database  DatabaseSecrets  `toml:",omitempty"`
+	Explorer  ExplorerSecrets  `toml:",omitempty"`
+	Password  Passwords        `toml:",omitempty"`
+	Pyroscope PyroscopeSecrets `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
 	return fmt.Sprintf("missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements: "+utils.PasswordComplexityRequirements, err)
 }
 
-func (s *Secrets) String() string {
-	return "<hidden>"
+type DatabaseSecrets struct {
+	URL                  *models.SecretURL
+	BackupURL            *models.SecretURL
+	AllowSimplePasswords bool
 }
 
-func (s *Secrets) GoString() string {
-	return "<hidden>"
+func (d *DatabaseSecrets) ValidateConfig() (err error) {
+	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
+		err = multierr.Append(err, ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
+	} else if !d.AllowSimplePasswords {
+		if verr := config.ValidateDBURL((url.URL)(*d.URL)); verr != nil {
+			err = multierr.Append(err, ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
+		}
+	}
+	if d.BackupURL != nil && !d.AllowSimplePasswords {
+		if verr := config.ValidateDBURL((url.URL)(*d.BackupURL)); verr != nil {
+			err = multierr.Append(err, ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
+		}
+	}
+	return err
 }
 
-func (s *Secrets) MarshalJSON() ([]byte, error) {
-	return []byte("{}"), nil
+type ExplorerSecrets struct {
+	AccessKey *models.Secret
+	Secret    *models.Secret
 }
 
-func (s *Secrets) MarshalText() ([]byte, error) {
-	return []byte("<hidden>"), nil
+type Passwords struct {
+	Keystore *models.Secret
+	VRF      *models.Secret
+}
+
+func (p *Passwords) ValidateConfig() (err error) {
+	if p.Keystore == nil || *p.Keystore == "" {
+		err = multierr.Append(err, ErrEmpty{Name: "Keystore", Msg: "must be provided and non-empty"})
+	}
+	return err
+}
+
+type PyroscopeSecrets struct {
+	AuthToken *models.Secret
 }
 
 type Feature struct {
@@ -181,6 +185,7 @@ type Database struct {
 	DefaultLockTimeout            *models.Duration
 	DefaultQueryTimeout           *models.Duration
 	Dialect                       dialects.DialectName `toml:"-"`
+	LogQueries                    *bool
 	MaxIdleConns                  *int64
 	MaxOpenConns                  *int64
 	MigrateOnStartup              *bool
@@ -206,6 +211,9 @@ func (d *Database) setFrom(f *Database) {
 	}
 	if v := f.DefaultQueryTimeout; v != nil {
 		d.DefaultQueryTimeout = v
+	}
+	if v := f.LogQueries; v != nil {
+		d.LogQueries = v
 	}
 	if v := f.MigrateOnStartup; v != nil {
 		d.MigrateOnStartup = v
@@ -330,19 +338,49 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 }
 
+// LogLevel replaces dpanic with crit/CRIT
+type LogLevel zapcore.Level
+
+func (l LogLevel) String() string {
+	zl := zapcore.Level(l)
+	if zl == zapcore.DPanicLevel {
+		return "crit"
+	}
+	return zl.String()
+}
+
+func (l LogLevel) CapitalString() string {
+	zl := zapcore.Level(l)
+	if zl == zapcore.DPanicLevel {
+		return "CRIT"
+	}
+	return zl.CapitalString()
+}
+
+func (l LogLevel) MarshalText() ([]byte, error) {
+	return []byte(l.String()), nil
+}
+
+func (l *LogLevel) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "crit", "CRIT":
+		*l = LogLevel(zapcore.DPanicLevel)
+		return nil
+	}
+	return (*zapcore.Level)(l).UnmarshalText(text)
+}
+
 type Log struct {
-	DatabaseQueries *bool
-	Level           zapcore.Level `toml:"-"`
-	JSONConsole     *bool
-	SQL             bool `toml:"-"`
-	UnixTS          *bool
+	Level       *LogLevel
+	JSONConsole *bool
+	UnixTS      *bool
 
 	File LogFile `toml:",omitempty"`
 }
 
 func (l *Log) setFrom(f *Log) {
-	if v := f.DatabaseQueries; v != nil {
-		l.DatabaseQueries = v
+	if v := f.Level; v != nil {
+		l.Level = v
 	}
 	if v := f.JSONConsole; v != nil {
 		l.JSONConsole = v
@@ -378,6 +416,7 @@ func (l *LogFile) setFrom(f *LogFile) {
 type WebServer struct {
 	AllowOrigins            *string
 	BridgeResponseURL       *models.URL
+	BridgeCacheTTL          *models.Duration
 	HTTPWriteTimeout        *models.Duration
 	HTTPPort                *uint16
 	SecureCookies           *bool
@@ -395,6 +434,9 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 	if v := f.BridgeResponseURL; v != nil {
 		w.BridgeResponseURL = v
+	}
+	if v := f.BridgeCacheTTL; v != nil {
+		w.BridgeCacheTTL = v
 	}
 	if v := f.HTTPWriteTimeout; v != nil {
 		w.HTTPWriteTimeout = v
@@ -871,16 +913,11 @@ func (p *AutoPprof) setFrom(f *AutoPprof) {
 }
 
 type Pyroscope struct {
-	//TODO enabled?
-	AuthToken     *string //TODO move to secrets? https://app.shortcut.com/chainlinklabs/story/54383/document-secrets-toml
 	ServerAddress *string
 	Environment   *string
 }
 
 func (p *Pyroscope) setFrom(f *Pyroscope) {
-	if v := f.AuthToken; v != nil {
-		p.AuthToken = v
-	}
 	if v := f.ServerAddress; v != nil {
 		p.ServerAddress = v
 	}

@@ -130,6 +130,20 @@ func (_m *Config) ChainType() config.ChainType {
 	return r0
 }
 
+// DatabaseDefaultQueryTimeout provides a mock function with given fields:
+func (_m *Config) DatabaseDefaultQueryTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // EthTxReaperInterval provides a mock function with given fields:
 func (_m *Config) EthTxReaperInterval() time.Duration {
 	ret := _m.Called()

@@ -101,7 +101,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
-	assert.Equal(t, app.Key.Address.Hex(), balances[0].Address)
+	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
 }
 
 func TestClient_CreateETHKey(t *testing.T) {
@@ -428,7 +428,7 @@ func TestClient_UpdateChainEVMKey(t *testing.T) {
 		fs := newFlagSet()
 		fs.Set("evmChainID", "0")
 		fs.Set("setNextNonce", "42")
-		fs.Set("address", app.Key.Address.Hex())
+		fs.Set("address", app.Keys[0].Address.Hex())
 		c := cli.NewContext(nil, fs, nil)
 		assert.NoError(t, client.UpdateChainEVMKey(c))
 
@@ -442,7 +442,7 @@ func TestClient_UpdateChainEVMKey(t *testing.T) {
 		fs.Set("evmChainID", "0")
 		fs.Set("disable", "true")
 		fs.Set("enable", "true")
-		fs.Set("address", app.Key.Address.Hex())
+		fs.Set("address", app.Keys[0].Address.Hex())
 		c := cli.NewContext(nil, fs, nil)
 
 		err := client.UpdateChainEVMKey(c)
@@ -452,26 +452,26 @@ func TestClient_UpdateChainEVMKey(t *testing.T) {
 		fs = newFlagSet()
 		fs.Set("evmChainID", "0")
 		fs.Set("disable", "true")
-		fs.Set("address", app.Key.Address.Hex())
+		fs.Set("address", app.Keys[0].Address.Hex())
 		c = cli.NewContext(nil, fs, nil)
 
 		assert.NoError(t, client.UpdateChainEVMKey(c))
 
 		testutils.AssertCount(t, db, "evm_key_states", 1)
 		var disabled bool
-		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Key.Address))
+		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Keys[0].Address))
 		require.True(t, disabled)
 
 		fs = newFlagSet()
 		fs.Set("evmChainID", "0")
 		fs.Set("enable", "true")
-		fs.Set("address", app.Key.Address.Hex())
+		fs.Set("address", app.Keys[0].Address.Hex())
 		c = cli.NewContext(nil, fs, nil)
 
 		assert.NoError(t, client.UpdateChainEVMKey(c))
 
 		testutils.AssertCount(t, db, "evm_key_states", 1)
-		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Key.Address))
+		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Keys[0].Address))
 		assert.False(t, disabled)
 	})
 }

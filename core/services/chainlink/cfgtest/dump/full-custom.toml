@@ -10,6 +10,7 @@ FeedsManager = true
 DefaultIdleInTxSessionTimeout = '1h0m0s'
 DefaultLockTimeout = '1m0s'
 DefaultQueryTimeout = '1s'
+LogQueries = true
 MaxIdleConns = 5
 MaxOpenConns = 12
 MigrateOnStartup = false
@@ -44,10 +45,10 @@ UseBatchSend = false
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = 'event'
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 
 [Log]
-DatabaseQueries = true
+Level = 'warn'
 JSONConsole = true
 UnixTS = true
 
@@ -178,7 +179,6 @@ MemThreshold = '1.00gb'
 GoroutineThreshold = 50
 
 [Pyroscope]
-AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 

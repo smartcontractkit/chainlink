@@ -3,6 +3,9 @@ package chainlink
 import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
+
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func (g *generalConfig) AppID() uuid.UUID {
@@ -21,27 +24,56 @@ func (g *generalConfig) DefaultLogLevel() zapcore.Level {
 
 func (g *generalConfig) LogLevel() (ll zapcore.Level) {
 	g.logMu.RLock()
-	ll = g.c.Log.Level
+	ll = zapcore.Level(*g.c.Log.Level)
 	g.logMu.RUnlock()
 	return
 }
 
 func (g *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	g.logMu.Lock()
-	g.c.Log.Level = lvl
+	g.c.Log.Level = (*v2.LogLevel)(&lvl)
 	g.logMu.Unlock()
 	return nil
 }
 
 func (g *generalConfig) LogSQL() (sql bool) {
 	g.logMu.RLock()
-	sql = g.c.Log.SQL
+	sql = *g.c.Database.LogQueries
 	g.logMu.RUnlock()
 	return
 }
 
 func (g *generalConfig) SetLogSQL(logSQL bool) {
 	g.logMu.Lock()
-	g.c.Log.SQL = logSQL
+	g.c.Database.LogQueries = &logSQL
 	g.logMu.Unlock()
+}
+
+func (g *generalConfig) SetPasswords(keystore, vrf *string) {
+	g.passwordMu.Lock()
+	defer g.passwordMu.Unlock()
+	if keystore != nil {
+		g.secrets.Password.Keystore = (*models.Secret)(keystore)
+	}
+	if vrf != nil {
+		g.secrets.Password.VRF = (*models.Secret)(vrf)
+	}
+}
+
+func (g *generalConfig) KeystorePassword() string {
+	g.passwordMu.RLock()
+	defer g.passwordMu.RUnlock()
+	if g.secrets.Password.Keystore == nil {
+		return ""
+	}
+	return string(*g.secrets.Password.Keystore)
+}
+
+func (g *generalConfig) VRFPassword() string {
+	g.passwordMu.RLock()
+	defer g.passwordMu.RUnlock()
+	if g.secrets.Password.VRF == nil {
+		return ""
+	}
+	return string(*g.secrets.Password.VRF)
 }

@@ -11,7 +11,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -61,9 +60,8 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 }
 
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
-	_, db := heavyweight.FullTestDBEmpty(t, migrationDir)
+	cfg, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
 	lggr := logger.TestLogger(t)
-	cfg := configtest.NewTestGeneralConfig(t)
 	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
 
@@ -331,7 +329,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
-	_, db := heavyweight.FullTestDBEmpty(t, migrationDir)
+	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
@@ -381,7 +379,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 
 func TestMigrate(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	_, db := heavyweight.FullTestDBEmpty(t, migrationDir)
+	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 

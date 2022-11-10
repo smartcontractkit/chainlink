@@ -55,7 +55,7 @@ func TestConfigPoller(t *testing.T) {
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewPGCfg(false)
+	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)

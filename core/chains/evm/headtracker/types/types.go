@@ -36,7 +36,7 @@ type HeadTracker interface {
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
 //
-//go:generate mockery --name HeadTrackable --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name HeadTrackable --output ../mocks/ --case=underscore
 type HeadTrackable interface {
 	OnNewLongestChain(ctx context.Context, head *evmtypes.Head)
 }
@@ -48,7 +48,7 @@ type HeadBroadcasterRegistry interface {
 // HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 //
-//go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
 	services.ServiceCtx
 	BroadcastNewLongestChain(head *evmtypes.Head)

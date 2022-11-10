@@ -11,7 +11,7 @@ import (
 	"golang.org/x/term"
 )
 
-//go:generate mockery --name Prompter --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Prompter --output ./mocks/ --case=underscore
 
 // Prompter implements the Prompt function to be used to display at
 // the console.

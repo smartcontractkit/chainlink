@@ -156,6 +156,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	t.Parallel()
 

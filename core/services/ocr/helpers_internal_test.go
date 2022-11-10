@@ -14,5 +14,5 @@ func (c *ConfigOverriderImpl) ExportedUpdateFlagsStatus() error {
 }
 
 func NewTestDB(t *testing.T, sqldb *sqlx.DB, oracleSpecID int32) *db {
-	return NewDB(sqldb, oracleSpecID, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	return NewDB(sqldb, oracleSpecID, logger.TestLogger(t), pgtest.NewQConfig(true))
 }

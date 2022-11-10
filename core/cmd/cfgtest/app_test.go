@@ -27,7 +27,7 @@ func TestDefaultConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	chainID := utils.NewBigI(42991337)
 
-	newGeneral, err := chainlink.GeneralConfigTOML{}.New(lggr)
+	newGeneral, err := chainlink.GeneralConfigOpts{SkipEnv: true}.New(lggr)
 	require.NoError(t, err)
 	legacyGeneral := config.NewGeneralConfig(lggr)
 
@@ -40,6 +40,7 @@ func TestDefaultConfig(t *testing.T) {
 	t.Run("general-test", func(t *testing.T) {
 		assertMethodsReturnEqual[config.GeneralConfig](t, configtest.NewTestGeneralConfig(t), configtest2.NewTestGeneralConfig(t),
 			"KeystorePassword", // new has a dummy value to pass validation
+			"DatabaseURL",      // new has a dummy value to pass validation
 
 			// Legacy package cltest defaults that were made standard.
 			"JobPipelineReaperInterval",

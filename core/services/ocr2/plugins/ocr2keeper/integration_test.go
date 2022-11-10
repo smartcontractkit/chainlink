@@ -19,14 +19,12 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/networking"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/basic_upkeep_contract"
@@ -37,16 +35,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 var (
@@ -94,33 +93,32 @@ func setupNode(
 	dbName string,
 	nodeKey ethkey.KeyV2,
 	backend *backends.SimulatedBackend,
-) (chainlink.Application, string, common.Address, ocr2key.KeyBundle, *configtest.TestGeneralConfig) {
-	p2paddresses := []string{
-		fmt.Sprintf("127.0.0.1:%d", port),
-	}
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
-	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
-	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
-	config.Overrides.FeatureLogPoller = null.BoolFrom(true)
-	config.Overrides.GlobalGasEstimatorMode = null.NewString("FixedPrice", true)
-	config.Overrides.P2PEnabled = null.BoolFrom(true)
-	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
-	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
-	config.Overrides.P2PListenPort = null.NewInt(0, true)
-	config.Overrides.P2PV2ListenAddresses = p2paddresses
-	config.Overrides.P2PV2AnnounceAddresses = p2paddresses
-	config.Overrides.P2PNetworkingStack = networking.NetworkingStackV2
-
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
-
-	require.NoError(t, app.GetKeyStore().Unlock(testutils.Password))
-	_, err := app.GetKeyStore().P2P().Create()
+	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
+) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
+	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
-	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
-	require.NoError(t, err)
-	require.Len(t, p2pIDs, 1)
-	peerID := p2pIDs[0].PeerID()
-	config.Overrides.P2PPeerID = peerID
+	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
+	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Feature.LogPoller = ptr(true)
+
+		c.OCR.Enabled = ptr(false)
+		c.OCR2.Enabled = ptr(true)
+
+		c.P2P.PeerID = ptr(p2pKey.PeerID())
+		c.P2P.V1.Enabled = ptr(false)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.AnnounceAddresses = &p2paddresses
+		c.P2P.V2.ListenAddresses = &p2paddresses
+		if len(p2pV2Bootstrappers) > 0 {
+			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
+		}
+
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	})
+
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey, p2pKey)
 
 	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
 	require.NoError(t, err)
@@ -132,7 +130,7 @@ func setupNode(
 		assert.NoError(t, app.Stop())
 	})
 
-	return app, peerID.Raw(), nodeKey.Address, kb, config
+	return app, p2pKey.PeerID().Raw(), nodeKey.Address, kb
 }
 
 type Node struct {
@@ -212,7 +210,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19599)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend)
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_keeper_ocr", nodeKeys[0], backend, nil)
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
@@ -222,13 +220,11 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	)
 	// Set up the minimum 4 oracles all funded
 	for i := int64(0); i < 4; i++ {
-		app, peerID, transmitter, kb, cfg := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend)
-		// Supply the bootstrap IP and port as a V2 peer address
-		cfg.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
-			{PeerID: bootstrapPeerID, Addrs: []string{
-				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
-			}},
-		}
+		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_keeper%d", i), nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
+			// Supply the bootstrap IP and port as a V2 peer address
+			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
+		})
+
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
 		})
@@ -396,3 +392,5 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	// observe 2nd job run and received payload changes
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 }
+
+func ptr[T any](v T) *T { return &v }

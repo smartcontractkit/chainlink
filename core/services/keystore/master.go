@@ -33,7 +33,7 @@ var ErrLocked = errors.New("Keystore is locked")
 // necessary because it is lazily evaluated
 type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 
-//go:generate mockery --name Master --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Master --output ./mocks/ --case=underscore
 
 type Master interface {
 	CSA() CSA
@@ -67,11 +67,11 @@ type master struct {
 	dkgEncrypt *dkgEncrypt
 }
 
-func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
+func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) Master {
 	return newMaster(db, scryptParams, lggr, cfg)
 }
 
-func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) *master {
+func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) *master {
 	km := &keyManager{
 		orm:          NewORM(db, lggr, cfg),
 		scryptParams: scryptParams,

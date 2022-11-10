@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 )
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 // nolint
 var (
 	AdvisoryLockID                    = NewInt64("AdvisoryLockID")
@@ -20,7 +21,7 @@ var (
 	AutoPprofPollInterval             = NewDuration("AutoPprofPollInterval")
 	AutoPprofGatherDuration           = NewDuration("AutoPprofGatherDuration")
 	AutoPprofGatherTraceDuration      = NewDuration("AutoPprofGatherTraceDuration")
-	DatabaseURL                       = New("DatabaseURL", parse.DatabaseURL) //TODO move to v2.CL*?
+	DatabaseURL                       = New("DatabaseURL", parse.DatabaseURL)
 	BlockBackfillDepth                = NewUint64("BlockBackfillDepth")
 	HTTPServerWriteTimeout            = NewDuration("HTTPServerWriteTimeout")
 	JobPipelineMaxRunDuration         = NewDuration("JobPipelineMaxRunDuration")
@@ -33,6 +34,7 @@ var (
 	KeeperRegistrySyncInterval        = NewDuration("KeeperRegistrySyncInterval")
 	KeeperRegistrySyncUpkeepQueueSize = NewUint32("KeeperRegistrySyncUpkeepQueueSize")
 	LogLevel                          = New[zapcore.Level]("LogLevel", parse.LogLevel)
+	LogSQL                            = NewBool("LogSQL")
 	RootDir                           = New[string]("RootDir", parse.HomeDir)
 	JSONConsole                       = NewBool("JSONConsole")
 	LogFileMaxSize                    = New("LogFileMaxSize", parse.FileSize)

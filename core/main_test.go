@@ -33,7 +33,6 @@ func Run(args ...string) {
 		Renderer:               cmd.RendererTable{Writer: io.Discard},
 		Config:                 tc,
 		Logger:                 lggr,
-		CloseLogger:            lggr.Sync,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
@@ -162,8 +161,9 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    dump         Dump a TOML file equivalent to the current environment and database configuration
-	//    list         Show the node's environment variables
+	//    dump         LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration
+	//    list         LEGACY CONFIG (ENV) ONLY - Show the node's environment variables
+	//    show         V2 CONFIG (TOML) ONLY - Show the application configuration
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
 	//    logsql       Enable/disable sql statement logging

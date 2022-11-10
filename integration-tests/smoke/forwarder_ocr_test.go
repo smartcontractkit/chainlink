@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -26,44 +27,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to each node @ocr-forwarder", func() {
+var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to each node @forwarder-ocr", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("OCR with operator forwarder suite on Simulated Network @simulated",
-				networks.SimulatedEVM,
-				big.NewFloat(50),
-				forwarderOCREnv(networks.SimulatedEVM),
-			),
-			Entry("OCR with operator forwarder suite on Görli Testnet @goerli",
-				networks.GoerliTestnet,
-				big.NewFloat(.1),
-				forwarderOCREnv(networks.GoerliTestnet),
-			),
-			Entry("OCR with operator forwarder suite on Metis Stardust @metis",
-				networks.MetisStardust,
-				big.NewFloat(.01),
-				defaultOCREnv(networks.MetisStardust),
-			),
-			Entry("OCR with operator forwarder suite on Sepolia Testnet @sepolia",
-				networks.SepoliaTestnet,
-				big.NewFloat(.1),
-				defaultOCREnv(networks.SepoliaTestnet),
-			),
-			Entry("OCR with operator forwarder suite on Klaytn Baobab @klaytn",
-				networks.KlaytnBaobab,
-				big.NewFloat(1),
-				defaultOCREnv(networks.KlaytnBaobab),
-			),
-			Entry("OCR with operator forwarder suite on Optimism Goerli @optimism",
-				networks.OptimismGoerli,
-				big.NewFloat(.0005),
-				defaultOCREnv(networks.OptimismGoerli),
-			),
-			Entry("OCR with operator forwarder suite on Arbitrum Goerli @arbitrum",
-				networks.ArbitrumGoerli,
-				big.NewFloat(.005),
-				defaultOCREnv(networks.ArbitrumGoerli),
-			),
+			Entry("OCR with operator forwarder suite @default", forwarderOCREnv()),
 		}
 
 		err               error
@@ -86,13 +53,11 @@ var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to e
 	})
 
 	DescribeTable("OCR suite on different EVM networks", func(
-		testNetwork *blockchain.EVMNetwork,
-		funding *big.Float,
-		env *environment.Environment,
+		testInputs *smokeTestInputs,
 	) {
 		By("Deploying the environment")
-		testEnvironment = env
-
+		testEnvironment = testInputs.environment
+		testNetwork := testInputs.network
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -117,7 +82,7 @@ var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to e
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, funding)
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Prepare forwarder contracts onchain")
@@ -156,7 +121,8 @@ var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to e
 	)
 })
 
-func forwarderOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
+func forwarderOCREnv() *smokeTestInputs {
+	network := networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -167,8 +133,8 @@ func forwarderOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
 	}
 	envValueMap := network.ChainlinkValuesMap()
 	envValueMap["ETH_USE_FORWARDERS"] = "true"
-	return environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-forwarder-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	env := environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -177,4 +143,8 @@ func forwarderOCREnv(network *blockchain.EVMNetwork) *environment.Environment {
 			"env":      envValueMap,
 			"replicas": 6,
 		}))
+	return &smokeTestInputs{
+		environment: env,
+		network:     network,
+	}
 }

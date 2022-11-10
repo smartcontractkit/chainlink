@@ -37,7 +37,7 @@ var _ ChainSet = &chainSet{}
 
 type ChainConfigUpdater func(*types.ChainCfg) error
 
-//go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
@@ -86,9 +86,9 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	}
 	if cll.immutable {
 		var ms services.MultiStart
-		for id, c := range cll.Chains() {
+		for _, c := range cll.Chains() {
 			if err := ms.Start(ctx, c); err != nil {
-				return errors.Wrapf(err, "failed to start chain %q", id)
+				return errors.Wrapf(err, "failed to start chain %q", c.ID())
 			}
 			cll.startedChains = append(cll.startedChains, c)
 		}
@@ -390,7 +390,7 @@ func (cll *chainSet) addStateToNode(n *types.Node) {
 		n.State = "Unknown"
 		return
 	}
-	state, exists := states[n.ID]
+	state, exists := states[n.Name]
 	if exists {
 		n.State = state
 		return
@@ -480,7 +480,7 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts, chains []*v2.EVMCon
 	}
 	var enabled []*v2.EVMConfig
 	for i := range chains {
-		if e := chains[i].Enabled; e != nil && *e {
+		if chains[i].IsEnabled() {
 			enabled = append(enabled, chains[i])
 		}
 	}

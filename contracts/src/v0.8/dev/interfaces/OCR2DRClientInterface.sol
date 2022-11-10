@@ -6,12 +6,12 @@ pragma solidity ^0.8.6;
  */
 interface OCR2DRClientInterface {
   /**
-   * @notice Returns DON public key used to encrypt secrets
+   * @notice Returns DON secp256k1 public key used to encrypt secrets
    * @dev All Oracles nodes have the corresponding private key
    * needed to decrypt the secrets encrypted with the public key
    * @return publicKey DON's public key
    */
-  function getDONPublicKey() external view returns (bytes32);
+  function getDONPublicKey() external view returns (bytes memory);
 
   /**
    * @notice OCR2DR response handler called by the designated oracle.

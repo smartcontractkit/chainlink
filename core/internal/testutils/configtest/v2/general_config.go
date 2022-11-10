@@ -40,7 +40,7 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 
 // overrides applies some test config settings and adds a default chain with evmclient.NullClientChainID.
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
-	s.KeystorePassword = ptr("dummy-to-pass-validation")
+	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
 
 	c.DevMode = true
 	c.InsecureFastScrypt = ptr(true)

@@ -542,6 +542,20 @@ func (_m *ChainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16
 	return r0
 }
 
+// BridgeCacheTTL provides a mock function with given fields:
+func (_m *ChainScopedConfig) BridgeCacheTTL() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // BridgeResponseURL provides a mock function with given fields:
 func (_m *ChainScopedConfig) BridgeResponseURL() *url.URL {
 	ret := _m.Called()
@@ -674,6 +688,48 @@ func (_m *ChainScopedConfig) DatabaseBackupURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultLockTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseDefaultLockTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultQueryTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -3058,6 +3114,62 @@ func (_m *ChainScopedConfig) SecureCookies() bool {
 	return r0
 }
 
+// SentryDSN provides a mock function with given fields:
+func (_m *ChainScopedConfig) SentryDSN() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// SentryDebug provides a mock function with given fields:
+func (_m *ChainScopedConfig) SentryDebug() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// SentryEnvironment provides a mock function with given fields:
+func (_m *ChainScopedConfig) SentryEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// SentryRelease provides a mock function with given fields:
+func (_m *ChainScopedConfig) SentryRelease() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // SessionOptions provides a mock function with given fields:
 func (_m *ChainScopedConfig) SessionOptions() sessions.Options {
 	ret := _m.Called()
@@ -3117,6 +3229,11 @@ func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
 // SetLogSQL provides a mock function with given fields: logSQL
 func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
+}
+
+// SetPasswords provides a mock function with given fields: keystore, vrf
+func (_m *ChainScopedConfig) SetPasswords(keystore *string, vrf *string) {
+	_m.Called(keystore, vrf)
 }
 
 // ShutdownGracePeriod provides a mock function with given fields:

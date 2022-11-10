@@ -13,7 +13,7 @@ import (
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
-	config, err := GeneralConfigTOML{}.New(logger.TestLogger(t))
+	config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
 	require.NoError(t, err)
 	assert.PanicsWithError(t, v2.ErrUnsupported.Error(), func() {
 		_ = config.BlockBackfillDepth()

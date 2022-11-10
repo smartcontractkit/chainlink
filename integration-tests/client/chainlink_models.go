@@ -6,11 +6,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -916,42 +914,12 @@ observationSource                      = """
 	return marshallTemplate(specWrap, "OCR Job", ocrTemplateString)
 }
 
-// These are temporarily here until we find a fix for issue 53656/soak-test-compilation-broken-on-macos-m1
-// there is some compilation issue with cosmwasm
-// once fixed replace with /core/services/job/models.go versions again
-type TempOCR2PluginType string
-
-const (
-	Median  TempOCR2PluginType = "median"
-	DKG     TempOCR2PluginType = "dkg"
-	OCR2VRF TempOCR2PluginType = "ocr2vrf"
-)
-
-type TempJSONConfig map[string]interface{}
-type TempOCR2OracleSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relay.Network      `toml:"relay"`
-	RelayConfig                       TempJSONConfig     `toml:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray     `toml:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String        `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	PluginConfig                      TempJSONConfig     `toml:"pluginConfig"`
-	PluginType                        TempOCR2PluginType `toml:"pluginType"`
-	CreatedAt                         time.Time          `toml:"-"`
-	UpdatedAt                         time.Time          `toml:"-"`
-}
-
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
-	OCR2OracleSpec    TempOCR2OracleSpec
+	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 

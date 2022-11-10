@@ -4,9 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 )
 
 func init() {
@@ -22,13 +24,13 @@ func BlockHistoryEstimatorFromInterface(bhe Estimator) *BlockHistoryEstimator {
 	return bhe.(*BlockHistoryEstimator)
 }
 
-func SetRollingBlockHistory(bhe Estimator, blocks []Block) {
+func SetRollingBlockHistory(bhe Estimator, blocks []evmtypes.Block) {
 	bhe.(*BlockHistoryEstimator).blocksMu.Lock()
 	defer bhe.(*BlockHistoryEstimator).blocksMu.Unlock()
 	bhe.(*BlockHistoryEstimator).blocks = blocks
 }
 
-func GetRollingBlockHistory(bhe Estimator) []Block {
+func GetRollingBlockHistory(bhe Estimator) []evmtypes.Block {
 	return bhe.(*BlockHistoryEstimator).getBlocks()
 }
 
@@ -87,6 +89,7 @@ type MockConfig struct {
 	EvmGasTipCapMinimumF                            *assets.Wei
 	EvmMaxGasPriceWeiF                              *assets.Wei
 	EvmMinGasPriceWeiF                              *assets.Wei
+	EvmGasPriceDefaultF                             *assets.Wei
 }
 
 func NewMockConfig() *MockConfig {
@@ -158,7 +161,7 @@ func (m *MockConfig) EvmGasLimitMultiplier() float32 {
 }
 
 func (m *MockConfig) EvmGasPriceDefault() *assets.Wei {
-	panic("not implemented") // TODO: Implement
+	return m.EvmGasPriceDefaultF
 }
 
 func (m *MockConfig) EvmGasTipCapDefault() *assets.Wei {

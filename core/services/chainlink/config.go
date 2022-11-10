@@ -1,8 +1,9 @@
 package chainlink
 
 import (
+	"fmt"
+
 	"github.com/pelletier/go-toml/v2"
-	"github.com/spf13/viper"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -11,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Config is the root type used for TOML configuration.
@@ -46,7 +46,10 @@ func (c *Config) TOMLString() (string, error) {
 }
 
 func (c *Config) Validate() error {
-	return config.Validate(c)
+	if err := config.Validate(c); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+	return nil
 }
 
 // setDefaults initializes unset fields with default values.
@@ -89,51 +92,53 @@ type Secrets struct {
 	config.Secrets
 }
 
-func (s *Secrets) Validate() error {
-	return config.Validate(s)
+// TOMLString returns a TOML encoded string with secret values redacted.
+func (s *Secrets) TOMLString() (string, error) {
+	b, err := toml.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
-// SetOverrides overrides fields with values from ENV vars and password files.
-func (s *Secrets) SetOverrides(keystorePasswordFileName, vrfPasswordFileName *string) error {
-	// Override DB and Explorer secrets from ENV vars, if present
-	v := viper.New()
-	v.AutomaticEnv()
-	//TODO CL_ prefix: https://app.shortcut.com/chainlinklabs/story/23679/prefix-all-env-vars-with-cl
-	if dbURL := v.GetString("DATABASE_URL"); dbURL != "" {
-		parsedURL, err := models.ParseURL(dbURL)
-		if err != nil {
-			return err
-		}
-		s.DatabaseURL = parsedURL
+func (s *Secrets) Validate() error {
+	if err := config.Validate(s); err != nil {
+		return fmt.Errorf("invalid secrets: %w", err)
 	}
-	if dbBackupUrl := v.GetString("DATABASE_BACKUP_URL"); dbBackupUrl != "" {
-		parsedURL, err := models.ParseURL(dbBackupUrl)
-		if err != nil {
-			return err
-		}
-		s.DatabaseBackupURL = parsedURL
-	}
-	if explorerKey := v.GetString("EXPLORER_ACCESS_KEY"); explorerKey != "" {
-		s.ExplorerAccessKey = &explorerKey
-	}
-	if explorerSecret := v.GetString("EXPLORER_SECRET"); explorerSecret != "" {
-		s.ExplorerSecret = &explorerSecret
-	}
+	return nil
+}
 
-	// Override Keystore and VRF passwords from corresponding files, if present
-	if keystorePasswordFileName != nil {
-		keystorePwd, err := utils.PasswordFromFile(*keystorePasswordFileName)
-		if err != nil {
+// setEnv overrides fields from ENV vars, if present.
+func (s *Secrets) setEnv() error {
+	if dbURL := config.EnvDatabaseURL.Get(); dbURL != "" {
+		s.Database.URL = new(models.SecretURL)
+		if err := s.Database.URL.UnmarshalText([]byte(dbURL)); err != nil {
 			return err
 		}
-		s.KeystorePassword = &keystorePwd
 	}
-	if vrfPasswordFileName != nil {
-		vrfPwd, err := utils.PasswordFromFile(*vrfPasswordFileName)
-		if err != nil {
+	if dbBackupUrl := config.EnvDatabaseBackupURL.Get(); dbBackupUrl != "" {
+		s.Database.BackupURL = new(models.SecretURL)
+		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupUrl)); err != nil {
 			return err
 		}
-		s.VRFPassword = &vrfPwd
+	}
+	if config.EnvDatabaseAllowSimplePasswords.IsTrue() {
+		s.Database.AllowSimplePasswords = true
+	}
+	if explorerKey := config.EnvExplorerAccessKey.Get(); explorerKey != "" {
+		s.Explorer.AccessKey = &explorerKey
+	}
+	if explorerSecret := config.EnvExplorerSecret.Get(); explorerSecret != "" {
+		s.Explorer.Secret = &explorerSecret
+	}
+	if keystorePassword := config.EnvPasswordKeystore.Get(); keystorePassword != "" {
+		s.Password.Keystore = &keystorePassword
+	}
+	if vrfPassword := config.EnvPasswordVRF.Get(); vrfPassword != "" {
+		s.Password.VRF = &vrfPassword
+	}
+	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
+		s.Pyroscope.AuthToken = &pyroscopeAuthToken
 	}
 	return nil
 }

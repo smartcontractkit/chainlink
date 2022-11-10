@@ -89,7 +89,8 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) co
 func newVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) coordinatorUniverse {
 	var oracleTransactors []*bind.TransactOpts
 	for _, key := range keys {
-		oracleTransactor, _ := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+		oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+		require.NoError(t, err)
 		oracleTransactors = append(oracleTransactors, oracleTransactor)
 	}
 

@@ -1,13 +1,9 @@
 package gas
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -85,29 +81,29 @@ type PriorAttempt interface {
 
 // Estimator provides an interface for estimating gas price and limit
 //
-//go:generate mockery --name Estimator --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
 	Start(context.Context) error
 	Close() error
-	// Calculates initial gas fee for non-EIP1559 transaction
+	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetLegacyGas(calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
-	// Increases gas price and/or limit for non-EIP1559 transactions
+	GetLegacyGas(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
+	// BumpLegacyGas Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee is greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x0 or 0x1
-	BumpLegacyGas(originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
-	// Calculates initial gas fee for gas for EIP1559 transactions
+	BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
+	// GetDynamicFee Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetDynamicFee(gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error)
-	// Increases gas price and/or limit for non-EIP1559 transactions
+	GetDynamicFee(ctx context.Context, gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error)
+	// BumpDynamicFee Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
-	BumpDynamicFee(original DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
+	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []PriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
 }
 
 // Opt is an option for a gas estimator
@@ -124,7 +120,7 @@ func applyMultiplier(gasLimit uint32, multiplier float32) uint32 {
 
 // Config defines an interface for configuration in the gas package
 //
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	BlockHistoryEstimatorBatchSize() uint32
 	BlockHistoryEstimatorBlockDelay() uint16
@@ -174,131 +170,6 @@ func HexToInt64(input interface{}) int64 {
 	default:
 		return 0
 	}
-}
-
-// Block represents an ethereum block
-// This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
-type Block struct {
-	Number        int64
-	Hash          common.Hash
-	ParentHash    common.Hash
-	BaseFeePerGas *assets.Wei
-	Timestamp     time.Time
-	Transactions  []Transaction
-}
-
-type blockInternal struct {
-	Number        string
-	Hash          common.Hash
-	ParentHash    common.Hash
-	BaseFeePerGas *hexutil.Big
-	Timestamp     hexutil.Uint64
-	Transactions  []Transaction
-}
-
-// MarshalJSON implements json marshalling for Block
-func (b Block) MarshalJSON() ([]byte, error) {
-	return json.Marshal(blockInternal{
-		Int64ToHex(b.Number),
-		b.Hash,
-		b.ParentHash,
-		(*hexutil.Big)(b.BaseFeePerGas),
-		(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
-		b.Transactions,
-	})
-}
-
-var ErrMissingBlock = errors.New("missing block")
-
-// UnmarshalJSON unmarshals to a Block
-func (b *Block) UnmarshalJSON(data []byte) error {
-	var bi *blockInternal
-	if err := json.Unmarshal(data, &bi); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
-	}
-	if bi == nil {
-		return errors.WithStack(ErrMissingBlock)
-	}
-	n, err := hexutil.DecodeBig(bi.Number)
-	if err != nil {
-		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got: '%s'", data)
-	}
-	*b = Block{
-		n.Int64(),
-		bi.Hash,
-		bi.ParentHash,
-		(*assets.Wei)(bi.BaseFeePerGas),
-		time.Unix((int64((uint64)(bi.Timestamp))), 0),
-		bi.Transactions,
-	}
-	return nil
-}
-
-type TxType uint8
-
-// NOTE: Need to roll our own unmarshaller since geth's hexutil.Uint64 does not
-// handle double zeroes e.g. 0x00
-func (txt *TxType) UnmarshalJSON(data []byte) error {
-	if bytes.Equal(data, []byte(`"0x00"`)) {
-		data = []byte(`"0x0"`)
-	}
-	var hx hexutil.Uint64
-	if err := (&hx).UnmarshalJSON(data); err != nil {
-		return err
-	}
-	if hx > math.MaxUint8 {
-		return errors.Errorf("expected 'type' to fit into a single byte, got: '%s'", data)
-	}
-	*txt = TxType(hx)
-	return nil
-}
-
-type transactionInternal struct {
-	GasPrice             *hexutil.Big    `json:"gasPrice"`
-	Gas                  *hexutil.Uint64 `json:"gas"`
-	MaxFeePerGas         *hexutil.Big    `json:"maxFeePerGas"`
-	MaxPriorityFeePerGas *hexutil.Big    `json:"maxPriorityFeePerGas"`
-	Type                 *TxType         `json:"type"`
-	Hash                 common.Hash     `json:"hash"`
-}
-
-// Transaction represents an ethereum transaction
-// Use our own type because geth's type has validation failures on e.g. zero
-// gas used, which can occur on other chains.
-// This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
-type Transaction struct {
-	GasPrice             *assets.Wei
-	GasLimit             uint32
-	MaxFeePerGas         *assets.Wei
-	MaxPriorityFeePerGas *assets.Wei
-	Type                 TxType
-	Hash                 common.Hash
-}
-
-const LegacyTxType = TxType(0x0)
-
-// UnmarshalJSON unmarshals a Transaction
-func (t *Transaction) UnmarshalJSON(data []byte) error {
-	ti := transactionInternal{}
-	if err := json.Unmarshal(data, &ti); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal to transactionInternal, got: '%s'", data)
-	}
-	if ti.Gas == nil {
-		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
-	}
-	if ti.Type == nil {
-		tpe := LegacyTxType
-		ti.Type = &tpe
-	}
-	*t = Transaction{
-		(*assets.Wei)(ti.GasPrice),
-		uint32(*ti.Gas),
-		(*assets.Wei)(ti.MaxFeePerGas),
-		(*assets.Wei)(ti.MaxPriorityFeePerGas),
-		*ti.Type,
-		ti.Hash,
-	}
-	return nil
 }
 
 // BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit

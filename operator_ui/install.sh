@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Dependencies:
@@ -7,7 +7,7 @@ set -e
 owner=smartcontractkit
 repo=operator-ui
 fullRepo=${owner}/${repo}
-gitRoot=$(git rev-parse --show-toplevel)
+gitRoot=$(git rev-parse --show-toplevel || pwd)
 cd "$gitRoot/operator_ui"
 unpack_dir="$gitRoot/core/web/assets"
 tag=$(cat TAG)

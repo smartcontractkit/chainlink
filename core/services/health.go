@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Checker --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Checker --output ./mocks/ --case=underscore
 type (
 	// Checker provides a service which can be probed for system health.
 	Checker interface {

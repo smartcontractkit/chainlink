@@ -23,7 +23,7 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
           filters: |
@@ -40,7 +40,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
       - name: Collect Metrics
@@ -57,7 +57,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build Image
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@5ca2b0a07d534f216fb97ab54e69d3fdcf03de11 # v2.0.25
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -65,21 +65,53 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  eth-smoke-tests:
+  eth-smoke-tests-matrix:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    name: ETH Smoke Tests
-    runs-on: ubuntu-latest
+    name: ETH Smoke Tests Matrix
     needs: [build-chainlink, changes]
     env:
+      SELECTED_NETWORKS: SIMULATED
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-eth
       TEST_LOG_LEVEL: debug
+    strategy:
+      fail-fast: false
+      matrix:
+        product:
+          - name: auto_ocr
+            nodes: 1
+            os: ubuntu-latest
+          - name: cron
+            nodes: 1
+            os: ubuntu-latest
+          - name: flux
+            nodes: 1
+            os: ubuntu-latest
+          - name: forwarder_ocr
+            nodes: 1
+            os: ubuntu-latest
+          - name: keeper
+            nodes: 27
+            os: ubuntu20.04-32cores-128GB
+          - name: ocr
+            nodes: 1
+            os: ubuntu-latest
+          - name: runlog
+            nodes: 1
+            os: ubuntu-latest
+          - name: vrf
+            nodes: 1
+            os: ubuntu-latest
+          - name: vrfv2
+            nodes: 1
+            os: ubuntu-latest
+    runs-on: ${{ matrix.product.os }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -87,7 +119,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests
+          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }})
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -96,26 +128,25 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5ca2b0a07d534f216fb97ab54e69d3fdcf03de11 # v2.0.25
         with:
-          test_command_to_run: make test_smoke_simulated args="-nodes=30"
+          test_command_to_run: make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus-file ${{ matrix.product.name }}_test.go"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: EVM Smoke Test Results
-          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-          CGO_ENABLED: "1"
 
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@5ca2b0a07d534f216fb97ab54e69d3fdcf03de11 # v2.0.25
         with:
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
@@ -127,9 +158,19 @@ jobs:
       ## Run Cleanup regardless
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@5ca2b0a07d534f216fb97ab54e69d3fdcf03de11 # v2.0.25
         with:
-          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
+  ### Used to check the required checks box when the matrix completes
+  eth-smoke-tests:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    name: ETH Smoke Tests
+    needs: eth-smoke-tests-matrix
+    steps:
+      - name: Check smoke test matrix status
+        if: ${{ needs.eth-smoke-tests-matrix.result != 'success' }}
+        run: exit 1
 
   ### Solana Section
   get_projectserum_version:
@@ -155,8 +196,8 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu-latest
-    needs: [changes,get_projectserum_version]
+    runs-on: ubuntu20.04-16cores-64GB
+    needs: [changes, get_projectserum_version]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:
@@ -190,7 +231,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-8cores-32GB
     needs: [build-chainlink, solana-build-contracts, changes]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -213,7 +254,7 @@ jobs:
           ref: ${{ env.solana_sha }}
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5ca2b0a07d534f216fb97ab54e69d3fdcf03de11 # v2.0.25
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -228,7 +269,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@5ca2b0a07d534f216fb97ab54e69d3fdcf03de11 # v2.0.25
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 

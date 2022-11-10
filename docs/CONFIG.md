@@ -1,5 +1,9 @@
 [//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
+This document describes the TOML format for configuration.
+
+See also [SECRETS.md](secrets.md)
+
 ## Table of contents
 
 - [Global](#Global)
@@ -115,6 +119,7 @@ UICSAKeys enables CSA Keys in the UI.
 DefaultIdleInTxSessionTimeout = '1h' # Default
 DefaultLockTimeout = '15s' # Default
 DefaultQueryTimeout = '10s' # Default
+LogQueries = false # Default
 MaxIdleConns = 10 # Default
 MaxOpenConns = 20 # Default
 MigrateOnStartup = true # Default
@@ -138,6 +143,12 @@ DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take
 DefaultQueryTimeout = '10s' # Default
 ```
 DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
+
+### LogQueries<a id='Database-LogQueries'></a>
+```toml
+LogQueries = false # Default
+```
+LogQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
 
 ### MaxIdleConns<a id='Database-MaxIdleConns'></a>
 ```toml
@@ -341,7 +352,7 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 Enabled = false # Default
 ForwardToUrl = 'http://localhost:9898' # Example
 JsonWrapperKey = 'event' # Example
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
 ```
 
 
@@ -365,24 +376,33 @@ JsonWrapperKey if set wraps the map of data under another single key to make par
 
 ### Headers<a id='AuditLogger-Headers'></a>
 ```toml
-Headers = 'Authorization||token\X-SomeOther-Header||value with spaces | and a bar+*' # Example
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
 ```
 Headers is the set of headers you wish to pass along with each request
 
 ## Log<a id='Log'></a>
 ```toml
 [Log]
-DatabaseQueries = false # Default
+Level = 'info' # Default
 JSONConsole = false # Default
 UnixTS = false # Default
 ```
 
 
-### DatabaseQueries<a id='Log-DatabaseQueries'></a>
+### Level<a id='Log-Level'></a>
 ```toml
-DatabaseQueries = false # Default
+Level = 'info' # Default
 ```
-DatabaseQueries tells the Chainlink node to log database queries made using the default logger. SQL statements will be logged at `debug` level. Not all statements can be logged. The best way to get a true log of all SQL statements is to enable SQL statement logging on Postgres.
+Level determines both what is printed on the screen and what is written to the log file.
+
+The available levels are:
+- "debug": Useful for forensic debugging of issues.
+- "info": High-level informational messages. (default)
+- "warn": A mild error occurred that might require non-urgent action. Check these warnings semi-regularly to see if any of them require attention. These warnings usually happen due to factors outside of the control of the node operator. Examples: Unexpected responses from a remote API or misleading networking errors.
+- "error": An unexpected error occurred during the regular operation of a well-maintained node. Node operators might need to take action to remedy this error. Check these regularly to see if any of them require attention. Examples: Use of deprecated configuration options or incorrectly configured settings that cause a job to fail.
+- "crit": A critical error occurred. The node might be unable to function. Node operators should take immediate action to fix these errors. Examples: The node could not boot because a network socket could not be opened or the database became inaccessible.
+- "panic": An exceptional error occurred that could not be handled. If the node is unresponsive, node operators should try to restart their nodes and notify the Chainlink team of a potential bug.
+- "fatal": The node encountered an unrecoverable problem and had to exit.
 
 ### JSONConsole<a id='Log-JSONConsole'></a>
 ```toml
@@ -444,6 +464,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ```toml
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
+BridgeCacheTTL = '0s' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
 HTTPWriteTimeout = '10s' # Default
 HTTPPort = 6688 # Default
@@ -462,6 +483,12 @@ AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` heade
 You should set this to the external URL that you use to access the Chainlink UI.
 
 You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
+
+### BridgeCacheTTL<a id='WebServer-BridgeCacheTTL'></a>
+```toml
+BridgeCacheTTL = '0s' # Default
+```
+BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
 
 ### BridgeResponseURL<a id='WebServer-BridgeResponseURL'></a>
 ```toml
@@ -1259,7 +1286,6 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 ```toml
 [Pyroscope]
 ServerAddress = 'http://localhost:4040' # Example
-AuthToken = 'randomly-oauth-generated-token' # Example
 Environment = 'mainnet' # Default
 ```
 
@@ -1269,12 +1295,6 @@ Environment = 'mainnet' # Default
 ServerAddress = 'http://localhost:4040' # Example
 ```
 ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
-
-### AuthToken<a id='Pyroscope-AuthToken'></a>
-```toml
-AuthToken = 'randomly-oauth-generated-token' # Example
-```
-AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
 
 ### Environment<a id='Pyroscope-Environment'></a>
 ```toml
@@ -1287,7 +1307,7 @@ Environment sets the target environment tag in which profiles will be added to.
 [Sentry]
 Debug = false # Default
 DSN = 'sentry-dsn' # Example
-Environment = 'prod' # Default
+Environment = 'my-custom-env' # Example
 Release = 'v1.2.3' # Example
 ```
 
@@ -1307,7 +1327,7 @@ DSN is the data source name where events will be sent. Sentry is completely disa
 
 ### Environment<a id='Sentry-Environment'></a>
 ```toml
-Environment = 'prod' # Default
+Environment = 'my-custom-env' # Example
 ```
 Environment overrides the Sentry environment to the given value. Otherwise autodetects between dev/prod.
 
@@ -3926,7 +3946,8 @@ Mode controls what type of gas estimator is used.
 
 - `FixedPrice` uses static configured values for gas price (can be set via API call).
 - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `L2Suggested`
+- `Optimism2`/`L2Suggested` is a special mode only for use with Optimism and Metis blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+- `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 
 Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
 

@@ -25,20 +25,21 @@ func main() {
 	defer func() { _ = sync() }()
 	lggr.SetLogLevel(zapcore.DebugLevel)
 
-	withEstimator(context.Background(), lggr, url, func(e gas.Estimator) {
-		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.GWei(1))
-		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.GWei(1), gas.OptForceRefetch)
-		printGetLegacyGas(e, make([]byte, 10), max, assets.GWei(1))
+	ctx := context.Background()
+	withEstimator(ctx, lggr, url, func(e gas.Estimator) {
+		printGetLegacyGas(ctx, e, make([]byte, 10), 500_000, assets.GWei(1))
+		printGetLegacyGas(ctx, e, make([]byte, 10), 500_000, assets.GWei(1), gas.OptForceRefetch)
+		printGetLegacyGas(ctx, e, make([]byte, 10), max, assets.GWei(1))
 	})
 }
 
-func printGetLegacyGas(e gas.Estimator, calldata []byte, l2GasLimit uint32, maxGasPrice *assets.Wei, opts ...gas.Opt) {
-	price, limit, err := e.GetLegacyGas(calldata, l2GasLimit, maxGasPrice, opts...)
+func printGetLegacyGas(ctx context.Context, e gas.Estimator, calldata []byte, l2GasLimit uint32, maxGasPrice *assets.Wei, opts ...gas.Opt) {
+	price, limit, err := e.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPrice, opts...)
 	if err != nil {
 		log.Println("failed to get legacy gas:", err)
 		return
 	}
-	fmt.Println("Price:", (*assets.Wei)(price))
+	fmt.Println("Price:", price)
 	fmt.Println("Limit:", limit)
 }
 

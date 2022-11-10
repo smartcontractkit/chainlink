@@ -27,12 +27,23 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
-	if os.Getenv("LOG_COLOR") != "true" {
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+	var logColor string
+	if v1, v2 := os.Getenv("LOG_COLOR"), os.Getenv("CL_LOG_COLOR"); v1 != "" && v2 != "" {
+		if v1 != v2 {
+			panic("you may only set one of LOG_COLOR and CL_LOG_COLOR environment variables, not both")
+		}
+	} else if v1 == "" {
+		logColor = v2
+	} else if v2 == "" {
+		logColor = v1
+	}
+	if logColor != "true" {
 		InitColor(false)
 	}
 }
 
-//go:generate mockery --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+//go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
@@ -134,6 +145,7 @@ func verShaNameStatic() string {
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
+// Deprecated: This depends on legacy environment variables.
 func NewLogger() (Logger, func() error) {
 	var c Config
 	var parseErrs []string
@@ -144,7 +156,6 @@ func NewLogger() (Logger, func() error) {
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
-
 	c.Dir = os.Getenv("LOG_FILE_DIR")
 	if c.Dir == "" {
 		var invalid2 string

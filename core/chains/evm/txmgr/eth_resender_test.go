@@ -26,7 +26,7 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logCfg := pgtest.NewPGCfg(true)
+	logCfg := pgtest.NewQConfig(true)
 	borm := cltest.NewTxmORM(t, db, logCfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()

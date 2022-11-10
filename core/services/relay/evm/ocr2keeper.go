@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -62,7 +64,7 @@ func NewOCR2KeeperRelayer(db *sqlx.DB, chain evm.Chain, pr pipeline.Runner, spec
 }
 
 func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2KeeperProvider, error) {
-	cfgWatcher, err := newOCR2KeeperConfigProvider(r.lggr, r.chain, rargs.ContractID)
+	cfgWatcher, err := newOCR2KeeperConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
@@ -88,19 +90,24 @@ func (c *ocr2keeperProvider) ContractTransmitter() types.ContractTransmitter {
 	return c.contractTransmitter
 }
 
-func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, contractID string) (*configWatcher, error) {
-	if !common.IsHexAddress(contractID) {
-		return nil, fmt.Errorf("invalid contract address '%s'", contractID)
+func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relaytypes.RelayArgs) (*configWatcher, error) {
+	var relayConfig RelayConfig
+	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
+	if err != nil {
+		return nil, err
+	}
+	if !common.IsHexAddress(rargs.ContractID) {
+		return nil, fmt.Errorf("invalid contract address '%s'", rargs.ContractID)
 	}
 
-	contractAddress := common.HexToAddress(contractID)
+	contractAddress := common.HexToAddress(rargs.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
 	}
 
 	configPoller, err := NewConfigPoller(
-		lggr.With("contractID", contractID),
+		lggr.With("contractID", rargs.ContractID),
 		chain.LogPoller(),
 		contractAddress,
 	)
@@ -113,11 +120,14 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, contractID
 		ContractAddress: contractAddress,
 	}
 
-	return &configWatcher{
-		contractAddress:  contractAddress,
-		contractABI:      contractABI,
-		configPoller:     configPoller,
-		offchainDigester: offchainConfigDigester,
-		chain:            chain,
-	}, nil
+	return newConfigWatcher(
+		lggr,
+		contractAddress,
+		contractABI,
+		offchainConfigDigester,
+		configPoller,
+		chain,
+		relayConfig.FromBlock,
+		rargs.New,
+	), nil
 }
