@@ -829,7 +829,7 @@ type P2PData struct {
 	PeerID     string
 }
 
-func (p P2PData) P2PV2Bootstrapper() string {
+func (p *P2PData) P2PV2Bootstrapper() string {
 	if p.RemotePort == "" {
 		p.RemotePort = "6690"
 	}

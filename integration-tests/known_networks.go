@@ -1,20 +1,15 @@
 package networks
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Pre-configured test networks and their connections
@@ -200,22 +195,28 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
 
-	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
+	if strings.Contains(prefix, "SIMULATED") { // Use defaults for SIMULATED
 		return
 	}
 
-	envVar := fmt.Sprintf("%s_URLS", prefix)
-	if os.Getenv(envVar) == "" {
-		urls := strings.Split(os.Getenv("EVM_URLS"), ",")
+	wsEnvVar := fmt.Sprintf("%s_URLS", prefix)
+	httpEnvVar := fmt.Sprintf("%s_HTTP_URLS", prefix)
+	if os.Getenv(wsEnvVar) == "" {
+		wsURLs := strings.Split(os.Getenv("EVM_URLS"), ",")
+		httpURLs := strings.Split(os.Getenv("EVM_HTTP_URLS"), ",")
 		log.Warn().
-			Interface("EVM_URLS", urls).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_URLS'", envVar))
-		network.URLs = urls
+			Interface("EVM_URLS", wsURLs).
+			Interface("EVM_HTTP_URLS", httpURLs).
+			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar))
+		network.URLs = wsURLs
+		network.HTTPURLs = httpURLs
 		return
 	}
-	urls := strings.Split(os.Getenv(envVar), ",")
-	network.URLs = urls
-	log.Info().Interface(envVar, urls).Msg("Read network URLs")
+	wsURLs := strings.Split(os.Getenv(wsEnvVar), ",")
+	httpURLs := strings.Split(os.Getenv(httpEnvVar), ",")
+	network.URLs = wsURLs
+	network.HTTPURLs = httpURLs
+	log.Info().Interface(wsEnvVar, wsURLs).Interface(httpEnvVar, httpURLs).Msg("Read network URLs")
 }
 
 // setKeys sets a network's private key(s) based on env vars
@@ -223,7 +224,7 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	prefix = strings.Trim(prefix, "_")
 	prefix = strings.ToUpper(prefix)
 
-	if strings.Contains(prefix, "SIMULATED") { // Use defaults or read from env values for SIMULATED
+	if strings.Contains(prefix, "SIMULATED") { // Use defaults for SIMULATED
 		return
 	}
 
@@ -239,25 +240,4 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	keys := strings.Split(os.Getenv(envVar), ",")
 	network.PrivateKeys = keys
 	log.Info().Interface(envVar, keys).Msg("Read network Keys")
-}
-
-func DeriveEVMNodesFromNetworkSettings(networks ...blockchain.EVMNetwork) (string, error) {
-	var evmNodes []types.NewNode
-	for i, n := range networks {
-		evmNodes = append(evmNodes, types.NewNode{
-			Name:       fmt.Sprintf("network_%d", i),
-			EVMChainID: *utils.NewBigI(n.ChainID),
-			WSURL:      null.StringFrom(n.URLs[0]),
-			HTTPURL:    null.StringFrom(n.HTTPURLs[0]),
-			SendOnly:   false,
-		})
-	}
-	if len(evmNodes) > 0 {
-		evmNodes, err := json.Marshal(evmNodes)
-		if err != nil {
-			return "", err
-		}
-		return string(evmNodes), nil
-	}
-	return "", nil
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 func init() {
@@ -42,7 +43,7 @@ func TestOCRSoak(t *testing.T) {
 		AddHelm(mockserver.New(nil))
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(activeEVMNetwork).AddOCRDefaults().String()
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -64,7 +65,7 @@ func TestOCRSoak(t *testing.T) {
 			"dynamic_value": "5",
 		},
 	}
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+	addSeparateChainlinkDeployments(testEnvironment, chainlinkTOML, dynamicValues)
 
 	soakTestHelper(t, "@soak-ocr", testEnvironment, activeEVMNetwork)
 }
@@ -82,8 +83,7 @@ func TestForwarderOCRSoak(t *testing.T) {
 		AddHelm(mockserver.New(nil))
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
-	staticValues["ETH_USE_FORWARDERS"] = "true"
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(activeEVMNetwork).AddOCRDefaults().String()
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -105,7 +105,7 @@ func TestForwarderOCRSoak(t *testing.T) {
 			"dynamic_value": "5",
 		},
 	}
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+	addSeparateChainlinkDeployments(testEnvironment, chainlinkTOML, dynamicValues)
 
 	soakTestHelper(t, "@soak-forwarder-ocr", testEnvironment, activeEVMNetwork)
 }
@@ -121,7 +121,7 @@ func TestKeeperSoak(t *testing.T) {
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(activeEVMNetwork).AddKeeperDefaults().String()
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -143,7 +143,7 @@ func TestKeeperSoak(t *testing.T) {
 			"dynamic_value": "5",
 		},
 	}
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+	addSeparateChainlinkDeployments(testEnvironment, chainlinkTOML, dynamicValues)
 
 	soakTestHelper(t, "@soak-keeper", testEnvironment, activeEVMNetwork)
 }
@@ -152,17 +152,15 @@ func TestKeeperSoak(t *testing.T) {
 // a single dynamicVal to each Chainlink deployment
 func addSeparateChainlinkDeployments(
 	testEnvironment *environment.Environment,
-	staticValues map[string]interface{},
+	toml string,
 	dynamicValueList []map[string]interface{},
 ) {
 	for index, dynamicValues := range dynamicValueList {
 		envVals := map[string]interface{}{}
-		for key, value := range staticValues {
-			envVals[key] = value
-		}
 		for key, value := range dynamicValues {
 			envVals[key] = value
 		}
+		envVals["cl_config"] = toml
 		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{"env": envVals}))
 	}
 }
