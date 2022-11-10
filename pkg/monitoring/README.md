@@ -3,7 +3,7 @@
 ## Architecture
 
 [Chainlink blueprints](https://github.com/smartcontractkit/chainlink-blueprints/blob/main/monitoring/README.md)
-contains a descript of the architecture of the on-chain monitor framework, the tools availables for integrators
+contains a descript of the architecture of the on-chain monitor framework, the tools available for integrators
 as well as a tutorial for creating new integrations.
 
 ## Documentation
