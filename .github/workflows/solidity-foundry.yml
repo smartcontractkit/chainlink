@@ -22,6 +22,7 @@ jobs:
               - '.github/workflows/solidity-foundry.yml'
 
   tests:
+    needs: [changes]
     name: Tests
     runs-on: ubuntu-latest
 
@@ -32,7 +33,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Tests
+          this-job-name: Foundry Tests
         continue-on-error: true
 
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -44,17 +45,20 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
       - name: Run Forge build
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge --version
           forge build --sizes
         id: build
 
       - name: Run Forge tests
+        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge snapshot -vvv --check
         id: test
