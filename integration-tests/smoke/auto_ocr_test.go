@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
 
@@ -24,7 +25,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var _ = Describe("Automation OCR Suite @keeper", func() {
+var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 	var (
 		err              error
 		chainClient      blockchain.EVMClient
@@ -42,7 +43,14 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 		}
 	)
 
-	DescribeTable("Automation OCR Suite @keeper", func(
+	AfterEach(func() {
+		By("Tearing down the environment")
+		chainClient.GasStats().PrintStats()
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+	})
+
+	DescribeTable("Automation OCR Suite @auto-ocr", func(
 		registryVersion ethereum.KeeperRegistryVersion,
 		registryConfig contracts.KeeperRegistrySettings,
 		consumerContract KeeperConsumerContracts,
@@ -51,30 +59,28 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 		numberOfUpkeeps int,
 	) {
 		By("Deploying the environment")
-		envVars := map[string]interface{}{
-			"MIN_INCOMING_CONFIRMATIONS":  "1",
-			"KEEPER_TURN_LOOK_BACK":       "0",
-			"FEATURE_OFFCHAIN_REPORTING2": "true",
-			"FEATURE_LOG_POLLER":          "true",
-			"P2P_NETWORKING_STACK":        "V2",
-			"P2P_LISTEN_PORT":             "",
-			"CHAINLINK_TLS_PORT":          "0",
-			"P2PV2_LISTEN_ADDRESSES":      "0.0.0.0:6690",
-			"P2PV2_ANNOUNCE_ADDRESSES":    "0.0.0.0:6690",
-		}
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
+		network := networks.SimulatedEVM
+		chainlinkTOML := client.NewDefaultTOMLBuilder().
+			AddNetworks(false, network).
+			AddOCR2Defaults().
+			AddKeeperDefaults().
+			AddP2PNetworkingV2().
+			String()
+		fmt.Println(chainlinkTOML)
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-auto-ocr"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
-				"env":      envVars,
+				"env": map[string]interface{}{
+					"cl_config": chainlinkTOML,
+				},
 			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		network := networks.SimulatedEVM
 		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
@@ -167,13 +173,6 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 				}
 			}, "1m", "1s").Should(Succeed())
 		}
-
-		By("Printing gas stats")
-		chainClient.GasStats().PrintStats()
-
-		By("Tearing down the environment")
-		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	},
 		testScenarios,
 	)
