@@ -24,7 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var _ = Describe("Automation OCR Suite @keeper", func() {
+var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 	var (
 		err              error
 		chainClient      blockchain.EVMClient
@@ -51,7 +51,8 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 		numberOfUpkeeps int,
 	) {
 		By("Deploying the environment")
-		chainlinkTOML := client.NewDefaultTOMLBuilder().AddOCRDefaults().AddP2PNetworkingV2().String()
+		network := networks.SimulatedEVM
+		chainlinkTOML := client.NewDefaultTOMLBuilder().AddNetworks(network).AddOCRDefaults().AddP2PNetworkingV2().String()
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
@@ -66,7 +67,6 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		network := networks.SimulatedEVM
 		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
