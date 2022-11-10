@@ -154,7 +154,7 @@ golangci-lint: ## Run golangci-lint for all issues.
 
 .PHONY: snapshot
 snapshot:
-	forge snapshot --match-test _gas
+	cd ./contracts && forge snapshot --match-test _gas
 
 help:
 	@echo ""

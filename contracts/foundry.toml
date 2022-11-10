@@ -1,12 +1,13 @@
 [profile.default]
 auto_detect_solc = true
+optimizer = true
 optimizer_runs = 1_000_000
 
-src = 'contracts/src/v0.8'
-test = 'contracts/test/v0.8/foundry'
-out = 'contracts/foundry-artifacts'
-cache_path  = 'contracts/foundry-cache'
-libs = ['contracts/node_modules', 'contracts/foundry-lib']
+src = 'src/v0.8'
+test = 'test/v0.8/foundry'
+out = 'foundry-artifacts'
+cache_path  = 'foundry-cache'
+libs = ['node_modules', 'foundry-lib']
 bytecode_hash = "none"
 ffi = false
 
