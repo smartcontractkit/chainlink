@@ -42,7 +42,7 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 		}
 	)
 
-	DescribeTable("Automation OCR Suite @keeper", func(
+	DescribeTable("Automation OCR Suite @auto-ocr", func(
 		registryVersion ethereum.KeeperRegistryVersion,
 		registryConfig contracts.KeeperRegistrySettings,
 		consumerContract KeeperConsumerContracts,
@@ -51,24 +51,16 @@ var _ = Describe("Automation OCR Suite @keeper", func() {
 		numberOfUpkeeps int,
 	) {
 		By("Deploying the environment")
-		envVars := map[string]interface{}{
-			"MIN_INCOMING_CONFIRMATIONS":  "1",
-			"KEEPER_TURN_LOOK_BACK":       "0",
-			"FEATURE_OFFCHAIN_REPORTING2": "true",
-			"FEATURE_LOG_POLLER":          "true",
-			"P2P_NETWORKING_STACK":        "V2",
-			"P2P_LISTEN_PORT":             "",
-			"CHAINLINK_TLS_PORT":          "0",
-			"P2PV2_LISTEN_ADDRESSES":      "0.0.0.0:6690",
-			"P2PV2_ANNOUNCE_ADDRESSES":    "0.0.0.0:6690",
-		}
+		chainlinkTOML := client.NewDefaultTOMLBuilder().AddOCRDefaults().AddP2PNetworkingV2().String()
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
-				"env":      envVars,
+				"env": map[string]interface{}{
+					"cl_config": chainlinkTOML,
+				},
 			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())

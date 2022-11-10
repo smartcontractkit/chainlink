@@ -44,12 +44,6 @@ AllowOrigins = '*'
 SecureCookies = false
 SessionTimeout = '999h'
 
-[P2P]
-[P2P.V1]
-Enabled = true
-ListenIP = '0.0.0.0'
-ListenPort = 6690
-
 [WebServer.TLS]
 HTTPSPort = 0`
 
@@ -68,6 +62,28 @@ func (t *TOMLBuilder) AddNetworks(networks ...*blockchain.EVMNetwork) *TOMLBuild
 		}
 		t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", clNetwork))
 	}
+	return t
+}
+
+var p2pV1 = `[P2P]
+[P2P.V1]
+Enabled = true
+ListenIP = '0.0.0.0'
+ListenPort = 6690`
+
+func (t *TOMLBuilder) AddP2PNetworkingV1() *TOMLBuilder {
+	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", p2pV1))
+	return t
+}
+
+var p2pV2 = `[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']`
+
+func (t *TOMLBuilder) AddP2PNetworkingV2() *TOMLBuilder {
+	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", p2pV2))
 	return t
 }
 
