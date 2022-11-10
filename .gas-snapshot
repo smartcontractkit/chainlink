@@ -1,4 +1,1 @@
-OCR2DROracle_setDONPublicKey:testEmptyPublicKeyReverts() (gas: 10936)
-OCR2DROracle_setDONPublicKey:testOnlyOwnerReverts() (gas: 11327)
-OCR2DROracle_setDONPublicKey:testSetDONPublicKeySuccess() (gas: 126336)
-OCR2DROracle_typeAndVersion:testTypeAndVersionSuccess() (gas: 6945)
+OCR2DROracle_typeAndVersion:testTypeAndVersionSuccess_gas() (gas: 6969)

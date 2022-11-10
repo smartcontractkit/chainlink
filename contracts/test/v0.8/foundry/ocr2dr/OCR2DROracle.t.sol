@@ -14,8 +14,8 @@ contract OCR2DROracleSetup is BaseTest {
 }
 
 contract OCR2DROracle_typeAndVersion is OCR2DROracleSetup {
-    function testTypeAndVersionSuccess() public {
-       assertEq(  s_oracle.typeAndVersion(), "OCR2DROracle 0.0.0");
+    function testTypeAndVersionSuccess_gas() public {
+       assertEq(s_oracle.typeAndVersion(), "OCR2DROracle 0.0.0");
     }
 }
 
