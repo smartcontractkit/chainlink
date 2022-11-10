@@ -94,6 +94,7 @@ type BasicConfig interface {
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
+	BridgeCacheTTL() time.Duration
 	CertFile() string
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
@@ -631,6 +632,11 @@ func (c *generalConfig) BlockBackfillSkip() bool {
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c *generalConfig) BridgeResponseURL() *url.URL {
 	return getEnvWithFallback(c, envvar.New("BridgeResponseURL", url.Parse))
+}
+
+// BridgeCacheTTL represents the max acceptable duration for a cached bridge value to be used in case of intermittent failure.
+func (c *generalConfig) BridgeCacheTTL() time.Duration {
+	return getEnvWithFallback(c, envvar.NewDuration("BridgeCacheTTL"))
 }
 
 // FeatureUICSAKeys enables the CSA Keys UI Feature.

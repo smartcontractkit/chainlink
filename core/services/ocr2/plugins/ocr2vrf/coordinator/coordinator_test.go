@@ -236,13 +236,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -294,13 +293,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -360,13 +358,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -430,13 +427,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -491,13 +487,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -557,13 +552,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		report := ocr2vrftypes.AbstractReport{
@@ -647,13 +641,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -710,13 +703,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -773,13 +765,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -836,13 +827,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			beaconAddress:            beaconAddress,
 			coordinatorAddress:       coordinatorAddress,
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -870,11 +860,10 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 		lp := getLogPoller(t, []uint64{199}, 200, false)
 		c := &coordinator{
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 		assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
 			RecentBlockHeight: 199,
@@ -887,11 +876,10 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 		lp := getLogPoller(t, []uint64{199}, 200, false)
 		c := &coordinator{
 			lp:                       lp,
-			lookbackBlocks:           lookbackBlocks,
 			lggr:                     logger.TestLogger(t),
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
-			coordinatorConfig:        newCoordinatorConfig(),
+			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
 		}
 		assert.Error(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
 			RecentBlockHeight: 199,
@@ -1108,13 +1096,14 @@ func Test_SetOffchainConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("valid binary", func(t *testing.T) {
-		c := &coordinator{coordinatorConfig: newCoordinatorConfig()}
+		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10)}
 		newCoordinatorConfig := &ocr2vrftypes.CoordinatorConfig{
 			CacheEvictionWindowSeconds: 30,
 			BatchGasLimit:              1_000_000,
 			CoordinatorOverhead:        10_000,
 			CallbackOverhead:           10_000,
 			BlockGasOverhead:           10_000,
+			LookbackBlocks:             1_000,
 		}
 
 		err := c.SetOffChainConfig(ocr2vrf.OffchainConfig(newCoordinatorConfig))
@@ -1124,23 +1113,25 @@ func Test_SetOffchainConfig(t *testing.T) {
 		require.Equal(t, newCoordinatorConfig.CoordinatorOverhead, c.coordinatorConfig.CoordinatorOverhead)
 		require.Equal(t, newCoordinatorConfig.CallbackOverhead, c.coordinatorConfig.CallbackOverhead)
 		require.Equal(t, newCoordinatorConfig.BlockGasOverhead, c.coordinatorConfig.BlockGasOverhead)
+		require.Equal(t, newCoordinatorConfig.LookbackBlocks, c.coordinatorConfig.LookbackBlocks)
 	})
 
 	t.Run("invalid binary", func(t *testing.T) {
-		c := &coordinator{coordinatorConfig: newCoordinatorConfig()}
+		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10)}
 
 		err := c.SetOffChainConfig([]byte{123})
 		require.Error(t, err)
 	})
 }
 
-func newCoordinatorConfig() *ocr2vrftypes.CoordinatorConfig {
+func newCoordinatorConfig(lookbackBlocks int64) *ocr2vrftypes.CoordinatorConfig {
 	return &ocr2vrftypes.CoordinatorConfig{
 		CacheEvictionWindowSeconds: 60,
 		BatchGasLimit:              5_000_000,
 		CoordinatorOverhead:        50_000,
 		CallbackOverhead:           50_000,
 		BlockGasOverhead:           50_000,
+		LookbackBlocks:             lookbackBlocks,
 	}
 }
 
