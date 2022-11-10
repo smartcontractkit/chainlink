@@ -14,7 +14,7 @@ contract OCR2DROracleSetup is BaseTest {
 }
 
 contract OCR2DROracle_typeAndVersion is OCR2DROracleSetup {
-    function testTypeAndVersionSuccess_gas() public {
+    function testTypeAndVersionSuccess() public {
        assertEq(s_oracle.typeAndVersion(), "OCR2DROracle 0.0.0");
     }
 }
@@ -38,9 +38,9 @@ contract OCR2DROracle_setDONPublicKey is OCR2DROracleSetup {
     // Reverts
 
     function testEmptyPublicKeyReverts() public {
-        vm.expectRevert(OCR2DROracle.EmptyPublicKey.selector);
-
         bytes memory donPublicKey;
+
+        vm.expectRevert(OCR2DROracle.EmptyPublicKey.selector);
         s_oracle.setDONPublicKey(donPublicKey);
     }
 
@@ -50,5 +50,27 @@ contract OCR2DROracle_setDONPublicKey is OCR2DROracleSetup {
 
         bytes memory donPublicKey;
         s_oracle.setDONPublicKey(donPublicKey);
+    }
+}
+
+contract OCR2DROracle_sendRequest is OCR2DROracleSetup {
+    event OracleRequest(bytes32 requestId, bytes data);
+
+    function testSendRequestFuzzSuccess_gas(uint256 subscriptionId, bytes calldata data) public {
+        vm.assume(data.length != 0);
+
+        vm.expectEmit(false, false, false, false);
+        emit OracleRequest(0, data);
+
+        s_oracle.sendRequest(subscriptionId, data);
+    }
+
+    // Reverts
+
+    function testEmptyRequestDataReverts() public {
+        bytes memory emptyData;
+
+        vm.expectRevert(OCR2DROracle.EmptyRequestData.selector);
+        s_oracle.sendRequest(0, emptyData);
     }
 }

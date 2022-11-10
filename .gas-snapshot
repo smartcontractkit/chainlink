@@ -1,1 +1,1 @@
-OCR2DROracle_typeAndVersion:testTypeAndVersionSuccess_gas() (gas: 6969)
+OCR2DROracle_sendRequest:testSendRequestFuzzSuccess_gas(uint256,bytes) (runs: 256, μ: 79907, ~: 80352)
