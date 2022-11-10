@@ -77,11 +77,8 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 			spec.BackoffMaxDelay.String(), spec.BackoffInitialDelay.String())
 	}
 
-	// Assert that the provided gas lane price is positive.
-	if spec.GasLanePrice != nil {
-		if spec.GasLanePrice.Cmp(assets.GWei(0)) <= 0 {
-			return jb, fmt.Errorf("gasLanePrice must be positive and nonzero, given: %s", spec.GasLanePrice.String())
-		}
+	if spec.GasLanePrice != nil && spec.GasLanePrice.Cmp(assets.GWei(0)) <= 0 {
+		return jb, fmt.Errorf("gasLanePrice must be positive, given: %s", spec.GasLanePrice.String())
 	}
 
 	var foundVRFTask bool
