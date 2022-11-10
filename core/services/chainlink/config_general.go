@@ -81,11 +81,14 @@ type GeneralConfigOpts struct {
 }
 
 // ParseTOML sets Config and Secrets from the given TOML strings.
-func (o *GeneralConfigOpts) ParseTOML(config, secrets string) error {
-	return multierr.Combine(
-		v2.DecodeTOML(strings.NewReader(config), &o.Config),
-		v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets),
-	)
+func (o *GeneralConfigOpts) ParseTOML(config, secrets string) (err error) {
+	if err2 := v2.DecodeTOML(strings.NewReader(config), &o.Config); err2 != nil {
+		err = multierr.Append(err, fmt.Errorf("failed to decode config TOML: %w", err2))
+	}
+	if err2 := v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets); err2 != nil {
+		err = multierr.Append(err, fmt.Errorf("failed to decode secrets TOML: %w", err2))
+	}
+	return
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
@@ -216,6 +219,12 @@ var legacyEnvToV2 = map[string]string{
 
 // validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
 func validateEnv() (err error) {
+	defer func() {
+		if err != nil {
+			_, err = utils.MultiErrorList(err)
+			err = fmt.Errorf("invalid environment: %w", err)
+		}
+	}()
 	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
 		if strings.TrimSpace(kv) == "" {
 			continue

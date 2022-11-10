@@ -51,7 +51,7 @@ func main() {
 func run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
 	if err := app.Run(args); err != nil {
-		log.Fatal("Error running app:", err)
+		log.Fatalf("Error running app: %v\n", err)
 	}
 }
 
