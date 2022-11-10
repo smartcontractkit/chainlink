@@ -60,15 +60,18 @@ jobs:
           forge --version
           forge build --sizes
         id: build
+        working-directory: contracts
 
       - name: Run Forge tests
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge test -vvv
         id: test
+        working-directory: contracts
 
       - name: Run Forge snapshot
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge snapshot --match-test _gas --check
         id: snapshot
+        working-directory: contracts
