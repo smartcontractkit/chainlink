@@ -114,13 +114,13 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 test_smoke: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/smoke
+	$(args) ./integration-tests/smoke
 
 .PHONY: test_smoke_simulated
 test_smoke_simulated: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/smoke
+	$(args) ./integration-tests/smoke
 
 .PHONY: test_soak_ocr
 test_soak_ocr: test_need_operator_assets ## Run the OCR soak test
@@ -138,7 +138,7 @@ test_soak_keeper: test_need_operator_assets ## Run the OCR soak test
 test_perf: test_need_operator_assets ## Run core node performance tests.
 	ginkgo -v -r --junit-report=tests-perf-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/performance
+	$(args) ./integration-tests/performance
 
 .PHONY: test_chaos
 test_chaos: test_need_operator_assets ## Run core node chaos tests.

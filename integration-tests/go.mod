@@ -3,18 +3,18 @@ module github.com/smartcontractkit/chainlink/integration-tests
 go 1.19
 
 require (
-	github.com/ethereum/go-ethereum v1.10.25
+	github.com/ethereum/go-ethereum v1.10.26
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/imdario/mergo v0.3.13
-	github.com/onsi/ginkgo/v2 v2.4.0
-	github.com/onsi/gomega v1.23.0
+	github.com/onsi/ginkgo/v2 v2.5.0
+	github.com/onsi/gomega v1.24.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.28.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/slack-go/slack v0.11.3
-	github.com/smartcontractkit/chainlink v1.8.0
-	github.com/smartcontractkit/chainlink-env v0.2.50
-	github.com/smartcontractkit/chainlink-testing-framework v1.7.9
+	github.com/slack-go/slack v0.11.4
+	github.com/smartcontractkit/chainlink v1.9.0
+	github.com/smartcontractkit/chainlink-env v0.2.51
+	github.com/smartcontractkit/chainlink-testing-framework v1.8.0
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/atomic v1.9.0
@@ -24,10 +24,6 @@ require (
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink => ../
-
-replace github.com/smartcontractkit/chainlink-env => /Users/adamhamrick/Projects/chainlink-env
-
-replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -260,7 +256,7 @@ require (
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_golang v1.13.0 // indirect
+	github.com/prometheus/client_golang v1.13.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
