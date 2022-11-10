@@ -87,11 +87,11 @@ describe('AuthorizedReceiverTestHelper', () => {
     })
   })
 
-  describe('#testValidateAuthorizedSender', () => {
+  describe('#verifyValidateAuthorizedSender', () => {
     it('Should revert for empty state', async () => {
-      await expect(receiver.testValidateAuthorizedSender()).to.be.revertedWith(
-        'UnauthorizedSender',
-      )
+      await expect(
+        receiver.verifyValidateAuthorizedSender(),
+      ).to.be.revertedWith('UnauthorizedSender')
     })
 
     it('#validateAuthorizedSender modifier', async () => {
@@ -107,15 +107,15 @@ describe('AuthorizedReceiverTestHelper', () => {
       expect(
         await receiver
           .connect(personas.Carol)
-          .callStatic.testValidateAuthorizedSender(),
+          .callStatic.verifyValidateAuthorizedSender(),
       ).to.be.equal(true)
       expect(
         await receiver
           .connect(personas.Nancy)
-          .callStatic.testValidateAuthorizedSender(),
+          .callStatic.verifyValidateAuthorizedSender(),
       ).to.be.equal(true)
       await expect(
-        receiver.connect(personas.Neil).testValidateAuthorizedSender(),
+        receiver.connect(personas.Neil).verifyValidateAuthorizedSender(),
       ).to.be.revertedWith('UnauthorizedSender')
     })
 
