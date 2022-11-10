@@ -53,7 +53,7 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 		By("Deploying the environment")
 		network := networks.SimulatedEVM
 		chainlinkTOML := client.NewDefaultTOMLBuilder().AddNetworks(network).AddOCRDefaults().AddP2PNetworkingV2().String()
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-auto-ocr"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
