@@ -21,6 +21,6 @@ This will create a snapshot file in the current working dir, please make sure th
 ## Configuration
 
 Foundry config lives in `foundry.toml` in the root, the docs can be found [here](https://book.getfoundry.sh/config/).
-The remapping of libraries, both from Foundry and NPM packages, is done in `remaping.txt`.
+The remapping of libraries, both from Foundry and NPM packages, is done in `remapping.txt`.
 
 
