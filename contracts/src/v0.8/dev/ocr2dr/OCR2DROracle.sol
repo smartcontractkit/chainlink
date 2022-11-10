@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.15;
 
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
