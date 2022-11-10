@@ -7,11 +7,8 @@ import (
 	"time"
 
 	"gopkg.in/guregu/null.v4"
-<<<<<<< HEAD
-=======
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
->>>>>>> 1cacfcf68ba868169b37b3fd695be75488ee3144
 )
 
 // EIServiceConfig represents External Initiator service config
