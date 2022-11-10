@@ -1,2 +1,2 @@
 OCR2DROracle_sendRequest:testSendRequest_gas() (gas: 55794)
-OCR2DROracle_setDONPublicKey:testSetDONPublicKey_gas() (gas: 97495)
+OCR2DROracle_setDONPublicKey:testSetDONPublicKey_gas() (gas: 97438)
