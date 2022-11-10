@@ -43,6 +43,13 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 		}
 	)
 
+	AfterEach(func() {
+		By("Tearing down the environment")
+		chainClient.GasStats().PrintStats()
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+	})
+
 	DescribeTable("Automation OCR Suite @auto-ocr", func(
 		registryVersion ethereum.KeeperRegistryVersion,
 		registryConfig contracts.KeeperRegistrySettings,
@@ -166,13 +173,6 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 				}
 			}, "1m", "1s").Should(Succeed())
 		}
-
-		By("Printing gas stats")
-		chainClient.GasStats().PrintStats()
-
-		By("Tearing down the environment")
-		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	},
 		testScenarios,
 	)
