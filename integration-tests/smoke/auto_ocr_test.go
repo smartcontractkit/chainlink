@@ -24,7 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var _ = Describe("Automation OCR Suite @auto-ocr", func() {
+var _ = PDescribe("Automation OCR Suite @auto-ocr", func() {
 	var (
 		err              error
 		chainClient      blockchain.EVMClient

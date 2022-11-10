@@ -118,7 +118,7 @@ Enabled = true`
 
 // AddOCR2Defaults adds default OCRv2 test settings
 func (t *TOMLBuilder) AddOCR2Defaults() *TOMLBuilder {
-	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", ocrDefaultTOML))
+	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", ocr2DefaultTOML))
 	return t
 }
 
