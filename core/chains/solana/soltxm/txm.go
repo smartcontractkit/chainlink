@@ -106,7 +106,7 @@ func (txm *Txm) run() {
 				txm.lggr.Warnw("failed to enqeue tx for simulation", "queueFull", len(txm.chSend) == MaxQueueLen, "tx", msg)
 			}
 
-			txm.lggr.Debugw("transaction sent", "signature", sig.String())
+			txm.lggr.Infow("transaction sent", "signature", sig.String())
 		case <-txm.chStop:
 			return
 		}
@@ -146,7 +146,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 			select {
 			case <-ctx.Done():
 				// stop sending tx after retry tx ctx times out (does not stop confirmation polling for tx)
-				txm.lggr.Debugw("stopped tx retry", "signature", sig)
+				txm.lggr.Infow("stopped tx retry on timeout", "signature", sig)
 				return
 			case <-tick:
 				go func() {
@@ -233,7 +233,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 					// if signature has an error, end polling
 					if res[i].Err != nil {
-						txm.lggr.Errorw("tx state: failed",
+						txm.lggr.Warnw("tx state: failed",
 							"signature", s[i],
 							"error", res[i].Err,
 							"status", res[i].ConfirmationStatus,
@@ -244,7 +244,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 					// if signature is processed, keep polling
 					if res[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
-						txm.lggr.Debugw("tx state: processed",
+						txm.lggr.Infow("tx state: processed",
 							"signature", s[i],
 						)
 
@@ -258,7 +258,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 					// if signature is confirmed/finalized, end polling
 					if res[i].ConfirmationStatus == rpc.ConfirmationStatusConfirmed || res[i].ConfirmationStatus == rpc.ConfirmationStatusFinalized {
-						txm.lggr.Debugw(fmt.Sprintf("tx state: %s", res[i].ConfirmationStatus),
+						txm.lggr.Infow(fmt.Sprintf("tx state: %s", res[i].ConfirmationStatus),
 							"signature", s[i],
 						)
 						txm.txs.OnSuccess(s[i])
@@ -315,7 +315,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 			if err != nil {
 				// this error can occur if endpoint goes down or if invalid signature (invalid signature should occur further upstream in sendWithRetry)
 				// allow retry to continue in case temporary endpoint failure (if still invalid, confirm or timeout will cleanup)
-				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
+				txm.lggr.Warnw("failed to simulate tx", "signature", msg.signature, "error", err)
 				continue
 			}
 
@@ -332,7 +332,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 			// blockhash not found when simulating, occurs when network bank has not seen the given blockhash or tx is too old
 			// let simulation process/clean up
 			case strings.Contains(errStr, "BlockhashNotFound"):
-				txm.lggr.Warnw("simulate: BlockhashNotFound", "signature", msg.signature, "result", res)
+				txm.lggr.Infow("simulate: BlockhashNotFound", "signature", msg.signature, "result", res)
 				continue
 			// transaction will encounter execution error/revert, mark as reverted to remove from confirmation + retry
 			case strings.Contains(errStr, "InstructionError"):
