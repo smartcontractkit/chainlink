@@ -10,8 +10,7 @@ libs = ['contracts/node_modules', 'contracts/foundry-lib']
 bytecode_hash = "none"
 ffi = false
 
-# default is zero, using a non-zero amount enables us to test e.g. billing based on
-# gas prices.
+# default is zero, using a non-zero amount enables us to test e.g. billing based on gas prices.
 gas_price = 1
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

@@ -24,9 +24,3 @@ Foundry config lives in `foundry.toml` in the root, the docs can be found [here]
 The remapping of libraries, both from Foundry and NPM packages, is done in `remaping.txt`.
 
 
-
-## Future work
-
-Features we will be adding in
-- Code coverage
-- ABI exposure checks like the current Hardhat checks
