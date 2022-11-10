@@ -28,6 +28,7 @@ type RelayArgs struct {
 	ExternalJobID uuid.UUID
 	JobID         int32
 	ContractID    string
+	New           bool // Whether this is a first time job add.
 	RelayConfig   []byte
 }
 
@@ -56,4 +57,5 @@ type MedianProvider interface {
 	Plugin
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
+	OnchainConfigCodec() median.OnchainConfigCodec
 }

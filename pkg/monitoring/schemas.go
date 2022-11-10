@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/linkedin/goavro"
+	"github.com/linkedin/goavro/v2"
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/avro"
 )
 
@@ -15,16 +15,24 @@ import (
 
 var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "link.chain.ocr2"}, avro.Fields{
 	avro.Field("block_number", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
+	avro.Field("block_number_uint64", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("transmission_block_number", 32, 78, 0),
+	}),
 	avro.Field("answer", avro.Opts{}, avro.Record("answer", avro.Opts{}, avro.Fields{
-		avro.Field("data", avro.Opts{Doc: "*big.avro.Int"}, avro.Bytes),
+		avro.Field("data", avro.Opts{Doc: "*big.Int"}, avro.Bytes),
+		avro.Field("data_uint256", avro.Opts{Default: avro.NullValue, Doc: "string version of data"}, avro.Union{
+			avro.Null,
+			avro.Decimal("transmission_data", 32, 78, 0),
+		}),
 		avro.Field("timestamp", avro.Opts{Doc: "uint32"}, avro.Long),
 		// These fields are made "optional" for FULL_TRANSITIVE compatibility, but they should be set in all cases.
-		avro.Field("config_digest", avro.Opts{Doc: "[32]byte encoded as base64", Default: avro.Null}, avro.Union{avro.Null, avro.String}),
-		avro.Field("epoch", avro.Opts{Doc: "uint32", Default: avro.Null}, avro.Union{avro.Null, avro.Long}),
-		avro.Field("round", avro.Opts{Doc: "uint8", Default: avro.Null}, avro.Union{avro.Null, avro.Int}),
+		avro.Field("config_digest", avro.Opts{Doc: "[32]byte encoded as base64", Default: avro.NullValue}, avro.Union{avro.Null, avro.String}),
+		avro.Field("epoch", avro.Opts{Doc: "uint32", Default: avro.NullValue}, avro.Union{avro.Null, avro.Long}),
+		avro.Field("round", avro.Opts{Doc: "uint8", Default: avro.NullValue}, avro.Union{avro.Null, avro.Int}),
 	})),
 	// These field is "optional" for FULL_TRANSITIVE compatibility, but it should be set in all cases.
-	avro.Field("chain_config", avro.Opts{Default: avro.Null, Doc: "required!"}, avro.Union{
+	avro.Field("chain_config", avro.Opts{Default: avro.NullValue, Doc: "required!"}, avro.Union{
 		avro.Null,
 		avro.Record("chain_config", avro.Opts{}, avro.Fields{
 			avro.Field("network_name", avro.Opts{}, avro.String),
@@ -45,28 +53,57 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 		avro.Field("contract_type", avro.Opts{}, avro.String),
 		avro.Field("contract_status", avro.Opts{}, avro.String),
 		avro.Field("contract_address", avro.Opts{Doc: "[32]byte"}, avro.Bytes),
+		avro.Field("contract_address_string", avro.Opts{Default: avro.NullValue}, avro.Union{avro.Null, avro.String}),
 		// These field is "required" for FULL_TRANSITIVE compatibility, but they are deprecated and they should be set to a zero value.
 		avro.Field("transmissions_account", avro.Opts{Doc: "[32]byte deprecated!"}, avro.Bytes),
 		avro.Field("state_account", avro.Opts{Doc: "[32]byte deprecated!"}, avro.Bytes),
 	})),
 	// These field is "optional" for FULL_TRANSITIVE compatibility, but it should be set in all cases.
-	avro.Field("link_balance", avro.Opts{Default: avro.Null, Doc: "required!"}, avro.Union{
+	avro.Field("link_balance", avro.Opts{Default: avro.NullValue, Doc: "required!"}, avro.Union{
 		avro.Null,
 		avro.Bytes,
+	}),
+	avro.Field("link_balance_uint256", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("transmission_link_balance", 32, 78, 0),
 	}),
 })
 
 var configSetSimplifiedAvroSchema = avro.Record("config_set_simplified", avro.Opts{Namespace: "link.chain.ocr2"}, avro.Fields{
 	avro.Field("config_digest", avro.Opts{Doc: "[32]byte encoded as base64"}, avro.String),
 	avro.Field("block_number", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
+	avro.Field("block_number_uint64", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_block_number", 32, 78, 0),
+	}),
 	avro.Field("signers", avro.Opts{Doc: "json encoded array of base64-encoded signing keys"}, avro.String),
 	avro.Field("transmitters", avro.Opts{Doc: "json encoded array of base64-encoded transmission keys"}, avro.String),
 	avro.Field("f", avro.Opts{Doc: "uint8"}, avro.Int),
 	avro.Field("delta_progress", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
+	avro.Field("delta_progress_uint64", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_progress", 32, 78, 0),
+	}),
 	avro.Field("delta_resend", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
+	avro.Field("delta_resend_uint64", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_resend", 32, 78, 0),
+	}),
 	avro.Field("delta_round", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
+	avro.Field("delta_round_uint64", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_round", 32, 78, 0),
+	}),
 	avro.Field("delta_grace", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
+	avro.Field("delta_grace_uint64", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_grace", 32, 78, 0),
+	}),
 	avro.Field("delta_stage", avro.Opts{Doc: "uint64 big endian"}, avro.Bytes),
+	avro.Field("delta_stage_uint64", avro.Opts{Default: avro.NullValue}, avro.Union{
+		avro.Null,
+		avro.Decimal("config_delta_stage", 32, 78, 0),
+	}),
 	avro.Field("r_max", avro.Opts{Doc: "uint32"}, avro.Long),
 	avro.Field("s", avro.Opts{Doc: "json encoded aray of ints"}, avro.String),
 	avro.Field("oracles", avro.Opts{Doc: "json encoded list of oracles"}, avro.String),

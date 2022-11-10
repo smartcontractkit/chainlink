@@ -4,12 +4,12 @@ import (
 	"context"
 	"io"
 	"os"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -35,6 +35,7 @@ func TestMonitor(t *testing.T) {
 	os.Setenv("SCHEMA_REGISTRY_USERNAME", "")
 	os.Setenv("SCHEMA_REGISTRY_PASSWORD", "")
 	os.Setenv("FEEDS_URL", "http://some-feeds.com")
+	os.Setenv("NODES_URL", "http://some-nodes.com")
 	os.Setenv("HTTP_ADDRESS", "http://localhost:3000")
 
 	defer os.Unsetenv("KAFKA_BROKERS")
@@ -70,12 +71,11 @@ func TestMonitor(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	monitorWg := &sync.WaitGroup{}
-	monitorWg.Add(1)
-	go func() {
-		defer monitorWg.Done()
+	var monitorSubs utils.Subprocesses
+	monitorSubs.Go(func() {
 		monitor.Run()
-	}()
+	})
+
 	// Wait for the monitor to start.
 	<-time.After(5 * time.Second)
 
@@ -102,10 +102,8 @@ func TestMonitor(t *testing.T) {
 
 	var transmissionsCounter uint64 = 0
 	var configsCounter uint64 = 0
-	countersWg := &sync.WaitGroup{}
-	countersWg.Add(2)
-	go func() {
-		defer countersWg.Done()
+	var countersSubs utils.Subprocesses
+	countersSubs.Go(func() {
 		for i := 0; i < 10; {
 			select {
 			case <-ctx.Done():
@@ -118,9 +116,8 @@ func TestMonitor(t *testing.T) {
 				}
 			}
 		}
-	}()
-	go func() {
-		defer countersWg.Done()
+	})
+	countersSubs.Go(func() {
 		for i := 0; i < 10; {
 			select {
 			case <-ctx.Done():
@@ -133,11 +130,11 @@ func TestMonitor(t *testing.T) {
 				}
 			}
 		}
-	}()
-	countersWg.Wait()
+	})
+	countersSubs.Wait()
 
 	cancel()
-	monitorWg.Wait()
+	monitorSubs.Wait()
 
 	err = consumerConfig.Unsubscribe()
 	require.NoError(t, err)

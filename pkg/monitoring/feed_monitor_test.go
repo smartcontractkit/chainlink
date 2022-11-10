@@ -2,11 +2,11 @@ package monitoring
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -15,9 +15,6 @@ import (
 func TestFeedMonitor(t *testing.T) {
 	t.Run("processes updates from multiple pollers", func(t *testing.T) {
 		defer goleak.VerifyNone(t)
-
-		wg := &sync.WaitGroup{}
-		defer wg.Wait()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
@@ -53,16 +50,14 @@ func TestFeedMonitor(t *testing.T) {
 			bufferCapacity,
 		)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		var subs utils.Subprocesses
+		defer subs.Wait()
+		subs.Go(func() {
 			poller1.Run(ctx)
-		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		})
+		subs.Go(func() {
 			poller2.Run(ctx)
-		}()
+		})
 
 		producer := fakeProducer{make(chan producerMessage), ctx}
 
@@ -102,11 +97,9 @@ func TestFeedMonitor(t *testing.T) {
 			[]Poller{poller1, poller2},
 			exporters,
 		)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			monitor.Run(ctx)
-		}()
+		})
 
 		envelope, err := generateEnvelope()
 		require.NoError(t, err)
@@ -145,14 +138,12 @@ func TestFeedMonitor(t *testing.T) {
 			[]Exporter{exporter1, exporter2},
 		)
 
-		wg := &sync.WaitGroup{}
+		var subs utils.Subprocesses
 		ctx, cancel := context.WithCancel(context.Background())
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			monitor.Run(ctx)
-		}()
+		})
 
 		exporter1.On("Export", mock.Anything, mock.Anything).Once()
 		exporter1.On("Cleanup", mock.Anything).Once()
@@ -163,7 +154,7 @@ func TestFeedMonitor(t *testing.T) {
 		poller.ch <- "update"
 		<-time.After(100 * time.Millisecond)
 		cancel()
-		wg.Wait()
+		subs.Wait()
 
 		mock.AssertExpectationsForObjects(t, exporter1)
 		mock.AssertExpectationsForObjects(t, exporter2)
@@ -178,14 +169,12 @@ func TestFeedMonitor(t *testing.T) {
 			[]Exporter{exporter},
 		)
 
-		wg := &sync.WaitGroup{}
+		var subs utils.Subprocesses
 		ctx, cancel := context.WithCancel(context.Background())
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			monitor.Run(ctx)
-		}()
+		})
 
 		exporter.On("Export", mock.Anything, mock.Anything).Once()
 		exporter.On("Export", mock.Anything, mock.Anything).Panic("some error during Export()").Once()
@@ -199,7 +188,7 @@ func TestFeedMonitor(t *testing.T) {
 		poller.ch <- "update-after-panic"
 		<-time.After(100 * time.Millisecond)
 		cancel()
-		wg.Wait()
+		subs.Wait()
 
 		mock.AssertExpectationsForObjects(t, exporter)
 	})
