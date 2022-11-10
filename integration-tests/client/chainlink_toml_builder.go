@@ -113,6 +113,15 @@ func (t *TOMLBuilder) AddOCRDefaults() *TOMLBuilder {
 	return t
 }
 
+var ocr2DefaultTOML = `[OCR2]
+Enabled = true`
+
+// AddOCR2Defaults adds default OCRv2 test settings
+func (t *TOMLBuilder) AddOCR2Defaults() *TOMLBuilder {
+	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", ocrDefaultTOML))
+	return t
+}
+
 // AddRaw adds a raw string to the TOML. Make sure it's properly formatted, or you'll see errors on the Chainlink node
 func (t *TOMLBuilder) AddRaw(rawTOML string) *TOMLBuilder {
 	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", rawTOML))
