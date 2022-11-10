@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"google.golang.org/protobuf/proto"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -46,13 +47,6 @@ const (
 
 	// Both VRF and DKG contracts emit this, it's an OCR event.
 	configSetEvent = "ConfigSet"
-
-	// TODO: Add these defaults to the off-chain config, and get better gas estimates
-	// (these current values are very conservative).
-	cacheEvictionWindowSeconds = 60               // the maximum duration (in seconds) that an item stays in the cache
-	batchGasLimit              = int64(5_000_000) // maximum gas limit of a report
-	blockGasOverhead           = int64(50_000)    // cost of posting a randomness seed for a block on-chain
-	coordinatorOverhead        = int64(50_000)    // overhead costs of running the transmit transaction
 )
 
 // block is used to key into a set that tracks beacon blocks.
@@ -83,8 +77,7 @@ type coordinator struct {
 
 	lp logpoller.LogPoller
 	topics
-	lookbackBlocks int64
-	finalityDepth  uint32
+	finalityDepth uint32
 
 	onchainRouter      VRFBeaconCoordinator
 	coordinatorAddress common.Address
@@ -99,6 +92,7 @@ type coordinator struct {
 	toBeTransmittedBlocks *ocrCache[blockInReport]
 	// set of request id's that have been scheduled for transmission.
 	toBeTransmittedCallbacks *ocrCache[callbackInReport]
+	coordinatorConfig        *ocr2vrftypes.CoordinatorConfig
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -108,7 +102,6 @@ func New(
 	coordinatorAddress common.Address,
 	dkgAddress common.Address,
 	client evmclient.Client,
-	lookbackBlocks int64,
 	logPoller logpoller.LogPoller,
 	finalityDepth uint32,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
@@ -132,7 +125,8 @@ func New(
 		return nil, err
 	}
 
-	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * time.Second)
+	cacheEvictionWindowSeconds := int64(60)
+	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
 
 	return &coordinator{
 		onchainRouter:            onchainRouter,
@@ -141,12 +135,20 @@ func New(
 		dkgAddress:               dkgAddress,
 		lp:                       logPoller,
 		topics:                   t,
-		lookbackBlocks:           lookbackBlocks,
 		finalityDepth:            finalityDepth,
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
 		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindow),
 		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindow),
+		// defaults
+		coordinatorConfig: &ocr2vrftypes.CoordinatorConfig{
+			CacheEvictionWindowSeconds: cacheEvictionWindowSeconds,
+			BatchGasLimit:              5_000_000,
+			CoordinatorOverhead:        50_000,
+			BlockGasOverhead:           50_000,
+			CallbackOverhead:           50_000,
+			LookbackBlocks:             1_000,
+		},
 	}, nil
 }
 
@@ -213,7 +215,7 @@ func (c *coordinator) ReportBlocks(
 	defer c.logDurationOfFunction("ReportBlocks", now)
 
 	// Instantiate the gas used by this batch.
-	currentBatchGasLimit := coordinatorOverhead
+	currentBatchGasLimit := c.coordinatorConfig.CoordinatorOverhead
 
 	// TODO: use head broadcaster instead?
 	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
@@ -229,7 +231,7 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
-		currentHeight-c.lookbackBlocks,
+		currentHeight-c.coordinatorConfig.LookbackBlocks,
 		currentHeight,
 		[]common.Hash{
 			c.randomnessRequestedTopic,
@@ -301,13 +303,13 @@ func (c *coordinator) ReportBlocks(
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
-		if batchGasLimit-currentBatchGasLimit >= blockGasOverhead {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit >= c.coordinatorConfig.BlockGasOverhead {
 			blocks = append(blocks, ocr2vrftypes.Block{
 				Hash:              blockhashesMapping[block.blockNumber],
 				Height:            block.blockNumber,
 				ConfirmationDelay: block.confDelay,
 			})
-			currentBatchGasLimit += blockGasOverhead
+			currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
 		} else {
 			break
 		}
@@ -458,7 +460,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		// Check if there is room left in the batch. If there is no room left, the coordinator
 		// will keep iterating, until it either finds a callback in a subsequent output height that
 		// can fit into the current batch or reaches the end of the sorted callbacks slice.
-		if batchGasLimit-currentBatchGasLimit < r.Callback.GasAllowance.Int64() {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (r.Callback.GasAllowance.Int64() + c.coordinatorConfig.CallbackOverhead) {
 			continue
 		}
 
@@ -903,4 +905,13 @@ func getCallbackCacheKey(requestID int64) common.Hash {
 // logDurationOfFunction logs the time in milliseconds a function took to execute.
 func (c *coordinator) logDurationOfFunction(funcName string, startTime time.Time) {
 	c.lggr.Debugf("%s took %d milliseconds to complete", funcName, time.Now().UTC().Sub(startTime).Milliseconds())
+}
+
+func (c *coordinator) SetOffChainConfig(b []byte) error {
+	err := proto.Unmarshal(b, c.coordinatorConfig)
+	if err != nil {
+		return errors.Wrap(err, "error setting offchain config on coordinator")
+	}
+
+	return nil
 }

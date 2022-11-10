@@ -1,14 +1,32 @@
 package config
 
-// This Config is part of the job spec.
-// TODO: Define which values should be in the config stored in the contract vs here.
-// https://app.shortcut.com/chainlinklabs/story/56615/config-for-reporting-plugin
+import "google.golang.org/protobuf/proto"
+
+// This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
 	MinIncomingConfirmations uint32 `json:"minIncomingConfirmations"`
-	MaxRequestsPerOCRRound   uint32 `json:"maxRequestsPerOCRRound"`
 	RequestE2eTimeoutMillis  uint32 `json:"requestE2eTimeoutMillis"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {
 	return nil
+}
+
+// This config is stored in the Oracle contract (set via SetConfig()).
+// Every SetConfig() call reloads the reporting plugin (DirectRequestReportingPluginFactory.NewReportingPlugin())
+type ReportingPluginConfigWrapper struct {
+	Config *ReportingPluginConfig
+}
+
+func DecodeReportingPluginConfig(raw []byte) (*ReportingPluginConfigWrapper, error) {
+	configProto := &ReportingPluginConfig{}
+	err := proto.Unmarshal(raw, configProto)
+	if err != nil {
+		return nil, err
+	}
+	return &ReportingPluginConfigWrapper{Config: configProto}, nil
+}
+
+func EncodeReportingPluginConfig(rpConfig *ReportingPluginConfigWrapper) ([]byte, error) {
+	return proto.Marshal(rpConfig.Config)
 }

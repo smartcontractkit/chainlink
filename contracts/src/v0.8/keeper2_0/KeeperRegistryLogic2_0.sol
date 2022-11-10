@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
-import "../../interfaces/MigratableKeeperRegistryInterface.sol";
-import "../../interfaces/UpkeepTranscoderInterface.sol";
+import "../interfaces/MigratableKeeperRegistryInterface.sol";
+import "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
@@ -16,113 +16,127 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
 
   /**
    * @param paymentModel one of Default, Arbitrum, Optimism
-   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
+   * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
     PaymentModel paymentModel,
-    uint256 registryGasOverhead,
     address link,
-    address linkEthFeed,
+    address linkNativeFeed,
     address fastGasFeed
-  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
+  ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {}
 
-  function checkUpkeep(uint256 id, address from)
+  function checkUpkeep(uint256 id)
     external
     cannotExecute
     returns (
+      bool upkeepNeeded,
       bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      uint256 adjustedGasWei,
-      uint256 linkEth
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     )
   {
+    HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT32_MAX)
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, gasUsed, 0, 0);
+    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, gasUsed, 0, 0);
 
+    (fastGasWei, linkNative) = _getFeedData(hotVars);
+    uint96 maxLinkPayment = _getMaxLinkPayment(
+      hotVars,
+      upkeep.executeGas,
+      s_storage.maxPerformDataSize,
+      fastGasWei,
+      linkNative,
+      false
+    );
+    if (upkeep.balance < maxLinkPayment)
+      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
+
+    gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    gasUsed = gasUsed - gasleft();
 
-    if (!success) revert TargetCheckReverted(result);
+    if (!success) return (false, bytes(""), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed, fastGasWei, linkNative);
 
-    (success, performData) = abi.decode(result, (bool, bytes));
-    if (!success) revert UpkeepNotNeeded();
+    bytes memory userPerformData;
+    (upkeepNeeded, userPerformData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded)
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
+    if (userPerformData.length > s_storage.maxPerformDataSize)
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
 
-    PerformParams memory params = _generatePerformParams(from, id, performData, false);
-    _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
-
-    return (
-      performData,
-      params.maxLinkPayment,
-      params.gasLimit,
-      // adjustedGasWei equals fastGasWei multiplies gasCeilingMultiplier in non-execution cases
-      params.fastGasWei * s_storage.gasCeilingMultiplier,
-      params.linkEth
+    performData = abi.encode(
+      PerformDataWrapper({
+        checkBlockNumber: uint32(block.number - 1),
+        checkBlockhash: blockhash(block.number - 1),
+        performData: userPerformData
+      })
     );
+    return (true, performData, UpkeepFailureReason.NONE, gasUsed, fastGasWei, linkNative);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
   function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_ownerLinkBalance;
+    uint96 amount = s_storage.ownerLinkBalance;
 
     s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_ownerLinkBalance = 0;
+    s_storage.ownerLinkBalance = 0;
 
     emit OwnerFundsWithdrawn(amount);
-    LINK.transfer(msg.sender, amount);
+    i_link.transfer(msg.sender, amount);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
   function recoverFunds() external onlyOwner {
-    uint256 total = LINK.balanceOf(address(this));
-    LINK.transfer(msg.sender, total - s_expectedLinkBalance);
+    uint256 total = i_link.balanceOf(address(this));
+    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
-    if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
-    for (uint256 i = 0; i < s_keeperList.length; i++) {
-      address keeper = s_keeperList[i];
-      s_keeperInfo[keeper].active = false;
-    }
-    for (uint256 i = 0; i < keepers.length; i++) {
-      address keeper = keepers[i];
-      KeeperInfo storage s_keeper = s_keeperInfo[keeper];
-      address oldPayee = s_keeper.payee;
+  function setPayees(address[] calldata payees) external onlyOwner {
+    if (s_transmittersList.length != payees.length) revert ParameterLengthError();
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      address transmitter = s_transmittersList[i];
+      address oldPayee = s_transmitterPayees[transmitter];
       address newPayee = payees[i];
       if (
         (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
       ) revert InvalidPayee();
-      if (s_keeper.active) revert DuplicateEntry();
-      s_keeper.active = true;
       if (newPayee != IGNORE_ADDRESS) {
-        s_keeper.payee = newPayee;
+        s_transmitterPayees[transmitter] = newPayee;
       }
     }
-    s_keeperList = keepers;
-    emit KeepersUpdated(keepers, payees);
+    emit PayeesUpdated(s_transmittersList, payees);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
   function pause() external onlyOwner {
-    _pause();
+    s_hotVars.paused = true;
+
+    emit Paused(msg.sender);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
   function unpause() external onlyOwner {
-    _unpause();
+    s_hotVars.paused = false;
+
+    emit Unpaused(msg.sender);
   }
 
   /**
@@ -139,13 +153,15 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     address target,
     uint32 gasLimit,
     address admin,
-    bytes calldata checkData
+    bytes calldata checkData,
+    bytes calldata offchainConfig
   ) external returns (uint256 id) {
-    if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
+    if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
-    id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
+    id = uint256(keccak256(abi.encode(blockhash(block.number - 1), address(this), s_storage.nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
     s_storage.nonce++;
+    s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
     return id;
   }
@@ -159,7 +175,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     bool isOwner = msg.sender == owner();
 
     if (canceled && !(isOwner && upkeep.maxValidBlocknumber > block.number)) revert CannotCancel();
-    if (!isOwner && msg.sender != upkeep.admin) revert OnlyCallableByOwnerOrAdmin();
+    if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
     uint256 height = block.number;
     if (!isOwner) {
@@ -179,7 +195,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
-    s_ownerLinkBalance = s_ownerLinkBalance + cancellationFee;
+    s_storage.ownerLinkBalance = s_storage.ownerLinkBalance + cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
   }
@@ -193,25 +209,24 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
 
     s_upkeep[id].balance = upkeep.balance + amount;
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
-    LINK.transferFrom(msg.sender, address(this), amount);
+    i_link.transferFrom(msg.sender, address(this), amount);
     emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function withdrawFunds(uint256 id, address to) external {
+  function withdrawFunds(uint256 id, address to) external nonReentrant {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
+    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > block.number) revert UpkeepNotCanceled();
 
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
+    i_link.transfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
-
-    LINK.transfer(to, amountToWithdraw);
   }
 
   /**
@@ -219,10 +234,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
-
+    _requireAdminAndNotCancelled(id);
     s_upkeep[id].executeGas = gasLimit;
 
     emit UpkeepGasLimitSet(id, gasLimit);
@@ -231,49 +243,60 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function withdrawPayment(address from, address to) external {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    KeeperInfo memory keeper = s_keeperInfo[from];
-    if (keeper.payee != msg.sender) revert OnlyCallableByPayee();
+  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
+    _requireAdminAndNotCancelled(id);
 
-    s_keeperInfo[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - keeper.balance;
-    emit PaymentWithdrawn(from, keeper.balance, to, msg.sender);
+    s_upkeepOffchainConfig[id] = config;
 
-    LINK.transfer(to, keeper.balance);
+    emit UpkeepOffchainConfigSet(id, config);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function transferPayeeship(address keeper, address proposed) external {
-    if (s_keeperInfo[keeper].payee != msg.sender) revert OnlyCallableByPayee();
+  function withdrawPayment(address from, address to) external {
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
+
+    uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
+    s_transmitters[from].balance = 0;
+    s_expectedLinkBalance = s_expectedLinkBalance - balance;
+
+    i_link.transfer(to, balance);
+
+    emit PaymentWithdrawn(from, balance, to, msg.sender);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function transferPayeeship(address transmitter, address proposed) external {
+    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
     if (proposed == msg.sender) revert ValueNotChanged();
 
-    if (s_proposedPayee[keeper] != proposed) {
-      s_proposedPayee[keeper] = proposed;
-      emit PayeeshipTransferRequested(keeper, msg.sender, proposed);
+    if (s_proposedPayee[transmitter] != proposed) {
+      s_proposedPayee[transmitter] = proposed;
+      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
     }
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function acceptPayeeship(address keeper) external {
-    if (s_proposedPayee[keeper] != msg.sender) revert OnlyCallableByProposedPayee();
-    address past = s_keeperInfo[keeper].payee;
-    s_keeperInfo[keeper].payee = msg.sender;
-    s_proposedPayee[keeper] = ZERO_ADDRESS;
+  function acceptPayeeship(address transmitter) external {
+    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
+    address past = s_transmitterPayees[transmitter];
+    s_transmitterPayees[transmitter] = msg.sender;
+    s_proposedPayee[transmitter] = ZERO_ADDRESS;
 
-    emit PayeeshipTransferred(keeper, past, msg.sender);
+    emit PayeeshipTransferred(transmitter, past, msg.sender);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
   function transferUpkeepAdmin(uint256 id, address proposed) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(upkeep);
+    _requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
     if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
 
@@ -290,11 +313,45 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
-    address past = upkeep.admin;
-    s_upkeep[id].admin = msg.sender;
+    address past = s_upkeepAdmin[id];
+    s_upkeepAdmin[id] = msg.sender;
     s_proposedAdmin[id] = ZERO_ADDRESS;
 
     emit UpkeepAdminTransferred(id, past, msg.sender);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function pauseUpkeep(uint256 id) external {
+    _requireAdminAndNotCancelled(id);
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
+    s_upkeep[id].paused = true;
+    s_upkeepIDs.remove(id);
+    emit UpkeepPaused(id);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function unpauseUpkeep(uint256 id) external {
+    _requireAdminAndNotCancelled(id);
+    Upkeep memory upkeep = s_upkeep[id];
+    if (!upkeep.paused) revert OnlyPausedUpkeep();
+    s_upkeep[id].paused = false;
+    s_upkeepIDs.add(id);
+    emit UpkeepUnpaused(id);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external {
+    _requireAdminAndNotCancelled(id);
+    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataUpdated(id, newCheckData);
   }
 
   /**
@@ -305,19 +362,21 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    if (s_transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
+    if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
     uint256 id;
     Upkeep memory upkeep;
     uint256 totalBalanceRemaining;
     bytes[] memory checkDatas = new bytes[](ids.length);
+    address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      requireAdminAndNotCancelled(upkeep);
+      _requireAdminAndNotCancelled(id);
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
+      admins[idx] = s_upkeepAdmin[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
@@ -327,15 +386,15 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
-      UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(
+      UpkeepTranscoderInterface(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_TRANSCODER_VERSION_BASE,
         MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
         encodedUpkeeps
       )
     );
-    LINK.transfer(destination, totalBalanceRemaining);
+    i_link.transfer(destination, totalBalanceRemaining);
   }
 
   /**
@@ -346,16 +405,14 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
-      encodedUpkeeps,
-      (uint256[], Upkeep[], bytes[])
-    );
+    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas, address[] memory upkeepAdmins) = abi
+      .decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       _createUpkeep(
         ids[idx],
         upkeeps[idx].target,
         upkeeps[idx].executeGas,
-        upkeeps[idx].admin,
+        upkeepAdmins[idx],
         upkeeps[idx].balance,
         checkDatas[idx],
         upkeeps[idx].paused
@@ -381,21 +438,32 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     uint96 balance,
     bytes memory checkData,
     bool paused
-  ) internal whenNotPaused {
+  ) internal {
+    if (s_hotVars.paused) revert RegistryPaused();
     if (!target.isContract()) revert NotAContract();
+    if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
+    if (s_upkeep[id].target != address(0)) revert UpkeepAlreadyExists();
     s_upkeep[id] = Upkeep({
       target: target,
       executeGas: gasLimit,
       balance: balance,
-      admin: admin,
       maxValidBlocknumber: UINT32_MAX,
-      lastKeeper: ZERO_ADDRESS,
+      lastPerformBlockNumber: 0,
       amountSpent: 0,
       paused: paused
     });
+    s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
     s_upkeepIDs.add(id);
+  }
+
+  /**
+   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
+   */
+  function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
+    if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
+    if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 }
