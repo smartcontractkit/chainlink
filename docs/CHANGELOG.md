@@ -441,8 +441,8 @@ If you are using FixedPriceEstimator:
 - With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.
 
 If you are using BlockHistoryEstimator (default for most chains):
-- With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+- With gas bumping disabled, it will submit all transactions with `tipcap=<calculated using past blocks> and feecap=ETH_MAX_GAS_PRICE_WEI`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `tipcap=<calculated using past blocks>` and `feecap=[ current block base fee * (1.125 ^ N) + tipcap ]` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1`
 
 Bumping works as follows:
 
