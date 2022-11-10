@@ -39,6 +39,10 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
