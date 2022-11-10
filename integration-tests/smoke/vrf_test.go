@@ -158,7 +158,7 @@ func defaultVRFEnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(network).String()
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, network).String()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).

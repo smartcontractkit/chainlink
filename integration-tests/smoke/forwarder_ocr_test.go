@@ -131,7 +131,7 @@ func forwarderOCREnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(network).
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(true, network).
 		AddOCRDefaults().
 		AddP2PNetworkingV1().
 		String()

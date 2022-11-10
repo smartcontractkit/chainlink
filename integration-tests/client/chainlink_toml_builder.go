@@ -24,8 +24,8 @@ func NewDefaultTOMLBuilder() *TOMLBuilder {
 }
 
 // NewDefaultNetworksTOMLBuilder shortcut to create TOML with defaults and network settings
-func NewDefaultNetworksTOMLBuilder(networks ...*blockchain.EVMNetwork) *TOMLBuilder {
-	return NewTOMLBuilder().AddGeneralDefaults().AddNetworks(networks...)
+func NewDefaultNetworksTOMLBuilder(forwardingEnabled bool, networks ...*blockchain.EVMNetwork) *TOMLBuilder {
+	return NewTOMLBuilder().AddGeneralDefaults().AddNetworks(forwardingEnabled, networks...)
 }
 
 // String builds the string value of the TOML to pass to config
@@ -54,9 +54,9 @@ func (t *TOMLBuilder) AddGeneralDefaults() *TOMLBuilder {
 }
 
 // AddNetworks adds TOML entries to connect the Chainlink node to provided networks
-func (t *TOMLBuilder) AddNetworks(networks ...*blockchain.EVMNetwork) *TOMLBuilder {
+func (t *TOMLBuilder) AddNetworks(forwardingEnabled bool, networks ...*blockchain.EVMNetwork) *TOMLBuilder {
 	for _, network := range networks {
-		clNetwork, err := network.ChainlinkTOML()
+		clNetwork, err := network.ChainlinkTOML(forwardingEnabled)
 		if err != nil {
 			log.Fatal().Err(err).Str("Network", network.Name).Msg("Error building network config for Chainlink TOML")
 		}

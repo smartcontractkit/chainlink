@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
 
@@ -24,7 +25,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var _ = PDescribe("Automation OCR Suite @auto-ocr", func() {
+var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 	var (
 		err              error
 		chainClient      blockchain.EVMClient
@@ -53,10 +54,12 @@ var _ = PDescribe("Automation OCR Suite @auto-ocr", func() {
 		By("Deploying the environment")
 		network := networks.SimulatedEVM
 		chainlinkTOML := client.NewDefaultTOMLBuilder().
-			AddNetworks(network).
+			AddNetworks(false, network).
 			AddOCR2Defaults().
+			AddKeeperDefaults().
 			AddP2PNetworkingV2().
 			String()
+		fmt.Println(chainlinkTOML)
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-auto-ocr"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
