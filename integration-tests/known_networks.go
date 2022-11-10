@@ -199,18 +199,24 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 		return
 	}
 
-	envVar := fmt.Sprintf("%s_URLS", prefix)
-	if os.Getenv(envVar) == "" {
-		urls := strings.Split(os.Getenv("EVM_URLS"), ",")
+	wsEnvVar := fmt.Sprintf("%s_URLS", prefix)
+	httpEnvVar := fmt.Sprintf("%s_HTTP_URLS", prefix)
+	if os.Getenv(wsEnvVar) == "" {
+		wsURLs := strings.Split(os.Getenv("EVM_URLS"), ",")
+		httpURLs := strings.Split(os.Getenv("EVM_HTTP_URLS"), ",")
 		log.Warn().
-			Interface("EVM_URLS", urls).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_URLS'", envVar))
-		network.URLs = urls
+			Interface("EVM_URLS", wsURLs).
+			Interface("EVM_HTTP_URLS", httpURLs).
+			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar))
+		network.URLs = wsURLs
+		network.HTTPURLs = httpURLs
 		return
 	}
-	urls := strings.Split(os.Getenv(envVar), ",")
-	network.URLs = urls
-	log.Info().Interface(envVar, urls).Msg("Read network URLs")
+	wsURLs := strings.Split(os.Getenv(wsEnvVar), ",")
+	httpURLs := strings.Split(os.Getenv(httpEnvVar), ",")
+	network.URLs = wsURLs
+	network.HTTPURLs = httpURLs
+	log.Info().Interface(wsEnvVar, wsURLs).Interface(httpEnvVar, httpURLs).Msg("Read network URLs")
 }
 
 // setKeys sets a network's private key(s) based on env vars

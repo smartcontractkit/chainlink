@@ -30,8 +30,6 @@ func NewDefaultNetworksTOMLBuilder(networks ...*blockchain.EVMNetwork) *TOMLBuil
 
 // String builds the string value of the TOML to pass to config
 func (t *TOMLBuilder) String() string {
-	log.Info().Msg("Chainlink TOML")
-	fmt.Println(t.tomlBuilder.String())
 	return t.tomlBuilder.String()
 }
 
@@ -46,9 +44,14 @@ AllowOrigins = '*'
 SecureCookies = false
 SessionTimeout = '999h'
 
+[P2P]
 [P2P.V1]
+Enabled = true
 ListenIP = '0.0.0.0'
-ListenPort = 6690`
+ListenPort = 6690
+
+[WebServer.TLS]
+HTTPSPort = 0`
 
 // AddGeneralDefaults adds general testing defaults that are recommended for most tests
 func (t *TOMLBuilder) AddGeneralDefaults() *TOMLBuilder {
@@ -93,6 +96,6 @@ func (t *TOMLBuilder) AddOCRDefaults() *TOMLBuilder {
 
 // AddRaw adds a raw string to the TOML. Make sure it's properly formatted, or you'll see errors on the Chainlink node
 func (t *TOMLBuilder) AddRaw(rawTOML string) *TOMLBuilder {
-	t.tomlBuilder.WriteString("\n%s\n")
+	t.tomlBuilder.WriteString(fmt.Sprintf("\n%s\n", rawTOML))
 	return t
 }
