@@ -320,43 +320,18 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	if err = json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
-
 	var contractTransmitter ocrtypes.ContractTransmitter
 	var reportCodec median.ReportCodec
-	// Override on-chain transmitter with Mercury if the relevant config is set
 	if relayConfig.MercuryConfig != nil {
-		r.lggr.Debugf("Mercury enabled for job %d", rargs.JobID)
-		reportURL := relayConfig.MercuryConfig.URL
-		if reportURL == nil {
-			return nil, errors.New("Mercury URL must be specified")
-		}
-		if !relayConfig.EffectiveTransmitterAddress.Valid {
-			return nil, errors.New("EffectiveTransmitterAddress must be specified")
-		}
-		effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-		var username, password string
-		username, password, err = r.cfg.MercuryCredentials(reportURL.String())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get mercury credentials for URL: %s", reportURL.String())
-		}
-		contractTransmitter = mercury.NewTransmitter(r.lggr, http.DefaultClient, effectiveTransmitterAddress, reportURL.String(), username, password)
-		if relayConfig.MercuryConfig.FeedID == "" {
-			return nil, errors.New("FeedID must be specified")
-		}
-		feedID := [32]byte{}
-		for i, ch := range []byte(relayConfig.MercuryConfig.FeedID) {
-			if i > 31 {
-				break
-			}
-			feedID[i] = ch
-		}
-		reportCodec = mercury.ReportCodec{FeedID: feedID}
+		r.lggr.Debugf("Mercury mode enabled for job %d", rargs.JobID)
+		contractTransmitter, reportCodec, err = r.NewMercuryMedianProvider(relayConfig)
 	} else {
-		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
-		if err != nil {
-			return nil, err
-		}
+		r.lggr.Debugf("On-chain mode enabled for job %d", rargs.JobID)
 		reportCodec = evmreportcodec.ReportCodec{}
+		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr, relayConfig.MercuryConfig != nil)
@@ -369,6 +344,37 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
 	}, nil
+
+}
+
+func (r *Relayer) NewMercuryMedianProvider(relayConfig RelayConfig) (contractTransmitter ocrtypes.ContractTransmitter, reportCodec median.ReportCodec, err error) {
+	// Override on-chain transmitter with Mercury if the relevant config is set
+	reportURL := relayConfig.MercuryConfig.URL
+	if reportURL == nil {
+		return contractTransmitter, reportCodec, errors.New("Mercury URL must be specified")
+	}
+	if !relayConfig.EffectiveTransmitterAddress.Valid {
+		return contractTransmitter, reportCodec, errors.New("EffectiveTransmitterAddress must be specified")
+	}
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	var username, password string
+	username, password, err = r.cfg.MercuryCredentials(reportURL.String())
+	if err != nil {
+		return contractTransmitter, reportCodec, errors.Wrapf(err, "failed to get mercury credentials for URL: %s", reportURL.String())
+	}
+	contractTransmitter = mercury.NewTransmitter(r.lggr, http.DefaultClient, effectiveTransmitterAddress, reportURL.String(), username, password)
+	if relayConfig.MercuryConfig.FeedID == "" {
+		return contractTransmitter, reportCodec, errors.New("FeedID must be specified")
+	}
+	feedID := [32]byte{}
+	for i, ch := range []byte(relayConfig.MercuryConfig.FeedID) {
+		if i > 31 {
+			break
+		}
+		feedID[i] = ch
+	}
+	reportCodec = mercury.ReportCodec{FeedID: feedID}
+	return
 }
 
 type MercuryConfig struct {
