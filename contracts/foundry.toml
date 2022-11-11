@@ -1,0 +1,19 @@
+[profile.default]
+auto_detect_solc = true
+optimizer = true
+optimizer_runs = 1_000_000
+
+src = 'src/v0.8'
+test = 'test/v0.8/foundry'
+out = 'foundry-artifacts'
+cache_path  = 'foundry-cache'
+libs = ['node_modules', 'foundry-lib']
+bytecode_hash = "none"
+ffi = false
+
+# default is zero, using a non-zero amount enables us to test e.g. billing based on gas prices.
+gas_price = 1
+block_timestamp = 1234567890
+block_number = 12345
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config

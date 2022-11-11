@@ -156,6 +156,10 @@ config-docs: ## Generate core node configuration documentation
 golangci-lint: ## Run golangci-lint for all issues.
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
+.PHONY: snapshot
+snapshot:
+	cd ./contracts && forge snapshot --match-test _gas
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
