@@ -40,7 +40,7 @@ var defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 	MaxPerformDataSize:   uint32(5000),
 }
 
-var _ = Describe("Automation OCR Suite @auto-ocr", func() {
+var _ = Describe("Automation OCR Suite @automation", func() {
 	numberOfUpkeeps := 2
 	var (
 		err                  error
@@ -74,7 +74,7 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	})
 
-	DescribeTable("Automation OCR Suite @auto-ocr", func(
+	DescribeTable("Automation OCR Suite @automation", func(
 		registryVersion ethereum.KeeperRegistryVersion,
 		registryConfig contracts.KeeperRegistrySettings,
 		consumerContract KeeperConsumerContracts,
@@ -418,7 +418,7 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 					g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
 						"than initial counter which was %s, but got %s", initialCounters[i], counter)
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed())
 		}
 
 		if testToRun == PauseRegistryTest {
@@ -478,14 +478,12 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 				}
 			}, "5m", "1s").Should(Succeed())
 
-			// OCR change to take just f nodes first in this case f=1
-			fNodesDown := nodesWithoutBootstrap[0:1]
-			for _, nodeToTakeDown := range fNodesDown {
-				err = nodeToTakeDown.MustDeleteJob("1")
-				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
-				err = chainClient.WaitForEvents()
-				Expect(err).ShouldNot(HaveOccurred(), "Error deleting the Keeper job from the node")
-			}
+			// Take down 1 node. Currently, using 4 nodes so f=1 and is the max nodes that can go down.
+			err = nodesWithoutBootstrap[0].MustDeleteJob("1")
+			Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
+			err = chainClient.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Error deleting the Keeper job from the node")
+
 			log.Info().Msg("Successfully managed to take down the first half of the nodes")
 
 			// Assert that upkeeps are still performed and their counters have increased
@@ -498,7 +496,7 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed())
 
 			// Take down the rest
 			restOfNodesDown := nodesWithoutBootstrap[1:]

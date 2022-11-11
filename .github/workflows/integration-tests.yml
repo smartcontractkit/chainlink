@@ -84,6 +84,9 @@ jobs:
       fail-fast: false
       matrix:
         product:
+          - name: automation
+            nodes: 27
+            os: ubuntu20.04-32cores-128GB
           - name: cron
             nodes: 1
             os: ubuntu-latest
