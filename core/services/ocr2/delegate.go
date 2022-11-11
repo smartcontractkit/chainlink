@@ -2,6 +2,7 @@ package ocr2
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -505,17 +506,24 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			pluginService,
 		}, nil
 	case job.OCR2DirectRequest:
-		// TODO: relayer for DR-OCR plugin: https://app.shortcut.com/chainlinklabs/story/54051/relayer-for-the-ocr-plugin
-		drProvider, err2 := relayer.NewMedianProvider(
+		if spec.Relay != relay.EVM {
+			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
+		}
+		drProvider, err2 := evmrelay.NewOCR2DRProvider(
+			d.chainSet,
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
-			}, types.PluginArgs{
+				New:           d.isNewlyCreatedJob,
+			},
+			types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			})
+			},
+			lggr.Named("OCR2DRRelayer"),
+		)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -532,7 +540,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 		// TODO replace with a DB: https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
 		pluginORM := drocr_service.NewInMemoryORM()
-		pluginOracle, _ = directrequestocr.NewDROracle(jobSpec, d.pipelineRunner, d.jobORM, ocr2Provider, pluginORM, chain, lggr, ocrLogger)
+		pluginOracle, _ = directrequestocr.NewDROracle(jobSpec, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
