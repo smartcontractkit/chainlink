@@ -91,7 +91,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 			AddP2PNetworkingV2().
 			String()
 		fmt.Println(chainlinkTOML)
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-auto-ocr"}).
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-automation"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
