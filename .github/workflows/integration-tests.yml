@@ -97,7 +97,7 @@ jobs:
             nodes: 27
             os: ubuntu20.04-32cores-128GB
           - name: ocr
-            nodes: 3
+            nodes: 10
             os: ubuntu-latest
           - name: runlog
             nodes: 1
