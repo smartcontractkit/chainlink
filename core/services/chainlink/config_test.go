@@ -1277,7 +1277,7 @@ AllowSimplePasswords = true`,
 URL = "http://example.com/foo"
 [[Mercury.Credentials]]
 URL = "http://example.COM/foo"`,
-			exp: `3 errors:
+			exp: `invalid secrets: 3 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
 	- Mercury.Credentials: may not contain duplicate URLs`},
