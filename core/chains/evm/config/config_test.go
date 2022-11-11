@@ -30,7 +30,7 @@ func TestChainScopedConfig(t *testing.T) {
 		id := utils.NewBig(big.NewInt(rand.Int63()))
 		c.EVM[0] = &v2.EVMConfig{
 			ChainID: id,
-			Chain: v2.DefaultsFrom(id, &v2.Chain{
+			Chain: v2.Defaults(id, &v2.Chain{
 				GasEstimator: v2.GasEstimator{PriceMax: assets.NewWeiI(100000000000000)},
 			}),
 		}
@@ -41,7 +41,7 @@ func TestChainScopedConfig(t *testing.T) {
 		id := utils.NewBig(big.NewInt(rand.Int63()))
 		c.EVM[0] = &v2.EVMConfig{
 			ChainID: id,
-			Chain: v2.DefaultsFrom(id, &v2.Chain{
+			Chain: v2.Defaults(id, &v2.Chain{
 				GasEstimator: v2.GasEstimator{
 					PriceMax:     assets.NewWeiI(100000000000000),
 					PriceDefault: assets.NewWeiI(42000000000),
@@ -217,7 +217,7 @@ func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 	chainID := big.NewInt(56)
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
 		id := utils.NewBig(chainID)
-		cfg, _ := v2.Defaults(id)
+		cfg := v2.Defaults(id)
 		c.EVM[0] = &v2.EVMConfig{
 			ChainID: id,
 			Enabled: ptr(true),
@@ -269,7 +269,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 
 			gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
 				id := utils.NewBigI(tt.chainID)
-				cfg, _ := v2.Defaults(id)
+				cfg := v2.Defaults(id)
 				c.EVM[0] = &v2.EVMConfig{
 					ChainID: id,
 					Enabled: ptr(true),
@@ -290,10 +290,10 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 }
 
 func Test_chainScopedConfig_Validate(t *testing.T) {
-	configWithChain := func(t *testing.T, id int64, chain *v2.Chain) config.GeneralConfig {
+	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.GeneralConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			chainID := utils.NewBigI(id)
-			c.EVM[0] = &v2.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: v2.DefaultsFrom(chainID, chain),
+			c.EVM[0] = &v2.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: v2.Defaults(chainID, chains...),
 				Nodes: v2.EVMNodes{{Name: ptr("fake"), HTTPURL: models.MustParseURL("http://foo.test")}}}
 		})
 	}
@@ -302,7 +302,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	for id := range evmconfig.ChainSpecificConfigDefaultSets() {
 		id := id
 		t.Run(fmt.Sprintf("chainID-%d", id), func(t *testing.T) {
-			cfg := configWithChain(t, id, nil)
+			cfg := configWithChains(t, id)
 			assert.NoError(t, cfg.Validate())
 		})
 	}
@@ -311,7 +311,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 
 	t.Run("arbitrum-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
-			cfg := configWithChain(t, 0, &v2.Chain{
+			cfg := configWithChains(t, 0, &v2.Chain{
 				ChainType: ptr(string(config.ChainArbitrum)),
 				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
@@ -320,7 +320,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
-			cfg := configWithChain(t, 42161, &v2.Chain{
+			cfg := configWithChains(t, 42161, &v2.Chain{
 				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
 					BlockHistory: v2.BlockHistoryEstimator{
@@ -331,7 +331,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
-			cfg := configWithChain(t, 421611, &v2.Chain{
+			cfg := configWithChains(t, 421611, &v2.Chain{
 				GasEstimator: v2.GasEstimator{
 					Mode: ptr("L2Suggested"),
 				},
@@ -342,7 +342,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
-			cfg := configWithChain(t, 0, &v2.Chain{
+			cfg := configWithChains(t, 0, &v2.Chain{
 				ChainType: ptr(string(config.ChainOptimism)),
 				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
@@ -351,7 +351,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			assert.Error(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
-			cfg := configWithChain(t, 10, &v2.Chain{
+			cfg := configWithChains(t, 10, &v2.Chain{
 				GasEstimator: v2.GasEstimator{
 					Mode: ptr("FixedPrice"),
 				},
@@ -359,7 +359,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			assert.Error(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
-			cfg := configWithChain(t, 69, &v2.Chain{
+			cfg := configWithChains(t, 69, &v2.Chain{
 				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
