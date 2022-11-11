@@ -63,6 +63,7 @@ MaxBackups = 1
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
+BridgeCacheTTL = '0s'
 HTTPWriteTimeout = '10s'
 HTTPPort = 6688
 SecureCookies = true

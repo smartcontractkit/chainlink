@@ -698,6 +698,15 @@ func (r *VRFSpecResolver) BackoffMaxDelay() string {
 	return r.spec.BackoffMaxDelay.String()
 }
 
+// GasLanePrice resolves the spec's gas lane price.
+func (r *VRFSpecResolver) GasLanePrice() *string {
+	if r.spec.GasLanePrice == nil {
+		return nil
+	}
+	gasLanePriceGWei := r.spec.GasLanePrice.String()
+	return &gasLanePriceGWei
+}
+
 type WebhookSpecResolver struct {
 	spec job.WebhookSpec
 }

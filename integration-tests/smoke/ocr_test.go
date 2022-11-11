@@ -113,6 +113,7 @@ func defaultOCREnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, network).AddOCRDefaults().AddP2PNetworkingV1().String()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
@@ -120,7 +121,9 @@ func defaultOCREnv() *smokeTestInputs {
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env":      network.ChainlinkValuesMap(),
+			"env": map[string]interface{}{
+				"cl_config": chainlinkTOML,
+			},
 			"replicas": 6,
 		}))
 	return &smokeTestInputs{

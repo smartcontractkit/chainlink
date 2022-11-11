@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -106,8 +107,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 					// Not the last node, hence not all nodes started profiling yet.
 					return
 				}
-
-				actions.CreateKeeperJobs(chainlinkNodes, registry)
+				actions.CreateKeeperJobs(chainlinkNodes, registry, contracts.OCRConfig{})
 				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
