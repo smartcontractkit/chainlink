@@ -10,16 +10,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
-	"gopkg.in/guregu/null.v4"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -30,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -90,7 +87,7 @@ type configWatcher struct {
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
-	offchainDigester types.OffchainConfigDigester
+	offchainDigester ocrtypes.OffchainConfigDigester
 	configPoller     *ConfigPoller
 	chain            evm.Chain
 	runReplay        bool
@@ -103,7 +100,7 @@ type configWatcher struct {
 func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	contractABI abi.ABI,
-	offchainDigester types.OffchainConfigDigester,
+	offchainDigester ocrtypes.OffchainConfigDigester,
 	configPoller *ConfigPoller,
 	chain evm.Chain,
 	fromBlock uint64,
@@ -154,16 +151,16 @@ func (c *configWatcher) Close() error {
 	})
 }
 
-func (c *configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
+func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
 	return c.offchainDigester
 }
 
-func (c *configWatcher) ContractConfigTracker() types.ContractConfigTracker {
+func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
 func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err
@@ -197,7 +194,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
@@ -264,7 +261,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 }
 
 func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, pluginGasLimit *uint32, configWatcher *configWatcher, spec job.Job, pr pipeline.Runner) (*ContractTransmitter, error) {
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
@@ -316,7 +313,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, err
 	}
 
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	if err = json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
@@ -347,7 +344,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 
 }
 
-func (r *Relayer) NewMercuryMedianProvider(relayConfig RelayConfig) (contractTransmitter ocrtypes.ContractTransmitter, reportCodec median.ReportCodec, err error) {
+func (r *Relayer) NewMercuryMedianProvider(relayConfig types.RelayConfig) (contractTransmitter ocrtypes.ContractTransmitter, reportCodec median.ReportCodec, err error) {
 	// Override on-chain transmitter with Mercury if the relevant config is set
 	reportURL := relayConfig.MercuryConfig.URL
 	if reportURL == nil {
@@ -377,19 +374,6 @@ func (r *Relayer) NewMercuryMedianProvider(relayConfig RelayConfig) (contractTra
 	return
 }
 
-type MercuryConfig struct {
-	FeedID string      `json:"feedID"`
-	URL    *models.URL `json:"url"`
-}
-
-type RelayConfig struct {
-	MercuryConfig               *MercuryConfig
-	ChainID                     *utils.Big     `json:"chainID"`
-	FromBlock                   uint64         `json:"fromBlock"`
-	EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`
-	SendingKeys                 pq.StringArray `json:"sendingKeys"`
-}
-
 var _ relaytypes.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {
@@ -399,7 +383,7 @@ type medianProvider struct {
 	medianContract      *medianContract
 }
 
-func (p *medianProvider) ContractTransmitter() types.ContractTransmitter {
+func (p *medianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return p.contractTransmitter
 }
 

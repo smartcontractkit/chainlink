@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -19,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 var (
@@ -86,12 +87,12 @@ type ocr2keeperProvider struct {
 	contractTransmitter *ContractTransmitter
 }
 
-func (c *ocr2keeperProvider) ContractTransmitter() types.ContractTransmitter {
+func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
 func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relaytypes.RelayArgs) (*configWatcher, error) {
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err
