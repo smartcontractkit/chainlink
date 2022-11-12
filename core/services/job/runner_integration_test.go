@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -456,6 +457,7 @@ ds1 -> ds1_parse;
 			cc,
 			logger.TestLogger(t),
 			config,
+			testMonitor(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -495,6 +497,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			testMonitor(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -549,6 +552,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			testMonitor(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -584,6 +588,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			testMonitor(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -613,6 +618,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			testMonitor(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -646,6 +652,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			testMonitor(t),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
@@ -1116,4 +1123,11 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		cltest.DeleteJobViaWeb(t, app, jobID)
 		require.Eventually(t, func() bool { return eiNotifiedOfDelete }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of deleted job")
 	}
+}
+
+func testMonitor(t *testing.T) *utils.MailboxMonitor {
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	require.NoError(t, mailMon.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	return mailMon
 }

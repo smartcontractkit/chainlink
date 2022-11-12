@@ -143,6 +143,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		}
 	}
 
+	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
 		if h, ok := cfg.(v2.HasEVMConfigs); ok {
@@ -169,6 +171,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
+		MailMon:          mailMon,
 	}
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
@@ -294,6 +297,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
+		MailMon:                  mailMon,
 		Logger:                   appLggr,
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: externalInitiatorManager,

@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
@@ -40,10 +41,13 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	require.NoError(t, mailMon.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon})
 
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, nil, cc)
+	delegate := directrequest.NewDelegate(lggr, runner, nil, cc, mailMon)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -75,15 +79,19 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg config.GeneralConfig, 
 	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
 
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	require.NoError(t, mailMon.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+
 	db := pgtest.NewSqlxDB(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg)
-	delegate := directrequest.NewDelegate(lggr, runner, orm, cc)
+	delegate := directrequest.NewDelegate(lggr, runner, orm, cc, mailMon)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
 	jb.ExternalJobID = uuid.NewV4()

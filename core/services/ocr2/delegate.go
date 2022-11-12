@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -61,6 +62,7 @@ type Delegate struct {
 	ethKs                 keystore.Eth
 	relayers              map[relay.Network]types.Relayer
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
+	mailMon               *utils.MailboxMonitor
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -79,6 +81,7 @@ func NewDelegate(
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
 	relayers map[relay.Network]types.Relayer,
+	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -95,6 +98,7 @@ func NewDelegate(
 		ethKs,
 		relayers,
 		false,
+		mailMon,
 	}
 }
 
@@ -546,7 +550,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		// TODO replace with a DB: https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
 		pluginORM := drocr_service.NewInMemoryORM()
-		pluginOracle, _ = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger)
+		pluginOracle, _ = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

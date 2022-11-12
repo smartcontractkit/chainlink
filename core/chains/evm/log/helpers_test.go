@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type broadcasterHelper struct {
@@ -104,15 +105,19 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.TestLogger(t)
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	require.NoError(t, mailMon.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
 
 	orm := log.NewORM(c.db, lggr, config, cltest.FixtureChainID)
-	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead)
+	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead, mailMon)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		GeneralConfig:  globalConfig,
 		DB:             c.db,
 		LogBroadcaster: &log.NullBroadcaster{},
+		MailMon:        mailMon,
 	})
 	kst := cltest.NewKeyStore(t, c.db, globalConfig)
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst, nil, nil)

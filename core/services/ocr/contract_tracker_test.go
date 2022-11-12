@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	ocrmocks "github.com/smartcontractkit/chainlink/core/services/ocr/mocks"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
@@ -81,6 +82,9 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.hb = htmocks.NewHeadBroadcaster(t)
 	uni.ec = evmtest.NewEthClientMock(t)
 
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	require.NoError(t, mailMon.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
 	db := pgtest.NewSqlxDB(t)
 	uni.tracker = ocr.NewOCRContractTracker(
 		contract,
@@ -94,6 +98,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		uni.db,
 		cfg,
 		uni.hb,
+		mailMon,
 	)
 
 	return uni

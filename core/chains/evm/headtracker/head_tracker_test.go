@@ -966,7 +966,7 @@ func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtrac
 	hs := headtracker.NewHeadSaver(lggr, orm, config)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
-		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs),
+		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs, testMonitor(t)),
 		headBroadcaster: hb,
 		headSaver:       hs,
 	}
@@ -977,7 +977,7 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, evmcfg)
-	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, hb, hs)
+	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, hb, hs, testMonitor(t))
 	_, err := hs.LoadFromDB(testutils.Context(t))
 	require.NoError(t, err)
 	return &headTrackerUniverse{
@@ -993,13 +993,21 @@ func createHeadTrackerWithChecker(t *testing.T, ethClient evmclient.Client, conf
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config)
 	hb.Subscribe(checker)
-	ht := headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs)
+
+	ht := headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs, testMonitor(t))
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
 		headTracker:     ht,
 		headBroadcaster: hb,
 		headSaver:       hs,
 	}
+}
+
+func testMonitor(t *testing.T) *utils.MailboxMonitor {
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	require.NoError(t, mailMon.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	return mailMon
 }
 
 type headTrackerUniverse struct {

@@ -138,6 +138,10 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	require.NoError(t, mailMon.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+
 	vd := vrf.NewDelegate(
 		db,
 		vuni.ks,
@@ -145,7 +149,8 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 		vuni.prm,
 		vuni.cc,
 		logger.TestLogger(t),
-		cfg)
+		cfg,
+		mailMon)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
