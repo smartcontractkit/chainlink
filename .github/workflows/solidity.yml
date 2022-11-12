@@ -235,7 +235,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         if: ${{ failure() }}
-        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make go-soldity-wrappers` command'
+        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make go-solidity-wrappers` command'
 
   lint:
     defaults:

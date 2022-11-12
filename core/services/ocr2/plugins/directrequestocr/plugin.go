@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,7 +23,6 @@ type DROracle struct {
 	jb             job.Job
 	pipelineRunner pipeline.Runner
 	jobORM         job.ORM
-	ocr2Provider   types.Plugin
 	pluginConfig   config.PluginConfig
 	pluginORM      directrequestocr.ORM
 	chain          evm.Chain
@@ -34,7 +32,7 @@ type DROracle struct {
 
 var _ plugins.OraclePlugin = &DROracle{}
 
-func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, ocr2Provider types.Plugin, pluginORM directrequestocr.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger) (*DROracle, error) {
+func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, pluginORM directrequestocr.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger) (*DROracle, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
@@ -49,7 +47,6 @@ func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, ocr
 		jb:             jb,
 		pipelineRunner: pipelineRunner,
 		jobORM:         jobORM,
-		ocr2Provider:   ocr2Provider,
 		pluginConfig:   pluginConfig,
 		pluginORM:      pluginORM,
 		chain:          chain,
