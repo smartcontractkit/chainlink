@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestEthTxResource(t *testing.T) {
@@ -62,7 +61,7 @@ func TestEthTxResource(t *testing.T) {
 	var (
 		nonce           = int64(100)
 		hash            = common.BytesToHash([]byte{1, 2, 3})
-		gasPrice        = utils.NewBigI(1000)
+		gasPrice        = assets.NewWeiI(1000)
 		broadcastBefore = int64(300)
 	)
 

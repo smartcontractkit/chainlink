@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // Return types:
@@ -25,8 +25,10 @@ type BridgeTask struct {
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
+	CacheTTL          string `json:"cacheTTL"`
 
-	queryer    pg.Queryer
+	specId     int32
+	orm        bridges.ORM
 	config     Config
 	httpClient *http.Client
 }
@@ -49,11 +51,13 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		name              StringParam
 		requestData       MapParam
 		includeInputAtKey StringParam
+		cacheTTL          Uint64Param
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
+		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -109,9 +113,27 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
+	var cachedResponse bool
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
-		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+		if cacheTTL == 0 {
+			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+		}
+
+		var cacheErr error
+		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
+		if cacheErr != nil {
+			lggr.Errorw("Bridge task: cache fallback failed",
+				"err", cacheErr.Error(),
+				"url", url.String(),
+			)
+			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+		}
+		lggr.Debugw("Bridge task: request failed, falling back to cache",
+			"response", string(responseBytes),
+			"url", url.String(),
+		)
+		cachedResponse = true
 	}
 
 	if t.Async == "true" {
@@ -128,6 +150,13 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		}
 	}
 
+	if !cachedResponse && cacheTTL > 0 {
+		err := t.orm.UpsertBridgeResponse(t.dotID, t.specId, responseBytes)
+		if err != nil {
+			lggr.Errorw("Bridge task: failed to upsert response in bridge cache", "err", err)
+		}
+	}
+
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
@@ -141,13 +170,13 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"answer", result.Value,
 		"url", url.String(),
 		"dotID", t.DotID(),
+		"cached", cachedResponse,
 	)
 	return result, runInfo
 }
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	var bt bridges.BridgeType
-	err := t.queryer.Get(&bt, "SELECT * FROM bridge_types WHERE name = $1", string(name))
+	bt, err := t.orm.FindBridge(bridges.BridgeName(name))
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

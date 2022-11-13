@@ -11,10 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_ParseCBOR(t *testing.T) {
 	t.Parallel()
+
+	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
+	require.NoError(t, err)
 
 	tests := []struct {
 		name        string
@@ -44,6 +48,18 @@ func Test_ParseCBOR(t *testing.T) {
 			"missing initial start map marker",
 			`0x636B65796576616C7565ff`,
 			jsonMustUnmarshal(t, `{"key":"value"}`),
+			false,
+		},
+		{
+			"with address encoded",
+			`0x6d72656d6f7465436861696e4964186a6e6c69627261727956657273696f6e016f636f6e747261637441646472657373548bd112d3f8f92e41c861939545ad387307af97036d636f6e6669726d6174696f6e730a68626c6f636b4e756d69307831336261626264`,
+			map[string]interface{}{
+				"blockNum":        "0x13babbd",
+				"confirmations":   uint64(10),
+				"contractAddress": address,
+				"libraryVersion":  uint64(1),
+				"remoteChainId":   uint64(106),
+			},
 			false,
 		},
 		{

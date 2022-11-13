@@ -102,6 +102,9 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return validateOCR2VRFSpec(spec.OCR2OracleSpec.PluginConfig)
 	case job.OCR2Keeper:
 		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
+	case job.OCR2DirectRequest:
+		// TODO validator for DR-OCR spec: https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
+		return nil
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -169,9 +172,6 @@ func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
 	}
 	if cfg.DKGContractAddress == "" {
 		return errors.New("dkgContractAddress must be provided")
-	}
-	if cfg.LookbackBlocks <= 0 {
-		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
 	}
 	return nil
 }

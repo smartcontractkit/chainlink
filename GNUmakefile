@@ -26,6 +26,11 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	fi || true
 	go mod download
 
+.PHONY: gomodtidy
+gomodtidy: ## Run go mod tidy on all modules.
+	go mod tidy
+	cd ./integration-tests && go mod tidy
+
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	mkdir -p $(GOBIN)
@@ -36,20 +41,20 @@ chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: docker ## Build the chainlink docker image
-docker: operator-ui
+docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
 
 .PHONY: chainlink-build
-chainlink-build: ## Build & install the chainlink binary.
+chainlink-build: operator-ui ## Build & install the chainlink binary.
 	go build $(GOFLAGS) -o chainlink ./core/
 	rm -f $(GOBIN)/chainlink
 	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	./operator_ui/install.sh	
+	./operator_ui/install.sh
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -63,7 +68,15 @@ go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrapp
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
+	# replace the go:generate_disabled directive with the regular go:generate directive
+	sed -i '' 's/go:generate_disabled/go:generate/g' core/gethwrappers/ocr2vrf/go_generate.go
 	go generate ./core/gethwrappers/ocr2vrf
+	# put the go:generate_disabled directive back
+	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
+
+.PHONY: generate
+generate: abigen ## Execute all go:generate commands.
+	go generate -x ./...
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
@@ -97,52 +110,55 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 test_install_ginkgo: ## Install ginkgo executable to run tests
 	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
 
-.PHONY: test_smoke
-test_smoke: ## Run all integration smoke tests, using only simulated networks, default behavior
+.PHONY: test_need_operator_assets
+test_need_operator_assets: ## Add blank file in web assets if operator ui has not been built
 	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
+
+.PHONY: test_smoke
+test_smoke: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	--progress --focus @simulated $(args) ./integration-tests/smoke
+	$(args) ./integration-tests/smoke
 
 .PHONY: test_smoke_simulated
-test_smoke_simulated: ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+test_smoke_simulated: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	--progress --focus @simulated $(args) ./integration-tests/smoke
-
-.PHONY: test_smoke_raw
-test_smoke_raw: ## Run ALL integration smoke tests, only used for when focusing a specific suite or test
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/smoke
+	$(args) ./integration-tests/smoke
 
 .PHONY: test_soak_ocr
-test_soak_ocr: ## Run the OCR soak test
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
+test_soak_ocr: test_need_operator_assets ## Run the OCR soak test
 	cd ./integration-tests && go test -v -run ^TestOCRSoak$$ ./soak -count=1 && cd ..
 
+.PHONY: test_soak_forwarder_ocr
+test_soak_forwarder_ocr: test_need_operator_assets ## Run the Forwarder OCR soak test
+	cd ./integration-tests && go test -v -run ^TestForwarderOCRSoak$$ ./soak -count=1 && cd ..
+
 .PHONY: test_soak_keeper
-test_soak_keeper: ## Run the OCR soak test
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
+test_soak_keeper: test_need_operator_assets ## Run the OCR soak test
 	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
 
 .PHONY: test_perf
-test_perf: ## Run core node performance tests.
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
+test_perf: test_need_operator_assets ## Run core node performance tests.
 	ginkgo -v -r --junit-report=tests-perf-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/performance
+	$(args) ./integration-tests/performance
 
 .PHONY: test_chaos
-test_chaos: ## Run core node chaos tests.
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
+test_chaos: test_need_operator_assets ## Run core node chaos tests.
 	ginkgo -r --focus @chaos --nodes 5 ./integration-tests/chaos
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate/main.go > ./docs/CONFIG.md
+	go run ./core/config/v2/docs/cmd/generate/main.go -o ./docs/
+
+.PHONY: golangci-lint
+golangci-lint: ## Run golangci-lint for all issues.
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+
+.PHONY: snapshot
+snapshot:
+	cd ./contracts && forge snapshot --match-test _gas
 
 help:
 	@echo ""

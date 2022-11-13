@@ -6,3 +6,7 @@ abi
 coverage
 coverage.json
 typechain
+
+# Foundry
+foundry-cache
+foundry-artifacts

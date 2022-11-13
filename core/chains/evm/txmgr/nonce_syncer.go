@@ -69,7 +69,7 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
+func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{

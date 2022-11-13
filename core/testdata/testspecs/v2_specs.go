@@ -8,6 +8,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
@@ -231,9 +232,9 @@ type VRFSpecParams struct {
 	RequestTimeout                time.Duration
 	V2                            bool
 	ChunkSize                     int
-	MaxGasPriceGWei               int
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
+	GasLanePrice                  *assets.Wei
 }
 
 type VRFSpec struct {
@@ -270,6 +271,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
 	}
+	gasLanePrice := assets.GWei(100)
+	if params.GasLanePrice != nil {
+		gasLanePrice = params.GasLanePrice
+	}
 	requestTimeout := 24 * time.Hour
 	if params.RequestTimeout != 0 {
 		requestTimeout = params.RequestTimeout
@@ -281,10 +286,6 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	chunkSize := 20
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
-	}
-	maxGasPriceGWei := 200
-	if params.MaxGasPriceGWei != 0 {
-		maxGasPriceGWei = params.MaxGasPriceGWei
 	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
@@ -351,7 +352,7 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
-maxGasPriceGWei = %d
+gasLanePrice = "%s"
 observationSource = """
 %s
 """
@@ -360,7 +361,7 @@ observationSource = """
 		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), maxGasPriceGWei, observationSource)
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {

@@ -5,9 +5,8 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-
-	"github.com/smartcontractkit/sqlx"
 )
 
 const (
@@ -30,11 +29,17 @@ const (
     `
 )
 
-func (t *BridgeTask) HelperSetDependencies(config Config, db *sqlx.DB, id uuid.UUID, httpClient *http.Client) {
+func (t *BridgeTask) HelperSetDependencies(
+	config Config,
+	orm bridges.ORM,
+	specId int32,
+	id uuid.UUID,
+	httpClient *http.Client) {
 	t.config = config
-	t.queryer = db
+	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
+	t.specId = specId
 }
 
 func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) {

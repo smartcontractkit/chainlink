@@ -2,12 +2,14 @@ package vrf
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -36,17 +37,17 @@ type Delegate struct {
 	lggr logger.Logger
 }
 
-//go:generate mockery --name GethKeyStore --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
 type GethKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	EvmFinalityDepth() uint32
 	EvmGasLimitDefault() uint32
 	EvmGasLimitVRFJobType() *uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
 }
 
@@ -57,7 +58,7 @@ func NewDelegate(
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg pg.LogConfig) *Delegate {
+	cfg pg.QConfig) *Delegate {
 	return &Delegate{
 		q:    pg.NewQ(db, lggr, cfg),
 		ks:   ks,
@@ -72,6 +73,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
@@ -115,19 +117,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
 
-	// This is not a terminal error, but it isn't ideal.
-	// We can operate under these potentially degraded conditions, however.
-	err = setMaxGasPriceGWei(
-		toAddrSlice(jb.VRFSpec.FromAddresses),
-		jb.VRFSpec.MaxGasPriceGWei,
-		d.cc,
-		chain.ID())
-	if err != nil {
-		l.With("err", err).Warn("unable to set max gas price gwei on from addresses, continuing anyway")
-	}
-
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+				return nil, err
+			}
+
 			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
 			if err != nil {
 				return nil, err
@@ -142,7 +137,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				lV2,
 				chain.Client(),
 				chain.ID(),
-				d.cc,
 				chain.LogBroadcaster(),
 				d.q,
 				coordinatorV2,
@@ -184,6 +178,24 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	return nil, errors.New("invalid job spec expected a vrf task")
+}
+
+// CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
+// matches what is set for the  provided from addresses.
+// If they don't match, this is a configuration error. An error is returned with all the keys that do
+// not match the provided gas lane price.
+func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
+	if jb.VRFSpec.GasLanePrice != nil {
+		for _, a := range jb.VRFSpec.FromAddresses {
+			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
+				err = multierr.Append(err,
+					fmt.Errorf(
+						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
+						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
+			}
+		}
+	}
+	return
 }
 
 func GetStartingResponseCountsV1(q pg.Q, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {
@@ -282,30 +294,4 @@ GROUP BY meta->'RequestID'
 		return nil, err
 	}
 	return counts, nil
-}
-
-// setMaxGasPriceGWei attempts to set the max gas price for each key in the fromAddresses slice
-// of the VRF job spec to the given maxGasPriceGWei parameter.
-// If maxGasPriceGWei is nil, this is a no-op.
-func setMaxGasPriceGWei(fromAddresses []common.Address, maxGasPriceGWei *uint32, keyUpdater keyConfigUpdater, chainID *big.Int) error {
-	if maxGasPriceGWei == nil {
-		return nil
-	}
-
-	for _, addr := range fromAddresses {
-		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.GWei(int64(*maxGasPriceGWei)))
-		err := keyUpdater.UpdateConfig(chainID, updater)
-		if err != nil {
-			return errors.Wrap(err, "update key specific max gas price")
-		}
-	}
-
-	return nil
-}
-
-func toAddrSlice(addrs []ethkey.EIP55Address) (r []common.Address) {
-	for _, a := range addrs {
-		r = append(r, a.Address())
-	}
-	return
 }

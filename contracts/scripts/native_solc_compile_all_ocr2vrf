@@ -12,3 +12,4 @@ $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFBeacon.sol
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/VRFCoordinator.sol
 $SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/TestBeaconVRFConsumer.sol
+$SCRIPTPATH/native_solc8_15_compile_ocr2vrf ../../../../ocr2vrf-origin/contracts/LoadTestBeaconVRFConsumer.sol

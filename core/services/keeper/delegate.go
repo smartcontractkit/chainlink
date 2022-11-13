@@ -44,9 +44,9 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (Delegate) AfterJobCreated(spec job.Job) {}
-
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
@@ -59,7 +59,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
 
-	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
+	cfg := chain.Config()
+	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, cfg.KeeperDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
 	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,

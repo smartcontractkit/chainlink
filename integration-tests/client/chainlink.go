@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog/log"
 
 	"golang.org/x/sync/errgroup"
 
@@ -24,7 +24,12 @@ var (
 	// ChainlinkKeyPassword used to encrypt exported keys
 	ChainlinkKeyPassword = "twochains"
 	// OneLINK representation of a single LINK token
-	OneLINK = big.NewFloat(1e18)
+	OneLINK           = big.NewFloat(1e18)
+	mapKeyTypeToChain = map[string]string{
+		"evm":      "eTHKeys",
+		"solana":   "encryptedStarkNetKeys",
+		"starknet": "encryptedSolanaKeys",
+	}
 )
 
 type Chainlink struct {
@@ -32,6 +37,7 @@ type Chainlink struct {
 	Config            *ChainlinkConfig
 	pageSize          int
 	primaryEthAddress string
+	ethAddresses      []string
 }
 
 // NewChainlink creates a new Chainlink model using a provided config
@@ -352,6 +358,17 @@ func (c *Chainlink) ReadOCR2Keys() (*OCR2Keys, *http.Response, error) {
 	return ocr2Keys, resp.RawResponse, err
 }
 
+// MustReadOCR2Keys reads all OCR2Keys from the Chainlink node returns err if response not 200
+func (c *Chainlink) MustReadOCR2Keys() (*OCR2Keys, error) {
+	ocr2Keys := &OCR2Keys{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading OCR2 Keys")
+	resp, err := c.APIClient.R().
+		SetResult(ocr2Keys).
+		Get("/v2/keys/ocr2")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	return ocr2Keys, err
+}
+
 // DeleteOCR2Key deletes an OCR2Key based on the provided ID
 func (c *Chainlink) DeleteOCR2Key(id string) (*http.Response, error) {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting OCR2 Key")
@@ -465,6 +482,18 @@ func (c *Chainlink) ReadPrimaryETHKey() (*ETHKeyData, error) {
 	return &ethKeys.Data[0], nil
 }
 
+// ReadETHKeyAtIndex reads updated information about the Chainlink's ETH key at given index
+func (c *Chainlink) ReadETHKeyAtIndex(keyIndex int) (*ETHKeyData, error) {
+	ethKeys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	if len(ethKeys.Data) == 0 {
+		return nil, fmt.Errorf("Error retrieving primary eth key on node %s: No ETH keys present", c.URL())
+	}
+	return &ethKeys.Data[keyIndex], nil
+}
+
 // PrimaryEthAddress returns the primary ETH address for the Chainlink node
 func (c *Chainlink) PrimaryEthAddress() (string, error) {
 	if c.primaryEthAddress == "" {
@@ -475,6 +504,36 @@ func (c *Chainlink) PrimaryEthAddress() (string, error) {
 		c.primaryEthAddress = ethKeys.Data[0].Attributes.Address
 	}
 	return c.primaryEthAddress, nil
+}
+
+// EthAddresses returns the ETH addresses for the Chainlink node
+func (c *Chainlink) EthAddresses() ([]string, error) {
+	if len(c.ethAddresses) == 0 {
+		ethKeys, err := c.MustReadETHKeys()
+		c.ethAddresses = make([]string, len(ethKeys.Data))
+		if err != nil {
+			return make([]string, 0), err
+		}
+		for index, data := range ethKeys.Data {
+			c.ethAddresses[index] = data.Attributes.Address
+		}
+	}
+	return c.ethAddresses, nil
+}
+
+// EthAddresses returns the ETH addresses of the Chainlink node for a specific chain id
+func (c *Chainlink) EthAddressesForChain(chainId string) ([]string, error) {
+	var ethAddresses []string
+	ethKeys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	for _, ethKey := range ethKeys.Data {
+		if ethKey.Attributes.ChainID == chainId {
+			ethAddresses = append(ethAddresses, ethKey.Attributes.Address)
+		}
+	}
+	return ethAddresses, nil
 }
 
 // PrimaryEthAddressForChain returns the primary ETH address for the Chainlink node for mentioned chain
@@ -520,13 +579,14 @@ func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
 }
 
 // CreateTxKey creates a tx key on the Chainlink node
-func (c *Chainlink) CreateTxKey(chain string) (*TxKey, *http.Response, error) {
+func (c *Chainlink) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"chain": chain,
 		}).
+		SetQueryParam("evmChainID", chainId).
 		SetResult(txKey).
 		Post("/v2/keys/{chain}")
 	if err != nil {
@@ -956,9 +1016,28 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 		}
 
 		peerID := p2pkeys.Data[0].Attributes.PeerID
-		txKey, _, err := n.CreateTxKey(chainId)
+		// If there is already a txkey present for the chain skip creating a new one
+		// otherwise the test logic will need multiple key management (like funding all the keys,
+		// for ocr scenarios adding all keys to ocr config)
+		var txKey *TxKey
+		txKeys, _, err := n.ReadTxKeys(chainName)
 		if err != nil {
 			return nil, nil, err
+		}
+		if _, ok := mapKeyTypeToChain[chainName]; ok {
+			for _, key := range txKeys.Data {
+				if key.Type == mapKeyTypeToChain[chainName] {
+					txKey = &TxKey{Data: key}
+					break
+				}
+			}
+		}
+		// if no txkey is found for the chain, create a new one
+		if txKey == nil {
+			txKey, _, err = n.CreateTxKey(chainName, chainId)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 
 		ocrKey, _, err := n.CreateOCR2Key(chainName)
@@ -981,4 +1060,47 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 	}
 
 	return nkb, clNodes, nil
+}
+
+// TrackForwarder track forwarder address in db.
+func (c *Chainlink) TrackForwarder(chainID *big.Int, address common.Address) (*Forwarder, *http.Response, error) {
+	response := &Forwarder{}
+	request := ForwarderAttributes{
+		ChainID: chainID.String(),
+		Address: address.Hex(),
+	}
+	log.Debug().Str("Node URL", c.Config.URL).
+		Str("Forwarder address", (address).Hex()).
+		Str("Chain ID", chainID.String()).
+		Msg("Track forwarder")
+	resp, err := c.APIClient.R().
+		SetBody(request).
+		SetResult(response).
+		Post("/v2/nodes/evm/forwarders/track")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusCreated)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return response, resp.RawResponse, err
+}
+
+// GetForwarders get list of tracked forwarders
+func (c *Chainlink) GetForwarders() (*Forwarders, *http.Response, error) {
+	response := &Forwarders{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading Tracked Forwarders")
+	resp, err := c.APIClient.R().
+		SetResult(response).
+		Get("/v2/nodes/evm/forwarders")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, nil, err
+	}
+	return response, resp.RawResponse, err
 }

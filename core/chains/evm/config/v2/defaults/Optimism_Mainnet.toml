@@ -27,3 +27,6 @@ BlockHistorySize = 0
 [HeadTracker]
 HistoryDepth = 10
 SamplingInterval = '1s'
+
+[OCR2.Automation]
+GasLimit = 6500000

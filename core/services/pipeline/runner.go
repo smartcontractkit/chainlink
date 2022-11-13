@@ -14,6 +14,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
@@ -23,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Runner --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
 	services.ServiceCtx
@@ -51,6 +52,7 @@ type Runner interface {
 
 type runner struct {
 	orm                    ORM
+	btORM                  bridges.ORM
 	config                 Config
 	chainSet               evm.ChainSet
 	ethKeyStore            ETHKeyStore
@@ -98,9 +100,10 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
+		btORM:                  btORM,
 		config:                 config,
 		chainSet:               chainSet,
 		ethKeyStore:            ethks,
@@ -239,7 +242,8 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).queryer = r.orm.GetQ()
+			task.(*BridgeTask).orm = r.btORM
+			task.(*BridgeTask).specId = run.PipelineSpec.ID
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware

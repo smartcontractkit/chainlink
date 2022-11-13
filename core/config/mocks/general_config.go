@@ -3,9 +3,10 @@
 package mocks
 
 import (
-	big "math/big"
-
 	assets "github.com/smartcontractkit/chainlink/core/assets"
+	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+
+	big "math/big"
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
@@ -96,6 +97,92 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(uuid.UUID)
 		}
+	}
+
+	return r0
+}
+
+// AuditLoggerEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// AuditLoggerEnvironment provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// AuditLoggerForwardToUrl provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerForwardToUrl() (models.URL, error) {
+	ret := _m.Called()
+
+	var r0 models.URL
+	if rf, ok := ret.Get(0).(func() models.URL); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.URL)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AuditLoggerHeaders provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+	ret := _m.Called()
+
+	var r0 audit.ServiceHeaders
+	if rf, ok := ret.Get(0).(func() audit.ServiceHeaders); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(audit.ServiceHeaders)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AuditLoggerJsonWrapperKey provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLoggerJsonWrapperKey() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -325,6 +412,20 @@ func (_m *GeneralConfig) BlockBackfillSkip() bool {
 	return r0
 }
 
+// BridgeCacheTTL provides a mock function with given fields:
+func (_m *GeneralConfig) BridgeCacheTTL() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // BridgeResponseURL provides a mock function with given fields:
 func (_m *GeneralConfig) BridgeResponseURL() *url.URL {
 	ret := _m.Called()
@@ -422,6 +523,48 @@ func (_m *GeneralConfig) DatabaseBackupURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultLockTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultLockTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseDefaultQueryTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseDefaultQueryTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -932,6 +1075,48 @@ func (_m *GeneralConfig) GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, 
 	return r0, r1
 }
 
+// GlobalBlockHistoryEstimatorCheckInclusionBlocks provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalBlockHistoryEstimatorCheckInclusionBlocks() (uint16, bool) {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalBlockHistoryEstimatorCheckInclusionPercentile provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalBlockHistoryEstimatorCheckInclusionPercentile() (uint16, bool) {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
 	ret := _m.Called()
@@ -1164,15 +1349,15 @@ func (_m *GeneralConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
 }
 
 // GlobalEvmGasBumpWei provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
+func (_m *GeneralConfig) GlobalEvmGasBumpWei() (*assets.Wei, bool) {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1187,15 +1372,15 @@ func (_m *GeneralConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
 }
 
 // GlobalEvmGasFeeCapDefault provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+func (_m *GeneralConfig) GlobalEvmGasFeeCapDefault() (*assets.Wei, bool) {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1399,15 +1584,15 @@ func (_m *GeneralConfig) GlobalEvmGasLimitVRFJobType() (uint32, bool) {
 }
 
 // GlobalEvmGasPriceDefault provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
+func (_m *GeneralConfig) GlobalEvmGasPriceDefault() (*assets.Wei, bool) {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1422,15 +1607,15 @@ func (_m *GeneralConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
 }
 
 // GlobalEvmGasTipCapDefault provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+func (_m *GeneralConfig) GlobalEvmGasTipCapDefault() (*assets.Wei, bool) {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1445,15 +1630,15 @@ func (_m *GeneralConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
 }
 
 // GlobalEvmGasTipCapMinimum provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
+func (_m *GeneralConfig) GlobalEvmGasTipCapMinimum() (*assets.Wei, bool) {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1551,6 +1736,27 @@ func (_m *GeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmLogKeepBlocksDepth provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmLogKeepBlocksDepth() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmLogPollInterval provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	ret := _m.Called()
@@ -1573,15 +1779,15 @@ func (_m *GeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 }
 
 // GlobalEvmMaxGasPriceWei provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
+func (_m *GeneralConfig) GlobalEvmMaxGasPriceWei() (*assets.Wei, bool) {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1638,15 +1844,15 @@ func (_m *GeneralConfig) GlobalEvmMaxQueuedTransactions() (uint64, bool) {
 }
 
 // GlobalEvmMinGasPriceWei provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
+func (_m *GeneralConfig) GlobalEvmMinGasPriceWei() (*assets.Wei, bool) {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
+			r0 = ret.Get(0).(*assets.Wei)
 		}
 	}
 
@@ -1914,6 +2120,27 @@ func (_m *GeneralConfig) GlobalNodeSelectionMode() (string, bool) {
 	return r0, r1
 }
 
+// GlobalOCR2AutomationGasLimit provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -2118,14 +2345,14 @@ func (_m *GeneralConfig) JobPipelineResultWriteQueueDepth() uint64 {
 }
 
 // KeeperBaseFeeBufferPercent provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperBaseFeeBufferPercent() uint32 {
+func (_m *GeneralConfig) KeeperBaseFeeBufferPercent() uint16 {
 	ret := _m.Called()
 
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint16)
 	}
 
 	return r0
@@ -2160,28 +2387,28 @@ func (_m *GeneralConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 }
 
 // KeeperGasPriceBufferPercent provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperGasPriceBufferPercent() uint32 {
+func (_m *GeneralConfig) KeeperGasPriceBufferPercent() uint16 {
 	ret := _m.Called()
 
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint16)
 	}
 
 	return r0
 }
 
 // KeeperGasTipCapBufferPercent provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperGasTipCapBufferPercent() uint32 {
+func (_m *GeneralConfig) KeeperGasTipCapBufferPercent() uint16 {
 	ret := _m.Called()
 
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint32)
+		r0 = ret.Get(0).(uint16)
 	}
 
 	return r0
@@ -2605,20 +2832,6 @@ func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// OCRBootstrapCheckInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRBootstrapCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRContractPollInterval provides a mock function with given fields:
 func (_m *GeneralConfig) OCRContractPollInterval() time.Duration {
 	ret := _m.Called()
@@ -2647,20 +2860,6 @@ func (_m *GeneralConfig) OCRContractSubscribeInterval() time.Duration {
 	return r0
 }
 
-// OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRDHTLookupInterval() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
 // OCRDefaultTransactionQueueDepth provides a mock function with given fields:
 func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	ret := _m.Called()
@@ -2670,20 +2869,6 @@ func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCRIncomingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2710,20 +2895,6 @@ func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
 	return r0, r1
 }
 
-// OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRObservationTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 	ret := _m.Called()
@@ -2733,20 +2904,6 @@ func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCROutgoingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -3312,6 +3469,62 @@ func (_m *GeneralConfig) SecureCookies() bool {
 	return r0
 }
 
+// SentryDSN provides a mock function with given fields:
+func (_m *GeneralConfig) SentryDSN() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// SentryDebug provides a mock function with given fields:
+func (_m *GeneralConfig) SentryDebug() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// SentryEnvironment provides a mock function with given fields:
+func (_m *GeneralConfig) SentryEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// SentryRelease provides a mock function with given fields:
+func (_m *GeneralConfig) SentryRelease() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // SessionOptions provides a mock function with given fields:
 func (_m *GeneralConfig) SessionOptions() sessions.Options {
 	ret := _m.Called()
@@ -3357,6 +3570,11 @@ func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 // SetLogSQL provides a mock function with given fields: logSQL
 func (_m *GeneralConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
+}
+
+// SetPasswords provides a mock function with given fields: keystore, vrf
+func (_m *GeneralConfig) SetPasswords(keystore *string, vrf *string) {
+	_m.Called(keystore, vrf)
 }
 
 // ShutdownGracePeriod provides a mock function with given fields:

@@ -20,7 +20,7 @@ import (
 func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	logCfg := pgtest.NewPGCfg(true)
+	logCfg := pgtest.NewQConfig(true)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, nil)
 	require.NoError(t, err)

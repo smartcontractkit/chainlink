@@ -55,15 +55,17 @@ func (cs StarknetConfigs) Chains(ids ...string) (chains []types.DBChain) {
 		if ch == nil {
 			continue
 		}
-		var match bool
-		for _, id := range ids {
-			if id == *ch.ChainID {
-				match = true
-				break
+		if len(ids) > 0 {
+			var match bool
+			for _, id := range ids {
+				if id == *ch.ChainID {
+					match = true
+					break
+				}
 			}
-		}
-		if !match {
-			continue
+			if !match {
+				continue
+			}
 		}
 		chains = append(chains, ch.AsV1())
 	}
@@ -97,7 +99,7 @@ func (cs StarknetConfigs) NodesByID(chainIDs ...string) (ns []db.Node) {
 	for i := range cs {
 		var match bool
 		for _, id := range chainIDs {
-			if id != *cs[i].ChainID {
+			if id == *cs[i].ChainID {
 				match = true
 				break
 			}
@@ -120,6 +122,10 @@ type StarknetConfig struct {
 	Enabled *bool
 	stkcfg.Chain
 	Nodes StarknetNodes
+}
+
+func (c *StarknetConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
 }
 
 func (c *StarknetConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {
@@ -157,7 +163,7 @@ func (c *StarknetConfig) ValidateConfig() (err error) {
 func (c *StarknetConfig) AsV1() types.DBChain {
 	return types.DBChain{
 		ID:      *c.ChainID,
-		Enabled: *c.Enabled,
+		Enabled: c.IsEnabled(),
 		Cfg: &starknetdb.ChainCfg{
 			OCR2CachePollPeriod: c.Chain.OCR2CachePollPeriod,
 			OCR2CacheTTL:        c.Chain.OCR2CacheTTL,

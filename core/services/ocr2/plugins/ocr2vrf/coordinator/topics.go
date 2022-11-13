@@ -3,7 +3,8 @@ package coordinator
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 )
 
 type topics struct {
@@ -12,14 +13,16 @@ type topics struct {
 	randomWordsFulfilledTopic           common.Hash
 	configSetTopic                      common.Hash
 	newTransmissionTopic                common.Hash
+	outputsServedTopic                  common.Hash
 }
 
 func newTopics() topics {
 	return topics{
-		randomnessRequestedTopic:            vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested{}.Topic(),
-		randomnessFulfillmentRequestedTopic: vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested{}.Topic(),
-		randomWordsFulfilledTopic:           vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled{}.Topic(),
-		configSetTopic:                      vrf_wrapper.VRFBeaconCoordinatorConfigSet{}.Topic(),
-		newTransmissionTopic:                vrf_wrapper.VRFBeaconCoordinatorNewTransmission{}.Topic(),
+		randomnessRequestedTopic:            vrf_coordinator.VRFCoordinatorRandomnessRequested{}.Topic(),
+		randomnessFulfillmentRequestedTopic: vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequested{}.Topic(),
+		randomWordsFulfilledTopic:           vrf_coordinator.VRFCoordinatorRandomWordsFulfilled{}.Topic(),
+		configSetTopic:                      vrf_beacon.VRFBeaconConfigSet{}.Topic(),
+		newTransmissionTopic:                vrf_beacon.VRFBeaconNewTransmission{}.Topic(),
+		outputsServedTopic:                  vrf_coordinator.VRFCoordinatorOutputsServed{}.Topic(),
 	}
 }

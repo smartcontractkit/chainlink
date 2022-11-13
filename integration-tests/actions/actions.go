@@ -21,6 +21,7 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -49,6 +50,47 @@ func FundChainlinkNodes(
 		err = client.Fund(toAddress, amount)
 		if err != nil {
 			return err
+		}
+	}
+	return client.WaitForEvents()
+}
+
+// FundChainlinkNodesAddress will fund all of the provided Chainlink nodes address at given index with a set amount of native currency
+func FundChainlinkNodesAddress(
+	nodes []*client.Chainlink,
+	client blockchain.EVMClient,
+	amount *big.Float,
+	keyIndex int,
+) error {
+	for _, cl := range nodes {
+		toAddress, err := cl.EthAddresses()
+		if err != nil {
+			return err
+		}
+		err = client.Fund(toAddress[keyIndex], amount)
+		if err != nil {
+			return err
+		}
+	}
+	return client.WaitForEvents()
+}
+
+// FundChainlinkNodesAddress will fund all of the provided Chainlink nodes addresses with a set amount of native currency
+func FundChainlinkNodesAddresses(
+	nodes []*client.Chainlink,
+	client blockchain.EVMClient,
+	amount *big.Float,
+) error {
+	for _, cl := range nodes {
+		toAddress, err := cl.EthAddressesForChain(client.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, addr := range toAddress {
+			err = client.Fund(addr, amount)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return client.WaitForEvents()
@@ -83,6 +125,19 @@ func ChainlinkNodeAddresses(nodes []*client.Chainlink) ([]common.Address, error)
 			return nil, err
 		}
 		addresses = append(addresses, common.HexToAddress(primaryAddress))
+	}
+	return addresses, nil
+}
+
+// ChainlinkNodeAddressesAtIndex will return all the on-chain wallet addresses for a set of Chainlink nodes
+func ChainlinkNodeAddressesAtIndex(nodes []*client.Chainlink, keyIndex int) ([]common.Address, error) {
+	addresses := make([]common.Address, 0)
+	for _, node := range nodes {
+		nodeAddresses, err := node.EthAddresses()
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, common.HexToAddress(nodeAddresses[keyIndex]))
 	}
 	return addresses, nil
 }
@@ -180,7 +235,7 @@ func TeardownSuite(
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
-	c blockchain.EVMClient,
+	clients ...blockchain.EVMClient,
 ) error {
 	keepEnvs := os.Getenv("KEEP_ENVIRONMENTS")
 	if keepEnvs == "" {
@@ -190,19 +245,24 @@ func TeardownSuite(
 	if err := testreporters.WriteTeardownLogs(env, optionalTestReporter); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
-	if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
-		if err := returnFunds(chainlinkNodes, c); err != nil {
-			log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
-				Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
-					"Environment is left running so you can try manually!")
-			keepEnvs = "ALWAYS"
+	for _, c := range clients {
+		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
+			if err := returnFunds(chainlinkNodes, c); err != nil {
+				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
+						"Environment is left running so you can try manually!")
+				keepEnvs = "ALWAYS"
+			}
+		} else {
+			log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 		}
-	} else {
-		log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
-	}
-	// nolint
-	if c != nil {
-		c.Close()
+		// nolint
+		if c != nil {
+			err := c.Close()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	switch strings.ToUpper(keepEnvs) {

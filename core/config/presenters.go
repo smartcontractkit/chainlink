@@ -36,6 +36,7 @@ type EnvPrinter struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
+	BridgeCacheTTL                             time.Duration   `json:"BRIDGE_CACHE_TTL"`
 	ChainType                                  string          `json:"CHAIN_TYPE"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
@@ -60,9 +61,9 @@ type EnvPrinter struct {
 	JobPipelineReaperInterval                  time.Duration   `json:"JOB_PIPELINE_REAPER_INTERVAL"`
 	JobPipelineReaperThreshold                 time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
-	KeeperGasPriceBufferPercent                uint32          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
-	KeeperGasTipCapBufferPercent               uint32          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
-	KeeperBaseFeeBufferPercent                 uint32          `json:"KEEPER_BASE_FEE_BUFFER_PERCENT"`
+	KeeperGasPriceBufferPercent                uint16          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
+	KeeperGasTipCapBufferPercent               uint16          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
+	KeeperBaseFeeBufferPercent                 uint16          `json:"KEEPER_BASE_FEE_BUFFER_PERCENT"`
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
 	KeeperRegistryCheckGasOverhead             uint32          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint32          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
@@ -83,6 +84,12 @@ type EnvPrinter struct {
 	LogFileMaxAge                              int64           `json:"LOG_FILE_MAX_AGE"`
 	LogFileMaxBackups                          int64           `json:"LOG_FILE_MAX_BACKUPS"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
+
+	// AuditLogger
+	AuditLoggerEnabled        bool   `json:"AUDIT_LOGGER_ENABLED"`
+	AuditLoggerForwardToUrl   string `json:"AUDIT_LOGGER_FORWARD_TO_URL"`
+	AuditLoggerJsonWrapperKey string `json:"AUDIT_LOGGER_JSON_WRAPPER_KEY"`
+	AuditLoggerHeaders        string `json:"AUDIT_LOGGER_HEADERS"`
 
 	// OCR1
 	OCRContractTransmitterTransmitTimeout time.Duration `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
@@ -147,11 +154,13 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 	ocrDatabaseTimeout, _ := cfg.GlobalOCRDatabaseTimeout()
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
+			AuditLoggerEnabled:             cfg.AuditLoggerEnabled(),
 			AdvisoryLockCheckInterval:      cfg.AdvisoryLockCheckInterval(),
 			AdvisoryLockID:                 cfg.AdvisoryLockID(),
 			AllowOrigins:                   cfg.AllowOrigins(),
 			BlockBackfillDepth:             cfg.BlockBackfillDepth(),
 			BridgeResponseURL:              bridgeResponseURL,
+			BridgeCacheTTL:                 cfg.BridgeCacheTTL(),
 			DatabaseBackupFrequency:        cfg.DatabaseBackupFrequency(),
 			DatabaseBackupMode:             string(cfg.DatabaseBackupMode()),
 			DatabaseBackupOnVersionUpgrade: cfg.DatabaseBackupOnVersionUpgrade(),

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -27,7 +28,7 @@ var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersCh
 
 type Config interface {
 	gas.Config
-	LogSQL() bool
+	pg.QConfig
 }
 
 type FwdMgr struct {
@@ -195,9 +196,12 @@ func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) error {
 }
 
 func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
-	return f.logpoller.MergeFilter(
-		[]common.Hash{authChangedTopic},
-		[]common.Address{addr})
+	_, err := f.logpoller.RegisterFilter(
+		evmlogpoller.Filter{
+			EventSigs: []common.Hash{authChangedTopic},
+			Addresses: []common.Address{addr},
+		})
+	return err
 }
 
 func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {
@@ -221,6 +225,11 @@ func (f *FwdMgr) runLoop() {
 		select {
 		case <-tick:
 			addrs := f.collectAddresses()
+			if len(addrs) == 0 {
+				f.logger.Debug("Skipping log syncing, no forwarders tracked.")
+				continue
+			}
+
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},

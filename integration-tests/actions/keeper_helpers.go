@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
@@ -19,7 +19,7 @@ import (
 
 var ZeroAddress = common.Address{}
 
-func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contracts.KeeperRegistry) {
+func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contracts.KeeperRegistry, ocrConfig contracts.OCRConfig) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
 	primaryNodeAddress, err := primaryNode.PrimaryEthAddress()
@@ -31,7 +31,7 @@ func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contrac
 		nodeAddressesStr = append(nodeAddressesStr, cla.Hex())
 		payees = append(payees, primaryNodeAddress)
 	}
-	err = keeperRegistry.SetKeepers(nodeAddressesStr, payees)
+	err = keeperRegistry.SetKeepers(nodeAddressesStr, payees, ocrConfig)
 	Expect(err).ShouldNot(HaveOccurred(), "Setting keepers in the registry shouldn't fail")
 
 	for _, chainlinkNode := range chainlinkNodes {
@@ -44,6 +44,46 @@ func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contrac
 			MinIncomingConfirmations: 1,
 		})
 		Expect(err).ShouldNot(HaveOccurred(), "Creating KeeperV2 Job shouldn't fail")
+	}
+}
+
+func CreateKeeperJobsWithKeyIndex(
+	chainlinkNodes []*client.Chainlink,
+	keeperRegistry contracts.KeeperRegistry,
+	keyIndex int,
+	ocrConfig contracts.OCRConfig,
+) {
+	// Send keeper jobs to registry and chainlink nodes
+	primaryNode := chainlinkNodes[0]
+	primaryNodeAddresses, err := primaryNode.EthAddresses()
+	Expect(err).ShouldNot(HaveOccurred(), "Reading ETH Keys from Chainlink Client shouldn't fail")
+	nodeAddresses, err := ChainlinkNodeAddressesAtIndex(chainlinkNodes, keyIndex)
+	Expect(err).ShouldNot(HaveOccurred(), "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
+	nodeAddressesStr, payees := make([]string, 0), make([]string, 0)
+	for _, cla := range nodeAddresses {
+		nodeAddressesStr = append(nodeAddressesStr, cla.Hex())
+		payees = append(payees, primaryNodeAddresses[keyIndex])
+	}
+	err = keeperRegistry.SetKeepers(nodeAddressesStr, payees, ocrConfig)
+	Expect(err).ShouldNot(HaveOccurred(), "Setting keepers in the registry shouldn't fail")
+
+	for _, chainlinkNode := range chainlinkNodes {
+		chainlinkNodeAddress, err := chainlinkNode.EthAddresses()
+		Expect(err).ShouldNot(HaveOccurred(), "Error retrieving chainlink node address")
+		_, err = chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
+			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
+			ContractAddress:          keeperRegistry.Address(),
+			FromAddress:              chainlinkNodeAddress[keyIndex],
+			MinIncomingConfirmations: 1,
+		})
+		Expect(err).ShouldNot(HaveOccurred(), "Creating KeeperV2 Job shouldn't fail")
+	}
+}
+
+func DeleteKeeperJobsWithId(chainlinkNodes []*client.Chainlink, id int) {
+	for _, chainlinkNode := range chainlinkNodes {
+		err := chainlinkNode.MustDeleteJob(strconv.Itoa(id))
+		Expect(err).ShouldNot(HaveOccurred(), "Deleting KeeperV2 Job shouldn't fail")
 	}
 }
 
@@ -90,7 +130,7 @@ func DeployKeeperContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
+	registrar := DeployKeeperRegistrar(registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
 	upkeeps := DeployKeeperConsumers(contractDeployer, client, numberOfUpkeeps)
 	var upkeepsAddresses []string
@@ -146,7 +186,7 @@ func DeployPerformanceKeeperContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
+	registrar := DeployKeeperRegistrar(registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
 	upkeeps := DeployKeeperConsumersPerformance(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn)
 
@@ -201,7 +241,7 @@ func DeployPerformDataCheckerContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
+	registrar := DeployKeeperRegistrar(registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
 	upkeeps := DeployPerformDataChecker(contractDeployer, client, numberOfContracts, expectedData)
 
@@ -231,13 +271,14 @@ func DeployKeeperRegistry(
 }
 
 func DeployKeeperRegistrar(
+	registryVersion ethereum.KeeperRegistryVersion,
 	linkToken contracts.LinkToken,
 	registrarSettings contracts.KeeperRegistrarSettings,
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
 	registry contracts.KeeperRegistry,
 ) contracts.KeeperRegistrar {
-	registrar, err := contractDeployer.DeployKeeperRegistrar(linkToken.Address(), registrarSettings)
+	registrar, err := contractDeployer.DeployKeeperRegistrar(registryVersion, linkToken.Address(), registrarSettings)
 
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying KeeperRegistrar contract shouldn't fail")
 	err = client.WaitForEvents()

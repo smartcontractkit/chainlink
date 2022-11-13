@@ -17,12 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -50,8 +53,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
 
 	db := pgtest.NewSqlxDB(t)
-	pCfg := cltest.NewTestGeneralConfig(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, cfg, audit.NoopLogger)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -72,23 +74,9 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	err = logFileSize.UnmarshalText([]byte("100mb"))
 	assert.NoError(t, err)
 
-	lcfg := logger.Config{
-		LogLevel:      zapcore.DebugLevel,
-		FileMaxSizeMB: int(logFileSize / utils.MB),
-		Dir:           t.TempDir(),
-	}
-
-	tmpFile, err := os.CreateTemp(lcfg.Dir, "*")
-	assert.NoError(t, err)
-	defer tmpFile.Close()
-
-	newLogger, closeLogger := lcfg.New()
-
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 newLogger,
-		CloseLogger:            closeLogger,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -120,6 +108,7 @@ BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY: 0
 BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE: 0
 BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE: 0
 BRIDGE_RESPONSE_URL: 
+BRIDGE_CACHE_TTL: 
 CHAIN_TYPE: 
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
@@ -167,6 +156,10 @@ LOG_FILE_MAX_SIZE: 5.12gb
 LOG_FILE_MAX_AGE: 0
 LOG_FILE_MAX_BACKUPS: 1
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
+AUDIT_LOGGER_ENABLED: false
+AUDIT_LOGGER_FORWARD_TO_URL: 
+AUDIT_LOGGER_JSON_WRAPPER_KEY: 
+AUDIT_LOGGER_HEADERS: 
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 
 OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
@@ -198,7 +191,7 @@ CHAINLINK_TLS_HOST:
 CHAINLINK_TLS_PORT: 6689
 CHAINLINK_TLS_REDIRECT: false`, cfg.RootDir())
 
-	logs, err := cltest.ReadLogs(lcfg.Dir)
+	logs, err := cltest.ReadLogs(cfg.LogFileDir())
 	assert.NoError(t, err)
 
 	require.Contains(t, logs, expected, fmt.Sprintf("Expected to find:\n\n%s\n\nWithin:\n\n%s\n\nDiff:\n\n%s", expected, logs, diff.Diff(expected, logs)))
@@ -217,10 +210,14 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.Password.Keystore = models.NewSecret("dummy")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
+			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
@@ -248,18 +245,28 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				Logger:                 lggr,
-				CloseLogger:            lggr.Sync,
 			}
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("password", test.pwdfile, "")
 			c := cli.NewContext(nil, set, nil)
 
+			run := func() error {
+				cli := cmd.NewApp(&client)
+				if err := cli.Before(c); err != nil {
+					return err
+				}
+				if err := client.RunNode(c); err != nil {
+					return err
+				}
+				return nil
+			}
+
 			if test.wantUnlocked {
-				assert.NoError(t, client.RunNode(c))
+				assert.NoError(t, run())
 				assert.Equal(t, 1, apiPrompt.Count)
 			} else {
-				assert.Error(t, client.RunNode(c))
+				assert.Error(t, run())
 				assert.Equal(t, 0, apiPrompt.Count)
 			}
 		})
@@ -280,9 +287,13 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.Password.Keystore = models.NewSecret("16charlengthp4SsW0rD1!@#_")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
+			})
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -318,21 +329,16 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
 				Logger:                 lggr,
-				CloseLogger:            lggr.Sync,
 			}
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("api", test.apiFile, "")
-			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			set.Bool("bypass-version-check", true, "")
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
 				err = client.RunNode(c)
-				assert.Error(t, err)
-				if err != nil {
-					assert.Contains(t, err.Error(), "error creating api initializer: open doesntexist.txt: no such file or directory")
-				}
+				assert.ErrorContains(t, err, "error creating api initializer: open doesntexist.txt: no such file or directory")
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
@@ -381,10 +387,10 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 }
 
 func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
-	// Use the a non-transactional db for this test because we need to
+	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions")
+	config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions", nil)
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -422,10 +428,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cltest.EmptyRunner{},
 		Logger:                 lggr,
-		CloseLogger:            lggr.Sync,
 	}
-
-	config.Overrides.Dialect = dialects.TransactionWrappedPostgres
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
@@ -456,8 +459,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange")
-			config.Overrides.Dialect = dialects.Postgres
+			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Database.Dialect = dialects.Postgres
+			})
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 
@@ -493,10 +497,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 				Runner:                 cltest.EmptyRunner{},
 				Logger:                 lggr,
-				CloseLogger:            lggr.Sync,
 			}
-
-			config.Overrides.Dialect = dialects.TransactionWrappedPostgres
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i

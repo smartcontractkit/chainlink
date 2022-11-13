@@ -72,7 +72,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			defer close(ch)
 			n.aliveLoop()
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected aliveLoop to exit")
 	})
 
@@ -233,6 +233,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 					default:
 					}
 					return `"0x00"`, makeHeadResult(0)
+				case "eth_unsubscribe":
 				case "web3_clientVersion":
 					return `"test client version 2"`, ""
 				default:
@@ -268,6 +269,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				switch method {
 				case "eth_subscribe":
 					return `"0x00"`, makeHeadResult(0)
+				case "eth_unsubscribe":
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
@@ -307,7 +309,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			defer close(ch)
 			n.aliveLoop()
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
 	})
 
@@ -432,6 +434,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 					default:
 					}
 					return `"0x00"`, makeHeadResult(0)
+				case "eth_unsubscribe":
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
@@ -471,7 +474,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			n.unreachableLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected unreachableLoop to exit")
 	})
 
@@ -542,7 +545,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 			n.invalidChainIDLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected invalidChainIDLoop to exit")
 	})
 

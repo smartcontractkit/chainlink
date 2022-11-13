@@ -28,7 +28,7 @@ var (
 
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
-	Config           coreconfig.GeneralConfig
+	Config           coreconfig.BasicConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Terra
@@ -76,7 +76,7 @@ func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (terra.Chain, error) {
 }
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *TerraConfig) (terra.Chain, error) {
-	if !*cfg.Enabled {
+	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.ORM, o.Logger)
@@ -87,7 +87,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *TerraConfig) (terra.Chain, error) {
 	return c, nil
 }
 
-//go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 
 // ChainSet extends terra.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {
@@ -114,6 +114,9 @@ func NewChainSetImmut(opts ChainSetOpts, cfgs TerraConfigs) (ChainSet, error) {
 	solChains := map[string]terra.Chain{}
 	var err error
 	for _, chain := range cfgs {
+		if !chain.IsEnabled() {
+			continue
+		}
 		var err2 error
 		solChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
 		if err2 != nil {

@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -69,6 +68,8 @@ var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	MaxPerformGas:        uint32(5000000),
 	FallbackGasPrice:     big.NewInt(2e11),
 	FallbackLinkPrice:    big.NewInt(2e18),
+	MaxCheckDataSize:     uint32(5000),
+	MaxPerformDataSize:   uint32(5000),
 }
 
 var lowBCPTRegistryConfig = contracts.KeeperRegistrySettings{
@@ -162,6 +163,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		linkFundsForEachUpkeep *big.Int,
 	) {
 		By("Deploying the environment")
+		chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, networks.SimulatedEVM).AddKeeperDefaults().String()
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
@@ -169,9 +171,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
 				"env": map[string]interface{}{
-					"MIN_INCOMING_CONFIRMATIONS": "1",
-					"KEEPER_TURN_FLAG_ENABLED":   "true",
-					"KEEPER_TURN_LOOK_BACK":      "0",
+					"cl_config": chainlinkTOML,
 				},
 			}))
 		err = testEnvironment.Run()
@@ -187,9 +187,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		chainClient.ParallelTransactions(true)
 
 		By("Funding Chainlink nodes")
-		txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-		Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.5))
 		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 
 		By("Deploy Keeper Contracts")
@@ -238,7 +236,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		}
 
 		By("Register Keeper Jobs")
-		actions.CreateKeeperJobs(chainlinkNodes, registry)
+		actions.CreateKeeperJobs(chainlinkNodes, registry, contracts.OCRConfig{})
 		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
@@ -347,7 +345,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index "+strconv.Itoa(i))
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(5)+countersAfterPause[i].Int64()),
-						"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
+						"Expected consumer counter to be greater than %d, but got %d", int64(5)+countersAfterPause[i].Int64(), counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 			}, "3m", "1s").Should(Succeed())
@@ -362,7 +360,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index "+strconv.Itoa(i))
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(10)),
-						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+						"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 			}, "5m", "1s").Should(Succeed())
@@ -444,7 +442,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			}, "1m", "1s").Should(Succeed())
 
 			// Now set BCPT to be low, so keepers change turn frequently
-			err = registry.SetConfig(lowBCPTRegistryConfig)
+			err = registry.SetConfig(lowBCPTRegistryConfig, contracts.OCRConfig{})
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
@@ -566,7 +564,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := defaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
-			err = registry.SetConfig(highCheckGasLimit)
+			err = registry.SetConfig(highCheckGasLimit, contracts.OCRConfig{})
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
@@ -694,7 +692,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				Expect(err).ShouldNot(HaveOccurred(), "Encountered error when building the payee list")
 			}
 
-			err = registry.SetKeepers(newKeeperList, payees)
+			err = registry.SetKeepers(newKeeperList, payees, contracts.OCRConfig{})
 			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new list of Keepers")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
@@ -768,7 +766,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			)
 
 			// Set the jobs for the second registry
-			actions.CreateKeeperJobs(chainlinkNodes, secondRegistry)
+			actions.CreateKeeperJobs(chainlinkNodes, secondRegistry, contracts.OCRConfig{})
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 

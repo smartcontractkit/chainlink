@@ -8,9 +8,10 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type TxOptions struct {
