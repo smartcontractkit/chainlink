@@ -4,7 +4,17 @@ This document describes the TOML format for secrets.
 
 Each secret has an alternative corresponding environment variable.
 
-See also [CONFIG.md](config.md)
+See also [CONFIG.md](CONFIG.md)
+
+## Example
+
+```toml
+[Database]
+URL = 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable' # Required
+
+[Password]
+Keystore = 'keystore_pass' # Required
+```
 
 ## Table of contents
 
