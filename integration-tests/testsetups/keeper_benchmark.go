@@ -165,8 +165,6 @@ func (k *KeeperBenchmarkTest) Run() {
 	inputs := k.Inputs
 	startTime := time.Now()
 
-	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
-
 	nodesWithoutBootstrap := k.chainlinkNodes[1:]
 
 	for rIndex := range k.keeperRegistries {
@@ -190,7 +188,6 @@ func (k *KeeperBenchmarkTest) Run() {
 					k.keeperRegistries[rIndex],
 					k.upkeepIDs[rIndex][index],
 					inputs.BlockRange+inputs.UpkeepSLA,
-					rampUpBlocks,
 					inputs.UpkeepSLA,
 					&k.TestReporter,
 					int64(index),

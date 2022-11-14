@@ -1189,7 +1189,6 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	upkeepSLA       int64                                      // SLA after which an upkeep is counted as 'missed'
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
 	upkeepIndex     int64
-	rampUpBlocks    int64
 
 	// State variables, changes as we get blocks
 	blocksSinceSubscription int64   // How many blocks have passed since subscribing
@@ -1208,7 +1207,6 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	registry KeeperRegistry,
 	upkeepID *big.Int,
 	blockRange int64,
-	rampUpBlocks int64,
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
@@ -1231,7 +1229,6 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		complete:                false,
 		lastBlockNum:            0,
 		upkeepIndex:             upkeepIndex,
-		rampUpBlocks:            rampUpBlocks,
 		firstBlockNum:           0,
 	}
 }
