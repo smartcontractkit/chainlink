@@ -21,7 +21,7 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
   function getRequiredFee(
     bytes calldata, /* data */
     OCR2DRRegistryInterface.RequestBilling calldata /* billing */
-  ) public pure override returns (uint32) {
+  ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
     return 0;
   }
@@ -38,7 +38,7 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
     if (s_registry == address(0)) {
       revert EmptyBillingRegistry();
     }
-    uint32 requiredFee = getRequiredFee(data, billing);
+    uint96 requiredFee = getRequiredFee(data, billing);
     OCR2DRRegistryInterface registry = OCR2DRRegistryInterface(s_registry);
     return registry.estimateCost(data, billing, requiredFee);
   }

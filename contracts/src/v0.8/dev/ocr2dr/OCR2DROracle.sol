@@ -92,7 +92,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
   function _report(
     uint32 initialGas,
     address transmitter,
-    address[] memory signers,
+    address[maxNumOracles] memory signers,
     bytes calldata report
   ) internal override {
     bytes32[] memory requestIds;
