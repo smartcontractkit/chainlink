@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"math/big"
 	"strconv"
 	"strings"
@@ -912,6 +913,16 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Id:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
+		}, nil
+	case ethereum.RegistryVersion_2_0:
+		parsedLog, err := v.registry2_0.ParseUpkeepPerformed(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepPerformedLog{
+			Id:      parsedLog.Id,
+			Success: parsedLog.Success,
+			From:    utils.ZeroAddress,
 		}, nil
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)

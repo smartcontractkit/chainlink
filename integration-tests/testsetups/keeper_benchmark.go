@@ -35,6 +35,7 @@ type KeeperBenchmarkTest struct {
 	TestReporter testreporters.KeeperBenchmarkTestReporter
 
 	keeperRegistries        []contracts.KeeperRegistry
+	keeperRegistrars        []contracts.KeeperRegistrar
 	keeperConsumerContracts [][]contracts.KeeperConsumerBenchmark
 	upkeepIDs               [][]*big.Int
 
@@ -79,6 +80,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	inputs := k.Inputs
 
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
+	k.keeperRegistrars = make([]contracts.KeeperRegistrar, len(inputs.RegistryVersions))
 	k.keeperConsumerContracts = make([][]contracts.KeeperConsumerBenchmark, len(inputs.RegistryVersions))
 	k.upkeepIDs = make([][]*big.Int, len(inputs.RegistryVersions))
 
@@ -108,7 +110,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 		err = k.chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
 
-		k.keeperRegistries[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
+		k.keeperRegistries[index], k.keeperRegistrars[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
 			inputs.RegistryVersions[index],
 			inputs.NumberOfContracts,
 			uint32(inputs.UpkeepGasLimit), //upkeepGasLimit
@@ -123,6 +125,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			inputs.FirstEligibleBuffer,
 			inputs.PreDeployedConsumers,
 			inputs.UpkeepResetterAddress,
+			k.chainlinkNodes,
 		)
 	}
 
@@ -164,12 +167,22 @@ func (k *KeeperBenchmarkTest) Run() {
 
 	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
 
+	nodesWithoutBootstrap := k.chainlinkNodes[1:]
+
 	for rIndex := range k.keeperRegistries {
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address())
+
 		// Reset upkeeps so that they become eligible gradually after the test starts
 		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
 			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, k.keeperConsumerContracts[rIndex], inputs.UpkeepResetterAddress)
 		// Send keeper jobs to registry and chainlink nodes
-		actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, contracts.OCRConfig{})
+		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 {
+			actions.CreateOCRKeeperJobs(k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), rIndex)
+			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
+			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+		} else {
+			actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, ocrConfig)
+		}
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
@@ -242,6 +255,8 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 		contractABI, err = ethereum.KeeperRegistry12MetaData.GetAbi()
 	case ethereum.RegistryVersion_1_3:
 		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
+	case ethereum.RegistryVersion_2_0:
+		contractABI, err = ethereum.KeeperRegistry20MetaData.GetAbi()
 	default:
 		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
 	}
