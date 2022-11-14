@@ -5,9 +5,8 @@ option go_package = "core/services/ocr2/plugins/directrequestocr/config";
 package config_types;
 
 enum AggregationMethod {
-    AGGREGATION_UNSPECIFIED = 0;
-    AGGREGATION_MODE = 1;
-    AGGREGATION_MEDIAN = 2;
+    AGGREGATION_MODE = 0;
+    AGGREGATION_MEDIAN = 1;
 }
 
 message ReportingPluginConfig {
