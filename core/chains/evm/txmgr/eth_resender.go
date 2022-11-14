@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -32,6 +33,7 @@ const defaultResenderPollInterval = 5 * time.Second
 type EthResender struct {
 	db        *sqlx.DB
 	ethClient evmclient.Client
+	ks        KeyStore
 	chainID   big.Int
 	interval  time.Duration
 	config    Config
@@ -43,7 +45,7 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client, pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client, ks KeyStore, pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
@@ -51,6 +53,7 @@ func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client,
 	return &EthResender{
 		db,
 		ethClient,
+		ks,
 		*ethClient.ChainID(),
 		pollInterval,
 		config,
@@ -95,25 +98,30 @@ func (er *EthResender) runLoop() {
 }
 
 func (er *EthResender) resendUnconfirmed() error {
+	keys, err := er.ks.EnabledKeysForChain(&er.chainID)
+	if err != nil {
+		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
+	}
 	ageThreshold := er.config.EthTxResendAfterThreshold()
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
-
 	olderThan := time.Now().Add(-ageThreshold)
-	attempts, err := FindEthTxAttemptsRequiringResend(er.db, olderThan, maxInFlightTransactions, er.chainID)
-	if err != nil {
-		return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
+	var allAttempts []EthTxAttempt
+	for _, k := range keys {
+		var attempts []EthTxAttempt
+		attempts, err = FindEthTxAttemptsRequiringResend(er.db, olderThan, maxInFlightTransactions, er.chainID, k.Address)
+		if err != nil {
+			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
+		}
+
+		allAttempts = append(allAttempts, attempts...)
 	}
 
-	if len(attempts) == 0 {
-		return nil
-	}
-
-	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(attempts))
+	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(allAttempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(allAttempts))
 
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
-	reqs, err := batchSendTransactions(ctx, er.db, attempts, batchSize, er.logger, er.ethClient)
+	reqs, err := batchSendTransactions(ctx, er.db, allAttempts, batchSize, er.logger, er.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}
@@ -124,7 +132,7 @@ func (er *EthResender) resendUnconfirmed() error {
 
 // FindEthTxAttemptsRequiringResend returns the highest priced attempt for each
 // eth_tx that was last sent before or at the given time (up to limit)
-func FindEthTxAttemptsRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int) (attempts []EthTxAttempt, err error) {
+func FindEthTxAttemptsRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error) {
 	var limit null.Uint32
 	if maxInFlightTransactions > 0 {
 		limit = null.Uint32From(maxInFlightTransactions)
@@ -133,10 +141,10 @@ func FindEthTxAttemptsRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFli
 SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
 FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
-WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2
+WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
 ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
-LIMIT $3
-`, olderThan, chainID.String(), limit)
+LIMIT $4
+`, olderThan, chainID.String(), address, limit)
 
 	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
 }

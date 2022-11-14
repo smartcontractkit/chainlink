@@ -98,6 +98,9 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
 
 - Fixed minor bug where Chainlink would attempt (and fail) to estimate a tip cap higher than the maximum configured gas price in EIP1559 mode. It now caps the tipcap to the max instead of erroring.
 - Fixed bug whereby it was impossible to remove eth keys that had extant transactions. Now, removing an eth key will drop all associated data automatically including past transactions.
+- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
+
+<!-- unreleasedstop -->
 
 ## 1.9.0 - 2022-10-12
 
