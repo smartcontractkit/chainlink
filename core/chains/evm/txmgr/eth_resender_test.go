@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
@@ -36,7 +35,7 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 10, cltest.FixtureChainID, fromAddress)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 10, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
@@ -71,16 +70,9 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	attempt4_3.State = txmgr.EthTxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_3))
 
-	t.Run("returns nothing if there are transactions from a different key", func(t *testing.T) {
-		olderThan := time.Now()
-		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 10, cltest.FixtureChainID, utils.RandomAddress())
-		require.NoError(t, err)
-		assert.Len(t, attempts, 0)
-	})
-
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID, fromAddress)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -89,7 +81,7 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns the highest price attempt for EIP-1559 transactions", func(t *testing.T) {
 		olderThan := time.Unix(1616509400, 0)
-		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID, fromAddress)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 4)
 		assert.Equal(t, attempt4_4.ID, attempts[3].ID)
@@ -97,54 +89,11 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("applies limit", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 1, cltest.FixtureChainID, fromAddress)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 1, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
 	})
-}
-
-func Test_EthResender_resendUnconfirmed(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	logCfg := pgtest.NewQConfig(true)
-	lggr := logger.TestLogger(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
-
-	borm := cltest.NewTxmORM(t, db, logCfg)
-
-	originalBroadcastAt := time.Unix(1616509100, 0)
-
-	// fewer than EvmMaxInFlightTransactions
-	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions()/2; i++ {
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress, originalBroadcastAt)
-	}
-
-	// exactly EvmMaxInFlightTransactions
-	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions(); i++ {
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress2, originalBroadcastAt)
-	}
-
-	// more than EvmMaxInFlightTransactions
-	for i := uint32(0); i < evmcfg.EvmMaxInFlightTransactions()*2; i++ {
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, int64(i), fromAddress3, originalBroadcastAt)
-	}
-
-	er := txmgr.NewEthResender(lggr, db, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
-
-	t.Run("sends up to EvmMaxInFlightTransactions per key", func(t *testing.T) {
-		err := txmgr.ResendUnconfirmed(er)
-		require.NoError(t, err)
-	})
-	t.Fatal("TODO: test errors")
 }
 
 func Test_EthResender_Start(t *testing.T) {
@@ -166,7 +115,7 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEthResender(lggr, db, ethClient, ethKeyStore, 100*time.Millisecond, evmcfg)
+		er := txmgr.NewEthResender(lggr, db, ethClient, 100*time.Millisecond, evmcfg)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, originalBroadcastAt)
