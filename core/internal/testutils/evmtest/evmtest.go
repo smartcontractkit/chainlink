@@ -45,7 +45,7 @@ func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.Chai
 			chainID := utils.NewBigI(0)
 			evmCfg = &v2.EVMConfig{
 				ChainID: chainID,
-				Chain:   v2.DefaultsFrom(chainID, nil),
+				Chain:   v2.Defaults(chainID),
 			}
 		}
 

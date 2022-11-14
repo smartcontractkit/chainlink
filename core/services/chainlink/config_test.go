@@ -1327,3 +1327,30 @@ func Test_validateEnv(t *testing.T) {
 	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2
 	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
 }
+
+func TestConfig_SetFrom(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name string
+		exp  string
+		from []string
+	}{
+		{"empty", "", []string{""}},
+		{"empty-full", fullTOML, []string{"", fullTOML}},
+		{"empty-multi", multiChainTOML, []string{"", multiChainTOML}},
+		{"full-empty", fullTOML, []string{fullTOML, ""}},
+		{"multi-empty", multiChainTOML, []string{multiChainTOML, ""}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var c Config
+			for _, fs := range tt.from {
+				var f Config
+				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
+				c.SetFrom(&f)
+			}
+			ts, err := c.TOMLString()
+			require.NoError(t, err)
+			assert.Equal(t, tt.exp, ts)
+		})
+	}
+}
