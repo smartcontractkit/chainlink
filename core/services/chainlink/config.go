@@ -60,9 +60,9 @@ func (c *Config) setDefaults() {
 
 	for i := range c.EVM {
 		if input := c.EVM[i]; input == nil {
-			c.EVM[i] = &evmcfg.EVMConfig{Chain: evmcfg.DefaultsFrom(nil, nil)}
+			c.EVM[i] = &evmcfg.EVMConfig{Chain: evmcfg.Defaults(nil)}
 		} else {
-			input.Chain = evmcfg.DefaultsFrom(input.ChainID, &input.Chain)
+			input.Chain = evmcfg.Defaults(input.ChainID, &input.Chain)
 		}
 	}
 
@@ -86,6 +86,14 @@ func (c *Config) setDefaults() {
 		}
 		c.Terra[i].Chain.SetDefaults()
 	}
+}
+
+func (c *Config) SetFrom(f *Config) {
+	c.Core.SetFrom(&f.Core)
+	c.EVM.SetFrom(&f.EVM)
+	c.Solana.SetFrom(&f.Solana)
+	c.Starknet.SetFrom(&f.Starknet)
+	c.Terra.SetFrom(&f.Terra)
 }
 
 type Secrets struct {
