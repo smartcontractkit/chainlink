@@ -145,7 +145,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		)
 
 		By("Create OCR Automation Jobs")
-		actions.CreateOCRKeeperJobs(chainlinkNodes, registry.Address(), network.ChainID)
+		actions.CreateOCRKeeperJobs(chainlinkNodes, registry.Address(), network.ChainID, 0)
 		nodesWithoutBootstrap := chainlinkNodes[1:]
 		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, registryConfig, registrar.Address())
 		err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
