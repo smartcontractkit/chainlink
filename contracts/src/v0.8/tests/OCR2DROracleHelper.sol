@@ -2,6 +2,7 @@
 pragma solidity ^0.8.6;
 
 import "../dev/ocr2dr/OCR2DROracle.sol";
+import "hardhat/console.sol";
 
 contract OCR2DROracleHelper is OCR2DROracle {
   function callValidateReport(bytes calldata report) external pure returns (bool isValid) {

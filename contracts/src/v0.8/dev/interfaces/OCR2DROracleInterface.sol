@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
+import "./OCR2DRRegistryInterface.sol";
+import "./OCR2DRBillableInterface.sol";
+
 /**
  * @title OCR2DR oracle interface.
  */
-interface OCR2DROracleInterface {
+interface OCR2DROracleInterface is OCR2DRBillableInterface {
+  /**
+   * @notice Sets the stored billing registry address
+   * @param registryAddress The address of OCR2DR billing registry contract
+   */
+  function setRegistry(address registryAddress) external;
+
   /**
    * @notice Returns DON secp256k1 public key used to encrypt secrets
    * @dev All Oracles nodes have the corresponding private key
@@ -22,10 +31,11 @@ interface OCR2DROracleInterface {
 
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId
-   * @param subscriptionId A unique subscription ID allocated by billing system,
-   * a client can make requests from different contracts referencing the same subscription
+   * @param billing Billing configuration for the request
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
    * @return requestId A unique request identifier (unique per oracle)
    */
-  function sendRequest(uint256 subscriptionId, bytes calldata data) external returns (bytes32);
+  function sendRequest(OCR2DRRegistryInterface.RequestBilling calldata billing, bytes calldata data)
+    external
+    returns (bytes32);
 }
