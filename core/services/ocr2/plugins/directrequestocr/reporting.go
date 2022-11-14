@@ -140,9 +140,9 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 		return false, nil, err
 	}
 
-	reqIdToResultList := make(map[string][]*ProcessedRequest)
+	reqIdToObservationList := make(map[string][]*ProcessedRequest)
 	for _, id := range queryProto.RequestIDs {
-		reqIdToResultList[string(id)] = []*ProcessedRequest{}
+		reqIdToObservationList[string(id)] = []*ProcessedRequest{}
 	}
 
 	for _, ob := range obs {
@@ -153,32 +153,50 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 				commontypes.LogFields{"err": err, "observer": ob.Observer})
 			continue
 		}
-		for _, res := range observationProto.ProcessedRequests {
-			id := string(res.RequestID)
-			if val, ok := reqIdToResultList[id]; ok {
-				reqIdToResultList[id] = append(val, res)
+		for _, processedReq := range observationProto.ProcessedRequests {
+			id := string(processedReq.RequestID)
+			if val, ok := reqIdToObservationList[id]; ok {
+				reqIdToObservationList[id] = append(val, processedReq)
 			}
 		}
 	}
 
-	// TODO make aggregation modular and configurable with Median as default.
-	// https://app.shortcut.com/chainlinklabs/story/56740/modular-aggregation
-	const minRequiredObservations = 3
-	var aggregated []*ProcessedRequest
-	for _, obsArr := range reqIdToResultList {
-		if len(obsArr) >= minRequiredObservations {
-			aggregated = append(aggregated, obsArr[0])
+	defaultAggMethod := r.specificConfig.Config.GetDefaultAggregationMethod()
+	var allAggregated []*ProcessedRequest
+	for reqId, observations := range reqIdToObservationList {
+		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
+			r.logger.Debug("unable to aggregate request in current round", commontypes.LogFields{
+				"epoch":         ts.Epoch,
+				"round":         ts.Round,
+				"requestId":     reqId,
+				"nObservations": len(observations),
+			})
+			continue
 		}
+
+		// TODO: support per-request aggregation method
+		// https://app.shortcut.com/chainlinklabs/story/57701/per-request-plugin-config
+		aggregated, errAgg := Aggregate(defaultAggMethod, observations)
+		if errAgg != nil {
+			r.logger.Error("error when aggregating reqId", commontypes.LogFields{
+				"epoch":     ts.Epoch,
+				"round":     ts.Round,
+				"requestId": reqId,
+				"err":       errAgg,
+			})
+			continue
+		}
+		allAggregated = append(allAggregated, aggregated)
 	}
 
 	r.logger.Debug("directRequestReporting Report phase done", commontypes.LogFields{
-		"nAggregatedRequests": len(aggregated),
-		"reporting":           len(aggregated) > 0,
+		"nAggregatedRequests": len(allAggregated),
+		"reporting":           len(allAggregated) > 0,
 	})
-	if len(aggregated) == 0 {
+	if len(allAggregated) == 0 {
 		return false, nil, nil
 	}
-	reportBytes, err := r.reportCodec.EncodeReport(aggregated)
+	reportBytes, err := r.reportCodec.EncodeReport(allAggregated)
 	if err != nil {
 		return false, nil, err
 	}
