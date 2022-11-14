@@ -67,8 +67,8 @@ func init() {
 	})
 }
 
-// Defaults returns the default Chain values, optionally for the given chainID, as well as a name if the chainID is known.
-func Defaults(chainID *utils.Big) (c Chain, name string) {
+// DefaultsNamed returns the default Chain values, optionally for the given chainID, as well as a name if the chainID is known.
+func DefaultsNamed(chainID *utils.Big) (c Chain, name string) {
 	c.SetFrom(&fallback)
 	if chainID == nil {
 		return
@@ -81,11 +81,12 @@ func Defaults(chainID *utils.Big) (c Chain, name string) {
 	return
 }
 
-// DefaultsFrom returns a Chain based on the defaults for chainID and fields from with.
-func DefaultsFrom(chainID *utils.Big, with *Chain) Chain {
-	c, _ := Defaults(chainID)
-	if with != nil {
-		c.SetFrom(with)
+// Defaults returns a Chain based on the defaults for chainID and fields from with, applied in order so later Chains
+// override earlier ones.
+func Defaults(chainID *utils.Big, with ...*Chain) Chain {
+	c, _ := DefaultsNamed(chainID)
+	for _, w := range with {
+		c.SetFrom(w)
 	}
 	return c
 }

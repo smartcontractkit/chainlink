@@ -80,7 +80,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 			want: &evmcfg.EVMConfig{
 				ChainID: validId,
 				Enabled: ptr(true),
-				Chain: evmcfg.DefaultsFrom(nil, &evmcfg.Chain{
+				Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						EIP1559DynamicFees: ptr(true),
 						BlockHistory: evmcfg.BlockHistoryEstimator{
@@ -147,10 +147,10 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	newChains := evmcfg.EVMConfigs{
-		{ChainID: utils.NewBig(testutils.NewRandomEVMChainID()), Chain: evmcfg.DefaultsFrom(nil, nil)},
+		{ChainID: utils.NewBig(testutils.NewRandomEVMChainID()), Chain: evmcfg.Defaults(nil)},
 		{
 			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
-			Chain: evmcfg.DefaultsFrom(nil, &evmcfg.Chain{
+			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](13),
 				GasEstimator: evmcfg.GasEstimator{
 					EIP1559DynamicFees: ptr(true),
@@ -163,7 +163,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		},
 		{
 			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
-			Chain: evmcfg.DefaultsFrom(nil, &evmcfg.Chain{
+			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](5),
 				GasEstimator: evmcfg.GasEstimator{
 					EIP1559DynamicFees: ptr(false),
