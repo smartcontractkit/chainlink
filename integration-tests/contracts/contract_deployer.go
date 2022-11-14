@@ -64,6 +64,10 @@ type ContractDeployer interface {
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployUpkeepResetter() (UpkeepResetter, error)
+	DeployStaking(params ethereum.StakingPoolConstructorParams) (Staking, error)
+	DeploySafeCast() (SafeCast, error)
+	DeployStakingPoolLib() (StakingPoolLib, error)
+	DeployRewardLib() (RewardLib, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -216,6 +220,74 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 		client:         e.client,
 		fluxAggregator: instance.(*ethereum.FluxAggregator),
 		address:        address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployStaking(params ethereum.StakingPoolConstructorParams) (Staking, error) {
+	stakingAddress, _, instance, err := e.client.DeployContract("Staking", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployStaking(auth, backend, params)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumStaking{
+		client:  e.client,
+		staking: instance.(*ethereum.Staking),
+		address: stakingAddress,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployRewardLib() (RewardLib, error) {
+	address, _, instance, err := e.client.DeployContract("RewardLib", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployRewardLib(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumRewardLib{
+		client:    e.client,
+		rewardLib: instance.(*ethereum.RewardLib),
+		address:   address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployStakingPoolLib() (StakingPoolLib, error) {
+	stakingAddress, _, instance, err := e.client.DeployContract("StakingPoolLib", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployStakingPoolLib(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumStakingPoolLib{
+		client:         e.client,
+		stakingPoolLib: instance.(*ethereum.StakingPoolLib),
+		address:        stakingAddress,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeploySafeCast() (SafeCast, error) {
+	stakingAddress, _, instance, err := e.client.DeployContract("SafeCast", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeploySafeCast(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumSafeCast{
+		client:   e.client,
+		safeCast: instance.(*ethereum.SafeCast),
+		address:  stakingAddress,
 	}, nil
 }
 
