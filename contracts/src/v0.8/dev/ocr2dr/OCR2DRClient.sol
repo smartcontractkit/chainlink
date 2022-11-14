@@ -4,6 +4,7 @@ pragma solidity ^0.8.6;
 import "./OCR2DR.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
+import "../interfaces/OCR2DRRegistryInterface.sol";
 
 /**
  * @title The OCR2DR client contract
@@ -33,10 +34,20 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
    * @notice Sends OCR2DR request to the stored oracle address
    * @param req The initialized OCR2DR.Request
    * @param subscriptionId The subscription ID
+   * @param gasLimit gas limit for the fulfillment callback
+   * @param confirmations  How many blocks you'd like the DON to wait before responding to the request.
    * @return requestId The generated request ID
    */
-  function sendRequest(OCR2DR.Request memory req, uint256 subscriptionId) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req));
+  function sendRequest(
+    OCR2DR.Request memory req,
+    uint64 subscriptionId,
+    uint32 gasLimit,
+    uint32 confirmations
+  ) internal returns (bytes32) {
+    bytes32 requestId = s_oracle.sendRequest(
+      OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit, confirmations),
+      OCR2DR.encodeCBOR(req)
+    );
     s_pendingRequests[requestId] = address(s_oracle);
     emit RequestSent(requestId);
     return requestId;
