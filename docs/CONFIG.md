@@ -2,7 +2,21 @@
 
 This document describes the TOML format for configuration.
 
-See also [SECRETS.md](secrets.md)
+See also [SECRETS.md](SECRETS.md)
+
+## Example
+
+```toml
+Log.Level = 'debug'
+
+[[EVM]]
+ChainID = '1' # Required
+
+[[EVM.Nodes]]
+Name = 'fake' # Required
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar' # Required
+```
 
 ## Table of contents
 
