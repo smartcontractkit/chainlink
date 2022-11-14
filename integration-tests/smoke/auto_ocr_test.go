@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strconv"
 
@@ -60,13 +59,12 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 	) {
 		By("Deploying the environment")
 		network := networks.SimulatedEVM
-		chainlinkTOML := client.NewDefaultTOMLBuilder().
+		chainlinkTOML := client.NewDefaultConfig().
 			AddNetworks(false, network).
 			AddOCR2Defaults().
 			AddKeeperDefaults().
 			AddP2PNetworkingV2().
-			String()
-		fmt.Println(chainlinkTOML)
+			MustTOML()
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-auto-ocr"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).

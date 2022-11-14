@@ -43,7 +43,7 @@ func TestOCRSoak(t *testing.T) {
 		AddHelm(mockserver.New(nil))
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(activeEVMNetwork).AddOCRDefaults().String()
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, activeEVMNetwork).AddOCRDefaults().String()
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -83,7 +83,7 @@ func TestForwarderOCRSoak(t *testing.T) {
 		AddHelm(mockserver.New(nil))
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(activeEVMNetwork).AddOCRDefaults().String()
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, activeEVMNetwork).AddOCRDefaults().String()
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -121,7 +121,7 @@ func TestKeeperSoak(t *testing.T) {
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(activeEVMNetwork).AddKeeperDefaults().String()
+	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, activeEVMNetwork).AddKeeperDefaults().String()
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{

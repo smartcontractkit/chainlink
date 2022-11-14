@@ -195,7 +195,7 @@ func defaultFluxEnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, network).AddOCRDefaults().String()
+	chainlinkTOML := client.NewDefaultConfig().AddNetworks(false, network).AddOCRDefaults().MustTOML()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).

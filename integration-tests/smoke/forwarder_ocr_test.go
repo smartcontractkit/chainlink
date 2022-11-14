@@ -131,10 +131,11 @@ func forwarderOCREnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(true, network).
+	chainlinkTOML := client.NewDefaultConfig().
+		AddNetworks(true, network).
 		AddOCRDefaults().
 		AddP2PNetworkingV1().
-		String()
+		MustTOML()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).

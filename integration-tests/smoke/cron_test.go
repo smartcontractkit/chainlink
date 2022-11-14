@@ -98,7 +98,7 @@ func defaultCronEnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, network).String()
+	chainlinkTOML := client.NewDefaultConfig().AddNetworks(false, network).MustTOML()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
