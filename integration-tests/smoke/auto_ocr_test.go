@@ -61,7 +61,8 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 		network := networks.SimulatedEVM
 		chainlinkTOML := client.NewDefaultConfig().
 			AddNetworks(false, network).
-			AddOCR2Defaults().
+			EnableOCR2().
+			EnableLogPoller().
 			AddKeeperDefaults().
 			AddP2PNetworkingV2().
 			MustTOML()

@@ -133,7 +133,7 @@ func forwarderOCREnv() *smokeTestInputs {
 	}
 	chainlinkTOML := client.NewDefaultConfig().
 		AddNetworks(true, network).
-		AddOCRDefaults().
+		EnableOCR().
 		AddP2PNetworkingV1().
 		MustTOML()
 	env := environment.New(&environment.Config{

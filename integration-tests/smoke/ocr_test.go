@@ -113,7 +113,7 @@ func defaultOCREnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	conf := client.NewDefaultConfig().AddNetworks(false, network).AddOCRDefaults().AddP2PNetworkingV1()
+	conf := client.NewDefaultConfig().AddNetworks(false, network).EnableOCR().AddP2PNetworkingV1()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).

@@ -40,27 +40,10 @@ func (c *ChainlinkConfigBuilder) AddNetworks(
 	networks ...*blockchain.EVMNetwork,
 ) *ChainlinkConfigBuilder {
 	for _, network := range networks {
-		nodes := []*v2.Node{}
-		for nodeId := range network.URLs {
-			wsURL, err := models.ParseURL(network.URLs[nodeId])
-			if err != nil {
-				log.Fatal().Str("URL", network.URLs[nodeId]).Err(err).Msg("Error in URL formatting")
-			}
-			httpURL, err := models.ParseURL(network.HTTPURLs[nodeId])
-			if err != nil {
-				log.Fatal().Str("URL", network.HTTPURLs[nodeId]).Err(err).Msg("Error in URL formatting")
-			}
-			nodes = append(nodes, &v2.Node{
-				Name:    Pointer(fmt.Sprintf("node-%d", nodeId)),
-				WSURL:   wsURL,
-				HTTPURL: httpURL,
-			})
-		}
-
 		c.config.EVM = append(c.config.EVM, &v2.EVMConfig{
 			ChainID: utils.NewBigI(network.ChainID),
 			Enabled: Pointer(true),
-			Nodes:   nodes,
+			Nodes:   c.networkNodes(network),
 			Chain: v2.Chain{
 				MinContractPayment: assets.NewLinkFromJuels(0),
 				Transactions: v2.Transactions{
@@ -70,6 +53,41 @@ func (c *ChainlinkConfigBuilder) AddNetworks(
 		})
 	}
 	return c
+}
+
+// AddConfiguredNetwork enables adding a more specially configured EVM network
+func (c *ChainlinkConfigBuilder) AddConfiguredNetwork(
+	enableForwarders bool,
+	chainConfig v2.Chain,
+	network *blockchain.EVMNetwork,
+) *ChainlinkConfigBuilder {
+	c.config.EVM = append(c.config.EVM, &v2.EVMConfig{
+		ChainID: utils.NewBigI(network.ChainID),
+		Enabled: Pointer(true),
+		Nodes:   c.networkNodes(network),
+		Chain:   chainConfig,
+	})
+	return c
+}
+
+func (c *ChainlinkConfigBuilder) networkNodes(network *blockchain.EVMNetwork) []*v2.Node {
+	nodes := []*v2.Node{}
+	for nodeId := range network.URLs {
+		wsURL, err := models.ParseURL(network.URLs[nodeId])
+		if err != nil {
+			log.Fatal().Str("URL", network.URLs[nodeId]).Err(err).Msg("Error in URL formatting")
+		}
+		httpURL, err := models.ParseURL(network.HTTPURLs[nodeId])
+		if err != nil {
+			log.Fatal().Str("URL", network.HTTPURLs[nodeId]).Err(err).Msg("Error in URL formatting")
+		}
+		nodes = append(nodes, &v2.Node{
+			Name:    Pointer(fmt.Sprintf("node-%d", nodeId)),
+			WSURL:   wsURL,
+			HTTPURL: httpURL,
+		})
+	}
+	return nodes
 }
 
 // AddP2PNetworkingV1 adds defaults for V1 P2P networking
@@ -85,8 +103,6 @@ func (c *ChainlinkConfigBuilder) AddP2PNetworkingV2() *ChainlinkConfigBuilder {
 	c.config.P2P.V2.Enabled = Pointer(true)
 	c.config.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 	c.config.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
-
-	c.config.Feature.LogPoller = Pointer(true)
 	return c
 }
 
@@ -99,15 +115,21 @@ func (c *ChainlinkConfigBuilder) AddKeeperDefaults() *ChainlinkConfigBuilder {
 	return c
 }
 
-// AddOCRDefaults enables OCR functionality
-func (c *ChainlinkConfigBuilder) AddOCRDefaults() *ChainlinkConfigBuilder {
+// EnableOCR enables OCR functionality
+func (c *ChainlinkConfigBuilder) EnableOCR() *ChainlinkConfigBuilder {
 	c.config.OCR.Enabled = Pointer(true)
 	return c
 }
 
-// AddOCR2Defaults enables OCR2 functionality
-func (c *ChainlinkConfigBuilder) AddOCR2Defaults() *ChainlinkConfigBuilder {
+// EnableOCR2 enables OCR2 functionality
+func (c *ChainlinkConfigBuilder) EnableOCR2() *ChainlinkConfigBuilder {
 	c.config.OCR2.Enabled = Pointer(true)
+	return c
+}
+
+// EnableLogPoller enables LogPoller feature
+func (c *ChainlinkConfigBuilder) EnableLogPoller() *ChainlinkConfigBuilder {
+	c.config.Feature.LogPoller = Pointer(true)
 	return c
 }
 
