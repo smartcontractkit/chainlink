@@ -101,7 +101,13 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 
 	observationProto := Observation{}
 	for _, id := range queryProto.RequestIDs {
-		localResult, _ := r.pluginORM.FindById(sliceToByte32(id))
+		localResult, err2 := r.pluginORM.FindById(sliceToByte32(id))
+		if err2 != nil {
+			r.logger.Debug("directRequestReporting Observation phase can't find request from query", commontypes.LogFields{
+				"requestID": hex.EncodeToString(id),
+			})
+			continue
+		}
 		if localResult.State == directrequestocr.RESULT_READY {
 			resultProto := ProcessedRequest{
 				RequestID: localResult.ContractRequestID[:],
