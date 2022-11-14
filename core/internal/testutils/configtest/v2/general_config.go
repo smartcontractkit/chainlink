@@ -64,7 +64,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	enabled := true
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.DefaultsFrom(chainID, nil),
+		Chain:   evmcfg.Defaults(chainID),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	})
@@ -89,7 +89,7 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 	enabled := true
 	cfg := evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.DefaultsFrom(chainID, nil),
+		Chain:   evmcfg.Defaults(chainID),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	}

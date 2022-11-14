@@ -82,13 +82,25 @@ type GeneralConfigOpts struct {
 
 // ParseTOML sets Config and Secrets from the given TOML strings.
 func (o *GeneralConfigOpts) ParseTOML(config, secrets string) (err error) {
-	if err2 := v2.DecodeTOML(strings.NewReader(config), &o.Config); err2 != nil {
-		err = multierr.Append(err, fmt.Errorf("failed to decode config TOML: %w", err2))
+	return multierr.Combine(o.ParseConfig(config), o.ParseSecrets(secrets))
+}
+
+// ParseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
+func (o *GeneralConfigOpts) ParseConfig(config string) error {
+	var c Config
+	if err2 := v2.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
+		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
+	o.Config.SetFrom(&c)
+	return nil
+}
+
+// ParseSecrets sets Secrets from the given TOML string.
+func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
 	if err2 := v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets); err2 != nil {
-		err = multierr.Append(err, fmt.Errorf("failed to decode secrets TOML: %w", err2))
+		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
-	return
+	return nil
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
