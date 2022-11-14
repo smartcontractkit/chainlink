@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -48,6 +49,20 @@ func (cs StarknetConfigs) ValidateConfig() (err error) {
 		}
 	}
 	return
+}
+
+func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
+	for _, f := range *fs {
+		if f.ChainID == nil {
+			*cs = append(*cs, f)
+		} else if i := slices.IndexFunc(*cs, func(c *StarknetConfig) bool {
+			return c.ChainID != nil && *c.ChainID == *f.ChainID
+		}); i == -1 {
+			*cs = append(*cs, f)
+		} else {
+			(*cs)[i].SetFrom(f)
+		}
+	}
 }
 
 func (cs StarknetConfigs) Chains(ids ...string) (chains []types.DBChain) {
@@ -128,6 +143,38 @@ func (c *StarknetConfig) IsEnabled() bool {
 	return c.Enabled == nil || *c.Enabled
 }
 
+func (c *StarknetConfig) SetFrom(f *StarknetConfig) {
+	if f.ChainID != nil {
+		c.ChainID = f.ChainID
+	}
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
+	setFromChain(&c.Chain, &f.Chain)
+	c.Nodes.SetFrom(&f.Nodes)
+}
+
+func setFromChain(c, f *stkcfg.Chain) {
+	if f.OCR2CachePollPeriod != nil {
+		c.OCR2CachePollPeriod = f.OCR2CachePollPeriod
+	}
+	if f.OCR2CacheTTL != nil {
+		c.OCR2CacheTTL = f.OCR2CacheTTL
+	}
+	if f.RequestTimeout != nil {
+		c.RequestTimeout = f.RequestTimeout
+	}
+	if f.TxTimeout != nil {
+		c.TxTimeout = f.TxTimeout
+	}
+	if f.TxSendFrequency != nil {
+		c.TxSendFrequency = f.TxSendFrequency
+	}
+	if f.TxMaxBatchSize != nil {
+		c.TxMaxBatchSize = f.TxMaxBatchSize
+	}
+}
+
 func (c *StarknetConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {
 	c.ChainID = &ch.ID
 	c.Enabled = &ch.Enabled
@@ -176,6 +223,29 @@ func (c *StarknetConfig) AsV1() types.DBChain {
 }
 
 type StarknetNodes []*stkcfg.Node
+
+func (ns *StarknetNodes) SetFrom(fs *StarknetNodes) {
+	for _, f := range *fs {
+		if f.Name == nil {
+			*ns = append(*ns, f)
+		} else if i := slices.IndexFunc(*ns, func(n *stkcfg.Node) bool {
+			return n.Name != nil && *n.Name == *f.Name
+		}); i == -1 {
+			*ns = append(*ns, f)
+		} else {
+			setFromNode((*ns)[i], f)
+		}
+	}
+}
+
+func setFromNode(n, f *stkcfg.Node) {
+	if f.Name != nil {
+		n.Name = f.Name
+	}
+	if f.URL != nil {
+		n.URL = f.URL
+	}
+}
 
 func legacyNode(n *stkcfg.Node, id string) db.Node {
 	return db.Node{
