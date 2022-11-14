@@ -453,7 +453,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		enabled := true
 		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 			ChainID: customChainID,
-			Chain:   evmcfg.DefaultsFrom(customChainID, nil),
+			Chain:   evmcfg.Defaults(customChainID),
 			Enabled: &enabled,
 			Nodes:   evmcfg.EVMNodes{{}},
 		})
