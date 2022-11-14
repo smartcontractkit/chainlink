@@ -184,13 +184,13 @@ var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate,
 // https://github.com/klaytn/klaytn/blob/dev/blockchain/error.go
 // https://github.com/klaytn/klaytn/blob/dev/blockchain/tx_pool.go
 var klaytn = ClientErrors{
-	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
-	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(known transaction)`), // `known transaction` error could end with additional information
-	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$|there is another tx which has the same nonce in the tx pool$`),
-	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)(transaction underpriced|^intrinsic gas too low)`),
-	LimitReached:                      regexp.MustCompile(`(: |^)txpool is full`),
-	InsufficientEth:                   regexp.MustCompile(`(: |^)insufficient funds`),
-	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)(invalid gas fee cap|max fee per gas higher than max priority fee per gas)`),
+	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),                                                                                    // retry with an increased nonce
+	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(known transaction)`),                                                                               // don't send the tx again. The exactly same tx is already in the mempool
+	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$|there is another tx which has the same nonce in the tx pool$`), // retry with an increased gasPrice or maxFeePerGas. This error happened when there is another tx having smaller gasPrice or maxFeePerGas exist in the mempool
+	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)(transaction underpriced|^intrinsic gas too low)`),                                                  // retry with an increased gasPrice or maxFeePerGas
+	LimitReached:                      regexp.MustCompile(`(: |^)txpool is full`),                                                                                    // retry with few seconds wait
+	InsufficientEth:                   regexp.MustCompile(`(: |^)insufficient funds`),                                                                                // stop to send a tx. The sender address doesn't have enough KLAY
+	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)(invalid gas fee cap|max fee per gas higher than max priority fee per gas)`),                        // retry with a valid gasPrice, maxFeePerGas, or maxPriorityFeePerGas. The new value can get from the return of `eth_gasPrice`
 	Fatal:                             gethFatal,
 }
 
