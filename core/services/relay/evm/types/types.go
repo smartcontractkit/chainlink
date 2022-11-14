@@ -2,9 +2,11 @@ package types
 
 import (
 	"github.com/lib/pq"
+
+	"gopkg.in/guregu/null.v2"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v2"
 )
 
 type MercuryConfig struct {

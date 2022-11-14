@@ -14,12 +14,13 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 var (
