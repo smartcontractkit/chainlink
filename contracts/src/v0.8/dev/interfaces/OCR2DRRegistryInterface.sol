@@ -20,7 +20,7 @@ interface OCR2DRRegistryInterface {
 
   /**
    * @notice Get configuration relevant for making requests
-   * @return uint16 global min for request confirmations
+   * @return uint32 global min for request confirmations
    * @return uint32 global max for request gas limit
    * @return address[] list of registered DONs
    */
@@ -28,20 +28,20 @@ interface OCR2DRRegistryInterface {
     external
     view
     returns (
-      uint16,
+      uint32,
       uint32,
       address[] memory
     );
 
   /**
-   * @notice Determine the fee (in millionths of LINK) charged that will be paid to the Registry owner
+   * @notice Determine the charged fee that will be paid to the Registry owner
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
    * @param billing The request's billing configuration
-   * @return fee Cost in millionths of LINK
+   * @return fee Cost in Juels (1e18) of LINK
    */
   function getRequiredFee(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
     external
-    returns (uint32);
+    returns (uint96);
 
   /**
    * @notice Estimate the execution cost in gas that will be reimbursed to the Node Operator who transmits the data on-chain
@@ -55,12 +55,12 @@ interface OCR2DRRegistryInterface {
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
    * @param billing The request's billing configuration
    * @param donRequiredFee Fee charged by the DON that is paid to Oracle Node
-   * @return billedCost Cost in millionths of LINK
+   * @return billedCost Cost in Juels (1e18) of LINK
    */
   function estimateCost(
     bytes calldata data,
     OCR2DRRegistryInterface.RequestBilling calldata billing,
-    uint32 donRequiredFee
+    uint96 donRequiredFee
   ) external view returns (uint96);
 
   /**
@@ -88,7 +88,7 @@ interface OCR2DRRegistryInterface {
     bytes calldata response,
     bytes calldata err,
     address transmitter,
-    address[] memory signers,
+    address[31] memory signers, // Matches maxNumOracles from OCR2Abstract.sol
     uint32 initialGas
   ) external returns (uint96);
 
@@ -104,7 +104,7 @@ interface OCR2DRRegistryInterface {
       address,
       uint64,
       uint32,
-      uint8
+      uint32
     );
 
   /**

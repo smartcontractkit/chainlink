@@ -21,6 +21,9 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
   uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+  // Maximum number of oracles the offchain reporting protocol is designed for
+  // Needs to match OCR2Abstract.sol
+  uint256 internal constant maxNumOracles = 31;
 
   error TooManyConsumers();
   error InsufficientBalance();
@@ -77,7 +80,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
   uint16 public constant MAX_REQUEST_CONFIRMATIONS = 200;
-  error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
+  error InvalidRequestConfirmations(uint32 have, uint32 min, uint32 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
   error DonAlreadyRegistered(address don);
@@ -98,8 +101,8 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   struct Commitment {
     OCR2DRRegistryInterface.RequestBilling billing;
     address don;
-    uint32 donFee;
-    uint32 registryFee;
+    uint96 donFee;
+    uint96 registryFee;
   }
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
@@ -109,14 +112,14 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     address indexed don,
     bytes32 requestId,
     uint64 indexed subscriptionId,
-    uint16 minimumRequestConfirmations,
+    uint32 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     address indexed sender
   );
   event BillingEnd(bytes32 indexed requestId, uint96 payment, bool success);
 
   struct Config {
-    uint16 minimumRequestConfirmations;
+    uint32 minimumRequestConfirmations;
     uint32 maxGasLimit;
     // Reentrancy protection.
     bool reentrancyLock;
@@ -229,7 +232,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     external
     view
     returns (
-      uint16 minimumRequestConfirmations,
+      uint32 minimumRequestConfirmations,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation
@@ -289,7 +292,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     view
     override
     returns (
-      uint16,
+      uint32,
       uint32,
       address[] memory
     )
@@ -303,7 +306,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   function getRequiredFee(
     bytes calldata, /* data */
     OCR2DRRegistryInterface.RequestBilling calldata /* billing */
-  ) public pure override returns (uint32) {
+  ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
     return 0;
   }
@@ -326,7 +329,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   function estimateCost(
     bytes calldata data,
     OCR2DRRegistryInterface.RequestBilling calldata billing,
-    uint32 donRequiredFee
+    uint96 donRequiredFee
   ) public view override returns (uint96) {
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
@@ -336,8 +339,8 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     uint256 executionGas = estimateExecutionGas(billing);
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * tx.gasprice * executionGas) / uint256(weiPerUnitLink);
-    uint32 registryFee = getRequiredFee(data, billing);
-    uint256 fee = 1e12 * (uint256(donRequiredFee) + uint256(registryFee));
+    uint96 registryFee = getRequiredFee(data, billing);
+    uint256 fee = uint256(donRequiredFee) + uint256(registryFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
@@ -425,7 +428,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       address,
       uint64,
       uint32,
-      uint8
+      uint32
     )
   {
     Commitment memory commitment = s_requestCommitments[requestId];
@@ -493,7 +496,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     bytes calldata response,
     bytes calldata err,
     address transmitter,
-    address[] memory /* signers */,
+    address[maxNumOracles] memory, /* signers */
     uint32 initialGas
   ) external onlyAllowedDons nonReentrant returns (uint96) {
     Commitment memory commitment = s_requestCommitments[requestId];
@@ -546,8 +549,8 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   function calculatePaymentAmount(
     uint256 startGas,
     uint32 gasAfterPaymentCalculation,
-    uint32 donFee,
-    uint32 registryFee,
+    uint96 donFee,
+    uint96 registryFee,
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     int256 weiPerUnitLink;
@@ -558,7 +561,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())) /
       uint256(weiPerUnitLink);
-    uint256 fee = 1e12 * (uint256(donFee) + uint256(registryFee));
+    uint256 fee = uint256(donFee) + uint256(registryFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
