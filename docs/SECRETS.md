@@ -127,7 +127,8 @@ Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
 ```toml
 [Mercury]
 ```
-
+Mercury credentials are needed if running OCR2 jobs in mercury mode. 0 or
+more Mercury credentials may be specified. URLs must be unique.
 
 ## Mercury.Credentials<a id='Mercury-Credentials'></a>
 ```toml
