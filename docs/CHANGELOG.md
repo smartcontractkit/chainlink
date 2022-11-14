@@ -14,7 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 1.10.1 - Unreleased
 
-...
+#### TOML Configuration (optional)
+
+Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
+This is currently _optional_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method.
+
+##### How to use
+
+TOML configuration can be enabled by simply using the new `-config <filenames>` flag or `CL_CONFIG` environment variable.
+Multiple comma separated files can be used (`-c configA.toml,configB.toml`), and will be applied in order with duplicated fields overriding any earlier values.
+
+Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
+Secrets must be configured manually and passed via `-secrets <filename` or equivalent environment variables.
+
+**Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
+
+##### Detailed Docs
+
+[CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
 
 ## 1.10.0 - 2022-11-15
 

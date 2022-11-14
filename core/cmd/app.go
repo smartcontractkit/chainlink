@@ -71,14 +71,12 @@ func NewApp(client *Client) *cli.App {
 		},
 		cli.StringSliceFlag{
 			Name:   "config, c",
-			Hidden: !devMode,
-			Usage:  "EXPERIMENTAL: TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
+			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
 			EnvVar: "CL_CONFIG",
 		},
 		cli.StringFlag{
-			Name:   "secrets, s",
-			Hidden: !devMode,
-			Usage:  "EXPERIMENTAL: TOML configuration file for secrets. Must be set if and only if config is set.",
+			Name:  "secrets, s",
+			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
 		},
 	}
 	app.Before = func(c *cli.Context) error {
