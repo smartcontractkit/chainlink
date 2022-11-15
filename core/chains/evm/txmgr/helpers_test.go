@@ -10,6 +10,6 @@ func SetResumeCallbackOnEthBroadcaster(resumeCallback ResumeCallback, ethBroadca
 	ethBroadcaster.resumeCallback = resumeCallback
 }
 
-func ResendUnconfirmed(er *EthResender) error {
+func (er *EthResender) ResendUnconfirmed() error {
 	return er.resendUnconfirmed()
 }
