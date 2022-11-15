@@ -600,7 +600,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		// This is only recording forwarded tx that were mined and have a status.
-		// Counters are prune to being in-accurate due to re-orgs.
+		// Counters are prone to being inaccurate due to re-orgs.
 		if ec.config.EvmUseForwarders() {
 			meta, err := attempt.EthTx.GetMeta()
 			if err == nil && meta != nil && meta.FwdrDestAddress != nil {
