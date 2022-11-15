@@ -19,7 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
-func PreparePlugin(t *testing.T) (types.ReportingPlugin, drocr_serv.ORM) {
+func intToByte32(id int) [32]byte {
+	byteArr := (*[32]byte)([]byte(fmt.Sprintf("%032d", id)))
+	return *byteArr
+}
+
+func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr_serv.ORM) {
 	ocrLogger := logger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 
 	orm := drocr_serv.NewInMemoryORM()
@@ -30,37 +35,65 @@ func PreparePlugin(t *testing.T) (types.ReportingPlugin, drocr_serv.ORM) {
 
 	pluginConfig := config.ReportingPluginConfigWrapper{
 		Config: &config.ReportingPluginConfig{
-			MaxRequestBatchSize: 10,
+			MaxRequestBatchSize: batchSize,
 		},
 	}
 	pluginConfigBytes, err := config.EncodeReportingPluginConfig(&pluginConfig)
 	require.NoError(t, err)
-	plugin, _, _ := factory.NewReportingPlugin(types.ReportingPluginConfig{
+	plugin, _, err := factory.NewReportingPlugin(types.ReportingPluginConfig{
 		N:              4,
 		F:              1,
 		OffchainConfig: pluginConfigBytes,
 	})
+	require.NoError(t, err)
 	return plugin, orm
 }
 
-func intToByte32(id int) [32]byte {
-	byteArr := (*[32]byte)([]byte(fmt.Sprintf("%032d", id)))
-	return *byteArr
+func createRequest(t *testing.T, orm drocr_serv.ORM, id [32]byte) int64 {
+	testTxHash := common.HexToHash("0xabc")
+	dbID, err := orm.CreateRequest(id, time.Now(), &testTxHash)
+	require.NoError(t, err)
+	return dbID
 }
 
-func TestDRReporting_Query(t *testing.T) {
+func createRequestWithResult(t *testing.T, orm drocr_serv.ORM, id [32]byte, result []byte) int64 {
+	dbID := createRequest(t, orm, id)
+	err := orm.SetResult(dbID, 1, result, time.Now())
+	require.NoError(t, err)
+	return dbID
+}
+
+func createRequestWithError(t *testing.T, orm drocr_serv.ORM, id [32]byte, errStr string) int64 {
+	dbID := createRequest(t, orm, id)
+	err := orm.SetError(dbID, 1, drocr_serv.USER_EXCEPTION, errStr, time.Now())
+	require.NoError(t, err)
+	return dbID
+}
+
+func buildObservation(t *testing.T, requestId []byte, compResult []byte, compError []byte, observer uint8) types.AttributedObservation {
+	observationProto := directrequestocr.Observation{
+		ProcessedRequests: []*directrequestocr.ProcessedRequest{{
+			RequestID: requestId,
+			Result:    compResult,
+			Error:     compError,
+		}},
+	}
+	raw, err := proto.Marshal(&observationProto)
+	require.NoError(t, err)
+	return types.AttributedObservation{
+		Observation: raw,
+		Observer:    commontypes.OracleID(observer),
+	}
+}
+
+func TestDRReporting_Query_PickOnlyReadyRequests(t *testing.T) {
 	t.Parallel()
-	plugin, orm := PreparePlugin(t)
+	plugin, orm := preparePlugin(t, 10)
 	reqId1, reqId2 := intToByte32(13), intToByte32(67)
-	txHash := common.HexToHash("0xabc")
 
 	// Two requests but only one ready
-	id1, err := orm.CreateRequest(reqId1, time.Now(), &txHash)
-	require.NoError(t, err)
-	_, err = orm.CreateRequest(reqId2, time.Now(), &txHash)
-	require.NoError(t, err)
-	err = orm.SetResult(id1, 1, []byte{}, time.Now())
-	require.NoError(t, err)
+	createRequestWithResult(t, orm, reqId1, []byte{})
+	createRequest(t, orm, reqId2)
 
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
@@ -72,27 +105,37 @@ func TestDRReporting_Query(t *testing.T) {
 	require.Equal(t, reqId1[:], queryProto.RequestIDs[0])
 }
 
+func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
+	t.Parallel()
+	plugin, orm := preparePlugin(t, 5)
+
+	for i := 0; i < 20; i++ {
+		createRequestWithResult(t, orm, intToByte32(10+i), []byte{})
+	}
+
+	// 20 results are ready but batch size is only 5
+	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+	require.NoError(t, err)
+
+	queryProto := &directrequestocr.Query{}
+	err = proto.Unmarshal(q, queryProto)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(queryProto.RequestIDs))
+}
+
 func TestDRReporting_Observation(t *testing.T) {
 	t.Parallel()
-	plugin, orm := PreparePlugin(t)
-	reqId1, reqId2, reqId3 := intToByte32(13), intToByte32(14), intToByte32(15)
-	txHash := common.HexToHash("0xabc")
+	plugin, orm := preparePlugin(t, 10)
+	reqId1, reqId2, reqId3, reqId4 := intToByte32(13), intToByte32(14), intToByte32(15), intToByte32(16)
 
-	id1, err := orm.CreateRequest(reqId1, time.Now(), &txHash)
-	require.NoError(t, err)
-	_, err = orm.CreateRequest(reqId2, time.Now(), &txHash)
-	require.NoError(t, err)
-	id3, err := orm.CreateRequest(reqId3, time.Now(), &txHash)
-	require.NoError(t, err)
+	createRequestWithResult(t, orm, reqId1, []byte("abc"))
+	createRequest(t, orm, reqId2)
+	createRequestWithError(t, orm, reqId3, "Bug LOL!")
 
-	// Query asking for 3 requests but we only have 2 of them ready
+	// Query asking for 4 requests but we've only seen 3 of them, 2 of which are ready
 	queryProto := directrequestocr.Query{}
-	queryProto.RequestIDs = [][]byte{reqId1[:], reqId2[:], reqId3[:]}
+	queryProto.RequestIDs = [][]byte{reqId1[:], reqId2[:], reqId3[:], reqId4[:]}
 	marshalled, err := proto.Marshal(&queryProto)
-	require.NoError(t, err)
-	err = orm.SetResult(id1, 1, []byte("abc"), time.Now())
-	require.NoError(t, err)
-	err = orm.SetError(id3, 1, drocr_serv.USER_EXCEPTION, "Bug LOL!", time.Now())
 	require.NoError(t, err)
 
 	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, marshalled)
@@ -110,25 +153,9 @@ func TestDRReporting_Observation(t *testing.T) {
 	require.Equal(t, observationProto.ProcessedRequests[1].Error, []byte("Bug LOL!"))
 }
 
-func buildObservation(t *testing.T, requestId []byte, compResult []byte, compError []byte, observer uint8) types.AttributedObservation {
-	observationProto := directrequestocr.Observation{
-		ProcessedRequests: []*directrequestocr.ProcessedRequest{&directrequestocr.ProcessedRequest{
-			RequestID: requestId,
-			Result:    compResult,
-			Error:     compError,
-		}},
-	}
-	raw, err := proto.Marshal(&observationProto)
-	require.NoError(t, err)
-	return types.AttributedObservation{
-		Observation: raw,
-		Observer:    commontypes.OracleID(observer),
-	}
-}
-
 func TestDRReporting_Report(t *testing.T) {
 	t.Parallel()
-	plugin, _ := PreparePlugin(t)
+	plugin, _ := preparePlugin(t, 10)
 	codec, err := directrequestocr.NewReportCodec()
 	require.NoError(t, err)
 	reqId1, reqId2, reqId3 := intToByte32(13), intToByte32(14), intToByte32(15)

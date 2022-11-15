@@ -155,6 +155,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
+	MercuryCredentials(url string) (username, password string, err error)
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
@@ -1129,6 +1130,10 @@ func (c *generalConfig) SetLogSQL(logSQL bool) {
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
 	return getEnvWithFallback(c, envvar.LogUnixTS)
+}
+
+func (c *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
+	return "", "", errors.New("legacy config does not support Mercury credentials; use V2 TOML config to enable this feature")
 }
 
 // Port represents the port Chainlink should listen on for client requests.
