@@ -6,7 +6,7 @@ pragma solidity ^0.8.6;
  */
 interface OCR2DRRegistryInterface {
   struct RequestBilling {
-    address consumer;
+    address client;
     // a unique subscription ID allocated by billing system,
     uint64 subscriptionId;
     // customer specified gas limit for the fulfillment callback

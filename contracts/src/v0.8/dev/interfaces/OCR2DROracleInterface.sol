@@ -31,11 +31,16 @@ interface OCR2DROracleInterface is OCR2DRBillableInterface {
 
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId
-   * @param billing Billing configuration for the request
+   * @param subscriptionId Identifier of the billing subscription
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param gasLimit Gas limit for the fulfillment callback
+   * @param confirmations How many blocks the oracle will wait before responding to the request.
    * @return requestId A unique request identifier (unique per oracle)
    */
-  function sendRequest(OCR2DRRegistryInterface.RequestBilling calldata billing, bytes calldata data)
-    external
-    returns (bytes32);
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit,
+    uint32 confirmations
+  ) external returns (bytes32);
 }
