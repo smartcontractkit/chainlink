@@ -549,7 +549,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		ChainlinkApplication: app,
 		Logger:               lggr,
 	}
-	ta.Server = newServer(ta)
+	ta.Server = httptest.NewServer(web.Router(t, app, nil))
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
@@ -622,11 +622,6 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
-}
-
-func newServer(app chainlink.Application) *httptest.Server {
-	engine := web.Router(app, nil)
-	return httptest.NewServer(engine)
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.

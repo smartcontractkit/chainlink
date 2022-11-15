@@ -5,6 +5,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -101,11 +103,10 @@ func (n *node) State() NodeState {
 	return n.state
 }
 
-// StateAndLatestBlockNumber returns the current state of the node with the latest received block number.
-func (n *node) StateAndLatestBlockNumber() (NodeState, int64) {
+func (n *node) StateAndLatest() (NodeState, int64, *utils.Big) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.state, n.latestReceivedBlockNumber
+	return n.state, n.stateLatestBlockNumber, n.stateLatestTotalDifficulty
 }
 
 // setState is only used by internal state management methods.

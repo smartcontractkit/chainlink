@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -117,8 +118,8 @@ func (e *erroringNode) State() NodeState {
 	return NodeStateUnreachable
 }
 
-func (e *erroringNode) StateAndLatestBlockNumber() (NodeState, int64) {
-	return NodeStateUnreachable, -1
+func (e *erroringNode) StateAndLatest() (NodeState, int64, *utils.Big) {
+	return NodeStateUnreachable, -1, nil
 }
 
 func (e *erroringNode) DeclareOutOfSync()            {}

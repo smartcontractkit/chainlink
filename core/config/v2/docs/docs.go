@@ -33,6 +33,11 @@ var (
 	//go:embed chains-terra.toml
 	chainsTerraTOML string
 
+	//go:embed example-config.toml
+	exampleConfig string
+	//go:embed example-secrets.toml
+	exampleSecrets string
+
 	docsTOML = coreTOML + chainsEVMTOML + chainsSolanaTOML + chainsStarknetTOML + chainsTerraTOML
 )
 
@@ -42,8 +47,8 @@ func GenerateConfig() (string, error) {
 
 This document describes the TOML format for configuration.
 
-See also [SECRETS.md](secrets.md)
-`)
+See also [SECRETS.md](SECRETS.md)
+`, exampleConfig)
 }
 
 // GenerateSecrets returns MarkDown documentation generated from secrets.toml.
@@ -54,16 +59,23 @@ This document describes the TOML format for secrets.
 
 Each secret has an alternative corresponding environment variable.
 
-See also [CONFIG.md](config.md)
-`)
+See also [CONFIG.md](CONFIG.md)
+`, exampleSecrets)
 }
 
 // generateDocs returns MarkDown documentation generated from the TOML string.
-func generateDocs(toml, header string) (string, error) {
+func generateDocs(toml, header, example string) (string, error) {
 	items, err := parseTOMLDocs(toml)
 	var sb strings.Builder
 
 	sb.WriteString(header)
+	sb.WriteString(`
+## Example
+
+`)
+	sb.WriteString("```toml\n")
+	sb.WriteString(example)
+	sb.WriteString("```\n")
 	sb.WriteString(`
 ## Table of contents
 

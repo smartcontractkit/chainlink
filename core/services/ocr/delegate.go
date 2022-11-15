@@ -68,15 +68,16 @@ func NewDelegate(
 	}
 }
 
-func (d Delegate) JobType() job.Type {
+func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the OCR services that need to run for this job
-func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}

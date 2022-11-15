@@ -8,6 +8,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+// Memo task returns its value as a result
+//
+// e.g. [type=memo value=10] => 10
+
 type MemoTask struct {
 	BaseTask `mapstructure:",squash"`
 	Value    string `json:"value"`

@@ -27,7 +27,7 @@ func (s *highestHeadNodeSelector) Select() Node {
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have latestReceivedBlockNumber == -1
 	var highestHeadNumber int64 = math.MinInt64
 	if s.lastBestNode != nil {
-		state, latestReceivedBlockNumber := s.lastBestNode.StateAndLatestBlockNumber()
+		state, latestReceivedBlockNumber, _ := s.lastBestNode.StateAndLatest()
 		if state == NodeStateAlive {
 			node = s.lastBestNode
 			highestHeadNumber = latestReceivedBlockNumber
@@ -38,7 +38,7 @@ func (s *highestHeadNodeSelector) Select() Node {
 		if n == s.lastBestNode {
 			continue
 		}
-		state, latestReceivedBlockNumber := n.StateAndLatestBlockNumber()
+		state, latestReceivedBlockNumber, _ := n.StateAndLatest()
 		if state == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
 			node = n
 			highestHeadNumber = latestReceivedBlockNumber

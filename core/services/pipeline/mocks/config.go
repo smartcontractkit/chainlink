@@ -16,6 +16,20 @@ type Config struct {
 	mock.Mock
 }
 
+// BridgeCacheTTL provides a mock function with given fields:
+func (_m *Config) BridgeCacheTTL() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // BridgeResponseURL provides a mock function with given fields:
 func (_m *Config) BridgeResponseURL() *url.URL {
 	ret := _m.Called()

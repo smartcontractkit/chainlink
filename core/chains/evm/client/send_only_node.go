@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name SendOnlyNode --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name SendOnlyNode --output ../mocks/ --case=underscore
 
 // SendOnlyNode represents one ethereum node used as a sendonly
 type SendOnlyNode interface {
@@ -34,14 +34,14 @@ type SendOnlyNode interface {
 	String() string
 }
 
-//go:generate mockery --name TxSender --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name TxSender --output ./mocks/ --case=underscore
 
 type TxSender interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	ChainID(context.Context) (*big.Int, error)
 }
 
-//go:generate mockery --name BatchSender --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name BatchSender --output ./mocks/ --case=underscore
 
 type BatchSender interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -99,7 +99,7 @@ func (s *sendOnlyNode) start(startCtx context.Context) error {
 	s.SetEthClient(rpc, geth)
 
 	if id, err := s.getChainID(startCtx); err != nil {
-		s.log.Warn("sendonly rpc ChainID verification skipped", "err", err)
+		s.log.Warnw("sendonly rpc ChainID verification skipped", "err", err)
 	} else if id.Cmp(s.chainID) != 0 {
 		return errors.Errorf(
 			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",

@@ -1,6 +1,8 @@
 package chainlink
 
 import (
+	"fmt"
+
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -44,7 +46,10 @@ func (c *Config) TOMLString() (string, error) {
 }
 
 func (c *Config) Validate() error {
-	return config.Validate(c)
+	if err := config.Validate(c); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+	return nil
 }
 
 // setDefaults initializes unset fields with default values.
@@ -55,9 +60,9 @@ func (c *Config) setDefaults() {
 
 	for i := range c.EVM {
 		if input := c.EVM[i]; input == nil {
-			c.EVM[i] = &evmcfg.EVMConfig{Chain: evmcfg.DefaultsFrom(nil, nil)}
+			c.EVM[i] = &evmcfg.EVMConfig{Chain: evmcfg.Defaults(nil)}
 		} else {
-			input.Chain = evmcfg.DefaultsFrom(input.ChainID, &input.Chain)
+			input.Chain = evmcfg.Defaults(input.ChainID, &input.Chain)
 		}
 	}
 
@@ -83,6 +88,14 @@ func (c *Config) setDefaults() {
 	}
 }
 
+func (c *Config) SetFrom(f *Config) {
+	c.Core.SetFrom(&f.Core)
+	c.EVM.SetFrom(&f.EVM)
+	c.Solana.SetFrom(&f.Solana)
+	c.Starknet.SetFrom(&f.Starknet)
+	c.Terra.SetFrom(&f.Terra)
+}
+
 type Secrets struct {
 	config.Secrets
 }
@@ -97,7 +110,10 @@ func (s *Secrets) TOMLString() (string, error) {
 }
 
 func (s *Secrets) Validate() error {
-	return config.Validate(s)
+	if err := config.Validate(s); err != nil {
+		return fmt.Errorf("invalid secrets: %w", err)
+	}
+	return nil
 }
 
 // setEnv overrides fields from ENV vars, if present.

@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	FindUser(email string) (User, error)

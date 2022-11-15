@@ -43,7 +43,7 @@ func init() {
 	}
 }
 
-//go:generate mockery --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+//go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
