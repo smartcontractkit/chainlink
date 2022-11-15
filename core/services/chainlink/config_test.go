@@ -1270,6 +1270,17 @@ URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = true`,
 			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
+		{name: "duplicate-mercury-credentials-disallowed",
+			toml: `
+[Mercury]
+[[Mercury.Credentials]]
+URL = "http://example.com/foo"
+[[Mercury.Credentials]]
+URL = "http://example.COM/foo"`,
+			exp: `invalid secrets: 3 errors:
+	- Database.URL: empty: must be provided and non-empty
+	- Password.Keystore: empty: must be provided and non-empty
+	- Mercury.Credentials: may not contain duplicate URLs`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
@@ -1315,4 +1326,31 @@ func Test_validateEnv(t *testing.T) {
 	- environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set
 	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2
 	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
+}
+
+func TestConfig_SetFrom(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name string
+		exp  string
+		from []string
+	}{
+		{"empty", "", []string{""}},
+		{"empty-full", fullTOML, []string{"", fullTOML}},
+		{"empty-multi", multiChainTOML, []string{"", multiChainTOML}},
+		{"full-empty", fullTOML, []string{fullTOML, ""}},
+		{"multi-empty", multiChainTOML, []string{multiChainTOML, ""}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var c Config
+			for _, fs := range tt.from {
+				var f Config
+				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
+				c.SetFrom(&f)
+			}
+			ts, err := c.TOMLString()
+			require.NoError(t, err)
+			assert.Equal(t, tt.exp, ts)
+		})
+	}
 }

@@ -2,7 +2,21 @@
 
 This document describes the TOML format for configuration.
 
-See also [SECRETS.md](secrets.md)
+See also [SECRETS.md](SECRETS.md)
+
+## Example
+
+```toml
+Log.Level = 'debug'
+
+[[EVM]]
+ChainID = '1' # Required
+
+[[EVM.Nodes]]
+Name = 'fake' # Required
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar' # Required
+```
 
 ## Table of contents
 
@@ -4311,7 +4325,10 @@ Set to zero to disable poll checking.
 ```toml
 SelectionMode = 'HighestHead' # Default
 ```
-SelectionMode controls node selection strategy: HighestHead or RoundRobin.
+SelectionMode controls node selection strategy:
+- HighestHead: use the node with the highest head number
+- RoundRobin: rotate through nodes, per-request
+- TotalDifficulty: use the node with the greatest total difficulty
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml

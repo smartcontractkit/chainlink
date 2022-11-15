@@ -49,7 +49,7 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	}
 	chain := evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.DefaultsFrom(chainID, nil),
+		Chain:   evmcfg.Defaults(chainID),
 		Nodes:   evmcfg.EVMNodes{&node},
 	}
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {

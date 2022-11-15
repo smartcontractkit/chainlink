@@ -69,10 +69,10 @@ func NewApp(client *Client) *cli.App {
 			Name:  "insecure-skip-verify",
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "config, c",
 			Hidden: !devMode,
-			Usage:  "EXPERIMENTAL: TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.",
+			Usage:  "EXPERIMENTAL: TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files must be comma separated (-c configA.toml,configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
 			EnvVar: "CL_CONFIG",
 		},
 		cli.StringFlag{
@@ -84,14 +84,22 @@ func NewApp(client *Client) *cli.App {
 	app.Before = func(c *cli.Context) error {
 		if c.IsSet("config") {
 			// TOML
-			configTOML := v2.EnvConfig.Get()
-			if configTOML == "" {
-				fileName := c.String("config")
-				b, err := os.ReadFile(fileName)
-				if err != nil {
-					return errors.Wrapf(err, "failed to read config file: %s", fileName)
+			var opts chainlink.GeneralConfigOpts
+			if configTOML := v2.EnvConfig.Get(); configTOML != "" {
+				if err := opts.ParseConfig(configTOML); err != nil {
+					return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
 				}
-				configTOML = string(b)
+			} else {
+				fileNames := c.StringSlice("config")
+				for _, fileName := range fileNames {
+					b, err := os.ReadFile(fileName)
+					if err != nil {
+						return errors.Wrapf(err, "failed to read config file: %s", fileName)
+					}
+					if err := opts.ParseConfig(string(b)); err != nil {
+						return errors.Wrapf(err, "failed to parse file: %s", fileName)
+					}
+				}
 			}
 
 			secretsTOML := ""
@@ -103,10 +111,10 @@ func NewApp(client *Client) *cli.App {
 				}
 				secretsTOML = string(b)
 			}
-			var opts chainlink.GeneralConfigOpts
-			if err := opts.ParseTOML(configTOML, secretsTOML); err != nil {
+			if err := opts.ParseSecrets(secretsTOML); err != nil {
 				return err
 			}
+
 			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 				return err
 			} else {

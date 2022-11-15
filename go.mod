@@ -97,6 +97,7 @@ require (
 	golang.org/x/tools v0.1.12
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/protobuf v1.28.1
+	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
@@ -340,7 +341,6 @@ require (
 	golang.org/x/time v0.1.0 // indirect
 	google.golang.org/genproto v0.0.0-20220712132514-bdd2acd4974d // indirect
 	google.golang.org/grpc v1.49.0 // indirect
-	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -369,6 +369,8 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
+
+replace github.com/smartcontractkit/libocr => github.com/samsondav/libocr v0.0.0-20221107152458-f0bc77e46d76
 
 exclude (
 	github.com/influxdata/influxdb v1.8.3
