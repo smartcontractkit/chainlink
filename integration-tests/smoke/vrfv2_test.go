@@ -26,7 +26,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-var _ = Describe("VRFv2 suite @vrfv2", func() {
+var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("VRFv2 suite on Simulated Network @simulated", defaultVRFv2Env()),
