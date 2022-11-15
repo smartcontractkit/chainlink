@@ -99,7 +99,7 @@ func (s *sendOnlyNode) start(startCtx context.Context) error {
 	s.SetEthClient(rpc, geth)
 
 	if id, err := s.getChainID(startCtx); err != nil {
-		s.log.Warn("sendonly rpc ChainID verification skipped", "err", err)
+		s.log.Warnw("sendonly rpc ChainID verification skipped", "err", err)
 	} else if id.Cmp(s.chainID) != 0 {
 		return errors.Errorf(
 			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",

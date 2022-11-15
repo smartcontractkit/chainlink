@@ -22,6 +22,8 @@ Keystore = 'keystore_pass' # Required
 - [Explorer](#Explorer)
 - [Password](#Password)
 - [Pyroscope](#Pyroscope)
+- [Mercury](#Mercury)
+	- [Credentials](#Mercury-Credentials)
 
 ## Database<a id='Database'></a>
 ```toml
@@ -120,4 +122,38 @@ AuthToken = "pyroscope-token" # Example
 AuthToken is the API key for the Pyroscope server.
 
 Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
+
+## Mercury<a id='Mercury'></a>
+```toml
+[Mercury]
+```
+Mercury credentials are needed if running OCR2 jobs in mercury mode. 0 or
+more Mercury credentials may be specified. URLs must be unique.
+
+## Mercury.Credentials<a id='Mercury-Credentials'></a>
+```toml
+[[Mercury.Credentials]]
+URL = "http://example.com/reports" # Example
+Username = "exampleusername" # Example
+Password = "examplepassword" # Example
+```
+
+
+### URL<a id='Mercury-Credentials-URL'></a>
+```toml
+URL = "http://example.com/reports" # Example
+```
+URL is the URL of the mercury endpoint
+
+### Username<a id='Mercury-Credentials-Username'></a>
+```toml
+Username = "exampleusername" # Example
+```
+Username is used for basic auth with the mercury endpoint
+
+### Password<a id='Mercury-Credentials-Password'></a>
+```toml
+Password = "examplepassword" # Example
+```
+Password is used for basic auth with the mercury endpoint
 
