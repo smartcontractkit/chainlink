@@ -4325,7 +4325,10 @@ Set to zero to disable poll checking.
 ```toml
 SelectionMode = 'HighestHead' # Default
 ```
-SelectionMode controls node selection strategy: HighestHead or RoundRobin.
+SelectionMode controls node selection strategy:
+- HighestHead: use the node with the highest head number
+- RoundRobin: rotate through nodes, per-request
+- TotalDifficulty: use the node with the greatest total difficulty
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml
