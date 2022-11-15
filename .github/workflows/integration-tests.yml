@@ -95,13 +95,13 @@ jobs:
             os: ubuntu-latest
           - name: keeperv1.1
             nodes: 6
-            os: ubuntu20.04-32cores-128GB
+            os: ubuntu-latest
           - name: keeperv1.2
             nodes: 10
-            os: ubuntu20.04-32cores-128GB
+            os: ubuntu-latest
           - name: keeperv1.3
             nodes: 11
-            os: ubuntu20.04-32cores-128GB
+            os: ubuntu-latest
           - name: ocr
             nodes: 3
             os: ubuntu-latest
