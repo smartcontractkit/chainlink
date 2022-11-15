@@ -44,10 +44,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     uint32 gasLimit,
     uint32 confirmations
   ) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(
-      OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit, confirmations),
-      OCR2DR.encodeCBOR(req)
-    );
+    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit, confirmations);
     s_pendingRequests[requestId] = address(s_oracle);
     emit RequestSent(requestId);
     return requestId;

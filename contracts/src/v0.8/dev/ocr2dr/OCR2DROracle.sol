@@ -33,14 +33,14 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     return "OCR2DROracle 0.0.0";
   }
 
-   /**
+  /**
    * @inheritdoc OCR2DROracleInterface
    */
-  function setRegistry(address registryAddress) external override ConfirmedOwner.onlyOwner {
+  function setRegistry(address registryAddress) external override onlyOwner {
     if (registryAddress == address(0)) {
       revert EmptyBillingRegistry();
     }
-    OCR2DRBillableAbstract.s_registry = registryAddress;
+    s_registry = registryAddress;
   }
 
   /// @inheritdoc OCR2DROracleInterface
@@ -57,15 +57,19 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
   }
 
   /// @inheritdoc OCR2DROracleInterface
-  function sendRequest(OCR2DRRegistryInterface.RequestBilling calldata billing, bytes calldata data)
-    external
-    override
-    returns (bytes32)
-  {
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit,
+    uint32 confirmations
+  ) external override returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
-    bytes32 requestId = OCR2DRRegistryInterface(OCR2DRBillableAbstract.s_registry).beginBilling(data, billing);
+    bytes32 requestId = OCR2DRRegistryInterface(s_registry).beginBilling(
+      data,
+      OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit, confirmations)
+    );
     emit OracleRequest(requestId, data);
     return requestId;
   }
@@ -100,7 +104,16 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     for (uint256 i = 0; i < requestIds.length; i++) {
-      try OCR2DRRegistryInterface(OCR2DRBillableAbstract.s_registry).concludeBilling(requestIds[i], results[i], errors[i], transmitter, signers, initialGas) {
+      try
+        OCR2DRRegistryInterface(s_registry).concludeBilling(
+          requestIds[i],
+          results[i],
+          errors[i],
+          transmitter,
+          signers,
+          initialGas
+        )
+      {
         emit OracleResponse(requestIds[i]);
       } catch Error(string memory reason) {
         emit UserCallbackError(requestIds[i], reason);

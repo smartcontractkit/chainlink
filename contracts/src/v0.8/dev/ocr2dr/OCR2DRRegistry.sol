@@ -21,9 +21,11 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
   uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  // Maximum number of oracles the offchain reporting protocol is designed for
+  // Maximum number of oracles DON can support
   // Needs to match OCR2Abstract.sol
   uint256 internal constant maxNumOracles = 31;
+  // Set this maximum to 200 to give us a 56 block window to fulfill
+  uint16 public constant MAX_REQUEST_CONFIRMATIONS = 200;
 
   error TooManyConsumers();
   error InsufficientBalance();
@@ -77,9 +79,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   event SubscriptionOwnerTransferRequested(uint64 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subId, address from, address to);
 
-  // Set this maximum to 200 to give us a 56 block window to fulfill
-  // the request before requiring the block hash feeder.
-  uint16 public constant MAX_REQUEST_CONFIRMATIONS = 200;
   error InvalidRequestConfirmations(uint32 have, uint32 min, uint32 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
@@ -228,6 +227,15 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     );
   }
 
+  /**
+   * @notice Gets the configuration of the OCR2DR registry
+   * @return minimumRequestConfirmations global min for request confirmations
+   * @return maxGasLimit global max for request gas limit
+   * @return stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
+   * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
+   * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
+   * @return gasOverhead fallback eth/link price in the case of a stale feed
+   */
   function getConfig()
     external
     view
@@ -235,14 +243,18 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       uint32 minimumRequestConfirmations,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation
+      uint32 gasAfterPaymentCalculation,
+      int256 fallbackWeiPerUnitLink,
+      uint32 gasOverhead
     )
   {
     return (
       s_config.minimumRequestConfirmations,
       s_config.maxGasLimit,
       s_config.stalenessSeconds,
-      s_config.gasAfterPaymentCalculation
+      s_config.gasAfterPaymentCalculation,
+      s_fallbackWeiPerUnitLink,
+      s_config.gasOverhead
     );
   }
 
@@ -364,9 +376,9 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     // It's important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[billing.consumer][billing.subscriptionId];
+    uint64 currentNonce = s_consumers[billing.client][billing.subscriptionId];
     if (currentNonce == 0) {
-      revert InvalidConsumer(billing.subscriptionId, billing.consumer);
+      revert InvalidConsumer(billing.subscriptionId, billing.client);
     }
     // Input validation using the config storage word.
     if (
@@ -396,7 +408,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     }
 
     uint64 nonce = currentNonce + 1;
-    (bytes32 requestId, ) = computeRequestId(msg.sender, billing.consumer, billing.subscriptionId, nonce);
+    (bytes32 requestId, ) = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce);
 
     s_requestCommitments[requestId] = Commitment(
       billing,
@@ -411,9 +423,9 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       billing.subscriptionId,
       billing.confirmations,
       billing.gasLimit,
-      billing.consumer
+      billing.client
     );
-    s_consumers[billing.consumer][billing.subscriptionId] = nonce;
+    s_consumers[billing.client][billing.subscriptionId] = nonce;
     return requestId;
   }
 
@@ -433,7 +445,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   {
     Commitment memory commitment = s_requestCommitments[requestId];
     return (
-      commitment.billing.consumer,
+      commitment.billing.client,
       commitment.billing.subscriptionId,
       commitment.billing.gasLimit,
       commitment.billing.confirmations
@@ -442,11 +454,11 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
 
   function computeRequestId(
     address don,
-    address sender,
+    address client,
     uint64 subId,
     uint64 nonce
   ) private pure returns (bytes32, uint256) {
-    uint256 preSeed = uint256(keccak256(abi.encode(don, sender, subId, nonce)));
+    uint256 preSeed = uint256(keccak256(abi.encode(don, client, subId, nonce)));
     return (keccak256(abi.encode(don, preSeed)), preSeed);
   }
 
@@ -500,10 +512,13 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     uint32 initialGas
   ) external onlyAllowedDons nonReentrant returns (uint96) {
     Commitment memory commitment = s_requestCommitments[requestId];
+    if (commitment.billing.client == address(0)) {
+      revert IncorrectCommitment();
+    }
     delete s_requestCommitments[requestId];
 
     bytes memory callback = abi.encodeWithSelector(
-      OCR2DRClientInterface(commitment.billing.consumer).handleOracleFulfillment.selector,
+      OCR2DRClientInterface.handleOracleFulfillment.selector,
       requestId,
       response,
       err
@@ -515,7 +530,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    bool success = callWithExactGas(commitment.billing.gasLimit, commitment.billing.consumer, callback);
+    bool success = callWithExactGas(commitment.billing.gasLimit, commitment.billing.client, callback);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
@@ -583,10 +598,12 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
 
   /*
    * @notice Oracle withdraw LINK earned through fulfilling requests
+   * @notice If amount is 0 the full balance will be withdrawn
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
   function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
+    if (amount == 0) amount = s_withdrawableTokens[msg.sender];
     if (s_withdrawableTokens[msg.sender] < amount) {
       revert InsufficientBalance();
     }
