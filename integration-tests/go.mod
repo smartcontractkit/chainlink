@@ -29,6 +29,10 @@ require (
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink => ../
 
+replace github.com/smartcontractkit/chainlink-env => /Users/adamhamrick/Projects/chainlink-env
+
+replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect

@@ -19,6 +19,11 @@ type ChainlinkConfigBuilder struct {
 	config *chainlinkConfig.Config `toml:"-"`
 }
 
+func AddNetworksConfig(tomlString string) string {
+	networksToml := ""
+	return fmt.Sprintf("%s\n%s", tomlString, networksToml)
+}
+
 // NewDefaultConfig gets the base config for
 func NewDefaultConfig() *ChainlinkConfigBuilder {
 	conf := &chainlinkConfig.Config{}
