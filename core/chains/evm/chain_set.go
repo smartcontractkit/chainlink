@@ -86,9 +86,9 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	}
 	if cll.immutable {
 		var ms services.MultiStart
-		for id, c := range cll.Chains() {
+		for _, c := range cll.Chains() {
 			if err := ms.Start(ctx, c); err != nil {
-				return errors.Wrapf(err, "failed to start chain %q", id)
+				return errors.Wrapf(err, "failed to start chain %q", c.ID())
 			}
 			cll.startedChains = append(cll.startedChains, c)
 		}
