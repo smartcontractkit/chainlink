@@ -173,9 +173,6 @@ func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
 	if cfg.DKGContractAddress == "" {
 		return errors.New("dkgContractAddress must be provided")
 	}
-	if cfg.LookbackBlocks <= 0 {
-		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
-	}
 	return nil
 }
 

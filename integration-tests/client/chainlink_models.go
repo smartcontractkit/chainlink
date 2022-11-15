@@ -6,9 +6,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -829,7 +829,7 @@ type P2PData struct {
 	PeerID     string
 }
 
-func (p P2PData) P2PV2Bootstrapper() string {
+func (p *P2PData) P2PV2Bootstrapper() string {
 	if p.RemotePort == "" {
 		p.RemotePort = "6690"
 	}

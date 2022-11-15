@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go/rpc"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -46,6 +47,20 @@ func (cs SolanaConfigs) ValidateConfig() (err error) {
 		}
 	}
 	return
+}
+
+func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
+	for _, f := range *fs {
+		if f.ChainID == nil {
+			*cs = append(*cs, f)
+		} else if i := slices.IndexFunc(*cs, func(c *SolanaConfig) bool {
+			return c.ChainID != nil && *c.ChainID == *f.ChainID
+		}); i == -1 {
+			*cs = append(*cs, f)
+		} else {
+			(*cs)[i].SetFrom(f)
+		}
+	}
 }
 
 func (cs SolanaConfigs) Chains(ids ...string) (chains []DBChain) {
@@ -117,6 +132,29 @@ func (cs SolanaConfigs) NodesByID(chainIDs ...string) (ns []soldb.Node) {
 
 type SolanaNodes []*solcfg.Node
 
+func (ns *SolanaNodes) SetFrom(fs *SolanaNodes) {
+	for _, f := range *fs {
+		if f.Name == nil {
+			*ns = append(*ns, f)
+		} else if i := slices.IndexFunc(*ns, func(n *solcfg.Node) bool {
+			return n.Name != nil && *n.Name == *f.Name
+		}); i == -1 {
+			*ns = append(*ns, f)
+		} else {
+			setFromNode((*ns)[i], f)
+		}
+	}
+}
+
+func setFromNode(n, f *solcfg.Node) {
+	if f.Name != nil {
+		n.Name = f.Name
+	}
+	if f.URL != nil {
+		n.URL = f.URL
+	}
+}
+
 func legacySolNode(n *solcfg.Node, chainID string) soldb.Node {
 	return soldb.Node{
 		Name:          *n.Name,
@@ -134,6 +172,50 @@ type SolanaConfig struct {
 
 func (c *SolanaConfig) IsEnabled() bool {
 	return c.Enabled == nil || *c.Enabled
+}
+
+func (c *SolanaConfig) SetFrom(f *SolanaConfig) {
+	if f.ChainID != nil {
+		c.ChainID = f.ChainID
+	}
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
+	setFromChain(&c.Chain, &f.Chain)
+	c.Nodes.SetFrom(&f.Nodes)
+}
+
+func setFromChain(c, f *solcfg.Chain) {
+	if f.BalancePollPeriod != nil {
+		c.BalancePollPeriod = f.BalancePollPeriod
+	}
+	if f.ConfirmPollPeriod != nil {
+		c.ConfirmPollPeriod = f.ConfirmPollPeriod
+	}
+	if f.OCR2CachePollPeriod != nil {
+		c.OCR2CachePollPeriod = f.OCR2CachePollPeriod
+	}
+	if f.OCR2CacheTTL != nil {
+		c.OCR2CacheTTL = f.OCR2CacheTTL
+	}
+	if f.TxTimeout != nil {
+		c.TxTimeout = f.TxTimeout
+	}
+	if f.TxRetryTimeout != nil {
+		c.TxRetryTimeout = f.TxRetryTimeout
+	}
+	if f.TxConfirmTimeout != nil {
+		c.TxConfirmTimeout = f.TxConfirmTimeout
+	}
+	if f.SkipPreflight != nil {
+		c.SkipPreflight = f.SkipPreflight
+	}
+	if f.Commitment != nil {
+		c.Commitment = f.Commitment
+	}
+	if f.MaxRetries != nil {
+		c.MaxRetries = f.MaxRetries
+	}
 }
 
 func (c *SolanaConfig) SetFromDB(ch DBChain, nodes []soldb.Node) error {

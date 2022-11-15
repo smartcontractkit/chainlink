@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
 type DirectRequestReportingPluginFactory struct {
@@ -22,36 +23,46 @@ type DirectRequestReportingPluginFactory struct {
 var _ types.ReportingPluginFactory = (*DirectRequestReportingPluginFactory)(nil)
 
 type directRequestReporting struct {
-	logger      commontypes.Logger
-	pluginORM   directrequestocr.ORM
-	jobID       uuid.UUID
-	reportCodec *reportCodec
+	logger         commontypes.Logger
+	pluginORM      directrequestocr.ORM
+	jobID          uuid.UUID
+	reportCodec    *reportCodec
+	genericConfig  *types.ReportingPluginConfig
+	specificConfig *config.ReportingPluginConfigWrapper
 }
 
 var _ types.ReportingPlugin = &directRequestReporting{}
 
 // NewReportingPlugin complies with ReportingPluginFactory
-func (f DirectRequestReportingPluginFactory) NewReportingPlugin(types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	info := types.ReportingPluginInfo{
-		Name:          "directRequestReporting",
-		UniqueReports: true, // Enforces (N+F+1)/2 signatures. Must match setting in OCR2Base.sol.
-		// TODO move to config
-		// https://app.shortcut.com/chainlinklabs/story/56615/config-for-reporting-plugin
-		Limits: types.ReportingPluginLimits{
-			MaxQueryLength:       10_000,
-			MaxObservationLength: 10_000,
-			MaxReportLength:      10_000,
-		},
+func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+	pluginConfig, err := config.DecodeReportingPluginConfig(rpConfig.OffchainConfig)
+	if err != nil {
+		f.Logger.Error("unable to decode reporting plugin config", commontypes.LogFields{
+			"digest": rpConfig.ConfigDigest.String(),
+		})
+		return nil, types.ReportingPluginInfo{}, err
 	}
 	codec, err := NewReportCodec()
 	if err != nil {
-		return nil, info, err
+		f.Logger.Error("unable to create a report codec object", commontypes.LogFields{})
+		return nil, types.ReportingPluginInfo{}, err
+	}
+	info := types.ReportingPluginInfo{
+		Name:          "directRequestReporting",
+		UniqueReports: pluginConfig.Config.GetUniqueReports(), // Enforces (N+F+1)/2 signatures. Must match setting in OCR2Base.sol.
+		Limits: types.ReportingPluginLimits{
+			MaxQueryLength:       int(pluginConfig.Config.GetMaxQueryLengthBytes()),
+			MaxObservationLength: int(pluginConfig.Config.GetMaxObservationLengthBytes()),
+			MaxReportLength:      int(pluginConfig.Config.GetMaxReportLengthBytes()),
+		},
 	}
 	plugin := directRequestReporting{
-		logger:      f.Logger,
-		pluginORM:   f.PluginORM,
-		jobID:       f.JobID,
-		reportCodec: codec,
+		logger:         f.Logger,
+		pluginORM:      f.PluginORM,
+		jobID:          f.JobID,
+		reportCodec:    codec,
+		genericConfig:  &rpConfig,
+		specificConfig: pluginConfig,
 	}
 	return &plugin, info, nil
 }
@@ -62,9 +73,7 @@ func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimes
 		"epoch": ts.Epoch,
 		"round": ts.Round,
 	})
-	// TODO add batch size to config
-	// https://app.shortcut.com/chainlinklabs/story/56615/config-for-reporting-plugin
-	const maxBatchSize = 10
+	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
 	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize)
 	if err != nil {
 		return nil, err
@@ -125,9 +134,9 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 		return false, nil, err
 	}
 
-	reqIdToResultList := make(map[string][]*ProcessedRequest)
+	reqIdToObservationList := make(map[string][]*ProcessedRequest)
 	for _, id := range queryProto.RequestIDs {
-		reqIdToResultList[string(id)] = []*ProcessedRequest{}
+		reqIdToObservationList[string(id)] = []*ProcessedRequest{}
 	}
 
 	for _, ob := range obs {
@@ -138,32 +147,50 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 				commontypes.LogFields{"err": err, "observer": ob.Observer})
 			continue
 		}
-		for _, res := range observationProto.ProcessedRequests {
-			id := string(res.RequestID)
-			if val, ok := reqIdToResultList[id]; ok {
-				reqIdToResultList[id] = append(val, res)
+		for _, processedReq := range observationProto.ProcessedRequests {
+			id := string(processedReq.RequestID)
+			if val, ok := reqIdToObservationList[id]; ok {
+				reqIdToObservationList[id] = append(val, processedReq)
 			}
 		}
 	}
 
-	// TODO make aggregation modular and configurable with Median as default.
-	// https://app.shortcut.com/chainlinklabs/story/56740/modular-aggregation
-	const minRequiredObservations = 3
-	var aggregated []*ProcessedRequest
-	for _, obsArr := range reqIdToResultList {
-		if len(obsArr) >= minRequiredObservations {
-			aggregated = append(aggregated, obsArr[0])
+	defaultAggMethod := r.specificConfig.Config.GetDefaultAggregationMethod()
+	var allAggregated []*ProcessedRequest
+	for reqId, observations := range reqIdToObservationList {
+		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
+			r.logger.Debug("unable to aggregate request in current round", commontypes.LogFields{
+				"epoch":         ts.Epoch,
+				"round":         ts.Round,
+				"requestId":     reqId,
+				"nObservations": len(observations),
+			})
+			continue
 		}
+
+		// TODO: support per-request aggregation method
+		// https://app.shortcut.com/chainlinklabs/story/57701/per-request-plugin-config
+		aggregated, errAgg := Aggregate(defaultAggMethod, observations)
+		if errAgg != nil {
+			r.logger.Error("error when aggregating reqId", commontypes.LogFields{
+				"epoch":     ts.Epoch,
+				"round":     ts.Round,
+				"requestId": reqId,
+				"err":       errAgg,
+			})
+			continue
+		}
+		allAggregated = append(allAggregated, aggregated)
 	}
 
 	r.logger.Debug("directRequestReporting Report phase done", commontypes.LogFields{
-		"nAggregatedRequests": len(aggregated),
-		"reporting":           len(aggregated) > 0,
+		"nAggregatedRequests": len(allAggregated),
+		"reporting":           len(allAggregated) > 0,
 	})
-	if len(aggregated) == 0 {
+	if len(allAggregated) == 0 {
 		return false, nil, nil
 	}
-	reportBytes, err := r.reportCodec.EncodeReport(aggregated)
+	reportBytes, err := r.reportCodec.EncodeReport(allAggregated)
 	if err != nil {
 		return false, nil, err
 	}

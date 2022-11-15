@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Bridge caching
+##### BridgeCacheTTL
+
+- Default: 0s
+
+When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
+
+Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
+
 #### New optional external logger added
 ##### AUDIT_LOGGER_FORWARD_TO_URL
 
