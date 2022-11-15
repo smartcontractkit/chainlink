@@ -25,7 +25,6 @@ type PluginConfig struct {
 	// VRF configuration fields
 	VRFCoordinatorAddress string `json:"vrfCoordinatorAddress"`
 	LinkEthFeedAddress    string `json:"linkEthFeedAddress"`
-	LookbackBlocks        int64  `json:"lookbackBlocks"`
 }
 
 // ValidatePluginConfig validates that the given OCR2VRF plugin configuration is correct.
@@ -52,10 +51,6 @@ func ValidatePluginConfig(config PluginConfig, dkgSignKs keystore.DKGSign, dkgEn
 	// NOTE: similar to the above.
 	if config.LinkEthFeedAddress == "" {
 		return errors.New("linkEthFieldAddress field must be provided")
-	}
-
-	if config.LookbackBlocks <= 0 {
-		return errors.New("lookbackBlocks field must be positive")
 	}
 
 	return nil

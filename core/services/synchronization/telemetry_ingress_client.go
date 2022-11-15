@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
 
 // SendIngressBufferSize is the number of messages to keep in the buffer before dropping additional ones
 const SendIngressBufferSize = 100

@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GeneralConfig --output ./mocks/ --case=underscore
 
 // nolint
 var (
@@ -94,6 +94,7 @@ type BasicConfig interface {
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
+	BridgeCacheTTL() time.Duration
 	CertFile() string
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
@@ -154,6 +155,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
+	MercuryCredentials(url string) (username, password string, err error)
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
@@ -631,6 +633,11 @@ func (c *generalConfig) BlockBackfillSkip() bool {
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c *generalConfig) BridgeResponseURL() *url.URL {
 	return getEnvWithFallback(c, envvar.New("BridgeResponseURL", url.Parse))
+}
+
+// BridgeCacheTTL represents the max acceptable duration for a cached bridge value to be used in case of intermittent failure.
+func (c *generalConfig) BridgeCacheTTL() time.Duration {
+	return getEnvWithFallback(c, envvar.NewDuration("BridgeCacheTTL"))
 }
 
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
@@ -1123,6 +1130,10 @@ func (c *generalConfig) SetLogSQL(logSQL bool) {
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
 	return getEnvWithFallback(c, envvar.LogUnixTS)
+}
+
+func (c *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
+	return "", "", errors.New("legacy config does not support Mercury credentials; use V2 TOML config to enable this feature")
 }
 
 // Port represents the port Chainlink should listen on for client requests.

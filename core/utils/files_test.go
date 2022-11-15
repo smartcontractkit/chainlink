@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func tempFileName() string {
@@ -19,10 +20,12 @@ func tempFileName() string {
 func TestFileExists(t *testing.T) {
 	t.Parallel()
 
-	exists := FileExists(tempFileName())
+	exists, err := FileExists(tempFileName())
+	require.NoError(t, err)
 	assert.False(t, exists)
 
-	exists = FileExists(os.Args[0])
+	exists, err = FileExists(os.Args[0])
+	require.NoError(t, err)
 	assert.True(t, exists)
 }
 

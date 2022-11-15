@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name ContractSubmitter --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ContractSubmitter --output ./mocks/ --case=underscore
 
 // FluxAggregatorABI initializes the Flux Aggregator ABI
 var FluxAggregatorABI = evmtypes.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)

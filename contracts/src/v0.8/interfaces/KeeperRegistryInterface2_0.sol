@@ -2,15 +2,13 @@
 pragma solidity ^0.8.0;
 
 /**
- * @notice config of the registry
+ * @notice OnchainConfig of the registry
  * @dev only used in params and return values
  * @member paymentPremiumPPB payment premium rate oracles receive on top of
  * being reimbursed for gas, measured in parts per billion
  * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
  * priced in MicroLink; can be used in conjunction with or independently of
  * paymentPremiumPPB
- * @member blockCountPerTurn number of blocks each oracle has during their turn to
- * perform upkeep before it will be the next keeper's turn to submit
  * @member checkGasLimit gas limit when checking for upkeep
  * @member stalenessSeconds number of seconds that is allowed for feed data to
  * be stale before switching to the fallback pricing
@@ -23,15 +21,16 @@ pragma solidity ^0.8.0;
  * @member transcoder address of the transcoder contract
  * @member registrar address of the registrar contract
  */
-struct Config {
+struct OnchainConfig {
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
-  uint24 blockCountPerTurn;
   uint32 checkGasLimit;
   uint24 stalenessSeconds;
   uint16 gasCeilingMultiplier;
   uint96 minUpkeepSpend;
   uint32 maxPerformGas;
+  uint32 maxCheckDataSize;
+  uint32 maxPerformDataSize;
   uint256 fallbackGasPrice;
   uint256 fallbackLinkPrice;
   address transcoder;
@@ -44,35 +43,62 @@ struct Config {
  * @member nonce used for ID generation
  * @member ownerLinkBalance withdrawable balance of LINK by contract owner
  * @member expectedLinkBalance the expected balance of LINK of the registry
+ * @member totalPremium the total premium collected on registry so far
  * @member numUpkeeps total number of upkeeps on the registry
+ * @member configCount ordinal number of current config, out of all configs applied to this contract so far
+ * @member latestConfigBlockNumber last block at which this config was set
+ * @member latestConfigDigest domain-separation tag for current config
+ * @member latestEpoch for which a report was transmitted
+ * @member paused freeze on execution scoped to the entire registry
  */
 struct State {
   uint32 nonce;
   uint96 ownerLinkBalance;
   uint256 expectedLinkBalance;
+  uint96 totalPremium;
   uint256 numUpkeeps;
+  uint32 configCount;
+  uint32 latestConfigBlockNumber;
+  bytes32 latestConfigDigest;
+  uint32 latestEpoch;
+  bool paused;
 }
 
 /**
- * @notice relevant state of an upkeep
- * @member balance the balance of this upkeep
- * @member lastKeeper the keeper which last performs the upkeep
- * @member executeGas the gas limit of upkeep execution
- * @member maxValidBlocknumber until which block this upkeep is valid
+ * @notice all information about an upkeep
+ * @dev only used in return values
  * @member target the contract which needs to be serviced
+ * @member executeGas the gas limit of upkeep execution
+ * @member checkData the checkData bytes for this upkeep
+ * @member balance the balance of this upkeep
+ * @member admin for this upkeep
+ * @member maxValidBlocknumber until which block this upkeep is valid
+ * @member lastPerformBlockNumber the last block number when this upkeep was performed
  * @member amountSpent the amount this upkeep has spent
- * @member admin the upkeep admin
  * @member paused if this upkeep has been paused
+ * @member skipSigVerification skip signature verification in transmit for a low security low cost model
  */
-struct Upkeep {
-  uint96 balance;
-  address lastKeeper; // 1 full evm word
-  uint96 amountSpent;
-  address admin; // 2 full evm words
-  uint32 executeGas;
-  uint32 maxValidBlocknumber;
+struct UpkeepInfo {
   address target;
-  bool paused; // 24 bits to 3 full evm words
+  uint32 executeGas;
+  bytes checkData;
+  uint96 balance;
+  address admin;
+  uint64 maxValidBlocknumber;
+  uint32 lastPerformBlockNumber;
+  uint96 amountSpent;
+  bool paused;
+  bytes offchainConfig;
+}
+
+enum UpkeepFailureReason {
+  NONE,
+  UPKEEP_CANCELLED,
+  UPKEEP_PAUSED,
+  TARGET_CHECK_REVERTED,
+  UPKEEP_NOT_NEEDED,
+  PERFORM_DATA_EXCEEDS_LIMIT,
+  INSUFFICIENT_BALANCE
 }
 
 interface KeeperRegistryBaseInterface {
@@ -80,10 +106,9 @@ interface KeeperRegistryBaseInterface {
     address target,
     uint32 gasLimit,
     address admin,
-    bytes calldata checkData
+    bytes calldata checkData,
+    bytes calldata offchainConfig
   ) external returns (uint256 id);
-
-  function performUpkeep(uint256 id, bytes calldata performData) external returns (bool success);
 
   function cancelUpkeep(uint256 id) external;
 
@@ -101,39 +126,32 @@ interface KeeperRegistryBaseInterface {
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;
 
-  function getUpkeep(uint256 id)
-    external
-    view
-    returns (
-      address target,
-      uint32 executeGas,
-      bytes memory checkData,
-      uint96 balance,
-      address lastKeeper,
-      address admin,
-      uint64 maxValidBlocknumber,
-      uint96 amountSpent,
-      bool paused
-    );
+  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external;
+
+  function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo);
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
-  function getKeeperInfo(address query)
+  function getTransmitterInfo(address query)
     external
     view
     returns (
-      address payee,
       bool active,
-      uint96 balance
+      uint8 index,
+      uint96 balance,
+      uint96 lastCollected,
+      address payee
     );
 
   function getState()
     external
     view
     returns (
-      State memory,
-      Config memory,
-      address[] memory
+      State memory state,
+      OnchainConfig memory config,
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f
     );
 }
 
@@ -143,26 +161,28 @@ interface KeeperRegistryBaseInterface {
  * if we actually inherit from this interface, so we document it here.
  */
 interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId, address from)
+  function checkUpkeep(uint256 upkeepId)
     external
     view
     returns (
+      bool upkeepNeeded,
       bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      int256 gasWei,
-      int256 linkEth
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     );
 }
 
 interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId, address from)
+  function checkUpkeep(uint256 upkeepId)
     external
     returns (
+      bool upkeepNeeded,
       bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      uint256 adjustedGasWei,
-      uint256 linkEth
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     );
 }

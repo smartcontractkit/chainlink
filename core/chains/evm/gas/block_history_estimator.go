@@ -74,7 +74,7 @@ var ErrConnectivity = errors.New("connectivity issue: transactions are not being
 
 var _ Estimator = &BlockHistoryEstimator{}
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
 	BlockHistoryEstimator struct {
 		utils.StartStopOnce
