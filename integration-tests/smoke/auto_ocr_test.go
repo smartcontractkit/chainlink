@@ -59,22 +59,32 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 	) {
 		By("Deploying the environment")
 		network := networks.SimulatedEVM
-		chainlinkTOML := client.NewDefaultConfig().
-			AddNetworks(false, network).
-			EnableOCR2().
-			EnableLogPoller().
-			AddKeeperDefaults().
-			AddP2PNetworkingV2().
-			MustTOML()
+		baseTOML := `[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+
+[Keeper]
+TurnFlagEnabled = true
+TurnLookBack = 0
+
+[Keeper.Registry]
+SyncInterval = '5m'
+PerformGasOverhead = 150_000
+
+[P2P]
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-auto-ocr"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
-				"env": map[string]interface{}{
-					"cl_config": chainlinkTOML,
-				},
+				"toml":     client.AddNetworksConfig(baseTOML, network),
 			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
@@ -176,23 +186,3 @@ var _ = Describe("Automation OCR Suite @auto-ocr", func() {
 		testScenarios,
 	)
 })
-
-var autoOCRtoml = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[Keeper]
-TurnFlagEnabled = true
-TurnLookBack = 0
-
-[Keeper.Registry]
-SyncInterval = '5m'
-PerformGasOverhead = 150_000
-
-[P2P]
-[P2P.V2]
-Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`

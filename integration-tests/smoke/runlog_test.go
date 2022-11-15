@@ -151,7 +151,6 @@ func defaultRunlogEnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	chainlinkTOML := client.NewDefaultConfig().AddNetworks(false, network).MustTOML()
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
@@ -159,9 +158,7 @@ func defaultRunlogEnv() *smokeTestInputs {
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env": map[string]interface{}{
-				"cl_config": chainlinkTOML,
-			},
+			"toml": client.AddNetworksConfig("", network),
 		}))
 	return &smokeTestInputs{
 		environment: env,
