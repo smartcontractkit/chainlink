@@ -28,7 +28,22 @@ contract NoCancelVRFCoordinatorV2_cancelSubscription is NoCancelVRFCoordinatorV2
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
 
   function testCancelSubscription() public {
-    vm.expectRevert();
+    // switch caller to subscriptionOwner so that the subscription owner and the
+    // contract owner are different.
+    vm.stopPrank();
+    vm.startPrank(subscriptionOwner);
+    vm.expectEmit(true /* subId */, false /* checkTopic2 */, false /* checkTopic3 */, true /* owner */);
+    emit SubscriptionCreated(1, subscriptionOwner);
+    s_coordinator.createSubscription();
+
+    // do basic assertions on a brand new subscription
+    (uint96 balance, uint64 requestCount, address owner, address[] memory consumers) = s_coordinator.getSubscription(1);
+    assertEq(0 /* expected balance */, balance /* actual balance */);
+    assertEq(0 /* expected count */, requestCount /* actual count */);
+    assertEq(subscriptionOwner /* expected owner */, owner /* actual owner */);
+    assertEq(0 /* expected length */, consumers.length /* actual length */);
+
+    vm.expectRevert(bytes("sub cancellation not allowed"));
     s_coordinator.cancelSubscription(1, address(0)); // args don't matter, always reverts
   }
 
