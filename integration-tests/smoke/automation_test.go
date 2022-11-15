@@ -149,6 +149,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, registryConfig, registrar.Address())
 		err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
 		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+		Expect(chainClient.WaitForEvents()).ShouldNot(HaveOccurred(), "Waiting for config to be set")
 
 		By("Deploy Consumers")
 		switch consumerContract {
