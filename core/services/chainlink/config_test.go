@@ -1270,6 +1270,17 @@ URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = true`,
 			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
+		{name: "duplicate-mercury-credentials-disallowed",
+			toml: `
+[Mercury]
+[[Mercury.Credentials]]
+URL = "http://example.com/foo"
+[[Mercury.Credentials]]
+URL = "http://example.COM/foo"`,
+			exp: `invalid secrets: 3 errors:
+	- Database.URL: empty: must be provided and non-empty
+	- Password.Keystore: empty: must be provided and non-empty
+	- Mercury.Credentials: may not contain duplicate URLs`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
