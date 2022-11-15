@@ -86,25 +86,35 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
 
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
-  function _report(
+  function _validateReport(
     bytes32, /* configDigest */
     uint40, /* epochAndRound */
     bytes memory report
-  ) internal override {
+  ) internal pure override returns (bool) {
     bytes32[] memory requestIds;
     bytes[] memory results;
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     if (requestIds.length != results.length && requestIds.length != errors.length) {
-      revert InconsistentReportData();
+      return false;
     }
+    return true;
+  }
 
+  function _report(
+    uint32, /* initialGas */
+    address, /* transmitter */
+    address[maxNumOracles] memory, /* signers */
+    bytes calldata report
+  ) internal override {
+    bytes32[] memory requestIds;
+    bytes[] memory results;
+    bytes[] memory errors;
+    (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     for (uint256 i = 0; i < requestIds.length; i++) {
       fulfillRequest(requestIds[i], results[i], errors[i]);
     }
   }
-
-  function _payTransmitter(uint32 initialGas, address transmitter) internal override {}
 
   modifier validateRequestId(bytes32 requestId) {
     if (s_commitments[requestId].client == address(0)) {
