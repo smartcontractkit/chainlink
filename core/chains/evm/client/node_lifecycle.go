@@ -50,10 +50,11 @@ func zombieNodeCheckInterval(cfg NodeConfig) time.Duration {
 	return utils.WithJitter(interval)
 }
 
-func (n *node) setLatestReceivedBlockNumber(number int64) {
+func (n *node) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	n.latestReceivedBlockNumber = number
+	n.stateLatestBlockNumber = blockNumber
+	n.stateLatestTotalDifficulty = totalDifficulty
 }
 
 // Node is a FSM
@@ -126,7 +127,7 @@ func (n *node) aliveLoop() {
 		lggr.Debug("Polling disabled")
 	}
 
-	_, highestReceivedBlockNumber := n.StateAndLatestBlockNumber()
+	_, highestReceivedBlockNumber, _ := n.StateAndLatest()
 	var pollFailures uint32
 
 	for {
@@ -179,7 +180,7 @@ func (n *node) aliveLoop() {
 				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 			}
 			outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
-			n.setLatestReceivedBlockNumber(bh.Number)
+			n.setLatestReceived(bh.Number, bh.TotalDifficulty)
 		case err := <-subErrC:
 			lggr.Errorw("Subscription was terminated", "err", err, "nodeState", n.State())
 			n.declareUnreachable()
