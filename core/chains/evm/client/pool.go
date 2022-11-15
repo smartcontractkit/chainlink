@@ -30,16 +30,17 @@ var (
 )
 
 const (
-	NodeSelectionMode_HighestHead = "HighestHead"
-	NodeSelectionMode_RoundRobin  = "RoundRobin"
+	NodeSelectionMode_HighestHead     = "HighestHead"
+	NodeSelectionMode_RoundRobin      = "RoundRobin"
+	NodeSelectionMode_TotalDifficulty = "TotalDifficulty"
 )
 
 // NodeSelector represents a strategy to select the next node from the pool.
 type NodeSelector interface {
-	// Select() returns a Node, or nil if none can be selected.
+	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
 	Select() Node
-	// Name() returns the strategy name, e.g. "HighestHead" or "RoundRobin"
+	// Name returns the strategy name, e.g. "HighestHead" or "RoundRobin"
 	Name() string
 }
 
@@ -75,6 +76,8 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 			return NewHighestHeadNodeSelector(nodes)
 		case NodeSelectionMode_RoundRobin:
 			return NewRoundRobinSelector(nodes)
+		case NodeSelectionMode_TotalDifficulty:
+			return NewTotalDifficultyNodeSelector(nodes)
 		default:
 			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", cfg.NodeSelectionMode()))
 		}
