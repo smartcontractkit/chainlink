@@ -72,7 +72,7 @@ func NewApp(client *Client) *cli.App {
 		cli.StringSliceFlag{
 			Name:   "config, c",
 			Hidden: !devMode,
-			Usage:  "EXPERIMENTAL: TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files must be comma separated (-c configA.toml,configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
+			Usage:  "EXPERIMENTAL: TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
 			EnvVar: "CL_CONFIG",
 		},
 		cli.StringFlag{
