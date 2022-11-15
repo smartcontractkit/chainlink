@@ -36,18 +36,50 @@ func (_m *ORM) CreateRequest(contractRequestID [32]byte, receivedAt time.Time, r
 	return r0, r1
 }
 
-// SetConfirmed provides a mock function with given fields: contractRequestID
-func (_m *ORM) SetConfirmed(contractRequestID [32]byte) error {
+// FindById provides a mock function with given fields: contractRequestID
+func (_m *ORM) FindById(contractRequestID [32]byte) (*directrequestocr.Request, error) {
 	ret := _m.Called(contractRequestID)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func([32]byte) error); ok {
+	var r0 *directrequestocr.Request
+	if rf, ok := ret.Get(0).(func([32]byte) *directrequestocr.Request); ok {
 		r0 = rf(contractRequestID)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*directrequestocr.Request)
+		}
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func([32]byte) error); ok {
+		r1 = rf(contractRequestID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindOldestEntriesByState provides a mock function with given fields: state, limit
+func (_m *ORM) FindOldestEntriesByState(state directrequestocr.RequestState, limit uint32) ([]directrequestocr.Request, error) {
+	ret := _m.Called(state, limit)
+
+	var r0 []directrequestocr.Request
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestState, uint32) []directrequestocr.Request); ok {
+		r0 = rf(state, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]directrequestocr.Request)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(directrequestocr.RequestState, uint32) error); ok {
+		r1 = rf(state, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // SetError provides a mock function with given fields: id, runID, errorType, computationError, readyAt
@@ -76,6 +108,27 @@ func (_m *ORM) SetResult(id int64, runID int64, computationResult []byte, readyA
 	}
 
 	return r0
+}
+
+// SetState provides a mock function with given fields: contractRequestID, state
+func (_m *ORM) SetState(contractRequestID [32]byte, state directrequestocr.RequestState) (directrequestocr.RequestState, error) {
+	ret := _m.Called(contractRequestID, state)
+
+	var r0 directrequestocr.RequestState
+	if rf, ok := ret.Get(0).(func([32]byte, directrequestocr.RequestState) directrequestocr.RequestState); ok {
+		r0 = rf(contractRequestID, state)
+	} else {
+		r0 = ret.Get(0).(directrequestocr.RequestState)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([32]byte, directrequestocr.RequestState) error); ok {
+		r1 = rf(contractRequestID, state)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 type mockConstructorTestingTNewORM interface {

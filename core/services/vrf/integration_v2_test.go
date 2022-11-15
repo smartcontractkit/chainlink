@@ -320,7 +320,12 @@ func createVRFJobs(
 	app *cltest.TestApplication,
 	uni coordinatorV2Universe,
 	batchEnabled bool,
+	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job) {
+	if len(gasLanePrices) != len(fromKeys) {
+		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
+			len(gasLanePrices), len(fromKeys))
+	}
 	// Create separate jobs for each gas lane and register their keys
 	for i, keys := range fromKeys {
 		var keyStrs []string
@@ -345,6 +350,7 @@ func createVRFJobs(
 			BackoffInitialDelay:      10 * time.Millisecond,
 			BackoffMaxDelay:          time.Second,
 			V2:                       true,
+			GasLanePrice:             gasLanePrices[i],
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
@@ -596,11 +602,12 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_batch_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -620,7 +627,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests.
@@ -659,11 +666,12 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_batch_bigcallback", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -683,7 +691,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests with low max gas callback limits.
@@ -729,15 +737,16 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key2.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -757,7 +766,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1, key2}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1, key2}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -814,11 +823,12 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
 
 	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -838,7 +848,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -864,11 +874,12 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
 
 	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -888,7 +899,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -936,11 +947,12 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 
 	callBackGasLimit := int64(100_000) // base callback gas.
 	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_wrapper", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -954,7 +966,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash, maxNumWords)
@@ -1004,11 +1016,12 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	callBackGasLimit := int64(2_000_000) // base callback gas.
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_wrapper_high_gas_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1022,7 +1035,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni, wrapperOverhead, coordinatorOverhead, keyHash, maxNumWords)
@@ -1068,14 +1081,15 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	bhsKey := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(vrfKey.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, v2.KeySpecific{
 			Key:          ptr(bhsKey.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1097,7 +1111,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 
 	// Create VRF job.
-	vrfJobs := createVRFJobs(t, [][]ethkey.KeyV2{{vrfKey}}, app, uni, false)
+	vrfJobs := createVRFJobs(t, [][]ethkey.KeyV2{{vrfKey}}, app, uni, false, gasLanePriceWei)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 	_ = createAndStartBHSJob(
@@ -1162,11 +1176,12 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(1000)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_needstopup", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(1000), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(1000)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1185,7 +1200,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	numWords := uint32(20)
@@ -1227,11 +1242,12 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(100)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_bigcallback_sandwich", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(100), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(100)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1249,7 +1265,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests, each one block apart, which contain a single low-gas request sandwiched between two high-gas requests.
@@ -1319,15 +1335,17 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	cheapKey := cltest.MustGenerateRandomKey(t)
 	expensiveKey := cltest.MustGenerateRandomKey(t)
+	cheapGasLane := assets.GWei(10)
+	expensiveGasLane := assets.GWei(1000)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_multiplegaslanes", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Cheap gas lane.
 			Key:          ptr(cheapKey.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: cheapGasLane},
 		}, v2.KeySpecific{
 			// Expensive gas lane.
 			Key:          ptr(expensiveKey.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(1000)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: expensiveGasLane},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1347,7 +1365,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF jobs.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{cheapKey}, {expensiveKey}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{cheapKey}, {expensiveKey}}, app, uni, false, cheapGasLane, expensiveGasLane)
 	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
 	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
 
@@ -1409,11 +1427,12 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	key := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_alwaysrevertingcallback", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1431,7 +1450,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false, gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the randomness request.
@@ -1594,10 +1613,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// Keep the prices low so we can operate with small link balance subscriptions.
 	gasPrice := assets.GWei(1)
 	key := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, gasPrice, v2.KeySpecific{
 			Key:          &key.EIP55Address,
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1612,27 +1632,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.Zero(t, key.Cmp(keys[0]))
 
 	require.NoError(t, app.Start(testutils.Context(t)))
-	vrfkey, err := app.GetKeyStore().VRF().Create()
-	require.NoError(t, err)
 
-	jid := uuid.NewV4()
-	incomingConfs := 2
-	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-		JobID:                    jid.String(),
-		Name:                     "vrf-primary",
-		CoordinatorAddress:       uni.rootContractAddress.String(),
-		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
-		MinIncomingConfirmations: incomingConfs,
-		PublicKey:                vrfkey.PublicKey.String(),
-		FromAddresses:            []string{key.EIP55Address.String()},
-		V2:                       true,
-	}).Toml()
-	jb, err := vrf.ValidatedVRFSpec(s)
-	require.NoError(t, err)
-	err = app.JobSpawner().CreateJob(&jb)
-	require.NoError(t, err)
-
-	registerProvingKeyHelper(t, uni, vrfkey)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false, gasLanePriceWei)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Create and fund a subscription.
 	// We should see that our subscription has 1 link.
@@ -1668,7 +1670,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500_000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = carolContract.TestRequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	_, err = carolContract.TestRequestRandomness(carol, keyHash, subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fulfilled should fail

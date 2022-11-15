@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-//go:generate mockery --name ExternalInitiatorManager --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ExternalInitiatorManager --output ./mocks/ --case=underscore
 
 // ExternalInitiatorManager manages HTTP requests to remote external initiators
 type ExternalInitiatorManager interface {
@@ -29,7 +29,7 @@ type ExternalInitiatorManager interface {
 	FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error)
 }
 
-//go:generate mockery --name HTTPClient --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name HTTPClient --output ./mocks/ --case=underscore
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }

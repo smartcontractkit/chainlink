@@ -30,16 +30,17 @@ var (
 )
 
 const (
-	NodeSelectionMode_HighestHead = "HighestHead"
-	NodeSelectionMode_RoundRobin  = "RoundRobin"
+	NodeSelectionMode_HighestHead     = "HighestHead"
+	NodeSelectionMode_RoundRobin      = "RoundRobin"
+	NodeSelectionMode_TotalDifficulty = "TotalDifficulty"
 )
 
 // NodeSelector represents a strategy to select the next node from the pool.
 type NodeSelector interface {
-	// Select() returns a Node, or nil if none can be selected.
+	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
 	Select() Node
-	// Name() returns the strategy name, e.g. "HighestHead" or "RoundRobin"
+	// Name returns the strategy name, e.g. "HighestHead" or "RoundRobin"
 	Name() string
 }
 
@@ -75,6 +76,8 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 			return NewHighestHeadNodeSelector(nodes)
 		case NodeSelectionMode_RoundRobin:
 			return NewRoundRobinSelector(nodes)
+		case NodeSelectionMode_TotalDifficulty:
+			return NewTotalDifficultyNodeSelector(nodes)
 		default:
 			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", cfg.NodeSelectionMode()))
 		}
@@ -113,7 +116,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		var ms services.MultiStart
 		for _, n := range p.nodes {
 			if n.ChainID().Cmp(p.chainID) != 0 {
-				return errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String())
+				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String()))
 			}
 			rawNode, ok := n.(*node)
 			if ok {
@@ -130,7 +133,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		}
 		for _, s := range p.sendonlys {
 			if s.ChainID().Cmp(p.chainID) != 0 {
-				return errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String())
+				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String()))
 			}
 			if err := ms.Start(ctx, s); err != nil {
 				return err

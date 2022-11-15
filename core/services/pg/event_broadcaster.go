@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name EventBroadcaster --output ./mocks/ --case=underscore
-//go:generate mockery --name Subscription --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name EventBroadcaster --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Subscription --output ./mocks/ --case=underscore
 
 // EventBroadcaster opaquely manages a collection of Postgres event listeners
 // and broadcasts events to subscribers (with an optional payload filter).

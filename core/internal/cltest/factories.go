@@ -559,7 +559,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 		PipelineSpecID: pipelineSpec.ID,
 	}
 
-	cfg := NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg)
 	btORM := bridges.NewORM(db, tlg, cfg)
@@ -614,6 +614,12 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, r
 func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
 	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,created_at) VALUES ($1, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
 	return run
+}
+
+func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
+	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
+	require.NoError(t, err)
+	return
 }
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {

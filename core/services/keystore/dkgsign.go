@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 )
 
-//go:generate mockery --name DKGSign --output mocks/ --case=underscore
+//go:generate mockery --quiet --name DKGSign --output mocks/ --case=underscore
 
 // DKGSign provides signing keys for the DKG.
 type DKGSign interface {

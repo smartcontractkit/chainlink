@@ -2,7 +2,21 @@
 
 This document describes the TOML format for configuration.
 
-See also [SECRETS.md](secrets.md)
+See also [SECRETS.md](SECRETS.md)
+
+## Example
+
+```toml
+Log.Level = 'debug'
+
+[[EVM]]
+ChainID = '1' # Required
+
+[[EVM.Nodes]]
+Name = 'fake' # Required
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar' # Required
+```
 
 ## Table of contents
 
@@ -464,6 +478,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ```toml
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
+BridgeCacheTTL = '0s' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
 HTTPWriteTimeout = '10s' # Default
 HTTPPort = 6688 # Default
@@ -482,6 +497,12 @@ AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` heade
 You should set this to the external URL that you use to access the Chainlink UI.
 
 You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
+
+### BridgeCacheTTL<a id='WebServer-BridgeCacheTTL'></a>
+```toml
+BridgeCacheTTL = '0s' # Default
+```
+BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
 
 ### BridgeResponseURL<a id='WebServer-BridgeResponseURL'></a>
 ```toml
@@ -4304,7 +4325,10 @@ Set to zero to disable poll checking.
 ```toml
 SelectionMode = 'HighestHead' # Default
 ```
-SelectionMode controls node selection strategy: HighestHead or RoundRobin.
+SelectionMode controls node selection strategy:
+- HighestHead: use the node with the highest head number
+- RoundRobin: rotate through nodes, per-request
+- TotalDifficulty: use the node with the greatest total difficulty
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml
