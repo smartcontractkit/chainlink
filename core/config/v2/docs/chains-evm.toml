@@ -300,7 +300,10 @@ PollFailureThreshold = 5 # Default
 #
 # Set to zero to disable poll checking.
 PollInterval = '10s' # Default
-# SelectionMode controls node selection strategy: HighestHead or RoundRobin.
+# SelectionMode controls node selection strategy:
+# - HighestHead: use the node with the highest head number
+# - RoundRobin: rotate through nodes, per-request
+# - TotalDifficulty: use the node with the greatest total difficulty
 SelectionMode = 'HighestHead' # Default
 
 [EVM.OCR]
