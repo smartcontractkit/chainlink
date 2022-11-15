@@ -35,16 +35,14 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
    * @param req The initialized OCR2DR.Request
    * @param subscriptionId The subscription ID
    * @param gasLimit gas limit for the fulfillment callback
-   * @param confirmations  How many blocks you'd like the DON to wait before responding to the request.
    * @return requestId The generated request ID
    */
   function sendRequest(
     OCR2DR.Request memory req,
     uint64 subscriptionId,
-    uint32 gasLimit,
-    uint32 confirmations
+    uint32 gasLimit
   ) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit, confirmations);
+    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit);
     s_pendingRequests[requestId] = address(s_oracle);
     emit RequestSent(requestId);
     return requestId;

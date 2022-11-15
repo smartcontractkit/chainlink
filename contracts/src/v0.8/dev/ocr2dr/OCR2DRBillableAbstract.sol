@@ -48,7 +48,7 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
       revert EmptyBillingRegistry();
     }
     OCR2DRRegistryInterface registry = OCR2DRRegistryInterface(s_registry);
-    (address consumer, , , ) = registry.getCommitment(requestId);
+    (address consumer, , ) = registry.getCommitment(requestId);
     if (consumer == address(0)) {
       revert InvalidRequestID();
     }

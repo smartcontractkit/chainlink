@@ -11,27 +11,14 @@ interface OCR2DRRegistryInterface {
     uint64 subscriptionId;
     // customer specified gas limit for the fulfillment callback
     uint32 gasLimit;
-    /* How many blocks the oracle will wait before responding to the request.
-     * See SECURITY CONSIDERATIONS for why you may want to request more.
-     * The acceptable range is [minimumRequestBlockConfirmations, 200].
-     */
-    uint32 confirmations;
   }
 
   /**
    * @notice Get configuration relevant for making requests
-   * @return uint32 global min for request confirmations
    * @return uint32 global max for request gas limit
    * @return address[] list of registered DONs
    */
-  function getRequestConfig()
-    external
-    view
-    returns (
-      uint32,
-      uint32,
-      address[] memory
-    );
+  function getRequestConfig() external view returns (uint32, address[] memory);
 
   /**
    * @notice Determine the charged fee that will be paid to the Registry owner
@@ -103,7 +90,6 @@ interface OCR2DRRegistryInterface {
     returns (
       address,
       uint64,
-      uint32,
       uint32
     );
 
