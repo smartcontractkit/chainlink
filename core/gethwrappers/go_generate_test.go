@@ -71,7 +71,7 @@ func init() { // compute rootDir
 	if err != nil {
 		panic(err)
 	}
-	rootDir, err = filepath.Abs(filepath.Join(thisDir, "../../.."))
+	rootDir, err = filepath.Abs(filepath.Join(thisDir, "../.."))
 	if err != nil {
 		panic(err)
 	}

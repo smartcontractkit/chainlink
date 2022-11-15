@@ -93,9 +93,10 @@ jobs:
           - name: flux
             nodes: 1
             os: ubuntu-latest
-          - name: keeper
-            nodes: 27
-            os: ubuntu20.04-32cores-128GB
+          # Disabled until we fix the port-forwarding issues
+          # - name: keeper
+          #   nodes: 27
+          #   os: ubuntu20.04-32cores-128GB
           - name: ocr
             nodes: 3
             os: ubuntu-latest
