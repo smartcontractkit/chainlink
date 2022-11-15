@@ -293,7 +293,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 						"Expected consumer counter to be greater than %d, but got %d", int64(5)+countersAfterPause[i].Int64(), counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed())
 		}
 
 		if testToRun == RegisterUpkeepTest {
