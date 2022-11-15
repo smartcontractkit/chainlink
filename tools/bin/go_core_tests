@@ -8,7 +8,7 @@ OUTPUT_FILE="./output.txt"
 echo "Failed tests and panics: ---------------------"
 echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-go test -ldflags "$GO_LDFLAGS" -tags integration -p 3 -coverprofile=coverage.txt -covermode=atomic ./... | tee $OUTPUT_FILE | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
+go test -ldflags "$GO_LDFLAGS" -tags integration -p 3 -coverprofile=coverage.txt -covermode=atomic $1 | tee $OUTPUT_FILE | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
 EXITCODE=${PIPESTATUS[0]}
 echo ""
 echo "----------------------------------------------"

@@ -166,8 +166,17 @@ func (_m *Node) ChainID() *big.Int {
 }
 
 // Close provides a mock function with given fields:
-func (_m *Node) Close() {
-	_m.Called()
+func (_m *Node) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // CodeAt provides a mock function with given fields: ctx, account, blockNumber
@@ -309,15 +318,15 @@ func (_m *Node) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Header
 	return r0, r1
 }
 
-// ID provides a mock function with given fields:
-func (_m *Node) ID() int32 {
+// Name provides a mock function with given fields:
+func (_m *Node) Name() string {
 	ret := _m.Called()
 
-	var r0 int32
-	if rf, ok := ret.Get(0).(func() int32); ok {
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(int32)
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

@@ -14,15 +14,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 )
 
-//go:embed testdata/dump/*.env
-//go:embed testdata/dump/*.json
-//go:embed testdata/dump/*.toml
+//go:embed cfgtest/dump/*.env
+//go:embed cfgtest/dump/*.json
+//go:embed cfgtest/dump/*.toml
 var dumpTestFiles embed.FS
 
 func TestChainlinkApplication_ConfigDump(t *testing.T) {
-	dir := "testdata/dump"
+	dir := "cfgtest/dump"
 	fes, err := dumpTestFiles.ReadDir(dir)
 	require.NoError(t, err)
 	for _, fe := range fes {
@@ -44,7 +45,7 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			clearenv(t)
+			cfgtest.Clearenv(t)
 
 			seen := map[string]struct{}{}
 			for _, kv := range strings.Split(string(env), "\n") {
@@ -64,19 +65,5 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, string(exp), got, diff.Diff(string(exp), got))
 		})
-	}
-}
-
-//go:embed testdata/dump/empty-strings.env
-var emptyStringsEnv string
-
-func clearenv(t *testing.T) {
-	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
-		if strings.TrimSpace(kv) == "" {
-			continue
-		}
-		i := strings.Index(kv, "=")
-		require.NotEqual(t, -1, i, "invalid kv: %s", kv)
-		t.Setenv(kv[:i], "")
 	}
 }

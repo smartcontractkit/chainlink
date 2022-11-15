@@ -3,7 +3,7 @@ package fluxmonitorv2_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -20,12 +20,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -36,9 +34,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -117,10 +115,10 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	f.ned = testutils.MustNewSimTransactor(t)
 	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
-		f.sergey.From:  {Balance: assets.Ether(1000)},
-		f.neil.From:    {Balance: assets.Ether(1000)},
-		f.ned.From:     {Balance: assets.Ether(1000)},
-		f.nallory.From: {Balance: assets.Ether(1000)},
+		f.sergey.From:  {Balance: assets.Ether(1000).ToInt()},
+		f.neil.From:    {Balance: assets.Ether(1000).ToInt()},
+		f.ned.From:     {Balance: assets.Ether(1000).ToInt()},
+		f.nallory.From: {Balance: assets.Ether(1000).ToInt()},
 	}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
@@ -205,11 +203,10 @@ func (fau fluxAggregatorUniverse) WatchSubmissionReceived(t *testing.T, addresse
 func startApplication(
 	t *testing.T,
 	fa fluxAggregatorUniverse,
-	setConfig func(cfg *configtest.TestGeneralConfig),
+	overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()))
-	setConfig(config)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
+	config, _ := heavyweight.FullTestDBV2(t, dbName(t.Name()), overrides)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	return app
 }
@@ -407,7 +404,7 @@ func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result i
 	return run
 }
 
-func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.LogConfig) {
+func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.QConfig) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	lggr.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
@@ -448,10 +445,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			checkOraclesAdded(t, fa, oracleList)
 
 			// Set up chainlink app
-			app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
-				cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
-				cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
-				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
+			app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
+				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
 			})
 
 			type v struct {
@@ -465,7 +462,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
 				generatePriceResponseFn(reportPrice),
 				func(r *http.Request) {
-					b, err1 := ioutil.ReadAll(r.Body)
+					b, err1 := io.ReadAll(r.Body)
 					require.NoError(t, err1)
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
@@ -481,10 +478,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			t.Cleanup(mockServer.Close)
 			u, _ := url.Parse(mockServer.URL)
-			app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 				Name: "bridge",
 				URL:  models.WebURL(*u),
-			})
+			}))
 
 			// When event appears on submissionReceived, flux monitor job run is complete
 			submissionReceived := fa.WatchSubmissionReceived(t,
@@ -618,10 +615,11 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
-		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
-		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
-		cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(fa.flagsContractAddress.Hex())
+	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
+		c.EVM[0].FlagsContractAddress = &flags
 	})
 
 	initialBalance := currentBalance(t, &fa).Int64()
@@ -724,10 +722,11 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Start chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
-		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
-		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
-		cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(fa.flagsContractAddress.Hex())
+	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
+		c.EVM[0].FlagsContractAddress = &flags
 	})
 
 	// Create mock server
@@ -831,9 +830,9 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	fa.backend.Commit()
 
 	// Set up chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
-		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
-		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
+	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
 	})
 
 	// Report a price that is above the maximum allowed value,
@@ -904,9 +903,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
-		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
-		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
+	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
 	})
 
 	answer := int64(1) // Answer the nodes give on the first round

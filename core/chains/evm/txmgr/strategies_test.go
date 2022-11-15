@@ -9,7 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 func Test_SendEveryStrategy(t *testing.T) {
@@ -28,7 +30,7 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 	t.Parallel()
 
 	subject := uuid.NewV4()
-	s := txmgr.NewDropOldestStrategy(subject, 1)
+	s := txmgr.NewDropOldestStrategy(subject, 1, pg.DefaultQueryTimeout)
 
 	assert.True(t, s.Subject().Valid)
 	assert.Equal(t, subject, s.Subject().UUID)
@@ -38,7 +40,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -56,7 +58,6 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
-	n++
 	initialEtxs := []txmgr.EthTx{
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj2),
@@ -66,7 +67,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
-		s := txmgr.NewDropOldestStrategy(subj1, 2)
+		s := txmgr.NewDropOldestStrategy(subj1, 2, pg.DefaultQueryTimeout)
 
 		n, err := s.PruneQueue(db)
 		require.NoError(t, err)

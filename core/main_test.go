@@ -7,11 +7,11 @@ import (
 	"io"
 	"testing"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -20,17 +20,19 @@ func init() {
 	static.Sha = "exampleSHA"
 }
 
-func runEx(args ...string) {
+func Run(args ...string) {
 	t := &testing.T{}
-	tc := cltest.NewTestGeneralConfig(t)
-	tc.SetRootDir("/foo")
-	tc.Overrides.Dev = null.BoolFrom(false)
+
+	tc := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = false
+		foo := "foo"
+		c.RootDir = &foo
+	})
 	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: io.Discard},
 		Config:                 tc,
 		Logger:                 lggr,
-		CloseLogger:            lggr.Sync,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
@@ -42,8 +44,8 @@ func runEx(args ...string) {
 }
 
 func ExampleRun() {
-	runEx("--help")
-	runEx("--version")
+	Run("--help")
+	Run("--version")
 	// Output:
 	// NAME:
 	//    core.test - CLI for Chainlink
@@ -80,7 +82,7 @@ func ExampleRun() {
 }
 
 func ExampleRun_admin() {
-	runEx("admin", "--help")
+	Run("admin", "--help")
 	// Output:
 	// NAME:
 	//    core.test admin - Commands for remotely taking admin related actions
@@ -99,7 +101,7 @@ func ExampleRun_admin() {
 }
 
 func ExampleRun_attempts() {
-	runEx("attempts", "--help")
+	Run("attempts", "--help")
 	// Output:
 	// NAME:
 	//    core.test attempts - Commands for managing Ethereum Transaction Attempts
@@ -115,7 +117,7 @@ func ExampleRun_attempts() {
 }
 
 func ExampleRun_blocks() {
-	runEx("blocks", "--help")
+	Run("blocks", "--help")
 	// Output:
 	// NAME:
 	//    core.test blocks - Commands for managing blocks
@@ -131,7 +133,7 @@ func ExampleRun_blocks() {
 }
 
 func ExampleRun_bridges() {
-	runEx("bridges", "--help")
+	Run("bridges", "--help")
 	// Output:
 	// NAME:
 	//    core.test bridges - Commands for Bridges communicating with External Adapters
@@ -150,7 +152,7 @@ func ExampleRun_bridges() {
 }
 
 func ExampleRun_config() {
-	runEx("config", "--help")
+	Run("config", "--help")
 	// Output:
 	// NAME:
 	//    core.test config - Commands for the node's configuration
@@ -159,8 +161,9 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    dump         Dump a TOML file equivalent to the current environment and database configuration
-	//    list         Show the node's environment variables
+	//    dump         LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration
+	//    list         LEGACY CONFIG (ENV) ONLY - Show the node's environment variables
+	//    show         V2 CONFIG (TOML) ONLY - Show the application configuration
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
 	//    logsql       Enable/disable sql statement logging
@@ -171,7 +174,7 @@ func ExampleRun_config() {
 }
 
 func ExampleRun_jobs() {
-	runEx("jobs", "--help")
+	Run("jobs", "--help")
 	// Output:
 	// NAME:
 	//    core.test jobs - Commands for managing Jobs
@@ -191,7 +194,7 @@ func ExampleRun_jobs() {
 }
 
 func ExampleRun_keys() {
-	runEx("keys", "--help")
+	Run("keys", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys - Commands for managing various types of keys used by the Chainlink node
@@ -217,7 +220,7 @@ func ExampleRun_keys() {
 }
 
 func ExampleRun_keys_eth() {
-	runEx("keys", "eth", "--help")
+	Run("keys", "eth", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys eth - Remote commands for administering the node's Ethereum keys
@@ -239,7 +242,7 @@ func ExampleRun_keys_eth() {
 }
 
 func ExampleRun_keys_p2p() {
-	runEx("keys", "p2p", "--help")
+	Run("keys", "p2p", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys p2p - Remote commands for administering the node's p2p keys
@@ -259,7 +262,7 @@ func ExampleRun_keys_p2p() {
 }
 
 func ExampleRun_keys_csa() {
-	runEx("keys", "csa", "--help")
+	Run("keys", "csa", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys csa - Remote commands for administering the node's CSA keys
@@ -278,7 +281,7 @@ func ExampleRun_keys_csa() {
 }
 
 func ExampleRun_keys_ocr_legacy() {
-	runEx("keys", "ocr", "--help")
+	Run("keys", "ocr", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys ocr - Remote commands for administering the node's legacy off chain reporting keys
@@ -298,7 +301,7 @@ func ExampleRun_keys_ocr_legacy() {
 }
 
 func ExampleRun_keys_ocr() {
-	runEx("keys", "ocr2", "--help")
+	Run("keys", "ocr2", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys ocr2 - Remote commands for administering the node's off chain reporting keys
@@ -318,7 +321,7 @@ func ExampleRun_keys_ocr() {
 }
 
 func ExampleRun_keys_solana() {
-	runEx("keys", "solana", "--help")
+	Run("keys", "solana", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys solana - Remote commands for administering the node's Solana keys
@@ -338,7 +341,7 @@ func ExampleRun_keys_solana() {
 }
 
 func ExampleRun_keys_terra() {
-	runEx("keys", "terra", "--help")
+	Run("keys", "terra", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys terra - Remote commands for administering the node's Terra keys
@@ -358,7 +361,7 @@ func ExampleRun_keys_terra() {
 }
 
 func ExampleRun_keys_starknet() {
-	runEx("keys", "starknet", "--help")
+	Run("keys", "starknet", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys starknet - Remote commands for administering the node's StarkNet keys
@@ -378,7 +381,7 @@ func ExampleRun_keys_starknet() {
 }
 
 func ExampleRun_keys_vrf() {
-	runEx("keys", "vrf", "--help")
+	Run("keys", "vrf", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys vrf - Remote commands for administering the node's vrf keys
@@ -398,7 +401,7 @@ func ExampleRun_keys_vrf() {
 }
 
 func ExampleRun_keys_dkgsign() {
-	runEx("keys", "dkgsign", "--help")
+	Run("keys", "dkgsign", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys dkgsign - Remote commands for administering the node's DKGSign keys
@@ -418,7 +421,7 @@ func ExampleRun_keys_dkgsign() {
 }
 
 func ExampleRun_keys_dkgencrypt() {
-	runEx("keys", "dkgencrypt", "--help")
+	Run("keys", "dkgencrypt", "--help")
 	// Output:
 	// NAME:
 	//    core.test keys dkgencrypt - Remote commands for administering the node's DKGEncrypt keys
@@ -438,7 +441,7 @@ func ExampleRun_keys_dkgencrypt() {
 }
 
 func ExampleRun_node() {
-	runEx("node", "--help")
+	Run("node", "--help")
 	// Output:
 	// NAME:
 	//    core.test node - Commands can only be run from on the same machine as the Chainlink node.
@@ -458,7 +461,7 @@ func ExampleRun_node() {
 }
 
 func ExampleRun_node_start() {
-	runEx("node", "start", "--help")
+	Run("node", "start", "--help")
 	// Output:
 	// NAME:
 	//    core.test node start - Run the Chainlink node
@@ -474,7 +477,7 @@ func ExampleRun_node_start() {
 }
 
 func ExampleRun_node_db() {
-	runEx("node", "db", "--help")
+	Run("node", "db", "--help")
 	// Output:
 	// NAME:
 	//    core.test node db - Potentially destructive commands for managing the database.
@@ -493,7 +496,7 @@ func ExampleRun_node_db() {
 }
 
 func ExampleRun_node_profile() {
-	runEx("node", "profile", "--help")
+	Run("node", "profile", "--help")
 	// Output:
 	// NAME:
 	//    core.test node profile - Collects profile metrics from the node.
@@ -507,7 +510,7 @@ func ExampleRun_node_profile() {
 }
 
 func ExampleRun_txs() {
-	runEx("txs", "--help")
+	Run("txs", "--help")
 	// Output:
 	// NAME:
 	//    core.test txs - Commands for handling transactions
@@ -525,7 +528,7 @@ func ExampleRun_txs() {
 }
 
 func ExampleRun_txs_evm() {
-	runEx("txs", "evm", "--help")
+	Run("txs", "evm", "--help")
 	// Output:
 	// NAME:
 	//    core.test txs evm - Commands for handling EVM transactions
@@ -543,7 +546,7 @@ func ExampleRun_txs_evm() {
 }
 
 func ExampleRun_txs_solana() {
-	runEx("txs", "solana", "--help")
+	Run("txs", "solana", "--help")
 	// Output:
 	// NAME:
 	//    core.test txs solana - Commands for handling Solana transactions
@@ -559,7 +562,7 @@ func ExampleRun_txs_solana() {
 }
 
 func ExampleRun_txs_terra() {
-	runEx("txs", "terra", "--help")
+	Run("txs", "terra", "--help")
 	// Output:
 	// NAME:
 	//    core.test txs terra - Commands for handling Terra transactions
@@ -575,7 +578,7 @@ func ExampleRun_txs_terra() {
 }
 
 func ExampleRun_chains() {
-	runEx("chains", "--help")
+	Run("chains", "--help")
 	// Output:
 	// NAME:
 	//    core.test chains - Commands for handling chain configuration
@@ -594,7 +597,7 @@ func ExampleRun_chains() {
 }
 
 func ExampleRun_chains_evm() {
-	runEx("chains", "evm", "--help")
+	Run("chains", "evm", "--help")
 	// Output:
 	// NAME:
 	//    core.test chains evm - Commands for handling EVM chains
@@ -613,7 +616,7 @@ func ExampleRun_chains_evm() {
 }
 
 func ExampleRun_chains_solana() {
-	runEx("chains", "solana", "--help")
+	Run("chains", "solana", "--help")
 	// Output:
 	// NAME:
 	//    core.test chains solana - Commands for handling Solana chains
@@ -632,7 +635,7 @@ func ExampleRun_chains_solana() {
 }
 
 func ExampleRun_chains_starknet() {
-	runEx("chains", "starknet", "--help")
+	Run("chains", "starknet", "--help")
 	// Output:
 	// NAME:
 	//    core.test chains starknet - Commands for handling StarkNet chains
@@ -651,7 +654,7 @@ func ExampleRun_chains_starknet() {
 }
 
 func ExampleRun_chains_terra() {
-	runEx("chains", "terra", "--help")
+	Run("chains", "terra", "--help")
 	// Output:
 	// NAME:
 	//    core.test chains terra - Commands for handling Terra chains
@@ -670,7 +673,7 @@ func ExampleRun_chains_terra() {
 }
 
 func ExampleRun_nodes() {
-	runEx("nodes", "--help")
+	Run("nodes", "--help")
 	// Output:
 	// NAME:
 	//    core.test nodes - Commands for handling node configuration
@@ -689,7 +692,7 @@ func ExampleRun_nodes() {
 }
 
 func ExampleRun_nodes_evm() {
-	runEx("nodes", "evm", "--help")
+	Run("nodes", "evm", "--help")
 	// Output:
 	// NAME:
 	//    core.test nodes evm - Commands for handling EVM node configuration
@@ -720,7 +723,7 @@ func ExampleRun_nodes_evm() {
 //}
 
 func ExampleRun_nodes_solana() {
-	runEx("nodes", "solana", "--help")
+	Run("nodes", "solana", "--help")
 	// Output:
 	// NAME:
 	//    core.test nodes solana - Commands for handling Solana node configuration
@@ -738,7 +741,7 @@ func ExampleRun_nodes_solana() {
 }
 
 func ExampleRun_nodes_starknet() {
-	runEx("nodes", "starknet", "--help")
+	Run("nodes", "starknet", "--help")
 	// Output:
 	// NAME:
 	//    core.test nodes starknet - Commands for handling StarkNet node configuration
@@ -756,7 +759,7 @@ func ExampleRun_nodes_starknet() {
 }
 
 func ExampleRun_nodes_terra() {
-	runEx("nodes", "terra", "--help")
+	Run("nodes", "terra", "--help")
 	// Output:
 	// NAME:
 	//    core.test nodes terra - Commands for handling Terra node configuration
@@ -774,7 +777,7 @@ func ExampleRun_nodes_terra() {
 }
 
 func ExampleRun_forwarders() {
-	runEx("forwarders", "--help")
+	Run("forwarders", "--help")
 	// Output:
 	// NAME:
 	//    core.test forwarders - Commands for managing forwarder addresses.

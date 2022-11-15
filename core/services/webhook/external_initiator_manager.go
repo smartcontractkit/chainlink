@@ -10,13 +10,14 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name ExternalInitiatorManager --output ./mocks/ --case=underscore
@@ -41,7 +42,7 @@ type externalInitiatorManager struct {
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 
 // NewExternalInitiatorManager returns the concrete externalInitiatorManager
-func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.LogConfig) *externalInitiatorManager {
+func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.QConfig) *externalInitiatorManager {
 	namedLogger := lggr.Named("ExternalInitiatorManager")
 	return &externalInitiatorManager{
 		q:          pg.NewQ(db, namedLogger, cfg),
@@ -82,7 +83,7 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 			return err
 		}
 		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+			return fmt.Errorf(" notify '%s' (%s) received bad response '%d: %s'", ei.Name, ei.URL, resp.StatusCode, resp.Status)
 		}
 	}
 	return nil
@@ -158,7 +159,7 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 			return err
 		}
 		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+			return fmt.Errorf(" delete '%s' (%s) received bad response '%d: %s'", ei.Name, ei.URL, resp.StatusCode, resp.Status)
 		}
 	}
 	return nil

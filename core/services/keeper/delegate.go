@@ -59,7 +59,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
 
-	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
+	cfg := chain.Config()
+	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, cfg.KeeperDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
 	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,

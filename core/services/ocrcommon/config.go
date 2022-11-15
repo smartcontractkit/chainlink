@@ -10,10 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type Config interface {
-	LogSQL() bool
+	pg.QConfig
 	EvmGasLimitDefault() uint32
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRBlockchainTimeout() time.Duration

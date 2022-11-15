@@ -27,41 +27,7 @@ import (
 var _ = Describe("VRF suite @vrf", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("VRF suite on Simulated Network @simulated",
-				networks.SimulatedEVM,
-				big.NewFloat(5),
-				defaultVRFEnv(networks.SimulatedEVM),
-			),
-			Entry("VRF suite on General EVM @general",
-				networks.GeneralEVM(),
-				big.NewFloat(.05),
-				defaultVRFEnv(networks.GeneralEVM()),
-			),
-			Entry("VRF suite on Metis Stardust @metis",
-				networks.MetisStardust,
-				big.NewFloat(.005),
-				defaultVRFEnv(networks.MetisStardust),
-			),
-			Entry("VRF suite on Sepolia Testnet @sepolia",
-				networks.SepoliaTestnet,
-				big.NewFloat(.05),
-				defaultVRFEnv(networks.SepoliaTestnet),
-			),
-			Entry("VRF suite on Görli Testnet @goerli",
-				networks.GoerliTestnet,
-				big.NewFloat(.05),
-				defaultVRFEnv(networks.GoerliTestnet),
-			),
-			Entry("VRF suite on Klaytn Baobab @klaytn",
-				networks.KlaytnBaobab,
-				big.NewFloat(.5),
-				defaultVRFEnv(networks.KlaytnBaobab),
-			),
-			Entry("VRF suite on Optimism Goerli @optimism",
-				networks.OptimismGoerli,
-				big.NewFloat(.05),
-				defaultVRFEnv(networks.OptimismGoerli),
-			),
+			Entry("VRF suite on default environment @default", defaultVRFEnv()),
 		}
 
 		testEnvironment *environment.Environment
@@ -77,14 +43,11 @@ var _ = Describe("VRF suite @vrf", func() {
 	})
 
 	DescribeTable("VRF suite on different EVM networks", func(
-		testNetwork *blockchain.EVMNetwork,
-		funding *big.Float,
-		env *environment.Environment,
+		testInputs *smokeTestInputs,
 	) {
 		By("Deploying the environment")
-		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
-
+		testEnvironment = testInputs.environment
+		testNetwork := testInputs.network
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -98,7 +61,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		chainClient.ParallelTransactions(true)
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, funding)
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
 		Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 
 		By("Deploying VRF contracts")
@@ -185,7 +148,8 @@ var _ = Describe("VRF suite @vrf", func() {
 	)
 })
 
-func defaultVRFEnv(network *blockchain.EVMNetwork) *environment.Environment {
+func defaultVRFEnv() *smokeTestInputs {
+	network := networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -194,9 +158,15 @@ func defaultVRFEnv(network *blockchain.EVMNetwork) *environment.Environment {
 			WsURLs:      network.URLs,
 		})
 	}
-	return environment.New(&environment.Config{}).
+	env := environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"env": network.ChainlinkValuesMap(),
 		}))
+	return &smokeTestInputs{
+		network:     network,
+		environment: env,
+	}
 }

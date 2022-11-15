@@ -11,7 +11,7 @@ import (
 
 //go:generate mockery --name VRFBeaconCoordinator --output ./mocks/ --case=underscore
 
-// VRFBeaconCoordinator is a narrow interface implemented by the contract go wrappers.
+// VRFBeaconCoordinator is an interface that defines methods needed by the off-chain coordinator
 type VRFBeaconCoordinator interface {
 	// SProvingKeyHash retrieves the proving key hash from the on-chain contract.
 	SProvingKeyHash(opts *bind.CallOpts) ([32]byte, error)

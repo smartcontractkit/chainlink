@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
@@ -19,12 +19,12 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db, cfg)
-	keyStore.Unlock(cltest.Password)
+	require.NoError(t, keyStore.Unlock(cltest.Password))
 	ks := keyStore.Solana()
 	reset := func() {
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		keyStore.ResetXXXTestOnly()
-		keyStore.Unlock(cltest.Password)
+		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 
 	t.Run("initializes with an empty state", func(t *testing.T) {

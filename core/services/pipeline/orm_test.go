@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -26,11 +27,11 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	t.Helper()
 
 	if name != "" {
-		_, db = heavyweight.FullTestDB(t, name)
+		_, db = heavyweight.FullTestDBV2(t, name, nil)
 	} else {
 		db = pgtest.NewSqlxDB(t)
 	}
-	orm = pipeline.NewORM(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	orm = pipeline.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return
 }
@@ -330,9 +331,18 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 
 	run := mustInsertAsyncRun(t, orm)
 
-	now := time.Now()
-
 	ds1_id := uuid.NewV4()
+	now := time.Now()
+	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
+	require.NoError(t, err)
+	cborOutput := map[string]interface{}{
+		"blockNum":        "0x13babbd",
+		"confirmations":   int64(10),
+		"contractAddress": address,
+		"libraryVersion":  int64(1),
+		"remoteChainId":   int64(106),
+	}
+
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
@@ -342,6 +352,16 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 			DotID:         "ds1",
 			CreatedAt:     now,
 			FinishedAt:    null.Time{},
+		},
+		// finished task with json output
+		{
+			ID:            uuid.NewV4(),
+			PipelineRunID: run.ID,
+			Type:          "cbor_parse",
+			DotID:         "ds2",
+			Output:        pipeline.JSONSerializable{Val: cborOutput, Valid: true},
+			CreatedAt:     now,
+			FinishedAt:    null.TimeFrom(now),
 		},
 		// finished task
 		{
@@ -370,7 +390,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	assert.Greater(t, run.ID, int64(0))
 	assert.Greater(t, run.PipelineSpec.ID, int32(0)) // Make sure it actually loaded everything
 
-	require.Len(t, run.PipelineTaskRuns, 2)
+	require.Len(t, run.PipelineTaskRuns, 3)
 	// assert that run should be in "running" state
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 	// assert that we get the start signal
@@ -380,6 +400,11 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	task := run.ByDotID("ds1")
 	require.True(t, task.FinishedAt.Valid)
 	require.Equal(t, pipeline.JSONSerializable{Val: "foo", Valid: true}, task.Output)
+
+	// assert correct task run serialization
+	task2 := run.ByDotID("ds2")
+	cborOutput["contractAddress"] = "0x8bd112d3f8f92e41c861939545ad387307af9703"
+	require.Equal(t, pipeline.JSONSerializable{Val: cborOutput, Valid: true}, task2.Output)
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
@@ -479,9 +504,10 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	porm := pipeline.NewORM(db, lggr, config)
+	bridgeORM := bridges.NewORM(db, lggr, config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jorm := job.NewORM(db, cc, porm, keyStore, lggr, config)
+	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
 	defer jorm.Close()
 
 	timestamp := time.Now()
@@ -579,9 +605,10 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	porm := pipeline.NewORM(db, lggr, config)
+	bridgeORM := bridges.NewORM(db, lggr, config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jorm := job.NewORM(db, cc, porm, keyStore, lggr, config)
+	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
 	defer jorm.Close()
 
 	timestamp := time.Now()

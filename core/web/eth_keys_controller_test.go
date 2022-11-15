@@ -9,7 +9,9 @@ import (
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -23,13 +25,14 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.Dev = null.BoolFrom(true)
-	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = false
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 
-	app.KeyStore.Unlock(cltest.Password)
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// disabled key
 	k0, addr0 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
@@ -75,11 +78,12 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.Dev = null.BoolFrom(false)
-	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-	cfg.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
+
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	})
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
@@ -128,8 +132,9 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
@@ -151,6 +156,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	t.Parallel()
 

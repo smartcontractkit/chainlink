@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 //go:generate mockery --name Config --output ../mocks/ --case=underscore
@@ -14,8 +15,8 @@ import (
 // Config contains OCR2 configurations for a job.
 type Config interface {
 	config.OCR2Config
+	pg.QConfig
 	Dev() bool
-	LogSQL() bool
 	JobPipelineResultWriteQueueDepth() uint64
 }
 

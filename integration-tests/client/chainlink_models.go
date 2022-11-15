@@ -6,10 +6,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"gopkg.in/guregu/null.v4"
+
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -117,6 +116,29 @@ type BridgeTypeAttributes struct {
 type Session struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// ExportedEVMKey holds all details needed to recreate a private key of the Chainlink node
+type ExportedEVMKey struct {
+	Address string `json:"address"`
+	Crypto  struct {
+		Cipher       string `json:"cipher"`
+		CipherText   string `json:"ciphertext"`
+		CipherParams struct {
+			Iv string `json:"iv"`
+		} `json:"cipherparams"`
+		Kdf       string `json:"kdf"`
+		KDFParams struct {
+			DkLen int    `json:"dklen"`
+			N     int    `json:"n"`
+			P     int    `json:"p"`
+			R     int    `json:"r"`
+			Salt  string `json:"salt"`
+		} `json:"kdfparams"`
+		Mac string `json:"mac"`
+	} `json:"crypto"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
 }
 
 // VRFExportKey is the model that represents the exported VRF key
@@ -789,6 +811,7 @@ type OCRTaskJobSpec struct {
 	ContractConfirmations    int           `toml:"contractConfigConfirmations"`            // Optional
 	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
 	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
+	ForwardingAllowed        bool          `toml:"forwardingAllowed"`                      // Optional, by default false
 	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
 	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
 	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
@@ -844,6 +867,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint       string
 		TransmitterAddress       string
 		ObservationSource        string
+		ForwardingAllowed        bool
 	}{
 		Name:                     o.Name,
 		BlockChainTimeout:        o.BlockChainTimeout,
@@ -858,6 +882,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint:       o.MonitoringEndpoint,
 		TransmitterAddress:       o.TransmitterAddress,
 		ObservationSource:        o.ObservationSource,
+		ForwardingAllowed:        o.ForwardingAllowed,
 	}
 	// Results in /dns4//tcp/6690/p2p/12D3KooWAuC9xXBnadsYJpqzZZoB4rMRWqRGpxCrr2mjS7zCoAdN\
 	ocrTemplateString := `type = "offchainreporting"
@@ -881,6 +906,7 @@ p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
+forwardingAllowed					   = {{.ForwardingAllowed}}
 observationSource                      = """
 {{.ObservationSource}}
 """`
@@ -888,42 +914,12 @@ observationSource                      = """
 	return marshallTemplate(specWrap, "OCR Job", ocrTemplateString)
 }
 
-// These are temporarily here until we find a fix for issue 53656/soak-test-compilation-broken-on-macos-m1
-// there is some compilation issue with cosmwasm
-// once fixed replace with /core/services/job/models.go versions again
-type TempOCR2PluginType string
-
-const (
-	Median  TempOCR2PluginType = "median"
-	DKG     TempOCR2PluginType = "dkg"
-	OCR2VRF TempOCR2PluginType = "ocr2vrf"
-)
-
-type TempJSONConfig map[string]interface{}
-type TempOCR2OracleSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relay.Network      `toml:"relay"`
-	RelayConfig                       TempJSONConfig     `toml:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray     `toml:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String        `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	PluginConfig                      TempJSONConfig     `toml:"pluginConfig"`
-	PluginType                        TempOCR2PluginType `toml:"pluginType"`
-	CreatedAt                         time.Time          `toml:"-"`
-	UpdatedAt                         time.Time          `toml:"-"`
-}
-
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
-	OCR2OracleSpec    TempOCR2OracleSpec
+	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
@@ -1231,4 +1227,29 @@ func NewBlankChainlinkProfileResults() *ChainlinkProfileResults {
 type CLNodesWithKeys struct {
 	Node       *Chainlink
 	KeysBundle NodeKeysBundle
+}
+
+// Forwarder the model that represents the created Forwarder when created
+type Forwarder struct {
+	Data ForwarderData `json:"data"`
+}
+
+// Forwarders is the model that represents the created Forwarders when read
+type Forwarders struct {
+	Data []Forwarder `json:"data"`
+}
+
+// ForwarderData is the model that represents the created Forwarder when read
+type ForwarderData struct {
+	ID        string    `json:"id"`
+	Address   string    `json:"address"`
+	ChainID   string    `json:"chainId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// ForwarderAttributes is the model that represents attributes of a Forwarder
+type ForwarderAttributes struct {
+	Address string `json:"address"`
+	ChainID string `json:"chainID"`
 }

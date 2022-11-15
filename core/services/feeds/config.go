@@ -3,6 +3,7 @@ package feeds
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -20,5 +21,5 @@ type Config interface {
 	OCRDatabaseTimeout() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
-	LogSQL() bool
+	pg.QConfig
 }

@@ -14,8 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
-
-	"github.com/smartcontractkit/sqlx"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -27,19 +26,18 @@ var _ starkChain.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id   string
-	cfg  config.Config
-	orm  types.ORM
-	lggr logger.Logger
-	txm  txm.StarkTXM
+	id           string
+	cfg          config.Config
+	cfgImmutable bool // toml config is immutable
+	orm          types.ORM
+	lggr         logger.Logger
+	txm          txm.StarkTXM
 }
 
-func NewChain(db *sqlx.DB, ks keystore.StarkNet, dbchain types.DBChain, orm types.ORM, lggr logger.Logger) (ch *chain, err error) {
-	cfg := config.NewConfig(*dbchain.Cfg, lggr)
-	lggr = lggr.With("starknetChainID", dbchain.ID)
-
+func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM, lggr logger.Logger) (ch *chain, err error) {
+	lggr = lggr.With("starknetChainID", id)
 	ch = &chain{
-		id:   dbchain.ID,
+		id:   id,
 		cfg:  cfg,
 		orm:  orm,
 		lggr: lggr.Named("Chain"),
@@ -62,6 +60,10 @@ func (c *chain) Config() config.Config {
 }
 
 func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
+	if c.cfgImmutable {
+		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
+		return
+	}
 	c.cfg.Update(*cfg)
 }
 

@@ -9,7 +9,7 @@ LogPollInterval = '3s'
 MinIncomingConfirmations = 3
 NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 2
-TxResendAfterThreshold = '1m'
+Transactions.ResendAfterThreshold = '1m'
 
 [BalanceMonitor]
 Enabled = true

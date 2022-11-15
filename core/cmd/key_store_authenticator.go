@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	clipkg "github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -18,23 +17,12 @@ type TerminalKeyStoreAuthenticator struct {
 	Prompter Prompter
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keyStore keystore.Master, cfg config.GeneralConfig) error {
+func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master, cfg config.BasicConfig) error {
 	isEmpty, err := keyStore.IsEmpty()
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
-	var password string
-	passwordFile := c.String("password")
-	if len(passwordFile) != 0 {
-		// TODO: Deprecate when config V2 is live. This is handled while building the config struct
-		// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-		password, err = utils.PasswordFromFile(passwordFile)
-		if err != nil {
-			return errors.Wrap(err, "error reading password from file")
-		}
-	} else {
-		password = cfg.KeystorePassword()
-	}
+	password := cfg.KeystorePassword()
 
 	if len(password) != 0 {
 		// Because we changed password requirements to increase complexity, to

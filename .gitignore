@@ -43,6 +43,7 @@ cl_backup_*.tar.gz
 core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
 output.txt
 race.*
+golangci-lint-output.txt
 
 # DB state
 db/
@@ -59,3 +60,4 @@ integration-tests/**/logs/
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
+ztarrepo.tar.gz

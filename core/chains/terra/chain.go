@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
@@ -44,18 +45,17 @@ type chain struct {
 	utils.StartStopOnce
 	id             string
 	cfg            terra.Config
+	cfgImmutable   bool // toml config is immutable
 	txm            *terratxm.Txm
 	balanceMonitor services.ServiceCtx
 	orm            types.ORM
 	lggr           logger.Logger
 }
 
-// NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain types.DBChain, orm types.ORM, lggr logger.Logger) (*chain, error) {
-	cfg := terra.NewConfig(*dbchain.Cfg, lggr)
-	lggr = lggr.With("terraChainID", dbchain.ID)
+func newChain(id string, cfg terra.Config, db *sqlx.DB, ks keystore.Terra, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
+	lggr = lggr.With("terraChainID", id)
 	var ch = chain{
-		id:   dbchain.ID,
+		id:   id,
 		cfg:  cfg,
 		orm:  orm,
 		lggr: lggr.Named("Chain"),
@@ -87,6 +87,10 @@ func (c *chain) Config() terra.Config {
 }
 
 func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
+	if c.cfgImmutable {
+		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
+		return
+	}
 	c.cfg.Update(*cfg)
 }
 

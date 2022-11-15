@@ -55,7 +55,7 @@ func TestDKGEncryptKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestClient_DKGEncryptKeys(t *testing.T) {
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().DKGEncrypt()
 	cleanup := func() {
 		keys, err := ks.GetAll()

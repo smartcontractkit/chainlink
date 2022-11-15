@@ -293,7 +293,6 @@ type VRFSpec struct {
 	RequestTimeout                models.Duration       `json:"requestTimeout"`
 	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
 	BackoffMaxDelay               models.Duration       `json:"backoffMaxDelay"`
-	MaxGasPriceGWei               *uint32               `json:"maxGasPriceGWei"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
@@ -312,7 +311,6 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		RequestTimeout:           models.MustMakeDuration(spec.RequestTimeout),
 		BackoffInitialDelay:      models.MustMakeDuration(spec.BackoffInitialDelay),
 		BackoffMaxDelay:          models.MustMakeDuration(spec.BackoffMaxDelay),
-		MaxGasPriceGWei:          spec.MaxGasPriceGWei,
 	}
 }
 

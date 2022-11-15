@@ -3,7 +3,6 @@ package periodicbackup
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -150,7 +149,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create directories on the path: %s", backup.outputParentDir)
 	}
-	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "cl_backup_tmp_")
+	tmpFile, err := os.CreateTemp(backup.outputParentDir, "cl_backup_tmp_")
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create a tmp file")
 	}

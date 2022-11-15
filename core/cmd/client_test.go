@@ -7,8 +7,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 
 	"github.com/stretchr/testify/assert"
@@ -135,17 +137,18 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			lggr := logger.TestLogger(t)
+			orm := sessions.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
-			tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
+			tai := cmd.NewPromptingAPIInitializer(mock)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 			// create/run with a new admin user
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
-			user, err := tai.Initialize(orm)
+			user, err := tai.Initialize(orm, lggr)
 			if test.isError {
 				assert.Error(t, err)
 			} else {
@@ -164,8 +167,9 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	lggr := logger.TestLogger(t)
+	orm := sessions.NewORM(db, time.Minute, lggr, cfg, audit.NoopLogger)
 
 	// Clear out fixture users/users created from the other test cases
 	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -177,10 +181,10 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	require.NoError(t, orm.CreateUser(&initialUser))
 
 	mock := &cltest.MockCountingPrompter{T: t}
-	tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
+	tai := cmd.NewPromptingAPIInitializer(mock)
 
 	// If there is an existing user, and we are in the Terminal prompt, no input prompts required
-	user, err := tai.Initialize(orm)
+	user, err := tai.Initialize(orm, lggr)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, mock.Count)
 
@@ -201,15 +205,16 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			lggr := logger.TestLogger(t)
+			orm := sessions.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 			// create/run with a new admin user
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
-			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
-			user, err := tfi.Initialize(orm)
+			tfi := cmd.NewFileAPIInitializer(test.file)
+			user, err := tfi.Initialize(orm, lggr)
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
@@ -225,8 +230,8 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
 
 	tests := []struct {
 		name      string
@@ -239,8 +244,9 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
-			user, err := tfi.Initialize(orm)
+			lggr := logger.TestLogger(t)
+			tfi := cmd.NewFileAPIInitializer(test.file)
+			user, err := tfi.Initialize(orm, lggr)
 			if test.wantError {
 				assert.Error(t, err)
 			} else {

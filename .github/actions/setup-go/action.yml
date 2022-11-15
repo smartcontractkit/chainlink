@@ -1,0 +1,53 @@
+name: Setup Go
+description: Setup Golang with efficient caching 
+inputs:
+  only-modules:
+    description: Set to 'true' to only cache modules
+    default: 'false'
+  cache-version: 
+    description: Set this to cache bust
+    default: "1"
+
+runs:
+  using: composite
+  steps:
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: false
+
+      - name: Get branch name
+        if: ${{ inputs.only-modules == 'false' }}
+        id: branch-name
+        uses: tj-actions/branch-names@09ab61130975078eb7cde103fe8d2ae1649a1853 #v6.1
+
+      - name: Set go cache keys
+        shell: bash
+        id: go-cache-dir
+        run: |
+          echo "::set-output name=gomodcache::$(go env GOMODCACHE)" 
+          echo "::set-output name=gobuildcache::$(go env GOCACHE)" 
+
+      - uses: actions/cache@v3
+        name: Cache Go Modules
+        with:
+          path: |
+            ${{ steps.go-cache-dir.outputs.gomodcache }}
+          # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
+          # here by not having the primary key contain the branch name
+          key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
+
+      - uses: actions/cache@v3
+        if: ${{ inputs.only-modules == 'false' }}
+        name: Cache Go Build Outputs
+        with:
+          path: |
+            ${{ steps.go-cache-dir.outputs.gobuildcache }}
+          # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
+          key: ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}-${{ steps.branch-name.outputs.current_branch }}
+          restore-keys: |
+            ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}-
+            ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-

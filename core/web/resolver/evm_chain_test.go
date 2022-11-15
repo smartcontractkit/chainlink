@@ -73,6 +73,7 @@ func TestResolver_Chains(t *testing.T) {
 				require.NoError(t, err)
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+
 				f.Mocks.evmORM.PutChains(types.DBChain{
 					ID:        chainID,
 					Enabled:   true,
@@ -95,13 +96,13 @@ func TestResolver_Chains(t *testing.T) {
 					},
 				})
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				f.Mocks.evmORM.AddNodes(types.Node{
+					ID:         nodeID,
+					Name:       "node-name",
+					EVMChainID: chainID,
+				})
 				f.Mocks.chainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainID}).
-					Return([]types.Node{
-						{
-							ID:         nodeID,
-							EVMChainID: chainID,
-						},
-					}, nil)
+					Return(f.Mocks.evmORM.GetNodesByChainIDs([]utils.Big{chainID}))
 			},
 			query: query,
 			result: fmt.Sprintf(`
@@ -129,7 +130,7 @@ func TestResolver_Chains(t *testing.T) {
 							}]
 						},
 						"nodes": [{
-							"id": "200"
+							"id": "node-name"
 						}]
 					}],
 					"metadata": {
@@ -214,13 +215,13 @@ func TestResolver_Chain(t *testing.T) {
 						},
 					},
 				})
+				f.Mocks.evmORM.AddNodes(types.Node{
+					ID:         nodeID,
+					Name:       "node-name",
+					EVMChainID: chainID,
+				})
 				f.Mocks.chainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainID}).
-					Return([]types.Node{
-						{
-							ID:         nodeID,
-							EVMChainID: chainID,
-						},
-					}, nil)
+					Return(f.Mocks.evmORM.GetNodesByChainIDs([]utils.Big{chainID}))
 			},
 			query: query,
 			result: `
@@ -246,7 +247,7 @@ func TestResolver_Chain(t *testing.T) {
 							}]
 						},
 						"nodes": [{
-							"id": "200"
+							"id": "node-name"
 						}]
 					}
 				}`,
