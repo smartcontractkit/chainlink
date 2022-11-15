@@ -60,15 +60,14 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
-    uint32 confirmations
+    uint32 gasLimit
   ) external override returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
     bytes32 requestId = OCR2DRRegistryInterface(s_registry).beginBilling(
       data,
-      OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit, confirmations)
+      OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit)
     );
     emit OracleRequest(requestId, data);
     return requestId;

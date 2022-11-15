@@ -20,7 +20,7 @@ contract OCR2DRClientTestHelper is OCR2DRClient {
   {
     OCR2DR.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    requestId = sendRequest(request, subscriptionId, 10_000, 5);
+    requestId = sendRequest(request, subscriptionId, 10_000);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 

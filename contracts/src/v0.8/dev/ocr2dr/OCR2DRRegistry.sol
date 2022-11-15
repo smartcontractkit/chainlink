@@ -23,9 +23,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   // Maximum number of oracles DON can support
   // Needs to match OCR2Abstract.sol
-  uint256 internal constant maxNumOracles = 31;
-  // Set this maximum to 200 to give us a 56 block window to fulfill
-  uint16 public constant MAX_REQUEST_CONFIRMATIONS = 200;
+  uint256 internal constant MAX_NUM_ORACLES = 31;
 
   error TooManyConsumers();
   error InsufficientBalance();
@@ -111,14 +109,12 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     address indexed don,
     bytes32 requestId,
     uint64 indexed subscriptionId,
-    uint32 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     address indexed sender
   );
   event BillingEnd(bytes32 indexed requestId, uint96 payment, bool success);
 
   struct Config {
-    uint32 minimumRequestConfirmations;
     uint32 maxGasLimit;
     // Reentrancy protection.
     bool reentrancyLock;
@@ -134,7 +130,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   int256 private s_fallbackWeiPerUnitLink;
   Config private s_config;
   event ConfigSet(
-    uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -183,7 +178,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
 
   /**
    * @notice Sets the configuration of the OCR2DR registry
-   * @param minimumRequestConfirmations global min for request confirmations
    * @param maxGasLimit global max for request gas limit
    * @param stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
@@ -191,25 +185,16 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
    * @param gasOverhead fallback eth/link price in the case of a stale feed
    */
   function setConfig(
-    uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
     uint32 gasOverhead
   ) external onlyOwner {
-    if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
-      revert InvalidRequestConfirmations(
-        minimumRequestConfirmations,
-        minimumRequestConfirmations,
-        MAX_REQUEST_CONFIRMATIONS
-      );
-    }
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
     s_config = Config({
-      minimumRequestConfirmations: minimumRequestConfirmations,
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
@@ -217,19 +202,11 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       gasOverhead: gasOverhead
     });
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
-    emit ConfigSet(
-      minimumRequestConfirmations,
-      maxGasLimit,
-      stalenessSeconds,
-      gasAfterPaymentCalculation,
-      fallbackWeiPerUnitLink,
-      gasOverhead
-    );
+    emit ConfigSet(maxGasLimit, stalenessSeconds, gasAfterPaymentCalculation, fallbackWeiPerUnitLink, gasOverhead);
   }
 
   /**
    * @notice Gets the configuration of the OCR2DR registry
-   * @return minimumRequestConfirmations global min for request confirmations
    * @return maxGasLimit global max for request gas limit
    * @return stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
    * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
@@ -240,7 +217,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     external
     view
     returns (
-      uint32 minimumRequestConfirmations,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation,
@@ -249,7 +225,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     )
   {
     return (
-      s_config.minimumRequestConfirmations,
       s_config.maxGasLimit,
       s_config.stalenessSeconds,
       s_config.gasAfterPaymentCalculation,
@@ -299,17 +274,8 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function getRequestConfig()
-    external
-    view
-    override
-    returns (
-      uint32,
-      uint32,
-      address[] memory
-    )
-  {
-    return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_dons);
+  function getRequestConfig() external view override returns (uint32, address[] memory) {
+    return (s_config.maxGasLimit, s_dons);
   }
 
   /**
@@ -380,16 +346,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     if (currentNonce == 0) {
       revert InvalidConsumer(billing.subscriptionId, billing.client);
     }
-    // Input validation using the config storage word.
-    if (
-      billing.confirmations < s_config.minimumRequestConfirmations || billing.confirmations > MAX_REQUEST_CONFIRMATIONS
-    ) {
-      revert InvalidRequestConfirmations(
-        billing.confirmations,
-        s_config.minimumRequestConfirmations,
-        MAX_REQUEST_CONFIRMATIONS
-      );
-    }
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the proof verification and wouldn't be
     // able to do anything with the random value.
@@ -417,14 +373,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       getRequiredFee(data, billing)
     );
 
-    emit BillingStart(
-      msg.sender,
-      requestId,
-      billing.subscriptionId,
-      billing.confirmations,
-      billing.gasLimit,
-      billing.client
-    );
+    emit BillingStart(msg.sender, requestId, billing.subscriptionId, billing.gasLimit, billing.client);
     s_consumers[billing.client][billing.subscriptionId] = nonce;
     return requestId;
   }
@@ -439,17 +388,11 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     returns (
       address,
       uint64,
-      uint32,
       uint32
     )
   {
     Commitment memory commitment = s_requestCommitments[requestId];
-    return (
-      commitment.billing.client,
-      commitment.billing.subscriptionId,
-      commitment.billing.gasLimit,
-      commitment.billing.confirmations
-    );
+    return (commitment.billing.client, commitment.billing.subscriptionId, commitment.billing.gasLimit);
   }
 
   function computeRequestId(
@@ -508,7 +451,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     bytes calldata response,
     bytes calldata err,
     address transmitter,
-    address[maxNumOracles] memory, /* signers */
+    address[MAX_NUM_ORACLES] memory, /* signers */
     uint32 initialGas
   ) external onlyAllowedDons nonReentrant returns (uint96) {
     Commitment memory commitment = s_requestCommitments[requestId];
