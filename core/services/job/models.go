@@ -443,6 +443,13 @@ type VRFSpec struct {
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
+	// GasLanePrice specifies the gas lane price for this VRF job.
+	// If the specified keys in FromAddresses do not have the provided gas price the job
+	// will not start.
+	//
+	// Optional, for v2 jobs only.
+	GasLanePrice *assets.Wei `toml:"gasLanePrice" db:"gas_lane_price"`
+
 	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults
 	// to 20 if not provided.
 	ChunkSize uint32 `toml:"chunkSize"`

@@ -275,7 +275,8 @@ schemaVersion		= 1
 contractID			= "%s"
 [relayConfig]
 chainID 			= 1337
-`, ocrContractAddress))
+fromBlock = %d
+`, ocrContractAddress, blockBeforeConfig.Number().Int64()))
 	require.NoError(t, err)
 	err = bootstrapNode.app.AddJobV2(testutils.Context(t), &ocrJob)
 	require.NoError(t, err)
@@ -352,6 +353,7 @@ observationSource  = """
 """
 [relayConfig]
 chainID = 1337
+fromBlock = %d
 [pluginConfig]
 juelsPerFeeCoinSource = """
 		// data source 1
@@ -369,18 +371,12 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
 		require.NoError(t, err)
 		jids = append(jids, ocrJob.ID)
 	}
-
-	// Once all the jobs are added, replay to ensure we have the configSet logs.
-	for _, app := range apps {
-		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
-	}
-	require.NoError(t, bootstrapNode.app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
 	var wg sync.WaitGroup

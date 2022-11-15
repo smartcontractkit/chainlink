@@ -23,7 +23,9 @@ type FilePersistedSecretGenerator struct{}
 
 func (f FilePersistedSecretGenerator) Generate(rootDir string) ([]byte, error) {
 	sessionPath := filepath.Join(rootDir, "secret")
-	if utils.FileExists(sessionPath) {
+	if exists, err := utils.FileExists(sessionPath); err != nil {
+		return nil, err
+	} else if exists {
 		data, err := os.ReadFile(sessionPath)
 		if err != nil {
 			return data, err

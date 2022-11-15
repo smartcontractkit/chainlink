@@ -1,5 +1,11 @@
 [//]: # (Generated - DO NOT EDIT.)
 
+## Example
+
+```toml
+Bar = 7 # Required
+```
+
 ## Table of contents
 
 - [Global](#Global)

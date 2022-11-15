@@ -61,7 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -376,7 +376,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		relayers := make(map[relay.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg)
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
 		}

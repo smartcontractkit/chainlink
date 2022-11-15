@@ -94,7 +94,7 @@ func TestAddClose(t *testing.T) {
 		one := uint32(1)
 		c.EVM[0].MinIncomingConfirmations = &one
 		t := true
-		c.EVM = append(c.EVM, &v2.EVMConfig{ChainID: utils.NewBig(newId), Enabled: &t, Chain: v2.DefaultsFrom(nil, nil)})
+		c.EVM = append(c.EVM, &v2.EVMConfig{ChainID: utils.NewBig(newId), Enabled: &t, Chain: v2.Defaults(nil)})
 	})
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg)

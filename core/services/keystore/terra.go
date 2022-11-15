@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 )
 
-//go:generate mockery --name Terra --output ./mocks/ --case=underscore --filename terra.go
+//go:generate mockery --quiet --name Terra --output ./mocks/ --case=underscore --filename terra.go
 
 type Terra interface {
 	Get(id string) (terrakey.Key, error)

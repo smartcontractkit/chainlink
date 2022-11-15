@@ -38,13 +38,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
-// Router listens and responds to requests to the node for valid paths.
-func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+// NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
+func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
-		app.GetLogger().Panic(err)
+		return nil, err
 	}
 	sessionStore := sessions.NewCookieStore(secret)
 	sessionStore.Options(config.SessionOptions())
@@ -87,7 +87,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		graphqlHandler(app),
 	)
 
-	return engine
+	return engine, nil
 }
 
 // Defining the Graphql handler
