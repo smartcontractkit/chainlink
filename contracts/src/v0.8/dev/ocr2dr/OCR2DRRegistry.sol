@@ -347,8 +347,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       revert InvalidConsumer(billing.subscriptionId, billing.client);
     }
     // No lower bound on the requested gas limit. A user could request 0
-    // and they would simply be billed for the proof verification and wouldn't be
-    // able to do anything with the random value.
+    // and they would simply be billed for the gas and computation.
     if (billing.gasLimit > s_config.maxGasLimit) {
       revert GasLimitTooBig(billing.gasLimit, s_config.maxGasLimit);
     }
