@@ -13,8 +13,8 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
   error UnauthorizedSender();
   error NotAllowedToSetSenders();
 
-  EnumerableSet.AddressSet private s_authorizedSenders;
-  address[] private s_authorizedSendersList;
+  EnumerableSet.AddressSet internal s_authorizedSenders;
+  address[] internal s_authorizedSendersList;
 
   /**
    * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.

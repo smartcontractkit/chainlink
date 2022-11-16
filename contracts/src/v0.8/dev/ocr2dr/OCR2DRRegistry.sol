@@ -9,8 +9,15 @@ import "../interfaces/OCR2DRClientInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 import "../../ConfirmedOwner.sol";
+import "../AuthorizedReceiver.sol";
 
-contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegistryInterface, ERC677ReceiverInterface {
+contract OCR2DRRegistry is
+  ConfirmedOwner,
+  TypeAndVersionInterface,
+  OCR2DRRegistryInterface,
+  ERC677ReceiverInterface,
+  AuthorizedReceiver
+{
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
 
@@ -87,9 +94,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   error PaymentTooLarge();
   error Reentrant();
 
-  mapping(address => bool) /* DON */ /* is DON allowed */
-    private s_allowedDons;
-  address[] private s_dons;
   mapping(address => uint96) /* oracle */ /* LINK balance */
     private s_withdrawableTokens;
   struct Commitment {
@@ -137,40 +141,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   constructor(address link, address linkEthFeed) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-  }
-
-  /**
-   * @notice Registers a new Decentralized Oracle Network (DON).
-   * @param don address of the DON
-   */
-  function registerDon(address don) external onlyOwner {
-    // NOTE: could validate vesion of OCR2DROracle contract here
-    if (s_allowedDons[don] == true) {
-      revert DonAlreadyRegistered(don);
-    }
-    s_allowedDons[don] = true;
-    s_dons.push(don);
-    emit DonRegistered(don);
-  }
-
-  /**
-   * @notice Deregisters a Decentralized Oracle Network (DON).
-   * @param don address of the DON
-   */
-  function deregisterDon(address don) external onlyOwner {
-    if (s_allowedDons[don] == false) {
-      revert NoSuchDon(don);
-    }
-    delete s_allowedDons[don];
-    for (uint256 i = 0; i < s_dons.length; i++) {
-      if (s_dons[i] == don) {
-        address last = s_dons[s_dons.length - 1];
-        // Copy last element and overwrite don to be deleted with it
-        s_dons[i] = last;
-        s_dons.pop();
-      }
-    }
-    emit DonDeregistered(don);
   }
 
   /**
@@ -272,7 +242,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
    * @inheritdoc OCR2DRRegistryInterface
    */
   function getRequestConfig() external view override returns (uint32, address[] memory) {
-    return (s_config.maxGasLimit, s_dons);
+    return (s_config.maxGasLimit, s_authorizedSendersList);
   }
 
   /**
@@ -328,7 +298,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   function beginBilling(bytes calldata data, RequestBilling calldata billing)
     external
     override
-    onlyAllowedDons
+    validateAuthorizedSender
     nonReentrant
     returns (bytes32)
   {
@@ -449,7 +419,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     address transmitter,
     /* NOTE: signers can be added if splitting DON fee */
     uint32 initialGas
-  ) external onlyAllowedDons nonReentrant returns (uint96) {
+  ) external validateAuthorizedSender nonReentrant returns (uint96) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.billing.client == address(0)) {
       revert IncorrectRequestID();
@@ -748,9 +718,9 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   function pendingRequestExists(uint64 subscriptionId) public view override returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      for (uint256 j = 0; j < s_dons.length; j++) {
+      for (uint256 j = 0; j < s_authorizedSendersList.length; j++) {
         (bytes32 reqId, ) = computeRequestId(
-          s_dons[j],
+          s_authorizedSendersList[j],
           subConfig.consumers[i],
           subscriptionId,
           s_consumers[subConfig.consumers[i]][subscriptionId]
@@ -774,19 +744,14 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     _;
   }
 
-  modifier onlyAllowedDons() {
-    if (!s_allowedDons[msg.sender]) {
-      revert MustBeAllowedDon();
-    }
-    _;
-  }
-
   modifier nonReentrant() {
     if (s_config.reentrancyLock) {
       revert Reentrant();
     }
     _;
   }
+
+  function _canSetAuthorizedSenders() internal override onlyOwner returns (bool) {}
 
   /**
    * @notice The type and version of this contract
