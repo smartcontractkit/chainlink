@@ -143,16 +143,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
 
-		var sendingKeys []string
-		ethSendingKeys, err2 := d.ethKs.GetAll()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "get eth sending keys")
-		}
-
-		// Automatically provide the node's local sending keys to the job spec.
-		for _, s := range ethSendingKeys {
-			sendingKeys = append(sendingKeys, s.Address.String())
-		}
+		// sendingKeys default to only passed transmitterId at the moment with the exception of OCRVRF.
+		sendingKeys := []string{spec.TransmitterID.String}
 		spec.RelayConfig["sendingKeys"] = sendingKeys
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
@@ -306,6 +298,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
+
+		// VRF uses all keys on node instead of passed transmitter.
+		var sendingKeys []string
+		ethSendingKeys, err2 := d.ethKs.GetAll()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get eth sending keys")
+		}
+		for _, s := range ethSendingKeys {
+			sendingKeys = append(sendingKeys, s.Address.String())
+		}
+		spec.RelayConfig["sendingKeys"] = sendingKeys
 
 		var cfg ocr2vrfconfig.PluginConfig
 		err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)

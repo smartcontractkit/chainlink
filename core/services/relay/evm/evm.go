@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
@@ -204,37 +205,19 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		return nil, errors.New("EffectiveTransmitterAddress must be specified")
 	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-	useForwarders := configWatcher.chain.Config().EvmUseForwarders()
 
-	if useForwarders {
-		// If using the forwarder, ensure sending keys are provided.
-		if len(sendingKeys) == 0 {
-			return nil, errors.New("no sending keys found in job spec with forwarder enabled")
-		}
+	if len(sendingKeys) == 0 {
+		return nil, errors.New("sendingkeys is empty")
+	}
 
-		// The sending keys provided are used as the from addresses.
-		for _, s := range sendingKeys {
-			// Ensure the transmitter is not contained in the sending keys slice.
-			if s == effectiveTransmitterAddress.String() {
-				return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
-			}
-			fromAddresses = append(fromAddresses, common.HexToAddress(s))
+	// if we supplied multiple sending keys, none of them should be the effectiveTransmitterAddress that's on chain.
+	// This is a sanity check for upstream logic.
+	for _, s := range sendingKeys {
+		// Ensure the transmitter is not contained in the sending keys slice.
+		if len(sendingKeys) > 1 && s == effectiveTransmitterAddress.String() {
+			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-	} else {
-		// Ensure the transmitter is contained in the sending keys slice.
-		var transmitterFoundLocally bool
-		for _, s := range sendingKeys {
-			if s == effectiveTransmitterAddress.String() {
-				transmitterFoundLocally = true
-				break
-			}
-		}
-		if !transmitterFoundLocally {
-			return nil, errors.New("the transmitter was not found in the list of sending keys, perhaps EvmUseForwarders needs to be enabled")
-		}
-
-		// If not using the forwarder, the effectiveTransmitterAddress (TransmitterID) is used as the from address.
-		fromAddresses = append(fromAddresses, effectiveTransmitterAddress)
+		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
 
 	scoped := configWatcher.chain.Config()

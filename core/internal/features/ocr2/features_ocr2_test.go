@@ -55,6 +55,7 @@ type ocr2Node struct {
 	app         *cltest.TestApplication
 	peerID      string
 	transmitter common.Address
+	forwarder   common.Address
 	keybundle   ocr2key.KeyBundle
 	config      config.GeneralConfig
 }
@@ -157,6 +158,7 @@ func setupNodeOCR2(
 	kb, err := app.GetKeyStore().OCR2().Create("evm")
 	require.NoError(t, err)
 
+	var forwarder common.Address
 	if useForwarder {
 		// deploy a forwarder
 		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.Address{}, owner.From, common.Address{}, []byte{})
@@ -173,12 +175,13 @@ func setupNodeOCR2(
 		_, err = forwarderORM.CreateForwarder(faddr, chainID)
 		require.NoError(t, err)
 
-		transmitter = faddr
+		forwarder = faddr
 	}
 	return &ocr2Node{
 		app:         app,
 		peerID:      p2pKey.PeerID().Raw(),
 		transmitter: transmitter,
+		forwarder:   forwarder,
 		keybundle:   kb,
 		config:      config,
 	}
@@ -462,13 +465,13 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
-		forwarderContracts = append(forwarderContracts, node.transmitter)
+		forwarderContracts = append(forwarderContracts, node.forwarder)
 		transmitters = append(transmitters, node.transmitter)
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  node.keybundle.PublicKey(),
-				TransmitAccount:   ocrtypes2.Account(node.transmitter.String()),
+				TransmitAccount:   ocrtypes2.Account(node.forwarder.String()),
 				OffchainPublicKey: node.keybundle.OffchainPublicKey(),
 				PeerID:            node.peerID,
 			},

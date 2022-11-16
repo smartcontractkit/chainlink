@@ -248,14 +248,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					useForwarders := chain.Config().EvmUseForwarders()
 					_, err = o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
 
-					// If not using forwarders, the transmitter should be a local sending key.
-					if !useForwarders && err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					if jb.OCR2OracleSpec.PluginType == OCR2VRF {
+						if !(jb.ForwardingAllowed && useForwarders) {
+							return errors.Errorf("OCR2VRF requires job spec attribute forwardingAllowed=true and config EvmUseForwarders=true")
+						}
 					}
-
-					// If using forwarders, the transmitter should not be found as a local sending key.
-					if useForwarders && err == nil {
-						return errors.Wrapf(ErrSendingKeyIsForwarder, "%v", jb.OCR2OracleSpec.TransmitterID)
+					// The transmitter should be a local sending key.
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
