@@ -27,7 +27,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
 
   error TooManyConsumers();
   error InsufficientBalance();
-  error InvalidConsumer(uint64 subId, address consumer);
+  error InvalidConsumer(uint64 subscriptionId, address consumer);
   error InvalidSubscription();
   error OnlyCallableFromLink();
   error InvalidCalldata();
@@ -55,27 +55,27 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     address[] consumers;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */
+  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subscriptionId */ /* nonce */
     private s_consumers;
-  mapping(uint64 => SubscriptionConfig) /* subId */ /* subscriptionConfig */
+  mapping(uint64 => SubscriptionConfig) /* subscriptionId */ /* subscriptionConfig */
     private s_subscriptionConfigs;
-  mapping(uint64 => Subscription) /* subId */ /* subscription */
+  mapping(uint64 => Subscription) /* subscriptionId */ /* subscription */
     private s_subscriptions;
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
-  uint64 private s_currentSubId;
+  uint64 private s_currentsubscriptionId;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 private s_totalBalance;
-  event SubscriptionCreated(uint64 indexed subId, address owner);
-  event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
-  event SubscriptionConsumerAdded(uint64 indexed subId, address consumer);
-  event SubscriptionConsumerRemoved(uint64 indexed subId, address consumer);
-  event SubscriptionCanceled(uint64 indexed subId, address to, uint256 amount);
-  event SubscriptionOwnerTransferRequested(uint64 indexed subId, address from, address to);
-  event SubscriptionOwnerTransferred(uint64 indexed subId, address from, address to);
+  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
+  event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
+  event SubscriptionConsumerAdded(uint64 indexed subscriptionId, address consumer);
+  event SubscriptionConsumerRemoved(uint64 indexed subscriptionId, address consumer);
+  event SubscriptionCanceled(uint64 indexed subscriptionId, address to, uint256 amount);
+  event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId, address from, address to);
+  event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
   error InvalidRequestConfirmations(uint32 have, uint32 min, uint32 max);
   error GasLimitTooBig(uint32 have, uint32 want);
@@ -110,9 +110,9 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     bytes32 requestId,
     uint64 indexed subscriptionId,
     uint32 callbackGasLimit,
-    address indexed sender
+    address indexed client
   );
-  event BillingEnd(bytes32 indexed requestId, uint96 payment, bool success);
+  event BillingEnd(uint64 subscriptionId, bytes32 indexed requestId, uint96 payment, bool success);
 
   struct Config {
     uint32 maxGasLimit;
@@ -243,14 +243,14 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
 
   /**
    * @notice Owner cancel subscription, sends remaining link directly to the subscription owner.
-   * @param subId subscription id
+   * @param subscriptionId subscription id
    * @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
    */
-  function ownerCancelSubscription(uint64 subId) external onlyOwner {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+  function ownerCancelSubscription(uint64 subscriptionId) external onlyOwner {
+    if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
+    cancelSubscriptionHelper(subscriptionId, s_subscriptionConfigs[subscriptionId].owner);
   }
 
   /**
@@ -397,10 +397,10 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   function computeRequestId(
     address don,
     address client,
-    uint64 subId,
+    uint64 subscriptionId,
     uint64 nonce
   ) private pure returns (bytes32, uint256) {
-    uint256 preSeed = uint256(keccak256(abi.encode(don, client, subId, nonce)));
+    uint256 preSeed = uint256(keccak256(abi.encode(don, client, subscriptionId, nonce)));
     return (keccak256(abi.encode(don, preSeed)), preSeed);
   }
 
@@ -498,7 +498,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     s_subscriptions[commitment.billing.subscriptionId].balance -= payment;
     s_withdrawableTokens[transmitter] += payment;
     // Include payment in the event for tracking costs.
-    emit BillingEnd(requestId, payment, success);
+    emit BillingEnd(commitment.billing.subscriptionId, requestId, payment, success);
     return payment;
   }
 
@@ -567,26 +567,26 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     if (data.length != 32) {
       revert InvalidCalldata();
     }
-    uint64 subId = abi.decode(data, (uint64));
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    uint64 subscriptionId = abi.decode(data, (uint64));
+    if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // We do not check that the msg.sender is the subscription owner,
     // anyone can fund a subscription.
-    uint256 oldBalance = s_subscriptions[subId].balance;
-    s_subscriptions[subId].balance += uint96(amount);
+    uint256 oldBalance = s_subscriptions[subscriptionId].balance;
+    s_subscriptions[subscriptionId].balance += uint96(amount);
     s_totalBalance += uint96(amount);
-    emit SubscriptionFunded(subId, oldBalance, oldBalance + amount);
+    emit SubscriptionFunded(subscriptionId, oldBalance, oldBalance + amount);
   }
 
-  function getCurrentSubId() external view returns (uint64) {
-    return s_currentSubId;
+  function getCurrentsubscriptionId() external view returns (uint64) {
+    return s_currentsubscriptionId;
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function getSubscription(uint64 subId)
+  function getSubscription(uint64 subscriptionId)
     external
     view
     override
@@ -596,132 +596,151 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       address[] memory consumers
     )
   {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    return (s_subscriptions[subId].balance, s_subscriptionConfigs[subId].owner, s_subscriptionConfigs[subId].consumers);
+    return (
+      s_subscriptions[subscriptionId].balance,
+      s_subscriptionConfigs[subscriptionId].owner,
+      s_subscriptionConfigs[subscriptionId].consumers
+    );
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
   function createSubscription() external override nonReentrant returns (uint64) {
-    s_currentSubId++;
-    uint64 currentSubId = s_currentSubId;
+    s_currentsubscriptionId++;
+    uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
-    s_subscriptions[currentSubId] = Subscription({balance: 0});
-    s_subscriptionConfigs[currentSubId] = SubscriptionConfig({
+    s_subscriptions[currentsubscriptionId] = Subscription({balance: 0});
+    s_subscriptionConfigs[currentsubscriptionId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
       consumers: consumers
     });
 
-    emit SubscriptionCreated(currentSubId, msg.sender);
-    return currentSubId;
+    emit SubscriptionCreated(currentsubscriptionId, msg.sender);
+    return currentsubscriptionId;
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner)
+  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner)
     external
     override
-    onlySubOwner(subId)
+    onlySubOwner(subscriptionId)
     nonReentrant
   {
     // Proposing to address(0) would never be claimable so don't need to check.
-    if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
-      s_subscriptionConfigs[subId].requestedOwner = newOwner;
-      emit SubscriptionOwnerTransferRequested(subId, msg.sender, newOwner);
+    if (s_subscriptionConfigs[subscriptionId].requestedOwner != newOwner) {
+      s_subscriptionConfigs[subscriptionId].requestedOwner = newOwner;
+      emit SubscriptionOwnerTransferRequested(subscriptionId, msg.sender, newOwner);
     }
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subId) external override nonReentrant {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override nonReentrant {
+    if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    if (s_subscriptionConfigs[subId].requestedOwner != msg.sender) {
-      revert MustBeRequestedOwner(s_subscriptionConfigs[subId].requestedOwner);
+    if (s_subscriptionConfigs[subscriptionId].requestedOwner != msg.sender) {
+      revert MustBeRequestedOwner(s_subscriptionConfigs[subscriptionId].requestedOwner);
     }
-    address oldOwner = s_subscriptionConfigs[subId].owner;
-    s_subscriptionConfigs[subId].owner = msg.sender;
-    s_subscriptionConfigs[subId].requestedOwner = address(0);
-    emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
+    address oldOwner = s_subscriptionConfigs[subscriptionId].owner;
+    s_subscriptionConfigs[subscriptionId].owner = msg.sender;
+    s_subscriptionConfigs[subscriptionId].requestedOwner = address(0);
+    emit SubscriptionOwnerTransferred(subscriptionId, oldOwner, msg.sender);
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function removeConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
-    if (s_consumers[consumer][subId] == 0) {
-      revert InvalidConsumer(subId, consumer);
+  function removeConsumer(uint64 subscriptionId, address consumer)
+    external
+    override
+    onlySubOwner(subscriptionId)
+    nonReentrant
+  {
+    if (s_consumers[consumer][subscriptionId] == 0) {
+      revert InvalidConsumer(subscriptionId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
-    address[] memory consumers = s_subscriptionConfigs[subId].consumers;
+    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == consumer) {
         address last = consumers[lastConsumerIndex];
         // Storage write to preserve last element
-        s_subscriptionConfigs[subId].consumers[i] = last;
+        s_subscriptionConfigs[subscriptionId].consumers[i] = last;
         // Storage remove last element
-        s_subscriptionConfigs[subId].consumers.pop();
+        s_subscriptionConfigs[subscriptionId].consumers.pop();
         break;
       }
     }
-    delete s_consumers[consumer][subId];
-    emit SubscriptionConsumerRemoved(subId, consumer);
+    delete s_consumers[consumer][subscriptionId];
+    emit SubscriptionConsumerRemoved(subscriptionId, consumer);
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function addConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
+  function addConsumer(uint64 subscriptionId, address consumer)
+    external
+    override
+    onlySubOwner(subscriptionId)
+    nonReentrant
+  {
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
+    if (s_subscriptionConfigs[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
-    if (s_consumers[consumer][subId] != 0) {
+    if (s_consumers[consumer][subscriptionId] != 0) {
       // Idempotence - do nothing if already added.
-      // Ensures uniqueness in s_subscriptions[subId].consumers.
+      // Ensures uniqueness in s_subscriptions[subscriptionId].consumers.
       return;
     }
     // Initialize the nonce to 1, indicating the consumer is allocated.
-    s_consumers[consumer][subId] = 1;
-    s_subscriptionConfigs[subId].consumers.push(consumer);
+    s_consumers[consumer][subscriptionId] = 1;
+    s_subscriptionConfigs[subscriptionId].consumers.push(consumer);
 
-    emit SubscriptionConsumerAdded(subId, consumer);
+    emit SubscriptionConsumerAdded(subscriptionId, consumer);
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function cancelSubscription(uint64 subId, address to) external override onlySubOwner(subId) nonReentrant {
-    if (pendingRequestExists(subId)) {
+  function cancelSubscription(uint64 subscriptionId, address to)
+    external
+    override
+    onlySubOwner(subscriptionId)
+    nonReentrant
+  {
+    if (pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
-    cancelSubscriptionHelper(subId, to);
+    cancelSubscriptionHelper(subscriptionId, to);
   }
 
-  function cancelSubscriptionHelper(uint64 subId, address to) private nonReentrant {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
-    Subscription memory sub = s_subscriptions[subId];
+  function cancelSubscriptionHelper(uint64 subscriptionId, address to) private nonReentrant {
+    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
+    Subscription memory sub = s_subscriptions[subscriptionId];
     uint96 balance = sub.balance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      delete s_consumers[subConfig.consumers[i]][subId];
+      delete s_consumers[subConfig.consumers[i]][subscriptionId];
     }
-    delete s_subscriptionConfigs[subId];
-    delete s_subscriptions[subId];
+    delete s_subscriptionConfigs[subscriptionId];
+    delete s_subscriptions[subscriptionId];
     s_totalBalance -= balance;
     if (!LINK.transfer(to, uint256(balance))) {
       revert InsufficientBalance();
     }
-    emit SubscriptionCanceled(subId, to, balance);
+    emit SubscriptionCanceled(subscriptionId, to, balance);
   }
 
   /**
@@ -729,15 +748,15 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
    * @dev Looping is bounded to MAX_CONSUMERS*(number of DONs).
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
-  function pendingRequestExists(uint64 subId) public view override returns (bool) {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
+  function pendingRequestExists(uint64 subscriptionId) public view override returns (bool) {
+    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_dons.length; j++) {
         (bytes32 reqId, ) = computeRequestId(
           s_dons[j],
           subConfig.consumers[i],
-          subId,
-          s_consumers[subConfig.consumers[i]][subId]
+          subscriptionId,
+          s_consumers[subConfig.consumers[i]][subscriptionId]
         );
         if (s_requestCommitments[reqId].don != address(0)) {
           return true;
@@ -747,8 +766,8 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     return false;
   }
 
-  modifier onlySubOwner(uint64 subId) {
-    address owner = s_subscriptionConfigs[subId].owner;
+  modifier onlySubOwner(uint64 subscriptionId) {
+    address owner = s_subscriptionConfigs[subscriptionId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
     }
