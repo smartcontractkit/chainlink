@@ -252,11 +252,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if !useForwarders && err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
-
-					// If using forwarders, the transmitter should not be found as a local sending key.
-					if useForwarders && err == nil {
-						return errors.Wrapf(ErrSendingKeyIsForwarder, "%v", jb.OCR2OracleSpec.TransmitterID)
-					}
 				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
