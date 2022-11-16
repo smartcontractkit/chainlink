@@ -588,6 +588,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
 	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
+	kst.On("EnabledKeysForChain", &cltest.FixtureChainID).Return([]ethkey.KeyV2{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
