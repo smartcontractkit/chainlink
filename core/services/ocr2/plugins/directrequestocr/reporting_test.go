@@ -24,6 +24,12 @@ func intToByte32(id int) [32]byte {
 	return *byteArr
 }
 
+func sliceToByte32(slice []byte) [32]byte {
+	var res [32]byte
+	copy(res[:], slice[:32])
+	return res
+}
+
 func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr_serv.ORM) {
 	ocrLogger := logger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 
@@ -121,6 +127,11 @@ func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(queryProto.RequestIDs))
+	uniqueCounter := make(map[[32]byte]bool)
+	for _, r := range queryProto.RequestIDs {
+		uniqueCounter[sliceToByte32(r)] = true
+	}
+	require.Equal(t, 5, len(uniqueCounter), "wrong number of unique IDs")
 }
 
 func TestDRReporting_Observation(t *testing.T) {
@@ -132,9 +143,9 @@ func TestDRReporting_Observation(t *testing.T) {
 	createRequest(t, orm, reqId2)
 	createRequestWithError(t, orm, reqId3, "Bug LOL!")
 
-	// Query asking for 4 requests but we've only seen 3 of them, 2 of which are ready
+	// Query asking for 4 requests (+ one duplicate) but we've only seen 3 of them, 2 of which are ready
 	queryProto := directrequestocr.Query{}
-	queryProto.RequestIDs = [][]byte{reqId1[:], reqId2[:], reqId3[:], reqId4[:]}
+	queryProto.RequestIDs = [][]byte{reqId1[:], reqId1[:], reqId2[:], reqId3[:], reqId4[:]}
 	marshalled, err := proto.Marshal(&queryProto)
 	require.NoError(t, err)
 
