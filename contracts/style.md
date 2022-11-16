@@ -182,7 +182,8 @@ The original error will not be human readable in an off-chain explorer because i
 
 ### Naming
 
-- Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9).
+- Up through Solidity version 0.8: Interfaces should be named `FooInterface`, this follows our historical naming pattern.
+- Starting in Solidity v0.9: Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9).
 
 ## Vendor Dependencies
 
