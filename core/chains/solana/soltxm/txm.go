@@ -376,6 +376,12 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 // Enqueue enqueue a msg destined for the solana chain.
 func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
+	// must be started
+	// start processes the fee estimator logic
+	if err := txm.starter.Ready(); err != nil {
+		return err
+	}
+
 	// validate nil pointer
 	if tx == nil {
 		return errors.New("error in soltxm.Enqueue: tx is nil pointer")
