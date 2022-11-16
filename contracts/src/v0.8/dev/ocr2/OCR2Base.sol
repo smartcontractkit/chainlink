@@ -340,7 +340,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       bytes32 configDigest = reportContext[0];
       uint32 epochAndRound = uint32(uint256(reportContext[1]));
 
-      if (!_validateReport(configDigest, epochAndRound, report)) revert ReportInvalid();
+      if (!_validateReport(configDigest, epochAndRound, report)) {
+        revert ReportInvalid();
+      }
 
       emit Transmitted(configDigest, uint32(epochAndRound >> 8));
 

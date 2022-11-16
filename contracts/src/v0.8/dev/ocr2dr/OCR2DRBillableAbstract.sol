@@ -39,16 +39,14 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
       revert EmptyBillingRegistry();
     }
     uint96 requiredFee = getRequiredFee(data, billing);
-    OCR2DRRegistryInterface registry = OCR2DRRegistryInterface(s_registry);
-    return registry.estimateCost(data, billing, requiredFee);
+    return s_registry.estimateCost(data, billing, requiredFee);
   }
 
   modifier validateRequestId(bytes32 requestId) {
     if (address(s_registry) == address(0)) {
       revert EmptyBillingRegistry();
     }
-    OCR2DRRegistryInterface registry = OCR2DRRegistryInterface(s_registry);
-    (address consumer, , ) = registry.getCommitment(requestId);
+    (address consumer, , ) = s_registry.getCommitment(requestId);
     if (consumer == address(0)) {
       revert InvalidRequestID();
     }
