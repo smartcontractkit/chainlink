@@ -83,7 +83,7 @@ func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimes
 	queryProto := Query{}
 	for _, result := range results {
 		result := result
-		queryProto.RequestIDs = append(queryProto.RequestIDs, result.ContractRequestID[:])
+		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 	}
 	r.logger.Debug("directRequestReporting Query phase done", commontypes.LogFields{
 		"epoch":    ts.Epoch,
@@ -128,9 +128,9 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 		}
 		if localResult.State == directrequestocr.RESULT_READY {
 			resultProto := ProcessedRequest{
-				RequestID: localResult.ContractRequestID[:],
+				RequestID: localResult.RequestID[:],
 				Result:    localResult.Result,
-				Error:     []byte(localResult.Error),
+				Error:     localResult.Error,
 			}
 			observationProto.ProcessedRequests = append(observationProto.ProcessedRequests, &resultProto)
 		}

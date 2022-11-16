@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
-func intToByte32(id int) [32]byte {
-	byteArr := (*[32]byte)([]byte(fmt.Sprintf("%032d", id)))
+func reqID(id int) drocr_serv.RequestID {
+	byteArr := (*[32]byte)([]byte(fmt.Sprintf("%032d\n", id)))
 	return *byteArr
 }
 
@@ -55,25 +55,22 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr
 	return plugin, orm
 }
 
-func createRequest(t *testing.T, orm drocr_serv.ORM, id [32]byte) int64 {
+func createRequest(t *testing.T, orm drocr_serv.ORM, id [32]byte) {
 	testTxHash := common.HexToHash("0xabc")
-	dbID, err := orm.CreateRequest(id, time.Now(), &testTxHash)
+	err := orm.CreateRequest(id, time.Now(), &testTxHash)
 	require.NoError(t, err)
-	return dbID
 }
 
-func createRequestWithResult(t *testing.T, orm drocr_serv.ORM, id [32]byte, result []byte) int64 {
-	dbID := createRequest(t, orm, id)
-	err := orm.SetResult(dbID, 1, result, time.Now())
+func createRequestWithResult(t *testing.T, orm drocr_serv.ORM, id [32]byte, result []byte) {
+	createRequest(t, orm, id)
+	err := orm.SetResult(id, 1, result, time.Now())
 	require.NoError(t, err)
-	return dbID
 }
 
-func createRequestWithError(t *testing.T, orm drocr_serv.ORM, id [32]byte, errStr string) int64 {
-	dbID := createRequest(t, orm, id)
-	err := orm.SetError(dbID, 1, drocr_serv.USER_EXCEPTION, errStr, time.Now())
+func createRequestWithError(t *testing.T, orm drocr_serv.ORM, id [32]byte, errVal []byte) {
+	createRequest(t, orm, id)
+	err := orm.SetError(id, 1, drocr_serv.USER_EXCEPTION, errVal, time.Now())
 	require.NoError(t, err)
-	return dbID
 }
 
 func buildObservation(t *testing.T, requestId []byte, compResult []byte, compError []byte, observer uint8) types.AttributedObservation {
@@ -95,7 +92,7 @@ func buildObservation(t *testing.T, requestId []byte, compResult []byte, compErr
 func TestDRReporting_Query_PickOnlyReadyRequests(t *testing.T) {
 	t.Parallel()
 	plugin, orm := preparePlugin(t, 10)
-	reqId1, reqId2 := intToByte32(13), intToByte32(67)
+	reqId1, reqId2 := reqID(13), reqID(67)
 
 	// Two requests but only one ready
 	createRequestWithResult(t, orm, reqId1, []byte{})
@@ -116,7 +113,7 @@ func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
 	plugin, orm := preparePlugin(t, 5)
 
 	for i := 0; i < 20; i++ {
-		createRequestWithResult(t, orm, intToByte32(10+i), []byte{})
+		createRequestWithResult(t, orm, reqID(10+i), []byte{})
 	}
 
 	// 20 results are ready but batch size is only 5
@@ -137,11 +134,11 @@ func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
 func TestDRReporting_Observation(t *testing.T) {
 	t.Parallel()
 	plugin, orm := preparePlugin(t, 10)
-	reqId1, reqId2, reqId3, reqId4 := intToByte32(13), intToByte32(14), intToByte32(15), intToByte32(16)
+	reqId1, reqId2, reqId3, reqId4 := reqID(13), reqID(14), reqID(15), reqID(16)
 
 	createRequestWithResult(t, orm, reqId1, []byte("abc"))
 	createRequest(t, orm, reqId2)
-	createRequestWithError(t, orm, reqId3, "Bug LOL!")
+	createRequestWithError(t, orm, reqId3, []byte("Bug LOL!"))
 
 	// Query asking for 4 requests (+ one duplicate) but we've only seen 3 of them, 2 of which are ready
 	queryProto := directrequestocr.Query{}
@@ -169,7 +166,7 @@ func TestDRReporting_Report(t *testing.T) {
 	plugin, _ := preparePlugin(t, 10)
 	codec, err := directrequestocr.NewReportCodec()
 	require.NoError(t, err)
-	reqId1, reqId2, reqId3 := intToByte32(13), intToByte32(14), intToByte32(15)
+	reqId1, reqId2, reqId3 := reqID(13), reqID(14), reqID(15)
 	compResult := []byte("aaa")
 
 	queryProto := directrequestocr.Query{}
