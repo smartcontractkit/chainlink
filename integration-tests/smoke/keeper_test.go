@@ -163,16 +163,19 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		linkFundsForEachUpkeep *big.Int,
 	) {
 		By("Deploying the environment")
-		chainlinkTOML := client.NewDefaultNetworksTOMLBuilder(false, networks.SimulatedEVM).AddKeeperDefaults().String()
+		baseTOML := `[Keeper]
+TurnLookBack = 0
+TurnFlagEnabled = true
+[Keeper.Registry]
+SyncInterval = '5s'
+PerformGasOverhead = 150_000`
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
-				"env": map[string]interface{}{
-					"cl_config": chainlinkTOML,
-				},
+				"toml":     client.AddNetworksConfig(baseTOML, networks.SimulatedEVM),
 			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
