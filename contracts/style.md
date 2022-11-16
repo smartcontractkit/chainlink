@@ -7,7 +7,7 @@ Our starting point is the [official Solidity Style Guide](https://solidity.readt
 ### Code Organization
 
 - Group functionality together. E.g. Declare structs, events, and helper functions near the functions that use them. This is helpful when reading code because the related pieces are localized. It is also consistent with inheritance and libraries, which are separate pieces of code designed for a specific goal.
-- 🤔 Why not follow the Solidity recommendation of grouping by visibility? Visibility is clearly defined next to the method signature, making it trivial to check. However, searching can be deceiving because of inherited methods. Given this inconsistency in grouping, we find it easier to read and more consistent to organize code around functionality. Additionally, we recommend testing the public interface for any Solidity contract to ensure it only exposes expected methods.
+    - Why not follow the Solidity recommendation of grouping by visibility? Visibility is clearly defined next to the method signature, making it trivial to check. However, searching can be deceiving because of inherited methods. Given this inconsistency in grouping, we find it easier to read and more consistent to organize code around functionality. Additionally, we recommend testing the public interface for any Solidity contract to ensure it only exposes expected methods.
 
 ### Delineate Unaudited Code
 
