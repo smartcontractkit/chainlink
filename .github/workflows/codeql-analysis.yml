@@ -47,9 +47,9 @@ jobs:
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@c3b6fce4ee2ca25bc1066aa3bf73962fda0e8898 # v2.1.31
+        uses: github/codeql-action/init@678fc3afe258fb2e0cdc165ccf77b85719de7b3c # v2.1.33
         with:
           languages: ${{ matrix.language }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@c3b6fce4ee2ca25bc1066aa3bf73962fda0e8898 # v2.1.31
+        uses: github/codeql-action/analyze@678fc3afe258fb2e0cdc165ccf77b85719de7b3c # v2.1.33
