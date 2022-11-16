@@ -94,7 +94,7 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 
 	uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logOracleRequest := ocr2dr_oracle.OCR2DROracleOracleRequest{
-		RequestId: *new([32]byte),
+		RequestId: RequestID,
 		Data:      []byte("data"),
 	}
 	log.On("DecodedLog").Return(&logOracleRequest)
@@ -113,8 +113,9 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 	return uni, log, runBeganAwaiter
 }
 
+var RequestID drocr_service.RequestID = reqID(123)
+
 const (
-	RequestDBID         int64  = 666
 	ParseResultTaskName string = "parse_result"
 	ParseErrorTaskName  string = "parse_error"
 	CorrectResultData   string = "\"0x1234\""
@@ -128,10 +129,10 @@ func TestDRListener_HandleOracleRequestLogSuccess(t *testing.T) {
 
 	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(RequestDBID, nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(CorrectResultData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(EmptyData), nil)
-	uni.pluginORM.On("SetResult", RequestDBID, mock.Anything, []byte{0x12, 0x34}, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -145,10 +146,10 @@ func TestDRListener_HandleOracleRequestLogError(t *testing.T) {
 
 	uni, log, runBeganAwaiter := PrepareAndStartDRListener(t)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(RequestDBID, nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName).Return([]byte(EmptyData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName).Return([]byte(CorrectErrorData), nil)
-	uni.pluginORM.On("SetError", RequestDBID, mock.Anything, mock.Anything, "BAD", mock.Anything).Return(nil)
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, []byte("BAD"), mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 

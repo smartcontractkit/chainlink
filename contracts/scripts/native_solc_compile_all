@@ -94,4 +94,5 @@ $SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol
 # DirectRequest-OCR2
 $SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DR.sol
 $SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DRClient.sol
+$SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DRClientExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DROracle.sol

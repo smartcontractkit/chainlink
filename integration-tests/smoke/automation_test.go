@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strconv"
 
@@ -85,22 +84,32 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 	) {
 		By("Deploying the environment")
 		network := networks.SimulatedEVM
-		chainlinkTOML := client.NewDefaultTOMLBuilder().
-			AddNetworks(false, network).
-			AddOCR2Defaults().
-			AddKeeperDefaults().
-			AddP2PNetworkingV2().
-			String()
-		fmt.Println(chainlinkTOML)
+		baseTOML := `[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+
+[Keeper]
+TurnFlagEnabled = true
+TurnLookBack = 0
+
+[Keeper.Registry]
+SyncInterval = '5m'
+PerformGasOverhead = 150_000
+
+[P2P]
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-automation"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
-				"env": map[string]interface{}{
-					"cl_config": chainlinkTOML,
-				},
+				"toml":     client.AddNetworksConfig(baseTOML, network),
 			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
@@ -140,6 +149,7 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, registryConfig, registrar.Address())
 		err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
 		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+		Expect(chainClient.WaitForEvents()).ShouldNot(HaveOccurred(), "Waiting for config to be set")
 
 		By("Deploy Consumers")
 		switch consumerContract {
