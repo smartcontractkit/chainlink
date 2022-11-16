@@ -309,6 +309,10 @@ TxConfirmTimeout = '1s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
+FeeEstimatorMode = 'fixed'
+MaxComputeUnitPrice = 1000000
+MinComputeUnitPrice = 0
+DefaultComputeUnitPrice = 0
 
 [[Solana.Nodes]]
 Name = 'primary'

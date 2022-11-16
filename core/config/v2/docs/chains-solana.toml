@@ -24,6 +24,14 @@ Commitment = 'confirmed' # Default
 # MaxRetries is the maximum number of times the RPC node will automatically rebroadcast a tx.
 # The default is 0 for custom txm rebroadcasting method, set to -1 to use the RPC node's default retry strategy.
 MaxRetries = 0 # Default
+# FeeEstimatorMode is the method used to determine the base fee
+FeeEstimatorMode = 'fixed' # Default
+# MaxComputeUnitPrice is the maximum price per compute unit that a transaction can be bumped to
+MaxComputeUnitPrice = 1000000 # Default
+# MinComputeUnitPrice is the minimum price per compute unit that transaction can have
+MinComputeUnitPrice = 0 # Default
+# DefaultComputeUnitPrice is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
+DefaultComputeUnitPrice = 0 # Default
 
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.

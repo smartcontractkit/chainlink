@@ -253,16 +253,20 @@ func (c *SolanaConfig) AsV1() DBChain {
 		ID:      *c.ChainID,
 		Enabled: c.IsEnabled(),
 		Cfg: &soldb.ChainCfg{
-			BalancePollPeriod:   c.Chain.BalancePollPeriod,
-			ConfirmPollPeriod:   c.Chain.ConfirmPollPeriod,
-			OCR2CachePollPeriod: c.Chain.OCR2CachePollPeriod,
-			OCR2CacheTTL:        c.Chain.OCR2CacheTTL,
-			TxTimeout:           c.Chain.TxTimeout,
-			TxRetryTimeout:      c.Chain.TxRetryTimeout,
-			TxConfirmTimeout:    c.Chain.TxConfirmTimeout,
-			SkipPreflight:       null.BoolFromPtr(c.Chain.SkipPreflight),
-			Commitment:          null.StringFromPtr(c.Chain.Commitment),
-			MaxRetries:          null.IntFromPtr(c.Chain.MaxRetries),
+			BalancePollPeriod:       c.Chain.BalancePollPeriod,
+			ConfirmPollPeriod:       c.Chain.ConfirmPollPeriod,
+			OCR2CachePollPeriod:     c.Chain.OCR2CachePollPeriod,
+			OCR2CacheTTL:            c.Chain.OCR2CacheTTL,
+			TxTimeout:               c.Chain.TxTimeout,
+			TxRetryTimeout:          c.Chain.TxRetryTimeout,
+			TxConfirmTimeout:        c.Chain.TxConfirmTimeout,
+			SkipPreflight:           null.BoolFromPtr(c.Chain.SkipPreflight),
+			Commitment:              null.StringFromPtr(c.Chain.Commitment),
+			MaxRetries:              null.IntFromPtr(c.Chain.MaxRetries),
+			FeeEstimatorMode:        null.StringFromPtr(c.Chain.FeeEstimatorMode),
+			MaxComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MaxComputeUnitPrice)),
+			MinComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MinComputeUnitPrice)),
+			DefaultComputeUnitPrice: null.IntFrom(int64(*c.Chain.DefaultComputeUnitPrice)),
 		},
 	}
 }
@@ -311,6 +315,22 @@ func (c *SolanaConfig) MaxRetries() *uint {
 	}
 	mr := uint(*c.Chain.MaxRetries)
 	return &mr
+}
+
+func (c *SolanaConfig) FeeEstimatorMode() string {
+	return *c.Chain.FeeEstimatorMode
+}
+
+func (c *SolanaConfig) MaxComputeUnitPrice() uint64 {
+	return *c.Chain.MaxComputeUnitPrice
+}
+
+func (c *SolanaConfig) MinComputeUnitPrice() uint64 {
+	return *c.Chain.MinComputeUnitPrice
+}
+
+func (c *SolanaConfig) DefaultComputeUnitPrice() uint64 {
+	return *c.Chain.DefaultComputeUnitPrice
 }
 
 func (c *SolanaConfig) Update(cfg soldb.ChainCfg) {
