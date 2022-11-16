@@ -54,7 +54,7 @@ type ocr2vrfTemplateArgs struct {
 	linkEthFeedAddress    string
 }
 
-const dkgTemplate = `
+const DkgTemplate = `
 # DKGSpec
 type                 = "offchainreporting2"
 schemaVersion        = 1
@@ -62,10 +62,10 @@ name                 = "ocr2"
 maxTaskDuration      = "30s"
 contractID           = "%s"
 ocrKeyBundleID       = "%s"
-p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]
 relay                = "evm"
 pluginType           = "dkg"
 transmitterID        = "%s"
+%s
 
 [relayConfig]
 chainID              = %d
@@ -76,17 +76,17 @@ KeyID                = "%s"
 SigningPublicKey     = "%s"
 `
 
-const ocr2vrfTemplate = `
+const Ocr2vrfTemplate = `
 type                 = "offchainreporting2"
 schemaVersion        = 1
 name                 = "ocr2"
 maxTaskDuration      = "30s"
 contractID           = "%s"
 ocrKeyBundleID       = "%s"
-p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]
 relay                = "evm"
 pluginType           = "ocr2vrf"
 transmitterID        = "%s"
+%s
 
 [relayConfig]
 chainID              = %d
@@ -101,7 +101,7 @@ vrfCoordinatorAddress  = "%s"
 linkEthFeedAddress     = "%s"
 `
 
-const bootstrapTemplate = `
+const BootstrapTemplate = `
 type                               = "bootstrap"
 schemaVersion                      = 1
 name                               = ""
@@ -330,7 +330,7 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 }
 
 func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.Application) error {
-	sp := fmt.Sprintf(bootstrapTemplate,
+	sp := fmt.Sprintf(BootstrapTemplate,
 		c.String("contractID"),
 		c.Int64("chainID"),
 	)
@@ -359,12 +359,11 @@ func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.
 }
 
 func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
-	sp := fmt.Sprintf(dkgTemplate,
+	sp := fmt.Sprintf(DkgTemplate,
 		args.contractID,
 		args.ocrKeyBundleID,
-		args.p2pv2BootstrapperPeerID,
-		args.p2pv2BootstrapperPort,
 		args.transmitterID,
+		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
 		args.encryptionPublicKey,
 		args.keyID,
@@ -393,12 +392,11 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 }
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
-	sp := fmt.Sprintf(ocr2vrfTemplate,
+	sp := fmt.Sprintf(Ocr2vrfTemplate,
 		args.vrfBeaconAddress,
 		args.ocrKeyBundleID,
-		args.p2pv2BootstrapperPeerID,
-		args.p2pv2BootstrapperPort,
 		args.transmitterID,
+		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
 		args.encryptionPublicKey,
 		args.signingPublicKey,
