@@ -40,7 +40,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     if (registryAddress == address(0)) {
       revert EmptyBillingRegistry();
     }
-    s_registry = registryAddress;
+    s_registry = OCR2DRRegistryInterface(registryAddress);
   }
 
   /**
@@ -71,7 +71,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     if (data.length == 0) {
       revert EmptyRequestData();
     }
-    bytes32 requestId = OCR2DRRegistryInterface(s_registry).beginBilling(
+    bytes32 requestId = s_registry.beginBilling(
       data,
       OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit)
     );
@@ -109,16 +109,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     for (uint256 i = 0; i < requestIds.length; i++) {
-      try
-        OCR2DRRegistryInterface(s_registry).concludeBilling(
-          requestIds[i],
-          results[i],
-          errors[i],
-          transmitter,
-          signers,
-          initialGas
-        )
-      {
+      try s_registry.concludeBilling(requestIds[i], results[i], errors[i], transmitter, signers, initialGas) {
         emit OracleResponse(requestIds[i]);
       } catch Error(string memory reason) {
         emit UserCallbackError(requestIds[i], reason);

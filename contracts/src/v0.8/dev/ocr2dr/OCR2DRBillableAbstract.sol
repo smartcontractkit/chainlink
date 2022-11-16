@@ -11,7 +11,7 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
   error EmptyBillingRegistry();
   error InvalidRequestID();
 
-  address internal s_registry;
+  OCR2DRRegistryInterface internal s_registry;
 
   constructor() {}
 
@@ -35,7 +35,7 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
     override
     returns (uint96)
   {
-    if (s_registry == address(0)) {
+    if (address(s_registry) == address(0)) {
       revert EmptyBillingRegistry();
     }
     uint96 requiredFee = getRequiredFee(data, billing);
@@ -44,7 +44,7 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
   }
 
   modifier validateRequestId(bytes32 requestId) {
-    if (s_registry == address(0)) {
+    if (address(s_registry) == address(0)) {
       revert EmptyBillingRegistry();
     }
     OCR2DRRegistryInterface registry = OCR2DRRegistryInterface(s_registry);
