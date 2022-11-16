@@ -25,7 +25,9 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     setOracle(oracle);
   }
 
-  /// @inheritdoc OCR2DRClientInterface
+  /**
+   * @inheritdoc OCR2DRClientInterface
+   */
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_oracle.getDONPublicKey();
   }
@@ -61,7 +63,9 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     bytes memory err
   ) internal virtual;
 
-  /// @inheritdoc OCR2DRClientInterface
+  /**
+   * @inheritdoc OCR2DRClientInterface
+   */
   function handleOracleFulfillment(
     bytes32 requestId,
     bytes memory response,

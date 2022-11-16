@@ -43,12 +43,16 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     s_registry = registryAddress;
   }
 
-  /// @inheritdoc OCR2DROracleInterface
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_donPublicKey;
   }
 
-  /// @inheritdoc OCR2DROracleInterface
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
   function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
       revert EmptyPublicKey();
@@ -56,7 +60,9 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     s_donPublicKey = donPublicKey;
   }
 
-  /// @inheritdoc OCR2DROracleInterface
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
