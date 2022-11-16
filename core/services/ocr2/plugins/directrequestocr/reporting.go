@@ -70,8 +70,9 @@ func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.R
 // Query() complies with ReportingPlugin
 func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimestamp) (types.Query, error) {
 	r.logger.Debug("directRequestReporting Query phase", commontypes.LogFields{
-		"epoch": ts.Epoch,
-		"round": ts.Round,
+		"epoch":    ts.Epoch,
+		"round":    ts.Round,
+		"oracleID": r.genericConfig.OracleID,
 	})
 	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
 	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize)
@@ -81,8 +82,15 @@ func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimes
 
 	queryProto := Query{}
 	for _, result := range results {
-		queryProto.RequestIDs = append(queryProto.RequestIDs, result.ContractRequestID[:])
+		result := result
+		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 	}
+	r.logger.Debug("directRequestReporting Query phase done", commontypes.LogFields{
+		"epoch":    ts.Epoch,
+		"round":    ts.Round,
+		"oracleID": r.genericConfig.OracleID,
+		"queryLen": len(queryProto.RequestIDs),
+	})
 	return proto.Marshal(&queryProto)
 }
 
@@ -100,13 +108,29 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 	}
 
 	observationProto := Observation{}
+	processedIds := make(map[[32]byte]bool)
 	for _, id := range queryProto.RequestIDs {
-		localResult, _ := r.pluginORM.FindById(sliceToByte32(id))
+		id := sliceToByte32(id)
+		if _, ok := processedIds[id]; ok {
+			r.logger.Error("directRequestReporting Observation phase duplicate ID in query", commontypes.LogFields{
+				"requestID": hex.EncodeToString(id[:]),
+			})
+			continue
+		}
+		processedIds[id] = true
+		localResult, err2 := r.pluginORM.FindById(id)
+		if err2 != nil {
+			r.logger.Debug("directRequestReporting Observation phase can't find request from query", commontypes.LogFields{
+				"requestID": hex.EncodeToString(id[:]),
+				"err":       err2,
+			})
+			continue
+		}
 		if localResult.State == directrequestocr.RESULT_READY {
 			resultProto := ProcessedRequest{
-				RequestID: localResult.ContractRequestID[:],
+				RequestID: localResult.RequestID[:],
 				Result:    localResult.Result,
-				Error:     []byte(localResult.Error),
+				Error:     localResult.Error,
 			}
 			observationProto.ProcessedRequests = append(observationProto.ProcessedRequests, &resultProto)
 		}
@@ -159,7 +183,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 	var allAggregated []*ProcessedRequest
 	for reqId, observations := range reqIdToObservationList {
 		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
-			r.logger.Debug("unable to aggregate request in current round", commontypes.LogFields{
+			r.logger.Debug("directRequestReporting unable to aggregate request in current round", commontypes.LogFields{
 				"epoch":         ts.Epoch,
 				"round":         ts.Round,
 				"requestId":     reqId,
@@ -172,7 +196,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 		// https://app.shortcut.com/chainlinklabs/story/57701/per-request-plugin-config
 		aggregated, errAgg := Aggregate(defaultAggMethod, observations)
 		if errAgg != nil {
-			r.logger.Error("error when aggregating reqId", commontypes.LogFields{
+			r.logger.Error("directRequestReporting error when aggregating reqId", commontypes.LogFields{
 				"epoch":     ts.Epoch,
 				"round":     ts.Round,
 				"requestId": reqId,

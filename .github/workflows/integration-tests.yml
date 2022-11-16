@@ -84,16 +84,24 @@ jobs:
       fail-fast: false
       matrix:
         product:
+          - name: automation
+            nodes: 6
+            os: ubuntu-latest
           - name: cron
             nodes: 1
             os: ubuntu-latest
           - name: flux
             nodes: 1
             os: ubuntu-latest
-          # Disabled until we fix the port-forwarding issues
-          # - name: keeper
-          #   nodes: 27
-          #   os: ubuntu20.04-32cores-128GB
+          - name: keeperv1.1
+            nodes: 6
+            os: ubuntu-latest
+          - name: keeperv1.2
+            nodes: 10
+            os: ubuntu-latest
+          - name: keeperv1.3
+            nodes: 11
+            os: ubuntu-latest
           - name: ocr
             nodes: 3
             os: ubuntu-latest
@@ -103,7 +111,7 @@ jobs:
           - name: vrf
             nodes: 1
             os: ubuntu-latest
-          - name: vrfv2
+          - name: v2vrf
             nodes: 1
             os: ubuntu-latest
     runs-on: ${{ matrix.product.os }}
@@ -125,7 +133,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5ca2b0a07d534f216fb97ab54e69d3fdcf03de11 # v2.0.25
         with:
-          test_command_to_run: make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus-file ${{ matrix.product.name }}_test.go"
+          test_command_to_run: make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus @${{ matrix.product.name }}"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink

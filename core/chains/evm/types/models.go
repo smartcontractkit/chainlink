@@ -36,6 +36,8 @@ type Head struct {
 	ReceiptsRoot     common.Hash
 	TransactionsRoot common.Hash
 	StateRoot        common.Hash
+	Difficulty       *utils.Big
+	TotalDifficulty  *utils.Big
 }
 
 // NewHead returns a Head instance.
@@ -190,6 +192,8 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 		ReceiptsRoot     common.Hash    `json:"receiptsRoot"`
 		TransactionsRoot common.Hash    `json:"transactionsRoot"`
 		StateRoot        common.Hash    `json:"stateRoot"`
+		Difficulty       *hexutil.Big   `json:"difficulty"`
+		TotalDifficulty  *hexutil.Big   `json:"totalDifficulty"`
 	}
 
 	var jsonHead head
@@ -214,6 +218,8 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.ReceiptsRoot = jsonHead.ReceiptsRoot
 	h.TransactionsRoot = jsonHead.TransactionsRoot
 	h.StateRoot = jsonHead.StateRoot
+	h.Difficulty = utils.NewBig(jsonHead.Difficulty.ToInt())
+	h.TotalDifficulty = utils.NewBig(jsonHead.TotalDifficulty.ToInt())
 	return nil
 }
 
@@ -226,6 +232,8 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 		ReceiptsRoot     *common.Hash    `json:"receiptsRoot,omitempty"`
 		TransactionsRoot *common.Hash    `json:"transactionsRoot,omitempty"`
 		StateRoot        *common.Hash    `json:"stateRoot,omitempty"`
+		Difficulty       *hexutil.Big    `json:"difficulty,omitempty"`
+		TotalDifficulty  *hexutil.Big    `json:"totalDifficulty,omitempty"`
 	}
 
 	var jsonHead head
@@ -249,6 +257,8 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 		t := hexutil.Uint64(h.Timestamp.UTC().Unix())
 		jsonHead.Timestamp = &t
 	}
+	jsonHead.Difficulty = (*hexutil.Big)(h.Difficulty)
+	jsonHead.TotalDifficulty = (*hexutil.Big)(h.TotalDifficulty)
 	return json.Marshal(jsonHead)
 }
 

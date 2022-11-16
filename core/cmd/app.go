@@ -69,10 +69,10 @@ func NewApp(client *Client) *cli.App {
 			Name:  "insecure-skip-verify",
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "config, c",
 			Hidden: !devMode,
-			Usage:  "EXPERIMENTAL: TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files must be comma separated (-c configA.toml,configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
+			Usage:  "EXPERIMENTAL: TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
 			EnvVar: "CL_CONFIG",
 		},
 		cli.StringFlag{

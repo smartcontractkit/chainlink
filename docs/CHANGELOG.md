@@ -6,8 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Added
+
+- New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+
 <!-- unreleased -->
 ## [Unreleased]
+
+...
+<!-- unreleasedstop -->
+
+## 1.10.0 - 2022-11-15
 
 ### Added
 
@@ -83,8 +94,6 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
   - It should no longer be possible to end up with multiple OCR jobs for a single contract running on the same chain; only one job per contract per chain is allowed
   - If there are any existing duplicate jobs (per contract per chain), all but the job with the latest creation date will be pruned during upgrade.
 
-<!-- unreleasedstop -->
-
 ### Fixed
 
 - Fixed minor bug where Chainlink would attempt (and fail) to estimate a tip cap higher than the maximum configured gas price in EIP1559 mode. It now caps the tipcap to the max instead of erroring.
@@ -102,8 +111,6 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
   - manually set the nonce for a key
   See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
 
-
-
 ## 1.8.1 - 2022-09-29
 
 ### Added
@@ -113,6 +120,9 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
    -  This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 - `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
 
+### Changed
+
+- EIP1559 is now enabled by default on Goerli network
 
 ## 1.8.0 - 2022-09-01
 

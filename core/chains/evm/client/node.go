@@ -87,8 +87,8 @@ type Node interface {
 
 	// State returns NodeState
 	State() NodeState
-	// StateAndLatestBlockNumber returns NodeState and the latest received block number
-	StateAndLatestBlockNumber() (NodeState, int64)
+	// StateAndLatest returns NodeState with the latest received block number & total difficulty.
+	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *utils.Big)
 	// Name is a unique identifier for this node.
 	Name() string
 	ChainID() *big.Int
@@ -137,11 +137,11 @@ type node struct {
 	ws   rawclient
 	http *rawclient
 
+	stateMu sync.RWMutex // protects state* fields
 	state   NodeState
-	stateMu sync.RWMutex
-
-	// Each node is tracking the last received head number
-	latestReceivedBlockNumber int64
+	// Each node is tracking the last received head number and total difficulty
+	stateLatestBlockNumber     int64
+	stateLatestTotalDifficulty *utils.Big
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
@@ -195,7 +195,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
 	n.rpcLog = lggr.Named("RPC")
-	n.latestReceivedBlockNumber = -1
+	n.stateLatestBlockNumber = -1
 	return n
 }
 

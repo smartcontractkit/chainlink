@@ -337,36 +337,38 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP             TaskType = "http"
-	TaskTypeBridge           TaskType = "bridge"
-	TaskTypeMean             TaskType = "mean"
-	TaskTypeMedian           TaskType = "median"
-	TaskTypeMode             TaskType = "mode"
-	TaskTypeSum              TaskType = "sum"
-	TaskTypeMultiply         TaskType = "multiply"
-	TaskTypeDivide           TaskType = "divide"
-	TaskTypeJSONParse        TaskType = "jsonparse"
-	TaskTypeCBORParse        TaskType = "cborparse"
 	TaskTypeAny              TaskType = "any"
-	TaskTypeVRF              TaskType = "vrf"
-	TaskTypeVRFV2            TaskType = "vrfv2"
-	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
-	TaskTypeETHCall          TaskType = "ethcall"
-	TaskTypeETHTx            TaskType = "ethtx"
-	TaskTypeETHABIEncode     TaskType = "ethabiencode"
-	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
-	TaskTypeETHABIDecode     TaskType = "ethabidecode"
-	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
-	TaskTypeMerge            TaskType = "merge"
-	TaskTypeLength           TaskType = "length"
-	TaskTypeLessThan         TaskType = "lessthan"
-	TaskTypeLowercase        TaskType = "lowercase"
-	TaskTypeUppercase        TaskType = "uppercase"
-	TaskTypeConditional      TaskType = "conditional"
-	TaskTypeHexDecode        TaskType = "hexdecode"
-	TaskTypeHexEncode        TaskType = "hexencode"
 	TaskTypeBase64Decode     TaskType = "base64decode"
 	TaskTypeBase64Encode     TaskType = "base64encode"
+	TaskTypeBridge           TaskType = "bridge"
+	TaskTypeCBORParse        TaskType = "cborparse"
+	TaskTypeConditional      TaskType = "conditional"
+	TaskTypeDivide           TaskType = "divide"
+	TaskTypeETHABIDecode     TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
+	TaskTypeETHABIEncode     TaskType = "ethabiencode"
+	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
+	TaskTypeETHCall          TaskType = "ethcall"
+	TaskTypeETHGetBlock      TaskType = "ethgetblock"
+	TaskTypeETHTx            TaskType = "ethtx"
+	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
+	TaskTypeHTTP             TaskType = "http"
+	TaskTypeHexDecode        TaskType = "hexdecode"
+	TaskTypeHexEncode        TaskType = "hexencode"
+	TaskTypeJSONParse        TaskType = "jsonparse"
+	TaskTypeLength           TaskType = "length"
+	TaskTypeLessThan         TaskType = "lessthan"
+	TaskTypeLookup           TaskType = "lookup"
+	TaskTypeLowercase        TaskType = "lowercase"
+	TaskTypeMean             TaskType = "mean"
+	TaskTypeMedian           TaskType = "median"
+	TaskTypeMerge            TaskType = "merge"
+	TaskTypeMode             TaskType = "mode"
+	TaskTypeMultiply         TaskType = "multiply"
+	TaskTypeSum              TaskType = "sum"
+	TaskTypeUppercase        TaskType = "uppercase"
+	TaskTypeVRF              TaskType = "vrf"
+	TaskTypeVRFV2            TaskType = "vrfv2"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -427,6 +429,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHGetBlock:
+		task = &ETHGetBlockTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:
@@ -447,6 +451,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &LengthTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeLessThan:
 		task = &LessThanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLookup:
+		task = &LookupTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeLowercase:
 		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeUppercase:
