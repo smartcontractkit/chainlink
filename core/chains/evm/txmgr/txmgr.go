@@ -55,12 +55,13 @@ type Config interface {
 
 // KeyStore encompasses the subset of keystore used by txmgr
 type KeyStore interface {
+	CheckEnabled(address common.Address, chainID *big.Int) error
+	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
+	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
+	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
-	CheckEnabled(address common.Address, chainID *big.Int) error
 }
 
 // For more information about the Txm architecture, see the design doc:
@@ -154,7 +155,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		reset:            make(chan reset),
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, db, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
