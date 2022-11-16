@@ -63,7 +63,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220930034647-edd5a863b876
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
-	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
+	github.com/smartcontractkit/libocr v0.0.0-20221116154421-f18bda99324f
 	github.com/smartcontractkit/ocr2keepers v0.4.8
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20221108213147-df72abedd302
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
@@ -365,8 +365,6 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
-
-replace github.com/smartcontractkit/libocr => github.com/samsondav/libocr v0.0.0-20221107152458-f0bc77e46d76
 
 exclude (
 	github.com/influxdata/influxdb v1.8.3
