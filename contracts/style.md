@@ -167,12 +167,30 @@ While this may look descriptive it swallows the error. Instead bubble up the err
 error YourError(bytes response);
 
 (bool success, bytes memory response) = to.call(data);
-if (!success) revert YourError(response);
+if (!success) { revert YourError(response); }
 ```
 
 This will cost slightly more gas to copy the response into memory, but will ultimately make contract usage more understandable and easier to debug. Whether it is worth the extra gas is a judgement call you’ll have to make based on your needs.
 
 The original error will not be human readable in an off-chain explorer because it is RLP hex encoded but is easily decoded with standard Solidity ABI decoding tools, or a hex to UTF-8 converter and some basic ABI knowledge.
+
+## Control Flow
+
+### `if` Statements
+
+Always wrap the result statement of your `if` conditions in a closure, even if it is only one line.
+
+Bad:
+
+```javascript
+  if (condition) statement;
+```
+
+Good:
+
+```javascript
+  if (condition) { statement; }
+```
 
 ## Interfaces
 
