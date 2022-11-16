@@ -15,6 +15,7 @@ import (
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink/core/chains/solana/fees"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -45,6 +46,7 @@ type Txm struct {
 	txs     PendingTxContext
 	ks      keystore.Solana
 	client  *utils.LazyLoad[solanaClient.ReaderWriter]
+	fee     fees.Estimator
 }
 
 type pendingTx struct {
@@ -70,8 +72,27 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 }
 
 // Start subscribes to queuing channel and processes them.
-func (txm *Txm) Start(context.Context) error {
+func (txm *Txm) Start(ctx context.Context) error {
 	return txm.starter.StartOnce("solana_txm", func() error {
+		// determine estimator type
+		var estimator fees.Estimator
+		var err error
+		switch strings.ToLower(txm.cfg.FeeEstimatorMode()) {
+		case "fixed":
+			estimator, err = fees.NewFixedPriceEstimator(txm.cfg)
+		case "recentfees":
+			estimator, err = fees.NewRecentFeeEstimator(txm.cfg)
+		default:
+			err = fmt.Errorf("unknown solana fee estimator type: %s", txm.cfg.FeeEstimatorMode())
+		}
+		if err != nil {
+			return err
+		}
+		txm.fee = estimator
+		if err := txm.fee.Start(ctx); err != nil {
+			return err
+		}
+
 		txm.done.Add(3) // waitgroup: tx retry, confirmer, simulator
 		go txm.run()
 		return nil
@@ -364,6 +385,12 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 		return errors.New("error in soltxm.Enqueue: not enough account keys in tx")
 	}
 
+	// set fee
+	// fee bumping can be enabled by moving the setting & signing logic to the broadcaster
+	if err := fees.SetComputeUnitPrice(tx, fees.ComputeUnitPrice(txm.fee.BaseComputeUnitPrice())); err != nil {
+		return err
+	}
+
 	// get key
 	// fee payer account is index 0 account
 	// https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L252
@@ -407,7 +434,7 @@ func (txm *Txm) Close() error {
 	return txm.starter.StopOnce("solanatxm", func() error {
 		close(txm.chStop)
 		txm.done.Wait()
-		return nil
+		return txm.fee.Close()
 	})
 }
 
