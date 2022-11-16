@@ -101,7 +101,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
   function _report(
     uint32 initialGas,
     address transmitter,
-    address[maxNumOracles] memory signers,
+    address[maxNumOracles] memory, /* signers */
     bytes calldata report
   ) internal override {
     bytes32[] memory requestIds;
@@ -109,7 +109,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     for (uint256 i = 0; i < requestIds.length; i++) {
-      try s_registry.concludeBilling(requestIds[i], results[i], errors[i], transmitter, signers, initialGas) {
+      try s_registry.concludeBilling(requestIds[i], results[i], errors[i], transmitter, initialGas) {
         emit OracleResponse(requestIds[i]);
       } catch Error(string memory reason) {
         emit UserCallbackError(requestIds[i], reason);

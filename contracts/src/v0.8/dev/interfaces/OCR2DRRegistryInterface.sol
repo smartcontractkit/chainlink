@@ -69,7 +69,6 @@ interface OCR2DRRegistryInterface {
    * @param response response data from DON consensus
    * @param err error from DON consensus
    * @param transmitter the Oracle who sent the report
-   * @param signers the Oracles who signed the report
    * @param initialGas the initial amount of gas that was sent by the transmitter when submitting the report
    * @dev Only callable by OCR2DROracles that have been approved on the Registry
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
@@ -79,7 +78,7 @@ interface OCR2DRRegistryInterface {
     bytes calldata response,
     bytes calldata err,
     address transmitter,
-    address[31] memory signers, // Matches maxNumOracles from OCR2Abstract.sol
+    // address[31] memory signers,
     uint32 initialGas
   ) external returns (uint96);
 

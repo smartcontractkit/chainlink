@@ -21,9 +21,6 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
   uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  // Maximum number of oracles DON can support
-  // Needs to match OCR2Abstract.sol
-  uint256 internal constant MAX_NUM_ORACLES = 31;
 
   error TooManyConsumers();
   error InsufficientBalance();
@@ -85,7 +82,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
   error InvalidLinkWeiPrice(int256 linkWei);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
-  error IncorrectCommitment();
+  error IncorrectRequestID();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
   error Reentrant();
@@ -121,7 +118,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
-    // Gas to cover oracle payment after we calculate the payment.
+    // Gas to cover transmitter oracle payment after we calculate the payment.
     // We make it configurable in case those operations are repriced.
     uint32 gasAfterPaymentCalculation;
     // Represents the average gas execution cost. Used in estimating cost beforehand.
@@ -450,12 +447,12 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
     bytes calldata response,
     bytes calldata err,
     address transmitter,
-    address[MAX_NUM_ORACLES] memory, /* signers */
+    /* NOTE: signers can be added if splitting DON fee */
     uint32 initialGas
   ) external onlyAllowedDons nonReentrant returns (uint96) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.billing.client == address(0)) {
-      revert IncorrectCommitment();
+      revert IncorrectRequestID();
     }
     delete s_requestCommitments[requestId];
 
@@ -466,7 +463,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       err
     );
     // Call with explicitly the amount of callback gas requested
-    // Important to not let them exhaust the gas budget and avoid oracle payment.
+    // Important to not let them exhaust the gas budget and avoid DON payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
     // during the consumers callback code via reentrancyLock.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
@@ -489,7 +486,7 @@ contract OCR2DRRegistry is ConfirmedOwner, TypeAndVersionInterface, OCR2DRRegist
       revert InsufficientBalance();
     }
     /**
-     * Oracle Payment *
+     * DON Payment *
      * Two options here:
      *   1. Reimburse the transmitter for execution cost, then split the requiredFee across all participants.
      *   2. Pay transmitter the full amount. Since the transmitter is chosen OCR, we trust the fairness of their selection algorithm.
