@@ -15,6 +15,7 @@ interface OCR2DRBillableInterface {
    */
   function getRequiredFee(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
     external
+    view
     returns (uint96);
 
   /**
@@ -25,5 +26,6 @@ interface OCR2DRBillableInterface {
    */
   function estimateCost(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
     external
+    view
     returns (uint96);
 }
