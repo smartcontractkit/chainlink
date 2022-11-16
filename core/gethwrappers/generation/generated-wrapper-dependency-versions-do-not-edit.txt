@@ -24,6 +24,7 @@ log_emitter: ../../contracts/solc/v0.8.6/LogEmitter.abi ../../contracts/solc/v0.
 multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 ocr2dr: ../../contracts/solc/v0.8.6/OCR2DR.abi ../../contracts/solc/v0.8.6/OCR2DR.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
 ocr2dr_client: ../../contracts/solc/v0.8.6/OCR2DRClient.abi ../../contracts/solc/v0.8.6/OCR2DRClient.bin 175fb730d18bb015d5931f3da902859b5634f4c1839b0d1b65ba54c1de8bce5b
+ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 22860e75c817350cda3935c9a5b9273f800688dfb7d0326a6bd9fb200a6614f0
 ocr2dr_oracle: ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin 5c3295274015b912aa5d501c86afdf839a4f345f480cf63b6b775f40dfe8b263
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 065cff92e71cf0dc384bfdd6598c2c13c2290f64c26e0d18a1a326d08552e717
