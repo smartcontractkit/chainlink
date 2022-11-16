@@ -11,7 +11,7 @@ cd "$SCRIPT_DIR"/../ || exit 1
 PRODUCT=${PRODUCT:=cron}
 ARGS=${ARGS:=}
 ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites --progress \
+	--keep-going --trace --randomize-all --randomize-suites \
 	--focus-file "$PRODUCT"_test.go \
 	${ARGS} \
 	./smoke/
