@@ -88,10 +88,12 @@ func main() {
 		configPubKeysBytes = append(configPubKeysBytes, types.ConfigEncryptionPublicKey(pkBytesFixed))
 	}
 
-	o := []confighelper.OracleIdentityExtra{}
+	S := []int{}
+	identities := []confighelper.OracleIdentityExtra{}
 
 	for index := range configPublicKeys {
-		o = append(o, confighelper.OracleIdentityExtra{
+		S = append(S, 1)
+		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  onchainPubKeys[index][:],
 				OffchainPublicKey: offchainPubKeysBytes[index],
@@ -99,21 +101,6 @@ func main() {
 				TransmitAccount:   types.Account(transmiterAddresses[index]),
 			},
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
-		})
-	}
-
-	S := []int{}
-	identities := []confighelper.OracleIdentityExtra{}
-	for _, oracle := range o {
-		S = append(S, 1)
-		identities = append(identities, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OffchainPublicKey: oracle.OffchainPublicKey,
-				OnchainPublicKey:  oracle.OnchainPublicKey,
-				PeerID:            oracle.PeerID,
-				TransmitAccount:   oracle.TransmitAccount,
-			},
-			ConfigEncryptionPublicKey: oracle.ConfigEncryptionPublicKey,
 		})
 	}
 
