@@ -36,7 +36,6 @@ contract OCR2DRRegistry is
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
-  error MustBeAllowedDon();
   error PendingRequestExists();
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
@@ -81,16 +80,9 @@ contract OCR2DRRegistry is
   event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
-  error InvalidRequestConfirmations(uint32 have, uint32 min, uint32 max);
   error GasLimitTooBig(uint32 have, uint32 want);
-  error NumWordsTooBig(uint32 have, uint32 want);
-  error DonAlreadyRegistered(address don);
-  error NoSuchDon(address don);
   error InvalidLinkWeiPrice(int256 linkWei);
-  error InsufficientGasForConsumer(uint256 have, uint256 want);
-  error NoCorrespondingRequest();
   error IncorrectRequestID();
-  error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
   error Reentrant();
 
@@ -104,8 +96,6 @@ contract OCR2DRRegistry is
   }
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
-  event DonRegistered(address indexed don);
-  event DonDeregistered(address indexed don);
   event BillingStart(
     address indexed don,
     bytes32 requestId,
@@ -512,7 +502,9 @@ contract OCR2DRRegistry is
    * @param amount amount to withdraw
    */
   function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
-    if (amount == 0) amount = s_withdrawableTokens[msg.sender];
+    if (amount == 0) {
+      amount = s_withdrawableTokens[msg.sender];
+    }
     if (s_withdrawableTokens[msg.sender] < amount) {
       revert InsufficientBalance();
     }
