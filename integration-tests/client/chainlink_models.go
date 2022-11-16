@@ -969,7 +969,7 @@ name                                   = "{{.Name}}"
 pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
-contractID		                       = "{{.ContractID}}"
+contractID                             = "{{.ContractID}}"
 {{if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{if eq .JobType "offchainreporting2" }}
