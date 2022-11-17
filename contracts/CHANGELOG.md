@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Added a Solidity style guide.
+
+### Changed
+
 - Migrated and improved `AuthorizedReceiverInterface` and `AuthorizedReceiver` from 0.7.0
 - Added `OCR2DR` interfaces and contracts (initial version for PoC)
 
