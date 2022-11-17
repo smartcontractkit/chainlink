@@ -47,7 +47,12 @@ func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contrac
 	}
 }
 
-func CreateKeeperJobsWithKeyIndex(chainlinkNodes []*client.Chainlink, keeperRegistry contracts.KeeperRegistry, keyIndex int, ocrConfig contracts.OCRConfig) {
+func CreateKeeperJobsWithKeyIndex(
+	chainlinkNodes []*client.Chainlink,
+	keeperRegistry contracts.KeeperRegistry,
+	keyIndex int,
+	ocrConfig contracts.OCRConfig,
+) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
 	primaryNodeAddresses, err := primaryNode.EthAddresses()

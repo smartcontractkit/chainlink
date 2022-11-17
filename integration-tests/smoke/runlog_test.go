@@ -158,7 +158,7 @@ func defaultRunlogEnv() *smokeTestInputs {
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env": network.ChainlinkValuesMap(),
+			"toml": client.AddNetworksConfig("", network),
 		}))
 	return &smokeTestInputs{
 		environment: env,

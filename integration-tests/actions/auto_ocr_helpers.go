@@ -159,7 +159,7 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 			RelayConfig: map[string]interface{}{
 				"chainID": int(chainID),
 			},
-			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -188,13 +188,14 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 				RelayConfig: map[string]interface{}{
 					"chainID": int(chainID),
 				},
-				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                            // registryAddr
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
 				TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
 				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:8000
 			},
 		}
+
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 	}
@@ -223,6 +224,31 @@ func DeployAutoOCRRegistryAndRegistrar(
 
 func DeployConsumers(registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32) ([]contracts.KeeperConsumer, []*big.Int) {
 	upkeeps := DeployKeeperConsumers(contractDeployer, client, numberOfUpkeeps)
+	var upkeepsAddresses []string
+	for _, upkeep := range upkeeps {
+		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
+	}
+	upkeepIds := RegisterUpkeepContracts(linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses)
+	return upkeeps, upkeepIds
+}
+
+func DeployPerformanceConsumers(registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32,
+	blockRange, // How many blocks to run the test for
+	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
+	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
+) ([]contracts.KeeperConsumerPerformance, []*big.Int) {
+	upkeeps := DeployKeeperConsumersPerformance(contractDeployer, client, numberOfUpkeeps, blockRange, blockInterval, checkGasToBurn, performGasToBurn)
+	var upkeepsAddresses []string
+	for _, upkeep := range upkeeps {
+		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
+	}
+	upkeepIds := RegisterUpkeepContracts(linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses)
+	return upkeeps, upkeepIds
+}
+
+func DeployPerformDataCheckerConsumers(registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, expectedData []byte) ([]contracts.KeeperPerformDataChecker, []*big.Int) {
+	upkeeps := DeployPerformDataChecker(contractDeployer, client, numberOfUpkeeps, expectedData)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())

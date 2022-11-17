@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
@@ -49,6 +50,20 @@ func (cs TerraConfigs) ValidateConfig() (err error) {
 		}
 	}
 	return
+}
+
+func (cs *TerraConfigs) SetFrom(fs *TerraConfigs) {
+	for _, f := range *fs {
+		if f.ChainID == nil {
+			*cs = append(*cs, f)
+		} else if i := slices.IndexFunc(*cs, func(c *TerraConfig) bool {
+			return c.ChainID != nil && *c.ChainID == *f.ChainID
+		}); i == -1 {
+			*cs = append(*cs, f)
+		} else {
+			(*cs)[i].SetFrom(f)
+		}
+	}
 }
 
 func (cs TerraConfigs) Chains(ids ...string) (chains []types.DBChain) {
@@ -120,6 +135,29 @@ func (cs TerraConfigs) NodesByID(chainIDs ...string) (ns []db.Node) {
 
 type TerraNodes []*tercfg.Node
 
+func (ns *TerraNodes) SetFrom(fs *TerraNodes) {
+	for _, f := range *fs {
+		if f.Name == nil {
+			*ns = append(*ns, f)
+		} else if i := slices.IndexFunc(*ns, func(n *tercfg.Node) bool {
+			return n.Name != nil && *n.Name == *f.Name
+		}); i == -1 {
+			*ns = append(*ns, f)
+		} else {
+			setFromNode((*ns)[i], f)
+		}
+	}
+}
+
+func setFromNode(n, f *tercfg.Node) {
+	if f.Name != nil {
+		n.Name = f.Name
+	}
+	if f.TendermintURL != nil {
+		n.TendermintURL = f.TendermintURL
+	}
+}
+
 func legacyNode(n *tercfg.Node, id string) db.Node {
 	return db.Node{
 		Name:          *n.Name,
@@ -137,6 +175,50 @@ type TerraConfig struct {
 
 func (c *TerraConfig) IsEnabled() bool {
 	return c.Enabled == nil || *c.Enabled
+}
+
+func (c *TerraConfig) SetFrom(f *TerraConfig) {
+	if f.ChainID != nil {
+		c.ChainID = f.ChainID
+	}
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
+	setFromChain(&c.Chain, &f.Chain)
+	c.Nodes.SetFrom(&f.Nodes)
+}
+
+func setFromChain(c, f *tercfg.Chain) {
+	if f.BlockRate != nil {
+		c.BlockRate = f.BlockRate
+	}
+	if f.BlocksUntilTxTimeout != nil {
+		c.BlocksUntilTxTimeout = f.BlocksUntilTxTimeout
+	}
+	if f.ConfirmPollPeriod != nil {
+		c.ConfirmPollPeriod = f.ConfirmPollPeriod
+	}
+	if f.FallbackGasPriceULuna != nil {
+		c.FallbackGasPriceULuna = f.FallbackGasPriceULuna
+	}
+	if f.FCDURL != nil {
+		c.FCDURL = f.FCDURL
+	}
+	if f.GasLimitMultiplier != nil {
+		c.GasLimitMultiplier = f.GasLimitMultiplier
+	}
+	if f.MaxMsgsPerBatch != nil {
+		c.MaxMsgsPerBatch = f.MaxMsgsPerBatch
+	}
+	if f.OCR2CachePollPeriod != nil {
+		c.OCR2CachePollPeriod = f.OCR2CachePollPeriod
+	}
+	if f.BlockRate != nil {
+		c.BlockRate = f.BlockRate
+	}
+	if f.BlockRate != nil {
+		c.BlockRate = f.BlockRate
+	}
 }
 
 func (c *TerraConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {

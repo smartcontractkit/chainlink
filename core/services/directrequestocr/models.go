@@ -1,6 +1,7 @@
 package directrequestocr
 
 import (
+	"encoding/hex"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,21 +25,25 @@ const (
 	USER_EXCEPTION
 )
 
+type RequestID [32]byte
+
 type Request struct {
-	ID                int64
-	ContractRequestID [32]byte
-	RunID             int64
-	ReceivedAt        time.Time
-	RequestTxHash     *common.Hash
-	State             RequestState
-	ResultReadyAt     time.Time
-	Result            []byte
-	ErrorType         ErrType
-	Error             string
+	ID            int64
+	RequestID     RequestID
+	RunID         int64
+	ReceivedAt    time.Time
+	RequestTxHash *common.Hash
+	State         RequestState
+	ResultReadyAt time.Time
+	Result        []byte
+	ErrorType     ErrType
+	Error         []byte
 	// True if this node submitted an observation for this request in any OCR rounds.
 	IsOCRParticipant  bool
 	TransmittedResult []byte
-	TransmittedError  string
+	TransmittedError  []byte
+	OnChainResult     []byte
+	OnChainError      []byte
 }
 
 func (s RequestState) String() string {
@@ -67,4 +72,8 @@ func (e ErrType) String() string {
 		return "UserException"
 	}
 	return "unknown"
+}
+
+func (r RequestID) String() string {
+	return hex.EncodeToString(r[:])
 }

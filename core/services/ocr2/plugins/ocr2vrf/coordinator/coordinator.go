@@ -77,8 +77,7 @@ type coordinator struct {
 
 	lp logpoller.LogPoller
 	topics
-	lookbackBlocks int64
-	finalityDepth  uint32
+	finalityDepth uint32
 
 	onchainRouter      VRFBeaconCoordinator
 	coordinatorAddress common.Address
@@ -103,7 +102,6 @@ func New(
 	coordinatorAddress common.Address,
 	dkgAddress common.Address,
 	client evmclient.Client,
-	lookbackBlocks int64,
 	logPoller logpoller.LogPoller,
 	finalityDepth uint32,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
@@ -137,7 +135,6 @@ func New(
 		dkgAddress:               dkgAddress,
 		lp:                       logPoller,
 		topics:                   t,
-		lookbackBlocks:           lookbackBlocks,
 		finalityDepth:            finalityDepth,
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
@@ -150,6 +147,7 @@ func New(
 			CoordinatorOverhead:        50_000,
 			BlockGasOverhead:           50_000,
 			CallbackOverhead:           50_000,
+			LookbackBlocks:             1_000,
 		},
 	}, nil
 }
@@ -233,7 +231,7 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
-		currentHeight-c.lookbackBlocks,
+		currentHeight-c.coordinatorConfig.LookbackBlocks,
 		currentHeight,
 		[]common.Hash{
 			c.randomnessRequestedTopic,
