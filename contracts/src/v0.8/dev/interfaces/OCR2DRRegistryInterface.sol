@@ -70,6 +70,8 @@ interface OCR2DRRegistryInterface {
    * @param err error from DON consensus
    * @param transmitter the Oracle who sent the report
    * @param initialGas the initial amount of gas that was sent by the transmitter when submitting the report
+   * @return success whether the callback was successsful
+   * @return payment the amount charged to the subscription in Juels (1e18) of LINK
    * @dev Only callable by OCR2DROracles that have been approved on the Registry
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
@@ -80,7 +82,7 @@ interface OCR2DRRegistryInterface {
     address transmitter,
     // address[31] memory signers,
     uint32 initialGas
-  ) external returns (uint96);
+  ) external returns (bool success, uint96 payment);
 
   /**
    * @notice Get request commitment

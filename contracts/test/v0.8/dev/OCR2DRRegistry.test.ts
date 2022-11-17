@@ -3,6 +3,7 @@ import { expect } from 'chai'
 import { BigNumber, Contract, ContractFactory, Signer } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/fork/random'
+import { stringToBytes } from '../../test-helpers/helpers'
 
 let ocr2drOracleFactory: ContractFactory
 let clientTestHelperFactory: ContractFactory
@@ -32,7 +33,6 @@ const encodeReport = (requestId: string, result: string, err: string) => {
 const linkEth = BigNumber.from(5021530000000000)
 
 type RegistryConfig = {
-  minimumRequestBlockConfirmations: number
   maxGasLimit: number
   stalenessSeconds: number
   gasAfterPaymentCalculation: number
@@ -40,7 +40,6 @@ type RegistryConfig = {
   gasOverhead: number
 }
 const config: RegistryConfig = {
-  minimumRequestBlockConfirmations: 1,
   maxGasLimit: 1_000_000,
   stalenessSeconds: 86_400,
   gasAfterPaymentCalculation:
@@ -133,7 +132,6 @@ describe('OCR2DRRegistry', () => {
         registry
           .connect(roles.stranger)
           .setConfig(
-            config.minimumRequestBlockConfirmations,
             config.maxGasLimit,
             config.stalenessSeconds,
             config.gasAfterPaymentCalculation,
@@ -148,7 +146,6 @@ describe('OCR2DRRegistry', () => {
         registry
           .connect(roles.defaultAccount)
           .setConfig(
-            config.minimumRequestBlockConfirmations,
             config.maxGasLimit,
             config.stalenessSeconds,
             config.gasAfterPaymentCalculation,
@@ -162,7 +159,6 @@ describe('OCR2DRRegistry', () => {
       await registry
         .connect(roles.defaultAccount)
         .setConfig(
-          config.minimumRequestBlockConfirmations,
           config.maxGasLimit,
           config.stalenessSeconds,
           config.gasAfterPaymentCalculation,
@@ -171,7 +167,6 @@ describe('OCR2DRRegistry', () => {
         )
 
       const [
-        minimumRequestBlockConfirmations,
         maxGasLimit,
         stalenessSeconds,
         gasAfterPaymentCalculation,
@@ -179,9 +174,6 @@ describe('OCR2DRRegistry', () => {
         gasOverhead,
       ] = await registry.connect(roles.stranger).getConfig()
 
-      await expect(config.minimumRequestBlockConfirmations).to.equal(
-        minimumRequestBlockConfirmations,
-      )
       await expect(config.maxGasLimit).to.equal(maxGasLimit)
       await expect(config.stalenessSeconds).to.equal(stalenessSeconds)
       await expect(config.gasAfterPaymentCalculation).to.equal(
@@ -195,13 +187,15 @@ describe('OCR2DRRegistry', () => {
   describe('DON registration', () => {
     it('non-owner is unable to register a DON', async () => {
       await expect(
-        registry.connect(roles.stranger).registerDon(oracle.address),
+        registry.connect(roles.stranger).setAuthorizedSenders([oracle.address]),
       ).to.be.revertedWith('Only callable by owner')
     })
 
     it('owner can register a DON', async () => {
       await expect(
-        registry.connect(roles.defaultAccount).registerDon(oracle.address),
+        registry
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([oracle.address]),
       ).not.to.be.reverted
     })
   })
@@ -212,7 +206,7 @@ describe('OCR2DRRegistry', () => {
   ): Promise<number> {
     const tx = await registry.connect(owner).createSubscription()
     const receipt = await tx.wait()
-    const subId = receipt.events[0].args['subId']
+    const subId = receipt.events[0].args['subscriptionId'].toNumber()
     for (let i = 0; i < consumers.length; i++) {
       await registry.connect(owner).addConsumer(subId, consumers[i])
     }
@@ -461,7 +455,6 @@ describe('OCR2DRRegistry', () => {
       })
       it('cannot cancel with pending request', async function () {
         await registry.setConfig(
-          config.minimumRequestBlockConfirmations,
           config.maxGasLimit,
           config.stalenessSeconds,
           config.gasAfterPaymentCalculation,
@@ -473,12 +466,12 @@ describe('OCR2DRRegistry', () => {
           .connect(subOwner)
           .transferAndCall(
             registry.address,
-            BigNumber.from('30790416713017745'),
+            BigNumber.from('130790416713017745'),
             ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
           )
         await registry.connect(subOwner).addConsumer(subId, client.address)
         await registry.connect(roles.defaultAccount).reg
-        await registry.registerDon(oracle.address)
+        await registry.setAuthorizedSenders([oracle.address])
         await client
           .connect(consumer)
           .sendSimpleRequestWithJavaScript(`return 'hello world'`, subId)
@@ -492,7 +485,11 @@ describe('OCR2DRRegistry', () => {
           registry.connect(roles.defaultAccount).ownerCancelSubscription(subId),
         )
           .to.emit(registry, 'SubscriptionCanceled')
-          .withArgs(subId, subOwnerAddress, BigNumber.from('30790416713017745'))
+          .withArgs(
+            subId,
+            subOwnerAddress,
+            BigNumber.from('130790416713017745'),
+          )
       })
     })
 
@@ -565,10 +562,9 @@ describe('OCR2DRRegistry', () => {
     let subId: number
 
     beforeEach(async () => {
-      await registry.registerDon(oracle.address)
+      await registry.setAuthorizedSenders([oracle.address])
 
       await registry.setConfig(
-        config.minimumRequestBlockConfirmations,
         config.maxGasLimit,
         config.stalenessSeconds,
         config.gasAfterPaymentCalculation,
@@ -598,14 +594,14 @@ describe('OCR2DRRegistry', () => {
           gasLimit: 20_000,
           confirmations: 50,
         }),
-      ).to.be.revertedWith(`reverted with custom error 'MustBeAllowedDon()'`)
+      ).to.be.revertedWith(`reverted with custom error 'UnauthorizedSender()'`)
     })
 
     it('a subscription can only be used by a subscription consumer', async () => {
       await expect(
-        client
+        oracle
           .connect(stranger)
-          .sendSimpleRequestWithJavaScript(`return 'hello world'`, subId),
+          .sendRequest(subId, stringToBytes('some data'), 0),
       ).to.be.revertedWith(
         `reverted with custom error 'InvalidConsumer(${subId}, "${strangerAddress}")`,
       )
@@ -618,6 +614,7 @@ describe('OCR2DRRegistry', () => {
 
     it('fails if the subscription does not have the funds for the estimated cost', async () => {
       const subId = await createSubscription(subOwner, [subOwnerAddress])
+      await registry.connect(subOwner).addConsumer(subId, client.address)
 
       await expect(
         client
@@ -643,7 +640,6 @@ describe('OCR2DRRegistry', () => {
       subId = await createSubscription(subOwner, [consumerAddress])
 
       await registry.setConfig(
-        config.minimumRequestBlockConfirmations,
         config.maxGasLimit,
         config.stalenessSeconds,
         config.gasAfterPaymentCalculation,
@@ -660,7 +656,7 @@ describe('OCR2DRRegistry', () => {
         )
       await registry.connect(subOwner).addConsumer(subId, client.address)
       await registry.connect(roles.defaultAccount).reg
-      await registry.registerDon(oracle.address)
+      await registry.setAuthorizedSenders([oracle.address])
 
       const request = await client
         .connect(consumer)
@@ -677,10 +673,9 @@ describe('OCR2DRRegistry', () => {
             stringToHex('some data'),
             stringToHex('some data'),
             consumerAddress,
-            Array(31).fill(ethers.constants.AddressZero),
             10,
           ),
-      ).to.be.revertedWith('MustBeAllowedDon()')
+      ).to.be.revertedWith('UnauthorizedSender()')
     })
 
     it('when successful, emits an event', async () => {
@@ -712,7 +707,11 @@ describe('OCR2DRRegistry', () => {
         oracle
           .connect(roles.oracleNode)
           .callReport(report, { gasLimit: 10_000_000 }),
-      ).to.emit(oracle, 'OracleResponse')
+      )
+        .to.emit(oracle, 'OracleResponse')
+        .withArgs(requestId)
+        .to.emit(registry, 'BillingEnd')
+        .to.emit(client, 'FulfillRequestInvoked')
 
       await registry
         .connect(roles.oracleNode)

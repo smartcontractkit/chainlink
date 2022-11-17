@@ -23,7 +23,7 @@ function getEventArg(events: any, eventName: string, argIndex: number) {
 
 async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const receipt = await tx.wait()
-  const data = receipt.logs?.[0].data
+  const data = receipt.logs?.[1].data
   return ethers.utils.defaultAbiCoder.decode(['bytes32', 'bytes'], data ?? '')
 }
 
@@ -81,10 +81,9 @@ describe('OCR2DRClientTestHelper', () => {
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
-    await registry.registerDon(oracle.address)
+    await registry.setAuthorizedSenders([oracle.address])
 
     await registry.setConfig(
-      1,
       1_000_000,
       86_400,
       21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
@@ -96,7 +95,7 @@ describe('OCR2DRClientTestHelper', () => {
       .connect(roles.defaultAccount)
       .createSubscription()
     const receipt = await createSubTx.wait()
-    subscriptionId = receipt.events[0].args[0].toNumber()
+    subscriptionId = receipt.events[0].args['subscriptionId'].toNumber()
 
     await registry
       .connect(roles.defaultAccount)
@@ -106,7 +105,7 @@ describe('OCR2DRClientTestHelper', () => {
       .connect(roles.defaultAccount)
       .transferAndCall(
         registry.address,
-        ethers.BigNumber.from('54666805176129187'),
+        ethers.BigNumber.from('115957983815660167'),
         ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
       )
   })
@@ -154,7 +153,7 @@ describe('OCR2DRClientTestHelper', () => {
   describe('#fulfillRequest', () => {
     it('emits fulfillment events', async () => {
       const tx = await client.sendSimpleRequestWithJavaScript(
-        'function run() {}',
+        'function run(){return response}',
         subscriptionId,
       )
 
@@ -168,12 +167,13 @@ describe('OCR2DRClientTestHelper', () => {
 
       const report = abi.encode(
         ['bytes32[]', 'bytes[]', 'bytes[]'],
-        [[requestId], [response], [error]],
+        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
       )
 
       await expect(oracle.callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(registry, 'BillingEnd')
         .to.emit(client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
     })

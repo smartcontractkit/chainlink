@@ -409,7 +409,7 @@ contract OCR2DRRegistry is
     address transmitter,
     /* NOTE: signers can be added if splitting DON fee */
     uint32 initialGas
-  ) external validateAuthorizedSender nonReentrant returns (uint96) {
+  ) external validateAuthorizedSender nonReentrant returns (bool success, uint96 payment) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.billing.client == address(0)) {
       revert IncorrectRequestID();
@@ -429,13 +429,13 @@ contract OCR2DRRegistry is
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    bool success = callWithExactGas(commitment.billing.gasLimit, commitment.billing.client, callback);
+    success = callWithExactGas(commitment.billing.gasLimit, commitment.billing.client, callback);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracles withdrawable balance.
-    uint96 payment = calculatePaymentAmount(
+    payment = calculatePaymentAmount(
       initialGas,
       s_config.gasAfterPaymentCalculation,
       commitment.donFee,
@@ -456,7 +456,6 @@ contract OCR2DRRegistry is
     s_withdrawableTokens[transmitter] += payment;
     // Include payment in the event for tracking costs.
     emit BillingEnd(commitment.billing.subscriptionId, requestId, payment, success);
-    return payment;
   }
 
   // Get the amount of gas used for fulfillment
@@ -743,7 +742,9 @@ contract OCR2DRRegistry is
     _;
   }
 
-  function _canSetAuthorizedSenders() internal override onlyOwner returns (bool) {}
+  function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
+    return true;
+  }
 
   /**
    * @notice The type and version of this contract
