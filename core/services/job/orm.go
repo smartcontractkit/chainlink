@@ -237,6 +237,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
+
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
 				case relay.EVM:
@@ -244,18 +245,61 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+
+					chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
+					if !ok {
+						return errors.Wrap(err, "missing chainID in EVM type in OCR2 job spec")
+					}
+					newChainID, ok := chainIDInterface.(int64)
+					if !ok {
+						return errors.Wrapf(err, "failed to parse chainID in OCR2 job spec")
+					}
+
+					var specs []OCR2OracleSpec
+					err = tx.Select(&specs, `SELECT * FROM ocr2_oracle_specs WHERE relay = $1 AND contract_id = $2`,
+						"EVM", jb.OCR2OracleSpec.ContractID,
+					)
+
+					if !errors.Is(err, sql.ErrNoRows) {
+						if err != nil {
+							return errors.Wrap(err, "Unexpected error validating contract_id")
+						}
+						for _, spec := range specs {
+							chainIDValue, ok := spec.RelayConfig["ChainID"]
+							if ok {
+								chainID, ok := chainIDValue.(int64)
+								if ok {
+									if chainID == newChainID {
+										return errors.Errorf("a job with contract address %v already exists for chain ID %v", jb.OCROracleSpec.ContractAddress, chainID)
+									} else {
+										continue
+									}
+								}
+							}
+							return errors.Wrap(err, "Unexpected error validating contract_id")
+						}
+					}
 				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+					// TODO: add unique contract per chain constraint for Solana and other non-EVM chains
+					//   ( prereq: chainlink-solana (etc.) should implement GetChainIDAsString() or similar method )
 				case relay.Terra:
 					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				case relay.StarkNet:
+					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					}
 				}
+
 			}
+
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
