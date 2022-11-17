@@ -58,12 +58,13 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 			run := args.Get(1).(*pipeline.Run)
 			require.Equal(t, map[string]interface{}{
 				"jobSpec": map[string]interface{}{
-					"contractAddress": toAddress.String(),
-					"fromAddress":     fromAddress.String(),
-					"gasLimit":        gasLimit,
-					"evmChainID":      chainID,
-					"data":            payload,
-					"transmitChecker": checker,
+					"contractAddress":   toAddress.String(),
+					"fromAddress":       fromAddress.String(),
+					"gasLimit":          gasLimit,
+					"evmChainID":        chainID,
+					"forwardingAllowed": false,
+					"data":              payload,
+					"transmitChecker":   checker,
 				},
 			}, run.Inputs.Val)
 
