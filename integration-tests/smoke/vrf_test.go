@@ -58,6 +58,11 @@ var _ = Describe("VRF suite @vrf", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+		for _, node := range chainlinkNodes {
+			primaryKey, err := node.ReadPrimaryETHKey()
+			Expect(err).ShouldNot(HaveOccurred(), "Retrieving primary ETH key should not fail")
+			node.UpdateEthKeyMaxGasPriceGWei(primaryKey.ID, big.NewInt(0).SetUint64(100000000))
+		}
 		chainClient.ParallelTransactions(true)
 
 		By("Funding Chainlink nodes")

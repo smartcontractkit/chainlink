@@ -124,7 +124,7 @@ func KeeperBenchmark(t *testing.T, registryToTest string) {
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	staticValues := map[string]interface{}{}
 
 	keeperBenchmarkValues := map[string]interface{}{
 		"MIN_INCOMING_CONFIRMATIONS": "1",

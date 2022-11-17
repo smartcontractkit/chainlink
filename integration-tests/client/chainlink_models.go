@@ -298,14 +298,16 @@ type ETHKey struct {
 
 // ETHKeyData is the model that represents the created ETH keys when read
 type ETHKeyData struct {
+	ID         string           `json:"id"`
 	Attributes ETHKeyAttributes `json:"attributes"`
 }
 
 // ETHKeyAttributes is the model that represents the created ETH keys when read
 type ETHKeyAttributes struct {
-	Address    string `json:"address"`
-	ETHBalance string `json:"ethBalance"`
-	ChainID    string `json:"evmChainID"`
+	Address         string `json:"address"`
+	ETHBalance      string `json:"ethBalance"`
+	ChainID         string `json:"evmChainID"`
+	MaxGasPriceGWei string `json:"maxGasPriceWei"`
 }
 
 // TxKeys is the model that represents the created keys when read

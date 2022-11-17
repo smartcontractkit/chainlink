@@ -141,7 +141,7 @@ var (
 		ChainID:                   31,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
+		Timeout:                   time.Minute * 5,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}

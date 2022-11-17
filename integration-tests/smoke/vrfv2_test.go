@@ -4,6 +4,7 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/big"
 	"strings"
 	"time"
@@ -62,6 +63,14 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred())
+		for _, node := range chainlinkNodes {
+			primaryKey, err := node.ReadPrimaryETHKey()
+			Expect(err).ShouldNot(HaveOccurred(), "Retrieving primary ETH key should not fail")
+			_, resp, err := node.UpdateEthKeyMaxGasPriceGWei(primaryKey.ID, big.NewInt(0).SetUint64(200))
+			b, _ := io.ReadAll(resp.Body)
+			log.Info().Int("Status", resp.StatusCode).Str("Key ID", primaryKey.ID).Str("Body", string(b)).Msg("RESPPPPPPPPPP")
+			Expect(err).ShouldNot(HaveOccurred(), "Updating primary ETH key MaxGasPrice should not fail")
+		}
 		chainClient.ParallelTransactions(true)
 
 		By("Deploying VRF contracts")
@@ -186,12 +195,14 @@ func defaultVRFv2Env() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
+	detailTOML := `[EVM.GasEstimator]
+LimitMax = 500_000_000`
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig("", network),
+			"toml": client.AddNetworkDetailedConfig("", detailTOML, network),
 		}))
 	return &smokeTestInputs{
 		network:     network,

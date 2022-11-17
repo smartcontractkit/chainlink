@@ -365,6 +365,9 @@ func (c *Chainlink) MustReadOCR2Keys() (*OCR2Keys, error) {
 	resp, err := c.APIClient.R().
 		SetResult(ocr2Keys).
 		Get("/v2/keys/ocr2")
+	if err != nil {
+		return nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	return ocr2Keys, err
 }
@@ -452,15 +455,19 @@ func (c *Chainlink) MustReadETHKeys() (*ETHKeys, error) {
 }
 
 // UpdateEthKeyMaxGasPriceGWei updates the maxGasPriceGWei for an eth key
-func (c *Chainlink) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*ETHKey, *http.Response, error) {
+func (c *Chainlink) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei *big.Int) (*ETHKey, *http.Response, error) {
 	ethKey := &ETHKey{}
-	log.Info().Str("Node URL", c.Config.URL).Str("ID", keyId).Int("maxGasPriceGWei", gWei).Msg("Update maxGasPriceGWei for eth key")
+	log.Info().
+		Str("Node URL", c.Config.URL).
+		Str("ID", keyId).
+		Uint64("maxGasPriceGWei", gWei.Uint64()).
+		Msg("Update maxGasPriceGWei for eth key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"keyId": keyId,
 		}).
 		SetQueryParams(map[string]string{
-			"maxGasPriceGWei": fmt.Sprint(gWei),
+			"maxGasPriceGWei": fmt.Sprint(gWei.Uint64()),
 		}).
 		SetResult(ethKey).
 		Put("/v2/keys/eth/{keyId}")

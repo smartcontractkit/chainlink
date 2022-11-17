@@ -141,7 +141,6 @@ ListenIP = '0.0.0.0'
 ListenPort = 6690`
 	networkDetailTOML := `[EVM.Transactions]
 ForwardersEnabled = true`
-	fmt.Println(client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, network))
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
