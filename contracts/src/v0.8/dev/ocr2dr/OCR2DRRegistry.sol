@@ -453,7 +453,9 @@ contract OCR2DRRegistry is
      * Using Option 1 here.
      **/
     s_subscriptions[commitment.billing.subscriptionId].balance -= payment;
-    s_withdrawableTokens[transmitter] += payment;
+    s_withdrawableTokens[owner()] += commitment.donFee;
+    uint96 execGasPlusDonFee = payment - commitment.donFee;
+    s_withdrawableTokens[transmitter] += execGasPlusDonFee;
     // Include payment in the event for tracking costs.
     emit BillingEnd(commitment.billing.subscriptionId, requestId, payment, success);
   }
