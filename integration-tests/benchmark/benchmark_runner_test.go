@@ -124,7 +124,11 @@ func KeeperBenchmark(t *testing.T, registryToTest string) {
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := map[string]interface{}{}
+	// TODO: Update to new TOML config
+	staticValues := map[string]interface{}{
+		"ETH_URL":      networks.SelectedNetwork.URLs[0],
+		"ETH_CHAIN_ID": fmt.Sprint(networks.SelectedNetwork.ChainID),
+	}
 
 	keeperBenchmarkValues := map[string]interface{}{
 		"MIN_INCOMING_CONFIRMATIONS": "1",
@@ -222,7 +226,7 @@ func addSeparateChainlinkDeployments(
 			chartResources = chainlinkSoak
 		}
 		mergo.Merge(&chartValues, &chartResources)
-		testEnvironment.AddHelm(chainlink.New(index, chartValues))
+		testEnvironment.AddHelm(chainlink.NewVersioned(index, "0.0.11", chartValues))
 	}
 }
 
