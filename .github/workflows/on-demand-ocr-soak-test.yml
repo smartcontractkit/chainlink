@@ -1,0 +1,105 @@
+name: On Demand OCR Soak Test
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Network to run tests on
+        type: choice
+        options:
+          - "SIMULATED"
+          - "GOERLI"
+          - "OPTIMISM_GOERLI"
+          - "ARBITRUM_GOERLI"
+      fundingPrivateKey:
+        description: Private funding key (Skip for Simulated)
+        required: false
+        type: string
+      wsURL:
+        description: WS URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      httpURL:
+        description: HTTP URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      slackMemberID:
+        description: Notifies test results (Not your @)
+        required: true
+        default: U01A2B2C3D4
+        type: string
+      chainlinkImage:
+        description: Container image location for the Chainlink nodes
+        required: true
+        default: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion:
+        description: Container image version for the Chainlink nodes
+        required: true
+        default: "1.10.0"
+      testDuration:
+        description: Duration of the test (time string)
+        required: false
+        default: 15m
+      numberOfFeeds:
+        description: Number of OCR feeds
+        required: false
+        default: "2"
+      chainlinkNodeFunding:
+        description: How much to fund each node (in ETH)
+        required: false
+        default: ".001"
+      expectedRoundTime:
+        description: How long a typical OCR round should take
+        required: false
+        default: 2m
+      roundTimeout:
+        description: How long to wait for a round before killing the test
+        required: false
+        default: 15m
+      timeBetweenRounds:
+        description: How long to wait before starting a new round
+        required: false
+        default: 1m
+
+jobs:
+  ocr_soak_test:
+    environment: integration
+    runs-on: ubuntu-latest
+    env:
+      SELECTED_NETWORKS: ${{ inputs.network }}
+      EVM_KEYS: ${{ inputs.fundingPrivateKey }}
+      EVM_URLS: ${{ inputs.wsURL }}
+      EVM_HTTP_URLS: ${{ inputs.httpURL }}
+      SLACK_USER: ${{ inputs.slackMemberID }}
+      OCR_TEST_DURATION: ${{ inputs.testDuration }}
+      OCR_NUMBER_OF_FEEDS: ${{ inputs.numberOfFeeds }}
+      OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
+      OCR_EXPECTED_ROUND_TIME: ${{ inputs.expectedRoundTime }}
+      OCR_ROUND_TIMEOUT: ${{ inputs.roundTimeout }}
+      OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ${{ matrix.network }} Smoke Tests
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Run Tests
+        if: needs.changes.outputs.src == 'true'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
+        with:
+          test_command_to_run: make test_soak_ocr
+          test_download_vendor_packages_command: make gomod
+          test_download_ginkgo_command: make test_install_ginkgo
+          cl_repo: ${{ inputs.chainlinkImage }}
+          cl_image_tag: ${{ inputs.chainlinkVersion }}
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
