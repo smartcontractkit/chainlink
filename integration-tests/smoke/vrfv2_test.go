@@ -160,7 +160,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			encodedProvingKeys = append(encodedProvingKeys, provingKey)
 		}
 
-		By("randomness is fulfilled")
+		By("Randomness is Fulfilled")
 		words := uint32(10)
 		keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
 		Expect(err).ShouldNot(HaveOccurred())
@@ -179,7 +179,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 				log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
 				g.Expect(w.Uint64()).Should(Not(BeNumerically("==", 0)), "Expected the VRF job give an answer other than 0")
 			}
-		}, timeout, "1s").Should(Succeed())
+		}, timeout, "2s").Should(Succeed())
 	},
 		testScenarios,
 	)
@@ -196,7 +196,9 @@ func defaultVRFv2Env() *smokeTestInputs {
 		})
 	}
 	detailTOML := `[EVM.GasEstimator]
-LimitMax = 500_000_000`
+LimitMax = 500_000_000
+LimitDefault = 500_000_000
+PriceMax = '200 gwei'`
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).

@@ -156,6 +156,8 @@ func (t *OCRSoakTest) Run() {
 		Str("Test Duration", t.Inputs.TestDuration.Truncate(time.Second).String()).
 		Str("Round Timeout", t.Inputs.RoundTimeout.String()).
 		Int("Number of OCR Contracts", len(t.ocrInstances)).
+		Str("Network", t.chainClient.GetNetworkName()).
+		Str("Client Implementation", string(t.chainClient.GetNetworkConfig().ClientImplementation)).
 		Msg("Starting OCR Soak Test")
 
 	testDuration := time.NewTimer(t.Inputs.TestDuration)

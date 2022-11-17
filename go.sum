@@ -1587,6 +1587,14 @@ github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886/go.mod h1:4b37Z1FVslnJ1TLo1r1XtuB9ym1uF/minZFcZlIBAV0=
 github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221116231009-6e013cc0ad15 h1:VDmPlxRlCflfuBHLF40xcZduSHvn4yGm01GXdqbqOWM=
 github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221116231009-6e013cc0ad15/go.mod h1:TiUj0E5h0g+8C0YXlaIBC/0DvWrt0qlurOvxB1m7DJ4=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221116235714-81e58be1466d h1:One1iqVB3yKn1RmntNA6Kz9Nh0bnZYw9AoKa5XZX3JI=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221116235714-81e58be1466d/go.mod h1:TiUj0E5h0g+8C0YXlaIBC/0DvWrt0qlurOvxB1m7DJ4=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221117161413-0878bd9e1f5b h1:v4lWplTEQ7cjpmWMdgA0swhMGgirsMda6MqeJ/wMpHU=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221117161413-0878bd9e1f5b/go.mod h1:TiUj0E5h0g+8C0YXlaIBC/0DvWrt0qlurOvxB1m7DJ4=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221117173709-e9af586a4477 h1:BDr4FmHK99NgtOTCgy55XEe9mfgqw9dyGitaipp/jWg=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221117173709-e9af586a4477/go.mod h1:TiUj0E5h0g+8C0YXlaIBC/0DvWrt0qlurOvxB1m7DJ4=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221117174857-5277c641a49c h1:93ubpTD3pOWDsYeM0kpLxNYCHUiA+zjwWhkm00p94+I=
+github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221117174857-5277c641a49c/go.mod h1:TiUj0E5h0g+8C0YXlaIBC/0DvWrt0qlurOvxB1m7DJ4=
 github.com/smartcontractkit/ocr2keepers v0.4.8 h1:pvCDWIsYaSJI/M6qw0xIIXpHs5MPQaYEpmWsJiyi6LM=
 github.com/smartcontractkit/ocr2keepers v0.4.8/go.mod h1:6wSlAWYBmlJM7bDZ4Ewc5J5AJQszIRGDNaUAw35r3qc=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20221108213147-df72abedd302 h1:r+AUXFhKLerpaNdAm0H+nMHvPUTb4uv8oRWBwlCfM28=

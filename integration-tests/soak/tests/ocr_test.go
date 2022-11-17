@@ -57,7 +57,7 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 			ocrSoakTest = testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 				BlockchainClient:     chainClient,
 				TestDuration:         time.Minute * 10,
-				NumberOfContracts:    2,
+				NumberOfContracts:    1,
 				ChainlinkNodeFunding: big.NewFloat(.001),
 				ExpectedRoundTime:    time.Minute * 2,
 				RoundTimeout:         time.Minute * 15,
