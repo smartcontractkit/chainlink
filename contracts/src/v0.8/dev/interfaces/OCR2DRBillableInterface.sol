@@ -8,7 +8,7 @@ import "./OCR2DRRegistryInterface.sol";
  */
 interface OCR2DRBillableInterface {
   /**
-   * @notice Determine the fee charged by the DON that will be paid to Node Operators for servicing a request
+   * @notice Determine the fee charged by the DON that will be split between signing Node Operators for servicing the request
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK

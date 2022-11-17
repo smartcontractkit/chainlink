@@ -94,16 +94,15 @@ contract OCR2DRRegistry is
     uint96 donFee;
     uint96 registryFee;
   }
-  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
+  mapping(bytes32 => bytes32) /* requestID */ /* Commitment hash */
     private s_requestCommitments;
-  event BillingStart(
-    address indexed don,
-    bytes32 requestId,
-    uint64 indexed subscriptionId,
-    uint32 callbackGasLimit,
-    address indexed client
-  );
-  event BillingEnd(uint64 subscriptionId, bytes32 indexed requestId, uint96 payment, bool success);
+  event BillingStart(bytes32 requestId, Commitment commitment);
+  struct ItemizedBill {
+    uint96 signerPayment;
+    uint96 transmitterPayment;
+    uint96 totalCost;
+  }
+  event BillingEnd(uint64 subscriptionId, bytes32 indexed requestId, ItemizedBill bill, bool success);
 
   struct Config {
     uint32 maxGasLimit;
@@ -322,33 +321,39 @@ contract OCR2DRRegistry is
     uint64 nonce = currentNonce + 1;
     (bytes32 requestId, ) = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce);
 
-    s_requestCommitments[requestId] = Commitment(
+    Commitment memory commitment = Commitment(
       billing,
       msg.sender,
       OCR2DRBillableInterface(msg.sender).getRequiredFee(data, billing),
       getRequiredFee(data, billing)
     );
+    s_requestCommitments[requestId] = hashCommitment(requestId, commitment);
 
-    emit BillingStart(msg.sender, requestId, billing.subscriptionId, billing.gasLimit, billing.client);
+    emit BillingStart(requestId, commitment);
     s_consumers[billing.client][billing.subscriptionId] = nonce;
     return requestId;
+  }
+
+  function hashCommitment(bytes32 requestId, Commitment memory commitment) internal pure returns (bytes32) {
+    return
+      keccak256(
+        abi.encode(
+          requestId,
+          commitment.billing.client,
+          commitment.billing.gasLimit,
+          commitment.billing.subscriptionId,
+          commitment.don,
+          commitment.donFee,
+          commitment.registryFee
+        )
+      );
   }
 
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function getCommitment(bytes32 requestId)
-    external
-    view
-    override
-    returns (
-      address,
-      uint64,
-      uint32
-    )
-  {
-    Commitment memory commitment = s_requestCommitments[requestId];
-    return (commitment.billing.client, commitment.billing.subscriptionId, commitment.billing.gasLimit);
+  function getCommitmentHash(bytes32 requestId) external view override returns (bytes32 commitmentHash) {
+    commitmentHash = s_requestCommitments[requestId];
   }
 
   function computeRequestId(
@@ -359,6 +364,18 @@ contract OCR2DRRegistry is
   ) private pure returns (bytes32, uint256) {
     uint256 preSeed = uint256(keccak256(abi.encode(don, client, subscriptionId, nonce)));
     return (keccak256(abi.encode(don, preSeed)), preSeed);
+  }
+
+  function decodeRawCommitment(bytes memory commitmentBytes) private view returns (Commitment memory) {
+    OCR2DRRegistryInterface.RequestBilling memory billing;
+    address don;
+    uint96 donFee;
+    uint96 registryFee;
+    (billing, don, donFee, registryFee) = abi.decode(
+      commitmentBytes,
+      (OCR2DRRegistryInterface.RequestBilling, address, uint96, uint96)
+    );
+    return Commitment(billing, don, donFee, registryFee);
   }
 
   /**
@@ -404,14 +421,17 @@ contract OCR2DRRegistry is
    */
   function concludeBilling(
     bytes32 requestId,
+    bytes calldata rawCommitment,
     bytes calldata response,
     bytes calldata err,
     address transmitter,
-    /* NOTE: signers can be added if splitting DON fee */
+    address[31] memory signers,
+    uint8 signerCount,
+    uint32 reportValidationGas,
     uint32 initialGas
-  ) external validateAuthorizedSender nonReentrant returns (bool success, uint96 payment) {
-    Commitment memory commitment = s_requestCommitments[requestId];
-    if (commitment.billing.client == address(0)) {
+  ) external validateAuthorizedSender nonReentrant returns (bool success) {
+    Commitment memory commitment = decodeRawCommitment(rawCommitment);
+    if (hashCommitment(requestId, commitment) != s_requestCommitments[requestId]) {
       revert IncorrectRequestID();
     }
     delete s_requestCommitments[requestId];
@@ -423,7 +443,7 @@ contract OCR2DRRegistry is
       err
     );
     // Call with explicitly the amount of callback gas requested
-    // Important to not let them exhaust the gas budget and avoid DON payment.
+    // Important to not let them exhaust the gas budget and avoid payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
     // during the consumers callback code via reentrancyLock.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
@@ -435,52 +455,60 @@ contract OCR2DRRegistry is
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracles withdrawable balance.
-    payment = calculatePaymentAmount(
+    ItemizedBill memory bill = calculatePaymentAmount(
       initialGas,
       s_config.gasAfterPaymentCalculation,
       commitment.donFee,
+      signerCount,
       commitment.registryFee,
+      reportValidationGas,
       tx.gasprice
     );
-    if (s_subscriptions[commitment.billing.subscriptionId].balance < payment) {
+    if (s_subscriptions[commitment.billing.subscriptionId].balance < bill.totalCost) {
       revert InsufficientBalance();
     }
-    /**
-     * DON Payment *
-     * Two options here:
-     *   1. Reimburse the transmitter for execution cost, then split the requiredFee across all participants.
-     *   2. Pay transmitter the full amount. Since the transmitter is chosen OCR, we trust the fairness of their selection algorithm.
-     * Using Option 1 here.
-     **/
-    s_subscriptions[commitment.billing.subscriptionId].balance -= payment;
-    s_withdrawableTokens[owner()] += commitment.donFee;
-    uint96 execGasPlusDonFee = payment - commitment.donFee;
-    s_withdrawableTokens[transmitter] += execGasPlusDonFee;
+    s_subscriptions[commitment.billing.subscriptionId].balance -= bill.totalCost;
+    // Pay out signers their portion of the DON fee
+    for (uint256 i = 0; i < signerCount; i++) {
+      if (signers[i] != transmitter) {
+        s_withdrawableTokens[signers[i]] += bill.signerPayment;
+      }
+    }
+    // Pay out the registry fee
+    s_withdrawableTokens[owner()] += commitment.registryFee;
+    // Reimburse the transmitter for the execution gas cost + pay them their portion of the DON fee
+    s_withdrawableTokens[transmitter] += bill.transmitterPayment;
     // Include payment in the event for tracking costs.
-    emit BillingEnd(commitment.billing.subscriptionId, requestId, payment, success);
+    emit BillingEnd(commitment.billing.subscriptionId, requestId, bill, success);
   }
 
-  // Get the amount of gas used for fulfillment
+  // Determine the cost breakdown for payment
   function calculatePaymentAmount(
     uint256 startGas,
     uint32 gasAfterPaymentCalculation,
     uint96 donFee,
+    uint8 signerCount,
     uint96 registryFee,
+    uint32 reportValidationGas,
     uint256 weiPerUnitGas
-  ) internal view returns (uint96) {
+  ) internal view returns (ItemizedBill memory) {
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())) /
-      uint256(weiPerUnitLink);
+    uint256 paymentNoFee = (1e18 *
+      weiPerUnitGas *
+      (reportValidationGas + gasAfterPaymentCalculation + startGas - gasleft())) / uint256(weiPerUnitLink);
     uint256 fee = uint256(donFee) + uint256(registryFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
-    return uint96(paymentNoFee + fee);
+    uint96 signerPayment = donFee / uint96(signerCount);
+    uint96 transmitterPayment = uint96(paymentNoFee) + signerPayment;
+    uint96 totalCost = uint96(paymentNoFee + fee);
+    return ItemizedBill(signerPayment, transmitterPayment, totalCost);
   }
 
   function getFeedData() private view returns (int256) {
@@ -721,13 +749,13 @@ contract OCR2DRRegistry is
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_authorizedSendersList.length; j++) {
-        (bytes32 reqId, ) = computeRequestId(
+        (bytes32 requestId, ) = computeRequestId(
           s_authorizedSendersList[j],
           subConfig.consumers[i],
           subscriptionId,
           s_consumers[subConfig.consumers[i]][subscriptionId]
         );
-        if (s_requestCommitments[reqId].don != address(0)) {
+        if (s_requestCommitments[requestId] != 0) {
           return true;
         }
       }
