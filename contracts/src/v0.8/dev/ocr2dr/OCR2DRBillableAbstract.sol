@@ -22,7 +22,8 @@ abstract contract OCR2DRBillableAbstract is OCR2DRBillableInterface {
     bytes calldata, /* data */
     OCR2DRRegistryInterface.RequestBilling calldata /* billing */
   ) public pure override returns (uint96) {
-    // NOTE: Optionally, compute additional fee here
+    // NOTE: Optionally, compute additional fee split between oracles here
+    // e.g. 0.1 LINK * s_transmitters.length
     return 0;
   }
 
