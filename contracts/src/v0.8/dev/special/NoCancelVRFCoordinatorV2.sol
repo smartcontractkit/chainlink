@@ -17,6 +17,7 @@ import "../../VRFConsumerBaseV2.sol";
  * - ownerCancelSubscription will still cancel the subscription, but all remaining funds
  * will be sent to the owner of the contract.
  * - cancelSubscription will always revert.
+ * - calculatePaymentAmount will always return the premium being charged, and will not charge for gas used.
  *
  * In effect, subscriptions are not cancellable in NoCancelVRFCoordinatorV2, as the name suggests.
 */
@@ -588,11 +589,8 @@ contract NoCancelVRFCoordinatorV2 is
     uint64 reqCount = s_subscriptions[rc.subId].reqCount;
     s_subscriptions[rc.subId].reqCount += 1;
 
-    // We want to charge users exactly for how much gas they use in their callback.
-    // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-    // decrement the subscription balance and increment the oracles withdrawable balance.
-    // We also add the flat link fee to the payment amount.
-    // Its specified in millionths of link, if s_config.fulfillmentFlatFeeLinkPPM = 1
+    // We want to charge users exactly the flat link fee, regardless of how much gas is used.
+    // The link fee is specified in millionths of link; if s_config.fulfillmentFlatFeeLinkPPM = 1
     // 1 link / 1e6 = 1e18 juels / 1e6 = 1e12 juels.
     uint96 payment = calculatePaymentAmount(
       startGas,
@@ -610,26 +608,18 @@ contract NoCancelVRFCoordinatorV2 is
     return payment;
   }
 
-  // Get the amount of gas used for fulfillment
+  // calculatePaymentAmount will always return _only_ the premium being charged.
   function calculatePaymentAmount(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint32 fulfillmentFlatFeeLinkPPM,
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
-    int256 weiPerUnitLink;
-    weiPerUnitLink = getFeedData();
-    if (weiPerUnitLink <= 0) {
-      revert InvalidLinkWeiPrice(weiPerUnitLink);
-    }
-    // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())) /
-      uint256(weiPerUnitLink);
     uint256 fee = 1e12 * uint256(fulfillmentFlatFeeLinkPPM);
-    if (paymentNoFee > (1e27 - fee)) {
-      revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
+    if (fee > (1e27 - fee)) {
+      revert PaymentTooLarge(); // Fee cannot be more than all of the link in existence.
     }
-    return uint96(paymentNoFee + fee);
+    return uint96(fee);
   }
 
   function getFeedData() private view returns (int256) {

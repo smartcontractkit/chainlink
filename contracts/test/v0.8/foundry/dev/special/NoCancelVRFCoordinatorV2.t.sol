@@ -3,9 +3,13 @@ pragma solidity ^0.8.0;
 import {BaseTest} from "../../BaseTest.t.sol";
 import {NoCancelVRFCoordinatorV2} from "../../../../../src/v0.8/dev/special/NoCancelVRFCoordinatorV2.sol";
 import {MockLinkToken as LinkToken} from "./MockLinkToken.sol";
+import {ExposedNoCancelVRFCoordinatorV2} from "./ExposedNoCancelVRFCoordinatorV2.sol";
 
 contract NoCancelVRFCoordinatorV2Setup is BaseTest {
   NoCancelVRFCoordinatorV2 s_coordinator;
+
+  // has calculatePaymentAmount "exported" to test.
+  ExposedNoCancelVRFCoordinatorV2 s_exposedCoordinator;
 
   LinkToken LINK;
 
@@ -17,6 +21,7 @@ contract NoCancelVRFCoordinatorV2Setup is BaseTest {
 
     LINK = new LinkToken();
     s_coordinator = new NoCancelVRFCoordinatorV2(address(LINK), LINK_ETH_FEED_ADDRESS, BLOCKHASH_STORE_ADDRESS);
+    s_exposedCoordinator = new ExposedNoCancelVRFCoordinatorV2(address(LINK), LINK_ETH_FEED_ADDRESS, BLOCKHASH_STORE_ADDRESS);
   }
 }
 
@@ -89,5 +94,17 @@ contract NoCancelVRFCoordinatorV2_cancelSubscription is NoCancelVRFCoordinatorV2
     s_coordinator.ownerCancelSubscription(1);
     uint256 ownerLinkBalanceAfter = LINK.balanceOf(OWNER);
     assertEq(ownerLinkBalanceBefore, ownerLinkBalanceAfter);
+  }
+}
+
+contract NoCancelVRFCoordinatorV2_calculatePaymentAmount is NoCancelVRFCoordinatorV2Setup {
+  function testFuzzCalculatePaymentAmount(uint256 gasAfterPaymentCalculation, uint32 fulfillmentFlatFeeLinkPPM, uint256 weiPerUnitGas) public {
+    uint96 actualAmount = s_exposedCoordinator.calculatePaymentAmountTest(
+      gasAfterPaymentCalculation,
+      fulfillmentFlatFeeLinkPPM,
+      weiPerUnitGas
+    );
+    uint96 expectedAmount = uint96(1e12 * uint256(fulfillmentFlatFeeLinkPPM));
+    assertEq(expectedAmount, actualAmount);
   }
 }
