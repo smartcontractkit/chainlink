@@ -46,14 +46,14 @@ type OCRSoakTest struct {
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
 type OCRSoakTestInputs struct {
-	BlockchainClient     blockchain.EVMClient // Client for the test to connect to the blockchain with
-	TestDuration         time.Duration        // How long to run the test for (assuming things pass)
-	NumberOfContracts    int                  // Number of OCR contracts to launch
-	ChainlinkNodeFunding *big.Float           // Amount of ETH to fund each chainlink node with
-	RoundTimeout         time.Duration        // How long to wait for a round to update before failing the test
-	ExpectedRoundTime    time.Duration        // How long each round is expected to take
-	TimeBetweenRounds    time.Duration        // How long to wait after a completed round to start a new one, set 0 for instant
-	StartingAdapterValue int
+	BlockchainClient     blockchain.EVMClient `ignored:"true"`                                        // Client for the test to connect to the blockchain with
+	TestDuration         time.Duration        `envconfig:"ocr_test_duration" default:"15m"`           // How long to run the test for (assuming things pass)
+	NumberOfFeeds        int                  `envconfig:"ocr_number_of_feeds" default:"2"`           // Number of OCR contracts to launch
+	ChainlinkNodeFunding float64              `envconfig:"ocr_chainlink_node_funding" default:".001"` // Amount of ETH to fund each chainlink node with
+	RoundTimeout         time.Duration        `envconfig:"ocr_round_timeout" default:"15m"`           // How long to wait for a round to update before failing the test
+	ExpectedRoundTime    time.Duration        `envconfig:"ocr_expected_round_time" default:"2m"`      // How long each round is expected to take
+	TimeBetweenRounds    time.Duration        `envconfig:"ocr_time_between_rounds" default:"1m"`      // How long to wait after a completed round to start a new one, set 0 for instant
+	StartingAdapterValue int                  `envconfig:"ocr_starting_adapter_value" default:"5"`
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
@@ -90,7 +90,7 @@ func (t *OCRSoakTest) Setup(env *environment.Environment) {
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
-	err = actions.FundChainlinkNodes(t.chainlinkNodes[1:], t.chainClient, t.Inputs.ChainlinkNodeFunding)
+	err = actions.FundChainlinkNodes(t.chainlinkNodes[1:], t.chainClient, big.NewFloat(t.Inputs.ChainlinkNodeFunding))
 	Expect(err).ShouldNot(HaveOccurred(), "Error funding Chainlink nodes")
 
 	if t.OperatorForwarderFlow {
@@ -111,7 +111,7 @@ func (t *OCRSoakTest) Setup(env *environment.Environment) {
 		}
 
 		t.ocrInstances = actions.DeployOCRContractsForwarderFlow(
-			t.Inputs.NumberOfContracts,
+			t.Inputs.NumberOfFeeds,
 			linkTokenContract,
 			contractDeployer,
 			t.chainlinkNodes,
@@ -120,7 +120,7 @@ func (t *OCRSoakTest) Setup(env *environment.Environment) {
 		)
 	} else {
 		t.ocrInstances = actions.DeployOCRContracts(
-			t.Inputs.NumberOfContracts,
+			t.Inputs.NumberOfFeeds,
 			linkTokenContract,
 			contractDeployer,
 			t.chainlinkNodes,
@@ -311,8 +311,8 @@ func (t *OCRSoakTest) ensureInputValues() {
 	inputs := t.Inputs
 	Expect(inputs.BlockchainClient).ShouldNot(BeNil(), "Need a valid blockchain client to use for the test")
 	t.chainClient = inputs.BlockchainClient
-	Expect(inputs.NumberOfContracts).Should(BeNumerically(">=", 1), "Expecting at least 1 OCR contract")
-	Expect(inputs.ChainlinkNodeFunding.Float64()).Should(BeNumerically(">", 0), "Expecting non-zero chainlink node funding amount")
+	Expect(inputs.NumberOfFeeds).Should(BeNumerically(">=", 1), "Expecting at least 1 OCR contract")
+	Expect(inputs.ChainlinkNodeFunding).Should(BeNumerically(">", 0), "Expecting non-zero chainlink node funding amount")
 	Expect(inputs.TestDuration).Should(BeNumerically(">=", time.Minute*1), "Expected test duration to be more than a minute")
 	Expect(inputs.ExpectedRoundTime).Should(BeNumerically(">=", time.Second*1), "Expected ExpectedRoundTime to be greater than 1 second")
 	Expect(inputs.RoundTimeout).Should(BeNumerically(">=", inputs.ExpectedRoundTime), "Expected RoundTimeout to be greater than ExpectedRoundTime")

@@ -6,6 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/imdario/mergo v0.3.13
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.10.7
 	github.com/onsi/ginkgo/v2 v2.5.0
 	github.com/onsi/gomega v1.24.1
@@ -15,7 +16,7 @@ require (
 	github.com/slack-go/slack v0.11.4
 	github.com/smartcontractkit/chainlink v1.9.0
 	github.com/smartcontractkit/chainlink-env v0.2.52
-	github.com/smartcontractkit/chainlink-testing-framework v1.8.3-0.20221117174857-5277c641a49c
+	github.com/smartcontractkit/chainlink-testing-framework v1.8.3
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/smartcontractkit/ocr2keepers v0.4.8
 	github.com/stretchr/testify v1.8.1
@@ -173,7 +174,6 @@ require (
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
-	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/keybase/go-keychain v0.0.0-20190712205309-48d3d31d256d // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect

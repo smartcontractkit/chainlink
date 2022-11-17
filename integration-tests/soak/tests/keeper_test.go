@@ -4,6 +4,7 @@ package soak
 import (
 	"math/big"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -51,29 +52,23 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 		By("Setup the Keeper test", func() {
 			chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			keeperBlockTimeTest = testsetups.NewKeeperBlockTimeTest(
-				testsetups.KeeperBlockTimeTestInputs{
-					BlockchainClient:  chainClient,
-					NumberOfContracts: 5,
-					KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
-						PaymentPremiumPPB:    uint32(200000000),
-						FlatFeeMicroLINK:     uint32(0),
-						BlockCountPerTurn:    big.NewInt(3),
-						CheckGasLimit:        uint32(2500000),
-						StalenessSeconds:     big.NewInt(90000),
-						GasCeilingMultiplier: uint16(1),
-						MinUpkeepSpend:       big.NewInt(0),
-						MaxPerformGas:        uint32(5000000),
-						FallbackGasPrice:     big.NewInt(2e11),
-						FallbackLinkPrice:    big.NewInt(2e18),
-					},
-					CheckGasToBurn:       1,
-					PerformGasToBurn:     1,
-					BlockRange:           1000,
-					BlockInterval:        50,
-					ChainlinkNodeFunding: big.NewFloat(1),
-				},
-			)
+			var inputs *testsetups.KeeperBlockTimeTestInputs
+			err = envconfig.Process("", inputs)
+			Expect(err).ShouldNot(HaveOccurred(), "Error reading inputs for Keeper soak test")
+			inputs.KeeperRegistrySettings = &contracts.KeeperRegistrySettings{
+				PaymentPremiumPPB:    uint32(200000000),
+				FlatFeeMicroLINK:     uint32(0),
+				BlockCountPerTurn:    big.NewInt(3),
+				CheckGasLimit:        uint32(2500000),
+				StalenessSeconds:     big.NewInt(90000),
+				GasCeilingMultiplier: uint16(1),
+				MinUpkeepSpend:       big.NewInt(0),
+				MaxPerformGas:        uint32(5000000),
+				FallbackGasPrice:     big.NewInt(2e11),
+				FallbackLinkPrice:    big.NewInt(2e18),
+			}
+			inputs.BlockchainClient = chainClient
+			keeperBlockTimeTest = testsetups.NewKeeperBlockTimeTest(inputs)
 			keeperBlockTimeTest.Setup(testEnvironment)
 		})
 	})

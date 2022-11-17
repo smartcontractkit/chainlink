@@ -23,7 +23,7 @@ import (
 // KeeperBlockTimeTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
 // contracts within a certain block time
 type KeeperBlockTimeTest struct {
-	Inputs       KeeperBlockTimeTestInputs
+	Inputs       *KeeperBlockTimeTestInputs
 	TestReporter testreporters.KeeperBlockTimeTestReporter
 
 	keeperRegistry          contracts.KeeperRegistry
@@ -36,19 +36,19 @@ type KeeperBlockTimeTest struct {
 
 // KeeperBlockTimeTestInputs are all the required inputs for a Keeper Block Time Test
 type KeeperBlockTimeTestInputs struct {
-	BlockchainClient       blockchain.EVMClient              // Client for the test to connect to the blockchain with
-	NumberOfContracts      int                               // Number of upkeep contracts
-	KeeperRegistrySettings *contracts.KeeperRegistrySettings // Settings of each keeper contract
-	Timeout                time.Duration                     // Timeout for the test
-	BlockRange             int64                             // How many blocks to run the test for
-	BlockInterval          int64                             // Interval of blocks that upkeeps are expected to be performed
-	CheckGasToBurn         int64                             // How much gas should be burned on checkUpkeep() calls
-	PerformGasToBurn       int64                             // How much gas should be burned on performUpkeep() calls
-	ChainlinkNodeFunding   *big.Float                        // Amount of ETH to fund each chainlink node with
+	BlockchainClient       blockchain.EVMClient              `ignored:"true"`                            // Client for the test to connect to the blockchain with
+	NumberOfContracts      int                               `envconfig:"keeper_number_of_contracts"`    // Number of upkeep contracts
+	KeeperRegistrySettings *contracts.KeeperRegistrySettings `ignored:"true"`                            // Settings of each keeper contract
+	Timeout                time.Duration                     `envconfig:"keeper_test_timeout"`           // Timeout for the test
+	BlockRange             int64                             `envconfig:"keeper_block_range"`            // How many blocks to run the test for
+	BlockInterval          int64                             `envconfig:"keeper_block_interval"`         // Interval of blocks that upkeeps are expected to be performed
+	CheckGasToBurn         int64                             `envconfig:"keeper_check_gas_to_burn"`      // How much gas should be burned on checkUpkeep() calls
+	PerformGasToBurn       int64                             `envconfig:"keeper_perform_gas_to_burn"`    // How much gas should be burned on performUpkeep() calls
+	ChainlinkNodeFunding   *big.Float                        `envconfig:"keeper_chainlink_node_funding"` // Amount of ETH to fund each chainlink node with
 }
 
 // NewKeeperBlockTimeTest prepares a new keeper block time test to be run
-func NewKeeperBlockTimeTest(inputs KeeperBlockTimeTestInputs) *KeeperBlockTimeTest {
+func NewKeeperBlockTimeTest(inputs *KeeperBlockTimeTestInputs) *KeeperBlockTimeTest {
 	return &KeeperBlockTimeTest{
 		Inputs: inputs,
 	}

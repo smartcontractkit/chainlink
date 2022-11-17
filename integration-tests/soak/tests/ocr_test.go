@@ -2,9 +2,7 @@ package soak
 
 //revive:disable:dot-imports
 import (
-	"math/big"
-	"time"
-
+	"github.com/kelseyhightower/envconfig"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -54,16 +52,11 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 		By("Setting up Soak Test", func() {
 			chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			ocrSoakTest = testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
-				BlockchainClient:     chainClient,
-				TestDuration:         time.Minute * 10,
-				NumberOfContracts:    1,
-				ChainlinkNodeFunding: big.NewFloat(.001),
-				ExpectedRoundTime:    time.Minute * 2,
-				RoundTimeout:         time.Minute * 15,
-				TimeBetweenRounds:    time.Minute * 1,
-				StartingAdapterValue: 5,
-			})
+			var inputs *testsetups.OCRSoakTestInputs
+			err = envconfig.Process("", inputs)
+			inputs.BlockchainClient = chainClient
+			Expect(err).ShouldNot(HaveOccurred(), "Error trying to read OCR soak test inputs ")
+			ocrSoakTest = testsetups.NewOCRSoakTest(inputs)
 			ocrSoakTest.Setup(testEnvironment)
 		})
 	})
