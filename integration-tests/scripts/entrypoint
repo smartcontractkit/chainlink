@@ -15,12 +15,13 @@ cd "$SCRIPT_DIR"/../../ || exit 1
 # SELECTED_NETWORKS the networks you wish to run against
 # CHAINLINK_ENV_USER the user to put in the k8s metadata label
 # TEST_LOG_LEVEL the level of logs you wish to have output
-echo "TEST_FOLDER=${TEST_FOLDER}"
-echo "TEST_ARGS=${TEST_ARGS}"
-echo "TEST_SELECTED_NETWORKS=${TEST_SELECTED_NETWORKS}"
+# echo "TEST_FOLDER=${TEST_FOLDER}"
+# echo "TEST_ARGS=${TEST_ARGS}"
+# echo "TEST_SELECTED_NETWORKS=${TEST_SELECTED_NETWORKS}"
 # echo "TEST_CHAINLINK_ENV_USER=${TEST_CHAINLINK_ENV_USER}"
 # echo "TEST_TEST_LOG_LEVEL=${TEST_TEST_LOG_LEVEL}"
-SELECTED_NETWORKS=${TEST_SELECTED_NETWORKS} ginkgo -vv -r --junit-report=tests-smoke-report.xml \
+# SELECTED_NETWORKS=${SELECTED_NETWORKS} 
+ginkgo -vv -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	${TEST_ARGS} \
-	${TEST_FOLDER}
+	${ARGS} \
+	${FOLDER}
