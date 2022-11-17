@@ -1051,77 +1051,21 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
-	key := cltest.MustGenerateRandomKey(t)
-	gasLanePriceWei := assets.GWei(1000)
-	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_needstopup", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(1000), v2.KeySpecific{
-			// Gas lane.
-			Key:          ptr(key.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
-	consumer := uni.vrfConsumers[0]
-	consumerContract := uni.consumerContracts[0]
-	consumerContractAddress := uni.consumerContractAddresses[0]
-
-	// Create a subscription and fund with 1 LINK.
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(1e18), uni.rootContract, uni)
-
-	// Fund expensive gas lane.
-	sendEth(t, ownerKey, uni.backend, key.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
-
-	// Create VRF job.
-	jbs := createVRFJobs(
+	testSingleConsumerNeedsTopUp(
 		t,
-		[][]ethkey.KeyV2{{key}},
-		app,
+		ownerKey,
+		uni,
+		uni.vrfConsumers[0],
+		uni.consumerContracts[0],
+		uni.consumerContractAddresses[0],
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
-		uni,
-		false,
-		gasLanePriceWei)
-	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
-
-	numWords := uint32(20)
-	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni.rootContract, uni)
-
-	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK.
-	gomega.NewGomegaWithT(t).Consistently(func() bool {
-		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
-		t.Log("assert 1", "runs", len(runs))
-		return len(runs) == 0
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
-
-	// Top up subscription with enough LINK to see the job through. 100 LINK should do the trick.
-	_, err := consumerContract.TopUpSubscription(consumer, decimal.RequireFromString("100e18").BigInt())
-	require.NoError(t, err)
-
-	// Wait for fulfillment to go through.
-	gomega.NewWithT(t).Eventually(func() bool {
-		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
-		t.Log("assert 2", "runs", len(runs))
-		return len(runs) == 1
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
-
-	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
-	// so that we can actually see the event on the simulated chain.
-	mine(t, requestID, subID, uni, db)
-
-	// Assert the state of the RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
-
-	// Assert correct number of random words sent by coordinator.
-	assertNumRandomWords(t, consumerContract, numWords)
+		assets.Ether(1).ToInt(),   // initial funding of 1 LINK
+		assets.Ether(100).ToInt(), // top up of 100 LINK
+	)
 }
 
 func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {

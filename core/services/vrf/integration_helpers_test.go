@@ -349,3 +349,91 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
 }
+
+func testSingleConsumerNeedsTopUp(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2Universe,
+	consumer *bind.TransactOpts,
+	consumerContract *vrf_consumer_v2.VRFConsumerV2,
+	consumerContractAddress common.Address,
+	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinatorAddress common.Address,
+	batchCoordinatorAddress common.Address,
+	initialFundingAmount *big.Int,
+	topUpAmount *big.Int,
+	assertions ...func(
+		t *testing.T,
+		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+) {
+	key := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(1000)
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_needstopup", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(1000), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
+
+	// Create and fund a subscription
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, initialFundingAmount, coordinator, uni)
+
+	// Fund expensive gas lane.
+	sendEth(t, ownerKey, uni.backend, key.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	jbs := createVRFJobs(
+		t,
+		[][]ethkey.KeyV2{{key}},
+		app,
+		coordinator,
+		coordinatorAddress,
+		batchCoordinatorAddress,
+		uni,
+		false,
+		gasLanePriceWei)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	numWords := uint32(20)
+	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+
+	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK.
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 1", "runs", len(runs))
+		return len(runs) == 0
+	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	// Top up subscription with enough LINK to see the job through.
+	_, err := consumerContract.TopUpSubscription(consumer, topUpAmount)
+	require.NoError(t, err)
+
+	// Wait for fulfillment to go through.
+	gomega.NewWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 2", "runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
+	// so that we can actually see the event on the simulated chain.
+	mine(t, requestID, subID, uni, db)
+
+	// Assert the state of the RandomWordsFulfilled event.
+	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+	if len(assertions) > 0 {
+		assertions[0](t, coordinator, rwfe)
+	}
+
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
+}
