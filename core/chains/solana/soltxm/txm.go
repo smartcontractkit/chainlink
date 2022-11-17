@@ -157,7 +157,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx *solanaGo.Transact
 
 	// set fee
 	// fee bumping can be enabled by moving the setting & signing logic to the broadcaster
-	if err := fees.SetComputeUnitPrice(tx, fees.ComputeUnitPrice(txm.fee.BaseComputeUnitPrice())); err != nil {
+	if err = fees.SetComputeUnitPrice(tx, fees.ComputeUnitPrice(txm.fee.BaseComputeUnitPrice())); err != nil {
 		return uuid.UUID{}, solanaGo.Signature{}, err
 	}
 
@@ -197,6 +197,9 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx *solanaGo.Transact
 	go func() {
 		deltaT := 1 // ms
 		tick := time.After(0)
+		bumpInterval := 3 * time.Second // TODO: set as config?
+		bumpCount := 0
+		bumpTime := time.Now()
 		for {
 			select {
 			case <-ctx.Done():
@@ -204,6 +207,12 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx *solanaGo.Transact
 				txm.lggr.Debugw("stopped tx retry", "id", id, "signature", sig)
 				return
 			case <-tick:
+				if time.Since(bumpTime) > bumpInterval {
+					bumpCount++
+					bumpTime = time.Now()
+					txm.lggr.Infow("time for fee bump!", "count", bumpCount)
+				}
+
 				go func() {
 					retrySig, err := client.SendTx(ctx, tx)
 					// this could occur if endpoint goes down or if ctx cancelled
@@ -270,6 +279,13 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 			// process signatures
 			processSigs := func(s []solanaGo.Signature, res []*rpc.SignatureStatusesResult) {
+				// sort signatures and results process successful first
+				s, res, err := SortSignaturesAndResults(s, res)
+				if err != nil {
+					txm.lggr.Errorw("sorting error", "error", err)
+					return
+				}
+
 				for i := 0; i < len(res); i++ {
 					// if status is nil (sig not found), continue polling
 					// sig not found could mean invalid tx or not picked up yet

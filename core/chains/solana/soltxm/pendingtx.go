@@ -142,11 +142,15 @@ func (c *pendingTxContext) ListAll() []solana.Signature {
 // Expired returns if the timeout for trying to confirm a signature has been reached
 func (c *pendingTxContext) Expired(sig solana.Signature, lifespan time.Duration) bool {
 	c.lock.RLock()
-	timestamp, exists := c.timestamp[c.sigToId[sig]]
-	c.lock.RUnlock()
-
+	defer c.lock.RUnlock()
+	id, exists := c.sigToId[sig]
 	if !exists {
-		return true // return expired = true if timestamp doesn't exist
+		return false // return expired = false if timestamp does not exist (likely cleaned up by something else previously)
+	}
+
+	timestamp, exists := c.timestamp[id]
+	if !exists {
+		return false // return expired = false if timestamp does not exist (likely cleaned up by something else previously)
 	}
 
 	return time.Since(timestamp) > lifespan
