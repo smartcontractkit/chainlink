@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -27,6 +28,8 @@ import (
 
 var (
 	defaultOCRSettings = map[string]interface{}{
+		"toml": client.AddNetworksConfig(`[OCR]
+Enabled = true`, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
