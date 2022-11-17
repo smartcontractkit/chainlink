@@ -1,4 +1,4 @@
-name: On Demand OCR Soak Test
+name: On Demand Keeper Soak Test
 on:
   workflow_dispatch:
     inputs:
@@ -35,33 +35,37 @@ on:
         description: Container image version for the Chainlink nodes
         required: true
         default: "1.10.0"
-      testDuration:
-        description: Duration of the test (time string)
+      numberContracts:
+        description: Number of upkeep contracts to deploy
         required: false
         default: 15m
-      numberOfFeeds:
-        description: Number of OCR feeds
+      testTimeout:
+        description: How long before killing the test
         required: false
-        default: "2"
+        default: 30m
+      blockRange:
+        description: How many blocks the test should last
+        required: false
+        default: "1000"
+      blockInterval:
+        description: How many blocks between making upkeeps eligible
+        required: false
+        default: "50"
+      checkGasToBurn:
+        description: How much wei to burn in CheckUpkeep
+        required: false
+        default: "1"
+      performGasToBurn:
+        description: How much we it burn in PerformUpkeep
+        required: false
+        default: "1"
       chainlinkNodeFunding:
         description: How much to fund each Chainlink node (in ETH)
         required: false
         default: ".001"
-      expectedRoundTime:
-        description: How long a typical OCR round should take
-        required: false
-        default: 2m
-      roundTimeout:
-        description: How long to wait for a round before killing the test
-        required: false
-        default: 15m
-      timeBetweenRounds:
-        description: How long to wait before starting a new round
-        required: false
-        default: 1m
 
 jobs:
-  ocr_soak_test:
+  keeper_soak_test:
     environment: integration
     runs-on: ubuntu-latest
     env:
@@ -72,12 +76,13 @@ jobs:
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
-      OCR_TEST_DURATION: ${{ inputs.testDuration }}
-      OCR_NUMBER_OF_FEEDS: ${{ inputs.numberOfFeeds }}
-      OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
-      OCR_EXPECTED_ROUND_TIME: ${{ inputs.expectedRoundTime }}
-      OCR_ROUND_TIMEOUT: ${{ inputs.roundTimeout }}
-      OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
+      KEEPER_NUMBER_OF_CONTRACTS: ${{ inputs.numberContracts }}
+      KEEPER_TEST_TIMEOUT: ${{ inputs.testTimeout }}
+      KEEPER_BLOCK_RANGE: ${{ inputs.blockRange }}
+      KEEPER_BLOCK_INTERVAL: ${{ inputs.blockInterval }}
+      KEEPER_CHECK_GAS_TO_BURN: ${{ inputs.checkGasToBurn }}
+      KEEPER_PERFORM_GAS_TO_BURN: ${{ inputs.performGasToBurn }}
+      KEEPER_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -95,7 +100,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
         with:
-          test_command_to_run: make test_soak_ocr
+          test_command_to_run: make test_soak_keeper
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ inputs.chainlinkImage }}
