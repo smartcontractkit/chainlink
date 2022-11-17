@@ -271,9 +271,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 								if ok {
 									if chainID == newChainID {
 										return errors.Errorf("a job with contract address %v already exists for chain ID %v", jb.OCROracleSpec.ContractAddress, chainID)
-									} else {
-										continue
 									}
+									continue
 								}
 							}
 							return errors.Wrap(err, "Unexpected error validating contract_id")
