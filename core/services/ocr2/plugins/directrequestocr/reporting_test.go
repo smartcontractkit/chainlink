@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	drocr_serv "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
@@ -31,9 +32,11 @@ func sliceToByte32(slice []byte) [32]byte {
 }
 
 func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr_serv.ORM) {
-	ocrLogger := logger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
 
-	orm := drocr_serv.NewInMemoryORM()
+	orm := drocr_serv.NewORM(db, lggr, pgtest.NewQConfig(true))
 	factory := directrequestocr.DirectRequestReportingPluginFactory{
 		Logger:    ocrLogger,
 		PluginORM: orm,
@@ -57,7 +60,8 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr
 
 func createRequest(t *testing.T, orm drocr_serv.ORM, id [32]byte) {
 	testTxHash := common.HexToHash("0xabc")
-	err := orm.CreateRequest(id, time.Now(), &testTxHash)
+	addr := testutils.NewAddress()
+	err := orm.CreateRequest(id, &addr, time.Now(), &testTxHash)
 	require.NoError(t, err)
 }
 

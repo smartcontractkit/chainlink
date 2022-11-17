@@ -17,20 +17,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateRequest provides a mock function with given fields: requestID, receivedAt, requestTxHash, qopts
-func (_m *ORM) CreateRequest(requestID directrequestocr.RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
+// CreateRequest provides a mock function with given fields: requestID, contractAdderss, receivedAt, requestTxHash, qopts
+func (_m *ORM) CreateRequest(requestID directrequestocr.RequestID, contractAdderss *common.Address, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, requestID, receivedAt, requestTxHash)
+	_ca = append(_ca, requestID, contractAdderss, receivedAt, requestTxHash)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, time.Time, *common.Hash, ...pg.QOpt) error); ok {
-		r0 = rf(requestID, receivedAt, requestTxHash, qopts...)
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, *common.Address, time.Time, *common.Hash, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, contractAdderss, receivedAt, requestTxHash, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
