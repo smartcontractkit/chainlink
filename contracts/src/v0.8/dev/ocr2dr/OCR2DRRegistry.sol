@@ -542,12 +542,15 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Get details about a subscription.
+   * @param subscriptionId - ID of the subscription
+   * @return balance - LINK balance of the subscription in juels.
+   * @return owner - owner of the subscription.
+   * @return consumers - list of consumer address which are able to use this subscription.
    */
   function getSubscription(uint64 subscriptionId)
     external
     view
-    override
     returns (
       uint96 balance,
       address owner,
@@ -565,9 +568,16 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Create a new subscription.
+   * @return subscriptionId - A unique subscription id.
+   * @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
+   * @dev Note to fund the subscription, use transferAndCall. For example
+   * @dev  LINKTOKEN.transferAndCall(
+   * @dev    address(REGISTRY),
+   * @dev    amount,
+   * @dev    abi.encode(subscriptionId));
    */
-  function createSubscription() external override nonReentrant returns (uint64) {
+  function createSubscription() external nonReentrant returns (uint64) {
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
@@ -583,11 +593,12 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Request subscription owner transfer.
+   * @param subscriptionId - ID of the subscription
+   * @param newOwner - proposed new owner of the subscription
    */
   function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner)
     external
-    override
     onlySubOwner(subscriptionId)
     nonReentrant
   {
@@ -599,9 +610,12 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Request subscription owner transfer.
+   * @param subscriptionId - ID of the subscription
+   * @dev will revert if original owner of subscriptionId has
+   * not requested that msg.sender become the new owner.
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override nonReentrant {
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external nonReentrant {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -615,14 +629,11 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Remove a consumer from a OCR2DR subscription.
+   * @param subscriptionId - ID of the subscription
+   * @param consumer - Consumer to remove from the subscription
    */
-  function removeConsumer(uint64 subscriptionId, address consumer)
-    external
-    override
-    onlySubOwner(subscriptionId)
-    nonReentrant
-  {
+  function removeConsumer(uint64 subscriptionId, address consumer) external onlySubOwner(subscriptionId) nonReentrant {
     if (s_consumers[consumer][subscriptionId] == 0) {
       revert InvalidConsumer(subscriptionId, consumer);
     }
@@ -644,14 +655,11 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Add a consumer to a OCR2DR subscription.
+   * @param subscriptionId - ID of the subscription
+   * @param consumer - New consumer which can use the subscription
    */
-  function addConsumer(uint64 subscriptionId, address consumer)
-    external
-    override
-    onlySubOwner(subscriptionId)
-    nonReentrant
-  {
+  function addConsumer(uint64 subscriptionId, address consumer) external onlySubOwner(subscriptionId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -669,14 +677,11 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Cancel a subscription
+   * @param subscriptionId - ID of the subscription
+   * @param to - Where to send the remaining LINK to
    */
-  function cancelSubscription(uint64 subscriptionId, address to)
-    external
-    override
-    onlySubOwner(subscriptionId)
-    nonReentrant
-  {
+  function cancelSubscription(uint64 subscriptionId, address to) external onlySubOwner(subscriptionId) nonReentrant {
     if (pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
@@ -702,11 +707,15 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @notice Check to see if there exists a request commitment for all consumers for a given sub.
+   * @param subscriptionId - ID of the subscription
+   * @return true if there exists at least one unfulfilled request for the subscription, false
+   * otherwise.
    * @dev Looping is bounded to MAX_CONSUMERS*(number of DONs).
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
-  function pendingRequestExists(uint64 subscriptionId) public view override returns (bool) {
+
+  function pendingRequestExists(uint64 subscriptionId) public view returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_authorizedSendersList.length; j++) {
