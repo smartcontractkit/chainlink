@@ -50,7 +50,7 @@ func TestSetComputeUnitPrice(t *testing.T) {
 		require.NoError(t, err)
 		accountCount := len(tx.Message.AccountKeys)
 		tx.Message.AccountKeys = append(tx.Message.AccountKeys, ComputeUnitPrice(0).ProgramID())
-		accountCount += 1
+		accountCount++
 
 		// add fee
 		require.NoError(t, SetComputeUnitPrice(tx, 1))

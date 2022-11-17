@@ -1,7 +1,6 @@
 package soltxm
 
 import (
-	"context"
 	"math/rand"
 	"sync"
 	"testing"
@@ -458,11 +457,6 @@ func TestTxm_Enqueue(t *testing.T) {
 	txm := NewTxm("enqueue_test", func() (client.ReaderWriter, error) {
 		return mc, nil
 	}, cfg, mkey, lggr)
-
-	// should error when not started
-	assert.Error(t, txm.Enqueue("fail", nil))
-	require.NoError(t, txm.Start(context.TODO()))
-	defer txm.Close()
 
 	txs := []struct {
 		name string
