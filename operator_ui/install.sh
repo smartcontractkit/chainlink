@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-# Dependencies:
-# jq ^1.6 https://stedolan.github.io/jq/
-
 owner=smartcontractkit
 repo=operator-ui
 fullRepo=${owner}/${repo}
