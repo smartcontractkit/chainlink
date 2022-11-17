@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
 	"gopkg.in/guregu/null.v2"
@@ -10,7 +11,7 @@ import (
 )
 
 type MercuryConfig struct {
-	FeedID string      `json:"feedID"`
+	FeedID common.Hash `json:"feedID"`
 	URL    *models.URL `json:"url"`
 }
 
