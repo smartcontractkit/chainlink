@@ -26,11 +26,14 @@ type HeadSaver interface {
 
 // HeadTracker holds and stores the latest block number experienced by this particular node in a thread safe manner.
 // Reconstitutes the last block number from the data store on reboot.
+//
+//go:generate mockery --quiet --name HeadTracker --output ../mocks/ --case=underscore
 type HeadTracker interface {
 	services.ServiceCtx
 	// Backfill given a head will fill in any missing heads up to the given depth
 	// (used for testing)
 	Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error)
+	LatestChain() *evmtypes.Head
 }
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,

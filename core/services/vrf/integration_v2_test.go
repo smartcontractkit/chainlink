@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/nocancel_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -2200,6 +2201,15 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x11).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x12).String()])
+}
+
+func TestEqualAbis(t *testing.T) {
+	// test that the abi's of NoCancelVRFCoordinatorV2 and VRFCoordinatorV2
+	// except for trivial naming divergences of the structs.
+	noCancelAbi := nocancel_vrf_coordinator_v2.NoCancelVRFCoordinatorV2MetaData.ABI
+	noCancelAbi = strings.Replace(noCancelAbi, "NoCancelVRFCoordinatorV2", "VRFCoordinatorV2", -1)
+	v2Abi := vrf_coordinator_v2.VRFCoordinatorV2MetaData.ABI
+	require.Equal(t, v2Abi, noCancelAbi)
 }
 
 func FindLatestRandomnessRequestedLog(t *testing.T,

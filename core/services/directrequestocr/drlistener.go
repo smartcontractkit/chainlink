@@ -215,7 +215,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	dbRequestID, err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash)
+	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash)
 	if err != nil {
 		l.logger.Errorf("Failed to create a DB entry for new request (ID: %v)", request.RequestId)
 		return
@@ -225,45 +225,45 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		return nil
 	})
 	if err != nil {
-		l.logger.Errorf("Pipeline run failed for request ID: %v, DBID: %v, err: %s", request.RequestId, dbRequestID, err)
+		l.logger.Errorf("Pipeline run failed for request ID: %v, err: %s", request.RequestId, err)
 		return
 	}
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName)
 	if errResult != nil {
 		// Internal problem: Can't find parsed computation results
-		if err2 := l.pluginORM.SetError(dbRequestID, run.ID, NODE_EXCEPTION, errResult.Error(), time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetError failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errResult.Error()), time.Now()); err2 != nil {
+			l.logger.Errorf("Call to SetError failed for request ID: %v", request.RequestId)
 		}
 		return
 	}
 	computationResult, errResult = ExtractRawBytes(computationResult)
 	if errResult != nil {
-		l.logger.Errorf("Failed to extract result for request ID: %v, DBID: %v, err: %s", request.RequestId, dbRequestID, errResult)
+		l.logger.Errorf("Failed to extract result for request ID: %v, err: %s", request.RequestId, errResult)
 		return
 	}
 
 	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName)
 	if errErr != nil {
 		// Internal problem: Can't find parsed computation error
-		if err2 := l.pluginORM.SetError(dbRequestID, run.ID, NODE_EXCEPTION, errErr.Error(), time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetError failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errErr.Error()), time.Now()); err2 != nil {
+			l.logger.Errorf("Call to SetError failed for request ID: %v", request.RequestId)
 		}
 		return
 	}
 	computationError, errErr = ExtractRawBytes(computationError)
 	if errErr != nil {
-		l.logger.Errorf("Failed to extract error for request ID: %v, DBID: %v, err: %s", request.RequestId, dbRequestID, errErr)
+		l.logger.Errorf("Failed to extract error for request ID: %v, err: %s", request.RequestId, errErr)
 		return
 	}
 
 	if len(computationError) != 0 {
-		if err2 := l.pluginORM.SetError(dbRequestID, run.ID, USER_EXCEPTION, string(computationError), time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetError failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, USER_EXCEPTION, computationError, time.Now()); err2 != nil {
+			l.logger.Errorf("Call to SetError failed for request ID: %v", request.RequestId)
 		}
 	} else {
-		if err2 := l.pluginORM.SetResult(dbRequestID, run.ID, computationResult, time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetResult failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now()); err2 != nil {
+			l.logger.Errorf("Call to SetResult failed for request ID: %v", request.RequestId)
 		}
 	}
 }
