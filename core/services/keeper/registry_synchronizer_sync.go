@@ -46,27 +46,25 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to get active upkeep IDs")
 	}
+	//
+	//existingSet := make(map[string]bool)
+	activeSet := make(map[string]bool)
+	allActiveUpkeeps := make([]utils.Big, 0)
+	//for _, upkeepID := range existingUpkeepIDs {
+	//	existingSet[upkeepID.ToInt().String()] = true
+	//}
+	for _, upkeepID := range activeUpkeepIDs {
+		activeSet[upkeepID.String()] = true
+		//if _, found := existingSet[upkeepID.String()]; !found {
+		allActiveUpkeeps = append(allActiveUpkeeps, *utils.NewBig(upkeepID))
+		//}
+	}
+	rs.batchSyncUpkeepsOnRegistry(reg, allActiveUpkeeps)
 
 	existingUpkeepIDs, err := rs.orm.AllUpkeepIDsForRegistry(reg.ID)
 	if err != nil {
 		return errors.Wrap(err, "unable to fetch existing upkeep IDs from DB")
 	}
-
-	existingSet := make(map[string]bool)
-	activeSet := make(map[string]bool)
-
-	// New upkeeps are all elements in activeUpkeepIDs which are not in existingUpkeepIDs
-	newUpkeeps := make([]utils.Big, 0)
-	for _, upkeepID := range existingUpkeepIDs {
-		existingSet[upkeepID.ToInt().String()] = true
-	}
-	for _, upkeepID := range activeUpkeepIDs {
-		activeSet[upkeepID.String()] = true
-		if _, found := existingSet[upkeepID.String()]; !found {
-			newUpkeeps = append(newUpkeeps, *utils.NewBig(upkeepID))
-		}
-	}
-	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
 
 	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
 	canceled := make([]utils.Big, 0)
