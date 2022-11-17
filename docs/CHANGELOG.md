@@ -6,16 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+<!-- unreleased -->
 ## [Unreleased]
 
 ### Added
 
 - New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
 
-<!-- unreleased -->
-## [Unreleased]
+#### TOML Configuration (optional)
 
-...
+Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
+This is currently _optional_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method.
+
+##### How to use
+
+TOML configuration can be enabled by simply using the new `-config <filename>` flag or `CL_CONFIG` environment variable.
+Multiple files can be used (`-c configA.toml -c configB.toml`), and will be applied in order with duplicated fields overriding any earlier values.
+
+Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
+Secrets must be configured manually and passed via `-secrets <filename>` or equivalent environment variables.
+
+**Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
+
+##### Detailed Docs
+
+[CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+
+### Fixed
+
+- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
+
 <!-- unreleasedstop -->
 
 ## 1.10.0 - 2022-11-15

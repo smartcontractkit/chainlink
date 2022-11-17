@@ -433,6 +433,21 @@ func setChainSpecificConfigDefaultSets() {
 	metisRinkeby := metisMainnet
 	metisRinkeby.linkContractAddress = ""
 
+	// Klaytn implements a special dynamic gas price model. It only charges the base fee and refunds the remaining.
+	// Max gas price is 750ston(gwei), although it can change by Governance.
+	// According to this: https://medium.com/klaytn/dynamic-gas-fee-pricing-mechanism-1dac83d2689 there are two ways to set proper gas fees:
+	// Use the return value from eth_gasPrice method, or send transaction with max gas price and get refunded. First one is more future proof.
+	klaytnMainnet := fallbackDefaultSet
+	klaytnMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second // Klaytn has 1s block time
+	klaytnMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
+	klaytnMainnet.gasPriceDefault = *assets.GWei(750)
+	klaytnMainnet.finalityDepth = 1    // Klaytn offers instant finality
+	klaytnMainnet.gasBumpThreshold = 0 // Never bump gas
+	klaytnMainnet.gasEstimatorMode = "L2Suggested"
+	klaytnMainnet.minIncomingConfirmations = 1
+	klaytnMainnet.ocrContractConfirmations = 1
+	klaytnTestnet := klaytnMainnet
+
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
 	chainSpecificConfigDefaultSets[3] = ropsten
@@ -464,6 +479,8 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
 	chainSpecificConfigDefaultSets[28528] = optimismAlpha
+	chainSpecificConfigDefaultSets[8217] = klaytnMainnet
+	chainSpecificConfigDefaultSets[1001] = klaytnTestnet
 
 	chainSpecificConfigDefaultSets[1337] = simulated
 

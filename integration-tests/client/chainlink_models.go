@@ -964,41 +964,37 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
 		ObservationSource:     o.ObservationSource,
 	}
-	ocr2TemplateString := `type = "{{ .JobType }}"
+	ocr2TemplateString := `
+type                                   = "{{ .JobType }}"
+name                                   = "{{.Name}}"
+{{if .PluginType}}
+pluginType                             = "{{ .PluginType }}" {{end}}
+relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
+contractID                             = "{{.ContractID}}"
+{{if eq .JobType "offchainreporting2" }}
+ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
+{{if eq .JobType "offchainreporting2" }}
+transmitterID                          = "{{.TransmitterID}}" {{end}}
 blockchainTimeout                      ={{if not .BlockchainTimeout}} "20s" {{else}} "{{.BlockchainTimeout}}" {{end}}
 contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{else}} {{.ContractConfirmations}} {{end}}
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} "{{.TrackerPollInterval}}" {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} "{{.TrackerSubscribeInterval}}" {{end}}
-name 																	 = "{{.Name}}"
-relay																	 = "{{.Relay}}"
-contractID		                         = "{{.ContractID}}"
 {{if .P2PV2Bootstrappers}}
-p2pv2Bootstrappers                      = [
-  {{range .P2PV2Bootstrappers}}"{{.}}",
-  {{end}}
-]
-{{else}}
-p2pv2Bootstrappers                      = []
-{{end}}
-monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
-{{if eq .JobType "offchainreporting2" }}
-pluginType                             = "{{ .PluginType }}"
-ocrKeyBundleID                         = "{{.OCRKeyBundleID}}"
-transmitterID                     		 = "{{.TransmitterID}}"
+p2pv2Bootstrappers                     = [{{range .P2PV2Bootstrappers}}"{{.}}",{{end}}]{{end}}
+{{if .MonitoringEndpoint}}
+monitoringEndpoint                     = "{{.MonitoringEndpoint}}" {{end}}
+{{if .ObservationSource}}
 observationSource                      = """
 {{.ObservationSource}}
-"""
-[pluginConfig]
-{{range $key, $value := .PluginConfig}}
-{{$key}} = {{$value}}
+"""{{end}}
+{{if eq .JobType "offchainreporting2" }}
+[pluginConfig]{{range $key, $value := .PluginConfig}}
+{{$key}} = {{$value}}{{end}}
 {{end}}
-{{end}}
-
-[relayConfig]
-{{range $key, $value := .RelayConfig}}
-{{$key}} = {{$value}}
-{{end}}`
+[relayConfig]{{range $key, $value := .RelayConfig}}
+{{$key}} = {{$value}}{{end}}
+`
 
 	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }

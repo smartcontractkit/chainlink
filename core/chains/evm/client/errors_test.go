@@ -33,6 +33,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"nonce too low: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 			{"Nonce too low", true, "Besu"},
 			{"nonce too low", true, "Erigon"},
+			{"nonce too low", true, "Klaytn"},
 			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
 			{"transaction rejected: nonce too low", true, "Arbitrum"},
 			{"invalid transaction nonce", true, "Arbitrum"},
@@ -74,6 +75,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"replacement transaction underpriced", true, "geth"},
 			{"Replacement transaction underpriced", true, "Besu"},
 			{"replacement transaction underpriced", true, "Erigon"},
+			{"replacement transaction underpriced", true, "Klaytn"},
+			{"there is another tx which has the same nonce in the tx pool", true, "Klaytn"},
 			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true, "Parity"},
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"gas price too low", false, "Arbitrum"},
@@ -103,6 +106,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction with the same hash was already imported.", true, "Parity"},
 			{"call failed: AlreadyKnown", true, "Nethermind"},
 			{"call failed: OwnNonceAlreadyUsed", true, "Nethermind"},
+			{"known transaction", true, "Klaytn"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -125,6 +129,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"gas price too low", true, "Arbitrum"},
 			{"FeeTooLow", true, "Nethermind"},
 			{"FeeTooLowToCompete", true, "Nethermind"},
+			{"transaction underpriced", true, "Klaytn"},
+			{"intrinsic gas too low", true, "Klaytn"},
 		}
 
 		for _, test := range tests {
@@ -165,6 +171,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
 			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
+			{"insufficient funds", true, "Klaytn"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -181,6 +188,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
 			{"Transaction fee cap exceeded", true, "Besu"},
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "Erigon"},
+			{"invalid gas fee cap", true, "Klaytn"},
+			{"max fee per gas higher than max priority fee per gas", true, "Klaytn"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

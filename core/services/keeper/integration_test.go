@@ -240,8 +240,6 @@ func TestKeeperEthIntegration(t *testing.T) {
 				c.Keeper.TurnFlagEnabled = ptr(true)  // testing new turn taking
 				c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
 
-				c.Keeper.UpkeepCheckGasPriceEnabled = ptr(true) // test with gas price feature enabled
-
 				c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
 				c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
@@ -398,8 +396,6 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.Keeper.TurnFlagEnabled = ptr(true)  // testing new turn taking
 			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
 
-			c.Keeper.UpkeepCheckGasPriceEnabled = ptr(true) // test with gas price feature enabled
-
 			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
@@ -542,8 +538,6 @@ func TestMaxPerformDataSize(t *testing.T) {
 
 			c.Keeper.TurnFlagEnabled = ptr(true)  // testing new turn taking
 			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
-
-			c.Keeper.UpkeepCheckGasPriceEnabled = ptr(true) // test with gas price feature enabled
 
 			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
