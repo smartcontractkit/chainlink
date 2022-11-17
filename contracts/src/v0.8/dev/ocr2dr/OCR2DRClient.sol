@@ -17,7 +17,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
 
-  error SenderIsNotOracle();
+  error SenderIsNotRegistry();
   error RequestIsAlreadyPending();
   error RequestIsNotPending();
 
@@ -45,7 +45,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     uint32 gasLimit
   ) internal returns (bytes32) {
     bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit);
-    s_pendingRequests[requestId] = address(s_oracle);
+    s_pendingRequests[requestId] = s_oracle.getRegistry();
     emit RequestSent(requestId);
     return requestId;
   }
@@ -107,7 +107,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
    */
   modifier recordChainlinkFulfillment(bytes32 requestId) {
     if (msg.sender != s_pendingRequests[requestId]) {
-      revert SenderIsNotOracle();
+      revert SenderIsNotRegistry();
     }
     delete s_pendingRequests[requestId];
     emit RequestFulfilled(requestId);

@@ -9,6 +9,12 @@ import "./OCR2DRBillableInterface.sol";
  */
 interface OCR2DROracleInterface is OCR2DRBillableInterface {
   /**
+   * @notice Gets the stored billing registry address
+   * @return registryAddress The address of OCR2DR billing registry contract
+   */
+  function getRegistry() external view returns (address);
+
+  /**
    * @notice Sets the stored billing registry address
    * @param registryAddress The address of OCR2DR billing registry contract
    */

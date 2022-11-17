@@ -12,7 +12,7 @@ import "../ocr2/OCR2Base.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base {
-  event OracleRequest(bytes32 requestId, bytes data);
+  event OracleRequest(bytes32 requestId, bytes data, uint32 gasLimit);
   event OracleResponse(bytes32 requestId);
   event UserCallbackError(bytes32 requestId, string reason);
   event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
@@ -31,6 +31,13 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
    */
   function typeAndVersion() external pure override returns (string memory) {
     return "OCR2DROracle 0.0.0";
+  }
+
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
+  function getRegistry() external view override returns (address) {
+    return address(s_registry);
   }
 
   /**
@@ -75,7 +82,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
       data,
       OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit)
     );
-    emit OracleRequest(requestId, data);
+    emit OracleRequest(requestId, data, gasLimit);
     return requestId;
   }
 
@@ -109,12 +116,17 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     for (uint256 i = 0; i < requestIds.length; i++) {
-      try s_registry.concludeBilling(requestIds[i], results[i], errors[i], transmitter, initialGas) {
-        emit OracleResponse(requestIds[i]);
-      } catch Error(string memory reason) {
-        emit UserCallbackError(requestIds[i], reason);
-      } catch (bytes memory lowLevelData) {
-        emit UserCallbackRawError(requestIds[i], lowLevelData);
+      try s_registry.concludeBilling(requestIds[i], results[i], errors[i], transmitter, initialGas) returns (
+        bool success,
+        uint96 /* cost */
+      ) {
+        if (success) {
+          emit OracleResponse(requestIds[i]);
+        } else {
+          emit UserCallbackError(requestIds[i], "error in callback");
+        }
+      } catch (bytes memory reason) {
+        emit UserCallbackRawError(requestIds[i], reason);
       }
     }
   }
