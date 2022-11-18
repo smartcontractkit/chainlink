@@ -21,6 +21,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   error InvalidRequestID();
   error InconsistentReportData();
   error EmptyPublicKey();
+  error InvalidSender();
 
   struct Commitment {
     address client;
@@ -30,8 +31,13 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   bytes private s_donPublicKey;
   uint256 private s_nonce;
   mapping(bytes32 => Commitment) private s_commitments;
+  mapping(address => bool) public s_senders;
 
   constructor() OCR2Base(true) {}
+
+  function addSender(address addr) external onlyOwner() {
+    s_senders[addr] = true;
+  }
 
   /**
    * @notice The type and version of this contract
@@ -56,6 +62,9 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
 
   /// @inheritdoc OCR2DROracleInterface
   function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
+    if (!s_senders[tx.origin]) {
+      revert InvalidSender();
+    }
     if (data.length == 0) {
       revert EmptyRequestData();
     }
