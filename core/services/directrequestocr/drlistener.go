@@ -215,7 +215,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	err := l.pluginORM.CreateRequest(request.RequestId, &request.Raw.Address, time.Now(), &request.Raw.TxHash)
+	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash)
 	if err != nil {
 		l.logger.Errorf("Failed to create a DB entry for new request (ID: %v)", request.RequestId)
 		return

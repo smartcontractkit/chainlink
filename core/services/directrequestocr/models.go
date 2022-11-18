@@ -28,22 +28,18 @@ const (
 type RequestID [32]byte
 
 type Request struct {
-	ID            int64
-	RequestID     RequestID
-	RunID         int64
-	ReceivedAt    time.Time
-	RequestTxHash *common.Hash
-	State         RequestState
-	ResultReadyAt time.Time
-	Result        []byte
-	ErrorType     ErrType
-	Error         []byte
-	// True if this node submitted an observation for this request in any OCR rounds.
-	IsOCRParticipant  bool
+	ID                int64
+	RequestID         RequestID
+	RunID             int64
+	ReceivedAt        time.Time
+	RequestTxHash     *common.Hash
+	State             RequestState
+	ResultReadyAt     time.Time
+	Result            []byte
+	ErrorType         ErrType
+	Error             []byte
 	TransmittedResult []byte
 	TransmittedError  []byte
-	OnChainResult     []byte
-	OnChainError      []byte
 }
 
 func (s RequestState) String() string {

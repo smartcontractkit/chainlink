@@ -35,8 +35,9 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
+	contract := testutils.NewAddress()
 
-	orm := drocr_serv.NewORM(db, lggr, pgtest.NewQConfig(true))
+	orm := drocr_serv.NewORM(db, lggr, pgtest.NewQConfig(true), contract)
 	factory := directrequestocr.DirectRequestReportingPluginFactory{
 		Logger:    ocrLogger,
 		PluginORM: orm,
@@ -60,8 +61,7 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr
 
 func createRequest(t *testing.T, orm drocr_serv.ORM, id [32]byte) {
 	testTxHash := common.HexToHash("0xabc")
-	addr := testutils.NewAddress()
-	err := orm.CreateRequest(id, &addr, time.Now(), &testTxHash)
+	err := orm.CreateRequest(id, time.Now(), &testTxHash)
 	require.NoError(t, err)
 }
 

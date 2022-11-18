@@ -26,9 +26,10 @@ func setupORM(t *testing.T) *TestORM {
 	t.Helper()
 
 	var (
-		db   = pgtest.NewSqlxDB(t)
-		lggr = logger.TestLogger(t)
-		orm  = directrequestocr.NewORM(db, lggr, pgtest.NewQConfig(true))
+		db       = pgtest.NewSqlxDB(t)
+		lggr     = logger.TestLogger(t)
+		contract = testutils.NewAddress()
+		orm      = directrequestocr.NewORM(db, lggr, pgtest.NewQConfig(true), contract)
 	)
 
 	return &TestORM{ORM: orm, db: db}
@@ -45,11 +46,10 @@ func TestDROCROrm_CreateRequestDuplicate(t *testing.T) {
 	orm := setupORM(t)
 	id := reqID(420)
 	txHash := common.HexToHash("0xabc")
-	addr := testutils.NewAddress()
 
-	err := orm.CreateRequest(id, &addr, time.Now(), &txHash)
+	err := orm.CreateRequest(id, time.Now(), &txHash)
 	require.NoError(t, err)
-	err = orm.CreateRequest(id, &addr, time.Now(), &txHash)
+	err = orm.CreateRequest(id, time.Now(), &txHash)
 	require.NotNil(t, err)
 }
 
@@ -59,14 +59,13 @@ func TestDROCROrm_FindOldestEntriesByStateWithLimit(t *testing.T) {
 	orm := setupORM(t)
 	id1, id2, id3 := reqID(101), reqID(102), reqID(103)
 	txHash := common.HexToHash("0xabc")
-	addr := testutils.NewAddress()
 	ts := time.Now()
 
-	err := orm.CreateRequest(id2, &addr, ts.Add(time.Minute*2), &txHash)
+	err := orm.CreateRequest(id2, ts.Add(time.Minute*2), &txHash)
 	require.NoError(t, err)
-	err = orm.CreateRequest(id3, &addr, ts.Add(time.Minute*3), &txHash)
+	err = orm.CreateRequest(id3, ts.Add(time.Minute*3), &txHash)
 	require.NoError(t, err)
-	err = orm.CreateRequest(id1, &addr, ts.Add(time.Minute*1), &txHash)
+	err = orm.CreateRequest(id1, ts.Add(time.Minute*1), &txHash)
 	require.NoError(t, err)
 
 	result, err := orm.FindOldestEntriesByState(directrequestocr.IN_PROGRESS, 2)

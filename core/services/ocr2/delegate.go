@@ -539,7 +539,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		pluginORM := drocr_service.NewORM(d.db, d.lggr, d.cfg)
+		pluginORM := drocr_service.NewORM(d.db, d.lggr, d.cfg, common.HexToAddress(spec.ContractID))
 		pluginOracle, _ = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
