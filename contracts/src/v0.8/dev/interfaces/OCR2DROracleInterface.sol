@@ -2,12 +2,11 @@
 pragma solidity ^0.8.6;
 
 import "./OCR2DRRegistryInterface.sol";
-import "./OCR2DRBillableInterface.sol";
 
 /**
  * @title OCR2DR oracle interface.
  */
-interface OCR2DROracleInterface is OCR2DRBillableInterface {
+interface OCR2DROracleInterface {
   /**
    * @notice Gets the stored billing registry address
    * @return registryAddress The address of OCR2DR billing registry contract
@@ -34,6 +33,28 @@ interface OCR2DROracleInterface is OCR2DRBillableInterface {
    * @param donPublicKey New public key
    */
   function setDONPublicKey(bytes calldata donPublicKey) external;
+
+  /**
+   * @notice Determine the fee charged by the DON that will be split between signing Node Operators for servicing the request
+   * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param billing The request's billing configuration
+   * @return fee Cost in Juels (1e18) of LINK
+   */
+  function getRequiredFee(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
+    external
+    view
+    returns (uint96);
+
+  /**
+   * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
+   * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param billing The request's billing configuration
+   * @return billedCost Cost in Juels (1e18) of LINK
+   */
+  function estimateCost(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
+    external
+    view
+    returns (uint96);
 
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId
