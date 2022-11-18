@@ -45,9 +45,9 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, contractAdderss com
 func (o *orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
 	stmt := `
 		INSERT INTO ocr2dr_requests (request_id, contract_address, received_at, request_tx_hash, state)
-		VALUES ($1,$2,$3,$4,'in_progress');
+		VALUES ($1,$2,$3,$4,$5);
 	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAdderss, receivedAt, requestTxHash)
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAdderss, receivedAt, requestTxHash, IN_PROGRESS)
 }
 
 func (o *orm) SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
