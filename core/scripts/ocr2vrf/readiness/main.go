@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/urfave/cli"
 
@@ -40,9 +39,10 @@ func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Client, *cli.App) {
 }
 
 var (
-	remoteNodeURLs   = flag.String("remote-node-urls", "", "remote node URL")
-	checkMarkRune, _ = utf8.DecodeRuneInString("\u2713\u2715")
-	checkMark        = string(checkMarkRune)
+	remoteNodeURLs = flag.String("remote-node-urls", "", "remote node URL")
+	checkMarkEmoji = "✅"
+	xEmoji         = "❌"
+	infoEmoji      = "ℹ️"
 )
 
 type ocr2Bundle struct {
@@ -85,6 +85,7 @@ func main() {
 		err := client.RemoteLogin(loginCtx)
 		helpers.PanicErr(err)
 		output.Reset()
+		fmt.Println()
 
 		// check for DKG signing keys
 		err = clcmd.NewDKGSignKeysClient(client).ListKeys(&cli.Context{
@@ -95,13 +96,14 @@ func main() {
 		helpers.PanicErr(json.Unmarshal(output.Bytes(), &dkgSignKeys))
 		switch len(dkgSignKeys) {
 		case 1:
-			fmt.Println("found 1 DKG sign key on", remoteNodeURL, checkMark)
+			fmt.Println(checkMarkEmoji, "found 1 DKG sign key on", remoteNodeURL)
 		case 0:
-			fmt.Println("did not find any DKG sign keys on", remoteNodeURL, ", please create one")
+			fmt.Println(xEmoji, "did not find any DKG sign keys on", remoteNodeURL, ", please create one")
 		default:
-			fmt.Println("found more than 1 DKG sign key on", remoteNodeURL, ", consider removing all but one")
+			fmt.Println(infoEmoji, "found more than 1 DKG sign key on", remoteNodeURL, ", consider removing all but one")
 		}
 		output.Reset()
+		fmt.Println()
 
 		// check for DKG encryption keys
 		err = clcmd.NewDKGEncryptKeysClient(client).ListKeys(&cli.Context{
@@ -112,13 +114,14 @@ func main() {
 		helpers.PanicErr(json.Unmarshal(output.Bytes(), &dkgEncryptKeys))
 		switch len(dkgEncryptKeys) {
 		case 1:
-			fmt.Println("found 1 DKG encrypt key on", remoteNodeURL, checkMark)
+			fmt.Println(checkMarkEmoji, "found 1 DKG encrypt key on", remoteNodeURL)
 		case 0:
-			fmt.Println("did not find any DKG encrypt keys on", remoteNodeURL, ", please create one")
+			fmt.Println(xEmoji, "did not find any DKG encrypt keys on", remoteNodeURL, ", please create one")
 		default:
-			fmt.Println("found more than 1 DKG encrypt key on", remoteNodeURL, ", consider removing all but one")
+			fmt.Println(infoEmoji, "found more than 1 DKG encrypt key on", remoteNodeURL, ", consider removing all but one")
 		}
 		output.Reset()
+		fmt.Println()
 
 		// check for OCR2 keys
 		err = client.ListOCR2KeyBundles(&cli.Context{
@@ -136,11 +139,12 @@ func main() {
 			return nil
 		}()
 		if ethBundle != nil {
-			fmt.Println("found ocr evm key bundle on", remoteNodeURL, checkMark)
+			fmt.Println(checkMarkEmoji, "found ocr evm key bundle on", remoteNodeURL)
 		} else {
-			fmt.Println("did not find ocr evm key bundle on", remoteNodeURL, ", please create one")
+			fmt.Println(xEmoji, "did not find ocr evm key bundle on", remoteNodeURL, ", please create one")
 		}
 		output.Reset()
+		fmt.Println()
 
 		// check for ETH keys
 		err = client.ListETHKeys(&cli.Context{
@@ -151,11 +155,12 @@ func main() {
 		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
 		switch {
 		case len(ethKeys) >= 5:
-			fmt.Println("found", len(ethKeys), "eth keys on", remoteNodeURL, checkMark)
+			fmt.Println(checkMarkEmoji, "found", len(ethKeys), "eth keys on", remoteNodeURL)
 		case len(ethKeys) < 5:
-			fmt.Println("found only", len(ethKeys), "eth keys on", remoteNodeURL, ", consider creating more")
+			fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", remoteNodeURL, ", consider creating more")
 		}
 		output.Reset()
+		fmt.Println()
 
 		// check for peer ids
 		err = client.ListP2PKeys(&cli.Context{
@@ -166,13 +171,14 @@ func main() {
 		helpers.PanicErr(json.Unmarshal(output.Bytes(), &p2pKeys))
 		switch len(p2pKeys) {
 		case 1:
-			fmt.Println("found P2P key on", remoteNodeURL, checkMark)
+			fmt.Println(checkMarkEmoji, "found P2P key on", remoteNodeURL)
 		case 0:
-			fmt.Println("no P2P keys found on", remoteNodeURL, ", please create one")
+			fmt.Println(xEmoji, "no P2P keys found on", remoteNodeURL, ", please create one")
 		default:
-			fmt.Println("found", len(p2pKeys), "P2P keys on", remoteNodeURL, ", consider removing all but one")
+			fmt.Println(infoEmoji, "found", len(p2pKeys), "P2P keys on", remoteNodeURL, ", consider removing all but one")
 		}
 		output.Reset()
+		fmt.Println()
 
 		for _, dkgSign := range dkgSignKeys {
 			allDKGSignKeys = append(allDKGSignKeys, dkgSign.PublicKey)
@@ -196,6 +202,7 @@ func main() {
 		}
 	}
 
+	fmt.Println("------------- NODE INFORMATION -------------")
 	fmt.Println("DKG sign keys:", strings.Join(allDKGSignKeys, ","))
 	fmt.Println("DKG encrypt keys:", strings.Join(allDKGEncryptKeys, ","))
 	fmt.Println("OCR2 key IDs:", strings.Join(allOCR2KeyIDs, ","))
