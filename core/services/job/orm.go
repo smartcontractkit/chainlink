@@ -248,11 +248,11 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 					chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
 					if !ok {
-						return errors.Wrap(err, "missing chainID in EVM type in OCR2 job spec")
+						return errors.Errorf("missing chainID in EVM type in OCR2 job spec")
 					}
 					newChainID, ok := chainIDInterface.(int64)
 					if !ok {
-						return errors.Wrapf(err, "failed to parse chainID in OCR2 job spec")
+						return errors.Errorf("failed to parse chainID in OCR2 job spec")
 					}
 
 					var specs []OCR2OracleSpec
@@ -262,20 +262,20 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 					if !errors.Is(err, sql.ErrNoRows) {
 						if err != nil {
-							return errors.Wrap(err, "Unexpected error validating contract_id")
+							return errors.Wrapf(err, "Unexpected error validating contract_id")
 						}
 						for _, spec := range specs {
 							chainIDValue, ok := spec.RelayConfig["ChainID"]
-							if ok {
-								chainID, ok := chainIDValue.(int64)
-								if ok {
-									if chainID == newChainID {
-										return errors.Errorf("a job with contract address %v already exists for chain ID %v", jb.OCROracleSpec.ContractAddress, chainID)
-									}
-									continue
-								}
+							if !ok {
+								return errors.Errorf("Unexpected error validating contract_id")
 							}
-							return errors.Wrap(err, "Unexpected error validating contract_id")
+							chainID, ok := chainIDValue.(int64)
+							if !ok {
+								return errors.Errorf("Unexpected error validating contract_id")
+							}
+							if chainID == newChainID {
+								return errors.Errorf("a job with contract address %v already exists for chain ID %v", jb.OCROracleSpec.ContractAddress, chainID)
+							}
 						}
 					}
 				case relay.Solana:
