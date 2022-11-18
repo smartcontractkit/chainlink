@@ -110,8 +110,8 @@ func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registr
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
 
-	if upkeep.ExecuteGas <= 0 {
-		return errors.New("execute gas is zero")
+	if upkeep.ExecuteGas <= uint32(0) {
+		return errors.Errorf("execute gas is zero for upkeep %s", NewUpkeepIdentifier(upkeepID).String())
 	}
 
 	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
