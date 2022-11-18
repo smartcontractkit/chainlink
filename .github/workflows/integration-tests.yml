@@ -304,8 +304,12 @@ jobs:
       TEST_TRIGGERED_BY: core-CI-${{ matrix.network }}
       TEST_LOG_LEVEL: debug
       EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-      ${{ matrix.network }}_URLS: ${{ secrets.QA_${{ matrix.network }}_URLS }}
-      ${{ matrix.network }}_HTTP_URLS: ${{ secrets.QA_${{ matrix.network }}_HTTP_URLS }}
+      GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
+      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+      OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
+      OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
+      ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
+      ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
