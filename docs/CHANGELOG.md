@@ -36,6 +36,10 @@ Secrets must be configured manually and passed via `-secrets <filename>` or equi
 
 - Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
 
+### Updated
+
+- `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
+
 <!-- unreleasedstop -->
 
 ## 1.10.0 - 2022-11-15
