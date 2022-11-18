@@ -78,7 +78,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     if (data.length == 0) {
       revert EmptyRequestData();
     }
-    bytes32 requestId = s_registry.beginBilling(
+    bytes32 requestId = s_registry.startBilling(
       data,
       OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
     );
@@ -100,7 +100,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
 
   function _report(
     uint32 initialGas,
-    address, /* transmitter */
+    address transmitter,
     uint8 signerCount,
     address[maxNumOracles] memory signers,
     bytes calldata report
@@ -113,19 +113,20 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
       revert ReportInvalid();
     }
 
-    uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
+    uint256 reportValidationGasShare = (uint256(initialGas) - gasleft()) / uint256(signerCount);
 
     for (uint256 i = 0; i < requestIds.length; i++) {
+      uint256 currentGas = gasleft();
       try
         s_registry.fulfillAndBill(
           requestIds[i],
           results[i],
           errors[i],
-          msg.sender,
+          transmitter,
           signers,
           signerCount,
-          uint32(reportValidationGasShare),
-          uint32(gasleft())
+          reportValidationGasShare,
+          currentGas
         )
       returns (bool success) {
         if (success) {

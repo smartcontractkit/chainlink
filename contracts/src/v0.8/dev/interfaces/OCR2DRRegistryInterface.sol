@@ -63,7 +63,7 @@ interface OCR2DRRegistryInterface {
    * @return requestId - A unique identifier of the request. Can be used to match a request to a response in fulfillRequest.
    * @dev Only callable by an OCR2DROracle that has been approved on the Registry
    */
-  function beginBilling(bytes calldata data, RequestBilling calldata billing) external returns (bytes32);
+  function startBilling(bytes calldata data, RequestBilling calldata billing) external returns (bytes32);
 
   /**
    * @notice Finalize billing process for an OCR2DR request by sending a callback to the Client contract and then charging the subscription
@@ -86,8 +86,8 @@ interface OCR2DRRegistryInterface {
     address transmitter,
     address[31] memory signers, // 31 comes from OCR2Abstract.sol's maxNumOracles constant
     uint8 signerCount,
-    uint32 reportValidationGas,
-    uint32 initialGas
+    uint256 reportValidationGas,
+    uint256 initialGas
   ) external returns (bool success);
 
   /**
