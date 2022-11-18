@@ -121,6 +121,7 @@ Enabled = true
 Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
+	fmt.Println(client.AddNetworksConfig(baseTOML, network))
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
