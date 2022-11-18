@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
@@ -34,6 +35,7 @@ func DeployBenchmarkKeeperContracts(
 	predeployedContracts []string, // Array of addresses of predeployed consumer addresses to load
 	upkeepResetterAddress string,
 	chainlinkNodes []*client.Chainlink,
+	blockTime time.Duration,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumerBenchmark, []*big.Int) {
 	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock ETH-Link feed shouldn't fail")
@@ -67,7 +69,7 @@ func DeployBenchmarkKeeperContracts(
 	registrar := DeployKeeperRegistrar(registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 	if registryVersion == ethereum.RegistryVersion_2_0 {
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *registrySettings, registrar.Address())
+		ocrConfig := BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime)
 		err = registry.SetConfig(*registrySettings, ocrConfig)
 		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 	}

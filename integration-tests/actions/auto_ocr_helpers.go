@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
-func BuildAutoOCR2ConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contracts.KeeperRegistrySettings, registrar string) contracts.OCRConfig {
+func BuildAutoOCR2ConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contracts.KeeperRegistrySettings, registrar string, deltaStage time.Duration) contracts.OCRConfig {
 	S, oracleIdentities := getOracleIdentities(chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
@@ -37,7 +37,7 @@ func BuildAutoOCR2ConfigVars(chainlinkNodes []*client.Chainlink, registryConfig 
 		10*time.Second,        // deltaResend time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
 		50*time.Millisecond,   // deltaGrace time.Duration,
-		5*time.Second,         // deltaStage time.Duration,
+		deltaStage,            // deltaStage time.Duration,
 		48,                    // rMax uint8,
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,

@@ -62,6 +62,7 @@ type KeeperBenchmarkTestInputs struct {
 	PreDeployedConsumers   []string                          // PreDeployed consumer contracts to re-use in test
 	UpkeepResetterAddress  string
 	InitialBatchReset      bool
+	BlockTime              time.Duration
 }
 
 // NewKeeperBenchmarkTest prepares a new keeper benchmark test to be run
@@ -117,7 +118,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			linkToken,
 			contractDeployer,
 			k.chainClient,
-			k.Inputs.KeeperRegistrySettings,
+			inputs.KeeperRegistrySettings,
 			inputs.BlockRange,
 			inputs.BlockInterval,
 			inputs.CheckGasToBurn,
@@ -126,6 +127,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			inputs.PreDeployedConsumers,
 			inputs.UpkeepResetterAddress,
 			k.chainlinkNodes,
+			inputs.BlockTime,
 		)
 	}
 
@@ -168,11 +170,8 @@ func (k *KeeperBenchmarkTest) Run() {
 	nodesWithoutBootstrap := k.chainlinkNodes[1:]
 
 	for rIndex := range k.keeperRegistries {
-		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address())
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.BlockTime*5)
 
-		// Reset upkeeps so that they become eligible gradually after the test starts
-		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
-			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, k.keeperConsumerContracts[rIndex], inputs.UpkeepResetterAddress)
 		// Send keeper jobs to registry and chainlink nodes
 		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 {
 			actions.CreateOCRKeeperJobs(k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), rIndex)
@@ -181,6 +180,11 @@ func (k *KeeperBenchmarkTest) Run() {
 		} else {
 			actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, ocrConfig)
 		}
+		err = k.chainClient.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred(), "Error waiting for registry setConfig")
+		// Reset upkeeps so that they become eligible gradually after the test starts
+		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
+			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, k.keeperConsumerContracts[rIndex], inputs.UpkeepResetterAddress)
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
@@ -338,6 +342,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	Expect(inputs.UpkeepSLA).ShouldNot(BeNil(), "You need to set UpkeepSLA")
 	Expect(inputs.FirstEligibleBuffer).ShouldNot(BeNil(), "You need to set FirstEligibleBuffer")
 	Expect(inputs.RegistryVersions[0]).ShouldNot(BeNil(), "You need to set RegistryVersion")
+	Expect(inputs.BlockTime).ShouldNot(BeNil(), "You need to set BlockTime")
 }
 
 func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) error {
