@@ -105,7 +105,7 @@ describe('OCR2DROracle', () => {
       .connect(roles.defaultAccount)
       .transferAndCall(
         registry.address,
-        ethers.BigNumber.from('115957983815660167'),
+        ethers.BigNumber.from('130749069945654013'),
         ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
       )
   })
@@ -299,8 +299,8 @@ describe('OCR2DROracle', () => {
       )
 
       await expect(
-        await oracle.connect(roles.oracleNode).callValidateReport(report),
-      ).to.be.false
+        oracle.connect(roles.oracleNode).callReport(report),
+      ).to.be.revertedWith('ReportInvalid()')
     })
 
     it('#_report handles multiple reports', async () => {
