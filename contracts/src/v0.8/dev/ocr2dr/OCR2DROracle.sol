@@ -80,7 +80,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     }
     bytes32 requestId = s_registry.beginBilling(
       data,
-      OCR2DRRegistryInterface.RequestBilling(msg.sender, subscriptionId, gasLimit)
+      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
     );
     emit OracleRequest(requestId, data, gasLimit);
     return requestId;
@@ -126,7 +126,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
 
     for (uint256 i = 0; i < requestIds.length; i++) {
       try
-        s_registry.concludeBilling(
+        s_registry.fulfillAndBill(
           requestIds[i],
           results[i],
           errors[i],
