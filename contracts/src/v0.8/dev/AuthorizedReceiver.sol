@@ -13,8 +13,8 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
   error UnauthorizedSender();
   error NotAllowedToSetSenders();
 
-  EnumerableSet.AddressSet internal s_authorizedSenders;
-  address[] internal s_authorizedSendersList;
+  EnumerableSet.AddressSet private s_authorizedSenders;
+  address[] private s_authorizedSendersList;
 
   /**
    * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
@@ -38,7 +38,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
    * @notice Retrieve a list of authorized senders
    * @return array of addresses
    */
-  function getAuthorizedSenders() external view override returns (address[] memory) {
+  function getAuthorizedSenders() public view override returns (address[] memory) {
     return s_authorizedSendersList;
   }
 

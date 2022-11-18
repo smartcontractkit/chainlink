@@ -729,10 +729,11 @@ contract OCR2DRRegistry is
 
   function pendingRequestExists(uint64 subscriptionId) public view returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
+    address[] authorizedSendersList = getAuthorizedSenders();
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      for (uint256 j = 0; j < s_authorizedSendersList.length; j++) {
+      for (uint256 j = 0; j < authorizedSendersList.length; j++) {
         (bytes32 requestId, ) = computeRequestId(
-          s_authorizedSendersList[j],
+          authorizedSendersList[j],
           subConfig.consumers[i],
           subscriptionId,
           s_consumers[subConfig.consumers[i]][subscriptionId]
