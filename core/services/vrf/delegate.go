@@ -125,11 +125,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "LINKETHFEED")
 			}
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
 
 			return []job.ServiceCtx{newListenerV2(
