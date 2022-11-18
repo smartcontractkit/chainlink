@@ -339,7 +339,7 @@ func main() {
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
 		subID := cmd.Uint64("sub-id", 0, "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
-		callbackGasLimit := cmd.Uint("cb-gas-limit", 50_000, "callback gas limit")
+		callbackGasLimit := cmd.Uint("cb-gas-limit", 100_000, "callback gas limit")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 		requestRandomnessCallback(
 			e,
