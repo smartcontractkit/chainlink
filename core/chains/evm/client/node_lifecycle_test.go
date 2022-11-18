@@ -17,8 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-func standardHandler(method string, params gjson.Result) (string, string) {
-	return "", ""
+func standardHandler(method string, _ gjson.Result) (resp testutils.JSONRPCResponse) {
+	if method == "eth_subscribe" {
+		resp.Result = `"0x00"`
+		resp.Notify = HeadResult
+		return
+	}
+	return
 }
 
 func newTestNode(t *testing.T, cfg NodeConfig) *node {
@@ -80,19 +85,27 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		threshold := 5
 		cfg := TestNodeConfig{PollFailureThreshold: uint32(threshold), PollInterval: testutils.TestInterval}
 		var calls atomic.Int32
-		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (respResult string, notifyResult string) {
+		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = makeHeadResult(0)
+				return
+			case "eth_unsubscribe":
+				return
 			case "web3_clientVersion":
 				defer calls.Inc()
 				// It starts working right before it hits threshold
 				if int(calls.Load())+1 >= threshold {
-					return `"test client version"`, ""
+					resp.Result = `"test client version"`
+					return
 				}
-				return "this will error", ""
+				resp.Result = "this will error"
+				return
 			default:
 				t.Errorf("unexpected RPC method: %s", method)
 			}
-			return "", ""
+			return
 		})
 		dial(t, n)
 		defer n.Close()
@@ -127,15 +140,22 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		threshold := 3
 		cfg := TestNodeConfig{PollFailureThreshold: uint32(threshold), PollInterval: testutils.TestInterval}
 		var calls atomic.Int32
-		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (respResult string, notifyResult string) {
+		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = HeadResult
+				return
+			case "eth_unsubscribe":
+				return
 			case "web3_clientVersion":
 				defer calls.Inc()
-				return "this will error", ""
+				resp.Error.Message = "this will error"
+				return
 			default:
 				t.Errorf("unexpected RPC method: %s", method)
 			}
-			return "", ""
+			return
 		})
 		n.nLiveNodes = func() int { return 1 }
 		dial(t, n)
@@ -155,7 +175,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
 		pollDisabledCfg := TestNodeConfig{NoNewHeadsThreshold: testutils.TestInterval}
-		n := newTestNode(t, pollDisabledCfg)
+		n := newTestNodeWithCallback(t, pollDisabledCfg, func(string, gjson.Result) (resp testutils.JSONRPCResponse) { return })
 		dial(t, n)
 		defer n.Close()
 
@@ -178,24 +198,27 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		chSubbed := make(chan struct{})
 		chPolled := make(chan struct{})
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					select {
 					case chSubbed <- struct{}{}:
 					default:
 					}
-					return `"0x00"`, makeHeadResult(0)
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
 				case "web3_clientVersion":
 					select {
 					case chPolled <- struct{}{}:
 					default:
 					}
-					return `"test client version 2"`, ""
+					resp.Result = `"test client version 2"`
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
@@ -225,21 +248,24 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		cfg := TestNodeConfig{NoNewHeadsThreshold: 1 * time.Second}
 		chSubbed := make(chan struct{}, 2)
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					select {
 					case chSubbed <- struct{}{}:
 					default:
 					}
-					return `"0x00"`, makeHeadResult(0)
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
 				case "eth_unsubscribe":
 				case "web3_clientVersion":
-					return `"test client version 2"`, ""
+					resp.Result = `"test client version 2"`
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
@@ -265,15 +291,17 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
 		pollDisabledCfg := TestNodeConfig{NoNewHeadsThreshold: testutils.TestInterval}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
-					return `"0x00"`, makeHeadResult(0)
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
 				case "eth_unsubscribe":
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
 		iN := NewNode(pollDisabledCfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
@@ -315,7 +343,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
 		cfg := TestNodeConfig{}
-		n := newTestNode(t, cfg)
+		n := newTestNodeWithCallback(t, cfg, func(string, gjson.Result) (resp testutils.JSONRPCResponse) { return })
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
 		defer n.Close()
@@ -330,18 +358,20 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		cfg := TestNodeConfig{}
 		chSubbed := make(chan struct{})
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					select {
 					case chSubbed <- struct{}{}:
 					default:
 					}
-					return `"0x00"`, makeHeadResult(0)
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
@@ -375,19 +405,21 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		cfg := TestNodeConfig{}
 		chSubbed := make(chan struct{})
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					select {
 					case chSubbed <- struct{}{}:
 					default:
 					}
-					return `"0x00"`, makeNewHeadWSMessage(42)
+					resp.Result = `"0x00"`
+					resp.Notify = makeNewHeadWSMessage(42)
+					return
 				case "eth_unsubscribe":
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID)
@@ -426,19 +458,21 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		cfg := TestNodeConfig{NoNewHeadsThreshold: testutils.TestInterval}
 		chSubbed := make(chan struct{})
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					select {
 					case chSubbed <- struct{}{}:
 					default:
 					}
-					return `"0x00"`, makeHeadResult(0)
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
 				case "eth_unsubscribe":
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)

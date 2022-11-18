@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -42,9 +41,7 @@ func (s *subMock) Err() <-chan error { return nil }
 func TestUnit_Node_StateTransitions(t *testing.T) {
 	t.Parallel()
 
-	s := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-		return "", ""
-	})
+	s := testutils.NewWSServer(t, testutils.FixtureChainID, nil)
 	iN := NewNode(TestNodeConfig{}, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil)
 	n := iN.(*node)
 
