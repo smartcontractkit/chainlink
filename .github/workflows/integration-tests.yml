@@ -76,7 +76,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Test Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
       - name: Collect Metrics
@@ -96,7 +96,9 @@ jobs:
         with:
           tags: ${{ env.ENV_JOB_IMAGE }}
           file: ./integration-tests/test.Dockerfile
-          build-args: BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image:v5.0
+          build-args: |
+            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image:v5.0
+            SUITES=./integration-tests/smoke
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -169,6 +171,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cb4a8f51d77cbf77ea6a765bd1f437ffc7a18730 # v2.0.28
         env:
+          TEST_SUITE: ./integration-tests/smoke
           TEST_ARGS: --focus @${{ matrix.product.name }}
           TEST_SELECTED_NETWORKS: ${{ env.SELECTED_NETWORKS }}
           TEST_CHAINLINK_IMAGE: ${{ env.CL_ECR }}
