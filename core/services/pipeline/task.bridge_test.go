@@ -271,7 +271,6 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.WebServer.BridgeCacheTTL = models.MustNewDuration(30 * time.Second)
-		c.Database.LogQueries = ptr(true)
 	})
 	queryer := pg.NewQ(db, logger.TestLogger(t), cfg)
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
@@ -333,6 +332,27 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 	require.NoError(t, result2.Error)
 	require.Equal(t, string(big.NewInt(9700).Bytes()), result2.Value)
+
+	cfg2 := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.WebServer.BridgeCacheTTL = models.MustNewDuration(0 * time.Second)
+	})
+	task.HelperSetDependencies(cfg2, orm, specID, uuid.UUID{}, c)
+
+	// Even though we have a cached value, this should fail since config now set to 0.
+	result2, _ = task.Run(testutils.Context(t), logger.TestLogger(t),
+		pipeline.NewVarsFrom(
+			map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": map[string]interface{}{
+						"shouldFail": true,
+					},
+				},
+			},
+		),
+		nil)
+
+	require.Error(t, result2.Error)
+	require.Nil(t, result2.Value)
 }
 
 func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
