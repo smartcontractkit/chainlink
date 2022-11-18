@@ -94,7 +94,7 @@ contract OCR2DRRegistry is
     uint96 donFee;
     uint96 registryFee;
   }
-  mapping(bytes32 => bytes32) /* requestID */ /* Commitment hash */
+  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
   event BillingStart(bytes32 requestId, Commitment commitment);
   struct ItemizedBill {
@@ -327,33 +327,28 @@ contract OCR2DRRegistry is
       OCR2DRBillableInterface(msg.sender).getRequiredFee(data, billing),
       getRequiredFee(data, billing)
     );
-    s_requestCommitments[requestId] = hashCommitment(requestId, commitment);
+    s_requestCommitments[requestId] = commitment;
 
     emit BillingStart(requestId, commitment);
     s_consumers[billing.client][billing.subscriptionId] = nonce;
     return requestId;
   }
 
-  function hashCommitment(bytes32 requestId, Commitment memory commitment) internal pure returns (bytes32) {
-    return
-      keccak256(
-        abi.encode(
-          requestId,
-          commitment.billing.client,
-          commitment.billing.gasLimit,
-          commitment.billing.subscriptionId,
-          commitment.don,
-          commitment.donFee,
-          commitment.registryFee
-        )
-      );
-  }
-
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function getCommitmentHash(bytes32 requestId) external view override returns (bytes32 commitmentHash) {
-    commitmentHash = s_requestCommitments[requestId];
+  function getCommitment(bytes32 requestId)
+    external
+    view
+    override
+    returns (
+      address,
+      uint64,
+      uint32
+    )
+  {
+    Commitment memory commitment = s_requestCommitments[requestId];
+    return (commitment.billing.client, commitment.billing.subscriptionId, commitment.billing.gasLimit);
   }
 
   function computeRequestId(
@@ -364,18 +359,6 @@ contract OCR2DRRegistry is
   ) private pure returns (bytes32, uint256) {
     uint256 preSeed = uint256(keccak256(abi.encode(don, client, subscriptionId, nonce)));
     return (keccak256(abi.encode(don, preSeed)), preSeed);
-  }
-
-  function decodeRawCommitment(bytes memory commitmentBytes) private view returns (Commitment memory) {
-    OCR2DRRegistryInterface.RequestBilling memory billing;
-    address don;
-    uint96 donFee;
-    uint96 registryFee;
-    (billing, don, donFee, registryFee) = abi.decode(
-      commitmentBytes,
-      (OCR2DRRegistryInterface.RequestBilling, address, uint96, uint96)
-    );
-    return Commitment(billing, don, donFee, registryFee);
   }
 
   /**
@@ -421,7 +404,6 @@ contract OCR2DRRegistry is
    */
   function concludeBilling(
     bytes32 requestId,
-    bytes calldata rawCommitment,
     bytes calldata response,
     bytes calldata err,
     address transmitter,
@@ -430,8 +412,8 @@ contract OCR2DRRegistry is
     uint32 reportValidationGas,
     uint32 initialGas
   ) external validateAuthorizedSender nonReentrant returns (bool success) {
-    Commitment memory commitment = decodeRawCommitment(rawCommitment);
-    if (hashCommitment(requestId, commitment) != s_requestCommitments[requestId]) {
+    Commitment memory commitment = s_requestCommitments[requestId];
+    if (commitment.don == address(0)) {
       revert IncorrectRequestID();
     }
     delete s_requestCommitments[requestId];
@@ -755,7 +737,8 @@ contract OCR2DRRegistry is
           subscriptionId,
           s_consumers[subConfig.consumers[i]][subscriptionId]
         );
-        if (s_requestCommitments[requestId] != 0) {
+        Commitment memory commitment = s_requestCommitments[requestId];
+        if (commitment.don == address(0)) {
           return true;
         }
       }

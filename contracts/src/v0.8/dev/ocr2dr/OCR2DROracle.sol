@@ -86,38 +86,6 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     return requestId;
   }
 
-  function fulfillRequest(
-    bytes32 requestId,
-    bytes memory commitment,
-    bytes memory response,
-    bytes memory err,
-    address[maxNumOracles] memory signers,
-    uint8 signerCount,
-    uint32 reportValidationGas
-  ) internal {
-    try
-      s_registry.concludeBilling(
-        requestId,
-        commitment,
-        response,
-        err,
-        msg.sender,
-        signers,
-        signerCount,
-        reportValidationGas,
-        uint32(gasleft())
-      )
-    returns (bool success) {
-      if (success) {
-        emit OracleResponse(requestId);
-      } else {
-        emit UserCallbackError(requestId, "error in callback");
-      }
-    } catch (bytes memory reason) {
-      emit UserCallbackRawError(requestId, reason);
-    }
-  }
-
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
@@ -152,21 +120,31 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     bytes32[] memory requestIds;
     bytes[] memory results;
     bytes[] memory errors;
-    bytes[] memory commitments;
-    (requestIds, results, errors, commitments) = abi.decode(report, (bytes32[], bytes[], bytes[], bytes[]));
+    (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
 
     uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
 
     for (uint256 i = 0; i < requestIds.length; i++) {
-      fulfillRequest(
-        requestIds[i],
-        commitments[i],
-        results[i],
-        errors[i],
-        signers,
-        signerCount,
-        uint32(reportValidationGasShare)
-      );
+      try
+        s_registry.concludeBilling(
+          requestIds[i],
+          results[i],
+          errors[i],
+          msg.sender,
+          signers,
+          signerCount,
+          uint32(reportValidationGasShare),
+          uint32(gasleft())
+        )
+      returns (bool success) {
+        if (success) {
+          emit OracleResponse(requestIds[i]);
+        } else {
+          emit UserCallbackError(requestIds[i], "error in callback");
+        }
+      } catch (bytes memory reason) {
+        emit UserCallbackRawError(requestIds[i], reason);
+      }
     }
   }
 }
