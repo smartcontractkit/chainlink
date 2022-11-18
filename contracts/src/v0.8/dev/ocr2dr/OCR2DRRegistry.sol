@@ -402,7 +402,7 @@ contract OCR2DRRegistry is
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function concludeBilling(
+  function fulfillAndBill(
     bytes32 requestId,
     bytes calldata response,
     bytes calldata err,
