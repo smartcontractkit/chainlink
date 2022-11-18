@@ -184,11 +184,11 @@ func (o *orm) GetCachedResponse(dotId string, specId int32, maxElapsed time.Dura
 
 func (o *orm) UpsertBridgeResponse(dotId string, specId int32, response []byte) error {
 	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
-				VALUES($1, $2, $3, NOW())
+				VALUES($1, $2, $3, $4)
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
-				DO UPDATE SET value = $3, finished_at = NOW();`
+				DO UPDATE SET value = $3, finished_at = $4;`
 
-	err := o.q.ExecQ(sql, dotId, specId, response)
+	err := o.q.ExecQ(sql, dotId, specId, response, time.Now())
 	return errors.Wrap(err, "failed to upsert bridge response")
 }
 
