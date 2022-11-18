@@ -51,6 +51,8 @@ $ pnpm test
 
 ## Contributing
 
+Please try to adhere to [Solidity Style Guide](./STYLE.md).
+
 Contributions are welcome! Please refer to
 [Chainlink's contributing guidelines](../docs/CONTRIBUTING.md) for detailed
 contribution information.
