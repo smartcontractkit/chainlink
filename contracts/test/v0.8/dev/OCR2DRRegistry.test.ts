@@ -558,7 +558,7 @@ describe('OCR2DRRegistry', () => {
     })
   })
 
-  describe('#beginBilling', () => {
+  describe('#startBilling', () => {
     let subId: number
 
     beforeEach(async () => {
@@ -587,7 +587,7 @@ describe('OCR2DRRegistry', () => {
 
     it('only callable by registered DONs', async () => {
       await expect(
-        registry.connect(consumer).beginBilling(stringToHex('some data'), {
+        registry.connect(consumer).startBilling(stringToHex('some data'), {
           requester: consumerAddress,
           client: consumerAddress,
           subscriptionId: subId,
@@ -632,7 +632,7 @@ describe('OCR2DRRegistry', () => {
     })
   })
 
-  describe('#concludeBilling', () => {
+  describe('#fulfillAndBill', () => {
     let subId: number
     let requestId: string
 
@@ -665,15 +665,21 @@ describe('OCR2DRRegistry', () => {
     })
 
     it('only callable by registered DONs', async () => {
+      const someAddress = randomAddressString()
+      const someSigners = Array(31).fill(ethers.constants.AddressZero)
+      someSigners[0] = someAddress
       await expect(
         registry
           .connect(consumer)
-          .concludeBilling(
+          .fulfillAndBill(
             ethers.utils.hexZeroPad(requestId, 32),
             stringToHex('some data'),
             stringToHex('some data'),
-            consumerAddress,
+            someAddress,
+            someSigners,
+            1,
             10,
+            0,
           ),
       ).to.be.revertedWith('UnauthorizedSender()')
     })

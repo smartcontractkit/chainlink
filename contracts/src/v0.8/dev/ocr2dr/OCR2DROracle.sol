@@ -116,7 +116,6 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     uint256 reportValidationGasShare = (uint256(initialGas) - gasleft()) / uint256(signerCount);
 
     for (uint256 i = 0; i < requestIds.length; i++) {
-      uint256 currentGas = gasleft();
       try
         s_registry.fulfillAndBill(
           requestIds[i],
@@ -126,7 +125,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
           signers,
           signerCount,
           reportValidationGasShare,
-          currentGas
+          gasleft()
         )
       returns (bool success) {
         if (success) {
