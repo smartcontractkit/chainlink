@@ -78,7 +78,7 @@ func TestPendingTxContext_expired(t *testing.T) {
 	assert.False(t, txs.Expired(sig, 60*time.Second)) // not expired for 60s lifetime
 
 	assert.Equal(t, id, txs.Remove(sig))
-	assert.True(t, txs.Expired(sig, 60*time.Second)) // no longer exists, should be expired
+	assert.False(t, txs.Expired(sig, 60*time.Second)) // no longer exists, should return false
 }
 
 func TestPendingTxContext_race(t *testing.T) {
