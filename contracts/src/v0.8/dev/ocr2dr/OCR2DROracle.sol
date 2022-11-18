@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
-import "./OCR2DRBillableAbstract.sol";
 import "../ocr2/OCR2Base.sol";
 
 /**
  * @title OCR2DR oracle contract
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base {
-  event OracleRequest(bytes32 requestId, bytes data, uint32 gasLimit);
+contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
+  event OracleRequest(bytes32 requestId, bytes data);
   event OracleResponse(bytes32 requestId);
   event UserCallbackError(bytes32 requestId, string reason);
   event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
@@ -20,8 +17,11 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
   error EmptyRequestData();
   error InconsistentReportData();
   error EmptyPublicKey();
+  error EmptyBillingRegistry();
+  error InvalidRequestID();
 
   bytes private s_donPublicKey;
+  OCR2DRRegistryInterface private s_registry;
 
   constructor() OCR2Base(true) {}
 
@@ -70,11 +70,37 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
   /**
    * @inheritdoc OCR2DROracleInterface
    */
+  function getRequiredFee(
+    bytes calldata, /* data */
+    OCR2DRRegistryInterface.RequestBilling calldata /* billing */
+  ) public pure override returns (uint96) {
+    // NOTE: Optionally, compute additional fee split between oracles here
+    // e.g. 0.1 LINK * s_transmitters.length
+    return 0;
+  }
+
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
+  function estimateCost(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
+    external
+    view
+    override
+    registryIsSet
+    returns (uint96)
+  {
+    uint96 requiredFee = getRequiredFee(data, billing);
+    return s_registry.estimateCost(data, billing, requiredFee);
+  }
+
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
     uint32 gasLimit
-  ) external override returns (bytes32) {
+  ) external override registryIsSet returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
@@ -82,7 +108,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
       data,
       OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
     );
-    emit OracleRequest(requestId, data, gasLimit);
+    emit OracleRequest(requestId, data);
     return requestId;
   }
 
@@ -95,6 +121,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     uint40, /* epochAndRound */
     bytes memory /* report */
   ) internal pure override returns (bool) {
+    // validate within _report to save gas
     return true;
   }
 
@@ -104,7 +131,7 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     uint8 signerCount,
     address[maxNumOracles] memory signers,
     bytes calldata report
-  ) internal override {
+  ) internal override registryIsSet {
     bytes32[] memory requestIds;
     bytes[] memory results;
     bytes[] memory errors;
@@ -137,5 +164,15 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
         emit UserCallbackRawError(requestIds[i], reason);
       }
     }
+  }
+
+  /**
+   * @dev Reverts if the the registry is not set
+   */
+  modifier registryIsSet() {
+    if (address(s_registry) == address(0)) {
+      revert EmptyBillingRegistry();
+    }
+    _;
   }
 }

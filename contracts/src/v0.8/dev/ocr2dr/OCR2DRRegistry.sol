@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/OCR2DRRegistryInterface.sol";
-import "../interfaces/OCR2DRBillableInterface.sol";
+import "../interfaces/OCR2DROracleInterface.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
@@ -314,7 +314,7 @@ contract OCR2DRRegistry is
     uint256 estimatedCost = estimateCost(
       data,
       billing,
-      OCR2DRBillableInterface(msg.sender).getRequiredFee(data, billing)
+      OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing)
     );
     if (s_subscriptions[billing.subscriptionId].balance < estimatedCost) {
       revert InsufficientBalance();
@@ -326,7 +326,7 @@ contract OCR2DRRegistry is
     Commitment memory commitment = Commitment(
       billing,
       msg.sender,
-      OCR2DRBillableInterface(msg.sender).getRequiredFee(data, billing),
+      OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing),
       getRequiredFee(data, billing)
     );
     s_requestCommitments[requestId] = commitment;
