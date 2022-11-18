@@ -356,9 +356,10 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 		forwarderAddresses = append(forwarderAddresses, f)
 		forwarderAddressesStrings = append(forwarderAddressesStrings, f.String())
 	}
+
+	// Assign the sending keys to the deployed forwarders.
 	fmt.Printf("ForwarderAddresses : %v\n", forwarderAddressesStrings)
 	for i, f := range forwarderAddresses {
-
 		// Convert the sending strings for a transmitter to addresses.
 		var sendinKeysAddresses []common.Address
 		sendingKeysStrings := sendingKeys[i]
@@ -398,7 +399,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 		if i > 0 {
 			adjustedIndex := i - 1
 			vrfJob := fmt.Sprintf(
-				cmd.Ocr2vrfTemplate,
+				cmd.OCR2vrfTemplate,
 				vrfBeaconAddress.String(),
 				ocr2KeyBundleIDs[adjustedIndex],
 				forwarderAddresses[adjustedIndex].String(),
@@ -411,7 +412,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 				vrfCoordinatorAddress.String(),
 				*linkEthFeed,
 			)
-			fmt.Printf("VRF JOB FOR NODE %d:\n%v\n", i, vrfJob)
+			fmt.Printf("VRF JOB FOR NODE %d:\n%v\n", i-1, vrfJob) // zero-based index to match infra.
 		} else {
 			bootstrapJob := fmt.Sprintf(cmd.BootstrapTemplate, dkgAddress.String(), e.ChainID)
 			fmt.Printf("VRF BOOTSTRAP JOB:\n%v\n", bootstrapJob)

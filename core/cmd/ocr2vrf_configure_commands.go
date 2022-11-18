@@ -54,7 +54,7 @@ type ocr2vrfTemplateArgs struct {
 	linkEthFeedAddress    string
 }
 
-const DkgTemplate = `
+const DKGTemplate = `
 # DKGSpec
 type                 = "offchainreporting2"
 schemaVersion        = 1
@@ -76,7 +76,7 @@ KeyID                = "%s"
 SigningPublicKey     = "%s"
 `
 
-const Ocr2vrfTemplate = `
+const OCR2vrfTemplate = `
 type                 = "offchainreporting2"
 schemaVersion        = 1
 name                 = "ocr2"
@@ -359,7 +359,7 @@ func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.
 }
 
 func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
-	sp := fmt.Sprintf(DkgTemplate,
+	sp := fmt.Sprintf(DKGTemplate,
 		args.contractID,
 		args.ocrKeyBundleID,
 		args.transmitterID,
@@ -392,7 +392,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 }
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
-	sp := fmt.Sprintf(Ocr2vrfTemplate,
+	sp := fmt.Sprintf(OCR2vrfTemplate,
 		args.vrfBeaconAddress,
 		args.ocrKeyBundleID,
 		args.transmitterID,
