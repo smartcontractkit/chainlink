@@ -120,7 +120,8 @@ func New(
 			t.randomnessFulfillmentRequestedTopic,
 			t.randomWordsFulfilledTopic,
 			t.configSetTopic,
-			t.outputsServedTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
+			t.outputsServedTopic,
+			t.newTransmissionTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
 	if err != nil {
 		return nil, err
 	}
