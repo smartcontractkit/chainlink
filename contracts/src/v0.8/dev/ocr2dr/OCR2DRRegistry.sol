@@ -10,6 +10,7 @@ import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 import "../../ConfirmedOwner.sol";
 import "../AuthorizedReceiver.sol";
+import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 
 contract OCR2DRRegistry is
   ConfirmedOwner,
@@ -285,7 +286,7 @@ contract OCR2DRRegistry is
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function beginBilling(bytes calldata data, RequestBilling calldata billing)
+  function startBilling(bytes calldata data, RequestBilling calldata billing)
     external
     override
     validateAuthorizedSender
@@ -410,8 +411,8 @@ contract OCR2DRRegistry is
     address transmitter,
     address[31] memory signers,
     uint8 signerCount,
-    uint32 reportValidationGas,
-    uint32 initialGas
+    uint256 reportValidationGas,
+    uint256 initialGas
   ) external validateAuthorizedSender nonReentrant returns (bool success) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
@@ -472,7 +473,7 @@ contract OCR2DRRegistry is
     uint96 donFee,
     uint8 signerCount,
     uint96 registryFee,
-    uint32 reportValidationGas,
+    uint256 reportValidationGas,
     uint256 weiPerUnitGas
   ) internal view returns (ItemizedBill memory) {
     int256 weiPerUnitLink;
@@ -490,7 +491,7 @@ contract OCR2DRRegistry is
     }
     uint96 signerPayment = donFee / uint96(signerCount);
     uint96 transmitterPayment = uint96(paymentNoFee) + signerPayment;
-    uint96 totalCost = uint96(paymentNoFee + fee);
+    uint96 totalCost = SafeCast.toUint96(paymentNoFee + fee);
     return ItemizedBill(signerPayment, transmitterPayment, totalCost);
   }
 
