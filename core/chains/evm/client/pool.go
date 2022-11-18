@@ -85,11 +85,6 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 
 	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
 
-	if cfg.NodeNoNewHeadsThreshold() == 0 && cfg.NodeSelectionMode() == NodeSelectionMode_HighestHead {
-		lggr.Warn("NODE_SELECTION_MODE=HighestHead will not work for NODE_NO_NEW_HEADS_THRESHOLD=0, the pool will use RoundRobin mode.")
-		nodeSelector = NewRoundRobinSelector(nodes)
-	}
-
 	p := &Pool{
 		utils.StartStopOnce{},
 		nodes,
