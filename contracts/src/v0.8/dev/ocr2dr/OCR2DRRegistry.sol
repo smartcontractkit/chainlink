@@ -231,7 +231,8 @@ contract OCR2DRRegistry is
    * @inheritdoc OCR2DRRegistryInterface
    */
   function getRequestConfig() external view override returns (uint32, address[] memory) {
-    return (s_config.maxGasLimit, s_authorizedSendersList);
+    address[] memory authorizedSendersList = getAuthorizedSenders();
+    return (s_config.maxGasLimit, authorizedSendersList);
   }
 
   /**
@@ -729,7 +730,7 @@ contract OCR2DRRegistry is
 
   function pendingRequestExists(uint64 subscriptionId) public view returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
-    address[] authorizedSendersList = getAuthorizedSenders();
+    address[] memory authorizedSendersList = getAuthorizedSenders();
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < authorizedSendersList.length; j++) {
         (bytes32 requestId, ) = computeRequestId(

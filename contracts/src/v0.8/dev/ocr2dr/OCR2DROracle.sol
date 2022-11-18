@@ -93,20 +93,8 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
   function _validateReport(
     bytes32, /* configDigest */
     uint40, /* epochAndRound */
-    bytes memory report
+    bytes memory /* report */
   ) internal pure override returns (bool) {
-    bytes32[] memory requestIds;
-    bytes[] memory results;
-    bytes[] memory errors;
-    bytes[] memory commitments;
-    (requestIds, results, errors, commitments) = abi.decode(report, (bytes32[], bytes[], bytes[], bytes[]));
-    if (
-      requestIds.length != results.length &&
-      requestIds.length != errors.length &&
-      requestIds.length != commitments.length
-    ) {
-      return false;
-    }
     return true;
   }
 
@@ -121,6 +109,9 @@ contract OCR2DROracle is OCR2DRBillableAbstract, OCR2DROracleInterface, OCR2Base
     bytes[] memory results;
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
+    if (requestIds.length != results.length && requestIds.length != errors.length) {
+      revert ReportInvalid();
+    }
 
     uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
 
