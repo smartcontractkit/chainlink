@@ -114,7 +114,7 @@ contract OCR2DRRegistry is
     uint32 stalenessSeconds;
     // Gas to cover transmitter oracle payment after we calculate the payment.
     // We make it configurable in case those operations are repriced.
-    uint32 gasAfterPaymentCalculation;
+    uint256 gasAfterPaymentCalculation;
     // Represents the average gas execution cost. Used in estimating cost beforehand.
     uint32 gasOverhead;
   }
@@ -123,7 +123,7 @@ contract OCR2DRRegistry is
   event ConfigSet(
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
-    uint32 gasAfterPaymentCalculation,
+    uint256 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
     uint32 gasOverhead
   );
@@ -144,7 +144,7 @@ contract OCR2DRRegistry is
   function setConfig(
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
-    uint32 gasAfterPaymentCalculation,
+    uint256 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
     uint32 gasOverhead
   ) external onlyOwner {
@@ -176,7 +176,7 @@ contract OCR2DRRegistry is
     returns (
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation,
+      uint256 gasAfterPaymentCalculation,
       int256 fallbackWeiPerUnitLink,
       uint32 gasOverhead
     )
@@ -241,7 +241,7 @@ contract OCR2DRRegistry is
    */
   function getRequiredFee(
     bytes calldata, /* data */
-    OCR2DRRegistryInterface.RequestBilling calldata /* billing */
+    OCR2DRRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
     return 0;
@@ -250,7 +250,7 @@ contract OCR2DRRegistry is
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function estimateExecutionGas(OCR2DRRegistryInterface.RequestBilling calldata billing)
+  function estimateExecutionGas(OCR2DRRegistryInterface.RequestBilling memory billing)
     public
     view
     override
@@ -264,7 +264,7 @@ contract OCR2DRRegistry is
    */
   function estimateCost(
     bytes calldata data,
-    OCR2DRRegistryInterface.RequestBilling calldata billing,
+    OCR2DRRegistryInterface.RequestBilling memory billing,
     uint96 donRequiredFee
   ) public view override returns (uint96) {
     int256 weiPerUnitLink;
@@ -469,7 +469,7 @@ contract OCR2DRRegistry is
   // Determine the cost breakdown for payment
   function calculatePaymentAmount(
     uint256 startGas,
-    uint32 gasAfterPaymentCalculation,
+    uint256 gasAfterPaymentCalculation,
     uint96 donFee,
     uint8 signerCount,
     uint96 registryFee,

@@ -84,7 +84,7 @@ describe('OCR2DROracle', () => {
       86_400,
       21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
       ethers.BigNumber.from('5000000000000000'),
-      100_000,
+      500_000,
     )
 
     const createSubTx = await registry
@@ -105,7 +105,7 @@ describe('OCR2DROracle', () => {
       .connect(roles.defaultAccount)
       .transferAndCall(
         registry.address,
-        ethers.BigNumber.from('130749069945654013'),
+        ethers.BigNumber.from('300938394174049741'),
         ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
       )
   })
