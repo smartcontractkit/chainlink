@@ -59,7 +59,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	r := rand.New(s)
 	for i := 0; i < nClients; i++ {
 		sent[i] = []byte{byte(r.Uint32() % 256)}
-		_, err := clientContracts[i].Contract.SendRequest(owner, hex.EncodeToString(sent[i]), []byte{}, []string{}, big.NewInt(3))
+		_, err := clientContracts[i].Contract.SendRequest(owner, hex.EncodeToString(sent[i]), []byte{}, []string{}, uint64(3))
 		require.NoError(t, err)
 	}
 	utils.CommitWithFinality(b)
