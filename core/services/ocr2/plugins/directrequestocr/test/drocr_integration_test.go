@@ -3,7 +3,6 @@ package directrequestocr_test
 import (
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"sync"
 	"testing"
