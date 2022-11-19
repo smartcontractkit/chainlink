@@ -28,7 +28,7 @@ interface OCR2DRRegistryInterface {
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getRequiredFee(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
+  function getRequiredFee(bytes calldata data, OCR2DRRegistryInterface.RequestBilling memory billing)
     external
     view
     returns (uint96);
@@ -38,10 +38,7 @@ interface OCR2DRRegistryInterface {
    * @param billing The request's billing configuration
    * @return gasAmount
    */
-  function estimateExecutionGas(OCR2DRRegistryInterface.RequestBilling calldata billing)
-    external
-    view
-    returns (uint256);
+  function estimateExecutionGas(OCR2DRRegistryInterface.RequestBilling memory billing) external view returns (uint256);
 
   /**
    * @notice Estimate the total cost to make a request: gas re-imbursement, plus DON fee, plus Registry fee
@@ -52,7 +49,7 @@ interface OCR2DRRegistryInterface {
    */
   function estimateCost(
     bytes calldata data,
-    OCR2DRRegistryInterface.RequestBilling calldata billing,
+    OCR2DRRegistryInterface.RequestBilling memory billing,
     uint96 donRequiredFee
   ) external view returns (uint96);
 

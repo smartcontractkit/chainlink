@@ -72,7 +72,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
    */
   function getRequiredFee(
     bytes calldata, /* data */
-    OCR2DRRegistryInterface.RequestBilling calldata /* billing */
+    OCR2DRRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee split between oracles here
     // e.g. 0.1 LINK * s_transmitters.length
@@ -82,13 +82,16 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   /**
    * @inheritdoc OCR2DROracleInterface
    */
-  function estimateCost(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
-    external
-    view
-    override
-    registryIsSet
-    returns (uint96)
-  {
+  function estimateCost(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit
+  ) external view override registryIsSet returns (uint96) {
+    OCR2DRRegistryInterface.RequestBilling memory billing = OCR2DRRegistryInterface.RequestBilling(
+      subscriptionId,
+      msg.sender,
+      gasLimit
+    );
     uint96 requiredFee = getRequiredFee(data, billing);
     return s_registry.estimateCost(data, billing, requiredFee);
   }

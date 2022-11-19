@@ -47,14 +47,17 @@ interface OCR2DROracleInterface {
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
+   * @param subscriptionId A unique subscription ID allocated by billing system,
+   * a client can make requests from different contracts referencing the same subscription
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
-   * @param billing The request's billing configuration
+   * @param gasLimit Gas limit for the fulfillment callback
    * @return billedCost Cost in Juels (1e18) of LINK
    */
-  function estimateCost(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
-    external
-    view
-    returns (uint96);
+  function estimateCost(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit
+  ) external view returns (uint96);
 
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId

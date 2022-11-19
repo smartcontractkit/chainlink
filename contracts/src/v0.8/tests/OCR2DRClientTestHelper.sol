@@ -24,6 +24,12 @@ contract OCR2DRClientTestHelper is OCR2DRClient {
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
+  function estimateJuelCost(string memory sourceCode, uint64 subscriptionId) public view returns (uint96) {
+    OCR2DR.Request memory request;
+    request.initializeRequestForInlineJavaScript(sourceCode);
+    return estimateCost(request, subscriptionId, 20_000);
+  }
+
   function fulfillRequest(
     bytes32 requestId,
     bytes memory response,

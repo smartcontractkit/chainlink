@@ -32,6 +32,21 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
+   * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
+   * @param req The initialized OCR2DR.Request
+   * @param subscriptionId The subscription ID
+   * @param gasLimit gas limit for the fulfillment callback
+   * @return billedCost Cost in Juels (1e18) of LINK
+   */
+  function estimateCost(
+    OCR2DR.Request memory req,
+    uint64 subscriptionId,
+    uint32 gasLimit
+  ) public view returns (uint96) {
+    return s_oracle.estimateCost(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit);
+  }
+
+  /**
    * @notice Sends OCR2DR request to the stored oracle address
    * @param req The initialized OCR2DR.Request
    * @param subscriptionId The subscription ID
