@@ -137,7 +137,7 @@ describe('OCR2DROracle', () => {
       const data = stringToHex('some data')
       await expect(oracle.sendRequest(subscriptionId, data, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, data, 0)
+        .withArgs(anyValue, data)
     })
 
     it('#sendRequest reverts for empty data', async () => {
@@ -166,7 +166,7 @@ describe('OCR2DROracle', () => {
       )
       await expect(oracle.sendRequest(subscriptionId, data, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, data, 0)
+        .withArgs(anyValue, data)
       const requestId2 = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
@@ -351,9 +351,9 @@ describe('OCR2DROracle', () => {
       await client.setRevertFulfillRequest(true)
 
       await expect(oracle.connect(roles.oracleNode).callReport(report))
-        .to.emit(oracle, 'UserCallbackRawError')
+        .to.emit(oracle, 'UserCallbackError')
         .withArgs(requestId1, anyValue)
-        .to.emit(oracle, 'UserCallbackRawError')
+        .to.emit(oracle, 'UserCallbackError')
         .withArgs(requestId2, anyValue)
     })
   })

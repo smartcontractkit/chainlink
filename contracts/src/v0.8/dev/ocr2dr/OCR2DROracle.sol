@@ -126,7 +126,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   }
 
   function _report(
-    uint32 initialGas,
+    uint256 initialGas,
     address transmitter,
     uint8 signerCount,
     address[maxNumOracles] memory signers,
@@ -140,7 +140,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
       revert ReportInvalid();
     }
 
-    uint256 reportValidationGasShare = (uint256(initialGas) - gasleft()) / uint256(signerCount);
+    uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
 
     for (uint256 i = 0; i < requestIds.length; i++) {
       try

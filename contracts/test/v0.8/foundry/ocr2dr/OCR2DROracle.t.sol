@@ -2,9 +2,14 @@ pragma solidity ^0.8.0;
 
 import {BaseTest} from "../BaseTest.t.sol";
 import {OCR2DROracle} from "../../../../src/v0.8/dev/ocr2dr/OCR2DROracle.sol";
+import {OCR2DRRegistry} from "../../../../src/v0.8/dev/ocr2dr/OCR2DRRegistry.sol";
+
+// import {LinkToken} from "../../../../src/v0.4/LinkToken.sol";
+// import {MockV3Aggregator} from "../../../../src/v0.7/tests/MockV3Aggregator.sol";
 
 contract OCR2DROracleSetup is BaseTest {
   bytes constant DATA = abi.encode("bytes");
+  address registryAddress = makeAddr("Registry");
 
   OCR2DROracle s_oracle;
 
@@ -59,21 +64,72 @@ contract OCR2DROracle_setDONPublicKey is OCR2DROracleSetup {
   }
 }
 
+contract OCR2DROracle_setRegistry is OCR2DROracleSetup {
+  function testSetRegistry_gas() public {
+    s_oracle.setRegistry(registryAddress);
+  }
+
+  function testSetRegistrySuccess() public {
+    address registryAddress = makeAddr("newRegistry");
+
+    // Verify the existing key is different from the new key
+    address existingRegistryAddress = s_oracle.getRegistry();
+    address expectedRegistryAddress;
+    assertEq(existingRegistryAddress, expectedRegistryAddress);
+
+    s_oracle.setRegistry(registryAddress);
+    address newRegistryAddress = s_oracle.getRegistry();
+    assertEq(registryAddress, newRegistryAddress);
+  }
+
+  // Reverts
+
+  function testEmptyPublicKeyReverts() public {
+    address registryAddress;
+
+    vm.expectRevert(OCR2DROracle.EmptyBillingRegistry.selector);
+    s_oracle.setRegistry(registryAddress);
+  }
+
+  function testOnlyOwnerReverts() public {
+    vm.stopPrank();
+    vm.expectRevert("Only callable by owner");
+
+    address registryAddress;
+    s_oracle.setRegistry(registryAddress);
+  }
+}
+
 contract OCR2DROracle_sendRequest is OCR2DROracleSetup {
+  OCR2DRRegistry s_registry;
+
+  //   LinkToken s_link;
+  //   MockV3Aggregator s_linketh;
+
+  function setUp() public virtual override {
+    OCR2DROracleSetup.setUp();
+
+    // s_link = new LinkToken();
+    // s_linketh = new MockV3Aggregator(0, 5021530000000000);
+    s_registry = new OCR2DRRegistry(makeAddr("Link Token"), makeAddr("Link Eth"));
+    s_oracle.setRegistry(address(s_registry));
+  }
+
   event OracleRequest(bytes32 requestId, bytes data);
 
-  function testSendRequest_gas() public {
-    s_oracle.sendRequest(0, DATA, 0);
-  }
+  // TODO: write new ^0.8.0 mocks for LinkToken & MockV3Aggregator
+  //   function testSendRequest_gas() public {
+  //     s_oracle.sendRequest(0, DATA, 0);
+  //   }
 
-  function testSendRequestFuzzSuccess(uint64 subscriptionId, bytes calldata data) public {
-    vm.assume(data.length != 0);
+  //   function testSendRequestFuzzSuccess(uint64 subscriptionId, bytes calldata data) public {
+  //     vm.assume(data.length != 0);
 
-    vm.expectEmit(false, false, false, false);
-    emit OracleRequest(0, data);
+  //     vm.expectEmit(false, false, false, false);
+  //     emit OracleRequest(0, data);
 
-    s_oracle.sendRequest(subscriptionId, data, 0);
-  }
+  //     s_oracle.sendRequest(subscriptionId, data, 0);
+  //   }
 
   // Reverts
 

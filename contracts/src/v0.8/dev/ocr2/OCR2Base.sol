@@ -276,7 +276,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
    * @param report serialized report
    */
   function _report(
-    uint32 initialGas,
+    uint256 initialGas,
     address transmitter,
     uint8 signerCount,
     address[maxNumOracles] memory signers,
@@ -387,7 +387,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       }
     }
 
-    assert(initialGas < maxUint32);
-    _report(uint32(initialGas), msg.sender, signerCount, signed, report);
+    _report(initialGas, msg.sender, signerCount, signed, report);
   }
 }

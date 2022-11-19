@@ -11,19 +11,15 @@ contract OCR2DROracleHelper is OCR2DROracle {
   }
 
   function callReport(bytes calldata report) external {
-    uint32 initialGas = uint32(gasleft());
-    address transmitter = msg.sender;
     address[maxNumOracles] memory signers;
     signers[0] = msg.sender;
-    _report(initialGas, transmitter, 1, signers, report);
+    _report(gasleft(), msg.sender, 1, signers, report);
   }
 
   function callReportMultipleSigners(bytes calldata report, address secondSigner) external {
-    uint32 initialGas = uint32(gasleft());
-    address transmitter = msg.sender;
     address[maxNumOracles] memory signers;
     signers[0] = msg.sender;
     signers[1] = secondSigner;
-    _report(initialGas, transmitter, 2, signers, report);
+    _report(gasleft(), msg.sender, 2, signers, report);
   }
 }
