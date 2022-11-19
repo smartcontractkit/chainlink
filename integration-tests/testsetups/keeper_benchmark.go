@@ -350,7 +350,7 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) e
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
 
-	headerText := ":white_check_mark: Keeper Benchmark Test Started :white_check_mark:"
+	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
 	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", testreporters.DashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
