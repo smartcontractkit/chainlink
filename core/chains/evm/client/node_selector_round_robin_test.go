@@ -27,10 +27,10 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 	}
 
 	selector := evmclient.NewRoundRobinSelector(nodes)
-	assert.Equal(t, nodes[1], selector.Select())
-	assert.Equal(t, nodes[2], selector.Select())
-	assert.Equal(t, nodes[1], selector.Select())
-	assert.Equal(t, nodes[2], selector.Select())
+	assert.Same(t, nodes[1], selector.Select())
+	assert.Same(t, nodes[2], selector.Select())
+	assert.Same(t, nodes[1], selector.Select())
+	assert.Same(t, nodes[2], selector.Select())
 }
 
 func TestRoundRobinNodeSelector_None(t *testing.T) {

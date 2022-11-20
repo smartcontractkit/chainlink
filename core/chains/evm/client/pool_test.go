@@ -213,6 +213,7 @@ func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
 			resp.Notify = headResult
 			return
 		case "eth_unsubscribe":
+			resp.Result = "true"
 			return
 		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)

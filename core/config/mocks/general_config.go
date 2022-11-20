@@ -2120,6 +2120,27 @@ func (_m *GeneralConfig) GlobalNodeSelectionMode() (string, bool) {
 	return r0, r1
 }
 
+// GlobalNodeSyncThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodeSyncThreshold() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCR2AutomationGasLimit provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
 	ret := _m.Called()

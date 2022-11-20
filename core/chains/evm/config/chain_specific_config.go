@@ -76,6 +76,7 @@ type (
 		nodePollFailureThreshold                      uint32
 		nodePollInterval                              time.Duration
 		nodeSelectionMode                             string
+		nodeSyncThreshold                             uint32
 
 		nonceAutoSync       bool
 		useForwarders       bool
@@ -162,6 +163,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
 		nodeSelectionMode:                     client.NodeSelectionMode_HighestHead,
+		nodeSyncThreshold:                     5,
 		nonceAutoSync:                         true,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,

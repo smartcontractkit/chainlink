@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+- `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
+
+> ```toml
+> SyncThreshold = 5 # Default
+> ```
+> 
+> SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+>
+> Set to 0 to disable this check.
 
 #### TOML Configuration (optional)
 
