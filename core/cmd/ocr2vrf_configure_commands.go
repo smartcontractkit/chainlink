@@ -44,7 +44,7 @@ type dkgTemplateArgs struct {
 	p2pv2BootstrapperPeerID string
 	p2pv2BootstrapperPort   string
 	transmitterID           string
-	forwardingAllowed       bool
+	useForwarder            bool
 	chainID                 int64
 	encryptionPublicKey     string
 	keyID                   string
@@ -275,7 +275,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 			p2pv2BootstrapperPeerID: peerID,
 			p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 			transmitterID:           transmitterID,
-			forwardingAllowed:       useForwarder,
+			useForwarder:            useForwarder,
 			chainID:                 chainID,
 			encryptionPublicKey:     dkgEncryptKey,
 			keyID:                   keyID,
@@ -290,7 +290,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 				p2pv2BootstrapperPeerID: peerID,
 				p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 				transmitterID:           transmitterID,
-				forwardingAllowed:       useForwarder,
+				useForwarder:            useForwarder,
 				chainID:                 chainID,
 				encryptionPublicKey:     dkgEncryptKey,
 				keyID:                   keyID,
@@ -387,7 +387,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 		args.contractID,
 		args.ocrKeyBundleID,
 		args.transmitterID,
-		args.forwardingAllowed,
+		args.useForwarder,
 		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
 		args.encryptionPublicKey,
@@ -421,7 +421,7 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.vrfBeaconAddress,
 		args.ocrKeyBundleID,
 		args.transmitterID,
-		args.forwardingAllowed,
+		args.useForwarder,
 		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
 		args.encryptionPublicKey,
