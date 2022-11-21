@@ -133,7 +133,11 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 
 	for index := range inputs.RegistryVersions {
 		// Fund chainlink nodes
-		err = actions.FundChainlinkNodesAddress(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
+		nodesToFund := k.chainlinkNodes
+		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 {
+			nodesToFund = k.chainlinkNodes[1:]
+		}
+		err = actions.FundChainlinkNodesAddress(nodesToFund, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
 		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 	}
 
