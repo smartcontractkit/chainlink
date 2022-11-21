@@ -392,7 +392,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 }
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
-	sp := fmt.Sprintf(OCR2vrfTemplate,
+	sp := fmt.Sprintf(OCR2VRFTemplate,
 		args.vrfBeaconAddress,
 		args.ocrKeyBundleID,
 		args.transmitterID,
