@@ -11,14 +11,15 @@ import (
 
 var (
 	ErrNoChainFromSpec       = fmt.Errorf("could not get chain from spec")
+	ErrInvalidChainFromSpec  = fmt.Errorf("could not parse chain id")
 	ErrNoSendingKeysFromSpec = fmt.Errorf("could not get sending keys from spec")
 )
 
 // EVMChainForJob parses the job spec and retrieves the evm chain found.
 func EVMChainForJob(job *Job, set evm.ChainSet) (evm.Chain, error) {
-	chainID, ok := EVMChainIDForJobSpec(job.OCR2OracleSpec)
-	if !ok {
-		return nil, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
+	chainID, err := EVMChainIDForJobSpec(job.OCR2OracleSpec)
+	if err != nil {
+		return nil, err
 	}
 	chain, err := set.Get(big.NewInt(chainID))
 	if err != nil {
@@ -29,10 +30,14 @@ func EVMChainForJob(job *Job, set evm.ChainSet) (evm.Chain, error) {
 }
 
 // EVMChainIDForJob parses the job spec and retrieves the evm chain id found
-func EVMChainIDForJobSpec(spec *OCR2OracleSpec) (chainID int64, ok bool) {
+func EVMChainIDForJobSpec(spec *OCR2OracleSpec) (chainID int64, err error) {
 	chainIDInterface, ok := spec.RelayConfig["chainID"]
-	if ok {
-		chainID, ok = chainIDInterface.(int64)
+	if !ok {
+		return 0, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
+	}
+	chainID, ok = chainIDInterface.(int64)
+	if !ok {
+		return 0, fmt.Errorf("%w: invalid chainID field in relay config, must be int64", ErrInvalidChainFromSpec)
 	}
 	return
 }
