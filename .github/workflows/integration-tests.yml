@@ -39,36 +39,36 @@ jobs:
     outputs:
       src: ${{ steps.changes.outputs.src }}
 
-  build-chainlink:
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    name: Build Chainlink Image
-    runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes]
-    steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Build Chainlink Image
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Build Image
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
-        with:
-          cl_repo: smartcontractkit/chainlink
-          cl_ref: ${{ github.sha }}
-          push_tag: ${{ env.CL_ECR }}:latest.${{ github.sha }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  # build-chainlink:
+  #   environment: integration
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   name: Build Chainlink Image
+  #   runs-on: ubuntu20.04-16cores-64GB
+  #   needs: [changes]
+  #   steps:
+  #     - name: Collect Metrics
+  #       id: collect-gha-metrics
+  #       uses: smartcontractkit/push-gha-metrics-action@v1
+  #       with:
+  #         basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+  #         hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+  #         this-job-name: Build Chainlink Image
+  #       continue-on-error: true
+  #     - name: Checkout the repo
+  #       uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #     - name: Build Image
+  #       if: needs.changes.outputs.src == 'true'
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
+  #       with:
+  #         cl_repo: smartcontractkit/chainlink
+  #         cl_ref: ${{ github.sha }}
+  #         push_tag: ${{ env.CL_ECR }}:latest.${{ github.sha }}
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   build-test-image:
     environment: integration
@@ -110,7 +110,7 @@ jobs:
       id-token: write
       contents: read
     name: ETH Smoke Tests Matrix
-    needs: [build-chainlink, changes, build-test-image]
+    needs: [changes, build-test-image] #[build-chainlink, changes, build-test-image]
     env:
       SELECTED_NETWORKS: SIMULATED
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -173,9 +173,8 @@ jobs:
         env:
           TEST_SUITE: ./integration-tests/smoke
           TEST_ARGS: --focus @${{ matrix.product.name }}
-          TEST_SELECTED_NETWORKS: ${{ env.SELECTED_NETWORKS }}
           TEST_CHAINLINK_IMAGE: ${{ env.CL_ECR }}
-          TEST_CHAINLINK_VERSION: latest.${{ github.sha }}
+          TEST_CHAINLINK_VERSION: latest.0f1d5b5b819b3944fdfe9c865628ff2a1d0605ca #latest.${{ github.sha }}
         with:
           test_command_to_run: make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus @${{ matrix.product.name }}"
           test_download_vendor_packages_command: make gomod
