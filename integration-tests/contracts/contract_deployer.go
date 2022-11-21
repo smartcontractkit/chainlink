@@ -81,6 +81,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &OptimismContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.RSKClient:
 		return &RSKContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.PolygonEdgeClient:
+		return &PolygonContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -112,6 +114,10 @@ type OptimismContractDeployer struct {
 
 // RSKContractDeployer wraps for RSK
 type RSKContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type PolygonContractDeployer struct {
 	*EthereumContractDeployer
 }
 
