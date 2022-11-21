@@ -16,17 +16,25 @@ var (
 
 // EVMChainForJob parses the job spec and retrieves the evm chain found.
 func EVMChainForJob(job *Job, set evm.ChainSet) (evm.Chain, error) {
-	chainIDInterface, ok := job.OCR2OracleSpec.RelayConfig["chainID"]
+	chainID, ok := EVMChainIDForJobSpec(job.OCR2OracleSpec)
 	if !ok {
 		return nil, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
 	}
-	chainID := chainIDInterface.(int64)
 	chain, err := set.Get(big.NewInt(chainID))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err)
 	}
 
 	return chain, nil
+}
+
+// EVMChainIDForJob parses the job spec and retrieves the evm chain id found
+func EVMChainIDForJobSpec(spec *OCR2OracleSpec) (chainID int64, ok bool) {
+	chainIDInterface, ok := spec.RelayConfig["chainID"]
+	if ok {
+		chainID, ok = chainIDInterface.(int64)
+	}
+	return
 }
 
 // SendingKeysForJob parses the job spec and retrieves the sending keys found.
