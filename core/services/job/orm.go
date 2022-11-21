@@ -72,6 +72,7 @@ type ORM interface {
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
 
 	FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error)
+	AssertBridgesExist(p pipeline.Pipeline) error
 }
 
 type ORMConfig interface {
@@ -114,7 +115,7 @@ func (o *orm) Close() error {
 	return nil
 }
 
-func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
+func (o *orm) AssertBridgesExist(p pipeline.Pipeline) error {
 	var bridgeNames = make(map[bridges.BridgeName]struct{})
 	var uniqueBridges []bridges.BridgeName
 	for _, task := range p.Tasks {
@@ -147,7 +148,7 @@ func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
-	if err := o.assertBridgesExist(p); err != nil {
+	if err := o.AssertBridgesExist(p); err != nil {
 		return err
 	}
 
@@ -274,7 +275,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if err != nil {
 					return err
 				}
-				if err2 := o.assertBridgesExist(*feePipeline); err2 != nil {
+				if err2 := o.AssertBridgesExist(*feePipeline); err2 != nil {
 					return err2
 				}
 			}
@@ -312,14 +313,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case VRF:
 			var specID int32
 			sql := `INSERT INTO vrf_specs (
-				coordinator_address, public_key, min_incoming_confirmations, 
-				evm_chain_id, from_addresses, poll_period, requested_confs_delay, 
-				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled, 
+				coordinator_address, public_key, min_incoming_confirmations,
+				evm_chain_id, from_addresses, poll_period, requested_confs_delay,
+				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled,
 				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay, gas_lane_price,
 				created_at, updated_at)
 			VALUES (
-				:coordinator_address, :public_key, :min_incoming_confirmations, 
-				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, 
+				:coordinator_address, :public_key, :min_incoming_confirmations,
+				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay,
 				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
 				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay, :gas_lane_price,
 				NOW(), NOW())
@@ -370,10 +371,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case Bootstrap:
 			var specID int32
 			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
-					blockchain_timeout, contract_config_tracker_poll_interval, 
+					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint, 
-					:blockchain_timeout, :contract_config_tracker_poll_interval, 
+			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint,
+					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BootstrapSpec); err != nil {
