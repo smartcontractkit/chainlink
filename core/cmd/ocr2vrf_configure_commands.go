@@ -76,7 +76,7 @@ KeyID                = "%s"
 SigningPublicKey     = "%s"
 `
 
-const OCR2vrfTemplate = `
+const OCR2VRFTemplate = `
 type                 = "offchainreporting2"
 schemaVersion        = 1
 name                 = "ocr2"
