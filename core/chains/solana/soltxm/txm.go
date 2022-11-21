@@ -223,7 +223,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"signature", s[i],
 						)
 
-						// check confirm timeout exceeded
+						// check confirm timeout exceeded - tx was dropped from network
 						if txm.txs.Expired(s[i], txm.cfg.TxConfirmTimeout()) {
 							txm.txs.OnError(s[i], TxFailDrop)
 							txm.lggr.Warnw("failed to find transaction within confirm timeout", "signature", s[i], "timeoutSeconds", txm.cfg.TxConfirmTimeout())
@@ -231,9 +231,10 @@ func (txm *Txm) confirm(ctx context.Context) {
 						continue
 					}
 
-					// if signature has an error, end polling
+					// if signature has an onchain error, end polling
+					// tx has been confirmed
 					if res[i].Err != nil {
-						txm.lggr.Warnw("tx state: failed",
+						txm.lggr.Infow("tx state: failed",
 							"signature", s[i],
 							"error", res[i].Err,
 							"status", res[i].ConfirmationStatus,
@@ -244,7 +245,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 					// if signature is processed, keep polling
 					if res[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
-						txm.lggr.Infow("tx state: processed",
+						txm.lggr.Debugw("tx state: processed",
 							"signature", s[i],
 						)
 
@@ -332,12 +333,12 @@ func (txm *Txm) simulate(ctx context.Context) {
 			// blockhash not found when simulating, occurs when network bank has not seen the given blockhash or tx is too old
 			// let simulation process/clean up
 			case strings.Contains(errStr, "BlockhashNotFound"):
-				txm.lggr.Infow("simulate: BlockhashNotFound", "signature", msg.signature, "result", res)
+				txm.lggr.Debugw("simulate: BlockhashNotFound", "signature", msg.signature, "result", res)
 				continue
 			// transaction will encounter execution error/revert, mark as reverted to remove from confirmation + retry
 			case strings.Contains(errStr, "InstructionError"):
 				txm.txs.OnError(msg.signature, TxFailSimRevert) // cancel retry
-				txm.lggr.Warnw("simulate: InstructionError", "signature", msg.signature, "result", res)
+				txm.lggr.Infow("simulate: InstructionError", "signature", msg.signature, "result", res)
 				continue
 			// transaction is already processed in the chain, letting txm confirmation handle
 			case strings.Contains(errStr, "AlreadyProcessed"):
@@ -346,7 +347,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 			// unrecognized errors (indicates more concerning failures)
 			default:
 				txm.txs.OnError(msg.signature, TxFailSimOther) // cancel retry
-				txm.lggr.Errorw("simulate: unrecognized error", "signature", msg.signature, "result", res)
+				txm.lggr.Warnw("simulate: unrecognized error", "signature", msg.signature, "result", res)
 				continue
 			}
 		}
