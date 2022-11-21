@@ -33,4 +33,4 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           ecr-hostname: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
-          ecr-image-name: chainlink
+          ecr-image-name: chainlink-develop
