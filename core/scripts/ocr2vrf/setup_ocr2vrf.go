@@ -22,6 +22,16 @@ const (
 	jobTypeOCR2VRF jobType = "OCR2VRF"
 )
 
+func fundOCR2VRFNodes(e helpers.Environment) {
+	fs := flag.NewFlagSet("ocr2vrf-setup", flag.ExitOnError)
+	ethSendingKeysString := fs.String("eth-sending-keys", "", "eth sending keys")
+	fundingAmount := fs.Int64("funding-amount", 1e18, "amount to fund nodes") // 1 ETH
+	helpers.ParseArgs(fs, os.Args[2:], "eth-sending-keys")
+
+	flatSendingKeys := strings.Split(*ethSendingKeysString, ",")
+	helpers.FundNodes(e, flatSendingKeys, big.NewInt(*fundingAmount))
+}
+
 func setupOCR2VRFNodes(e helpers.Environment) {
 	fs := flag.NewFlagSet("ocr2vrf-setup", flag.ExitOnError)
 
