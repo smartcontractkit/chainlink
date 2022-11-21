@@ -224,6 +224,29 @@ describe('OCR2DROracle', () => {
         .withArgs(requestId)
     })
 
+    // it('#estimateCost correctly estimates cost', async () => {
+    //   const estimatedCost = await client.estimateJuelCost(
+    //     'function(){}',
+    //     subscriptionId,
+    //     { gasPrice: 1000000093 },
+    //   )
+
+    //   const requestId = await client
+    //     .connect(roles.oracleNode)
+    //     .sendSimpleRequestWithJavaScript('function(){}', subscriptionId, {
+    //       gasPrice: 1000000093,
+    //     })
+
+    //   const report = encodeReport(
+    //     ethers.utils.hexZeroPad(requestId, 32),
+    //     stringToHex('response'),
+    //     stringToHex(''),
+    //   )
+    //   await expect(oracle.connect(roles.oracleNode).callReport(report))
+    //     .to.emit(oracle, 'OracleResponse')
+    //     .withArgs(requestId)
+    // })
+
     it('#fulfillRequest emits UserCallbackError if callback reverts', async () => {
       const requestId = await placeTestRequest()
 
