@@ -36,7 +36,8 @@ type BridgeTask struct {
 var _ Task = (*BridgeTask)(nil)
 
 var zeroURL = new(url.URL)
-var stalenessCap = time.Duration(30 * time.Minute)
+
+const stalenessCap = time.Duration(30 * time.Minute)
 
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
@@ -117,7 +118,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	// cacheTTL should not exceed stalenessCap.
 	cacheDuration := time.Duration(cacheTTL) * time.Second
 	if cacheDuration > stalenessCap {
-		lggr.Warn("bridge task cacheTTL exceeds stalenessCap, overriding value to stalenessCap")
+		lggr.Warnf("bridge task cacheTTL exceeds stalenessCap %s, overriding value to stalenessCap", stalenessCap)
 		cacheDuration = stalenessCap
 	}
 
