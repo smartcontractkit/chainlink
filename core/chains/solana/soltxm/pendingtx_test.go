@@ -27,10 +27,10 @@ func TestPendingTxContext(t *testing.T) {
 		require.NoError(t, err)
 
 		// start subprocess to wait for context
-		ctx, cancel := context.WithCancel(ctx)
+		processCtx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
-			<-ctx.Done()
+			<-processCtx.Done()
 			wg.Done()
 		}()
 		return solana.SignatureFromBytes(sig), cancel

@@ -173,13 +173,13 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx *solanaGo.Transact
 		}
 
 		// sign tx
-		txMsg, err := newTx.Message.MarshalBinary()
-		if err != nil {
-			return nil, errors.Wrap(err, "error in soltxm.SendWithRetry.MarshalBinary")
+		txMsg, marshalErr := newTx.Message.MarshalBinary()
+		if marshalErr != nil {
+			return nil, errors.Wrap(marshalErr, "error in soltxm.SendWithRetry.MarshalBinary")
 		}
-		sigBytes, err := key.Sign(txMsg)
-		if err != nil {
-			return nil, errors.Wrap(err, "error in soltxm.SendWithRetry.Sign")
+		sigBytes, signErr := key.Sign(txMsg)
+		if signErr != nil {
+			return nil, errors.Wrap(signErr, "error in soltxm.SendWithRetry.Sign")
 		}
 		var finalSig [64]byte
 		copy(finalSig[:], sigBytes)
@@ -217,7 +217,6 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx *solanaGo.Transact
 	go func() {
 		deltaT := 1 // ms
 		tick := time.After(0)
-		bumpInterval := 3 * time.Second // TODO: set as config?
 		bumpCount := uint(0)
 		bumpTime := time.Now()
 		for {
@@ -228,7 +227,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx *solanaGo.Transact
 				return
 			case <-tick:
 				var shouldBump bool
-				if time.Since(bumpTime) > bumpInterval {
+				if time.Since(bumpTime) > txm.cfg.FeeBumpPeriod() {
 					bumpCount++
 					bumpTime = time.Now()
 					shouldBump = true

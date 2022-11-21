@@ -558,6 +558,7 @@ func TestConfig_Marshal(t *testing.T) {
 				MaxComputeUnitPrice:     ptr[uint64](1000),
 				MinComputeUnitPrice:     ptr[uint64](10),
 				DefaultComputeUnitPrice: ptr[uint64](100),
+				FeeBumpPeriod:           relayutils.MustNewDuration(time.Minute),
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://solana.web")},
@@ -928,6 +929,7 @@ FeeEstimatorMode = 'fixed'
 MaxComputeUnitPrice = 1000
 MinComputeUnitPrice = 10
 DefaultComputeUnitPrice = 100
+FeeBumpPeriod = '1m0s'
 
 [[Solana.Nodes]]
 Name = 'primary'

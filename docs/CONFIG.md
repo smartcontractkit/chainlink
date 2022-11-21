@@ -4577,9 +4577,10 @@ SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
 FeeEstimatorMode = 'fixed' # Default
-MaxComputeUnitPrice = 1000000 # Default
+MaxComputeUnitPrice = 1000 # Default
 MinComputeUnitPrice = 0 # Default
 DefaultComputeUnitPrice = 0 # Default
+FeeBumpPeriod = '3s' # Default
 ```
 
 
@@ -4664,7 +4665,7 @@ FeeEstimatorMode is the method used to determine the base fee
 
 ### MaxComputeUnitPrice<a id='Solana-MaxComputeUnitPrice'></a>
 ```toml
-MaxComputeUnitPrice = 1000000 # Default
+MaxComputeUnitPrice = 1000 # Default
 ```
 MaxComputeUnitPrice is the maximum price per compute unit that a transaction can be bumped to
 
@@ -4679,6 +4680,12 @@ MinComputeUnitPrice is the minimum price per compute unit that transaction can h
 DefaultComputeUnitPrice = 0 # Default
 ```
 DefaultComputeUnitPrice is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
+
+### FeeBumpPeriod<a id='Solana-FeeBumpPeriod'></a>
+```toml
+FeeBumpPeriod = '3s' # Default
+```
+FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 
 ## Solana.Nodes<a id='Solana-Nodes'></a>
 ```toml

@@ -267,6 +267,7 @@ func (c *SolanaConfig) AsV1() DBChain {
 			MaxComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MaxComputeUnitPrice)),
 			MinComputeUnitPrice:     null.IntFrom(int64(*c.Chain.MinComputeUnitPrice)),
 			DefaultComputeUnitPrice: null.IntFrom(int64(*c.Chain.DefaultComputeUnitPrice)),
+			FeeBumpPeriod:           c.Chain.FeeBumpPeriod,
 		},
 	}
 }
@@ -331,6 +332,10 @@ func (c *SolanaConfig) MinComputeUnitPrice() uint64 {
 
 func (c *SolanaConfig) DefaultComputeUnitPrice() uint64 {
 	return *c.Chain.DefaultComputeUnitPrice
+}
+
+func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
+	return c.Chain.FeeBumpPeriod.Duration()
 }
 
 func (c *SolanaConfig) Update(cfg soldb.ChainCfg) {

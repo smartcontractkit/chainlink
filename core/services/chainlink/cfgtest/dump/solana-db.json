@@ -17,7 +17,8 @@
         "FeeEstimatorMode": "fixed",
         "MaxComputeUnitPrice": 1000000,
         "MinComputeUnitPrice": 0,
-        "DefaultComputeUnitPrice": 0
+        "DefaultComputeUnitPrice": 0,
+        "FeeBumpPeriod": "3s"
       }
     },
     {
