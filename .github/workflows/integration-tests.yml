@@ -289,7 +289,7 @@ jobs:
       matrix:
         network: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     environment: integration
-    name: ${{ matrix.network }} Smoke Tests
+    name: Live Smoke Tests Matrix
     permissions:
       checks: write
       pull-requests: write
