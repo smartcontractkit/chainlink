@@ -70,8 +70,8 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	}
 }
 
-func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
-	lp.pollAndSaveLogs(ctx, currentBlockNumber)
+func (lp *logPoller) PollAndSavePendingLogs(ctx context.Context, currentBlockNumber int64) int64 {
+	lp.pollAndSavePendingLogs(ctx, currentBlockNumber)
 	lastProcessed, _ := lp.orm.SelectLatestBlock()
 	return lastProcessed.BlockNumber + 1
 }
