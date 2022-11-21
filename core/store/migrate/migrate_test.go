@@ -11,31 +11,31 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 var migrationDir = "migrations"
 
 type OffchainReporting2OracleSpec100 struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relaytypes.Network `toml:"relay"`
-	RelayConfig                       job.JSONConfig     `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
-	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String        `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	JuelsPerFeeCoinPipeline           string             `toml:"juelsPerFeeCoinSource"`
-	CreatedAt                         time.Time          `toml:"-"`
-	UpdatedAt                         time.Time          `toml:"-"`
+	ID                                int32           `toml:"-"`
+	ContractID                        string          `toml:"contractID"`
+	Relay                             relay.Network   `toml:"relay"`
+	RelayConfig                       job.JSONConfig  `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
+	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String     `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline           string          `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                         time.Time       `toml:"-"`
+	UpdatedAt                         time.Time       `toml:"-"`
 }
 
 func getOCR2Spec100() OffchainReporting2OracleSpec100 {
@@ -60,9 +60,8 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 }
 
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
-	_, db := heavyweight.FullTestDB(t, migrationDir, false, false)
+	cfg, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
 	lggr := logger.TestLogger(t)
-	cfg := configtest.NewTestGeneralConfig(t)
 	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
 
@@ -330,7 +329,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
-	_, db := heavyweight.FullTestDB(t, migrationDir, false, false)
+	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
@@ -365,6 +364,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	require.Equal(t, job.JSONConfig{"juelsPerFeeCoinSource": spec.JuelsPerFeeCoinPipeline}, pluginValues.PluginConfig)
 
 	err = goose.Down(db.DB, migrationDir)
+	require.NoError(t, err)
 
 	sql = `SELECT plugin_type, plugin_config FROM offchainreporting2_oracle_specs`
 	err = db.Get(&pluginValues, sql)
@@ -375,4 +375,28 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	err = db.Get(&juels, sql)
 	require.NoError(t, err)
 	require.Equal(t, spec.JuelsPerFeeCoinPipeline, juels)
+}
+
+func TestMigrate(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+	err := goose.UpTo(db.DB, migrationDir, 100)
+	require.NoError(t, err)
+
+	err = migrate.Status(db.DB, lggr)
+	require.NoError(t, err)
+
+	ver, err := migrate.Current(db.DB, lggr)
+	require.NoError(t, err)
+	require.Equal(t, int64(100), ver)
+
+	err = migrate.Migrate(db.DB, lggr)
+	require.NoError(t, err)
+
+	err = migrate.Rollback(db.DB, lggr, null.IntFrom(99))
+	require.NoError(t, err)
+
+	ver, err = migrate.Current(db.DB, lggr)
+	require.NoError(t, err)
+	require.Equal(t, int64(99), ver)
 }

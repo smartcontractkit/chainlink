@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../dev/VRF.sol";
+import "../VRF.sol";
 
 /** ***********************************************************************
     @notice Testing harness for VRF.sol, exposing its internal methods. Not to

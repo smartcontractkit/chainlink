@@ -13,13 +13,13 @@ import (
 	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 )
 
-// User holds the credentials for API user.
+// WebAuthn holds the credentials for API user.
 type WebAuthn struct {
 	Email         string
 	PublicKeyData sqlxTypes.JSONText
 }
 
-// This struct implements the required duo-labs/webauthn/ 'User' interface
+// WebAuthnUser implements the required duo-labs/webauthn/ 'User' interface
 // kept separate from our internal 'User' struct
 type WebAuthnUser struct {
 	Email         string
@@ -268,17 +268,26 @@ func (store *WebAuthnSessionStore) take(key string) (val string, ok bool) {
 }
 
 // GetWebauthnSession unmarshals and returns the webauthn session information
-// from the session cookie.
-func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (webauthn.SessionData, error) {
-	sessionData := webauthn.SessionData{}
-
+// from the session cookie, which is removed.
+func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn.SessionData, err error) {
 	assertion, ok := store.take(key)
 	if !ok {
-		return sessionData, fmt.Errorf("assertion not in challenge store")
+		err = errors.New("assertion not in challenge store")
+		return
 	}
-	err := json.Unmarshal([]byte(assertion), &sessionData)
+	err = json.Unmarshal([]byte(assertion), &data)
+	return
+}
+
+func AddCredentialToUser(o ORM, email string, credential *webauthn.Credential) error {
+	credj, err := json.Marshal(credential)
 	if err != nil {
-		return sessionData, err
+		return err
 	}
-	return sessionData, nil
+
+	token := WebAuthn{
+		Email:         email,
+		PublicKeyData: sqlxTypes.JSONText(credj),
+	}
+	return o.SaveWebAuthn(&token)
 }

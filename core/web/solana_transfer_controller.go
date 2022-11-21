@@ -12,7 +12,8 @@ import (
 
 	solanaGo "github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	solanamodels "github.com/smartcontractkit/chainlink/core/store/models/solana"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -42,7 +43,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 	chain, err := solanaChains.Chain(c.Request.Context(), tr.SolanaChainID)
 	switch err {
-	case solana.ErrChainIDInvalid, solana.ErrChainIDEmpty:
+	case chains.ErrChainIDInvalid, chains.ErrChainIDEmpty:
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	case nil:
@@ -59,12 +60,6 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 
 	if tr.Amount == 0 {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("amount must be greater than zero"))
-		return
-	}
-
-	fromKey, err := tc.App.GetKeyStore().Solana().Get(tr.From.String())
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("fail to get key: %v", err))
 		return
 	}
 
@@ -99,28 +94,11 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 
 	if !tr.AllowHigherAmounts {
-		if err := solanaValidateBalance(reader, tr.From, tr.Amount, tx.Message.ToBase64()); err != nil {
+		if err = solanaValidateBalance(reader, tr.From, tr.Amount, tx.Message.ToBase64()); err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("failed to validate balance: %v", err))
 			return
 		}
 	}
-
-	// marshal transaction
-	msg, err := tx.Message.MarshalBinary()
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to marshal tx: %v", err))
-		return
-	}
-
-	// sign tx
-	sigBytes, err := fromKey.Sign(msg)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to sign tx: %v", err))
-		return
-	}
-	var finalSig [64]byte
-	copy(finalSig[:], sigBytes)
-	tx.Signatures = append(tx.Signatures, finalSig)
 
 	err = txm.Enqueue("", tx)
 	if err != nil {
@@ -133,6 +111,9 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	resource.From = tr.From.String()
 	resource.To = tr.To.String()
 
+	tc.App.GetAuditLogger().Audit(audit.SolanaTransactionCreated, map[string]interface{}{
+		"solanaTransactionResource": resource,
+	})
 	jsonAPIResponse(c, resource, "solana_tx")
 }
 

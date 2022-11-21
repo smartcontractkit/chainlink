@@ -29,18 +29,6 @@ func (c *TestGeneralConfig) OCRDatabaseTimeout() time.Duration {
 	return v
 }
 
-// OCRObservationGracePeriod returns the overridden value, if one exists.
-func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
-	if c.Overrides.OCRObservationGracePeriod != nil {
-		return *c.Overrides.OCRObservationGracePeriod
-	}
-	v, ok := c.GeneralConfig.GlobalOCRObservationGracePeriod()
-	if !ok {
-		return 100 * time.Millisecond
-	}
-	return v
-}
-
 // OCRObservationTimeout returns the overridden value, if one exists.
 func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
 	if c.Overrides.OCRObservationTimeout != nil {

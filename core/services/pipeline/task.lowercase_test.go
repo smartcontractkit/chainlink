@@ -1,16 +1,18 @@
 package pipeline_test
 
 import (
-	"context"
+	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func TestTask_Lowercase_Success(t *testing.T) {
+func TestLowercaseTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -27,34 +29,42 @@ func TestTask_Lowercase_Success(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
+		assertOK := func(result pipeline.Result, runInfo pipeline.RunInfo) {
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.want, result.Value.(string))
+		}
 		t.Run(test.name, func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(nil)
-			task := pipeline.LowercaseTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Input: test.input.(string)}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
-
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			require.NoError(t, result.Error)
-			require.Equal(t, test.want, result.Value.(string))
-		})
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name+" (with pipeline.Vars)", func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": map[string]interface{}{"bar": test.input},
+			t.Run("without vars through job DAG", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.LowercaseTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
-			task := pipeline.LowercaseTask{
-				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Input:    "$(foo.bar)",
-			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{})
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			require.NoError(t, result.Error)
-			require.Equal(t, test.want, result.Value.(string))
+			t.Run("without vars through input param", func(t *testing.T) {
+				inputStr := fmt.Sprintf("%v", test.input)
+				if inputStr == "" {
+					// empty input parameter is indistinguishable from not providing it at all
+					// in that case the task will use an input defined by the job DAG
+					return
+				}
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.LowercaseTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:    inputStr,
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+			})
+			t.Run("with vars", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(map[string]interface{}{
+					"foo": map[string]interface{}{"bar": test.input},
+				})
+				task := pipeline.LowercaseTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:    "$(foo.bar)",
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+			})
 		})
 	}
 }

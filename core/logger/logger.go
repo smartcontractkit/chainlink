@@ -27,10 +27,23 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
-	if os.Getenv("LOG_COLOR") != "true" {
+	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+	var logColor string
+	if v1, v2 := os.Getenv("LOG_COLOR"), os.Getenv("CL_LOG_COLOR"); v1 != "" && v2 != "" {
+		if v1 != v2 {
+			panic("you may only set one of LOG_COLOR and CL_LOG_COLOR environment variables, not both")
+		}
+	} else if v1 == "" {
+		logColor = v2
+	} else if v2 == "" {
+		logColor = v1
+	}
+	if logColor != "true" {
 		InitColor(false)
 	}
 }
+
+//go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
@@ -38,18 +51,18 @@ func init() {
 // Loggers should be injected (and usually Named as well): e.g. lggr.Named("<service name>")
 //
 // Tests
-//  - Tests should use a TestLogger, with NewLogger being reserved for actual
-//    runtime and limited direct testing.
+//   - Tests should use a TestLogger, with NewLogger being reserved for actual
+//     runtime and limited direct testing.
 //
 // Levels
-//  - Fatal: Logs and then calls os.Exit(1). Be careful about using this since it does NOT unwind the stack and may exit uncleanly.
-//  - Panic: Unrecoverable error. Example: invariant violation, programmer error
-//  - Critical: Requires quick action from the node op, obviously these should happen extremely rarely. Example: failed to listen on TCP port
-//  - Error: Something bad happened, and it was clearly on the node op side. No need for immediate action though. Example: database write timed out
-//  - Warn: Something bad happened, not clear who/what is at fault. Node ops should have a rough look at these once in a while to see whether anything stands out. Example: connection to peer was closed unexpectedly. observation timed out.
-//  - Info: High level information. First level we’d expect node ops to look at. Example: entered new epoch with leader, made an observation with value, etc.
-//  - Debug: Useful for forensic debugging, but we don't expect nops to look at this. Example: Got a message, dropped a message, ...
-//  - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
+//   - Fatal: Logs and then calls os.Exit(1). Be careful about using this since it does NOT unwind the stack and may exit uncleanly.
+//   - Panic: Unrecoverable error. Example: invariant violation, programmer error
+//   - Critical: Requires quick action from the node op, obviously these should happen extremely rarely. Example: failed to listen on TCP port
+//   - Error: Something bad happened, and it was clearly on the node op side. No need for immediate action though. Example: database write timed out
+//   - Warn: Something bad happened, not clear who/what is at fault. Node ops should have a rough look at these once in a while to see whether anything stands out. Example: connection to peer was closed unexpectedly. observation timed out.
+//   - Info: High level information. First level we’d expect node ops to look at. Example: entered new epoch with leader, made an observation with value, etc.
+//   - Debug: Useful for forensic debugging, but we don't expect nops to look at this. Example: Got a message, dropped a message, ...
+//   - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
 //
 // Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
 type Logger interface {
@@ -60,10 +73,6 @@ type Logger interface {
 	//   a := l.Named("a") // logger=a
 	//   b := a.Named("b") // logger=a.b
 	Named(name string) Logger
-
-	// NewRootLogger creates a new root Logger with an independent log level
-	// unaffected by upstream calls to SetLogLevel.
-	NewRootLogger(lvl zapcore.Level) (Logger, error)
 
 	// SetLogLevel changes the log level for this and all connected Loggers.
 	SetLogLevel(zapcore.Level)
@@ -117,24 +126,6 @@ type Logger interface {
 	Recover(panicErr interface{})
 }
 
-// Constants for service names for package specific logging configuration
-const (
-	HeadTracker     = "HeadTracker"
-	HeadListener    = "HeadListener"
-	HeadSaver       = "HeadSaver"
-	HeadBroadcaster = "HeadBroadcaster"
-	FluxMonitor     = "FluxMonitor"
-	Keeper          = "Keeper"
-)
-
-func GetLogServices() []string {
-	return []string{
-		HeadTracker,
-		FluxMonitor,
-		Keeper,
-	}
-}
-
 // newZapConfigProd returns a new production zap.Config.
 func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
 	config := newZapConfigBase()
@@ -148,52 +139,49 @@ func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
 }
 
 func verShaNameStatic() string {
-	return verShaName(static.Version, static.Sha)
-}
-
-func verShaName(ver, sha string) string {
-	if sha == "" {
-		sha = "unset"
-	} else if len(sha) > 7 {
-		sha = sha[:7]
-	}
-	if ver == "" {
-		ver = "unset"
-	}
+	sha, ver := static.Short()
 	return fmt.Sprintf("%s@%s", ver, sha)
 }
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
+// Deprecated: This depends on legacy environment variables.
 func NewLogger() (Logger, func() error) {
 	var c Config
 	var parseErrs []string
+	var warnings []string
 
 	var invalid string
-	c.LogLevel, invalid = envvar.LogLevel.ParseLogLevel()
+	c.LogLevel, invalid = envvar.LogLevel.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
-
 	c.Dir = os.Getenv("LOG_FILE_DIR")
 	if c.Dir == "" {
 		var invalid2 string
-		c.Dir, invalid2 = envvar.RootDir.ParseString()
+		c.Dir, invalid2 = envvar.RootDir.Parse()
 		if invalid2 != "" {
 			parseErrs = append(parseErrs, invalid2)
 		}
 	}
 
-	c.JsonConsole, invalid = envvar.JSONConsole.ParseBool()
+	c.JsonConsole, invalid = envvar.JSONConsole.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
 
 	var fileMaxSize utils.FileSize
-	fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
-	c.FileMaxSize = int(fileMaxSize)
+	fileMaxSize, invalid = envvar.LogFileMaxSize.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
+	}
+	if fileMaxSize <= 0 {
+		c.FileMaxSizeMB = 0 // disabled
+	} else if fileMaxSize < utils.MB {
+		c.FileMaxSizeMB = 1 // 1Mb is the minimum accepted by logging backend
+		warnings = append(warnings, fmt.Sprintf("LogFileMaxSize %s is too small: using default %s", fileMaxSize, utils.FileSize(utils.MB)))
+	} else {
+		c.FileMaxSizeMB = int(fileMaxSize / utils.MB)
 	}
 
 	if c.DebugLogsToDisk() {
@@ -202,29 +190,32 @@ func NewLogger() (Logger, func() error) {
 			maxBackups int64
 		)
 
-		fileMaxAge, invalid = envvar.LogFileMaxAge.ParseInt64()
-		c.FileMaxAge = int(fileMaxAge)
+		fileMaxAge, invalid = envvar.LogFileMaxAge.Parse()
+		c.FileMaxAgeDays = int(fileMaxAge)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 
-		maxBackups, invalid = envvar.LogFileMaxBackups.ParseInt64()
+		maxBackups, invalid = envvar.LogFileMaxBackups.Parse()
 		c.FileMaxBackups = int(maxBackups)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 	}
 
-	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
+	c.UnixTS, invalid = envvar.LogUnixTS.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
 
-	l, close := c.New()
+	l, closeLogger := c.New()
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l.Named(verShaNameStatic()), close
+	for _, msg := range warnings {
+		l.Warn(msg)
+	}
+	return l.Named(verShaNameStatic()), closeLogger
 }
 
 type Config struct {
@@ -232,8 +223,8 @@ type Config struct {
 	Dir            string
 	JsonConsole    bool
 	UnixTS         bool
-	FileMaxSize    int // megabytes
-	FileMaxAge     int // days
+	FileMaxSizeMB  int
+	FileMaxAgeDays int
 	FileMaxBackups int // files
 }
 
@@ -242,27 +233,27 @@ type Config struct {
 func (c *Config) New() (Logger, func() error) {
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, close, err := zapLoggerConfig{
+	l, closeLogger, err := zapDiskLoggerConfig{
 		local:          *c,
-		Config:         cfg,
 		diskStats:      utils.NewDiskStatsProvider(),
 		diskPollConfig: newDiskPollConfig(diskPollInterval),
-	}.newLogger()
+	}.newLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l), close
+	return newPrometheusLogger(l), closeLogger
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
 func (c Config) DebugLogsToDisk() bool {
-	return c.FileMaxSize > 0
+	return c.FileMaxSizeMB > 0
 }
 
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
-	return utils.FileSize(c.FileMaxSize * (c.FileMaxBackups + 1))
+	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
 }
 
 // InitColor explicitly sets the global color.NoColor option.

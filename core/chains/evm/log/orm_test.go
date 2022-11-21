@@ -12,13 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -73,6 +74,56 @@ func TestORM_broadcasts(t *testing.T) {
 		require.Equal(t, null.BoolFrom(true), consumed)
 	}))
 
+	t.Run("MarkBroadcastsConsumed Success", func(t *testing.T) {
+		var (
+			err          error
+			blockHashes  []common.Hash
+			blockNumbers []uint64
+			logIndexes   []uint
+			jobIDs       []int32
+		)
+		for i := 0; i < 3; i++ {
+			l := cltest.RandomLog(t)
+			err = orm.CreateBroadcast(l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
+			require.NoError(t, err)
+			blockHashes = append(blockHashes, l.BlockHash)
+			blockNumbers = append(blockNumbers, l.BlockNumber)
+			logIndexes = append(logIndexes, l.Index)
+			jobIDs = append(jobIDs, listener.JobID())
+
+		}
+		err = orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs)
+		require.NoError(t, err)
+
+		for i := range blockHashes {
+			was, err := orm.WasBroadcastConsumed(blockHashes[i], logIndexes[i], jobIDs[i])
+			require.NoError(t, err)
+			require.True(t, was)
+		}
+	})
+
+	t.Run("MarkBroadcastsConsumed Failure", func(t *testing.T) {
+		var (
+			err          error
+			blockHashes  []common.Hash
+			blockNumbers []uint64
+			logIndexes   []uint
+			jobIDs       []int32
+		)
+		for i := 0; i < 5; i++ {
+			l := cltest.RandomLog(t)
+			err = orm.CreateBroadcast(l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
+			require.NoError(t, err)
+			blockHashes = append(blockHashes, l.BlockHash)
+			blockNumbers = append(blockNumbers, l.BlockNumber)
+			logIndexes = append(logIndexes, l.Index)
+			jobIDs = append(jobIDs, listener.JobID())
+
+		}
+		err = orm.MarkBroadcastsConsumed(blockHashes[:len(blockHashes)-2], blockNumbers, logIndexes, jobIDs)
+		require.Error(t, err)
+	})
+
 	t.Run("WasBroadcastConsumed_true", func(t *testing.T) {
 		was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
 		require.NoError(t, err)
@@ -82,7 +133,7 @@ func TestORM_broadcasts(t *testing.T) {
 
 func TestORM_pending(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
 	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
@@ -108,7 +159,7 @@ func TestORM_pending(t *testing.T) {
 
 func TestORM_MarkUnconsumed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -207,7 +258,7 @@ func TestORM_Reinitialize(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewGeneralConfig(t, nil)
 			lggr := logger.TestLogger(t)
 			orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 

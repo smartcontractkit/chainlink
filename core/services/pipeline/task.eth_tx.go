@@ -10,17 +10,18 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//
 // Return types:
-//     nil
 //
+//	nil
 type ETHTxTask struct {
 	BaseTask         `mapstructure:",squash"`
 	From             string `json:"from"`
@@ -29,14 +30,21 @@ type ETHTxTask struct {
 	GasLimit         string `json:"gasLimit"`
 	TxMeta           string `json:"txMeta"`
 	MinConfirmations string `json:"minConfirmations"`
-	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
-	TransmitChecker  string `json:"transmitChecker"`
+	// FailOnRevert, if set, will error the task if the transaction reverted on-chain
+	// If unset, the receipt will be passed as output
+	// It has no effect if minConfirmations == 0
+	FailOnRevert    string `json:"failOnRevert"`
+	EVMChainID      string `json:"evmChainID" mapstructure:"evmChainID"`
+	TransmitChecker string `json:"transmitChecker"`
 
-	keyStore ETHKeyStore
-	chainSet evm.ChainSet
+	forwardingAllowed bool
+	specGasLimit      *uint32
+	keyStore          ETHKeyStore
+	chainSet          evm.ChainSet
+	jobType           string
 }
 
-//go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ETHKeyStore --output ./mocks/ --case=underscore
 
 type ETHKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
@@ -66,6 +74,8 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
+	maximumGasLimit := SelectGasLimit(cfg, t.jobType, t.specGasLimit)
+
 	var (
 		fromAddrs             AddressSliceParam
 		toAddr                AddressParam
@@ -74,31 +84,34 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		txMetaMap             MapParam
 		maybeMinConfirmations MaybeUint64Param
 		transmitCheckerMap    MapParam
+		failOnRevert          BoolParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
-		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), cfg.EvmGasLimitDefault())), "gasLimit"),
+		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), maximumGasLimit)), "gasLimit"),
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
 		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
 		errors.Wrap(ResolveParam(&transmitCheckerMap, From(VarExpr(t.TransmitChecker, vars), JSONWithVarExprs(t.TransmitChecker, vars, false), MapParam{})), "transmitChecker"),
+		errors.Wrap(ResolveParam(&failOnRevert, From(NonemptyString(t.FailOnRevert), false)), "failOnRevert"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-
 	var minOutgoingConfirmations uint64
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minOutgoingConfirmations = min
 	} else {
-		minOutgoingConfirmations = cfg.MinRequiredOutgoingConfirmations()
+		minOutgoingConfirmations = uint64(cfg.EvmFinalityDepth())
 	}
 
 	txMeta, err := decodeMeta(txMetaMap)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
+	txMeta.FailOnRevert = null.BoolFrom(bool(failOnRevert))
+	setJobIDOnMeta(lggr, vars, txMeta)
 
 	transmitChecker, err := decodeTransmitChecker(transmitCheckerMap)
 	if err != nil {
@@ -112,23 +125,33 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while querying keystore: %v", err)}, retryableRunInfo()
 	}
 
-	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
+	// TODO(sc-55115): Allow job specs to pass in the strategy that they want
 	strategy := txmgr.NewSendEveryStrategy()
 
+	forwarderAddress := common.Address{}
+	if t.forwardingAllowed {
+		var fwderr error
+		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(fromAddr)
+		if fwderr != nil {
+			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
+		}
+	}
+
 	newTx := txmgr.NewTx{
-		FromAddress:    fromAddr,
-		ToAddress:      common.Address(toAddr),
-		EncodedPayload: []byte(data),
-		GasLimit:       uint64(gasLimit),
-		Meta:           txMeta,
-		Strategy:       strategy,
-		Checker:        transmitChecker,
+		FromAddress:      fromAddr,
+		ToAddress:        common.Address(toAddr),
+		EncodedPayload:   []byte(data),
+		GasLimit:         uint32(gasLimit),
+		Meta:             txMeta,
+		ForwarderAddress: forwarderAddress,
+		Strategy:         strategy,
+		Checker:          transmitChecker,
 	}
 
 	if minOutgoingConfirmations > 0 {
 		// Store the task run ID, so we can resume the pipeline when tx is confirmed
 		newTx.PipelineTaskRunID = &t.uuid
-		newTx.MinConfirmations = null.Uint32From(uint32(minOutgoingConfirmations))
+		newTx.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
 	_, err = txManager.CreateEthTransaction(newTx)
@@ -156,7 +179,11 @@ func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
 					i, err2 := strconv.ParseInt(data.(string), 10, 32)
 					return int32(i), err2
 				case reflect.TypeOf(common.Hash{}):
-					return common.HexToHash(data.(string)), nil
+					hb, err := utils.TryParseHex(data.(string))
+					if err != nil {
+						return nil, err
+					}
+					return common.BytesToHash(hb), nil
 				}
 			}
 			return data, nil
@@ -183,7 +210,11 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 			case stringType:
 				switch to {
 				case reflect.TypeOf(common.Address{}):
-					return common.HexToAddress(data.(string)), nil
+					ab, err := utils.TryParseHex(data.(string))
+					if err != nil {
+						return nil, err
+					}
+					return common.BytesToAddress(ab), nil
 				}
 			}
 			return data, nil
@@ -198,4 +229,19 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
 	}
 	return transmitChecker, nil
+}
+
+// txMeta is really only used for logging, so this is best-effort
+func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EthTxMeta) {
+	jobID, err := vars.Get("jobSpec.databaseID")
+	if err != nil {
+		return
+	}
+	switch v := jobID.(type) {
+	case int64:
+		vv := int32(v)
+		meta.JobID = &vv
+	default:
+		logger.Sugared(lggr).AssumptionViolationf("expected type int32 for vars.jobSpec.databaseID; got: %T (value: %v)", jobID, jobID)
+	}
 }

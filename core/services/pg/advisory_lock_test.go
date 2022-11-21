@@ -11,24 +11,25 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-func newAdvisoryLock(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) pg.AdvisoryLock {
-	return pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), logger.TestLogger(t), cfg.AdvisoryLockCheckInterval())
+func newAdvisoryLock(t *testing.T, db *sqlx.DB, cfg pg.AdvisoryLockConfig) pg.AdvisoryLock {
+	return pg.NewAdvisoryLock(db, logger.TestLogger(t), cfg)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_AdvisoryLock(t *testing.T) {
-	cfg, db := heavyweight.FullTestDB(t, "advisorylock", false, false)
+	cfg, db := heavyweight.FullTestDBEmpty(t, "advisorylock")
 	check := 1 * time.Second
 	cfg.Overrides.AdvisoryLockCheckInterval = &check
 
 	t.Run("takes lock", func(t *testing.T) {
 		advLock1 := newAdvisoryLock(t, db, cfg)
 
-		err := advLock1.TakeAndHold(context.Background())
+		err := advLock1.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 
 		var lockTaken bool
@@ -39,7 +40,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		started2 := make(chan struct{})
 		advLock2 := newAdvisoryLock(t, db, cfg)
 		go func() {
-			err := advLock2.TakeAndHold(context.Background())
+			err := advLock2.TakeAndHold(testutils.Context(t))
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -51,7 +52,7 @@ func Test_AdvisoryLock(t *testing.T) {
 
 		select {
 		case <-started2:
-		case <-time.After(cltest.WaitTimeout(t)):
+		case <-time.After(testutils.WaitTimeout(t)):
 			t.Fatal("timed out waiting for advLock2 to start")
 		}
 
@@ -73,14 +74,14 @@ func Test_AdvisoryLock(t *testing.T) {
 		advLock := newAdvisoryLock(t, db, cfg)
 
 		// simulate another application holding advisory lock to force it to retry
-		ctx, cancel := pg.DefaultQueryCtx()
+		ctx, cancel := context.WithTimeout(testutils.Context(t), cfg.DatabaseDefaultQueryTimeout())
 		defer cancel()
 		conn, err := db.Conn(ctx)
 		require.NoError(t, err)
 		_, err = conn.ExecContext(ctx, `SELECT pg_advisory_lock($1)`, cfg.AdvisoryLockID())
 		require.NoError(t, err)
 
-		conn2, err := db.Connx(context.Background())
+		conn2, err := db.Connx(testutils.Context(t))
 		require.NoError(t, err)
 
 		pg.SetConn(advLock, conn2)
@@ -90,7 +91,7 @@ func Test_AdvisoryLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			err := advLock.TakeAndHold(context.Background())
+			err := advLock.TakeAndHold(testutils.Context(t))
 			require.NoError(t, err)
 			close(gotLease)
 		}()
@@ -99,12 +100,12 @@ func Test_AdvisoryLock(t *testing.T) {
 		time.Sleep(cfg.AdvisoryLockCheckInterval() * 5)
 
 		// Release the dummy advisory lock to allow the lease locker to take it now
-		_, err = conn.ExecContext(context.Background(), `SELECT pg_advisory_unlock($1)`, cfg.AdvisoryLockID())
+		_, err = conn.ExecContext(testutils.Context(t), `SELECT pg_advisory_unlock($1)`, cfg.AdvisoryLockID())
 		require.NoError(t, err)
 
 		select {
 		case <-gotLease:
-		case <-time.After(cltest.WaitTimeout(t)):
+		case <-time.After(testutils.WaitTimeout(t)):
 			t.Fatal("timed out waiting for lease lock to start")
 		}
 
@@ -121,14 +122,14 @@ func Test_AdvisoryLock(t *testing.T) {
 	t.Run("release lock with Release() func", func(t *testing.T) {
 		advisoryLock := newAdvisoryLock(t, db, cfg)
 
-		err := advisoryLock.TakeAndHold(context.Background())
+		err := advisoryLock.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 
 		advisoryLock.Release()
 
 		advisoryLock2 := newAdvisoryLock(t, db, cfg)
 		defer advisoryLock2.Release()
-		err = advisoryLock2.TakeAndHold(context.Background())
+		err = advisoryLock2.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 	})
 
@@ -136,12 +137,12 @@ func Test_AdvisoryLock(t *testing.T) {
 		advisoryLock1 := newAdvisoryLock(t, db, cfg)
 		advisoryLock2 := newAdvisoryLock(t, db, cfg)
 
-		err := advisoryLock1.TakeAndHold(context.Background())
+		err := advisoryLock1.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 
 		awaiter := cltest.NewAwaiter()
 		go func() {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(testutils.Context(t))
 			go func() {
 				<-time.After(3 * time.Second)
 				cancel()

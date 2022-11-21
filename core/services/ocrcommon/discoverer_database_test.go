@@ -1,15 +1,16 @@
 package ocrcommon_test
 
 import (
-	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
@@ -21,7 +22,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
 	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2)
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	t.Run("StoreAnnouncement writes a value", func(t *testing.T) {
 		ann := []byte{1, 2, 3}

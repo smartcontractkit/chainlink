@@ -5,62 +5,370 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+<!-- unreleased -->
 ## [Unreleased]
 
 ### Added
 
-- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again.
+- New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+
+#### TOML Configuration (optional)
+
+Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
+This is currently _optional_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method.
+
+##### How to use
+
+TOML configuration can be enabled by simply using the new `-config <filename>` flag or `CL_CONFIG` environment variable.
+Multiple files can be used (`-c configA.toml -c configB.toml`), and will be applied in order with duplicated fields overriding any earlier values.
+
+Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
+Secrets must be configured manually and passed via `-secrets <filename>` or equivalent environment variables.
+
+**Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
+
+##### Detailed Docs
+
+[CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+
+### Fixed
+
+- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
+
+### Updated
+
+- `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
+
+<!-- unreleasedstop -->
+
+## 1.10.0 - 2022-11-15
+
+### Added
+
+#### Bridge caching
+##### BridgeCacheTTL
+
+- Default: 0s
+
+When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
+
+Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
+
+#### New optional external logger added
+##### AUDIT_LOGGER_FORWARD_TO_URL
+
+- Default: _none_
+
+When set, this environment variable configures and enables an optional HTTP logger which is used specifically to send audit log events. Audit logs events are emitted when specific actions are performed by any of the users through the node's API. The value of this variable should be a full URL. Log items will be sent via POST
+
+There are audit log implemented for the following events:
+  - Auth & Sessions (new session, login success, login failed, 2FA enrolled, 2FA failed, password reset, password reset failed, etc.)
+  - CRUD actions for all resources (add/create/delete resources such as bridges, nodes, keys)
+  - Sensitive actions (keys exported/imported, config changed, log level changed, environment dumped)
+
+A full list of audit log enum types can be found in the source within the `audit` package (`audit_types.go`).
+
+The following `AUDIT_LOGGER_*` environment variables below configure this optional audit log HTTP forwarder.
+
+##### AUDIT_LOGGER_HEADERS
+
+- Default: _none_
+
+An optional list of HTTP headers to be added for every optional audit log event. If the above `AUDIT_LOGGER_FORWARD_TO_URL` is set, audit log events will be POSTed to that URL, and will include headers specified in this environment variable. One example use case is auth for example: ```AUDIT_LOGGER_HEADERS="Authorization||{{token}}"```.
+
+Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\\'). An example of multiple key value pairs:
+```AUDIT_LOGGER_HEADERS="Authorization||{{token}}\Some-Other-Header||{{token2}}"```
+
+##### AUDIT_LOGGER_JSON_WRAPPER_KEY
+
+- Default: _none_
+
+When the audit log HTTP forwarder is enabled, if there is a value set for this optional environment variable then the POST body will be wrapped in a dictionary in a field specified by the value of set variable. This is to help enable specific logging service integrations that may require the event JSON in a special shape. For example: `AUDIT_LOGGER_JSON_WRAPPER_KEY=event` will create the POST body:
+```
+{
+  "event": {
+    "eventID":  EVENT_ID_ENUM,
+    "data": ...
+  }
+}
+```
+
+#### Automatic connectivity detection; Chainlink will no longer bump excessively if the network is broken
+
+This feature only applies on EVM chains when using BlockHistoryEstimator (the most common case).
+
+Chainlink will now try to automatically detect if there is a transaction propagation/connectivity issue and prevent bumping in these cases. This can help avoid the situation where RPC nodes are not propagating transactions for some reason (e.g. go-ethereum bug, networking issue etc) and Chainlink responds in a suboptimal way by bumping transactions to a very high price in an effort to get them mined. This can lead to unnecessary expense when the connectivity issue is resolved and the transactions are finally propagated into the mempool.
+
+This feature is enabled by default with fairly conservative settings: if a transaction has been priced above the 90th percentile of the past 12 blocks, but still wants to bump due to not being mined, a connectivity/propagation issue is assumed and all further bumping will be prevented for this transaction. In this situation, Chainlink will start firing the `block_history_estimator_connectivity_failure_count` prometheus counter and logging at critical level until the transaction is mined.
+
+The default settings should work fine for most users. For advanced users, the values can be tweaked by changing `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_BLOCKS` and `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_PERCENTILE`.
+
+To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_BLOCKS=0`.
+
+### Changed
+
+- The default maximum gas price on most networks is now effectively unlimited.
+  - Chainlink will bump as high as necessary to get a transaction included. The connectivity checker is relied on to prevent excessive bumping when there is a connectivity failure.
+  - If you want to change this, you can manually set `ETH_MAX_GAS_PRICE_WEI`.
+
+- EVMChainID field will be auto-added with default chain id to job specs of newly created OCR jobs, if not explicitly included.
+  - Old OCR jobs missing EVMChainID will continue to run on any chain ETH_CHAIN_ID is set to (or first chain if unset), which may be changed after a restart.
+  - Newly created OCR jobs will only run on a single fixed chain, unaffected by changes to ETH_CHAIN_ID after the job is added.
+  - It should no longer be possible to end up with multiple OCR jobs for a single contract running on the same chain; only one job per contract per chain is allowed
+  - If there are any existing duplicate jobs (per contract per chain), all but the job with the latest creation date will be pruned during upgrade.
+
+### Fixed
+
+- Fixed minor bug where Chainlink would attempt (and fail) to estimate a tip cap higher than the maximum configured gas price in EIP1559 mode. It now caps the tipcap to the max instead of erroring.
+- Fixed bug whereby it was impossible to remove eth keys that had extant transactions. Now, removing an eth key will drop all associated data automatically including past transactions.
+
+## 1.9.0 - 2022-10-12
+
+### Added
+
+- Added `length` and `lessthan` tasks (pipeline).
+- Added `gasUnlimited` parameter to `ethcall` task. 
+- `/keys` page in Operator UI now exposes several admin commands, namely:
+  - "abandon" to abandon all current txes
+  - enable/disable a key for a given chain
+  - manually set the nonce for a key
+  See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
+
+## 1.8.1 - 2022-09-29
+
+### Added
+
+-  New `GAS_ESTIMATOR_MODE` for Arbitrum to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
+   -  NOTE: It is recommended to remove `GAS_ESTIMATOR_MODE` as an env var if you have it set in order to use the new default.
+   -  This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
+- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+
+### Changed
+
+- EIP1559 is now enabled by default on Goerli network
+
+## 1.8.0 - 2022-09-01
+
+### Added
+
+- Added `hexencode` and `base64encode` tasks (pipeline).
+- `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
+- Keypath now supports paths with any depth, instead of limiting it to 2
+- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+- Updated `Arbitrum Rinkeby & Mainnet & Mainnet` configurationss for Nitro
+- Add `Arbitrum Goerli` configuration
+- It is now possible to use the same key across multiple chains.
+- `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
+  - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
+  - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
+  For chains having `NODE_NO_NEW_HEADS_THRESHOLD=0` (such as Arbitrum, Optimism), the implementation will fall back to `RoundRobin` mode.
+- New `keys eth chain` command
+  - This can also be accessed at `/v2/keys/evm/chain`.
+  - Usage examples:
+    - Manually (re)set a nonce:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+    - Enable a key for a particular chain:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --enable`
+    - Disable a key for a particular chain:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --disable`
+    - Abandon all currently pending transactions (use with caution!):
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --abandon`
+  - Commands can be combined e.g.
+    - Reset nonce and abandon all currently pending transaction:
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42 --abandon`
+
+### Changed
+
+- The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
+- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
+
+## 1.7.1 - 2022-08-22
+
+### Added
+
+- `Arbitrum Nitro` client error support
+
+## 1.7.0 - 2022-08-08
+
+### Added
+
+- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
+- Added official support for Sepolia chain
+- Added `hexdecode` and `base64decode` tasks (pipeline).
+- Added support for Besu execution client (note that while Chainlink supports Besu, Besu itself [has](https://github.com/hyperledger/besu/issues/4212) [multiple](https://github.com/hyperledger/besu/issues/4192) [bugs](https://github.com/hyperledger/besu/issues/4114) that make it unreliable).
+- Added the functionality to allow the root admin CLI user (and any additional admin users created) to create and assign tiers of role based access to new users. These new API users will be able to log in to the Operator UI independently, and can each have specific roles tied to their account. There are four roles: `admin`, `edit`, `run`, and `view`.
+  - User management can be configured through the use of the new admin CLI command `chainlink admin users`. Be sure to run `chainlink adamin login`. For example, a readonly user can be created with: `chainlink admin users create --email=operator-ui-read-only@test.com --role=view`.
+  - Updated documentation repo with a break down of actions to required role level
+- Added per job spec and per job type gas limit control. The following rule of precedence is applied:
+
+1. task-specific parameter `gasLimit` overrides anything else when specified (e.g. `ethtx` task has such a parameter).
+2. job-spec attribute `gasLimit` has the scope of the current job spec only.
+3. job-type limits `ETH_GAS_LIMIT_*_JOB_TYPE` affect any jobs of the corresponding type:
+
+```
+ETH_GAS_LIMIT_OCR_JOB_TYPE    # EVM.GasEstimator.LimitOCRJobType
+ETH_GAS_LIMIT_DR_JOB_TYPE     # EVM.GasEstimator.LimitDRJobType
+ETH_GAS_LIMIT_VRF_JOB_TYPE    # EVM.GasEstimator.LimitVRFJobType
+ETH_GAS_LIMIT_FM_JOB_TYPE     # EVM.GasEstimator.LimitFMJobType
+ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
+```
+
+4. global `ETH_GAS_LIMIT_DEFAULT` (`EVM.GasEstimator.LimitDefault`) value is the last resort.
+
+### Fixed
+
+- Addressed a very rare bug where using multiple nodes with differently configured RPC tx fee caps could cause missed transaction. Reminder to everyone to ensure that your RPC nodes have no caps (for more information see the [performance and tuning guide](https://docs.chain.link/docs/evm-performance-configuration/)).
+- Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
+
+## [1.6.0] - 2022-07-20
+
+### Changed
+
+- After feedback from users, password complexity requirements have been simplified. These are the new, simplified requirements for any kind of password used with Chainlink:
+1. Must be 16 characters or more
+2. Must not contain leading or trailing whitespace
+3. User passwords must not contain the user's API email
+
+- Simplified the Keepers job spec by removing the observation source from the required parameters.
+
+## [1.5.1] - 2022-06-27
+
+### Fixed
+
+- Fix rare out-of-sync to invalid-chain-id transaction
+- Fix key-specific max gas limits for gas estimator and ensure we do not bump gas beyond key-specific limits
+- Fix EVM_FINALITY_DEPTH => ETH_FINALITY_DEPTH
+
+## [1.5.0] - 2022-06-21
+
+### Changed
+
+- Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+```
+Must be longer than 12 characters
+Must comprise at least 3 of:
+	lowercase characters
+	uppercase characters
+	numbers
+	symbols
+Must not comprise:
+	More than three identical consecutive characters
+	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
+```
+For backward compatibility all insecure passwords will continue to work, however in a future version of Chainlink insecure passwords will prevent application boot. To bypass this check at your own risk, you may set `SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true`.
+
+- `MIN_OUTGOING_CONFIRMATIONS` has been removed and no longer has any effect. `ETH_FINALITY_DEPTH` is now used as the default for `ethtx` confirmations instead. You may override this on a per-task basis by setting `minConfirmations` in the task definition e.g. `foo [type=ethtx minConfirmations=42 ...]`. NOTE: This may have a minor impact on performance on very high throughput chains. If you don't care about reporting task status in the UI, it is recommended to set `minConfirmations=0` in your job specs. For more details, see the [relevant section of the performance tuning guide](https://www.notion.so/chainlink/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c#e9998c2f722540b597301a640f53cfd4).
+
+- The following ENV variables have been deprecated, and will be removed in a future release: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
+
+- The `Optimism2` `GAS_ESTIMATOR_MODE` has been renamed to `L2Suggested`. The old name is still supported for now.
+
+- The `p2pBootstrapPeers` property on OCR2 job specs has been renamed to `p2pv2Bootstrappers`.
+
+### Added
+- Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+- In job pipeline (direct request) the three new block variables are exposed:
+  - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
+  - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
+  - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
+- `ethtx` tasks can now be configured to error if the transaction reverts on-chain. You must set `failOnRevert=true` on the task to enable this behavior, like so:
+
+`foo [type=ethtx failOnRevert=true ...]`
+
+So the `ethtx` task now works as follows:
+
+If minConfirmations == 0, task always succeeds and nil is passed as output
+If minConfirmations > 0, the receipt is passed through as output
+If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on revert
+
+If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
+
+- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
+
+
+### Fixed
+- Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
+- Correctly handle the case where bumped gas would exceed the RPC node's configured maximum on Fantom (note that node operators should check their Fantom RPC node configuration and remove the fee cap if there is one)
+- Fixed handling of Metis internal fee change
+
+### Removed
+
+- The `Optimism` OVM 1.0 `GAS_ESTIMATOR_MODE` has been removed.
+
+## [1.4.1] - 2022-05-11
+
+### Fixed
+
+- Ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+- Fixes parsing of float values on job specs
+
+## [1.4.0] - 2022-05-02
+
+### Added
+
+- JSON parse tasks (v2) now support a custom `separator` parameter to substitute for the default `,`.
+- Log slow SQL queries
+- Fantom and avalanche block explorer urls
+- Display `requestTimeout` in job UI
+- Keeper upkeep order is shuffled
+
+### Fixed
+
+- `LOG_FILE_MAX_SIZE` handling
+- Improved websocket subscription management (fixes issues with multiple-primary-node failover from 1.3.x)
+- VRFv2 fixes and enhancements
+- UI support for `minContractPaymentLinkJuels`
+
+## [1.3.0] - 2022-04-18
+
+### Added
+
+- Added support for Keeper registry v1.2 in keeper jobs
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
+  - `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
+  - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
+  - `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
 - Added support for the `force` flag on `chainlink blocks replay`. If set to true, already consumed logs that would otherwise be skipped will be rebroadcasted.
 - Added version compatibility check when using CLI to login to a remote node. flag `bypass-version-check` skips this check.
-- Interrim solution to set multiple nodes/chains from ENV. This is a temporary stand-in until configuration is overhauled and will be removed in future. Set as such: `EVM_NODES='{...}'` where the var is a JSON array containing the node specifications. This is not compatible with using any other way to specify node via env (e.g. `ETH_URL` etc).
+- Interrim solution to set multiple nodes/chains from ENV. This gives the ability to specify multiple RPCs that the Chainlink node will constantly monitor for health and sync status, detecting dead nodes and out of sync nodes, with automatic failover. This is a temporary stand-in until configuration is overhauled and will be removed in future in favor of a config file. Set as such: `EVM_NODES='{...}'` where the var is a JSON array containing the node specifications. This is not compatible with using any other way to specify node via env (e.g. `ETH_URL`, `ETH_SECONDARY_URL`, `ETH_CHAIN_ID` etc). **WARNING**: Setting this environment variable will COMPLETELY ERASE your `evm_nodes` table on every boot and repopulate from the given data, nullifying any runtime modifications. Make sure to carefully read the [EVM performance configuration guide](https://chainlink.notion.site/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c) for best practices here.
 
 For example:
 
-```
-EVM_NODES='
+```bash
+export EVM_NODES='
 [
 	{
-		"name": "primary_0_1",
-		"evmChainId": "0",
-		"wsUrl": "ws://test1.invalid",
+		"name": "primary_1",
+		"evmChainId": "137",
+		"wsUrl": "wss://endpoint-1.example.com/ws",
+    "httpUrl": "http://endpoint-1.example.com/",
 		"sendOnly": false
 	},
 	{
-		"name": "primary_0_2",
-		"evmChainId": "0",
-		"wsUrl": "ws://test1.invalid",
-		"httpUrl": "https://test1.invalid",
+		"name": "primary_2",
+		"evmChainId": "137",
+		"wsUrl": "ws://endpoint-2.example.com/ws",
+    "httpUrl": "http://endpoint-2.example.com/",
 		"sendOnly": false
 	},
 	{
-		"name": "primary_1337_1",
-		"evmChainId": "1337",
-		"wsUrl": "ws://test2.invalid",
-		"httpUrl": "http://test2.invalid",
+		"name": "primary_3",
+		"evmChainId": "137",
+		"wsUrl": "wss://endpoint-3.example.com/ws",
+    "httpUrl": "http://endpoint-3.example.com/",
 		"sendOnly": false
 	},
 	{
-		"name": "sendonly_1337_1",
-		"evmChainId": "1337",
-		"httpUrl": "http://test1.invalid",
+		"name": "sendonly_1",
+		"evmChainId": "137",
+		"httpUrl": "http://endpoint-4.example.com/",
 		"sendOnly": true
 	},
-	{
-		"name": "sendonly_0_1",
-		"evmChainId": "0",
-		"httpUrl": "http://test1.invalid",
-		"sendOnly": true
-	},
-	{
-		"name": "primary_42_1",
-		"evmChainId": "42",
-		"wsUrl": "ws://test1.invalid",
-		"sendOnly": false
-	},
-	{
-		"name": "sendonly_43_1",
-		"evmChainId": "43",
-		"httpUrl": "http://test1.invalid",
+  {
+		"name": "sendonly_2",
+		"evmChainId": "137",
+		"httpUrl": "http://endpoint-5.example.com/",
 		"sendOnly": true
 	}
 ]
@@ -69,16 +377,22 @@ EVM_NODES='
 
 ### Changed
 
-- Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
+- Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in the future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
 - EIP-1559 is now enabled by default on mainnet. To disable (go back to legacy mode) set `EVM_EIP1559_DYNAMIC_FEES=false`. The default settings should work well, but if you wish to tune your gas controls, see the [documentation](https://docs.chain.link/docs/configuration-variables/#evm-gas-controls).
 
-Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended to enable this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
+Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended enabling this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
 
 See issue: https://github.com/maticnetwork/bor/issues/347
 
+- The pipeline task runs have changed persistence protocol (database), which will result in inability to decode some existing task runs. All new runs should be working with no issues.
+
+### Removed
+
+- `LOG_TO_DISK` ENV var.
+
 ## [1.2.1] - 2022-03-17
 
-This release hotfixes issues from moving a new CI/CD system. Featurewise the functionality is the same as `v1.2.0`.
+This release hotfixes issues from moving a new CI/CD system. Feature-wise the functionality is the same as `v1.2.0`.
 
 ### Fixed
 
@@ -97,9 +411,6 @@ New ENV vars:
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
 - `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
 - `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the output directory for logging.
-- `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
-- `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
-- `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
 - `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed.
 - `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
 - `TERRA_ENABLED` (default: false) - set to true to enable Terra support
@@ -138,7 +449,6 @@ In order to use this feature, you'll need to set multiple primary RPC nodes.
 ### Removed
 
 - `deleteuser` CLI command.
-- `LOG_TO_DISK` ENV var.
 
 ### Changed
 
@@ -1422,10 +1732,12 @@ for OCR jobs.
 
 - Brings `/runs` tab back to the operator UI.
 - Signs out a user from operator UI on authentication error.
+- OCR jobs no longer require defining v1 bootstrap peers unless `P2P_NETWORKING_STACK=V1`
 
 #### BREAKING CHANGES
 
 - Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accommodate additional types of jobs using the new pipeline.
+- If `P2P_NETWORKING_STACK=V1V2`, then `P2PV2_BOOTSTRAPPERS` must also be set
 
 #### V1 jobs
 

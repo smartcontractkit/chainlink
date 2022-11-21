@@ -8,20 +8,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := terra.NewORM(db, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	orm := terra.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return db, orm
 }
@@ -34,17 +35,17 @@ func Test_ORM(t *testing.T) {
 	require.Empty(t, dbcs)
 
 	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err = orm.CreateChain(chainIDA, db.ChainCfg{})
+	_, err = orm.CreateChain(chainIDA, nil)
 	require.NoError(t, err)
 	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err = orm.CreateChain(chainIDB, db.ChainCfg{})
+	_, err = orm.CreateChain(chainIDB, nil)
 	require.NoError(t, err)
 
 	dbcs, err = orm.EnabledChains()
 	require.NoError(t, err)
 	require.Len(t, dbcs, 2)
 
-	newNode := types.NewNode{
+	newNode := db.Node{
 		Name:          "first",
 		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
@@ -53,11 +54,11 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	gotNode, err = orm.Node(gotNode.ID)
+	gotNode, err = orm.NodeNamed(gotNode.Name)
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	newNode2 := types.NewNode{
+	newNode2 := db.Node{
 		Name:          "second",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
@@ -91,7 +92,7 @@ func Test_ORM(t *testing.T) {
 		assertEqual(t, newNode2, gotNodes[0])
 	}
 
-	newNode3 := types.NewNode{
+	newNode3 := db.Node{
 		Name:          "third",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
@@ -108,7 +109,7 @@ func Test_ORM(t *testing.T) {
 	assert.NoError(t, orm.DeleteChain(chainIDB))
 }
 
-func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
+func assertEqual(t *testing.T, newNode db.Node, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

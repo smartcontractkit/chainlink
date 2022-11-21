@@ -10,7 +10,7 @@ import "../SimpleWriteAccessController.sol";
 /* ./dev dependencies - to be moved from ./dev after audit */
 import "./interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
 import "./interfaces/FlagsInterface.sol";
-import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
+import "./interfaces/IArbitrumDelayedInbox.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/arb-os/e8d9696f21/contracts/arbos/builtin/ArbSys.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
@@ -31,6 +31,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   struct GasConfig {
     uint256 maxGas;
     uint256 gasPriceBid;
+    uint256 baseFee; // Will use block.baseFee if set to 0
     address gasPriceL1FeedAddr;
   }
 
@@ -39,6 +40,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
+  /// @notice The address of Arbitrum's DelayedInbox
   address public immutable CROSS_DOMAIN_MESSENGER;
   address public immutable L2_SEQ_STATUS_RECORDER;
   // L2 xDomain alias address of this contract
@@ -91,6 +93,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address configACAddr,
     uint256 maxGas,
     uint256 gasPriceBid,
+    uint256 baseFee,
     address gasPriceL1FeedAddr,
     PaymentStrategy paymentStrategy
   ) {
@@ -100,7 +103,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     L2_SEQ_STATUS_RECORDER = l2ArbitrumSequencerUptimeFeedAddr;
     // Additional L2 payment configuration
     _setConfigAC(configACAddr);
-    _setGasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
+    _setGasConfig(maxGas, gasPriceBid, baseFee, gasPriceL1FeedAddr);
     _setPaymentStrategy(paymentStrategy);
   }
 
@@ -115,11 +118,13 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * - ArbitrumValidator 1.0.0: change target of L2 sequencer status update
    *   - now calls `updateStatus` on an L2 ArbitrumSequencerUptimeFeed contract instead of
    *     directly calling the Flags contract
-   *
+   * - ArbitrumValidator 2.0.0: change how maxSubmissionCost is calculated when sending cross chain messages
+   *   - now calls `calculateRetryableSubmissionFee` instead of inlining equation to estimate
+   *     the maxSubmissionCost required to send the message to L2
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ArbitrumValidator 1.0.0";
+    return "ArbitrumValidator 2.0.0";
   }
 
   /// @return stored PaymentStrategy
@@ -185,7 +190,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid)
       : 0;
     // NOTICE: In the case of PaymentStrategy.L2 the L2 xDomain alias address needs to be funded, as it will be paying the fee.
-    id = IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
+    id = IArbitrumDelayedInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
       ARBSYS_ADDR, // target
       amount, // L2 call value (requested)
       maxSubmissionCost,
@@ -217,9 +222,10 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   function setGasConfig(
     uint256 maxGas,
     uint256 gasPriceBid,
+    uint256 baseFee,
     address gasPriceL1FeedAddr
   ) external onlyOwnerOrConfigAccess {
-    _setGasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
+    _setGasConfig(maxGas, gasPriceBid, baseFee, gasPriceL1FeedAddr);
   }
 
   /**
@@ -268,7 +274,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       : 0;
     // NOTICE: In the case of PaymentStrategy.L2 the L2 xDomain alias address needs to be funded, as it will be paying the fee.
     // We also ignore the returned msg number, that can be queried via the `InboxMessageDelivered` event.
-    IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
+    IArbitrumDelayedInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
       L2_SEQ_STATUS_RECORDER, // target
       0, // L2 call value
       maxSubmissionCost,
@@ -292,12 +298,13 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   function _setGasConfig(
     uint256 maxGas,
     uint256 gasPriceBid,
+    uint256 baseFee,
     address gasPriceL1FeedAddr
   ) internal {
     require(maxGas > 0, "Max gas is zero");
     require(gasPriceBid > 0, "Gas price bid is zero");
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
-    s_gasConfig = GasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
+    s_gasConfig = GasConfig(maxGas, gasPriceBid, baseFee, gasPriceL1FeedAddr);
     emit GasConfigSet(maxGas, gasPriceBid, gasPriceL1FeedAddr);
   }
 
@@ -311,14 +318,17 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /**
-   * @notice Internal method that approximates the `maxSubmissionCost` (using the L1 gas price feed)
-   * @dev On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
+   * @notice Internal method that approximates the `maxSubmissionCost`
+   * @dev  This function estimates the max submission cost using the formula
+   * implemented in Arbitrum DelayedInbox's calculateRetryableSubmissionFee function
    * @param calldataSizeInBytes xDomain message size in bytes
    */
   function _approximateMaxSubmissionCost(uint256 calldataSizeInBytes) internal view returns (uint256) {
-    (, int256 l1GasPriceInWei, , , ) = AggregatorV3Interface(s_gasConfig.gasPriceL1FeedAddr).latestRoundData();
-    uint256 l1GasPriceEstimate = uint256(l1GasPriceInWei) * 3; // add 200% buffer (price volatility error margin)
-    return (l1GasPriceEstimate * calldataSizeInBytes) / 256 + l1GasPriceEstimate;
+    return
+      IArbitrumDelayedInbox(CROSS_DOMAIN_MESSENGER).calculateRetryableSubmissionFee(
+        calldataSizeInBytes,
+        s_gasConfig.baseFee
+      );
   }
 
   /// @notice Internal helper method that calculates the total cost of the xDomain retryable ticket call

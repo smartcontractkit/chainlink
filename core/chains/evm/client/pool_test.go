@@ -6,13 +6,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/mock"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
@@ -23,7 +24,27 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+type poolConfig struct {
+	selectionMode       string
+	noNewHeadsThreshold time.Duration
+}
+
+func (c poolConfig) NodeSelectionMode() string {
+	return c.selectionMode
+}
+
+func (c poolConfig) NodeNoNewHeadsThreshold() time.Duration {
+	return c.noNewHeadsThreshold
+}
+
+var defaultConfig evmclient.PoolConfig = &poolConfig{
+	selectionMode:       evmclient.NodeSelectionMode_RoundRobin,
+	noNewHeadsThreshold: 0,
+}
+
 func TestPool_Dial(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name            string
 		poolChainID     *big.Int
@@ -131,8 +152,7 @@ func TestPool_Dial(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
-			defer cancel()
+			ctx := testutils.Context(t)
 
 			nodes := make([]evmclient.Node, len(test.nodes))
 			for i, n := range test.nodes {
@@ -142,8 +162,11 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.TestLogger(t), nodes, sendNodes, test.poolChainID)
+			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID)
 			err := p.Dial(ctx)
+			if err == nil {
+				t.Cleanup(func() { assert.NoError(t, p.Close()) })
+			}
 			if test.errStr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.errStr)
@@ -163,6 +186,7 @@ func (r *chainIDResp) newSendOnlyNode(t *testing.T, nodeChainID int64) evmclient
 	httpURL := r.newHTTPServer(t)
 	return evmclient.NewSendOnlyNode(logger.TestLogger(t), *httpURL, t.Name(), big.NewInt(nodeChainID))
 }
+
 func (r *chainIDResp) newHTTPServer(t *testing.T) *url.URL {
 	rpcSrv := rpc.NewServer()
 	t.Cleanup(rpcSrv.Stop)
@@ -182,9 +206,17 @@ type chainIDResps struct {
 }
 
 func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
-	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (string, string) {
+	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			return
+		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
-		return "", ""
+		return
 	})
 
 	wsURL, err := url.Parse(ws)
@@ -210,75 +242,64 @@ func (x *chainIDService) ChainId(ctx context.Context) (*hexutil.Big, error) {
 	return (*hexutil.Big)(big.NewInt(x.chainID)), nil
 }
 
-func newPool(t *testing.T, nodes []evmclient.Node) *evmclient.Pool {
-	return evmclient.NewPool(logger.TestLogger(t), nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
-}
-
 func TestUnit_Pool_RunLoop(t *testing.T) {
-	t.Run("reports node states to prometheus", func(t *testing.T) {
-		n1 := new(evmmocks.Node)
-		n1.Test(t)
-		n2 := new(evmmocks.Node)
-		n2.Test(t)
-		n3 := new(evmmocks.Node)
-		n3.Test(t)
-		nodes := []evmclient.Node{n1, n2, n3}
+	t.Parallel()
 
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-		p := evmclient.NewPool(lggr, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+	n1 := evmmocks.NewNode(t)
+	n2 := evmmocks.NewNode(t)
+	n3 := evmmocks.NewNode(t)
+	nodes := []evmclient.Node{n1, n2, n3}
 
-		n1.On("String").Maybe().Return("n1")
-		n2.On("String").Maybe().Return("n2")
-		n3.On("String").Maybe().Return("n3")
+	lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
+	p := evmclient.NewPool(lggr, defaultConfig, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
 
-		n1.On("Close").Maybe()
-		n2.On("Close").Maybe()
-		n3.On("Close").Maybe()
+	n1.On("String").Maybe().Return("n1")
+	n2.On("String").Maybe().Return("n2")
+	n3.On("String").Maybe().Return("n3")
 
-		// n1 is alive
-		n1.On("Start", mock.Anything).Return(nil).Once()
-		n1.On("Verify", mock.Anything, &cltest.FixtureChainID).Return(nil).Once()
-		n1.On("State").Return(evmclient.NodeStateAlive)
-		n1.On("ChainID").Return(testutils.FixtureChainID).Once()
-		// n2 is unreachable
-		n2.On("Start", mock.Anything).Return(nil).Once()
-		n2.On("Verify", mock.Anything, &cltest.FixtureChainID).Return(nil).Once()
-		n2.On("State").Return(evmclient.NodeStateUnreachable)
-		n2.On("ChainID").Return(testutils.FixtureChainID).Once()
-		// n3 is out of sync
-		n3.On("Start", mock.Anything).Return(nil).Once()
-		n3.On("Verify", mock.Anything, &cltest.FixtureChainID).Return(nil).Once()
-		n3.On("State").Return(evmclient.NodeStateOutOfSync)
-		n3.On("ChainID").Return(testutils.FixtureChainID).Once()
+	n1.On("Close").Maybe().Return(nil)
+	n2.On("Close").Maybe().Return(nil)
+	n3.On("Close").Maybe().Return(nil)
 
-		require.NoError(t, p.Dial(context.Background()))
-		defer p.Close()
+	// n1 is alive
+	n1.On("Start", mock.Anything).Return(nil).Once()
+	n1.On("State").Return(evmclient.NodeStateAlive)
+	n1.On("ChainID").Return(testutils.FixtureChainID).Once()
+	// n2 is unreachable
+	n2.On("Start", mock.Anything).Return(nil).Once()
+	n2.On("State").Return(evmclient.NodeStateUnreachable)
+	n2.On("ChainID").Return(testutils.FixtureChainID).Once()
+	// n3 is out of sync
+	n3.On("Start", mock.Anything).Return(nil).Once()
+	n3.On("State").Return(evmclient.NodeStateOutOfSync)
+	n3.On("ChainID").Return(testutils.FixtureChainID).Once()
 
-		testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")
+	require.NoError(t, p.Dial(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, p.Close()) })
 
-		testutils.AssertEventually(t, func() bool {
-			totalReported := promtestutil.CollectAndCount(evmclient.PromEVMPoolRPCNodeStates)
-			if totalReported < 3 {
-				return false
-			}
-			if promtestutil.ToFloat64(evmclient.PromEVMPoolRPCNodeStates.WithLabelValues("0", "Alive")) < 1.0 {
-				return false
-			}
-			if promtestutil.ToFloat64(evmclient.PromEVMPoolRPCNodeStates.WithLabelValues("0", "Unreachable")) < 1.0 {
-				return false
-			}
-			if promtestutil.ToFloat64(evmclient.PromEVMPoolRPCNodeStates.WithLabelValues("0", "OutOfSync")) < 1.0 {
-				return false
-			}
-			return true
-		})
+	testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")
+
+	testutils.AssertEventually(t, func() bool {
+		totalReported := promtestutil.CollectAndCount(evmclient.PromEVMPoolRPCNodeStates)
+		if totalReported < 3 {
+			return false
+		}
+		if promtestutil.ToFloat64(evmclient.PromEVMPoolRPCNodeStates.WithLabelValues("0", "Alive")) < 1.0 {
+			return false
+		}
+		if promtestutil.ToFloat64(evmclient.PromEVMPoolRPCNodeStates.WithLabelValues("0", "Unreachable")) < 1.0 {
+			return false
+		}
+		if promtestutil.ToFloat64(evmclient.PromEVMPoolRPCNodeStates.WithLabelValues("0", "OutOfSync")) < 1.0 {
+			return false
+		}
+		return true
 	})
-
 }
 
 func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
-	var mockNodes []*evmmocks.Node
-	var mockSendonlys []*evmmocks.SendOnlyNode
+	t.Parallel()
+
 	var nodes []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode
 
@@ -286,36 +307,25 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 	sendOnlyCount := 3
 
 	b := []rpc.BatchElem{
-		rpc.BatchElem{Method: "method", Args: []interface{}{1, false}},
-		rpc.BatchElem{Method: "method2"},
+		{Method: "method", Args: []interface{}{1, false}},
+		{Method: "method2"},
 	}
 
 	ctx := testutils.Context(t)
 
 	for i := 0; i < nodeCount; i++ {
-		node := new(evmmocks.Node)
-		node.On("State").Return(evmclient.NodeStateAlive)
-		node.Test(t)
+		node := evmmocks.NewNode(t)
+		node.On("State").Return(evmclient.NodeStateAlive).Maybe()
 		node.On("BatchCallContext", ctx, b).Return(nil).Once()
 		nodes = append(nodes, node)
-		mockNodes = append(mockNodes, node)
 	}
 	for i := 0; i < sendOnlyCount; i++ {
-		s := new(evmmocks.SendOnlyNode)
-		s.Test(t)
+		s := evmmocks.NewSendOnlyNode(t)
 		s.On("BatchCallContext", ctx, b).Return(nil).Once()
 		sendonlys = append(sendonlys, s)
-		mockSendonlys = append(mockSendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.TestLogger(t), nodes, sendonlys, &cltest.FixtureChainID)
+	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID)
 
 	p.BatchCallContextAll(ctx, b)
-
-	for _, n := range mockNodes {
-		n.AssertExpectations(t)
-	}
-	for _, s := range mockSendonlys {
-		s.AssertExpectations(t)
-	}
 }

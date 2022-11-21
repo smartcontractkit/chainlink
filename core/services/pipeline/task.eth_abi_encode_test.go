@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -12,13 +11,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestETHABIEncodeTask(t *testing.T) {
 	var bytes32 [32]byte
 	copy(bytes32[:], []byte("chainlink chainlink chainlink"))
+
+	bytes32hex := utils.StringToHex(string(bytes32[:]))
 
 	tests := []struct {
 		name                  string
@@ -51,6 +54,20 @@ func TestETHABIEncodeTask(t *testing.T) {
 			`{ "b": $(foo), "bs": $(bar), "a": $(baz) }`,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": bytes32,
+				"bar": []byte("stevetoshi sergeymoto"),
+				"baz": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			}),
+			nil,
+			"0x4f5e7a89636861696e6c696e6b20636861696e6c696e6b20636861696e6c696e6b0000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef00000000000000000000000000000000000000000000000000000000000000157374657665746f736869207365726765796d6f746f0000000000000000000000",
+			nil,
+			"",
+		},
+		{
+			"bytes32 (hex), bytes, address",
+			"asdf(bytes32 b, bytes bs, address a)",
+			`{ "b": $(foo), "bs": $(bar), "a": $(baz) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": bytes32hex,
 				"bar": []byte("stevetoshi sergeymoto"),
 				"baz": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 			}),
@@ -207,7 +224,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 
@@ -498,7 +515,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 
@@ -562,7 +579,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

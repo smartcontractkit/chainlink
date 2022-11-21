@@ -1,9 +1,8 @@
-package logger_test
+package logger
 
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,7 +12,7 @@ func Test_toMap(t *testing.T) {
 			"foo", 1, "bar", 42.43, "boggly", "str",
 		}
 
-		m := logger.ToMap(keysAndValues)
+		m := toMap(keysAndValues)
 
 		assert.Equal(t, map[string]interface{}{"bar": 42.43, "boggly": "str", "foo": 1}, m)
 	})
@@ -23,7 +22,7 @@ func Test_toMap(t *testing.T) {
 			"foo", 1, "bar", 42.43, "boggly", "str", "odd",
 		}
 
-		m := logger.ToMap(keysAndValues)
+		m := toMap(keysAndValues)
 
 		assert.Equal(t, map[string]interface{}{"bar": 42.43, "boggly": "str", "foo": 1}, m)
 	})

@@ -1,9 +1,11 @@
 package types
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"strings"
@@ -14,22 +16,28 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
-	ID            uint64
-	Hash          common.Hash
-	Number        int64
-	L1BlockNumber null.Int64
-	ParentHash    common.Hash
-	Parent        *Head
-	EVMChainID    *utils.Big
-	Timestamp     time.Time
-	CreatedAt     time.Time
-	BaseFeePerGas *utils.Big
+	ID               uint64
+	Hash             common.Hash
+	Number           int64
+	L1BlockNumber    null.Int64
+	ParentHash       common.Hash
+	Parent           *Head
+	EVMChainID       *utils.Big
+	Timestamp        time.Time
+	CreatedAt        time.Time
+	BaseFeePerGas    *assets.Wei
+	ReceiptsRoot     common.Hash
+	TransactionsRoot common.Hash
+	StateRoot        common.Hash
+	Difficulty       *utils.Big
+	TotalDifficulty  *utils.Big
 }
 
 // NewHead returns a Head instance.
@@ -41,14 +49,6 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 		Timestamp:  time.Unix(int64(timestamp), 0),
 		EVMChainID: chainID,
 	}
-}
-
-func AsHead(i interface{}) *Head {
-	head, ok := i.(*Head)
-	if !ok {
-		panic(fmt.Sprintf("invariant violation: expected `*evmtypes.Head`, got %T", i))
-	}
-	return head
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
@@ -183,12 +183,17 @@ func (h *Head) NextInt() *big.Int {
 
 func (h *Head) UnmarshalJSON(bs []byte) error {
 	type head struct {
-		Hash          common.Hash    `json:"hash"`
-		Number        *hexutil.Big   `json:"number"`
-		ParentHash    common.Hash    `json:"parentHash"`
-		Timestamp     hexutil.Uint64 `json:"timestamp"`
-		L1BlockNumber *hexutil.Big   `json:"l1BlockNumber"`
-		BaseFeePerGas *hexutil.Big   `json:"baseFeePerGas"`
+		Hash             common.Hash    `json:"hash"`
+		Number           *hexutil.Big   `json:"number"`
+		ParentHash       common.Hash    `json:"parentHash"`
+		Timestamp        hexutil.Uint64 `json:"timestamp"`
+		L1BlockNumber    *hexutil.Big   `json:"l1BlockNumber"`
+		BaseFeePerGas    *hexutil.Big   `json:"baseFeePerGas"`
+		ReceiptsRoot     common.Hash    `json:"receiptsRoot"`
+		TransactionsRoot common.Hash    `json:"transactionsRoot"`
+		StateRoot        common.Hash    `json:"stateRoot"`
+		Difficulty       *hexutil.Big   `json:"difficulty"`
+		TotalDifficulty  *hexutil.Big   `json:"totalDifficulty"`
 	}
 
 	var jsonHead head
@@ -206,24 +211,43 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Number = (*big.Int)(jsonHead.Number).Int64()
 	h.ParentHash = jsonHead.ParentHash
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
-	h.BaseFeePerGas = (*utils.Big)(jsonHead.BaseFeePerGas)
+	h.BaseFeePerGas = assets.NewWei((*big.Int)(jsonHead.BaseFeePerGas))
 	if jsonHead.L1BlockNumber != nil {
 		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
 	}
+	h.ReceiptsRoot = jsonHead.ReceiptsRoot
+	h.TransactionsRoot = jsonHead.TransactionsRoot
+	h.StateRoot = jsonHead.StateRoot
+	h.Difficulty = utils.NewBig(jsonHead.Difficulty.ToInt())
+	h.TotalDifficulty = utils.NewBig(jsonHead.TotalDifficulty.ToInt())
 	return nil
 }
 
 func (h *Head) MarshalJSON() ([]byte, error) {
 	type head struct {
-		Hash       *common.Hash    `json:"hash,omitempty"`
-		Number     *hexutil.Big    `json:"number,omitempty"`
-		ParentHash *common.Hash    `json:"parentHash,omitempty"`
-		Timestamp  *hexutil.Uint64 `json:"timestamp,omitempty"`
+		Hash             *common.Hash    `json:"hash,omitempty"`
+		Number           *hexutil.Big    `json:"number,omitempty"`
+		ParentHash       *common.Hash    `json:"parentHash,omitempty"`
+		Timestamp        *hexutil.Uint64 `json:"timestamp,omitempty"`
+		ReceiptsRoot     *common.Hash    `json:"receiptsRoot,omitempty"`
+		TransactionsRoot *common.Hash    `json:"transactionsRoot,omitempty"`
+		StateRoot        *common.Hash    `json:"stateRoot,omitempty"`
+		Difficulty       *hexutil.Big    `json:"difficulty,omitempty"`
+		TotalDifficulty  *hexutil.Big    `json:"totalDifficulty,omitempty"`
 	}
 
 	var jsonHead head
 	if h.Hash != (common.Hash{}) {
 		jsonHead.Hash = &h.Hash
+	}
+	if h.ReceiptsRoot != (common.Hash{}) {
+		jsonHead.ReceiptsRoot = &h.ReceiptsRoot
+	}
+	if h.TransactionsRoot != (common.Hash{}) {
+		jsonHead.TransactionsRoot = &h.TransactionsRoot
+	}
+	if h.StateRoot != (common.Hash{}) {
+		jsonHead.StateRoot = &h.StateRoot
 	}
 	jsonHead.Number = (*hexutil.Big)(big.NewInt(int64(h.Number)))
 	if h.ParentHash != (common.Hash{}) {
@@ -233,7 +257,134 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 		t := hexutil.Uint64(h.Timestamp.UTC().Unix())
 		jsonHead.Timestamp = &t
 	}
+	jsonHead.Difficulty = (*hexutil.Big)(h.Difficulty)
+	jsonHead.TotalDifficulty = (*hexutil.Big)(h.TotalDifficulty)
 	return json.Marshal(jsonHead)
+}
+
+// Block represents an ethereum block
+// This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
+type Block struct {
+	Number        int64
+	Hash          common.Hash
+	ParentHash    common.Hash
+	BaseFeePerGas *assets.Wei
+	Timestamp     time.Time
+	Transactions  []Transaction
+}
+
+type blockInternal struct {
+	Number        string
+	Hash          common.Hash
+	ParentHash    common.Hash
+	BaseFeePerGas *hexutil.Big
+	Timestamp     hexutil.Uint64
+	Transactions  []Transaction
+}
+
+// MarshalJSON implements json marshalling for Block
+func (b Block) MarshalJSON() ([]byte, error) {
+	return json.Marshal(blockInternal{
+		hexutil.EncodeBig(big.NewInt(b.Number)),
+		b.Hash,
+		b.ParentHash,
+		(*hexutil.Big)(b.BaseFeePerGas),
+		(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
+		b.Transactions,
+	})
+}
+
+var ErrMissingBlock = errors.New("missing block")
+
+// UnmarshalJSON unmarshals to a Block
+func (b *Block) UnmarshalJSON(data []byte) error {
+	var bi *blockInternal
+	if err := json.Unmarshal(data, &bi); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
+	}
+	if bi == nil {
+		return errors.WithStack(ErrMissingBlock)
+	}
+	n, err := hexutil.DecodeBig(bi.Number)
+	if err != nil {
+		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got: '%s'", data)
+	}
+	*b = Block{
+		n.Int64(),
+		bi.Hash,
+		bi.ParentHash,
+		(*assets.Wei)(bi.BaseFeePerGas),
+		time.Unix((int64((uint64)(bi.Timestamp))), 0),
+		bi.Transactions,
+	}
+	return nil
+}
+
+type TxType uint8
+
+// NOTE: Need to roll our own unmarshaller since geth's hexutil.Uint64 does not
+// handle double zeroes e.g. 0x00
+func (txt *TxType) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, []byte(`"0x00"`)) {
+		data = []byte(`"0x0"`)
+	}
+	var hx hexutil.Uint64
+	if err := (&hx).UnmarshalJSON(data); err != nil {
+		return err
+	}
+	if hx > math.MaxUint8 {
+		return errors.Errorf("expected 'type' to fit into a single byte, got: '%s'", data)
+	}
+	*txt = TxType(hx)
+	return nil
+}
+
+type transactionInternal struct {
+	GasPrice             *hexutil.Big    `json:"gasPrice"`
+	Gas                  *hexutil.Uint64 `json:"gas"`
+	MaxFeePerGas         *hexutil.Big    `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *hexutil.Big    `json:"maxPriorityFeePerGas"`
+	Type                 *TxType         `json:"type"`
+	Hash                 common.Hash     `json:"hash"`
+}
+
+// Transaction represents an ethereum transaction
+// Use our own type because geth's type has validation failures on e.g. zero
+// gas used, which can occur on other chains.
+// This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
+type Transaction struct {
+	GasPrice             *assets.Wei
+	GasLimit             uint32
+	MaxFeePerGas         *assets.Wei
+	MaxPriorityFeePerGas *assets.Wei
+	Type                 TxType
+	Hash                 common.Hash
+}
+
+const LegacyTxType = TxType(0x0)
+
+// UnmarshalJSON unmarshals a Transaction
+func (t *Transaction) UnmarshalJSON(data []byte) error {
+	ti := transactionInternal{}
+	if err := json.Unmarshal(data, &ti); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal to transactionInternal, got: '%s'", data)
+	}
+	if ti.Gas == nil {
+		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
+	}
+	if ti.Type == nil {
+		tpe := LegacyTxType
+		ti.Type = &tpe
+	}
+	*t = Transaction{
+		(*assets.Wei)(ti.GasPrice),
+		uint32(*ti.Gas),
+		(*assets.Wei)(ti.MaxFeePerGas),
+		(*assets.Wei)(ti.MaxPriorityFeePerGas),
+		*ti.Type,
+		ti.Hash,
+	}
+	return nil
 }
 
 // WeiPerEth is amount of Wei currency units in one Eth.

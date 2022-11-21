@@ -4,18 +4,23 @@ import { assert, expect } from 'chai'
 import { CronUpkeepFactory } from '../../typechain/CronUpkeepFactory'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { reset } from '../test-helpers/helpers'
+import * as h from '../test-helpers/helpers'
+
+const OWNABLE_ERR = 'Only callable by owner'
 
 let cronExternalLib: Contract
 let factory: CronUpkeepFactory
 
 let admin: SignerWithAddress
 let owner: SignerWithAddress
+let stranger: SignerWithAddress
 
 describe('CronUpkeepFactory', () => {
   beforeEach(async () => {
     const accounts = await ethers.getSigners()
     admin = accounts[0]
     owner = accounts[1]
+    stranger = accounts[2]
     const cronExternalFactory = await ethers.getContractFactory(
       'src/v0.8/libraries/external/Cron.sol:Cron',
       admin,
@@ -35,6 +40,22 @@ describe('CronUpkeepFactory', () => {
 
   afterEach(async () => {
     await reset()
+  })
+
+  it('has a limited public ABI [ @skip-coverage ]', () => {
+    h.publicAbi(factory as unknown as Contract, [
+      's_maxJobs',
+      'newCronUpkeep',
+      'newCronUpkeepWithJob',
+      'setMaxJobs',
+      'cronDelegateAddress',
+      'encodeCronString',
+      'encodeCronJob',
+      // Ownable methods:
+      'acceptOwnership',
+      'owner',
+      'transferOwnership',
+    ])
   })
 
   describe('constructor()', () => {
@@ -66,6 +87,20 @@ describe('CronUpkeepFactory', () => {
       assert(
         await cronUpkeepFactory.attach(upkeepAddress).owner(),
         owner.address,
+      )
+    })
+  })
+
+  describe('setMaxJobs()', () => {
+    it('sets the max jobs value', async () => {
+      expect(await factory.s_maxJobs()).to.equal(5)
+      await factory.setMaxJobs(6)
+      expect(await factory.s_maxJobs()).to.equal(6)
+    })
+
+    it('is only callable by the owner', async () => {
+      await expect(factory.connect(stranger).setMaxJobs(6)).to.be.revertedWith(
+        OWNABLE_ERR,
       )
     })
   })

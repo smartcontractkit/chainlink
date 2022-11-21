@@ -19,24 +19,25 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
 )
 
 const (
-	Cron               Type = "cron"
-	DirectRequest      Type = "directrequest"
-	FluxMonitor        Type = "fluxmonitor"
-	OffchainReporting  Type = "offchainreporting"
-	OffchainReporting2 Type = "offchainreporting2"
-	Keeper             Type = "keeper"
-	VRF                Type = "vrf"
-	BlockhashStore     Type = "blockhashstore"
-	Webhook            Type = "webhook"
-	Bootstrap          Type = "bootstrap"
+	Cron               Type = (Type)(pipeline.CronJobType)
+	DirectRequest      Type = (Type)(pipeline.DirectRequestJobType)
+	FluxMonitor        Type = (Type)(pipeline.FluxMonitorJobType)
+	OffchainReporting  Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2 Type = (Type)(pipeline.OffchainReporting2JobType)
+	Keeper             Type = (Type)(pipeline.KeeperJobType)
+	VRF                Type = (Type)(pipeline.VRFJobType)
+	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
+	Webhook            Type = (Type)(pipeline.WebhookJobType)
+	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -65,7 +66,7 @@ var (
 		FluxMonitor:        true,
 		OffchainReporting:  false, // bootstrap jobs do not require it
 		OffchainReporting2: false, // bootstrap jobs do not require it
-		Keeper:             true,
+		Keeper:             false, // observationSource is injected in the upkeep executor
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
@@ -89,7 +90,7 @@ var (
 		FluxMonitor:        1,
 		OffchainReporting:  1,
 		OffchainReporting2: 1,
-		Keeper:             3,
+		Keeper:             1,
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
@@ -125,6 +126,8 @@ type Job struct {
 	JobSpecErrors        []SpecError
 	Type                 Type
 	SchemaVersion        uint32
+	GasLimit             clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed    bool          `toml:"forwardingAllowed"`
 	Name                 null.String
 	MaxTaskDuration      models.Interval
 	Pipeline             pipeline.Pipeline `toml:"observationSource"`
@@ -139,14 +142,14 @@ func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
 	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
 }
 
-// The external job ID (UUID) can be encoded into a log topic (32 bytes)
+// ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
 func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
 	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
-// The external job ID (UUID) can also be encoded into a log topic (32 bytes)
+// ExternalIDEncodeBytesToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the 16 bytes underlying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
@@ -205,6 +208,7 @@ type OCROracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	P2PV2Bootstrappers                        pq.StringArray      `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv                bool
@@ -275,26 +279,37 @@ type OCR2PluginType string
 const (
 	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
+
+	DKG OCR2PluginType = "dkg"
+
+	OCR2VRF OCR2PluginType = "ocr2vrf"
+
+	// Keeper was rebranded to automation. For now the plugin type required in job spec points
+	// to the new name (automation) but in code we refer it to keepers
+	// TODO: sc-55296 to rename ocr2keeper to ocr2automation in code
+	OCR2Keeper OCR2PluginType = "ocr2automation"
+
+	OCR2DirectRequest OCR2PluginType = "directrequest"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relaytypes.Network `toml:"relay"`
-	RelayConfig                       JSONConfig         `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
-	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String        `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	PluginConfig                      JSONConfig         `toml:"pluginConfig"`
-	PluginType                        OCR2PluginType     `toml:"pluginType"`
-	CreatedAt                         time.Time          `toml:"-"`
-	UpdatedAt                         time.Time          `toml:"-"`
+	ID                                int32           `toml:"-"`
+	ContractID                        string          `toml:"contractID"`
+	Relay                             relay.Network   `toml:"relay"`
+	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String     `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
+	PluginConfig                      JSONConfig      `toml:"pluginConfig"`
+	PluginType                        OCR2PluginType  `toml:"pluginType"`
+	CreatedAt                         time.Time       `toml:"-"`
+	UpdatedAt                         time.Time       `toml:"-"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -372,34 +387,14 @@ func (s *CronSpec) SetID(value string) error {
 	return nil
 }
 
-// Need to also try integer thresholds until
-// https://github.com/pelletier/go-toml/issues/571 is addressed.
-// The UI's TOML.stringify({"threshold": 1.0}) (https://github.com/iarna/iarna-toml)
-// will return "threshold = 1" since ts/js doesn't know the
-// difference between 1.0 and 1, so we need to address it on the backend.
-type FluxMonitorSpecIntThreshold struct {
-	ContractAddress     ethkey.EIP55Address `toml:"contractAddress"`
-	Threshold           int                 `toml:"threshold"`
-	AbsoluteThreshold   int                 `toml:"absoluteThreshold"`
-	PollTimerPeriod     time.Duration
-	PollTimerDisabled   bool
-	IdleTimerPeriod     time.Duration
-	IdleTimerDisabled   bool
-	DrumbeatSchedule    string
-	DrumbeatRandomDelay time.Duration
-	DrumbeatEnabled     bool
-	MinPayment          *assets.Link
-	EVMChainID          *utils.Big `toml:"evmChainID"`
-}
-
 type FluxMonitorSpec struct {
 	ID              int32               `toml:"-"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
-	Threshold       float32             `toml:"threshold,float"`
+	Threshold       tomlutils.Float32   `toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold   float32 `toml:"absoluteThreshold,float"`
+	AbsoluteThreshold   tomlutils.Float32 `toml:"absoluteThreshold,float"`
 	PollTimerPeriod     time.Duration
 	PollTimerDisabled   bool
 	IdleTimerPeriod     time.Duration
@@ -424,7 +419,19 @@ type KeeperSpec struct {
 }
 
 type VRFSpec struct {
-	ID                       int32
+	ID int32
+
+	// BatchCoordinatorAddress is the address of the batch vrf coordinator to use.
+	// This is required if batchFulfillmentEnabled is set to true in the job spec.
+	BatchCoordinatorAddress *ethkey.EIP55Address `toml:"batchCoordinatorAddress"`
+	// BatchFulfillmentEnabled indicates to the vrf job to use the batch vrf coordinator
+	// for fulfilling requests. If set to true, batchCoordinatorAddress must be set in
+	// the job spec.
+	BatchFulfillmentEnabled bool `toml:"batchFulfillmentEnabled"`
+	// BatchFulfillmentGasMultiplier is used to determine the final gas estimate for the batch
+	// fulfillment.
+	BatchFulfillmentGasMultiplier tomlutils.Float64 `toml:"batchFulfillmentGasMultiplier"`
+
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`
@@ -436,8 +443,25 @@ type VRFSpec struct {
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
-	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults to 20 if not provided.
-	ChunkSize uint32    `toml:"chunkSize"`
+	// GasLanePrice specifies the gas lane price for this VRF job.
+	// If the specified keys in FromAddresses do not have the provided gas price the job
+	// will not start.
+	//
+	// Optional, for v2 jobs only.
+	GasLanePrice *assets.Wei `toml:"gasLanePrice" db:"gas_lane_price"`
+
+	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults
+	// to 20 if not provided.
+	ChunkSize uint32 `toml:"chunkSize"`
+
+	// BackoffInitialDelay is the amount of time to wait before retrying a failed request after the
+	// first failure. V2 only.
+	BackoffInitialDelay time.Duration `toml:"backoffInitialDelay"`
+
+	// BackoffMaxDelay is the maximum amount of time to wait before retrying a failed request. V2
+	// only.
+	BackoffMaxDelay time.Duration `toml:"backoffMaxDelay"`
+
 	CreatedAt time.Time `toml:"-"`
 	UpdatedAt time.Time `toml:"-"`
 }
@@ -485,9 +509,9 @@ type BlockhashStoreSpec struct {
 
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relaytypes.Network `toml:"relay"`
+	ID                                int32         `toml:"-"`
+	ContractID                        string        `toml:"contractID"`
+	Relay                             relay.Network `toml:"relay"`
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
@@ -510,5 +534,6 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 		ContractConfigConfirmations:       s.ContractConfigConfirmations,
 		CreatedAt:                         s.CreatedAt,
 		UpdatedAt:                         s.UpdatedAt,
+		P2PV2Bootstrappers:                pq.StringArray{},
 	}
 }

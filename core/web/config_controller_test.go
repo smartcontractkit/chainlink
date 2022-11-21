@@ -14,12 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewLegacyApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Get("/v2/config")
 	defer cleanup()
@@ -34,6 +35,5 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, "", cp.TLSHost)
 	assert.Len(t, cp.EthereumURL, 0)
 	assert.Equal(t, big.NewInt(evmclient.NullClientChainID).String(), cp.DefaultChainID)
-	assert.Contains(t, cp.ClientNodeURL, "http://127.0.0.1:")
-	assert.Equal(t, cltest.NewTestGeneralConfig(t).BlockBackfillDepth(), cp.BlockBackfillDepth)
+	assert.Equal(t, app.Config.BlockBackfillDepth(), cp.BlockBackfillDepth)
 }

@@ -2,10 +2,46 @@
 
 ## Unreleased
 
+### Added
+
+- Added a Solidity style guide.
+
 ### Changed
 
+- Migrated and improved `AuthorizedReceiverInterface` and `AuthorizedReceiver` from 0.7.0
+- Added `OCR2DR` interfaces and contracts (initial version for PoC)
+
+## 0.5.1 - 2022-09-27
+
+- Rename `KeeperBase` -> `AutomationBase` and add alias for backwards compatibility
+- Rename `KeeperCompatible` -> `AutomationCompatible` and add alias for backwards compatibility
+- Rename `KeeperCompatibleInterface` -> `AutomationCompatibleInterface` and add alias for backwards compatibility
+- Rename `KeeperRegistryInterface1_2` -> `AutomationRegistryInterface1_2` and add alias for backwards compatibility
+
+## 0.5.0 - 2022-09-26
+
+### Changed
+
+- Fix EIP-150 Bug in VRFV2Wrapper.sol (b9d8261eaa05838b9b609ea02005ecca3b6adca3)
+- Added a new UpkeepFormat version `V2` in `UpkeepFormat`
+- Renamed `KeeperRegistry` to `KeeperRegistry1_2` and `KeeperRegistryInterface` to `KeeperRegistryInterface1_2`
+- Updated `UpkeepTranscoder` to only do a pass-through for upkeep bytes
+
+## 0.4.2 - 2022-07-20
+
+### Changed
+
+- Downgrade 0.8.13 contracts to 0.8.6 due to [this solc bug](https://medium.com/certora/overly-optimistic-optimizer-certora-bug-disclosure-2101e3f7994d).
+- Reintroduce v0.6 `EACAggregatorProxy` after removing it in [this commit](https://github.com/smartcontractkit/chainlink/commit/558f42f5122779cb2e05dc8c2b84d1ae78cc0d71)
 - Ignore status update in `ArbitrumSequencerUptimeFeed` if incoming update has stale timestamp
 - Revert to using current Arbitrum seq status flag in `ArbitrumSequencerUptimeFeed`
+- Moved `VRFV2Wrapper`, `VRFV2WrapperConsumerBase` and `interfaces/VRFV2WrapperInterface` out of `dev` folder.
+
+## 0.4.1 - 2022-05-09
+
+### Changed
+
+- VRFv2 contract pragma versions changed from `^0.8.0` to `^0.8.4`.
 
 ## 0.4.0 - 2022-02-07
 

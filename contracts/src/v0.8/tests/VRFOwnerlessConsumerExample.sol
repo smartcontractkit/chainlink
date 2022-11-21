@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // An example VRF V1 consumer contract that can be triggered using a transferAndCall from the link
 // contract.
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "../VRFConsumerBase.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";

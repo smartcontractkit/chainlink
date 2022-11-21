@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -34,11 +35,11 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/bridge_types/", nil)
 	defer cleanup()
 
@@ -49,7 +50,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -70,7 +71,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
 	request.Header.Set("X-Chainlink-EA-Secret", eia.Secret)
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
@@ -81,7 +82,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -102,7 +103,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
 	request.Header.Set("X-Chainlink-EA-Secret", "every unpleasant commercial color from aquamarine to beige")
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
@@ -113,11 +114,11 @@ func TestSessions_RateLimited(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	input := `{"email":"brute@force.com", "password": "wrongpassword"}`
 
 	for i := 0; i < 5; i++ {
@@ -141,11 +142,11 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	body := string(make([]byte, 70000))
 	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(body))
@@ -160,7 +161,7 @@ func TestRouter_GinHelmetHeaders(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 	res, err := http.Get(ts.URL)

@@ -1,7 +1,6 @@
 package synchronization_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -28,13 +27,14 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	}, 1*time.Second)
+	}, testutils.WaitTimeout(t))
 
 	// reconnect after server disconnect
 	wsserver.WriteCloseMessage()
 	cltest.CallbackOrTimeout(t, "ws client reconnects", func() {
+		<-wsserver.Disconnected
 		<-wsserver.Connected
-	}, 3*time.Second)
+	}, testutils.WaitTimeout(t))
 	require.NoError(t, explorerClient.Close())
 }
 
@@ -70,10 +70,10 @@ func TestWebSocketClient_Send_DefaultsToTextMessage(t *testing.T) {
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
-	explorerClient.Send(context.Background(), []byte(expectation))
+	explorerClient.Send(testutils.Context(t), []byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.ReceivedText)
-	}, 1*time.Second)
+	}, testutils.WaitTimeout(t))
 }
 
 func TestWebSocketClient_Send_TextMessage(t *testing.T) {
@@ -85,10 +85,10 @@ func TestWebSocketClient_Send_TextMessage(t *testing.T) {
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
-	explorerClient.Send(context.Background(), []byte(expectation), synchronization.ExplorerTextMessage)
+	explorerClient.Send(testutils.Context(t), []byte(expectation), synchronization.ExplorerTextMessage)
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.ReceivedText)
-	})
+	}, testutils.WaitTimeout(t))
 }
 
 func TestWebSocketClient_Send_Binary(t *testing.T) {
@@ -101,10 +101,10 @@ func TestWebSocketClient_Send_Binary(t *testing.T) {
 
 	address := common.HexToAddress("0xabc123")
 	addressBytes := address.Bytes()
-	explorerClient.Send(context.Background(), addressBytes, synchronization.ExplorerBinaryMessage)
+	explorerClient.Send(testutils.Context(t), addressBytes, synchronization.ExplorerBinaryMessage)
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, addressBytes, <-wsserver.ReceivedBinary)
-	})
+	}, testutils.WaitTimeout(t))
 }
 
 func TestWebSocketClient_Send_Unsupported(t *testing.T) {
@@ -115,7 +115,7 @@ func TestWebSocketClient_Send_Unsupported(t *testing.T) {
 	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 
 	assert.PanicsWithValue(t, "send on explorer client received unsupported message type -1", func() {
-		explorerClient.Send(context.Background(), []byte(`{"hello": "world"}`), -1)
+		explorerClient.Send(testutils.Context(t), []byte(`{"hello": "world"}`), -1)
 	})
 	require.NoError(t, explorerClient.Close())
 }
@@ -129,18 +129,18 @@ func TestWebSocketClient_Send_WithAck(t *testing.T) {
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
-	explorerClient.Send(context.Background(), []byte(expectation))
+	explorerClient.Send(testutils.Context(t), []byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.ReceivedText)
 		err := wsserver.Broadcast(`{"result": 200}`)
 		assert.NoError(t, err)
-	})
+	}, testutils.WaitTimeout(t))
 
 	cltest.CallbackOrTimeout(t, "receive response", func() {
-		response, err := explorerClient.Receive(context.Background())
+		response, err := explorerClient.Receive(testutils.Context(t))
 		assert.NoError(t, err)
 		assert.NotNil(t, response)
-	})
+	}, testutils.WaitTimeout(t))
 }
 
 func TestWebSocketClient_Send_WithAckTimeout(t *testing.T) {
@@ -152,16 +152,15 @@ func TestWebSocketClient_Send_WithAckTimeout(t *testing.T) {
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
-	explorerClient.Send(context.Background(), []byte(expectation))
+	explorerClient.Send(testutils.Context(t), []byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.ReceivedText)
-	})
+	}, testutils.WaitTimeout(t))
 
 	cltest.CallbackOrTimeout(t, "receive response", func() {
-		_, err := explorerClient.Receive(context.Background(), 100*time.Millisecond)
-		assert.Error(t, err)
-		assert.Equal(t, err, synchronization.ErrReceiveTimeout)
-	}, 300*time.Millisecond)
+		_, err := explorerClient.Receive(testutils.Context(t), 100*time.Millisecond)
+		assert.ErrorIs(t, err, synchronization.ErrReceiveTimeout)
+	}, testutils.WaitTimeout(t))
 }
 
 func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
@@ -175,31 +174,39 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	defer explorerClient.Close()
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	}, 5*time.Second)
+	}, testutils.WaitTimeout(t))
 
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return explorerClient.Status()
 	}).Should(gomega.Equal(synchronization.ConnectionStatusConnected))
 
+	// this triggers ConnectionStatusError and then the client gets reconnected
 	wsserver.WriteCloseMessage()
-	wsserver.Close()
 
+	cltest.CallbackOrTimeout(t, "ws client disconnects and reconnects", func() {
+		<-wsserver.Disconnected
+		<-wsserver.Connected
+	}, testutils.WaitTimeout(t))
+
+	// expecting the client to reconnect
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return explorerClient.Status()
-	}).Should(gomega.Equal(synchronization.ConnectionStatusError))
+	}).Should(gomega.Equal(synchronization.ConnectionStatusConnected))
+
+	require.Equal(t, 1, wsserver.ConnectionsCount())
 }
 
 func TestWebSocketClient_Status_ConnectError(t *testing.T) {
 	badURL, err := url.Parse("http://badhost.com")
 	require.NoError(t, err)
 
-	errorexplorerClient := newTestExplorerClient(t, badURL)
-	require.NoError(t, errorexplorerClient.Start(testutils.Context(t)))
-	defer errorexplorerClient.Close()
-	time.Sleep(100 * time.Millisecond)
+	errorExplorerClient := newTestExplorerClient(t, badURL)
+	require.NoError(t, errorExplorerClient.Start(testutils.Context(t)))
+	defer errorExplorerClient.Close()
 
-	assert.Equal(t, synchronization.ConnectionStatusError, errorexplorerClient.Status())
-
+	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
+		return errorExplorerClient.Status()
+	}).Should(gomega.Equal(synchronization.ConnectionStatusError))
 }
 
 func newTestExplorerClient(t *testing.T, wsURL *url.URL) synchronization.ExplorerClient {

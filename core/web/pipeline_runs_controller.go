@@ -1,9 +1,8 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -96,7 +96,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		jsonAPIResponse(c, res, "pipelineRun")
 	}
 
-	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
+	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -174,10 +174,11 @@ func (prc *PipelineRunsController) Resume(c *gin.Context) {
 		return
 	}
 
-	if err := prc.App.ResumeJobV2(context.Background(), taskID, result); err != nil {
+	if err := prc.App.ResumeJobV2(c.Request.Context(), taskID, result); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
+	prc.App.GetAuditLogger().Audit(audit.UnauthedRunResumed, map[string]interface{}{"runID": c.Param("runID")})
 	c.Status(http.StatusOK)
 }

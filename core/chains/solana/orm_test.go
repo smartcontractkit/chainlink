@@ -1,4 +1,3 @@
-// TODO: Improve code reuse (mostly c/p of core/chains/terra/orm_test.go)
 package solana_test
 
 import (
@@ -9,19 +8,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 )
 
-func setupORM(t *testing.T) (*sqlx.DB, db.ORM) {
+func setupORM(t *testing.T) (*sqlx.DB, solana.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := solana.NewORM(db, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	orm := solana.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return db, orm
 }
@@ -34,17 +34,17 @@ func Test_ORM(t *testing.T) {
 	require.Empty(t, dbcs)
 
 	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err = orm.CreateChain(chainIDA, db.ChainCfg{})
+	_, err = orm.CreateChain(chainIDA, nil)
 	require.NoError(t, err)
 	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err = orm.CreateChain(chainIDB, db.ChainCfg{})
+	_, err = orm.CreateChain(chainIDB, nil)
 	require.NoError(t, err)
 
 	dbcs, err = orm.EnabledChains()
 	require.NoError(t, err)
 	require.Len(t, dbcs, 2)
 
-	newNode := db.NewNode{
+	newNode := db.Node{
 		Name:          "first",
 		SolanaChainID: chainIDA,
 		SolanaURL:     "http://tender.mint.test/columbus-5",
@@ -53,11 +53,11 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	gotNode, err = orm.Node(gotNode.ID)
+	gotNode, err = orm.NodeNamed(gotNode.Name)
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	newNode2 := db.NewNode{
+	newNode2 := db.Node{
 		Name:          "second",
 		SolanaChainID: chainIDB,
 		SolanaURL:     "http://tender.mint.test/bombay-12",
@@ -91,7 +91,7 @@ func Test_ORM(t *testing.T) {
 		assertEqual(t, newNode2, gotNodes[0])
 	}
 
-	newNode3 := db.NewNode{
+	newNode3 := db.Node{
 		Name:          "third",
 		SolanaChainID: chainIDB,
 		SolanaURL:     "http://tender.mint.test/bombay-12",
@@ -105,7 +105,7 @@ func Test_ORM(t *testing.T) {
 	assertEqual(t, newNode3, gotNamed)
 }
 
-func assertEqual(t *testing.T, newNode db.NewNode, gotNode db.Node) {
+func assertEqual(t *testing.T, newNode db.Node, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

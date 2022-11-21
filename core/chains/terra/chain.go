@@ -12,10 +12,12 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	"github.com/smartcontractkit/sqlx"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
@@ -34,27 +36,26 @@ import (
 // So we set a fairly high timeout here.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --name TxManager --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
-//go:generate mockery --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
-//go:generate mockery --name Chain --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name TxManager --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Chain --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 var _ terra.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
 	id             string
 	cfg            terra.Config
+	cfgImmutable   bool // toml config is immutable
 	txm            *terratxm.Txm
 	balanceMonitor services.ServiceCtx
 	orm            types.ORM
 	lggr           logger.Logger
 }
 
-// NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, orm types.ORM, lggr logger.Logger) (*chain, error) {
-	cfg := terra.NewConfig(dbchain.Cfg, lggr)
-	lggr = lggr.With("terraChainID", dbchain.ID)
+func newChain(id string, cfg terra.Config, db *sqlx.DB, ks keystore.Terra, logCfg pg.QConfig, eb pg.EventBroadcaster, orm types.ORM, lggr logger.Logger) (*chain, error) {
+	lggr = lggr.With("terraChainID", id)
 	var ch = chain{
-		id:   dbchain.ID,
+		id:   id,
 		cfg:  cfg,
 		orm:  orm,
 		lggr: lggr.Named("Chain"),
@@ -85,8 +86,12 @@ func (c *chain) Config() terra.Config {
 	return c.cfg
 }
 
-func (c *chain) UpdateConfig(cfg db.ChainCfg) {
-	c.cfg.Update(cfg)
+func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
+	if c.cfgImmutable {
+		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
+		return
+	}
+	c.cfg.Update(*cfg)
 }
 
 func (c *chain) TxManager() terra.TxManager {
@@ -137,9 +142,8 @@ func (c *chain) Start(ctx context.Context) error {
 
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
-		return multierr.Combine(
-			c.txm.Start(ctx),
-			c.balanceMonitor.Start(ctx))
+		var ms services.MultiStart
+		return ms.Start(ctx, c.txm, c.balanceMonitor)
 	})
 }
 

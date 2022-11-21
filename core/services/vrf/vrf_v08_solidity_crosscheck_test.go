@@ -5,31 +5,30 @@ import (
 	mrand "math/rand"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // Note these tests are identical to the ones in vrf_solidity_crosscheck_test.go,
 // (with the exception of TestVRFV08_InvalidPointCoordinates which is a new check in v0.8)
 // except we are testing against the v0.8 implementation of VRF.sol.
 func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRFV08TestHelper {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to create root ethereum identity")
-	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil
+	auth := testutils.MustNewSimTransactor(t)
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend)
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")

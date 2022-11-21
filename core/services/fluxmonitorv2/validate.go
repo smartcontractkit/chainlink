@@ -7,6 +7,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -31,25 +32,7 @@ func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, erro
 	}
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		var specIntThreshold job.FluxMonitorSpecIntThreshold
-		err = tree.Unmarshal(&specIntThreshold)
-		if err != nil {
-			return jb, err
-		}
-		spec = job.FluxMonitorSpec{
-			ContractAddress:     specIntThreshold.ContractAddress,
-			Threshold:           float32(specIntThreshold.Threshold),
-			AbsoluteThreshold:   float32(specIntThreshold.AbsoluteThreshold),
-			PollTimerPeriod:     specIntThreshold.PollTimerPeriod,
-			PollTimerDisabled:   specIntThreshold.PollTimerDisabled,
-			IdleTimerPeriod:     specIntThreshold.IdleTimerPeriod,
-			IdleTimerDisabled:   specIntThreshold.IdleTimerDisabled,
-			DrumbeatSchedule:    specIntThreshold.DrumbeatSchedule,
-			DrumbeatRandomDelay: specIntThreshold.DrumbeatRandomDelay,
-			DrumbeatEnabled:     specIntThreshold.DrumbeatEnabled,
-			MinPayment:          specIntThreshold.MinPayment,
-			EVMChainID:          specIntThreshold.EVMChainID,
-		}
+		return jb, err
 	}
 	jb.FluxMonitorSpec = &spec
 

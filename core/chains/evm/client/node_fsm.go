@@ -5,6 +5,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -94,11 +96,17 @@ func init() {
 
 // FSM methods
 
-// State allows reading the current state of the node
+// State allows reading the current state of the node.
 func (n *node) State() NodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state
+}
+
+func (n *node) StateAndLatest() (NodeState, int64, *utils.Big) {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.state, n.stateLatestBlockNumber, n.stateLatestTotalDifficulty
 }
 
 // setState is only used by internal state management methods.
@@ -116,7 +124,7 @@ func (n *node) setState(s NodeState) {
 
 func (n *node) declareAlive() {
 	n.transitionToAlive(func() {
-		n.log.Infow("RPC Node is online", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is online", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -142,7 +150,7 @@ func (n *node) transitionToAlive(fn func()) {
 // pool consumers again
 func (n *node) declareInSync() {
 	n.transitionToInSync(func() {
-		n.log.Infow("RPC Node is back in sync", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is back in sync", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -169,7 +177,7 @@ func (n *node) transitionToInSync(fn func()) {
 // clients and making it unavailable for use
 func (n *node) declareOutOfSync(latestReceivedBlockNumber int64) {
 	n.transitionToOutOfSync(func() {
-		n.log.Errorw("RPC Node is out of sync", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.outOfSyncLoop(latestReceivedBlockNumber)
 	})
@@ -184,9 +192,7 @@ func (n *node) transitionToOutOfSync(fn func()) {
 	}
 	switch n.state {
 	case NodeStateAlive:
-		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
-		n.cancelInflightRequests()
+		n.disconnectAll()
 		n.state = NodeStateOutOfSync
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateOutOfSync))
@@ -196,7 +202,7 @@ func (n *node) transitionToOutOfSync(fn func()) {
 
 func (n *node) declareUnreachable() {
 	n.transitionToUnreachable(func() {
-		n.log.Errorw("RPC Node is unreachable", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is unreachable", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.unreachableLoop()
 	})
@@ -210,10 +216,8 @@ func (n *node) transitionToUnreachable(fn func()) {
 		return
 	}
 	switch n.state {
-	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync:
-		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
-		n.cancelInflightRequests()
+	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID:
+		n.disconnectAll()
 		n.state = NodeStateUnreachable
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateUnreachable))
@@ -223,7 +227,7 @@ func (n *node) transitionToUnreachable(fn func()) {
 
 func (n *node) declareInvalidChainID() {
 	n.transitionToInvalidChainID(func() {
-		n.log.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.invalidChainIDLoop()
 	})
@@ -237,10 +241,8 @@ func (n *node) transitionToInvalidChainID(fn func()) {
 		return
 	}
 	switch n.state {
-	case NodeStateDialed:
-		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
-		n.cancelInflightRequests()
+	case NodeStateDialed, NodeStateOutOfSync:
+		n.disconnectAll()
 		n.state = NodeStateInvalidChainID
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateInvalidChainID))

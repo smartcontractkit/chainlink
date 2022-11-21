@@ -47,7 +47,7 @@ describe('Cron', () => {
       })
 
       describe('encodeCronString() / encodedSpecToString()', () => {
-        it('converts all valid cron strings to structs and back', async () => {
+        it('converts all valid cron strings to encoded structs and back', async () => {
           const tests = validCrons.map(async (input) => {
             const spec = await cron.encodeCronString(input)
             const output = await cron.encodedSpecToString(spec)

@@ -10,33 +10,22 @@ import (
 )
 
 func TestTrace(t *testing.T) {
-	lgr := TestLogger(t)
+	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 	lgr.SetLogLevel(zapcore.InfoLevel)
-	requireContains := func(cs ...string) {
-		t.Helper()
-		logs := MemoryLogTestingOnly().String()
-		for _, c := range cs {
-			require.Contains(t, logs, c)
-		}
-	}
-	requireNotContains := func(ns ...string) {
-		t.Helper()
-		logs := MemoryLogTestingOnly().String()
-		for _, n := range ns {
-			require.NotContains(t, logs, n)
-		}
-	}
 
 	const (
-		testName    = "TestTrace"
 		testMessage = "Trace message"
 	)
 	lgr.Trace(testMessage)
 	// [DEBUG] [TRACE] Trace message
-	requireNotContains(testMessage)
+	require.Empty(t, observed.TakeAll())
 
 	lgr.SetLogLevel(zapcore.DebugLevel)
 	lgr.Trace(testMessage)
 	// [DEBUG] [TRACE] Trace message
-	requireContains("[DEBUG]", "[TRACE]", testMessage)
+	logs := observed.TakeAll()
+	require.Len(t, logs, 1)
+	log := logs[0]
+	require.Equal(t, zapcore.DebugLevel, log.Level)
+	require.Equal(t, "[TRACE] "+testMessage, log.Message)
 }

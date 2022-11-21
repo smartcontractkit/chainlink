@@ -8,12 +8,14 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
+	"github.com/smartcontractkit/chainlink/core/cmd"
 )
 
 func TestClient_SolanaInit(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	newNode := db.NewNode{
@@ -28,7 +30,7 @@ func TestClient_SolanaInit(t *testing.T) {
 
 	// Try to add node
 	c := cli.NewContext(nil, set, nil)
-	err := client.CreateSolanaNode(c)
+	err := cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.Error(t, err)
 
 	// Chain first
@@ -36,12 +38,12 @@ func TestClient_SolanaInit(t *testing.T) {
 	setCh.String("id", newNode.SolanaChainID, "")
 	setCh.Parse([]string{`{}`})
 	cCh := cli.NewContext(nil, setCh, nil)
-	err = client.CreateSolanaChain(cCh)
+	err = cmd.SolanaChainClient(client).CreateChain(cCh)
 	require.NoError(t, err)
 
 	// Then node
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	assertTableRenders(t, r)

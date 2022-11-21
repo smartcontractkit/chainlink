@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name EventBroadcaster --output ./mocks/ --case=underscore
-//go:generate mockery --name Subscription --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name EventBroadcaster --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Subscription --output ./mocks/ --case=underscore
 
 // EventBroadcaster opaquely manages a collection of Postgres event listeners
 // and broadcasts events to subscribers (with an optional payload filter).
@@ -80,6 +80,12 @@ func (b *eventBroadcaster) Start(context.Context) error {
 		}
 		b.db = db
 		b.listener = pq.NewListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
+			// sanity check since these can still be called after closing the listener
+			select {
+			case <-b.chStop:
+				return
+			default:
+			}
 			// These are always connection-related events, and the pq library
 			// automatically handles reconnecting to the DB. Therefore, we do not
 			// need to terminate, but rather simply log these events for node
@@ -161,7 +167,7 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 		channel:          channel,
 		payloadFilter:    payloadFilter,
 		eventBroadcaster: b,
-		queue:            utils.NewBoundedQueue(1000),
+		queue:            utils.NewBoundedQueue[Event](1000),
 		chEvents:         make(chan Event),
 		chDone:           make(chan struct{}),
 		lggr:             logger.Sugared(b.lggr),
@@ -233,7 +239,7 @@ type subscription struct {
 	channel            string
 	payloadFilter      string
 	eventBroadcaster   *eventBroadcaster
-	queue              *utils.BoundedQueue
+	queue              *utils.BoundedQueue[Event]
 	processQueueWorker utils.SleeperTask
 	chEvents           chan Event
 	chDone             chan struct{}
@@ -254,19 +260,17 @@ func (sub *subscription) Send(event Event) {
 const broadcastTimeout = 10 * time.Second
 
 func (sub *subscription) processQueue() {
-	ctx, cancel := context.WithTimeout(context.Background(), broadcastTimeout)
-	defer cancel()
-
+	deadline := time.Now().Add(broadcastTimeout)
 	for !sub.queue.Empty() {
-		event, ok := sub.queue.Take().(Event)
-		if !ok {
-			sub.lggr.AssumptionViolationf("Postgres event broadcaster subscription expected an Event, got %T", event)
-			continue
-		}
+		event := sub.queue.Take()
 		select {
 		case sub.chEvents <- event:
-		case <-ctx.Done():
+		case <-time.After(time.Until(deadline)):
+			sub.lggr.Warnf("Postgres event broadcaster: SLOW processQueue(), timed out after %s", broadcastTimeout)
+			return
 		case <-sub.chDone:
+			sub.lggr.Debugw("Postgres event broadcaster: request cancelled during processQueue()")
+			return
 		}
 	}
 }

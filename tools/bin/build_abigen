@@ -35,6 +35,7 @@ pushd "$TMPDIR"
 git clone --depth=1 --single-branch --branch "$GETH_VERSION" "$GETH_REPO_URL"
 cd go-ethereum/cmd/abigen
 go build
+rm -f "$THIS_DIR/abigen" # necessary on MacOS for code signing
 cp ./abigen "$THIS_DIR"
 
 popd

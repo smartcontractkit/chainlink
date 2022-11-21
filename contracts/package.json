@@ -1,31 +1,45 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.4.0",
+  "version": "0.5.1",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
   "private": false,
   "scripts": {
     "test": "hardhat test",
+    "lint": "eslint --ext js,ts .",
+    "prettier:check": "prettier . --check --ignore-unknown",
+    "prettier:write": "prettier . --write --ignore-unknown",
     "size": "hardhat size-contracts",
     "clean": "hardhat clean",
     "compile:native": "./scripts/native_solc_compile_all",
     "compile": "hardhat compile",
     "coverage": "hardhat coverage",
-    "setup": "yarn compile",
-    "prepublishOnly": "yarn compile && ./scripts/prepublish_generate_abi_folder",
-    "publish-beta": "yarn publish --tag beta",
-    "publish-prod": "yarn tag add @chainlink/contracts@0.4.0 latest"
+    "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
+    "publish-beta": "pnpm publish --tag beta",
+    "publish-prod": "npm dist-tag add @chainlink/contracts@0.5.1 latest"
   },
   "files": [
     "src/",
     "abi/"
   ],
+  "pnpm": {
+    "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
+    "_comment2_logger": "See https://github.com/ethers-io/ethers.js/issues/379 we pin this version since that's what was used in the old yarn lockfile",
+    "overrides": {
+      "@ethersproject/logger": "5.0.6"
+    }
+  },
   "devDependencies": {
     "@ethereum-waffle/mock-contract": "^3.3.0",
+    "@ethersproject/abi": "~5.6.0",
+    "@ethersproject/bignumber": "~5.6.0",
+    "@ethersproject/contracts": "~5.6.0",
+    "@ethersproject/providers": "~5.6.1",
+    "@ethersproject/random": "~5.6.0",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
-    "@openzeppelin/contracts": "^4.3.3",
     "@openzeppelin/test-helpers": "^0.5.11",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^3.0.0",
@@ -34,19 +48,34 @@
     "@types/debug": "^4.1.7",
     "@types/mocha": "^8.2.2",
     "@types/node": "^15.12.2",
+    "@typescript-eslint/eslint-plugin": "^5.38.0",
+    "@typescript-eslint/parser": "^5.38.0",
     "chai": "^4.3.4",
     "debug": "^4.3.2",
+    "eslint": "^8.23.1",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
     "ethereum-waffle": "^3.3.0",
-    "ethers": "^5.3.1",
-    "hardhat": "^2.4.1",
+    "ethers": "~5.6.0",
+    "hardhat": "~2.10.1",
     "hardhat-abi-exporter": "^2.2.1",
-    "hardhat-contract-sizer": "^2.0.3",
+    "hardhat-contract-sizer": "^2.5.1",
+    "istanbul": "^0.4.5",
+    "moment": "^2.29.4",
+    "prettier": "^2.7.1",
     "prettier-plugin-solidity": "1.0.0-beta.18",
+    "rlp": "^2.0.0",
     "solhint": "^3.3.6",
     "solhint-plugin-prettier": "^0.0.5",
-    "solidity-coverage": "^0.7.17",
+    "solidity-coverage": "^0.7.22",
     "ts-node": "^10.0.0",
+    "tslib": "^2.4.0",
     "typechain": "^5.0.0",
     "typescript": "^4.3.2"
+  },
+  "dependencies": {
+    "@eth-optimism/contracts": "^0.5.21",
+    "@openzeppelin/contracts": "~4.3.3",
+    "@openzeppelin/contracts-v0.7": "npm:@openzeppelin/contracts@v3.4.2"
   }
 }

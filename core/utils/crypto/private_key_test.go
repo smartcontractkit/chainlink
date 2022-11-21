@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_EncryptedPrivateKey(t *testing.T) {
@@ -65,7 +66,7 @@ func Test_EncryptedPrivateKey_Scan(t *testing.T) {
 
 	// Unmarshaling bytes into a struct results in numbers being stored as a
 	// float64 which prevents us from asserting against the generated public key
-	// which uses ints. Instead we do a JSON string comparision
+	// which uses ints. Instead we do a JSON string comparison
 	expPrivKey, err := json.Marshal(EncryptedPrivateKey{CryptoJSON: encPrivkey})
 	require.NoError(t, err)
 	actPrivKey, err := json.Marshal(actual)

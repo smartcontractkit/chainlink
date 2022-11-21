@@ -1,11 +1,12 @@
 package txmgr_test
 
 import (
-	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -15,7 +16,7 @@ import (
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -28,7 +29,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgr.EthTxAttemptBroadcast
-	attempt.GasPrice = utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = assets.NewWeiI(3)
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
@@ -63,7 +64,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 
 func TestORM_EthTransactions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	orm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -76,7 +77,7 @@ func TestORM_EthTransactions(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgr.EthTxAttemptBroadcast
-	attempt.GasPrice = utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = assets.NewWeiI(3)
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
@@ -105,7 +106,7 @@ func TestORM(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	orm := cltest.NewTxmORM(t, db, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
@@ -130,7 +131,7 @@ func TestORM(t *testing.T) {
 
 		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgr.EthTxAttemptBroadcast
-		attemptL.GasPrice = utils.NewBigI(42)
+		attemptL.GasPrice = assets.NewWeiI(42)
 		err = orm.InsertEthTxAttempt(&attemptL)
 		require.NoError(t, err)
 		assert.Greater(t, int(attemptL.ID), 0)
@@ -138,7 +139,7 @@ func TestORM(t *testing.T) {
 	})
 	var r txmgr.EthReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
-		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash)
+		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
 		err = orm.InsertEthReceipt(&r)
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)

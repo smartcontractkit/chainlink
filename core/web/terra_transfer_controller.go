@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/denom"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	terramodels "github.com/smartcontractkit/chainlink/core/store/models/terra"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -77,9 +78,9 @@ func (tc *TerraTransfersController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("chain unreachable: %v", err))
 			return
 		}
-		gasPrice, err := txm.GasPrice()
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("gas price unavailable: %v", err))
+		gasPrice, err2 := txm.GasPrice()
+		if err2 != nil {
+			jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("gas price unavailable: %v", err2))
 			return
 		}
 
@@ -109,6 +110,10 @@ func (tc *TerraTransfersController) Create(c *gin.Context) {
 	msg := msgs[0]
 	resource.TxHash = msg.TxHash
 	resource.State = string(msg.State)
+
+	tc.App.GetAuditLogger().Audit(audit.TerraTransactionCreated, map[string]interface{}{
+		"terraTransactionResource": resource,
+	})
 
 	jsonAPIResponse(c, resource, "terra_msg")
 }

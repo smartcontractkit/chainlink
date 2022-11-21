@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -94,34 +94,27 @@ func TestModeTask(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			task := pipeline.ModeTask{
-				BaseTask:      pipeline.NewBaseTask(0, "mode", nil, nil, 0),
-				AllowedFaults: test.allowedFaults,
-			}
-			output, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			if output.Error != nil {
-				require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
-				require.Nil(t, output.Value)
-			} else {
-				require.Equal(t, map[string]interface{}{
-					"results":     test.wantResults,
-					"occurrences": test.wantOccurrences,
-				}, output.Value)
-				require.NoError(t, output.Error)
-			}
-		})
-	}
-
-	t.Run("VarExpr", func(t *testing.T) {
-		for _, test := range tests {
-			test := test
-			t.Run(test.name, func(t *testing.T) {
-				t.Parallel()
-
+			t.Run("without vars", func(t *testing.T) {
+				task := pipeline.ModeTask{
+					BaseTask:      pipeline.NewBaseTask(0, "mode", nil, nil, 0),
+					AllowedFaults: test.allowedFaults,
+				}
+				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+				assert.False(t, runInfo.IsPending)
+				assert.False(t, runInfo.IsRetryable)
+				if output.Error != nil {
+					require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
+					require.Nil(t, output.Value)
+				} else {
+					require.Equal(t, map[string]interface{}{
+						"results":     test.wantResults,
+						"occurrences": test.wantOccurrences,
+					}, output.Value)
+					require.NoError(t, output.Error)
+				}
+			})
+			t.Run("with vars", func(t *testing.T) {
 				var inputs []interface{}
 				for _, input := range test.inputs {
 					if input.Error != nil {
@@ -138,7 +131,7 @@ func TestModeTask(t *testing.T) {
 					Values:        "$(foo.bar)",
 					AllowedFaults: test.allowedFaults,
 				}
-				output, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {
@@ -152,15 +145,7 @@ func TestModeTask(t *testing.T) {
 					require.NoError(t, output.Error)
 				}
 			})
-		}
-	})
-
-	t.Run("JSONWithVarExprs", func(t *testing.T) {
-		for _, test := range tests {
-			test := test
-			t.Run(test.name, func(t *testing.T) {
-				t.Parallel()
-
+			t.Run("with json vars", func(t *testing.T) {
 				var inputs []interface{}
 				for _, input := range test.inputs {
 					if input.Error != nil {
@@ -191,7 +176,7 @@ func TestModeTask(t *testing.T) {
 					Values:        valuesParam,
 					AllowedFaults: test.allowedFaults,
 				}
-				output, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {
@@ -205,6 +190,6 @@ func TestModeTask(t *testing.T) {
 					require.NoError(t, output.Error)
 				}
 			})
-		}
-	})
+		})
+	}
 }

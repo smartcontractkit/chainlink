@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -49,7 +50,6 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	// required for successful WebAuthn authentication
 	if len(userWebAuthnTokens) > 0 {
 		sr.SessionStore = sc.sessions
-		sr.RequestContext = c
 		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 	}
 
@@ -67,7 +67,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, Session{Authenticated: true}, "session")
 }
 
-// Destroy erases the session ID for the sole API user.
+// Destroy removes the specified session ID from the database.
 func (sc *SessionsController) Destroy(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
 
@@ -83,6 +83,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		return
 	}
 
+	sc.App.GetAuditLogger().Audit(audit.AuthSessionDeleted, map[string]interface{}{"sessionID": sessionID})
 	jsonAPIResponse(c, Session{Authenticated: false}, "session")
 }
 

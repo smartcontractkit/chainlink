@@ -9,6 +9,8 @@ import (
 )
 
 func TestValidatedDirectRequestSpec(t *testing.T) {
+	t.Parallel()
+
 	toml := `
 type                = "directrequest"
 schemaVersion       = 1
@@ -33,4 +35,44 @@ observationSource   = """
 	assert.NotZero(t, s.ExternalJobID.Bytes()[:])
 	assert.Equal(t, time.Time{}, s.DirectRequestSpec.CreatedAt)
 	assert.Equal(t, time.Time{}, s.DirectRequestSpec.UpdatedAt)
+}
+
+func TestValidatedDirectRequestSpec_MinIncomingConfirmations(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no minIncomingConfirmations specified", func(t *testing.T) {
+		t.Parallel()
+
+		toml := `
+		type                = "directrequest"
+		schemaVersion       = 1
+		name                = "example eth request event spec"
+		observationSource   = """
+		"""
+		`
+
+		s, err := ValidatedDirectRequestSpec(toml)
+		require.NoError(t, err)
+
+		assert.False(t, s.DirectRequestSpec.MinIncomingConfirmations.Valid)
+	})
+
+	t.Run("minIncomingConfirmations set to 100", func(t *testing.T) {
+		t.Parallel()
+
+		toml := `
+		type                = "directrequest"
+		schemaVersion       = 1
+		name                = "example eth request event spec"
+		minIncomingConfirmations = 100
+		observationSource   = """
+		"""
+		`
+
+		s, err := ValidatedDirectRequestSpec(toml)
+		require.NoError(t, err)
+
+		assert.True(t, s.DirectRequestSpec.MinIncomingConfirmations.Valid)
+		assert.Equal(t, uint32(100), s.DirectRequestSpec.MinIncomingConfirmations.Uint32)
+	})
 }

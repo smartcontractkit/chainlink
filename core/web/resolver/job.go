@@ -40,11 +40,13 @@ func (r *JobResolver) CreatedAt() graphql.Time {
 }
 
 // Errors resolves the job's top level errors.
-//
-// This could potentially be moved into a dataloader if only resolver code uses
-// it.
-func (r *JobResolver) Errors() []*JobErrorResolver {
-	return NewJobErrors(r.j.JobSpecErrors)
+func (r *JobResolver) Errors(ctx context.Context) ([]*JobErrorResolver, error) {
+	specErrs, err := loader.GetJobSpecErrorsByJobID(ctx, r.j.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobErrors(specErrs), nil
 }
 
 // ExternalJobID resolves the job's external job id.
@@ -73,6 +75,20 @@ func (r *JobResolver) ObservationSource() string {
 // SchemaVersion resolves the job's schema version.
 func (r *JobResolver) SchemaVersion() int32 {
 	return int32(r.j.SchemaVersion)
+}
+
+// GasLimit resolves the job's gas limit.
+func (r *JobResolver) GasLimit() *int32 {
+	if !r.j.GasLimit.Valid {
+		return nil
+	}
+	v := int32(r.j.GasLimit.Uint32)
+	return &v
+}
+
+// ForwardingAllowed sets whether txs submitted by this job should be forwarded when possible.
+func (r *JobResolver) ForwardingAllowed() *bool {
+	return &r.j.ForwardingAllowed
 }
 
 // Type resolves the job's type.

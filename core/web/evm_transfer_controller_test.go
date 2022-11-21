@@ -10,13 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
@@ -29,20 +30,20 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		Amount:             amount,
 	}
 
@@ -69,19 +70,19 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	balance, err := assets.NewEthValueS("2")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	amount := assets.NewEthValue(1000000000000000000)
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		Amount:             amount,
 	}
 
@@ -108,23 +109,24 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		Amount:             amount,
 	}
 
@@ -150,7 +152,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
@@ -173,19 +175,19 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(assets.NewEth(10).ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(assets.NewEth(10).ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
 	request := models.SendEtherRequest{
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
@@ -210,19 +212,19 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	balance, err := assets.NewEthValueS("0")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
 	request := models.SendEtherRequest{
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
@@ -243,7 +245,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer([]byte(`{"address":""}`)))
 	t.Cleanup(cleanup)

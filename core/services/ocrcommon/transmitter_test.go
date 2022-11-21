@@ -1,9 +1,9 @@
 package ocrcommon_test
 
 import (
-	"context"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -11,24 +11,28 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
 
-func Test_Transmitter_CreateEthTransaction(t *testing.T) {
+func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
+	t.Parallel()
+
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	gasLimit := uint64(1000)
+	gasLimit := uint32(1000)
+	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := new(txmmocks.TxManager)
-	strategy := new(txmmocks.TxStrategy)
+	txm := txmmocks.NewTxManager(t)
+	strategy := txmmocks.NewTxStrategy(t)
 
-	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, strategy, txmgr.TransmitCheckerSpec{})
+	transmitter := ocrcommon.NewTransmitter(txm, []common.Address{fromAddress}, gasLimit, effectiveTransmitterAddress, strategy, txmgr.TransmitCheckerSpec{})
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    fromAddress,
@@ -38,7 +42,5 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 		Meta:           nil,
 		Strategy:       strategy,
 	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
-	require.NoError(t, transmitter.CreateEthTransaction(context.Background(), toAddress, payload))
-
-	txm.AssertExpectations(t)
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
 }

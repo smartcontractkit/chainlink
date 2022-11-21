@@ -1,22 +1,21 @@
 package ocrbootstrap_test
 
 import (
-	"context"
 	"testing"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 )
-
-var ctx = context.Background()
 
 func MustInsertOCRBootstrapSpec(t *testing.T, db *sqlx.DB) job.BootstrapSpec {
 	t.Helper()
@@ -55,10 +54,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("reads and writes config", func(t *testing.T) {
 		db := ocrbootstrap.NewDB(sqlDB.DB, spec.ID, lggr)
 
-		err := db.WriteConfig(ctx, config)
+		err := db.WriteConfig(testutils.Context(t), config)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(ctx)
+		readConfig, err := db.ReadConfig(testutils.Context(t))
 		require.NoError(t, err)
 
 		require.Equal(t, &config, readConfig)
@@ -73,10 +72,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 			Transmitters: []ocrtypes.Account{"test"},
 		}
 
-		err := db.WriteConfig(ctx, newConfig)
+		err := db.WriteConfig(testutils.Context(t), newConfig)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(ctx)
+		readConfig, err := db.ReadConfig(testutils.Context(t))
 		require.NoError(t, err)
 
 		require.Equal(t, &newConfig, readConfig)
@@ -85,12 +84,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
 		db := ocrbootstrap.NewDB(sqlDB.DB, spec.ID, lggr)
 
-		err := db.WriteConfig(ctx, config)
+		err := db.WriteConfig(testutils.Context(t), config)
 		require.NoError(t, err)
 
 		db = ocrbootstrap.NewDB(sqlDB.DB, -1, lggr)
 
-		readConfig, err := db.ReadConfig(ctx)
+		readConfig, err := db.ReadConfig(testutils.Context(t))
 		require.NoError(t, err)
 
 		require.Nil(t, readConfig)

@@ -3,17 +3,18 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 )
 
 type OCR2KeyBundlePresenter struct {
@@ -83,7 +84,7 @@ func (cli *Client) ListOCR2KeyBundles(c *cli.Context) error {
 func (cli *Client) CreateOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(
-			errors.Errorf(`must pass the type to create, options are: "%s" and "%s"`, chaintype.EVM, chaintype.Solana),
+			errors.Errorf(`must pass the type to create, options are: %s`, chaintype.SupportedChainTypes.String()),
 		)
 	}
 	chainType := c.Args().Get(0)
@@ -144,13 +145,13 @@ func (cli *Client) ImportOCR2Key(c *cli.Context) (err error) {
 	if len(oldPasswordFile) == 0 {
 		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
 	}
-	oldPassword, err := ioutil.ReadFile(oldPasswordFile)
+	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
-	keyJSON, err := ioutil.ReadFile(filepath)
+	keyJSON, err := os.ReadFile(filepath)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -180,7 +181,7 @@ func (cli *Client) ExportOCR2Key(c *cli.Context) (err error) {
 	if len(newPasswordFile) == 0 {
 		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
 	}
-	newPassword, err := ioutil.ReadFile(newPasswordFile)
+	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
@@ -207,7 +208,7 @@ func (cli *Client) ExportOCR2Key(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Error exporting"))
 	}
 
-	keyJSON, err := ioutil.ReadAll(resp.Body)
+	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
 	}

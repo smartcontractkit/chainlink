@@ -43,8 +43,8 @@ type headTracker struct {
 	chainID         big.Int
 	config          Config
 
-	backfillMB   *utils.Mailbox
-	broadcastMB  *utils.Mailbox
+	backfillMB   *utils.Mailbox[*evmtypes.Head]
+	broadcastMB  *utils.Mailbox[*evmtypes.Head]
 	headListener httypes.HeadListener
 	chStop       chan struct{}
 	wgDone       sync.WaitGroup
@@ -60,23 +60,19 @@ func NewHeadTracker(
 	headSaver httypes.HeadSaver,
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
-	lggr = lggr.Named(logger.HeadTracker)
+	lggr = lggr.Named("HeadTracker")
 	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
 		chainID:         *ethClient.ChainID(),
 		config:          config,
 		log:             lggr,
-		backfillMB:      utils.NewMailbox(1),
-		broadcastMB:     utils.NewMailbox(HeadsBufferSize),
+		backfillMB:      utils.NewMailbox[*evmtypes.Head](1),
+		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
 		chStop:          chStop,
 		headListener:    NewHeadListener(lggr, ethClient, config, chStop),
 		headSaver:       headSaver,
 	}
-}
-
-func (ht *headTracker) SetLogLevel(lvl zapcore.Level) {
-	ht.log.SetLogLevel(lvl)
 }
 
 // Start starts HeadTracker service.
@@ -157,6 +153,10 @@ func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Hea
 	return ht.backfill(ctx, headWithChain.EarliestInChain(), baseHeight)
 }
 
+func (ht *headTracker) LatestChain() *evmtypes.Head {
+	return ht.headSaver.LatestChain()
+}
+
 func (ht *headTracker) getInitialHead(ctx context.Context) (*evmtypes.Head, error) {
 	head, err := ht.ethClient.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -205,7 +205,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			ht.log.Errorf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}
 	return nil
@@ -228,7 +228,7 @@ func (ht *headTracker) broadcastLoop() {
 				if item == nil {
 					continue
 				}
-				ht.headBroadcaster.BroadcastNewLongestChain(evmtypes.AsHead(item))
+				ht.headBroadcaster.BroadcastNewLongestChain(item)
 			}
 		}
 	} else {
@@ -243,7 +243,7 @@ func (ht *headTracker) broadcastLoop() {
 					if !exists {
 						break
 					}
-					ht.headBroadcaster.BroadcastNewLongestChain(evmtypes.AsHead(item))
+					ht.headBroadcaster.BroadcastNewLongestChain(item)
 				}
 			}
 		}
@@ -262,11 +262,10 @@ func (ht *headTracker) backfillLoop() {
 			return
 		case <-ht.backfillMB.Notify():
 			for {
-				item, exists := ht.backfillMB.Retrieve()
+				head, exists := ht.backfillMB.Retrieve()
 				if !exists {
 					break
 				}
-				head := evmtypes.AsHead(item)
 				{
 					err := ht.Backfill(ctx, head, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
@@ -349,3 +348,4 @@ func (*nullTracker) SetLogLevel(zapcore.Level)   {}
 func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	return nil
 }
+func (*nullTracker) LatestChain() *evmtypes.Head { return nil }

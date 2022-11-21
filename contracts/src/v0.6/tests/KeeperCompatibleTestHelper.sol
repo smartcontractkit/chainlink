@@ -8,5 +8,5 @@ contract KeeperCompatibleTestHelper is KeeperCompatible {
 
   function performUpkeep(bytes calldata) external override {}
 
-  function testCannotExecute() public view cannotExecute {}
+  function verifyCannotExecute() public view cannotExecute {}
 }

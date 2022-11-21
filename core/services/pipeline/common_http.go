@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )
 
 func makeHTTPRequest(
@@ -18,8 +19,9 @@ func makeHTTPRequest(
 	lggr logger.Logger,
 	method StringParam,
 	url URLParam,
+	reqHeaders []string,
 	requestData MapParam,
-	allowUnrestrictedNetworkAccess BoolParam,
+	client *http.Client,
 	httpLimit int64,
 ) ([]byte, int, http.Header, time.Duration, error) {
 
@@ -37,18 +39,22 @@ func makeHTTPRequest(
 		return nil, 0, nil, 0, errors.Wrap(err, "failed to create http.Request")
 	}
 	request.Header.Set("Content-Type", "application/json")
+	if len(reqHeaders)%2 != 0 {
+		panic("headers must have an even number of elements")
+	}
+	for i := 0; i+1 < len(reqHeaders); i += 2 {
+		request.Header.Set(reqHeaders[i], reqHeaders[i+1])
+	}
 
-	httpRequest := HTTPRequest{
+	httpRequest := clhttp.HTTPRequest{
+		Client:  client,
 		Request: request,
-		Config: HTTPRequestConfig{
-			SizeLimit:                      httpLimit,
-			AllowUnrestrictedNetworkAccess: bool(allowUnrestrictedNetworkAccess),
-		},
-		Logger: lggr.Named("HTTPRequest"),
+		Config:  clhttp.HTTPRequestConfig{SizeLimit: httpLimit},
+		Logger:  lggr.Named("HTTPRequest"),
 	}
 
 	start := time.Now()
-	responseBytes, statusCode, headers, err := httpRequest.SendRequest()
+	responseBytes, statusCode, respHeaders, err := httpRequest.SendRequest()
 	if ctx.Err() != nil {
 		return nil, 0, nil, 0, errors.New("http request timed out or interrupted")
 	}
@@ -59,9 +65,9 @@ func makeHTTPRequest(
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
-		return nil, statusCode, headers, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
+		return nil, statusCode, respHeaders, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
 	}
-	return responseBytes, statusCode, headers, elapsed, nil
+	return responseBytes, statusCode, respHeaders, elapsed, nil
 }
 
 type PossibleErrorResponses struct {

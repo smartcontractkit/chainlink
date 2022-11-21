@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
-
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
@@ -29,6 +28,7 @@ func TestBalanceMonitor(t *testing.T) {
 		"100000.000000000000000000luna",
 	}
 	client := new(mocks.ReaderWriter)
+	client.Test(t)
 	type update struct{ acc, bal string }
 	var exp []update
 	for i := range bals {

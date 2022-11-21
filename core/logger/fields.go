@@ -3,6 +3,9 @@ package logger
 type Fields map[string]interface{}
 
 func (f Fields) With(xs ...interface{}) Fields {
+	if len(xs)%2 != 0 {
+		panic("expected even number of arguments")
+	}
 	f2 := make(Fields, len(f)+(len(xs)/2))
 	for k, v := range f {
 		f2[k] = v

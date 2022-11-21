@@ -12,12 +12,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 var (
@@ -138,5 +137,10 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	results["output"] = hexutil.Encode(b)
 	// RequestID needs to be a [32]byte for EthTxMeta.
 	results["requestID"] = hexutil.Encode(requestId.Bytes())
+
+	// store vrf proof and request commitment separately so they can be used in a batch fashion
+	results["proof"] = onChainProof
+	results["requestCommitment"] = rc
+
 	return Result{Value: results}, runInfo
 }

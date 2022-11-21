@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -11,12 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
+	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, error)
 	DeleteForwarder(id int32) error
+	FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error)
 }
 
 type orm struct {
@@ -25,7 +26,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 	return &orm{pg.NewQ(db, lggr, cfg)}
 }
 
@@ -65,4 +66,46 @@ func (o *orm) FindForwarders(offset, limit int) (fwds []Forwarder, count int, er
 		return
 	}
 	return
+}
+
+// FindForwardersByChain returns all forwarder addresses for a chain.
+func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, err error) {
+	sql := `SELECT * FROM evm_forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC`
+	err = o.q.Select(&fwds, sql, evmChainId)
+	return
+}
+
+func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error) {
+	var fwdrs []Forwarder
+
+	arg := map[string]interface{}{
+		"addresses": addrs,
+		"chainid":   evmChainId,
+	}
+
+	query, args, err := sqlx.Named(`
+		SELECT * FROM evm_forwarders 
+		WHERE evm_chain_id = :chainid
+		AND address IN (:addresses)
+		ORDER BY created_at DESC, id DESC`,
+		arg,
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to format query")
+	}
+
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to run sqlx.IN on query")
+	}
+
+	query = o.q.Rebind(query)
+	err = o.q.Select(&fwdrs, query, args...)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to execute query")
+	}
+
+	return fwdrs, nil
 }

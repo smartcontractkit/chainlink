@@ -5,15 +5,17 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type Config interface {
-	LogSQL() bool
-	EvmGasLimitDefault() uint64
+	pg.QConfig
+	EvmGasLimitDefault() uint32
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
@@ -31,7 +33,7 @@ type Config interface {
 	P2PPeerID() p2pkey.PeerID
 	P2PV2Bootstrappers() []commontypes.BootstrapperLocator
 	FlagsContractAddress() string
-	ChainType() chains.ChainType
+	ChainType() config.ChainType
 }
 
 func ParseBootstrapPeers(peers []string) (bootstrapPeers []commontypes.BootstrapperLocator, err error) {
@@ -46,7 +48,7 @@ func ParseBootstrapPeers(peers []string) (bootstrapPeers []commontypes.Bootstrap
 	return
 }
 
-// Will error unless at least one valid bootstrap peer is found
+// GetValidatedBootstrapPeers will error unless at least one valid bootstrap peer is found
 func GetValidatedBootstrapPeers(specPeers []string, configPeers []commontypes.BootstrapperLocator) ([]commontypes.BootstrapperLocator, error) {
 	bootstrapPeers, err := ParseBootstrapPeers(specPeers)
 	if err != nil {

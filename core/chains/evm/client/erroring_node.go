@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,7 +24,7 @@ func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
 
 func (e *erroringNode) Start(ctx context.Context) error { return errors.New(e.errMsg) }
 
-func (e *erroringNode) Close() {}
+func (e *erroringNode) Close() error { return nil }
 
 func (e *erroringNode) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
 	return errors.New(e.errMsg)
@@ -61,6 +62,10 @@ func (e *erroringNode) BlockByNumber(ctx context.Context, number *big.Int) (*typ
 	return nil, errors.New(e.errMsg)
 }
 
+func (e *erroringNode) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return nil, errors.New(e.errMsg)
+}
+
 func (e *erroringNode) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }
@@ -93,6 +98,10 @@ func (e *erroringNode) HeaderByNumber(_ context.Context, _ *big.Int) (*types.Hea
 	return nil, errors.New(e.errMsg)
 }
 
+func (e *erroringNode) HeaderByHash(_ context.Context, _ common.Hash) (*types.Header, error) {
+	return nil, errors.New(e.errMsg)
+}
+
 func (e *erroringNode) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }
@@ -109,8 +118,12 @@ func (e *erroringNode) State() NodeState {
 	return NodeStateUnreachable
 }
 
+func (e *erroringNode) StateAndLatest() (NodeState, int64, *utils.Big) {
+	return NodeStateUnreachable, -1, nil
+}
+
 func (e *erroringNode) DeclareOutOfSync()            {}
 func (e *erroringNode) DeclareInSync()               {}
 func (e *erroringNode) DeclareUnreachable()          {}
-func (e *erroringNode) ID() int32                    { return 0 }
+func (e *erroringNode) Name() string                 { return "" }
 func (e *erroringNode) NodeStates() map[int32]string { return nil }

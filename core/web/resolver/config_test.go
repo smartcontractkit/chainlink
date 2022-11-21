@@ -1,14 +1,95 @@
 package resolver
 
 import (
+	_ "embed"
+	"encoding/json"
+	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
 
+var (
+	//go:embed testdata/config-empty-effective.toml
+	configEmptyEffective string
+	//go:embed testdata/config-full.toml
+	configFull string
+	//go:embed testdata/config-multi-chain.toml
+	configMulti string
+	//go:embed testdata/config-multi-chain-effective.toml
+	configMultiEffective string
+)
+
+func TestResolver_ConfigV2(t *testing.T) {
+	t.Parallel()
+
+	query := `
+		query FetchConfigV2 {
+			configv2 {
+				user
+				effective
+			}
+	  	}`
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "configv2"),
+		{
+			name:          "empty",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				var opts chainlink.GeneralConfigOpts
+				require.NoError(f.t, opts.ParseTOML("", ""))
+				cfg, err := opts.New(logger.TestLogger(f.t))
+				require.NoError(t, err)
+				f.App.On("GetConfig").Return(cfg)
+			},
+			query:  query,
+			result: fmt.Sprintf(`{"configv2":{"user":"","effective":%s}}`, mustJSONMarshal(t, configEmptyEffective)),
+		},
+		{
+			name:          "full",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				var opts chainlink.GeneralConfigOpts
+				require.NoError(f.t, opts.ParseTOML(configFull, ""))
+				cfg, err := opts.New(logger.TestLogger(f.t))
+				require.NoError(t, err)
+				f.App.On("GetConfig").Return(cfg)
+			},
+			query:  query,
+			result: fmt.Sprintf(`{"configv2":{"user":%s,"effective":%s}}`, mustJSONMarshal(t, configFull), mustJSONMarshal(t, configFull)),
+		},
+		{
+			name:          "partial",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				var opts chainlink.GeneralConfigOpts
+				require.NoError(f.t, opts.ParseTOML(configMulti, ""))
+				cfg, err := opts.New(logger.TestLogger(f.t))
+				require.NoError(t, err)
+				f.App.On("GetConfig").Return(cfg)
+			},
+			query:  query,
+			result: fmt.Sprintf(`{"configv2":{"user":%s,"effective":%s}}`, mustJSONMarshal(t, configMulti), mustJSONMarshal(t, configMultiEffective)),
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func mustJSONMarshal(t *testing.T, s string) string {
+	b, err := json.Marshal(s)
+	require.NoError(t, err)
+	return string(b)
+}
+
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestResolver_Config(t *testing.T) {
 	t.Parallel()
 
@@ -33,69 +114,71 @@ func TestResolver_Config(t *testing.T) {
 				// Which means mocking each method here, which I'm not sure we would like to do
 				logLevel := zapcore.ErrorLevel
 				cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
-					AdminCredentialsFile: null.StringFrom("test"),
-					AdvisoryLockID:       null.IntFrom(1),
-					AllowOrigins:         null.StringFrom("test"),
-					BlockBackfillDepth:   null.IntFrom(1),
-					BlockBackfillSkip:    null.BoolFrom(false),
-					ClientNodeURL:        null.StringFrom("test"),
-					DatabaseURL:          null.StringFrom("test"),
-					DefaultChainID:       nil,
-					DefaultHTTPAllowUnrestrictedNetworkAccess: null.BoolFrom(true),
-					DefaultHTTPTimeout:                        nil,
-					Dev:                                       null.BoolFrom(true),
-					ShutdownGracePeriod:                       nil,
-					Dialect:                                   "",
-					EVMEnabled:                                null.BoolFrom(false),
-					EVMRPCEnabled:                             null.BoolFrom(false),
-					EthereumURL:                               null.StringFrom(""),
-					FeatureExternalInitiators:                 null.BoolFrom(true),
-					GlobalBalanceMonitorEnabled:               null.BoolFrom(true),
-					GlobalChainType:                           null.StringFrom(""),
-					GlobalEthTxReaperThreshold:                nil,
-					GlobalEthTxResendAfterThreshold:           nil,
-					GlobalEvmEIP1559DynamicFees:               null.BoolFrom(true),
-					GlobalEvmFinalityDepth:                    null.IntFrom(1),
-					GlobalEvmGasBumpPercent:                   null.IntFrom(1),
-					GlobalEvmGasBumpTxDepth:                   null.IntFrom(1),
-					GlobalEvmGasBumpWei:                       nil,
-					GlobalEvmGasLimitDefault:                  null.IntFrom(1),
-					GlobalEvmGasLimitMultiplier:               null.FloatFrom(1),
-					GlobalEvmGasPriceDefault:                  nil,
-					GlobalEvmGasTipCapDefault:                 nil,
-					GlobalEvmGasTipCapMinimum:                 nil,
-					GlobalEvmHeadTrackerHistoryDepth:          null.IntFrom(1),
-					GlobalEvmHeadTrackerMaxBufferSize:         null.IntFrom(1),
-					GlobalEvmHeadTrackerSamplingInterval:      nil,
-					GlobalEvmLogBackfillBatchSize:             null.IntFrom(1),
-					GlobalEvmMaxGasPriceWei:                   nil,
-					GlobalEvmMinGasPriceWei:                   nil,
-					GlobalEvmNonceAutoSync:                    null.BoolFrom(false),
-					GlobalEvmRPCDefaultBatchSize:              null.IntFrom(1),
-					GlobalFlagsContractAddress:                null.StringFrom("test"),
-					GlobalGasEstimatorMode:                    null.StringFrom("test"),
-					GlobalMinIncomingConfirmations:            null.IntFrom(1),
-					GlobalMinRequiredOutgoingConfirmations:    null.IntFrom(1),
-					GlobalMinimumContractPayment:              nil,
-					KeeperMaximumGracePeriod:                  null.IntFrom(1),
-					KeeperRegistrySyncInterval:                nil,
-					KeeperRegistrySyncUpkeepQueueSize:         null.IntFrom(1),
-					LogLevel:                                  &logLevel,
-					DefaultLogLevel:                           nil,
-					LogFileDir:                                null.StringFrom("foo"),
-					LogSQL:                                    null.BoolFrom(true),
-					LogFileMaxSize:                            null.StringFrom("100mb"),
-					LogFileMaxAge:                             null.IntFrom(3),
-					LogFileMaxBackups:                         null.IntFrom(12),
-					OCRKeyBundleID:                            null.StringFrom("test"),
-					OCRObservationTimeout:                     nil,
-					OCRTransmitterAddress:                     nil,
-					P2PBootstrapPeers:                         nil,
-					P2PListenPort:                             null.IntFrom(1),
-					P2PPeerID:                                 "",
-					P2PPeerIDError:                            nil,
-					SecretGenerator:                           nil,
-					TriggerFallbackDBPollInterval:             nil,
+					AdvisoryLockID:                       null.IntFrom(1),
+					AllowOrigins:                         null.StringFrom("test"),
+					BlockBackfillDepth:                   null.IntFrom(1),
+					BlockBackfillSkip:                    null.BoolFrom(false),
+					DatabaseURL:                          null.StringFrom("test"),
+					DefaultChainID:                       nil,
+					DefaultHTTPTimeout:                   nil,
+					Dev:                                  null.BoolFrom(true),
+					ShutdownGracePeriod:                  nil,
+					Dialect:                              "",
+					EVMEnabled:                           null.BoolFrom(false),
+					EVMRPCEnabled:                        null.BoolFrom(false),
+					EthereumURL:                          null.StringFrom(""),
+					FeatureExternalInitiators:            null.BoolFrom(true),
+					GlobalBalanceMonitorEnabled:          null.BoolFrom(true),
+					GlobalChainType:                      null.StringFrom(""),
+					GlobalEthTxReaperThreshold:           nil,
+					GlobalEthTxResendAfterThreshold:      nil,
+					GlobalEvmEIP1559DynamicFees:          null.BoolFrom(true),
+					GlobalEvmFinalityDepth:               null.IntFrom(1),
+					GlobalEvmGasBumpPercent:              null.IntFrom(1),
+					GlobalEvmGasBumpTxDepth:              null.IntFrom(1),
+					GlobalEvmGasBumpWei:                  nil,
+					GlobalEvmGasLimitDefault:             null.IntFrom(1),
+					GlobalEvmGasLimitMax:                 null.IntFrom(10),
+					GlobalEvmGasLimitMultiplier:          null.FloatFrom(1),
+					GlobalEvmGasPriceDefault:             nil,
+					GlobalEvmGasTipCapDefault:            nil,
+					GlobalEvmGasTipCapMinimum:            nil,
+					GlobalEvmGasLimitOCRJobType:          null.IntFrom(10),
+					GlobalEvmGasLimitDRJobType:           null.IntFrom(11),
+					GlobalEvmGasLimitVRFJobType:          null.IntFrom(12),
+					GlobalEvmGasLimitFMJobType:           null.IntFrom(13),
+					GlobalEvmGasLimitKeeperJobType:       null.IntFrom(14),
+					GlobalEvmHeadTrackerHistoryDepth:     null.IntFrom(1),
+					GlobalEvmHeadTrackerMaxBufferSize:    null.IntFrom(1),
+					GlobalEvmHeadTrackerSamplingInterval: nil,
+					GlobalEvmLogBackfillBatchSize:        null.IntFrom(1),
+					GlobalEvmMaxGasPriceWei:              nil,
+					GlobalEvmMinGasPriceWei:              nil,
+					GlobalEvmNonceAutoSync:               null.BoolFrom(false),
+					GlobalEvmRPCDefaultBatchSize:         null.IntFrom(1),
+					GlobalFlagsContractAddress:           null.StringFrom("test"),
+					GlobalGasEstimatorMode:               null.StringFrom("test"),
+					GlobalMinIncomingConfirmations:       null.IntFrom(1),
+					GlobalMinimumContractPayment:         nil,
+					KeeperMaximumGracePeriod:             null.IntFrom(1),
+					KeeperRegistrySyncInterval:           nil,
+					KeeperRegistrySyncUpkeepQueueSize:    null.IntFrom(1),
+					KeeperTurnLookBack:                   null.IntFrom(0),
+					KeeperTurnFlagEnabled:                null.BoolFrom(true),
+					LogLevel:                             &logLevel,
+					DefaultLogLevel:                      nil,
+					LogFileDir:                           null.StringFrom("foo"),
+					LogSQL:                               null.BoolFrom(true),
+					LogFileMaxSize:                       null.StringFrom("100mb"),
+					LogFileMaxAge:                        null.IntFrom(3),
+					LogFileMaxBackups:                    null.IntFrom(12),
+					OCRKeyBundleID:                       null.StringFrom("test"),
+					OCRObservationTimeout:                nil,
+					OCRTransmitterAddress:                nil,
+					P2PBootstrapPeers:                    nil,
+					P2PListenPort:                        null.IntFrom(1),
+					P2PPeerID:                            "",
+					TriggerFallbackDBPollInterval:        nil,
 				})
 				cfg.SetRootDir("/tmp/chainlink_test/gql-test")
 
@@ -141,10 +224,6 @@ func TestResolver_Config(t *testing.T) {
       {
         "key": "CHAIN_TYPE",
         "value": ""
-      },
-      {
-        "key": "CLIENT_NODE_URL",
-        "value": "test"
       },
       {
         "key": "DATABASE_BACKUP_FREQUENCY",
@@ -252,23 +331,39 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "KEEPER_MAXIMUM_GRACE_PERIOD",
-        "value": "0"
+        "value": "1"
       },
       {
         "key": "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
-        "value": "0"
+        "value": "200000"
       },
       {
         "key": "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
-        "value": "0"
+        "value": "300000"
       },
       {
+        "key": "KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE",
+        "value": "5000"
+      },
+	  {
+		"key":"KEEPER_REGISTRY_SYNC_INTERVAL",
+		"value":"30m0s"
+	  },
+      {
         "key": "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
-        "value": "0"
+        "value": "1"
       },
       {
         "key": "KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED",
         "value": "false"
+      },
+      {
+        "key": "KEEPER_TURN_LOOK_BACK",
+        "value": "0"
+      },
+      {
+        "key": "KEEPER_TURN_FLAG_ENABLED",
+        "value": "true"
       },
       {
         "key": "LEASE_LOCK_DURATION",
@@ -313,6 +408,22 @@ func TestResolver_Config(t *testing.T) {
       {
         "key": "TRIGGER_FALLBACK_DB_POLL_INTERVAL",
         "value": "30s"
+      },
+      {
+        "key": "AUDIT_LOGGER_ENABLED",
+        "value": "false"
+      },
+      {
+        "key": "AUDIT_LOGGER_FORWARD_TO_URL",
+        "value": ""
+      },
+      {
+        "key": "AUDIT_LOGGER_JSON_WRAPPER_KEY",
+        "value": ""
+      },
+      {
+        "key": "AUDIT_LOGGER_HEADERS",
+        "value": ""
       },
       {
         "key": "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",

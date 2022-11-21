@@ -3,7 +3,6 @@ package webhook_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -23,7 +22,7 @@ import (
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewQConfig(true)
 	borm := newBridgeORM(t, db, cfg)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
@@ -59,7 +58,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewQConfig(true)
 	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
@@ -79,12 +78,12 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI
-	eim.Notify(webhookSpecNoEIs.ID)
+	require.NoError(t, eim.Notify(webhookSpecNoEIs.ID))
 
 	client.On("Do", mock.MatchedBy(func(r *http.Request) bool {
 		body, err := r.GetBody()
 		require.NoError(t, err)
-		b, err := ioutil.ReadAll(body)
+		b, err := io.ReadAll(body)
 		require.NoError(t, err)
 
 		assert.Equal(t, jb.ExternalJobID.String(), gjson.GetBytes(b, "jobId").Str)
@@ -92,15 +91,13 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 		assert.Equal(t, `{"ei":"foo","name":"webhookSpecTwoEIs"}`, gjson.GetBytes(b, "params").Raw)
 
 		return r.Method == "POST" && r.URL.String() == eiWithURL.URL.String() && r.Header["Content-Type"][0] == "application/json" && r.Header["X-Chainlink-Ea-Accesskey"][0] == "token" && r.Header["X-Chainlink-Ea-Secret"][0] == "secret"
-	})).Once().Return(&http.Response{Body: io.NopCloser(strings.NewReader(""))}, nil)
-	eim.Notify(webhookSpecTwoEIs.ID)
-
-	client.AssertExpectations(t)
+	})).Once().Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil)
+	require.NoError(t, eim.Notify(webhookSpecTwoEIs.ID))
 }
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewQConfig(true)
 	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
@@ -120,13 +117,11 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI
-	eim.DeleteJob(webhookSpecNoEIs.ID)
+	require.NoError(t, eim.DeleteJob(webhookSpecNoEIs.ID))
 
 	client.On("Do", mock.MatchedBy(func(r *http.Request) bool {
 		expectedURL := fmt.Sprintf("%s/%s", eiWithURL.URL.String(), jb.ExternalJobID.String())
 		return r.Method == "DELETE" && r.URL.String() == expectedURL && r.Header["Content-Type"][0] == "application/json" && r.Header["X-Chainlink-Ea-Accesskey"][0] == "token" && r.Header["X-Chainlink-Ea-Secret"][0] == "secret"
-	})).Once().Return(&http.Response{Body: io.NopCloser(strings.NewReader(""))}, nil)
-	eim.DeleteJob(webhookSpecTwoEIs.ID)
-
-	client.AssertExpectations(t)
+	})).Once().Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil)
+	require.NoError(t, eim.DeleteJob(webhookSpecTwoEIs.ID))
 }

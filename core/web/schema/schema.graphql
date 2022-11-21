@@ -13,6 +13,7 @@ type Query {
     chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
     config: ConfigPayload!
+    configv2: ConfigV2Payload!
     csaKeys: CSAKeysPayload!
     ethKeys: EthKeysPayload!
     ethTransaction(hash: ID!): EthTransactionPayload!
@@ -46,6 +47,7 @@ type Mutation {
     createChain(input: CreateChainInput!): CreateChainPayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createFeedsManagerChainConfig(input: CreateFeedsManagerChainConfigInput!): CreateFeedsManagerChainConfigPayload!
     createJob(input: CreateJobInput!): CreateJobPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
@@ -55,6 +57,7 @@ type Mutation {
     deleteBridge(id: ID!): DeleteBridgePayload!
     deleteChain(id: ID!): DeleteChainPayload!
     deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteFeedsManagerChainConfig(id: ID!): DeleteFeedsManagerChainConfigPayload!
     deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
@@ -66,11 +69,11 @@ type Mutation {
     rejectJobProposalSpec(id: ID!): RejectJobProposalSpecPayload!
     runJob(id: ID!): RunJobPayload!
     setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
-    setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateChain(id: ID!, input: UpdateChainInput!): UpdateChainPayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
+    updateFeedsManagerChainConfig(id: ID!, input: UpdateFeedsManagerChainConfigInput!): UpdateFeedsManagerChainConfigPayload!
     updateJobProposalSpecDefinition(id: ID!, input: UpdateJobProposalSpecDefinitionInput!): UpdateJobProposalSpecDefinitionPayload!
     updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
 }

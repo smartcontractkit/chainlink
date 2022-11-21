@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -58,8 +58,9 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
@@ -93,8 +94,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		pipelineRunner:           d.pipelineRunner,
 		pipelineORM:              d.pipelineORM,
 		job:                      jb,
-		mbOracleRequests:         utils.NewHighCapacityMailbox(),
-		mbOracleCancelRequests:   utils.NewHighCapacityMailbox(),
+		mbOracleRequests:         utils.NewHighCapacityMailbox[log.Broadcast](),
+		mbOracleCancelRequests:   utils.NewHighCapacityMailbox[log.Broadcast](),
 		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
@@ -121,8 +122,8 @@ type listener struct {
 	job                      job.Job
 	runs                     sync.Map
 	shutdownWaitGroup        sync.WaitGroup
-	mbOracleRequests         *utils.Mailbox
-	mbOracleCancelRequests   *utils.Mailbox
+	mbOracleRequests         *utils.Mailbox[log.Broadcast]
+	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
@@ -220,15 +221,11 @@ func (l *listener) processCancelOracleRequests() {
 	}
 }
 
-func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
+func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 	for {
-		i, exists := mailbox.Retrieve()
+		lb, exists := mailbox.Retrieve()
 		if !exists {
 			return
-		}
-		lb, ok := i.(log.Broadcast)
-		if !ok {
-			panic(errors.Errorf("DirectRequest: invariant violation, expected log.Broadcast but got %T", lb))
 		}
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
@@ -334,13 +331,16 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"name":          l.job.Name.ValueOrZero(),
 		},
 		"jobRun": map[string]interface{}{
-			"meta":           meta,
-			"logBlockHash":   request.Raw.BlockHash,
-			"logBlockNumber": request.Raw.BlockNumber,
-			"logTxHash":      request.Raw.TxHash,
-			"logAddress":     request.Raw.Address,
-			"logTopics":      request.Raw.Topics,
-			"logData":        request.Raw.Data,
+			"meta":                  meta,
+			"logBlockHash":          request.Raw.BlockHash,
+			"logBlockNumber":        request.Raw.BlockNumber,
+			"logTxHash":             request.Raw.TxHash,
+			"logAddress":            request.Raw.Address,
+			"logTopics":             request.Raw.Topics,
+			"logData":               request.Raw.Data,
+			"blockReceiptsRoot":     lb.ReceiptsRoot(),
+			"blockTransactionsRoot": lb.TransactionsRoot(),
+			"blockStateRoot":        lb.StateRoot(),
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)

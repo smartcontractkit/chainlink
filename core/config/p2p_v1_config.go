@@ -39,7 +39,7 @@ func (c *generalConfig) P2PBootstrapPeers() ([]string, error) {
 		if bps != nil {
 			return bps, nil
 		}
-		return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS env var is not set")
+		return nil, errors.Wrap(ErrEnvUnset, "P2P_BOOTSTRAP_PEERS env var is not set")
 	}
 	return []string{}, nil
 }
@@ -118,22 +118,22 @@ func (c *generalConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
 
 // FIXME: Add comments to all of these
 func (c *generalConfig) P2PBootstrapCheckInterval() time.Duration {
-	if c.OCRBootstrapCheckInterval() != 0 {
-		return c.OCRBootstrapCheckInterval()
+	if c.ocrBootstrapCheckInterval() != 0 {
+		return c.ocrBootstrapCheckInterval()
 	}
 	return c.getWithFallback("P2PBootstrapCheckInterval", parse.Duration).(time.Duration)
 }
 
 func (c *generalConfig) P2PDHTLookupInterval() int {
-	if c.OCRDHTLookupInterval() != 0 {
-		return c.OCRDHTLookupInterval()
+	if c.ocrDHTLookupInterval() != 0 {
+		return c.ocrDHTLookupInterval()
 	}
-	return int(c.getWithFallback("P2PDHTLookupInterval", parse.Uint16).(uint16))
+	return int(getEnvWithFallback(c, envvar.NewUint16("P2PDHTLookupInterval")))
 }
 
 func (c *generalConfig) P2PNewStreamTimeout() time.Duration {
-	if c.OCRNewStreamTimeout() != 0 {
-		return c.OCRNewStreamTimeout()
+	if c.ocrNewStreamTimeout() != 0 {
+		return c.ocrNewStreamTimeout()
 	}
 	return c.getWithFallback("P2PNewStreamTimeout", parse.Duration).(time.Duration)
 }

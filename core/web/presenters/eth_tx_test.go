@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestEthTxResource(t *testing.T) {
@@ -24,7 +23,7 @@ func TestEthTxResource(t *testing.T) {
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
 		FromAddress:    from,
 		ToAddress:      to,
-		GasLimit:       uint64(5000),
+		GasLimit:       uint32(5000),
 		State:          txmgr.EthTxConfirmed,
 		Value:          assets.NewEthValue(1),
 	}
@@ -62,7 +61,7 @@ func TestEthTxResource(t *testing.T) {
 	var (
 		nonce           = int64(100)
 		hash            = common.BytesToHash([]byte{1, 2, 3})
-		gasPrice        = utils.NewBigI(1000)
+		gasPrice        = assets.NewWeiI(1000)
 		broadcastBefore = int64(300)
 	)
 

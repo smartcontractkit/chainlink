@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -41,12 +41,12 @@ func (nc *NullClient) Close() {
 	nc.lggr.Debug("Close")
 }
 
-func (nc *NullClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
+func (nc *NullClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	nc.lggr.Debug("GetERC20Balance")
 	return big.NewInt(0), nil
 }
 
-func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+func (nc *NullClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	nc.lggr.Debug("GetLINKBalance")
 	return assets.NewLinkFromJuels(0), nil
 }
@@ -56,11 +56,6 @@ func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (
 	return assets.NewEth(0), nil
 }
 
-func (nc *NullClient) Call(result interface{}, method string, args ...interface{}) error {
-	nc.lggr.Debug("Call")
-	return nil
-}
-
 func (nc *NullClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	nc.lggr.Debug("CallContext")
 	return nil
@@ -68,6 +63,11 @@ func (nc *NullClient) CallContext(ctx context.Context, result interface{}, metho
 
 func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	nc.lggr.Debug("HeadByNumber")
+	return nil, nil
+}
+
+func (nc *NullClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
+	nc.lggr.Debug("HeadByHash")
 	return nil, nil
 }
 
@@ -115,6 +115,11 @@ func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.He
 	return nil, nil
 }
 
+func (nc *NullClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
+	nc.lggr.Debug("HeaderByHash")
+	return nil, nil
+}
+
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	nc.lggr.Debug("SendTransaction")
 	return nil
@@ -142,6 +147,11 @@ func (nc *NullClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 
 func (nc *NullClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	nc.lggr.Debug("BlockByNumber")
+	return nil, nil
+}
+
+func (nc *NullClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	nc.lggr.Debug("BlockByHash")
 	return nil, nil
 }
 
@@ -189,4 +199,4 @@ func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, er
 }
 
 // NodeStates implements evmclient.Client
-func (nc *NullClient) NodeStates() map[int32]string { return nil }
+func (nc *NullClient) NodeStates() map[string]string { return nil }

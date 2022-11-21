@@ -2,19 +2,24 @@ package vrf
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -32,17 +37,18 @@ type Delegate struct {
 	lggr logger.Logger
 }
 
-//go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
-
+//go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
 type GethKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
+	EvmFinalityDepth() uint32
+	EvmGasLimitDefault() uint32
+	EvmGasLimitVRFJobType() *uint32
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
-	EvmGasLimitDefault() uint64
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
-	MinRequiredOutgoingConfirmations() uint64
 }
 
 func NewDelegate(
@@ -52,7 +58,7 @@ func NewDelegate(
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg pg.LogConfig) *Delegate {
+	cfg pg.QConfig) *Delegate {
 	return &Delegate{
 		q:    pg.NewQ(db, lggr, cfg),
 		ks:   ks,
@@ -67,6 +73,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
@@ -91,6 +98,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// If the batch coordinator address is not provided, we will fall back to non-batched
+	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
+	if jb.VRFSpec.BatchCoordinatorAddress != nil {
+		batchCoordinatorV2, err = batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(
+			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "create batch coordinator wrapper")
+		}
+	}
+
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -101,13 +119,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+				return nil, err
+			}
+
 			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "LINKETHFEED")
 			}
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
 
 			return []job.ServiceCtx{newListenerV2(
@@ -118,12 +140,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				chain.LogBroadcaster(),
 				d.q,
 				coordinatorV2,
+				batchCoordinatorV2,
 				aggregator,
 				chain.TxManager(),
 				d.pr,
 				d.ks.Eth(),
 				jb,
-				utils.NewHighCapacityMailbox(),
+				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
 				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				chain.HeadBroadcaster(),
@@ -143,7 +166,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				job:             jb,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewHighCapacityMailbox(),
+				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
@@ -155,6 +178,24 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	return nil, errors.New("invalid job spec expected a vrf task")
+}
+
+// CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
+// matches what is set for the  provided from addresses.
+// If they don't match, this is a configuration error. An error is returned with all the keys that do
+// not match the provided gas lane price.
+func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
+	if jb.VRFSpec.GasLanePrice != nil {
+		for _, a := range jb.VRFSpec.FromAddresses {
+			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
+				err = multierr.Append(err,
+					fmt.Errorf(
+						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
+						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
+			}
+		}
+	}
+	return
 }
 
 func GetStartingResponseCountsV1(q pg.Q, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {

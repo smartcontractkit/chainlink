@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -31,9 +32,8 @@ func ValidateBridgeTypeNotExist(bt *bridges.BridgeTypeRequest, orm bridges.ORM) 
 	return fe.CoerceEmptyToNil()
 }
 
-// ValidateBridgeType checks that the bridge type doesn't have a duplicate
-// or invalid name or invalid url
-func ValidateBridgeType(bt *bridges.BridgeTypeRequest, orm bridges.ORM) error {
+// ValidateBridgeType checks that the bridge type has the required field with valid values.
+func ValidateBridgeType(bt *bridges.BridgeTypeRequest) error {
 	fe := models.NewJSONAPIErrors()
 	if len(bt.Name.String()) < 1 {
 		fe.Add("No name specified")
@@ -70,11 +70,11 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	orm := btc.App.BridgeORM()
-	if e := ValidateBridgeType(btr, orm); e != nil {
+	if e := ValidateBridgeType(btr); e != nil {
 		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
+	orm := btc.App.BridgeORM()
 	if e := ValidateBridgeTypeNotExist(btr, orm); e != nil {
 		jsonAPIError(c, http.StatusBadRequest, e)
 		return
@@ -96,6 +96,13 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	default:
 		resource := presenters.NewBridgeResource(*bt)
 		resource.IncomingToken = bta.IncomingToken
+
+		btc.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]interface{}{
+			"bridgeName":                   bta.Name,
+			"bridgeConfirmations":          bta.Confirmations,
+			"bridgeMinimumContractPayment": bta.MinimumContractPayment,
+			"bridgeURL":                    bta.URL,
+		})
 
 		jsonAPIResponse(c, resource, "bridge")
 	}
@@ -162,7 +169,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	if err := ValidateBridgeType(btr, orm); err != nil {
+	if err := ValidateBridgeType(btr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
@@ -170,6 +177,13 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	btc.App.GetAuditLogger().Audit(audit.BridgeUpdated, map[string]interface{}{
+		"bridgeName":                   bt.Name,
+		"bridgeConfirmations":          bt.Confirmations,
+		"bridgeMinimumContractPayment": bt.MinimumContractPayment,
+		"bridgeURL":                    bt.URL,
+	})
 
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }
@@ -207,6 +221,8 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to delete bridge: %+v", err))
 		return
 	}
+
+	btc.App.GetAuditLogger().Audit(audit.BridgeDeleted, map[string]interface{}{"name": name})
 
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }

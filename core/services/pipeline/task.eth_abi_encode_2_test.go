@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"math"
 	"math/big"
 	"testing"
@@ -10,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -356,7 +356,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, _ := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, _ := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))

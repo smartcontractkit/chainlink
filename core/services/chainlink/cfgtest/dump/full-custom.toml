@@ -1,0 +1,335 @@
+ExplorerURL = 'http://explorer.com'
+InsecureFastScrypt = true
+RootDir = 'root/dir'
+ShutdownGracePeriod = '10s'
+
+[Feature]
+FeedsManager = true
+
+[Database]
+DefaultIdleInTxSessionTimeout = '1h0m0s'
+DefaultLockTimeout = '1m0s'
+DefaultQueryTimeout = '1s'
+LogQueries = true
+MaxIdleConns = 5
+MaxOpenConns = 12
+MigrateOnStartup = false
+
+[Database.Backup]
+Dir = 'db/backup'
+Frequency = '10m0s'
+Mode = 'lite'
+OnVersionUpgrade = false
+
+[Database.Listener]
+MaxReconnectDuration = '1m0s'
+MinReconnectInterval = '10s'
+FallbackPollInterval = '10s'
+
+[Database.Lock]
+LeaseDuration = '5s'
+LeaseRefreshInterval = '2s'
+
+[TelemetryIngress]
+UniConn = false
+Logging = true
+ServerPubKey = 'telem-pub-key'
+URL = 'http://telemetry.io'
+BufferSize = 13
+MaxBatchSize = 50
+SendInterval = '10s'
+SendTimeout = '1m0s'
+UseBatchSend = false
+
+[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
+
+[Log]
+Level = 'warn'
+JSONConsole = true
+UnixTS = true
+
+[Log.File]
+Dir = 'log/dir'
+MaxSize = '2.30gb'
+MaxAgeDays = 10
+MaxBackups = 15
+
+[WebServer]
+AllowOrigins = 'allow,origins'
+BridgeResponseURL = 'http://bridge.response'
+HTTPWriteTimeout = '5s'
+HTTPPort = 6080
+SecureCookies = false
+SessionTimeout = '10m0s'
+SessionReaperExpiration = '10h0m0s'
+
+[WebServer.MFA]
+RPID = 'mfa-rpid'
+RPOrigin = 'mfa-rporigin'
+
+[WebServer.RateLimit]
+Authenticated = 99
+AuthenticatedPeriod = '5m10s'
+Unauthenticated = 1
+UnauthenticatedPeriod = '10s'
+
+[WebServer.TLS]
+CertPath = 'tls/cert'
+ForceRedirect = true
+Host = 'tls-hostname'
+HTTPSPort = 6098
+KeyPath = 'tls/key'
+
+[JobPipeline]
+ExternalInitiatorsEnabled = true
+MaxRunDuration = '1m0s'
+ReaperInterval = '5m0s'
+ReaperThreshold = '1h0m0s'
+ResultWriteQueueDepth = 20
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1h0m0s'
+MaxSize = '300b'
+
+[FluxMonitor]
+DefaultTransactionQueueDepth = 5
+SimulateTransactions = true
+
+[OCR2]
+Enabled = true
+ContractConfirmations = 30
+BlockchainTimeout = '1m0s'
+ContractPollInterval = '30s'
+ContractSubscribeInterval = '10m0s'
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '1m0s'
+KeyBundleID = 'abcdef1234560000000000000000000000000000000000000000000000000000'
+
+[OCR]
+Enabled = true
+ObservationTimeout = '10s'
+BlockchainTimeout = '40s'
+ContractPollInterval = '1h0m0s'
+ContractSubscribeInterval = '1h0m0s'
+DefaultTransactionQueueDepth = 13
+KeyBundleID = '123456abcdef0000000000000000000000000000000000000000000000000000'
+SimulateTransactions = true
+TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
+
+[P2P]
+IncomingMessageBufferSize = 747
+OutgoingMessageBufferSize = 42
+PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
+TraceLogging = true
+
+[P2P.V1]
+Enabled = true
+AnnounceIP = '1.2.3.4'
+AnnouncePort = 57
+BootstrapCheckInterval = '1h0m0s'
+DefaultBootstrapPeers = ['p2p', 'bootstrap', 'peers']
+DHTAnnouncementCounterUserPrefix = 77
+DHTLookupInterval = 6
+ListenIP = '4.3.2.1'
+ListenPort = 4242
+NewStreamTimeout = '1m0s'
+PeerstoreWriteInterval = '10m0s'
+
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ['1', '2', '3', '4']
+DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
+DeltaDial = '1m0s'
+DeltaReconcile = '30m0s'
+ListenAddresses = ['abcd']
+
+[Keeper]
+DefaultTransactionQueueDepth = 10
+GasPriceBufferPercent = 50
+GasTipCapBufferPercent = 12
+BaseFeeBufferPercent = 7
+MaxGracePeriod = 42
+TurnLookBack = 67
+TurnFlagEnabled = true
+UpkeepCheckGasPriceEnabled = true
+
+[Keeper.Registry]
+CheckGasOverhead = 6
+PerformGasOverhead = 900
+MaxPerformDataSize = 5000
+SyncInterval = '1m0s'
+SyncUpkeepQueueSize = 99
+
+[AutoPprof]
+Enabled = true
+ProfileRoot = 'pprof/root'
+PollInterval = '5m0s'
+GatherDuration = '10m0s'
+GatherTraceDuration = '30s'
+MaxProfileSize = '10.00gb'
+CPUProfileRate = 10
+MemProfileRate = 5
+BlockProfileRate = 42
+MutexProfileFraction = 21
+MemThreshold = '1.00gb'
+GoroutineThreshold = 50
+
+[Pyroscope]
+ServerAddress = 'http://localhost:4040'
+Environment = 'tests'
+
+[Sentry]
+Debug = true
+DSN = 'http://sentry.dsn'
+Environment = 'prod'
+Release = 'sentry-release'
+
+[[EVM]]
+ChainID = '0'
+Enabled = false
+BlockBackfillDepth = 5
+BlockBackfillSkip = true
+ChainType = 'Optimism'
+FinalityDepth = 50
+FlagsContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
+LinkContractAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+LogBackfillBatchSize = 200
+LogPollInterval = '10s'
+MinIncomingConfirmations = 12
+MinContractPayment = '123456789'
+NonceAutoSync = true
+NoNewHeadsThreshold = '5m0s'
+OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
+RPCDefaultBatchSize = 10
+RPCBlockQueryDelay = 6
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 1500
+ReaperInterval = '10h0m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '5m0s'
+
+[EVM.BalanceMonitor]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '100.2 kwei'
+PriceMax = '9 mwei'
+LimitDefault = 102030405
+LimitMax = 1020304050
+LimitMultiplier = '1.003'
+LimitTransfer = 4294967295
+BumpMin = '987.654 kwei'
+BumpPercent = 2
+BumpThreshold = 10
+BumpTxDepth = 7
+EIP1559DynamicFees = true
+FeeCapDefault = '45.678912345 gwei'
+TipCapDefault = '4.321 kwei'
+TipCapMin = '7 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 9901
+DR = 9902
+VRF = 9903
+FM = 9904
+Keeper = 9905
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 13
+BlockHistorySize = 56
+CheckInclusionBlocks = 14
+CheckInclusionPercentile = 61
+EIP1559FeeCapBufferBlocks = 97
+TransactionPercentile = 42
+
+[EVM.HeadTracker]
+HistoryDepth = 7
+MaxBufferSize = 50
+SamplingInterval = '5s'
+
+[[EVM.KeySpecific]]
+Key = '0xae4E781a6218A8031764928E88d457937A954fC3'
+
+[EVM.KeySpecific.GasEstimator]
+PriceMax = '42 wei'
+
+[EVM.NodePool]
+PollFailureThreshold = 3
+PollInterval = '1m0s'
+SelectionMode = 'HighestHead'
+
+[[EVM.Nodes]]
+Name = 'primary_0_1'
+WSURL = 'ws://test1.invalid'
+
+[[EVM.Nodes]]
+Name = 'primary_0_2'
+WSURL = 'ws://test2.invalid'
+HTTPURL = 'https://test2.invalid'
+
+[[EVM.Nodes]]
+Name = 'sendonly_0_1'
+HTTPURL = 'http://test5.invalid'
+SendOnly = true
+
+[[Solana]]
+ChainID = 'mainnet'
+BalancePollPeriod = '8s'
+ConfirmPollPeriod = '5m9s'
+OCR2CachePollPeriod = '1h7m0s'
+OCR2CacheTTL = '42m10s'
+TxTimeout = '1s'
+TxRetryTimeout = '1m0s'
+TxConfirmTimeout = '1h0m0s'
+SkipPreflight = true
+Commitment = 'foobar'
+MaxRetries = 7
+
+[[Solana.Nodes]]
+Name = 'mainnet'
+URL = 'http://foo.bar'
+
+[[Solana.Nodes]]
+Name = 'mainnet-2'
+URL = 'http://fake.url'
+
+[[Starknet]]
+ChainID = 'foobar'
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+
+[[Terra]]
+ChainID = 'Columbus-5'
+BlockRate = '10m6s'
+BlocksUntilTxTimeout = 86
+ConfirmPollPeriod = '1m4s'
+FallbackGasPriceULuna = '9.5'
+FCDURL = 'http://fcd.url'
+GasLimitMultiplier = '1.65'
+MaxMsgsPerBatch = 9
+OCR2CachePollPeriod = '4m0s'
+OCR2CacheTTL = '6h0m5s'
+TxMsgTimeout = '9m0s'
+
+[[Terra.Nodes]]
+Name = 'mainnet'
+TendermintURL = 'http://terra.com'
+
+[[Terra.Nodes]]
+Name = 'mainnet-2'
+TendermintURL = 'http://terra.org'

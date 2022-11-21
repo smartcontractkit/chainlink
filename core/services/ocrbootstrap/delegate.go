@@ -2,28 +2,27 @@ package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
-	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	bootstrappers []commontypes.BootstrapperLocator
-	db            *sqlx.DB
-	jobORM        job.ORM
-	peerWrapper   *ocrcommon.SingletonPeerWrapper
-	cfg           validate.Config
-	lggr          logger.Logger
-	relayer       types.RelayerCtx
+	db                *sqlx.DB
+	jobORM            job.ORM
+	peerWrapper       *ocrcommon.SingletonPeerWrapper
+	cfg               validate.Config
+	lggr              logger.Logger
+	relayers          map[relay.Network]types.Relayer
+	isNewlyCreatedJob bool
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -33,7 +32,7 @@ func NewDelegateBootstrap(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
 	cfg validate.Config,
-	relayer types.RelayerCtx,
+	relayers map[relay.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -41,54 +40,45 @@ func NewDelegateBootstrap(
 		peerWrapper: peerWrapper,
 		lggr:        lggr,
 		cfg:         cfg,
-		relayer:     relayer,
+		relayers:    relayers,
 	}
 }
 
 // JobType satisfies the job.Delegate interface.
-func (d Delegate) JobType() job.Type {
+func (d *Delegate) JobType() job.Type {
 	return job.Bootstrap
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {
+	d.isNewlyCreatedJob = true
+}
+
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
 	spec := jobSpec.BootstrapSpec
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
-
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
-		ID:              spec.ID,
-		ContractID:      spec.ContractID,
-		TransmitterID:   null.String{},
-		Relay:           spec.Relay,
-		RelayConfig:     spec.RelayConfig,
-		IsBootstrapPeer: true,
+	if d.peerWrapper == nil {
+		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
+	} else if !d.peerWrapper.IsStarted() {
+		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
+	}
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	}
+	configProvider, err := relayer.NewConfigProvider(types.RelayArgs{
+		ExternalJobID: jobSpec.ExternalJobID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
+		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	services = append(services, ocr2Provider)
-
-	configDB := NewDB(d.db.DB, spec.ID, d.lggr)
-	peerWrapper := d.peerWrapper
-	if peerWrapper == nil {
-		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
-	} else if !peerWrapper.IsStarted() {
-		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
-	}
-
-	loggerWith := d.lggr.Named("OCR").With(
-		"contractID", spec.ContractID,
-		"jobName", jobSpec.Name.ValueOrZero(),
-		"jobID", jobSpec.ID,
-	)
-	ocrLogger := logger.NewOCRWrapper(loggerWith, true, func(msg string) {
-		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
-	})
-
-	ocr2Spec := spec.AsOCR2Spec()
-	lc := validate.ToLocalConfig(d.cfg, ocr2Spec)
+	lc := validate.ToLocalConfig(d.cfg, spec.AsOCR2Spec())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -99,26 +89,25 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 		"ContractTransmitterTransmitTimeout", lc.ContractTransmitterTransmitTimeout,
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
-	tracker := ocr2Provider.ContractConfigTracker()
-	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
-
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
-		BootstrapperFactory:    peerWrapper.Peer2,
-		ContractConfigTracker:  tracker,
-		Database:               configDB,
-		LocalConfig:            lc,
-		Logger:                 ocrLogger,
-		OffchainConfigDigester: offchainConfigDigester,
+		BootstrapperFactory:   d.peerWrapper.Peer2,
+		ContractConfigTracker: configProvider.ContractConfigTracker(),
+		Database:              NewDB(d.db.DB, spec.ID, d.lggr),
+		LocalConfig:           lc,
+		Logger: logger.NewOCRWrapper(d.lggr.Named("OCR").With(
+			"contractID", spec.ContractID,
+			"jobName", jobSpec.Name.ValueOrZero(),
+			"jobID", jobSpec.ID), true, func(msg string) {
+			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
+		}),
+		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
-
 	d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
 	bootstrapper, err := ocr.NewBootstrapper(bootstrapNodeArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 	}
-	services = append(services, job.NewServiceAdapter(bootstrapper))
-
-	return services, nil
+	return []job.ServiceCtx{configProvider, job.NewServiceAdapter(bootstrapper)}, nil
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.

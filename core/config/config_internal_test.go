@@ -19,12 +19,13 @@ import (
 func TestGeneralConfig_Defaults(t *testing.T) {
 	config := NewGeneralConfig(logger.TestLogger(t))
 	assert.Equal(t, uint64(10), config.BlockBackfillDepth())
-	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
+	assert.Equal(t, (*url.URL)(nil), config.BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
 	assert.True(t, config.EVMRPCEnabled())
 	assert.True(t, config.EVMEnabled())
 	assert.False(t, config.TerraEnabled())
 	assert.False(t, config.SolanaEnabled())
+	assert.False(t, config.StarkNetEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 }
@@ -54,24 +55,6 @@ func TestGeneralConfig_GlobalOCRContractTransmitterTransmitTimeout(t *testing.T)
 	timeout, ok := config.GlobalOCRContractTransmitterTransmitTimeout()
 	require.True(t, ok)
 	require.Equal(t, 3*time.Second, timeout)
-}
-
-func TestGeneralConfig_sessionSecret(t *testing.T) {
-	t.Parallel()
-	config := NewGeneralConfig(logger.TestLogger(t))
-	// config.Set("ROOT", path.Join("/tmp/chainlink_test", "TestConfig_sessionSecret"))
-	// err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
-	// require.NoError(t, err)
-	// defer os.RemoveAll(config.RootDir())
-
-	initial, err := config.SessionSecret()
-	require.NoError(t, err)
-	require.NotEqual(t, "", initial)
-	require.NotEqual(t, "clsession_test_secret", initial)
-
-	second, err := config.SessionSecret()
-	require.NoError(t, err)
-	require.Equal(t, initial, second)
 }
 
 func TestConfig_readFromFile(t *testing.T) {

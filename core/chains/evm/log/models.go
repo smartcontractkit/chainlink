@@ -6,9 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 )
 
-//go:generate mockery --name Broadcast --output ./mocks/ --case=underscore --structname Broadcast --filename broadcast.go
+//go:generate mockery --quiet --name Broadcast --output ./mocks/ --case=underscore --structname Broadcast --filename broadcast.go
 
 type (
 	// The Broadcast type wraps a types.Log but provides additional functionality
@@ -20,6 +22,9 @@ type (
 		String() string
 		LatestBlockNumber() uint64
 		LatestBlockHash() common.Hash
+		ReceiptsRoot() common.Hash
+		TransactionsRoot() common.Hash
+		StateRoot() common.Hash
 		JobID() int32
 		EVMChainID() big.Int
 	}
@@ -27,6 +32,9 @@ type (
 	broadcast struct {
 		latestBlockNumber uint64
 		latestBlockHash   common.Hash
+		receiptsRoot      common.Hash
+		transactionsRoot  common.Hash
+		stateRoot         common.Hash
 		decodedLog        interface{}
 		rawLog            types.Log
 		jobID             int32
@@ -44,6 +52,18 @@ func (b *broadcast) LatestBlockNumber() uint64 {
 
 func (b *broadcast) LatestBlockHash() common.Hash {
 	return b.latestBlockHash
+}
+
+func (b *broadcast) ReceiptsRoot() common.Hash {
+	return b.receiptsRoot
+}
+
+func (b *broadcast) TransactionsRoot() common.Hash {
+	return b.transactionsRoot
+}
+
+func (b *broadcast) StateRoot() common.Hash {
+	return b.stateRoot
 }
 
 func (b *broadcast) RawLog() types.Log {
@@ -70,9 +90,19 @@ func NewLogBroadcast(rawLog types.Log, evmChainID big.Int, decodedLog interface{
 	return &broadcast{
 		latestBlockNumber: 0,
 		latestBlockHash:   common.Hash{},
+		receiptsRoot:      common.Hash{},
+		transactionsRoot:  common.Hash{},
+		stateRoot:         common.Hash{},
 		decodedLog:        decodedLog,
 		rawLog:            rawLog,
 		jobID:             0,
 		evmChainID:        evmChainID,
 	}
+}
+
+//go:generate mockery --quiet --name AbigenContract --output ./mocks --case=underscore
+
+type AbigenContract interface {
+	Address() common.Address
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 }

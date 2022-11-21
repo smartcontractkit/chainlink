@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
 // UpkeepCounterEvents print out emitted events and write to csv file
@@ -41,7 +41,7 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 
 	fmt.Println("From, InitialBlock, LastBlock, PreviousBlock, Counter")
 	row := []string{"From", "InitialBlock", "LastBlock", "PreviousBlock", "Counter"}
-	if err := w.Write(row); err != nil {
+	if err = w.Write(row); err != nil {
 		log.Fatalln("error writing record to file", err)
 	}
 
@@ -53,12 +53,12 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 			upkeepIterator.Event.PreviousBlock,
 			upkeepIterator.Event.Counter,
 		)
-		row := []string{upkeepIterator.Event.From.String(),
+		row = []string{upkeepIterator.Event.From.String(),
 			upkeepIterator.Event.InitialBlock.String(),
 			upkeepIterator.Event.LastBlock.String(),
 			upkeepIterator.Event.PreviousBlock.String(),
 			upkeepIterator.Event.Counter.String()}
-		if err := w.Write(row); err != nil {
+		if err = w.Write(row); err != nil {
 			log.Fatalln("error writing record to file", err)
 		}
 	}

@@ -1,22 +1,26 @@
 package ocr
 
 import (
+	"math/big"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/libocr/offchainreporting"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	config2 "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/libocr/offchainreporting"
 )
 
 type ValidationConfig interface {
-	ChainType() chains.ChainType
+	ChainType() config.ChainType
 	Dev() bool
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
@@ -33,6 +37,16 @@ type ValidationConfig interface {
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job, error) {
+	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (config2.ChainScopedConfig, error) {
+		c, err := chainSet.Get(id)
+		if err != nil {
+			return nil, err
+		}
+		return c.Config(), nil
+	}, tomlString)
+}
+
+func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedConfig, error), tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCROracleSpec
 	tree, err := toml.Load(tomlString)
@@ -51,6 +65,11 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 	}
 	jb.OCROracleSpec = &spec
 
+	if jb.OCROracleSpec.P2PV2Bootstrappers == nil {
+		// Empty but non-null, field is non-nullable.
+		jb.OCROracleSpec.P2PV2Bootstrappers = pq.StringArray{}
+	}
+
 	if jb.Type != job.OffchainReporting {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", jb.Type)
 	}
@@ -63,7 +82,14 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		}
 	}
 
-	chain, err := chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+	if len(spec.P2PV2Bootstrappers) > 0 {
+		_, err = ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)
+		if err != nil {
+			return jb, err
+		}
+	}
+
+	cfg, err := configFn(jb.OCROracleSpec.EVMChainID.ToInt())
 	if err != nil {
 		return jb, err
 	}
@@ -72,10 +98,10 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		if err := validateBootstrapSpec(tree, jb); err != nil {
 			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, chain.Config(), jb); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, cfg, jb); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(chain.Config(), spec); err != nil {
+	if err := validateTimingParameters(cfg, spec); err != nil {
 		return jb, err
 	}
 	return jb, nil

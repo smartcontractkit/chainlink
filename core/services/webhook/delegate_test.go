@@ -1,7 +1,6 @@
 package webhook_test
 
 import (
-	"context"
 	"testing"
 
 	uuid "github.com/satori/go.uuid"
@@ -57,7 +56,7 @@ func TestWebhookDelegate(t *testing.T) {
 	service := services[0]
 
 	// Should error before service is started
-	_, err = delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)
+	_, err = delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
 	require.Error(t, err)
 	require.Equal(t, webhook.ErrJobNotExists, errors.Cause(err))
 
@@ -74,7 +73,7 @@ func TestWebhookDelegate(t *testing.T) {
 			require.Equal(t, vars, run.Inputs.Val)
 		}).Once()
 
-	runID, err := delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)
+	runID, err := delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
 	require.NoError(t, err)
 	require.Equal(t, int64(123), runID)
 
@@ -84,15 +83,13 @@ func TestWebhookDelegate(t *testing.T) {
 	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
 		Return(false, expectedErr).Once()
 
-	_, err = delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)
+	_, err = delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
 	require.Equal(t, expectedErr, errors.Cause(err))
 
 	// Should error after service is stopped
 	err = service.Close()
 	require.NoError(t, err)
 
-	_, err = delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)
+	_, err = delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
 	require.Equal(t, webhook.ErrJobNotExists, errors.Cause(err))
-
-	runner.AssertExpectations(t)
 }

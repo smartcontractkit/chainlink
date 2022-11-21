@@ -5,46 +5,48 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/solanatest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestClient_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	id := solanatest.RandomChainID()
+	chain := solana.SolanaConfig{
+		ChainID: &id,
+		Enabled: ptr(true),
+	}
+	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Solana.ORM()
-	_, initialCount, err := orm.Chains(0, 25)
-	require.NoError(t, err)
-
-	chain, err := orm.CreateChain(solanatest.RandomChainID(), db.ChainCfg{})
-	require.NoError(t, err)
-
-	require.Nil(t, client.IndexSolanaChains(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.SolanaChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.SolanaChainPresenters)
-	require.Len(t, chains, initialCount+1)
-	c := chains[initialCount]
-	assert.Equal(t, chain.ID, c.ID)
+	require.Len(t, chains, 1)
+	c := chains[0]
+	assert.Equal(t, id, c.ID)
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateSolanaChain(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Solana.ORM()
-	_, initialCount, err := orm.Chains(0, 25)
+	sol := app.Chains.Solana
+	_, initialCount, err := sol.Index(0, 25)
 	require.NoError(t, err)
 
 	solanaChainID := solanatest.RandomChainID()
@@ -53,10 +55,10 @@ func TestClient_CreateSolanaChain(t *testing.T) {
 	set.Parse([]string{`{}`})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.CreateSolanaChain(c)
+	err = cmd.SolanaChainClient(client).CreateChain(c)
 	require.NoError(t, err)
 
-	chains, _, err := orm.Chains(0, 25)
+	chains, _, err := sol.Index(0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 	ch := chains[initialCount]
@@ -64,20 +66,22 @@ func TestClient_CreateSolanaChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveSolanaChain(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Solana.ORM()
-	_, initialCount, err := orm.Chains(0, 25)
+	sol := app.Chains.Solana
+	_, initialCount, err := sol.Index(0, 25)
 	require.NoError(t, err)
 
+	ctx := testutils.Context(t)
 	solanaChainID := solanatest.RandomChainID()
-	_, err = orm.CreateChain(solanaChainID, db.ChainCfg{})
+	_, err = sol.Add(ctx, solanaChainID, nil)
 	require.NoError(t, err)
-	chains, _, err := orm.Chains(0, 25)
+	chains, _, err := sol.Index(0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 
@@ -85,36 +89,40 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 	set.Parse([]string{solanaChainID})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveSolanaChain(c)
+	err = cmd.SolanaChainClient(client).RemoveChain(c)
 	require.NoError(t, err)
 
-	chains, _, err = orm.Chains(0, 25)
+	chains, _, err = sol.Index(0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount)
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_ConfigureSolanaChain(t *testing.T) {
 	t.Parallel()
 
-	app := solanaStartNewApplication(t)
+	app := solanaStartNewLegacyApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Solana.ORM()
+	sol := app.Chains.Solana
 
-	_, initialCount, err := orm.Chains(0, 25)
+	_, initialCount, err := sol.Index(0, 25)
 	require.NoError(t, err)
 
 	solanaChainID := solanatest.RandomChainID()
-	minute := models.MustMakeDuration(time.Minute)
-	hour := models.MustMakeDuration(time.Hour)
+	minute, err := utils.NewDuration(time.Minute)
+	require.NoError(t, err)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	original := db.ChainCfg{
 		ConfirmPollPeriod: &minute,
 		TxTimeout:         &hour,
 	}
-	_, err = orm.CreateChain(solanaChainID, original)
+	ctx := testutils.Context(t)
+	_, err = sol.Add(ctx, solanaChainID, &original)
 	require.NoError(t, err)
-	chains, _, err := orm.Chains(0, 25)
+	chains, _, err := sol.Index(0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 
@@ -125,10 +133,10 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 	})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.ConfigureSolanaChain(c)
+	err = cmd.SolanaChainClient(client).ConfigureChain(c)
 	require.NoError(t, err)
 
-	chains, _, err = orm.Chains(0, 25)
+	chains, _, err = sol.Index(0, 25)
 	require.NoError(t, err)
 	ch := chains[initialCount]
 

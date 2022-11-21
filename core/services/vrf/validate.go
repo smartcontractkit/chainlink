@@ -2,12 +2,14 @@ package vrf
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -58,8 +60,25 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		spec.RequestTimeout = 24 * time.Hour
 	}
 
+	if spec.BatchFulfillmentEnabled && spec.BatchCoordinatorAddress == nil {
+		return jb, errors.Wrap(ErrKeyNotSet, "batch coordinator address must be provided if batchFulfillmentEnabled = true")
+	}
+
+	if spec.BatchFulfillmentGasMultiplier <= 0 {
+		spec.BatchFulfillmentGasMultiplier = 1.15
+	}
+
 	if spec.ChunkSize == 0 {
 		spec.ChunkSize = 20
+	}
+
+	if spec.BackoffMaxDelay < spec.BackoffInitialDelay {
+		return jb, fmt.Errorf("backoff max delay (%s) cannot be less than backoff initial delay (%s)",
+			spec.BackoffMaxDelay.String(), spec.BackoffInitialDelay.String())
+	}
+
+	if spec.GasLanePrice != nil && spec.GasLanePrice.Cmp(assets.GWei(0)) <= 0 {
+		return jb, fmt.Errorf("gasLanePrice must be positive, given: %s", spec.GasLanePrice.String())
 	}
 
 	var foundVRFTask bool

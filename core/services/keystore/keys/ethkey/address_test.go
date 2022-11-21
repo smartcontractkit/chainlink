@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
 func TestEIP55Address(t *testing.T) {
@@ -68,4 +69,56 @@ func TestValidateEIP55Address(t *testing.T) {
 			assert.Equal(t, test.valid, valid)
 		})
 	}
+}
+
+func TestEIP55AddressFromAddress(t *testing.T) {
+	t.Parallel()
+
+	addr := common.HexToAddress("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
+	eip55 := ethkey.EIP55AddressFromAddress(addr)
+	assert.Equal(t, addr, eip55.Address())
+}
+
+func TestEIP55Address_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	eip55, err := ethkey.NewEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
+	assert.NoError(t, err)
+
+	val, err := eip55.Value()
+	assert.NoError(t, err)
+
+	var eip55New ethkey.EIP55Address
+	err = eip55New.Scan(val)
+	assert.NoError(t, err)
+
+	assert.Equal(t, eip55, eip55New)
+}
+
+func TestEIP55AddressCollection_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	collection := ethkey.EIP55AddressCollection{
+		ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B0146111"),
+		ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B0146222"),
+	}
+
+	val, err := collection.Value()
+	assert.NoError(t, err)
+
+	var collectionNew ethkey.EIP55AddressCollection
+	err = collectionNew.Scan(val)
+	assert.NoError(t, err)
+
+	assert.Equal(t, collection, collectionNew)
+}
+
+func TestEIP55Address_IsZero(t *testing.T) {
+	t.Parallel()
+
+	eip55 := ethkey.EIP55AddressFromAddress(common.HexToAddress("0x0"))
+	assert.True(t, eip55.IsZero())
+
+	eip55 = ethkey.EIP55AddressFromAddress(common.HexToAddress("0x1"))
+	assert.False(t, eip55.IsZero())
 }

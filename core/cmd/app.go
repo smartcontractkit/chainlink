@@ -2,11 +2,19 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/core/config"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -21,8 +29,25 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 	return ret
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+func isDevMode() bool {
+	var clDev string
+	v1, v2 := os.Getenv("CHAINLINK_DEV"), os.Getenv("CL_DEV")
+	if v1 != "" && v2 != "" {
+		if v1 != v2 {
+			panic("you may only set one of CHAINLINK_DEV and CL_DEV environment variables, not both")
+		}
+	} else if v1 == "" {
+		clDev = v2
+	} else if v2 == "" {
+		clDev = v1
+	}
+	return strings.ToLower(clDev) == "true"
+}
+
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
+	devMode := isDevMode()
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -31,10 +56,115 @@ func NewApp(client *Client) *cli.App {
 			Name:  "json, j",
 			Usage: "json output as opposed to table",
 		},
+		cli.StringFlag{
+			Name:  "admin-credentials-file",
+			Usage: fmt.Sprintf("optional, applies only in client mode when making remote API calls. If provided, `FILE` containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to %s", filepath.Join("<RootDir>", "apicredentials")),
+		},
+		cli.StringFlag{
+			Name:  "remote-node-url",
+			Usage: "optional, applies only in client mode when making remote API calls. If provided, `URL` will be used as the remote Chainlink API endpoint",
+			Value: "http://localhost:6688",
+		},
+		cli.BoolFlag{
+			Name:  "insecure-skip-verify",
+			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
+		},
+		cli.StringSliceFlag{
+			Name:   "config, c",
+			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
+			EnvVar: "CL_CONFIG",
+		},
+		cli.StringFlag{
+			Name:  "secrets, s",
+			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+		},
 	}
 	app.Before = func(c *cli.Context) error {
+		if c.IsSet("config") {
+			// TOML
+			var opts chainlink.GeneralConfigOpts
+			if configTOML := v2.EnvConfig.Get(); configTOML != "" {
+				if err := opts.ParseConfig(configTOML); err != nil {
+					return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
+				}
+			} else {
+				fileNames := c.StringSlice("config")
+				for _, fileName := range fileNames {
+					b, err := os.ReadFile(fileName)
+					if err != nil {
+						return errors.Wrapf(err, "failed to read config file: %s", fileName)
+					}
+					if err := opts.ParseConfig(string(b)); err != nil {
+						return errors.Wrapf(err, "failed to parse file: %s", fileName)
+					}
+				}
+			}
+
+			secretsTOML := ""
+			if c.IsSet("secrets") {
+				secretsFileName := c.String("secrets")
+				b, err := os.ReadFile(secretsFileName)
+				if err != nil {
+					return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+				}
+				secretsTOML = string(b)
+			}
+			if err := opts.ParseSecrets(secretsTOML); err != nil {
+				return err
+			}
+
+			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+				return err
+			} else {
+				client.Config = cfg
+				client.Logger = lggr
+				client.CloseLogger = closeLggr
+			}
+		} else {
+			// Legacy ENV
+			if c.IsSet("secrets") {
+				panic("secrets file must not be used without a core config file")
+			}
+			client.Logger, client.CloseLogger = logger.NewLogger()
+			client.Config = config.NewGeneralConfig(client.Logger)
+		}
+		logDeprecatedClientEnvWarnings(client.Logger)
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
+		}
+		urlStr := c.String("remote-node-url")
+		if envUrlStr := os.Getenv("CLIENT_NODE_URL"); envUrlStr != "" {
+			urlStr = envUrlStr
+		}
+		remoteNodeURL, err := url.Parse(urlStr)
+		if err != nil {
+			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
+		}
+		insecureSkipVerify := c.Bool("insecure-skip-verify")
+		if envInsecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY"); envInsecureSkipVerify == "true" {
+			insecureSkipVerify = true
+		}
+		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
+		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: client.Config}, client.Logger)
+		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
+
+		credentialsFile := c.String("admin-credentials-file")
+		if envCredentialsFile := os.Getenv("ADMIN_CREDENTIALS_FILE"); envCredentialsFile != "" {
+			credentialsFile = envCredentialsFile
+		}
+		sr, err := sessionRequestBuilder.Build(credentialsFile)
+		if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
+			return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
+		}
+
+		client.HTTP = NewAuthenticatedHTTPClient(client.Logger, clientOpts, cookieAuth, sr)
+		client.CookieAuthenticator = cookieAuth
+		client.FileSessionRequestBuilder = sessionRequestBuilder
+		return nil
+	}
+	app.After = func(c *cli.Context) error {
+		if client.CloseLogger != nil {
+			return client.CloseLogger()
 		}
 		return nil
 	}
@@ -60,6 +190,68 @@ func NewApp(client *Client) *cli.App {
 						cli.BoolFlag{
 							Name:  "bypass-version-check",
 							Usage: "Bypass versioning check for compatibility of remote node",
+						},
+					},
+				},
+				{
+					Name:   "logout",
+					Usage:  "Delete any local sessions",
+					Action: client.Logout,
+				},
+				{
+					Name:  "users",
+					Usage: "Create, edit permissions, or delete API users",
+					Subcommands: cli.Commands{
+						{
+							Name:   "list",
+							Usage:  "Lists all API users and their roles",
+							Action: client.ListUsers,
+						},
+						{
+							Name:   "create",
+							Usage:  "Create a new API user",
+							Action: client.CreateUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "Email of new user to create",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "role",
+									Usage:    "Permission level of new user. Options: 'admin', 'edit', 'run', 'view'.",
+									Required: true,
+								},
+							},
+						},
+						{
+							Name:   "chrole",
+							Usage:  "Changes an API user's role",
+							Action: client.ChangeRole,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "email of user to be editted",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "newrole",
+									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
+									Required: false,
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete an API user",
+							Action: client.DeleteUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "Email of API user to delete",
+									Required: true,
+								},
+							},
 						},
 					},
 				},
@@ -147,9 +339,25 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for the node's configuration",
 			Subcommands: []cli.Command{
 				{
+					Name:   "dump",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration",
+					Action: client.ConfigDump,
+				},
+				{
 					Name:   "list",
-					Usage:  "Show the node's environment variables",
+					Usage:  "LEGACY CONFIG (ENV) ONLY - Show the node's environment variables",
 					Action: client.GetConfiguration,
+				},
+				{
+					Name:   "show",
+					Usage:  "V2 CONFIG (TOML) ONLY - Show the application configuration",
+					Action: client.ConfigV2,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "user-only",
+							Usage: "If set, show only the user-provided TOML configuration, omitting application defaults",
+						},
+					},
 				},
 				{
 					Name:   "setgasprice",
@@ -178,21 +386,6 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
-					Name:   "logpkg",
-					Usage:  "Set package specific logging",
-					Action: client.SetLogPkg,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "pkg",
-							Usage: "set log filter for package specific logging",
-						},
-						cli.StringFlag{
-							Name:  "level",
-							Usage: "set log level for specified pkg",
-						},
-					},
-				},
-				{
 					Name:   "logsql",
 					Usage:  "Enable/disable sql statement logging",
 					Action: client.SetLogSQL,
@@ -206,6 +399,11 @@ func NewApp(client *Client) *cli.App {
 							Usage: "disable sql logging",
 						},
 					},
+				},
+				{
+					Name:   "validate",
+					Usage:  "Validate provided TOML config file",
+					Action: client.ConfigFileValidate,
 				},
 			},
 		},
@@ -330,6 +528,39 @@ func NewApp(client *Client) *cli.App {
 								},
 							},
 							Action: client.ExportETHKey,
+						},
+						{
+							Name:   "chain",
+							Usage:  "Update an EVM key for the given chain",
+							Action: client.UpdateChainEVMKey,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "address",
+									Usage:    "address of the key",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "evmChainID",
+									Usage:    "chain ID of the key",
+									Required: true,
+								},
+								cli.Uint64Flag{
+									Name:  "setNextNonce",
+									Usage: "manually set the next nonce for the key on the given chain. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
+								},
+								cli.BoolFlag{
+									Name:  "enable",
+									Usage: "enable the key for the given chain",
+								},
+								cli.BoolFlag{
+									Name:  "disable",
+									Usage: "disable the key for the given chain",
+								},
+								cli.BoolFlag{
+									Name:  "abandon",
+									Usage: "if set, will abandon all pending and unconfirmed transactions and mark them as fatally errored. Use with caution, this can result in nonce gaps or 'stuck' transactions",
+								},
+							},
 						},
 					},
 				},
@@ -551,119 +782,11 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 
-				{
-					Name:  "solana",
-					Usage: "Remote commands for administering the node's solana keys",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a Solana key",
-							Action: client.CreateSolanaKey,
-						},
-						{
-							Name:  "import",
-							Usage: "Import Solana key from keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "oldpassword, p",
-									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
-								},
-							},
-							Action: client.ImportSolanaKey,
-						},
-						{
-							Name:  "export",
-							Usage: "Export Solana key to keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "newpassword, p",
-									Usage: "`FILE` containing the password to encrypt the key (required)",
-								},
-								cli.StringFlag{
-									Name:  "output, o",
-									Usage: "`FILE` where the JSON file will be saved (required)",
-								},
-							},
-							Action: client.ExportSolanaKey,
-						},
-						{
-							Name:  "delete",
-							Usage: "Delete Solana key if present",
-							Flags: []cli.Flag{
-								cli.BoolFlag{
-									Name:  "yes, y",
-									Usage: "skip the confirmation prompt",
-								},
-								cli.BoolFlag{
-									Name:  "hard",
-									Usage: "hard-delete the key instead of archiving (irreversible!)",
-								},
-							},
-							Action: client.DeleteSolanaKey,
-						},
-						{
-							Name: "list", Usage: "List the Solana keys",
-							Action: client.ListSolanaKeys,
-						},
-					},
-				},
-
-				{
-					Name:  "terra",
-					Usage: "Remote commands for administering the node's terra keys",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a Terra key",
-							Action: client.CreateTerraKey,
-						},
-						{
-							Name:  "import",
-							Usage: "Import Terra key from keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "oldpassword, p",
-									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
-								},
-							},
-							Action: client.ImportTerraKey,
-						},
-						{
-							Name:  "export",
-							Usage: "Export Terra key to keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "newpassword, p",
-									Usage: "`FILE` containing the password to encrypt the key (required)",
-								},
-								cli.StringFlag{
-									Name:  "output, o",
-									Usage: "`FILE` where the JSON file will be saved (required)",
-								},
-							},
-							Action: client.ExportTerraKey,
-						},
-						{
-							Name:  "delete",
-							Usage: "Delete Terra key if present",
-							Flags: []cli.Flag{
-								cli.BoolFlag{
-									Name:  "yes, y",
-									Usage: "skip the confirmation prompt",
-								},
-								cli.BoolFlag{
-									Name:  "hard",
-									Usage: "hard-delete the key instead of archiving (irreversible!)",
-								},
-							},
-							Action: client.DeleteTerraKey,
-						},
-						{
-							Name: "list", Usage: "List the Terra keys",
-							Action: client.ListTerraKeys,
-						},
-					},
-				},
+				keysCommand("Solana", NewSolanaKeysClient(client)),
+				keysCommand("Terra", NewTerraKeysClient(client)),
+				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
+				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
+				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(client)),
 
 				{
 					Name:  "vrf",
@@ -731,21 +854,6 @@ func NewApp(client *Client) *cli.App {
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
 			Subcommands: []cli.Command{
-				{
-					Name:   "setnextnonce",
-					Usage:  "Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.",
-					Action: client.SetNextNonce,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "address",
-							Usage: "address of the key for which to set the nonce",
-						},
-						cli.Uint64Flag{
-							Name:  "nextNonce",
-							Usage: "the next nonce in the sequence",
-						},
-					},
-				},
 				{
 					Name:    "start",
 					Aliases: []string{"node", "n"},
@@ -836,7 +944,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "reset",
 							Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
-							Hidden: !client.Config.Dev(),
+							Hidden: !devMode,
 							Action: client.ResetDatabase,
 							Flags: []cli.Flag{
 								cli.BoolFlag{
@@ -848,7 +956,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "preparetest",
 							Usage:  "Reset database and load fixtures.",
-							Hidden: !client.Config.Dev(),
+							Hidden: !devMode,
 							Action: client.PrepareTestDatabase,
 							Flags: []cli.Flag{
 								cli.BoolFlag{
@@ -884,7 +992,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "create-migration",
 							Usage:  "Create a new migration.",
-							Hidden: !client.Config.Dev(),
+							Hidden: !devMode,
 							Action: client.CreateMigration,
 							Flags: []cli.Flag{
 								cli.StringFlag{
@@ -900,7 +1008,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:   "initiators",
 			Usage:  "Commands for managing External Initiators",
-			Hidden: !client.Config.Dev() && !client.Config.FeatureExternalInitiators(),
+			Hidden: !devMode,
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",
@@ -1017,239 +1125,61 @@ func NewApp(client *Client) *cli.App {
 			Name:  "chains",
 			Usage: "Commands for handling chain configuration",
 			Subcommands: cli.Commands{
-				{
-					Name:  "evm",
-					Usage: "Commands for handling EVM chains",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new EVM chain",
-							Action: client.CreateEVMChain,
-							Flags: []cli.Flag{
-								cli.Int64Flag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete an EVM chain",
-							Action: client.RemoveEVMChain,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all EVM chains",
-							Action: client.IndexEVMChains,
-						},
-						{
-							Name:   "configure",
-							Usage:  "Configure an EVM chain",
-							Action: client.ConfigureEVMChain,
-							Flags: []cli.Flag{
-								cli.Int64Flag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-					},
-				},
-				{
-					Name:  "solana",
-					Usage: "Commands for handling Solana chains",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Solana chain",
-							Action: client.CreateSolanaChain,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "id",
-									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Solana chain",
-							Action: client.RemoveSolanaChain,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Solana chains",
-							Action: client.IndexSolanaChains,
-						},
-						{
-							Name:   "configure",
-							Usage:  "Configure a Solana chain",
-							Action: client.ConfigureSolanaChain,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "id",
-									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
-								},
-							},
-						},
-					},
-				},
-				{
-					Name:  "terra",
-					Usage: "Commands for handling Terra chains",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Terra chain",
-							Action: client.CreateTerraChain,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Terra chain",
-							Action: client.RemoveTerraChain,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Terra chains",
-							Action: client.IndexTerraChains,
-						},
-						{
-							Name:   "configure",
-							Usage:  "Configure a Terra chain",
-							Action: client.ConfigureTerraChain,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-					},
-				},
+				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Solana", SolanaChainClient(client),
+					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
+				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Terra", TerraChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
 		{
 			Name:  "nodes",
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
-				{
-					Name:  "evm",
-					Usage: "Commands for handling EVM node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new EVM node",
-							Action: client.CreateEVMNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "ws-url",
-									Usage: "Websocket URL",
-								},
-								cli.StringFlag{
-									Name:  "http-url",
-									Usage: "HTTP URL, optional",
-								},
-								cli.Int64Flag{
-									Name:  "chain-id",
-									Usage: "chain ID",
-								},
-								cli.StringFlag{
-									Name:  "type",
-									Usage: "primary|secondary",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete an EVM node",
-							Action: client.RemoveEVMNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all EVM nodes",
-							Action: client.IndexEVMNodes,
-						},
+				nodeCommand("EVM", NewEVMNodeClient(client),
+					cli.StringFlag{
+						Name:  "ws-url",
+						Usage: "Websocket URL",
 					},
-				},
-				{
-					Name:  "solana",
-					Usage: "Commands for handling Solana node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Solana node",
-							Action: client.CreateSolanaNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "chain-id",
-									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
-								},
-								cli.StringFlag{
-									Name:  "url",
-									Usage: "URL",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Solana node",
-							Action: client.RemoveSolanaNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Solana nodes",
-							Action: client.IndexSolanaNodes,
-						},
+					cli.StringFlag{
+						Name:  "http-url",
+						Usage: "HTTP URL, optional",
 					},
-				},
-				{
-					Name:  "terra",
-					Usage: "Commands for handling Terra node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Terra node",
-							Action: client.CreateTerraNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "chain-id",
-									Usage: "chain ID",
-								},
-								cli.StringFlag{
-									Name:  "tendermint-url",
-									Usage: "Tendermint URL",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Terra node",
-							Action: client.RemoveTerraNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Terra nodes",
-							Action: client.IndexTerraNodes,
-						},
+					cli.Int64Flag{
+						Name:  "chain-id",
+						Usage: "chain ID",
 					},
-				},
+					cli.StringFlag{
+						Name:  "type",
+						Usage: "primary|secondary",
+					}),
+				nodeCommand("Solana", NewSolanaNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+					},
+					cli.StringFlag{
+						Name:  "url",
+						Usage: "URL",
+					}),
+				nodeCommand("StarkNet", NewStarkNetNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID",
+					},
+					cli.StringFlag{
+						Name:  "url",
+						Usage: "URL",
+					}),
+				nodeCommand("Terra", NewTerraNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID",
+					},
+					cli.StringFlag{
+						Name:  "tendermint-url",
+						Usage: "Tendermint URL",
+					}),
 			},
 		},
 		{
@@ -1262,9 +1192,9 @@ func NewApp(client *Client) *cli.App {
 					Action: client.ListForwarders,
 				},
 				{
-					Name:   "create",
-					Usage:  "Create a new forwarder",
-					Action: client.CreateForwarder,
+					Name:   "track",
+					Usage:  "Track a new forwarder",
+					Action: client.TrackForwarder,
 					Flags: []cli.Flag{
 						cli.Int64Flag{
 							Name:  "evmChainID, c",
@@ -1292,4 +1222,16 @@ var whitespace = regexp.MustCompile(`\s+`)
 // format returns result of replacing all whitespace in s with a single space
 func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
+}
+
+func logDeprecatedClientEnvWarnings(lggr logger.Logger) {
+	if s := os.Getenv("INSECURE_SKIP_VERIFY"); s != "" {
+		lggr.Error("INSECURE_SKIP_VERIFY env var has been deprecated and will be removed in a future release. Use flag instead: --insecure-skip-verify")
+	}
+	if s := os.Getenv("CLIENT_NODE_URL"); s != "" {
+		lggr.Errorf("CLIENT_NODE_URL env var has been deprecated and will be removed in a future release. Use flag instead: --remote-node-url=%s", s)
+	}
+	if s := os.Getenv("ADMIN_CREDENTIALS_FILE"); s != "" {
+		lggr.Errorf("ADMIN_CREDENTIALS_FILE env var has been deprecated and will be removed in a future release. Use flag instead: --admin-credentials-file=%s", s)
+	}
 }

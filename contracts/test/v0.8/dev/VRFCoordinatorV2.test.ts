@@ -52,7 +52,7 @@ describe('VRFCoordinatorV2', () => {
     )
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth)
     const vrfCoordinatorV2Factory = await ethers.getContractFactory(
-      'src/v0.8/dev/VRFCoordinatorV2.sol:VRFCoordinatorV2',
+      'src/v0.8/VRFCoordinatorV2.sol:VRFCoordinatorV2',
       accounts[0],
     )
     vrfCoordinatorV2 = await vrfCoordinatorV2Factory.deploy(
