@@ -71,6 +71,7 @@ go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their 
 	# replace the go:generate_disabled directive with the regular go:generate directive
 	sed -i '' 's/go:generate_disabled/go:generate/g' core/gethwrappers/ocr2vrf/go_generate.go
 	go generate ./core/gethwrappers/ocr2vrf
+	go generate ./core/internal/mocks
 	# put the go:generate_disabled directive back
 	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
 
