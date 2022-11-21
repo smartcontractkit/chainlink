@@ -287,7 +287,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+        # network: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+        network: [GOERLI]
     environment: integration
     name: Live Smoke Tests Matrix
     permissions:
@@ -305,9 +306,9 @@ jobs:
       TEST_LOG_LEVEL: debug
       EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
       GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_URLS }}
       OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
-      OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
+      OPTIMISM_GOERLI_HTTP_URLS: dummy_value
       ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
       ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
     steps:
