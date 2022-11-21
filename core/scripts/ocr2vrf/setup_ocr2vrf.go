@@ -409,7 +409,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 		if i > 0 {
 			adjustedIndex := i - 1
 			vrfJob := fmt.Sprintf(
-				cmd.OCR2vrfTemplate,
+				cmd.OCR2VRFTemplate,
 				vrfBeaconAddress.String(),
 				ocr2KeyBundleIDs[adjustedIndex],
 				forwarderAddresses[adjustedIndex].String(),
