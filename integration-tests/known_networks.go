@@ -201,8 +201,6 @@ func determineSelectedNetworks() []*blockchain.EVMNetwork {
 				Msg("SELECTED_NETWORKS value is invalid. Use a valid network(s).")
 		}
 	}
-	// Set selected network for tests that run in a remote runner
-	os.Setenv("TEST_SELECTED_NETWORKS", rawSelectedNetworks)
 	return selectedNetworks
 }
 

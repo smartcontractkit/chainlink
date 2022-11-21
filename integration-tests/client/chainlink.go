@@ -981,6 +981,7 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 		} else {
 			internalHost = parseHostname(internalURLs[i])
 		}
+		log.Debug().Str("host", internalHost).Msg("TATATATATATA")
 
 		c, err := NewChainlink(&ChainlinkConfig{
 			URL:      localURL,

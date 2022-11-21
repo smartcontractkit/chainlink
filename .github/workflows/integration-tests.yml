@@ -171,16 +171,16 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cb4a8f51d77cbf77ea6a765bd1f437ffc7a18730 # v2.0.28
         env:
-          TEST_SUITE: ./integration-tests/smoke
-          TEST_ARGS: --focus @${{ matrix.product.name }}
-          TEST_CHAINLINK_IMAGE: ${{ env.CL_ECR }}
-          TEST_CHAINLINK_VERSION: latest.0f1d5b5b819b3944fdfe9c865628ff2a1d0605ca #latest.${{ github.sha }}
+          SUITE: ./integration-tests/smoke
+          ARGS: --focus @${{ matrix.product.name }}
+          CHAINLINK_IMAGE: ${{ env.CL_ECR }}
+          CHAINLINK_VERSION: latest.0f1d5b5b819b3944fdfe9c865628ff2a1d0605ca #latest.${{ github.sha }}
         with:
           test_command_to_run: make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus @${{ matrix.product.name }}"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
-          cl_repo: ${{ env.TEST_CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ env.TEST_CHAINLINK_VERSION }}
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
