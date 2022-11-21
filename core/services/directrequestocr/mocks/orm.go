@@ -168,8 +168,8 @@ func (_m *ORM) SetState(requestID directrequestocr.RequestID, state directreques
 	return r0, r1
 }
 
-// SetTransmittedResult provides a mock function with given fields: requestID, transmittedResult, transmittedError, qopts
-func (_m *ORM) SetTransmittedResult(requestID directrequestocr.RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error {
+// SetTransmitted provides a mock function with given fields: requestID, transmittedResult, transmittedError, qopts
+func (_m *ORM) SetTransmitted(requestID directrequestocr.RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]

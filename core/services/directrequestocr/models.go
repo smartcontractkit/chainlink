@@ -1,7 +1,9 @@
 package directrequestocr
 
 import (
+	"database/sql/driver"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,16 +29,33 @@ const (
 
 type RequestID [32]byte
 
+const RequestIDLength int = 32
+
+func (r *RequestID) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("can't scan %T into RequestID", value)
+	}
+	if len(bytes) != RequestIDLength {
+		return fmt.Errorf("can't scan []byte of len %d into RequestID, want %d", len(bytes), RequestIDLength)
+	}
+	copy(r[:], bytes)
+	return nil
+}
+
+func (r RequestID) Value() (driver.Value, error) {
+	return r[:], nil
+}
+
 type Request struct {
-	ID                int64
 	RequestID         RequestID
-	RunID             int64
+	RunID             *int64
 	ReceivedAt        time.Time
 	RequestTxHash     *common.Hash
 	State             RequestState
-	ResultReadyAt     time.Time
+	ResultReadyAt     *time.Time
 	Result            []byte
-	ErrorType         ErrType
+	ErrorType         *ErrType
 	Error             []byte
 	TransmittedResult []byte
 	TransmittedError  []byte
