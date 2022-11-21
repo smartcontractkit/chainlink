@@ -453,9 +453,9 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
-
-	return fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
 
 // AddUpkeepFunds adds link for particular upkeep id
