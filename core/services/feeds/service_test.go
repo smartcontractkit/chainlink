@@ -1252,7 +1252,7 @@ answer1 [type=median index=0];
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
 			},
 			id:      spec.ID,
-			wantErr: "bridges do not exist",
+			wantErr: "failed to approve job spec due to bridge check: bridges do not exist",
 		},
 		{
 			name: "rpc client not connected",
