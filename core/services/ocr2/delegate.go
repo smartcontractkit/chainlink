@@ -307,6 +307,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
 
+		if jb.ForwardingAllowed != chain.Config().EvmUseForwarders() {
+			return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
+		}
+
 		var cfg ocr2vrfconfig.PluginConfig
 		err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
 		if err2 != nil {
