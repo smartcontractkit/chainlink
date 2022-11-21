@@ -417,6 +417,10 @@ func main() {
 		setupDKGNodes(e)
 	case "ocr2vrf-setup":
 		setupOCR2VRFNodes(e)
+	case "ocr2vrf-setup-infra-forwarder":
+		setupOCR2VRFNodesForInfraWithForwarder(e)
+	case "ocr2vrf-fund-nodes":
+		fundOCR2VRFNodes(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
