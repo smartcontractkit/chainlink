@@ -49,14 +49,14 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	}
 
 	// config for registry contract
-	utils.SetRegistryConfig(t, owner, registryContract)
+	utils.SetRegistryConfig(t, owner, registryContract, oracleContract)
 
 	// config for oracle contract
 	utils.SetOracleConfig(t, owner, oracleContract, oracles)
 	utils.CommitWithFinality(b)
 
 	// set up subscription
-	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryContract)
+	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryContract, clientContracts)
 
 	// send requests
 	sent := make([][]byte, nClients)
