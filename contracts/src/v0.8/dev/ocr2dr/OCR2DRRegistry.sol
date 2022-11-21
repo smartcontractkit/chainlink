@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.6;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
@@ -413,7 +413,7 @@ contract OCR2DRRegistry is
     uint8 signerCount,
     uint256 reportValidationGas,
     uint256 initialGas
-  ) external validateAuthorizedSender nonReentrant returns (bool success) {
+  ) external override validateAuthorizedSender nonReentrant returns (bool success) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
       revert IncorrectRequestID();
