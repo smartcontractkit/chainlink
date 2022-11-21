@@ -121,7 +121,7 @@ chainID                            = %d
 
 const forwarderAdditionalEOACount = 4
 
-func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, Owner *bind.TransactOpts, Ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
+func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
 	lggr := cli.Logger.Named("ConfigureOCR2VRFNode")
 	err := cli.Config.Validate()
 	if err != nil {
@@ -220,12 +220,12 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, Owner *bind.TransactO
 		// forwarder will not be recognized.
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
-		f, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(forwarderAddress), Ec)
-		tx, err := f.SetAuthorizedSenders(Owner, sendingKeysAddresses)
+		f, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(forwarderAddress), ec)
+		tx, err := f.SetAuthorizedSenders(owner, sendingKeysAddresses)
 		if err != nil {
 			return nil, err
 		}
-		_, err = bind.WaitMined(ctx, Ec, tx)
+		_, err = bind.WaitMined(ctx, ec, tx)
 		if err != nil {
 			return nil, err
 		}
