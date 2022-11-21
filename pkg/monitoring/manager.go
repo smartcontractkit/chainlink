@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Manager restarts the managed function with a new list of updates whenever something changed.
+// Manager restarts the multi-feed monitor whenever the feed configuration list has changed.
+// In order to not be coupled with the MultiFeedMonitor component, it simply runs a function
+// every time the feed configuration has changed. This is hooked up to the MultiFeedMonitor.Run method in the Monitor.
 type Manager interface {
 	Run(backgroundCtx context.Context, managed ManagedFunc)
 	HTTPHandler() http.Handler

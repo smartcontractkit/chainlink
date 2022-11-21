@@ -31,7 +31,7 @@ type Metrics interface {
 	SetOffchainAggregatorRoundID(aggregatorRoundID float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	// Cleanup deletes all the metrics
 	Cleanup(networkName, networkID, chainID, oracleName, sender, feedName, feedPath, symbol, contractType, contractStatus, contractAddress, feedID string)
-	// Exposes the accumulated metrics to HTTP.
+	// Exposes the accumulated metrics to HTTP in the prometheus format, ready for scraping.
 	HTTPHandler() http.Handler
 }
 

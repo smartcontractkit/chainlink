@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Mapper is an interface for converting Envelopes into data structures that can be encoded in AVRO and sent to Kafka.
 type Mapper func(Envelope, ChainConfig, FeedConfig) (map[string]interface{}, error)
 
 func MakeTransmissionMapping(

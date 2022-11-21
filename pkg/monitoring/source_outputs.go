@@ -7,7 +7,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-// Envelope contains data that is required for all the chain.
+// Envelope contains data that is required from all the chain integrations.
+// Integrators usually create an EnvelopeSource to produce Envelope instances.
 type Envelope struct {
 	// latest transmission details
 	ConfigDigest    types.ConfigDigest
@@ -30,6 +31,8 @@ type Envelope struct {
 	AggregatorRoundID uint32
 }
 
+// TxResults counts the number of successful and failed transactions in a predetermined window of time.
+// Integrators usually create an TxResultsSource to produce TxResults instances.
 type TxResults struct {
 	NumSucceeded, NumFailed uint64
 }

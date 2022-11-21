@@ -8,12 +8,15 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
+// Pipeline represents a succession of transformations on the data coming from a source:
+// source output -> adapt to a map -> encode to AVRO -> send to Kafka
 type Pipeline struct {
 	Topic  string
 	Mapper Mapper
 	Schema Schema
 }
 
+// NewKafkaExporterFactory produces Kafka exporters which consume, format and publish source outputs to kafka.
 func NewKafkaExporterFactory(
 	log Logger,
 	producer Producer,

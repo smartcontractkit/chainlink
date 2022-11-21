@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
+// Monitor is the entrypoint for an on-chain monitor integration.
+// Monitors should only be created via NewMonitor()
 type Monitor struct {
 	RootContext context.Context
 
@@ -35,6 +37,10 @@ type Monitor struct {
 	HTTPServer HTTPServer
 }
 
+// NewMonitor builds a new Monitor instance using dependency injection.
+// If advanced configurations of the Monitor are required - for instance,
+// adding a custom third party service to send data to - this method
+// should provide a good starting template to do that.
 func NewMonitor(
 	rootCtx context.Context,
 	log Logger,
@@ -139,6 +145,8 @@ func NewMonitor(
 	}, nil
 }
 
+// Run() starts all the goroutines needed by a Monitor. The lifecycle of these routines
+// is controlled by the context passed to the NewMonitor constructor.
 func (m Monitor) Run() {
 	rootCtx, cancel := context.WithCancel(m.RootContext)
 	defer cancel()

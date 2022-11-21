@@ -8,6 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
+// MultiFeedMonitor manages the flow of data from multiple sources to
+// multiple exporters for each feed in the configuration.
 type MultiFeedMonitor interface {
 	Run(ctx context.Context, data RDDData)
 }

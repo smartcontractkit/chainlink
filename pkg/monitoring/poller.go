@@ -7,10 +7,15 @@ import (
 	"time"
 )
 
+// Poller implements Updater by periodically invoking a Source's Fetch() method.
 type Poller interface {
 	Updater // Poller is just another name for updater.
 }
 
+// NewSourcePoller builds Pollers for Sources.
+// If the Source's Fetch() returns an error it will be reported.
+// If it panics, the panic will be recovered and reported as an error and the program will resume operation.
+// If the error is ErrNoUpdate, it will not be reported and the Poller will skip this round.
 func NewSourcePoller(
 	source Source,
 	log Logger,

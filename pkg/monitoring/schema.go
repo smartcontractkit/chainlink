@@ -7,6 +7,9 @@ import (
 	"github.com/riferrei/srclient"
 )
 
+// Schema is an interface for encoding/decoding data structures into the AVRO format.
+// The data structures need to conform with a predefined AVRO schema, encoding will fail otherwise.
+// The schemas are maintained in a central repository called a [schema registry](https://github.com/confluentinc/schema-registry)
 type Schema interface {
 	ID() int
 	Version() int
@@ -62,7 +65,7 @@ func (w wrapSchema) String() string {
 	return fmt.Sprintf("schema(subject=%s,id=%d,version=%d)", w.subject, w.Schema.ID(), w.Schema.Version())
 }
 
-// SubjectFromTopic is a utility to the associated schema subject from a kafka topic name.
+// SubjectFromTopic computes the associated AVRO schema subject name from a kafka topic name.
 func SubjectFromTopic(topic string) string {
 	return fmt.Sprintf("%s-value", topic)
 }
