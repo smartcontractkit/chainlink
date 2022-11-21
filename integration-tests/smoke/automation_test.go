@@ -604,10 +604,10 @@ ListenAddresses = ["0.0.0.0:6690"]`
 			Eventually(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCntInt+1),
-					"Expected consumer counter to be greater than %d, but got %d", existingCntInt+1, cnt.Int64(),
+				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCntInt),
+					"Expected consumer counter to be greater than %d, but got %d", existingCntInt, cnt.Int64(),
 				)
-			}, "2m", "1s").Should(Succeed()) // ~1m to perform once, 1m buffer
+			}, "3m", "1s").Should(Succeed()) // ~1m to setup cluster, 1m to perform once, 1m buffer
 		}
 
 		// PerformDataChecker
