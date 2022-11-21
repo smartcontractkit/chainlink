@@ -360,17 +360,10 @@ func (r *Relayer) NewMercuryMedianProvider(relayConfig types.RelayConfig) (contr
 		return contractTransmitter, reportCodec, errors.Wrapf(err, "failed to get mercury credentials for URL: %s", reportURL.String())
 	}
 	contractTransmitter = mercury.NewTransmitter(r.lggr, http.DefaultClient, effectiveTransmitterAddress, reportURL.String(), username, password)
-	if relayConfig.MercuryConfig.FeedID == "" {
+	if relayConfig.MercuryConfig.FeedID == (common.Hash{}) {
 		return contractTransmitter, reportCodec, errors.New("FeedID must be specified")
 	}
-	feedID := [32]byte{}
-	for i, ch := range []byte(relayConfig.MercuryConfig.FeedID) {
-		if i > 31 {
-			break
-		}
-		feedID[i] = ch
-	}
-	reportCodec = mercury.ReportCodec{FeedID: feedID}
+	reportCodec = mercury.ReportCodec{FeedID: relayConfig.MercuryConfig.FeedID}
 	return
 }
 
