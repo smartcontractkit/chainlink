@@ -582,6 +582,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
+	// Check that the bridges exist
+	if err = s.jobORM.AssertBridgesExist(j.Pipeline); err != nil {
+		s.lggr.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
+
+		return errors.Wrap(err, "failed to approve job spec due to bridge check")
+	}
+
 	var address ethkey.EIP55Address
 	switch j.Type {
 	case job.OffchainReporting:
@@ -804,6 +811,7 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
+// generateJob validates and generates a job from a spec.
 func (s *service) generateJob(spec string) (*job.Job, error) {
 	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
