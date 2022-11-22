@@ -257,21 +257,6 @@ type Staking interface {
 	SetMerkleRoot(newMerkleRoot [32]byte) error
 }
 
-type RewardLib interface {
-	Address() string
-	Fund(ethAmount *big.Float) error
-}
-
-type SafeCast interface {
-	Address() string
-	Fund(ethAmount *big.Float) error
-}
-
-type StakingPoolLib interface {
-	Address() string
-	Fund(ethAmount *big.Float) error
-}
-
 type RoundData struct {
 	RoundId         *big.Int
 	Answer          *big.Int

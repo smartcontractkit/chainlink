@@ -50,7 +50,7 @@ require (
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/boj/redistore v0.0.0-20180917114910-cd5dcc76aeff // indirect
 	github.com/btcsuite/btcd v0.23.1 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.2.1 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.0 // indirect
 	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.5.37 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -386,4 +386,4 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 
 replace github.com/smartcontractkit/chainlink => ../
 
-replace github.com/smartcontractkit/chainlink-testing-framework v1.8.1 => /Users/gheorghestrimtu/Documents/chainlink/git/chainlink-testing-framework
+replace github.com/smartcontractkit/chainlink-testing-framework v1.8.2 => /Users/gheorghestrimtu/Documents/chainlink/git/chainlink-testing-framework

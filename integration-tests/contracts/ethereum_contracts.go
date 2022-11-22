@@ -220,54 +220,6 @@ func (f *EthereumStaking) SetMerkleRoot(newMerkleRoot [32]byte) error {
 	return f.client.ProcessTransaction(tx)
 }
 
-// EthereumRewardLib
-type EthereumRewardLib struct {
-	client    blockchain.EVMClient
-	rewardLib *ethereum.RewardLib
-	address   *common.Address
-}
-
-func (f *EthereumRewardLib) Address() string {
-	return f.address.Hex()
-}
-
-// Fund sends specified currencies to the contract
-func (f *EthereumRewardLib) Fund(ethAmount *big.Float) error {
-	return f.client.Fund(f.address.Hex(), ethAmount)
-}
-
-// EthereumSafeCast
-type EthereumSafeCast struct {
-	client   blockchain.EVMClient
-	safeCast *ethereum.SafeCast
-	address  *common.Address
-}
-
-func (f *EthereumSafeCast) Address() string {
-	return f.address.Hex()
-}
-
-// Fund sends specified currencies to the contract
-func (f *EthereumSafeCast) Fund(ethAmount *big.Float) error {
-	return f.client.Fund(f.address.Hex(), ethAmount)
-}
-
-// EthereumStakingPoolLib
-type EthereumStakingPoolLib struct {
-	client         blockchain.EVMClient
-	stakingPoolLib *ethereum.StakingPoolLib
-	address        *common.Address
-}
-
-func (f *EthereumStakingPoolLib) Address() string {
-	return f.address.Hex()
-}
-
-// Fund sends specified currencies to the contract
-func (f *EthereumStakingPoolLib) Fund(ethAmount *big.Float) error {
-	return f.client.Fund(f.address.Hex(), ethAmount)
-}
-
 // EthereumFluxAggregator represents the basic flux aggregation contract
 type EthereumFluxAggregator struct {
 	client         blockchain.EVMClient
