@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+- Add the following prometheus metrics (labelled by bridge name) for monitoring external adapter queries:
+    - `bridge_latency_seconds`
+    - `bridge_errors_total`
+    - `bridge_cache_hits_total`
+    - `bridge_cache_errors_total`
 
 #### TOML Configuration (optional)
 
