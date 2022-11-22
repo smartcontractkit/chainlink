@@ -116,6 +116,9 @@ func (er *EthResender) resendUnconfirmed() error {
 		allAttempts = append(allAttempts, attempts...)
 	}
 
+	if len(allAttempts) == 0 {
+		return nil
+	}
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(allAttempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(allAttempts))
 
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
