@@ -22,7 +22,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	nClients := 20
 
 	// simulated chain with all contracts
-	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
+	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryAddress, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
 
 	// bootstrap node and job
@@ -56,7 +56,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	utils.CommitWithFinality(b)
 
 	// set up subscription
-	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryContract, clientContracts)
+	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryAddress, registryContract, clientContracts)
 
 	// send requests
 	sent := make([][]byte, nClients)
