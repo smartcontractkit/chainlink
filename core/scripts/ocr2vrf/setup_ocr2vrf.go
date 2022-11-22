@@ -181,7 +181,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		}
 		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
-		payload := setupNode(flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder)
+		payload := setupNode(e, flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder)
 
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)
 		offChainPublicKeys = append(offChainPublicKeys, payload.OffChainPublicKey)
@@ -413,7 +413,8 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 				vrfBeaconAddress.String(),
 				ocr2KeyBundleIDs[adjustedIndex],
 				forwarderAddresses[adjustedIndex].String(),
-				"", // P2P Bootstrapper
+				true, // forwardingAllowed
+				"",   // P2P Bootstrapper
 				e.ChainID,
 				dkgEncrypters[adjustedIndex],
 				dkgSigners[adjustedIndex],
@@ -520,7 +521,7 @@ func printStandardCommands(
 	fmt.Println()
 }
 
-func setupNode(flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool) *cmd.SetupOCR2VRFNodePayload {
+func setupNode(e helpers.Environment, flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool) *cmd.SetupOCR2VRFNodePayload {
 	client := newSetupClient()
 	app := cmd.NewApp(client)
 	ctx := cli.NewContext(app, flagSet, nil)
@@ -536,5 +537,5 @@ func setupNode(flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffi
 	resetDatabase(client, ctx, nodeIdx, databasePrefix, databaseSuffixes)
 	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0))
 
-	return setupOCR2VRFNodeFromClient(client, ctx)
+	return setupOCR2VRFNodeFromClient(client, ctx, e)
 }
