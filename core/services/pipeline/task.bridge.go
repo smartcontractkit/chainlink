@@ -37,6 +37,8 @@ var _ Task = (*BridgeTask)(nil)
 
 var zeroURL = new(url.URL)
 
+const stalenessCap = time.Duration(30 * time.Minute)
+
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
@@ -113,6 +115,13 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
+	// cacheTTL should not exceed stalenessCap.
+	cacheDuration := time.Duration(cacheTTL) * time.Second
+	if cacheDuration > stalenessCap {
+		lggr.Warnf("bridge task cacheTTL exceeds stalenessCap %s, overriding value to stalenessCap", stalenessCap)
+		cacheDuration = stalenessCap
+	}
+
 	var cachedResponse bool
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
@@ -121,7 +130,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		}
 
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
+		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			lggr.Errorw("Bridge task: cache fallback failed",
 				"err", cacheErr.Error(),
