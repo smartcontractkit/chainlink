@@ -146,6 +146,18 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	// PolygonMumbai https://mumbai.polygonscan.com/
+	PolygonMumbai *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Polygon Mumbai",
+		ClientImplementation:      blockchain.PolygonClientImplementation,
+		ChainID:                   80001,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
 	mappedNetworks = map[string]*blockchain.EVMNetwork{
 		"SIMULATED":       SimulatedEVM,
 		"SIMULATED_1":     SimulatedEVMNonDev1,
@@ -158,6 +170,7 @@ var (
 		"ARBITRUM_GOERLI": ArbitrumGoerli,
 		"OPTIMISM_GOERLI": OptimismGoerli,
 		"RSK":             RSKTestnet,
+		"MUMBAI":          PolygonMumbai,
 	}
 )
 

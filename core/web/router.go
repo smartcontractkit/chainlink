@@ -532,7 +532,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 		c.Next()
 		end := time.Now()
 
-		lggr.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
+		lggr.Debugw(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,

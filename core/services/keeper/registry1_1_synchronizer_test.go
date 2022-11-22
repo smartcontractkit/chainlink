@@ -190,7 +190,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		canceledUpkeeps,
 		big.NewInt(5),
 		upkeepConfig1_1,
-		1) // only one new upkeep to sync (#4)
+		2) // sync all 2 upkeeps (#2, #4)
 	synchronizer.ExportedFullSync()
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)
