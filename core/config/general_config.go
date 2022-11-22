@@ -269,6 +269,7 @@ type GlobalConfig interface {
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
 	GlobalNodeSelectionMode() (string, bool)
+	GlobalNodeSyncThreshold() (uint32, bool)
 }
 
 type GeneralConfig interface {
@@ -1502,6 +1503,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 
 func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
 	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
+func (c *generalConfig) GlobalNodeSyncThreshold() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("NodeSyncThreshold"), parse.Uint32)
 }
 
 func (c *generalConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
