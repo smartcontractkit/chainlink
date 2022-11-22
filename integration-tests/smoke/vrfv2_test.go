@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	ethdeploy "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -40,6 +43,8 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	)
 
 	AfterEach(func() {
+		log.Info().Str("after", "each").Msg("AfterEach")
+		time.Sleep(6 * time.Minute)
 		By("Tearing env down")
 		chainClient.GasStats().PrintStats()
 		err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
@@ -186,8 +191,15 @@ func defaultVRFv2Env() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
+	insideK8sTmp, success := os.LookupEnv(config.EnvVarInsideK8s)
+	insideK8s := false
+	if success && len(insideK8sTmp) > 0 {
+		insideK8s, _ = strconv.ParseBool(insideK8sTmp)
+	}
+	log.Debug().Bool("Inside K8s", insideK8s).Msg("Is this running inside k8s")
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+		InsideK8s:       insideK8s,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{

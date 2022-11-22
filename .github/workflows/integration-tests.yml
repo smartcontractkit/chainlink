@@ -91,6 +91,8 @@ jobs:
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - uses: smartcontractkit/tool-versions-to-env-action@v1.0.8
+        id: tool-versions
       - name: build test runner
         uses: smartcontractkit/chainlink-github-actions/docker/build-push@cb4a8f51d77cbf77ea6a765bd1f437ffc7a18730 # v2.0.28
         with:
@@ -99,6 +101,7 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image:v5.0
             SUITES=./integration-tests/smoke
+            GINKGO_VERSION=${{ steps.tool-versions.outputs.ginkgo_version }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -171,8 +174,8 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cb4a8f51d77cbf77ea6a765bd1f437ffc7a18730 # v2.0.28
         env:
-          SUITE: ./integration-tests/smoke
-          ARGS: --focus @${{ matrix.product.name }}
+          TEST_SUITE: ./integration-tests/smoke
+          TEST_ARGS: --focus @${{ matrix.product.name }}
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.0f1d5b5b819b3944fdfe9c865628ff2a1d0605ca #latest.${{ github.sha }}
         with:

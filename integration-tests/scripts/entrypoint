@@ -35,4 +35,4 @@ done
 IFS=$OIFS
 
 # run the tests
-ginkgo ${ARGS} "${SUITE}"/"${last}".test
+ginkgo --keep-going --trace --randomize-all ${ARGS} "${SUITE}"/"${last}".test

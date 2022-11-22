@@ -3,7 +3,7 @@ FROM $BASE_IMAGE
 
 # suites example: ./integration-tests/smoke ./integration-tests/soak
 ARG SUITES
-ARG GINKGO_VERSION=2.5.0
+ARG GINKGO_VERSION=2.5.1
 
 COPY . testdir/
 WORKDIR /go/testdir

@@ -46,6 +46,7 @@ func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
 	session := &Session{Email: c.Email, Password: c.Password}
 	resp, err := rc.R().SetBody(session).Post("/sessions")
 	if err != nil {
+		log.Info().Interface("session", session).Msg("session used")
 		return nil, err
 	}
 	rc.SetCookies(resp.Cookies())
@@ -975,14 +976,7 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	localURLs := e.URLs[chainlinkChart.NodesLocalURLsKey]
 	internalURLs := e.URLs[chainlinkChart.NodesInternalURLsKey]
 	for i, localURL := range localURLs {
-		internalHost := ""
-		if e.Cfg.InsideK8s {
-			internalHost = "0.0.0.0"
-		} else {
-			internalHost = parseHostname(internalURLs[i])
-		}
-		log.Debug().Str("host", internalHost).Msg("TATATATATATA")
-
+		internalHost := parseHostname(internalURLs[i])
 		c, err := NewChainlink(&ChainlinkConfig{
 			URL:      localURL,
 			Email:    "notreal@fakeemail.ch",
