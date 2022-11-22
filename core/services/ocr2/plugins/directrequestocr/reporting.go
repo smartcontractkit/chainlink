@@ -126,6 +126,7 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 			})
 			continue
 		}
+		// NOTE: ignoring TIMED_OUT requests, which potentially had ready results
 		if localResult.State == directrequestocr.RESULT_READY {
 			resultProto := ProcessedRequest{
 				RequestID: localResult.RequestID[:],
@@ -242,7 +243,7 @@ func (r *directRequestReporting) ShouldTransmitAcceptedReport(ctx context.Contex
 	// can't use anything more convenient like protobufs but we need to ABI-decode here instead.
 	decoded, err := r.reportCodec.DecodeReport(report)
 	if err != nil {
-		r.logger.Error("unable to decode report built in reporting phase", commontypes.LogFields{"err": err})
+		r.logger.Error("directRequestReporting unable to decode report built in reporting phase", commontypes.LogFields{"err": err})
 		return false, err
 	}
 
@@ -251,14 +252,16 @@ func (r *directRequestReporting) ShouldTransmitAcceptedReport(ctx context.Contex
 	for _, item := range decoded {
 		reqIdStr := hex.EncodeToString(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		prevState, err := r.pluginORM.SetState(sliceToByte32(item.RequestID), directrequestocr.TRANSMITTED)
+		_, err := r.pluginORM.FindById(sliceToByte32(item.RequestID))
 		if err != nil {
-			// TODO handle state-transition errors inside the ORM (e.g. can't move from CONFIRMED back to TRANSMITTED)
-			// TODO it's possible that report will have results for requests that I never received
-			// https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
-			r.logger.Debug("directRequestReporting unable to set state to TRANSMITTED", commontypes.LogFields{"requestID": item.RequestID})
+			// locally-non-existent request can be transmitted (majority decided to include it in the report)
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
-		} else if prevState != directrequestocr.TRANSMITTED && prevState != directrequestocr.CONFIRMED {
+			continue
+		}
+		err = r.pluginORM.SetTransmitted(sliceToByte32(item.RequestID), item.Result, item.Error)
+		if err != nil {
+			r.logger.Debug("directRequestReporting state not changed to TRANSMITTED", commontypes.LogFields{"requestID": item.RequestID})
+		} else {
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 		}
 	}

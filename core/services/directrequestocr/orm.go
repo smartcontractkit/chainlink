@@ -19,14 +19,13 @@ type ORM interface {
 
 	SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error
 	SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error
-	SetState(requestID RequestID, state RequestState, qopts ...pg.QOpt) (RequestState, error)
 	SetTransmitted(requestID RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error
+	SetConfirmed(requestID RequestID, qopts ...pg.QOpt) error
+	SetTimedOut(requestID RequestID, qopts ...pg.QOpt) error
 
 	FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error)
 	FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error)
-
-	// TODO add state transition validation
-	// https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
+	FindExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.QOpt) ([]Request, error)
 }
 
 type orm struct {
@@ -55,50 +54,82 @@ func (o orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxH
 	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS)
 }
 
-func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
-	stmt := `
-		UPDATE ocr2dr_requests
-		SET run_id=$3, result=$4, result_ready_at=$5, state=$6
-		WHERE request_id=$1 AND contract_address=$2;
-	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, runID, computationResult, readyAt, RESULT_READY)
-}
-
-func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error {
-	stmt := `
-		UPDATE ocr2dr_requests
-		SET run_id=$3, error=$4, error_type=$5, result_ready_at=$6, state=$7
-		WHERE request_id=$1 AND contract_address=$2;
-	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, runID, computationError, errorType, readyAt, RESULT_READY)
-}
-
-func (o orm) SetState(requestID RequestID, state RequestState, qopts ...pg.QOpt) (RequestState, error) {
-	var oldState RequestState
-
-	err := o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) (err error) {
+func (o orm) setWithStateTransitionCheck(requestID RequestID, newState RequestState, setter func(pg.Queryer) error, qopts ...pg.QOpt) (RequestState, error) {
+	oldState := IN_PROGRESS // default initial state, also covers non-existent requests
+	err := o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
 		stmt := `SELECT state FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`
-		err = tx.Get(&oldState, stmt, requestID, o.contractAddress)
-		if err == nil {
-			if oldState == state {
-				return nil
-			}
-			stmt = `UPDATE ocr2dr_requests SET state=$3 WHERE request_id=$1 AND contract_address=$2;`
-			_, err = tx.Exec(stmt, requestID, o.contractAddress, state)
+		if err2 := tx.Get(&oldState, stmt, requestID, o.contractAddress); err2 != nil {
+			return err2
 		}
-		return
+		if err2 := CheckStateTransition(oldState, newState); err2 != nil {
+			return err2
+		}
+		return setter(tx)
 	})
 
 	return oldState, err
 }
 
+func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+	newState := RESULT_READY
+	_, err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
+		stmt := `
+			UPDATE ocr2dr_requests
+			SET run_id=$3, result=$4, result_ready_at=$5, state=$6
+			WHERE request_id=$1 AND contract_address=$2;
+		`
+		_, err2 := tx.Exec(stmt, requestID, o.contractAddress, runID, computationResult, readyAt, newState)
+		return err2
+	}, qopts...)
+	return err
+}
+
+func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+	newState := RESULT_READY
+	_, err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
+		stmt := `
+			UPDATE ocr2dr_requests
+			SET run_id=$3, error=$4, error_type=$5, result_ready_at=$6, state=$7
+			WHERE request_id=$1 AND contract_address=$2;
+		`
+		_, err2 := tx.Exec(stmt, requestID, o.contractAddress, runID, computationError, errorType, readyAt, newState)
+		return err2
+	}, qopts...)
+	return err
+}
+
 func (o orm) SetTransmitted(requestID RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error {
-	stmt := `
-		UPDATE ocr2dr_requests
-		SET transmitted_result=$3, transmitted_error=$4
-		WHERE request_id=$1 AND contract_address=$2;
-	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, transmittedResult, transmittedError)
+	newState := TRANSMITTED
+	_, err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
+		stmt := `
+			UPDATE ocr2dr_requests
+			SET transmitted_result=$3, transmitted_error=$4, state=$5
+			WHERE request_id=$1 AND contract_address=$2;
+		`
+		_, err2 := tx.Exec(stmt, requestID, o.contractAddress, transmittedResult, transmittedError, newState)
+		return err2
+	}, qopts...)
+	return err
+}
+
+func (o orm) SetConfirmed(requestID RequestID, qopts ...pg.QOpt) error {
+	newState := CONFIRMED
+	_, err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
+		stmt := `UPDATE ocr2dr_requests SET state=$3 WHERE request_id=$1 AND contract_address=$2;`
+		_, err2 := tx.Exec(stmt, requestID, o.contractAddress, newState)
+		return err2
+	}, qopts...)
+	return err
+}
+
+func (o orm) SetTimedOut(requestID RequestID, qopts ...pg.QOpt) error {
+	newState := TIMED_OUT
+	_, err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
+		stmt := `UPDATE ocr2dr_requests SET state=$3 WHERE request_id=$1 AND contract_address=$2;`
+		_, err2 := tx.Exec(stmt, requestID, o.contractAddress, newState)
+		return err2
+	}, qopts...)
+	return err
 }
 
 func (o orm) FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error) {
@@ -117,4 +148,13 @@ func (o orm) FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error) {
 		return nil, err
 	}
 	return &request, nil
+}
+
+func (o orm) FindExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.QOpt) ([]Request, error) {
+	var requests []Request
+	stmt := fmt.Sprintf(`SELECT %s FROM ocr2dr_requests WHERE state=$1 AND received_at < ($2) ORDER BY received_at LIMIT $3;`, requestFields)
+	if err := o.q.WithOpts(qopts...).Select(&requests, stmt, RESULT_READY, cutoff, limit); err != nil {
+		return nil, err
+	}
+	return requests, nil
 }

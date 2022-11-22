@@ -68,6 +68,36 @@ func (_m *ORM) FindById(requestID directrequestocr.RequestID, qopts ...pg.QOpt) 
 	return r0, r1
 }
 
+// FindExpiredResults provides a mock function with given fields: cutoff, limit, qopts
+func (_m *ORM) FindExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.QOpt) ([]directrequestocr.Request, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, cutoff, limit)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []directrequestocr.Request
+	if rf, ok := ret.Get(0).(func(time.Time, uint32, ...pg.QOpt) []directrequestocr.Request); ok {
+		r0 = rf(cutoff, limit, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]directrequestocr.Request)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(time.Time, uint32, ...pg.QOpt) error); ok {
+		r1 = rf(cutoff, limit, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindOldestEntriesByState provides a mock function with given fields: state, limit, qopts
 func (_m *ORM) FindOldestEntriesByState(state directrequestocr.RequestState, limit uint32, qopts ...pg.QOpt) ([]directrequestocr.Request, error) {
 	_va := make([]interface{}, len(qopts))
@@ -96,6 +126,27 @@ func (_m *ORM) FindOldestEntriesByState(state directrequestocr.RequestState, lim
 	}
 
 	return r0, r1
+}
+
+// SetConfirmed provides a mock function with given fields: requestID, qopts
+func (_m *ORM) SetConfirmed(requestID directrequestocr.RequestID, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, requestID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // SetError provides a mock function with given fields: requestID, runID, errorType, computationError, readyAt, qopts
@@ -140,32 +191,25 @@ func (_m *ORM) SetResult(requestID directrequestocr.RequestID, runID int64, comp
 	return r0
 }
 
-// SetState provides a mock function with given fields: requestID, state, qopts
-func (_m *ORM) SetState(requestID directrequestocr.RequestID, state directrequestocr.RequestState, qopts ...pg.QOpt) (directrequestocr.RequestState, error) {
+// SetTimedOut provides a mock function with given fields: requestID, qopts
+func (_m *ORM) SetTimedOut(requestID directrequestocr.RequestID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, requestID, state)
+	_ca = append(_ca, requestID)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 directrequestocr.RequestState
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, directrequestocr.RequestState, ...pg.QOpt) directrequestocr.RequestState); ok {
-		r0 = rf(requestID, state, qopts...)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, qopts...)
 	} else {
-		r0 = ret.Get(0).(directrequestocr.RequestState)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(directrequestocr.RequestID, directrequestocr.RequestState, ...pg.QOpt) error); ok {
-		r1 = rf(requestID, state, qopts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // SetTransmitted provides a mock function with given fields: requestID, transmittedResult, transmittedError, qopts

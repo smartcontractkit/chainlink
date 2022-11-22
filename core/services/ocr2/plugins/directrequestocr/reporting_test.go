@@ -130,15 +130,22 @@ func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
 func TestDRReporting_Observation(t *testing.T) {
 	t.Parallel()
 	plugin, orm := preparePlugin(t, 10)
-	reqId1, reqId2, reqId3, reqId4 := newRequestID(), newRequestID(), newRequestID(), newRequestID()
+	reqId1, reqId2, reqId3, reqId4, reqId5 := newRequestID(), newRequestID(), newRequestID(), newRequestID(), newRequestID()
 
 	createRequestWithResult(t, orm, reqId1, []byte("abc"))
 	createRequest(t, orm, reqId2)
 	createRequestWithError(t, orm, reqId3, []byte("Bug LOL!"))
+	createRequest(t, orm, reqId5)
+	err := orm.SetTimedOut(reqId5)
+	require.NoError(t, err)
 
-	// Query asking for 4 requests (+ one duplicate) but we've only seen 3 of them, 2 of which are ready
+	// Query asking for 5 requests (with duplicates), out of which:
+	//   - two are ready
+	//   - one is still in progress
+	//   - one has timed out
+	//   - one doesn't exist
 	queryProto := directrequestocr.Query{}
-	queryProto.RequestIDs = [][]byte{reqId1[:], reqId1[:], reqId2[:], reqId3[:], reqId4[:]}
+	queryProto.RequestIDs = [][]byte{reqId1[:], reqId1[:], reqId2[:], reqId3[:], reqId5[:], reqId4[:], reqId5[:]}
 	marshalled, err := proto.Marshal(&queryProto)
 	require.NoError(t, err)
 
@@ -194,4 +201,50 @@ func TestDRReporting_Report(t *testing.T) {
 	require.Equal(t, reqId1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
+}
+
+func TestDRReporting_ShouldTransmitAcceptedReport(t *testing.T) {
+	t.Parallel()
+	plugin, orm := preparePlugin(t, 10)
+	codec, err := directrequestocr.NewReportCodec()
+	require.NoError(t, err)
+
+	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
+	compResult := []byte("aaa")
+
+	reportBytes, err := codec.EncodeReport([]*directrequestocr.ProcessedRequest{
+		{RequestID: reqId1[:], Result: compResult},
+		{RequestID: reqId2[:], Result: compResult},
+		{RequestID: reqId3[:], Result: compResult},
+	})
+	require.NoError(t, err)
+
+	// Attempting to transmit 3 requests, out of which:
+	//   - one is in progress
+	//   - one is ready
+	//   - one doesn't exist
+	createRequest(t, orm, reqId1)
+	createRequestWithResult(t, orm, reqId2, compResult)
+	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, reportBytes)
+	require.NoError(t, err)
+	require.True(t, should)
+
+	// Attempting to transmit 3 requests, out of which:
+	//   - two were already transmitted or confirmed
+	//   - one doesn't exist
+	err = orm.SetConfirmed(reqId2)
+	require.NoError(t, err)
+	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, reportBytes)
+	require.NoError(t, err)
+	require.True(t, should)
+
+	// Attempting to transmit 3 requests, out of which:
+	//   - two were already transmitted or confirmed
+	//   - one has timed out
+	createRequest(t, orm, reqId3)
+	err = orm.SetTimedOut(reqId3)
+	require.NoError(t, err)
+	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, reportBytes)
+	require.NoError(t, err)
+	require.False(t, should)
 }
