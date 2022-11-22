@@ -25,7 +25,7 @@ multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../..
 nocancel_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.bin 6672e34b4b10526b338d1876790c396fd619bd2103e5cbff580687264b3e78ca
 ocr2dr: ../../contracts/solc/v0.8.6/OCR2DR.abi ../../contracts/solc/v0.8.6/OCR2DR.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
 ocr2dr_client: ../../contracts/solc/v0.8.6/OCR2DRClient.abi ../../contracts/solc/v0.8.6/OCR2DRClient.bin 29c2805c02f465d74971d9910800bc76684a8cbf7f345b7c029c6d0e0203458a
-ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 74e118d04e0c8368f1814e9551339ec604d47bdd897e6a5eba641eb3aea46d56
+ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 3a511ef730f22245be39e555e24d54d33a186af6e73a9263f7abb77013a7631f
 ocr2dr_oracle: ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin 06101227686b4d5fe588b94911c0c761e69f18c6fe1998a695a29782ead24fcc
 ocr2dr_registry: ../../contracts/solc/v0.8.6/OCR2DRRegistry.abi ../../contracts/solc/v0.8.6/OCR2DRRegistry.bin d248d172a31420fb355beb7433d10f61b7811e5fa9a6d4fb7790837843768e30
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877

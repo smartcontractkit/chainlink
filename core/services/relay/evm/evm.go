@@ -245,10 +245,11 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
-	}
+	//gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
+	gasLimit := uint32(1500000)
+	//if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
+	//	gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	//}
 
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,

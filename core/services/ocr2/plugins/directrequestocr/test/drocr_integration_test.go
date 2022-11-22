@@ -19,10 +19,10 @@ import (
 
 func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	nNodes := 4
-	nClients := 20
+	nClients := 10
 
 	// simulated chain with all contracts
-	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
+	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryContract, registryAddr, linkToken := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
 
 	// bootstrap node and job
@@ -49,14 +49,15 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	}
 
 	// config for registry contract
-	utils.SetRegistryConfig(t, owner, registryContract, oracleContract)
+	utils.SetRegistryConfig(t, owner, registryContract, oracleContractAddress)
 
 	// config for oracle contract
 	utils.SetOracleConfig(t, owner, oracleContract, oracles)
 	utils.CommitWithFinality(b)
 
 	// set up subscription
-	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryContract, clientContracts)
+	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryContract, registryAddr, clientContracts)
+	utils.CommitWithFinality(b)
 
 	// send requests
 	sent := make([][]byte, nClients)

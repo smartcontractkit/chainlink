@@ -25,11 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_client_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_registry"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -103,12 +103,12 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 	require.NoError(t, err)
 }
 
-func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContract *ocr2dr_oracle.OCR2DROracle) {
-	var maxGasLimit =  uint32(1_000_000)
-	var stalenessSeconds =  uint32(86_400)
-	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315)
-	var weiPerUnitLink =  big.NewInt(5000000000000000)
-	var gasOverhead =  uint32(500_000)
+func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
+	var maxGasLimit = uint32(1_000_000)
+	var stalenessSeconds = uint32(86_400)
+	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2*2_100 - 15_000 + 7_315)
+	var weiPerUnitLink = big.NewInt(5000000000000000)
+	var gasOverhead = uint32(500_000)
 
 	_, err := registryContract.SetConfig(
 		owner,
@@ -120,16 +120,14 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 	)
 	require.NoError(t, err)
 
-	var senders []common.Address
-	senders[0] = oracleContract.Address()
 	_, err = registryContract.SetAuthorizedSenders(
 		owner,
-		senders,
+		[]common.Address{oracleContractAddress},
 	)
 	require.NoError(t, err)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registryContract *ocr2dr_registry.OCR2DRRegistry, clientContracts []deployedClientContract) (subscriptionId uint64) {
+func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registryContract *ocr2dr_registry.OCR2DRRegistry, registryAddr common.Address, clientContracts []deployedClientContract) (subscriptionId uint64) {
 	_, err := registryContract.CreateSubscription(owner)
 	require.NoError(t, err)
 
@@ -142,9 +140,9 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
 	require.NoError(t, err)
-	
-	amount := big.NewInt(5e18) // 5 LINK
-	linkToken.TransferAndCall(owner, registryContract.Address(), amount, data)
+
+	amount := big.NewInt(0).Mul(big.NewInt(100), big.NewInt(1e18)) // 1 LINK per client
+	linkToken.TransferAndCall(owner, registryAddr, amount, data)
 
 	return subscriptionID
 }
@@ -162,7 +160,7 @@ type deployedClientContract struct {
 	Contract *ocr2dr_client_example.OCR2DRClientExample
 }
 
-func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, common.Address, *ocr2dr_oracle.OCR2DROracle, []deployedClientContract, *ocr2dr_registry.OCR2DRRegistry, *link_token_interface.LinkToken) {
+func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, common.Address, *ocr2dr_oracle.OCR2DROracle, []deployedClientContract, *ocr2dr_registry.OCR2DRRegistry, common.Address, *link_token_interface.LinkToken) {
 	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
@@ -178,7 +176,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
 
-	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr,linkEthFeedAddr )
+	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr)
 	require.NoError(t, err)
 
 	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
@@ -202,7 +200,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 			b.Commit()
 		}
 	}()
-	return owner, b, ticker, ocrContractAddress, ocrContract, clientContracts, registryContract, linkToken
+	return owner, b, ticker, ocrContractAddress, ocrContract, clientContracts, registryContract, registryAddress, linkToken
 }
 
 type Node struct {
