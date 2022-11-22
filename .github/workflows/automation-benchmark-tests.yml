@@ -66,7 +66,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
         with:
           test_command_to_run: make test_benchmark_automation
