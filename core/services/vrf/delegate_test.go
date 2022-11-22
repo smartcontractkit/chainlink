@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	vrf_mocks "github.com/smartcontractkit/chainlink/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -138,9 +139,7 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := utils.NewMailboxMonitor(t.Name())
-	require.NoError(t, mailMon.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	vd := vrf.NewDelegate(
 		db,

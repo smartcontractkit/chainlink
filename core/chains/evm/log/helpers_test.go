@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -105,9 +106,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.TestLogger(t)
-	mailMon := utils.NewMailboxMonitor(t.Name())
-	require.NoError(t, mailMon.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	orm := log.NewORM(c.db, lggr, config, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead, mailMon)
