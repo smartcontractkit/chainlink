@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/imdario/mergo"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -27,8 +26,13 @@ func init() {
 }
 
 func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
+	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
+		values := strings.Split(inputs, ",")
+		for _, value := range values {
+			if strings.Contains(value, key) {
+				return strings.Split(value, "=")[1]
+			}
+		}
 	}
 	return fallback
 }
@@ -95,8 +99,8 @@ var chainlinkSoak = map[string]interface{}{
 	},
 }
 
-func TestKeeperBenchmark(t *testing.T) {
-	registryToTest := os.Getenv("AUTOMATION_REGISTRY_TO_TEST")
+func TestAutomationBenchmark(t *testing.T) {
+	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "registry-2-0")
 	var numberOfNodes, _ = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
 	KeeperBenchmark(t, registryToTest, numberOfNodes)
 }
@@ -167,9 +171,9 @@ func KeeperBenchmark(t *testing.T, registryToTest string, numberOfNodes int) {
 		dynamicValues = nil
 		for i := 0; i < numberOfNodes; i++ {
 			if i%2 == 0 {
-				dynamicValues = append(dynamicValues, map[string]interface{}{"EVM_NODES": os.Getenv("EVM_NODES_A")})
+				dynamicValues = append(dynamicValues, map[string]interface{}{"EVM_NODES": getEnv("EVM_NODES_A", "")})
 			} else {
-				dynamicValues = append(dynamicValues, map[string]interface{}{"EVM_NODES": os.Getenv("EVM_NODES_B")})
+				dynamicValues = append(dynamicValues, map[string]interface{}{"EVM_NODES": getEnv("EVM_NODES_B", "")})
 			}
 		}
 		if activeEVMNetwork.Name == "Goerli Testnet" {
@@ -203,7 +207,7 @@ func KeeperBenchmark(t *testing.T, registryToTest string, numberOfNodes int) {
 
 	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
 
-	benchmarkTestHelper(t, testTag+" @benchmark-keeper", testEnvironment, activeEVMNetwork, numberOfNodes, blockTime)
+	benchmarkTestHelper(t, testTag+" @benchmark-keeper", testEnvironment, activeEVMNetwork, blockTime)
 }
 
 // adds distinct Chainlink deployments to the test environment, using staticVals on all of them, while distributing
@@ -240,24 +244,17 @@ func benchmarkTestHelper(
 	testTag string,
 	testEnvironment *environment.Environment,
 	activeEVMNetwork *blockchain.EVMNetwork,
-	numberOfNodes int,
 	blockTime string,
 ) {
 
 	remoteRunnerValues := map[string]interface{}{
-		"focus":                      testTag,
-		"env_namespace":              testEnvironment.Cfg.Namespace,
-		"test_dir":                   "./integration-tests/benchmark/tests",
-		"test_log_level":             "debug",
-		"grafana_dashboard_url":      os.Getenv("GRAFANA_DASHBOARD_URL"),
-		"NUMBEROFCONTRACTS":          os.Getenv("NUMBEROFCONTRACTS"),
-		"CHECKGASTOBURN":             os.Getenv("CHECKGASTOBURN"),
-		"PERFORMGASTOBURN":           os.Getenv("PERFORMGASTOBURN"),
-		"BLOCKRANGE":                 os.Getenv("BLOCKRANGE"),
-		"BLOCKINTERVAL":              os.Getenv("BLOCKINTERVAL"),
-		"CHAINLINKNODEFUNDING":       os.Getenv("CHAINLINKNODEFUNDING"),
-		"AUTOMATION_NUMBER_OF_NODES": numberOfNodes,
-		"SELECTED_NETWORKS":          os.Getenv("SELECTED_NETWORKS"),
+		"focus":                 testTag,
+		"env_namespace":         testEnvironment.Cfg.Namespace,
+		"test_dir":              "./integration-tests/benchmark/tests",
+		"test_log_level":        "debug",
+		"grafana_dashboard_url": getEnv("GRAFANA_DASHBOARD_URL", ""),
+		"TEST_INPUTS":           os.Getenv("TEST_INPUTS"),
+		"SELECTED_NETWORKS":     os.Getenv("SELECTED_NETWORKS"),
 	}
 	// Set evm network connection for remote runner
 	for key, value := range activeEVMNetwork.ToMap() {

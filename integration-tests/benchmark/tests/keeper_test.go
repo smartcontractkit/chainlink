@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -40,8 +41,13 @@ type BenchmarkTestEntry struct {
 }
 
 func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
+	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
+		values := strings.Split(inputs, ",")
+		for _, value := range values {
+			if strings.Contains(value, key) {
+				return strings.Split(value, "=")[1]
+			}
+		}
 	}
 	return fallback
 }
@@ -167,7 +173,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 	var BlockRange, _ = strconv.ParseInt(getEnv("BLOCKRANGE", "3600"), 0, 64)
 	var BlockInterval, _ = strconv.ParseInt(getEnv("BLOCKINTERVAL", "20"), 0, 64)
 
-	var NumberOfNodes, _ = strconv.Atoi(os.Getenv("AUTOMATION_NUMBER_OF_NODES"))
+	var NumberOfNodes, _ = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
 
 	DescribeTable("Keeper benchmark suite on different EVM networks", func(
 		testEntry BenchmarkTestEntry,
