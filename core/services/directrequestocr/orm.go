@@ -52,7 +52,7 @@ func (o orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxH
 		INSERT INTO ocr2dr_requests (request_id, contract_address, received_at, request_tx_hash, state)
 		VALUES ($1,$2,$3,$4,$5);
 	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID[:], o.contractAddress.Bytes(), receivedAt, requestTxHash.Bytes(), IN_PROGRESS)
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS)
 }
 
 func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
@@ -61,7 +61,7 @@ func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byt
 		SET run_id=$3, result=$4, result_ready_at=$5, state=$6
 		WHERE request_id=$1 AND contract_address=$2;
 	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID[:], o.contractAddress.Bytes(), runID, computationResult, readyAt, RESULT_READY)
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, runID, computationResult, readyAt, RESULT_READY)
 }
 
 func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error {
@@ -70,23 +70,26 @@ func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, compu
 		SET run_id=$3, error=$4, error_type=$5, result_ready_at=$6, state=$7
 		WHERE request_id=$1 AND contract_address=$2;
 	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID[:], o.contractAddress, runID, computationError, errorType, readyAt, RESULT_READY)
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, runID, computationError, errorType, readyAt, RESULT_READY)
 }
 
 func (o orm) SetState(requestID RequestID, state RequestState, qopts ...pg.QOpt) (RequestState, error) {
 	var oldState RequestState
 
-	stmt := `SELECT state FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`
-	if err := o.q.WithOpts(qopts...).Get(&oldState, stmt, requestID[:], o.contractAddress); err != nil {
-		return 0, err
-	}
+	err := o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) (err error) {
+		stmt := `SELECT state FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`
+		err = tx.Get(&oldState, stmt, requestID, o.contractAddress)
+		if err == nil {
+			if oldState == state {
+				return nil
+			}
+			stmt = `UPDATE ocr2dr_requests SET state=$3 WHERE request_id=$1 AND contract_address=$2;`
+			_, err = tx.Exec(stmt, requestID, o.contractAddress, state)
+		}
+		return
+	})
 
-	if oldState == state {
-		return state, nil
-	}
-
-	stmt = `UPDATE ocr2dr_requests SET state=$3 WHERE request_id=$1 AND contract_address=$2;`
-	return oldState, o.q.WithOpts(qopts...).ExecQ(stmt, requestID[:], o.contractAddress.Bytes(), state)
+	return oldState, err
 }
 
 func (o orm) SetTransmitted(requestID RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error {
@@ -95,7 +98,7 @@ func (o orm) SetTransmitted(requestID RequestID, transmittedResult []byte, trans
 		SET transmitted_result=$3, transmitted_error=$4
 		WHERE request_id=$1 AND contract_address=$2;
 	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID[:], o.contractAddress.Bytes(), transmittedResult, transmittedError)
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, transmittedResult, transmittedError)
 }
 
 func (o orm) FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error) {
@@ -110,7 +113,7 @@ func (o orm) FindOldestEntriesByState(state RequestState, limit uint32, qopts ..
 func (o orm) FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error) {
 	var request Request
 	stmt := fmt.Sprintf(`SELECT %s FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`, requestFields)
-	if err := o.q.WithOpts(qopts...).Get(&request, stmt, requestID[:], o.contractAddress.Bytes()); err != nil {
+	if err := o.q.WithOpts(qopts...).Get(&request, stmt, requestID, o.contractAddress); err != nil {
 		return nil, err
 	}
 	return &request, nil

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/sqlx"
@@ -37,31 +38,37 @@ func newRequestID() directrequestocr.RequestID {
 	return testutils.Random32Byte()
 }
 
+func createRequest(t *testing.T, orm *TestORM) (directrequestocr.RequestID, common.Hash, time.Time) {
+	return createRequestWithOffset(t, orm, 0)
+}
+
+func createRequestWithOffset(t *testing.T, orm *TestORM, offset time.Duration) (directrequestocr.RequestID, common.Hash, time.Time) {
+	id := newRequestID()
+	txHash := testutils.NewAddress().Hash()
+	ts := time.Now().Add(offset).Round(time.Second)
+	err := orm.CreateRequest(id, ts, &txHash)
+	require.NoError(t, err)
+	return id, txHash, ts
+}
+
 func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
-	id1, id2 := newRequestID(), newRequestID()
-	txHash1, txHash2 := testutils.NewAddress().Hash(), testutils.NewAddress().Hash()
-	t1 := time.Now().Add(-time.Second).Round(time.Second)
-	t2 := time.Now().Add(-time.Minute).Round(time.Second)
-
-	err := orm.CreateRequest(id1, t1, &txHash1)
-	require.NoError(t, err)
-	err = orm.CreateRequest(id2, t2, &txHash2)
-	require.NoError(t, err)
+	id1, txHash1, ts1 := createRequest(t, orm)
+	id2, txHash2, ts2 := createRequest(t, orm)
 
 	req1, err := orm.FindById(id1)
 	require.NoError(t, err)
 	require.Equal(t, id1, req1.RequestID)
 	require.Equal(t, &txHash1, req1.RequestTxHash)
-	require.Equal(t, t1, req1.ReceivedAt)
+	require.Equal(t, ts1, req1.ReceivedAt)
 
 	req2, err := orm.FindById(id2)
 	require.NoError(t, err)
 	require.Equal(t, id2, req2.RequestID)
 	require.Equal(t, &txHash2, req2.RequestTxHash)
-	require.Equal(t, t2, req2.ReceivedAt)
+	require.Equal(t, ts2, req2.ReceivedAt)
 
 	t.Run("missing ID", func(t *testing.T) {
 		req, err := orm.FindById(newRequestID())
@@ -70,9 +77,9 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	})
 
 	t.Run("duplicated", func(t *testing.T) {
-		err := orm.CreateRequest(id1, t1, &txHash1)
+		err := orm.CreateRequest(id1, ts1, &txHash1)
 		require.Error(t, err)
-		err = orm.CreateRequest(id1, t1, &txHash1)
+		err = orm.CreateRequest(id1, ts1, &txHash1)
 		require.Error(t, err)
 	})
 }
@@ -81,14 +88,10 @@ func TestORM_SetResult(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
-	id := newRequestID()
-	txHash := testutils.NewAddress().Hash()
-	ts := time.Now().Add(-time.Second).Round(time.Second)
-	err := orm.CreateRequest(id, ts, &txHash)
-	require.NoError(t, err)
+	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err = orm.SetResult(id, 123, []byte("result"), rdts)
+	err := orm.SetResult(id, 123, []byte("result"), rdts)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -106,14 +109,10 @@ func TestORM_SetError(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
-	id := newRequestID()
-	txHash := testutils.NewAddress().Hash()
-	ts := time.Now().Add(-time.Second).Round(time.Second)
-	err := orm.CreateRequest(id, ts, &txHash)
-	require.NoError(t, err)
+	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err = orm.SetError(id, 123, directrequestocr.USER_EXCEPTION, []byte("error"), rdts)
+	err := orm.SetError(id, 123, directrequestocr.USER_EXCEPTION, []byte("error"), rdts)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -133,11 +132,7 @@ func TestORM_SetState(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
-	id := newRequestID()
-	txHash := testutils.NewAddress().Hash()
-	ts := time.Now().Add(-time.Second).Round(time.Second)
-	err := orm.CreateRequest(id, ts, &txHash)
-	require.NoError(t, err)
+	id, _, _ := createRequest(t, orm)
 
 	prevState, err := orm.SetState(id, directrequestocr.CONFIRMED)
 	require.NoError(t, err)
@@ -153,13 +148,9 @@ func TestORM_SetTransmitted(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
-	id := newRequestID()
-	txHash := testutils.NewAddress().Hash()
-	ts := time.Now().Add(-time.Second).Round(time.Second)
-	err := orm.CreateRequest(id, ts, &txHash)
-	require.NoError(t, err)
+	id, _, _ := createRequest(t, orm)
 
-	err = orm.SetTransmitted(id, []byte("result"), []byte("error"))
+	err := orm.SetTransmitted(id, []byte("result"), []byte("error"))
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -172,16 +163,9 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
-	id1, id2, id3 := newRequestID(), newRequestID(), newRequestID()
-	txHash := testutils.NewAddress().Hash()
-	ts := time.Now().Round(time.Second)
-
-	err := orm.CreateRequest(id2, ts.Add(time.Minute*2), &txHash)
-	require.NoError(t, err)
-	err = orm.CreateRequest(id3, ts.Add(time.Minute*3), &txHash)
-	require.NoError(t, err)
-	err = orm.CreateRequest(id1, ts.Add(time.Minute*1), &txHash)
-	require.NoError(t, err)
+	id2, _, _ := createRequestWithOffset(t, orm, 2*time.Minute)
+	createRequestWithOffset(t, orm, 3*time.Minute)
+	id1, _, _ := createRequestWithOffset(t, orm, 1*time.Minute)
 
 	t.Run("with limit", func(t *testing.T) {
 		result, err := orm.FindOldestEntriesByState(directrequestocr.IN_PROGRESS, 2)
