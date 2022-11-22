@@ -10,9 +10,8 @@ on:
       chainlinkImage:
         description: Chainlink image repo to use
         required: true
-        type: choice
-        options:
-          - public.ecr.aws/chainlink/chainlink
+        type: string
+        default: public.ecr.aws/chainlink/chainlink
       network:
         description: Network to run tests on
         required: true
