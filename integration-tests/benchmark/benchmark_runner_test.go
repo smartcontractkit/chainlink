@@ -124,7 +124,10 @@ func KeeperBenchmark(t *testing.T, registryToTest string) {
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	staticValues := map[string]interface{}{
+		"ETH_URL":      activeEVMNetwork.URLs[0],
+		"ETH_HTTP_URL": activeEVMNetwork.HTTPURLs[0],
+	}
 
 	keeperBenchmarkValues := map[string]interface{}{
 		"MIN_INCOMING_CONFIRMATIONS": "1",
@@ -222,7 +225,7 @@ func addSeparateChainlinkDeployments(
 			chartResources = chainlinkSoak
 		}
 		mergo.Merge(&chartValues, &chartResources)
-		testEnvironment.AddHelm(chainlink.New(index, chartValues))
+		testEnvironment.AddHelm(chainlink.NewVersioned(index, "0.0.11", chartValues))
 	}
 }
 
@@ -233,7 +236,6 @@ func benchmarkTestHelper(
 	testEnvironment *environment.Environment,
 	activeEVMNetwork *blockchain.EVMNetwork,
 ) {
-
 	remoteRunnerValues := map[string]interface{}{
 		"focus":                 testTag,
 		"env_namespace":         testEnvironment.Cfg.Namespace,

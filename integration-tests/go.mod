@@ -7,7 +7,7 @@ require (
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/imdario/mergo v0.3.13
 	github.com/lib/pq v1.10.7
-	github.com/onsi/ginkgo/v2 v2.5.0
+	github.com/onsi/ginkgo/v2 v2.5.1
 	github.com/onsi/gomega v1.24.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.28.0
@@ -15,7 +15,7 @@ require (
 	github.com/slack-go/slack v0.11.4
 	github.com/smartcontractkit/chainlink v1.9.0
 	github.com/smartcontractkit/chainlink-env v0.2.52
-	github.com/smartcontractkit/chainlink-testing-framework v1.8.4
+	github.com/smartcontractkit/chainlink-testing-framework v1.8.5
 	github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8
 	github.com/smartcontractkit/ocr2keepers v0.4.8
 	github.com/stretchr/testify v1.8.1
