@@ -64,3 +64,4 @@ sonatype-2021-4899
 sonatype-2020-0722
 CVE-2021-41803  # consul
 CVE-2022-44797
+CVE-2022-39389 # golang/github.com/btcsuite/btcd@v0.22.1
