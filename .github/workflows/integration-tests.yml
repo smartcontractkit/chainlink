@@ -85,7 +85,7 @@ jobs:
       matrix:
         product:
           - name: automation
-            nodes: 6
+            nodes: 9
             os: ubuntu-latest
           - name: cron
             nodes: 1

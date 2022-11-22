@@ -58,11 +58,12 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 		testScenarios = []TableEntry{
 			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
-			// too flaky right now
-			//Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Handle f keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			Entry("v2.0 Perform simulation test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds), 1),
+			Entry("v2.0 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds), 1),
 			Entry("v2.0 Update check data @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 		}
 	)
@@ -207,7 +208,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			// Cancel all the registered upkeeps via the registry
 			for i := 0; i < len(upkeepIDs); i++ {
@@ -230,11 +231,11 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 			Consistently(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
+					// Expect the counter to remain constant (At most increase by 1 to account for stale performs) because the upkeep was cancelled
 					latestCounter, err := consumers[i].Counter(context.Background())
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
 					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterCancellation[i].Int64()+1),
-						"Expected consumer counter to remain constant at %d, but got %d", countersAfterCancellation[i].Int64(), latestCounter.Int64())
+						"Expected consumer counter to remain less than equal %d, but got %d", countersAfterCancellation[i].Int64()+1, latestCounter.Int64())
 				}
 			}, "1m", "1s").Should(Succeed())
 		}
@@ -252,7 +253,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 						"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "5m", "1s").Should(Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			// pause all the registered upkeeps via the registry
 			for i := 0; i < len(upkeepIDs); i++ {
@@ -275,13 +276,12 @@ ListenAddresses = ["0.0.0.0:6690"]`
 			Consistently(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					// In most cases counters should remain constant, but there might be a straggling perform tx which
-					// gets committed later. Since every keeper node cannot have more than 1 straggling tx, it
-					// is sufficient to check that the upkeep count does not increase by more than 6.
+					// gets committed later and increases counter by 1
 					latestCounter, err := consumers[i].Counter(context.Background())
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterPause[i].Int64()+numUpkeepsAllowedForStragglingTxs),
+					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterPause[i].Int64()+1),
 						"Expected consumer counter not have increased more than %d, but got %d",
-						countersAfterPause[i].Int64()+numUpkeepsAllowedForStragglingTxs, latestCounter.Int64())
+						countersAfterPause[i].Int64()+1, latestCounter.Int64())
 				}
 			}, "1m", "1s").Should(Succeed())
 
@@ -300,11 +300,11 @@ ListenAddresses = ["0.0.0.0:6690"]`
 					counter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index "+strconv.Itoa(i))
-					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(5)+countersAfterPause[i].Int64()),
-						"Expected consumer counter to be greater than %d, but got %d", int64(5)+countersAfterPause[i].Int64(), counter.Int64())
+					g.Expect(counter.Int64()).Should(BeNumerically(">", countersAfterPause[i].Int64()+1),
+						"Expected consumer counter to be greater than %d, but got %d", countersAfterPause[i].Int64()+1, counter.Int64())
 					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m to perform, 1m buffer
 		}
 
 		if testToRun == RegisterUpkeepTest {
@@ -326,7 +326,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 						Int64("Upkeep ID", int64(i)).
 						Msg("Number of upkeeps performed")
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "4m", "1s").Should(Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, chainClient, linkToken,
 				registry, registrar, defaultUpkeepGasLimit, 1)
@@ -341,7 +341,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 				g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 				log.Info().Msg("Newly registered upkeeps performed " + strconv.Itoa(int(counter.Int64())) + " times")
-			}, "1m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for upkeep to perform, 1m buffer
 
 			Eventually(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
@@ -358,7 +358,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for upkeeps to perform, 1m buffer
 		}
 
 		if testToRun == AddFundsToUpkeepTest {
@@ -369,7 +369,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(counter.Int64()).Should(Equal(int64(0)),
 					"Expected consumer counter to remain zero, but got %d", counter.Int64())
-			}, "1m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for setup, 1m assertion
 
 			// Grant permission to the registry to fund the upkeep
 			err = linkToken.Approve(registry.Address(), big.NewInt(9e18))
@@ -390,46 +390,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
-			}, "1m", "1s").Should(Succeed())
-		}
-
-		if testToRun == RemovingKeeperTest {
-			By("removes one keeper and makes sure the upkeeps are not affected by this and still perform")
-			var initialCounters = make([]*big.Int, len(upkeepIDs))
-			// Make sure the upkeeps are running before we remove a keeper
-			Eventually(func(g Gomega) {
-				for upkeepID := 0; upkeepID < len(upkeepIDs); upkeepID++ {
-					counter, err := consumers[upkeepID].Counter(context.Background())
-					initialCounters[upkeepID] = counter
-					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
-						" for upkeep with ID "+strconv.Itoa(upkeepID))
-					g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
-				}
-			}, "5m", "1s").Should(Succeed())
-
-			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of Keepers")
-
-			// Remove the first keeper from the list
-			removedNode := nodesWithoutBootstrap[1:]
-			ocrConfig := actions.BuildAutoOCR2ConfigVars(removedNode, registryConfig, registrar.Address())
-			err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
-			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
-
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
-
-			log.Info().Msg("Successfully removed keeper from OCR Config")
-
-			// The upkeeps should still perform and their counters should have increased compared to the first check
-			Eventually(func(g Gomega) {
-				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
-					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
-						" for upkeep at index "+strconv.Itoa(i))
-					g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
-						"than initial counter which was %s, but got %s", initialCounters[i], counter)
-				}
-			}, "2m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for perform, 1m buffer
 		}
 
 		if testToRun == PauseRegistryTest {
@@ -443,7 +404,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d")
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "4m", "1s").Should(Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// Pause the registry
 			err := registry.Pause()
@@ -487,7 +448,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 				}
-			}, "5m", "1s").Should(Succeed())
+			}, "4m", "1s").Should(Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// Take down 1 node. Currently, using 4 nodes so f=1 and is the max nodes that can go down.
 			err = nodesWithoutBootstrap[0].MustDeleteJob("1")
@@ -507,7 +468,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
-			}, "2m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for each upkeep to perform once, 1m buffer
 
 			// Take down the rest
 			restOfNodesDown := nodesWithoutBootstrap[1:]
@@ -546,7 +507,6 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		if testToRun == PerformSimulationTest {
 			By("tests that performUpkeep simulation is run before tx is broadcast")
 			consumerPerformance := consumersPerformance[0]
-			upkeepID := upkeepIDs[0]
 
 			// Initially performGas is set high, so performUpkeep reverts and no upkeep should be performed
 			Consistently(func(g Gomega) {
@@ -557,12 +517,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 					Equal(int64(0)),
 					"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
 				)
-
-				// Not even reverted upkeeps should be performed. Last keeper for the upkeep should be 0 address
-				upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
-				g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
-				g.Expect(upkeepInfo.LastKeeper).Should(Equal(actions.ZeroAddress.String()), "Last keeper should be zero address")
-			}, "3m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for setup, 1m assertion
 
 			// Set performGas on consumer to be low, so that performUpkeep starts becoming successful
 			err = consumerPerformance.SetPerformGasToBurn(context.Background(), big.NewInt(100000))
@@ -577,7 +532,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)),
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 				)
-			}, "3m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m to perform once, 1m buffer
 		}
 
 		if testToRun == CheckPerformGasLimitTest {
@@ -593,7 +548,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 					Equal(int64(0)),
 					"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
 				)
-			}, "3m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for setup, 1m assertion
 
 			// Increase gas limit for the upkeep, higher than the performGasBurn
 			err = registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
@@ -608,7 +563,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)),
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 				)
-			}, "3m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m to perform once, 1m buffer
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
 			err = consumerPerformance.SetCheckGasToBurn(context.Background(), big.NewInt(3000000))
@@ -621,17 +576,15 @@ ListenAddresses = ["0.0.0.0:6690"]`
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when check gas increased")
 
-			// In most cases count should remain constant, but there might be a straggling perform tx which
-			// gets committed later. Since every keeper node cannot have more than 1 straggling tx, it
-			// is sufficient to check that the upkeep count does not increase by more than 6.
+			// In most cases count should remain constant, but it might increase by upto 1 due to pending perform
 			Consistently(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(
-					BeNumerically("<=", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
-					"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+					BeNumerically("<=", existingCnt.Int64()+1),
+					"Expected consumer counter to remain less than equal %d, but got %d", existingCnt.Int64()+1, cnt.Int64(),
 				)
-			}, "3m", "1s").Should(Succeed())
+			}, "1m", "1s").Should(Succeed())
 
 			existingCnt, err = consumerPerformance.GetUpkeepCount(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
@@ -641,7 +594,8 @@ ListenAddresses = ["0.0.0.0:6690"]`
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := defaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
-			err = registry.SetConfig(highCheckGasLimit, contracts.OCRConfig{})
+			ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, highCheckGasLimit, registrar.Address())
+			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
@@ -653,7 +607,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCntInt),
 					"Expected consumer counter to be greater than %d, but got %d", existingCntInt, cnt.Int64(),
 				)
-			}, "3m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed()) // ~1m to setup cluster, 1m to perform once, 1m buffer
 		}
 
 		// PerformDataChecker
@@ -671,7 +625,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 						"Expected perform data checker counter to be 0, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "2m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m for setup, 1m assertion
 
 			for i := 0; i < len(upkeepIDs); i++ {
 				err = registry.UpdateCheckData(upkeepIDs[i], []byte(expectedData))
@@ -694,11 +648,11 @@ ListenAddresses = ["0.0.0.0:6690"]`
 					counter, err := performDataChecker[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve perform data checker counter"+
 						" for upkeep at index "+strconv.Itoa(i))
-					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(5)),
-						"Expected perform data checker counter to be greater than 5, but got %d", counter.Int64())
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+						"Expected perform data checker counter to be greater than 0, but got %d", counter.Int64())
 					log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "3m", "1s").Should(Succeed())
+			}, "2m", "1s").Should(Succeed()) // ~1m to perform once, 1m buffer
 		}
 
 	},
