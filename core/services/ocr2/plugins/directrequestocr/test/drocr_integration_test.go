@@ -56,7 +56,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	utils.CommitWithFinality(b)
 
 	// set up subscription
-	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryContract, clientContracts)
+	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, int64(nClients), linkToken, registryContract, clientContracts)
 
 	// send requests
 	sent := make([][]byte, nClients)

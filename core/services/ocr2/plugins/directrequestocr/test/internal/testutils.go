@@ -129,7 +129,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 	require.NoError(t, err)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registryContract *ocr2dr_registry.OCR2DRRegistry, clientContracts []deployedClientContract) (subscriptionId uint64) {
+func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, numClients int64, linkToken *link_token_interface.LinkToken, registryContract *ocr2dr_registry.OCR2DRRegistry, clientContracts []deployedClientContract) (subscriptionId uint64) {
 	_, err := registryContract.CreateSubscription(owner)
 	require.NoError(t, err)
 
@@ -143,7 +143,7 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
 	require.NoError(t, err)
 	
-	amount := big.NewInt(5e18) // 5 LINK
+	amount := big.NewInt(0).Mul(big.NewInt(numClients), big.NewInt(1e18)) // 1 LINK per client
 	linkToken.TransferAndCall(owner, registryContract.Address(), amount, data)
 
 	return subscriptionID
