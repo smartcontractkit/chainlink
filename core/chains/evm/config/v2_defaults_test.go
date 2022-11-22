@@ -18,7 +18,7 @@ import (
 func Test_v2Config_SetDefaults(t *testing.T) {
 	var fallbackTOML []byte
 	t.Run("fallback", func(t *testing.T) {
-		got, name := v2.Defaults(nil)
+		got, name := v2.DefaultsNamed(nil)
 		assert.Empty(t, name)
 		exp := config.FallbackDefaultsAsV2()
 
@@ -29,13 +29,13 @@ func Test_v2Config_SetDefaults(t *testing.T) {
 		require.NoError(t, err)
 	})
 	for id, exp := range config.ChainSpecificConfigDefaultsAsV2() {
-		got, name := v2.Defaults(utils.NewBigI(id))
+		got, name := v2.DefaultsNamed(utils.NewBigI(id))
 		t.Run(fmt.Sprintf("%d:%s", id, name), func(t *testing.T) {
 			assertChainsEqual(t, exp, got)
 		})
 	}
 	t.Run("fallback-unchanged", func(t *testing.T) {
-		got, _ := v2.Defaults(nil)
+		got, _ := v2.DefaultsNamed(nil)
 		gotTOML, err := toml.Marshal(got)
 		require.NoError(t, err)
 		assert.Equal(t, fallbackTOML, gotTOML)

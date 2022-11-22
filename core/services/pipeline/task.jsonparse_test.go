@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -192,7 +191,7 @@ func TestJSONParseTask(t *testing.T) {
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
-			[]interface{}{json.Number("0"), json.Number("1")},
+			[]interface{}{int64(0), int64(1)},
 			nil,
 			"",
 		},

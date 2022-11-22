@@ -163,7 +163,7 @@ func defaultVRFEnv() *smokeTestInputs {
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env": network.ChainlinkValuesMap(),
+			"toml": client.AddNetworksConfig("", network),
 		}))
 	return &smokeTestInputs{
 		network:     network,

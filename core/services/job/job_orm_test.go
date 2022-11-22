@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -360,6 +361,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 			ChunkSize:           25,
 			BackoffInitialDelay: time.Minute,
 			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
 		}).
 		Toml())
 	require.NoError(t, err)
@@ -388,6 +390,9 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var chunkSize int
 	require.NoError(t, db.Get(&chunkSize, `SELECT chunk_size FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 25, chunkSize)
+	var gasLanePrice assets.Wei
+	require.NoError(t, db.Get(&gasLanePrice, `SELECT gas_lane_price FROM vrf_specs LIMIT 1`))
+	require.Equal(t, jb.VRFSpec.GasLanePrice, &gasLanePrice)
 	var fa pq.ByteaArray
 	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
 	var actual []string
@@ -448,7 +453,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		enabled := true
 		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 			ChainID: customChainID,
-			Chain:   evmcfg.DefaultsFrom(customChainID, nil),
+			Chain:   evmcfg.Defaults(customChainID),
 			Enabled: &enabled,
 			Nodes:   evmcfg.EVMNodes{{}},
 		})

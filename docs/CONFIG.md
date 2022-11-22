@@ -2,7 +2,21 @@
 
 This document describes the TOML format for configuration.
 
-See also [SECRETS.md](secrets.md)
+See also [SECRETS.md](SECRETS.md)
+
+## Example
+
+```toml
+Log.Level = 'debug'
+
+[[EVM]]
+ChainID = '1' # Required
+
+[[EVM.Nodes]]
+Name = 'fake' # Required
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar' # Required
+```
 
 ## Table of contents
 
@@ -464,6 +478,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ```toml
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
+BridgeCacheTTL = '0s' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
 HTTPWriteTimeout = '10s' # Default
 HTTPPort = 6688 # Default
@@ -482,6 +497,12 @@ AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` heade
 You should set this to the external URL that you use to access the Chainlink UI.
 
 You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
+
+### BridgeCacheTTL<a id='WebServer-BridgeCacheTTL'></a>
+```toml
+BridgeCacheTTL = '0s' # Default
+```
+BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
 
 ### BridgeResponseURL<a id='WebServer-BridgeResponseURL'></a>
 ```toml
@@ -2705,6 +2726,81 @@ GasLimit = 5300000
 
 </p></details>
 
+<details><summary>Klaytn Testnet (1001)<a id='EVM-1001'></a></summary><p>
+
+```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '750 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
 <details><summary>Metis Mainnet (1088)<a id='EVM-1088'></a></summary><p>
 
 ```toml
@@ -2921,6 +3017,81 @@ SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Klaytn Mainnet (8217)<a id='EVM-8217'></a></summary><p>
+
+```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '750 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -4304,7 +4475,10 @@ Set to zero to disable poll checking.
 ```toml
 SelectionMode = 'HighestHead' # Default
 ```
-SelectionMode controls node selection strategy: HighestHead or RoundRobin.
+SelectionMode controls node selection strategy:
+- HighestHead: use the node with the highest head number
+- RoundRobin: rotate through nodes, per-request
+- TotalDifficulty: use the node with the greatest total difficulty
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml

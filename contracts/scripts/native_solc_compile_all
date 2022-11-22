@@ -41,6 +41,8 @@ $SCRIPTPATH/native_solc8_6_compile KeeperRegistry1_2.sol
 $SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
 $SCRIPTPATH/native_solc8_6_compile KeeperRegistry1_3.sol
 $SCRIPTPATH/native_solc8_6_compile KeeperRegistryLogic1_3.sol
+$SCRIPTPATH/native_solc8_6_compile keeper2_0/KeeperRegistry2_0.sol
+$SCRIPTPATH/native_solc8_6_compile keeper2_0/KeeperRegistryLogic2_0.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
@@ -82,6 +84,7 @@ $SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
 
 $SCRIPTPATH/native_solc8_6_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile VRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile dev/special/NoCancelVRFCoordinatorV2.sol
 
 # Feeds
 $SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
@@ -92,4 +95,5 @@ $SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol
 # DirectRequest-OCR2
 $SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DR.sol
 $SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DRClient.sol
+$SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DRClientExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/ocr2dr/OCR2DROracle.sol

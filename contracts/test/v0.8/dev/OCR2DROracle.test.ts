@@ -225,8 +225,8 @@ describe('OCR2DROracle', () => {
       )
 
       await expect(
-        oracle.connect(roles.oracleNode).callReport(report),
-      ).to.be.revertedWith('InconsistentReportData')
+        await oracle.connect(roles.oracleNode).callValidateReport(report),
+      ).to.be.false
     })
 
     it('#_report handles multiple reports', async () => {

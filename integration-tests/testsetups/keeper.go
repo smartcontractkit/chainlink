@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -90,9 +91,8 @@ func (k *KeeperBlockTimeTest) Setup(env *environment.Environment) {
 		inputs.CheckGasToBurn,
 		inputs.PerformGasToBurn,
 	)
-
 	// Send keeper jobs to registry and chainlink nodes
-	actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistry)
+	actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistry, contracts.OCRConfig{})
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Block Time Test Setup")
 }

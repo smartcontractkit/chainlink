@@ -6,7 +6,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -50,10 +49,11 @@ func zombieNodeCheckInterval(cfg NodeConfig) time.Duration {
 	return utils.WithJitter(interval)
 }
 
-func (n *node) setLatestReceivedBlockNumber(number int64) {
+func (n *node) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	n.latestReceivedBlockNumber = number
+	n.stateLatestBlockNumber = blockNumber
+	n.stateLatestTotalDifficulty = totalDifficulty
 }
 
 // Node is a FSM
@@ -85,27 +85,22 @@ func (n *node) aliveLoop() {
 	lggr := n.lfcLog.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
 
-	var headsC <-chan *evmtypes.Head
+	headsC := make(chan *evmtypes.Head)
+	sub, err := n.EthSubscribe(n.nodeCtx, headsC, "newHeads")
+	if err != nil {
+		lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.State())
+		n.declareUnreachable()
+		return
+	}
+	defer sub.Unsubscribe()
+
 	var outOfSyncT *time.Ticker
 	var outOfSyncTC <-chan time.Time
-	var sub ethereum.Subscription
-	var subErrC <-chan error
 	if noNewHeadsTimeoutThreshold > 0 {
 		lggr.Debugw("Head liveness checking enabled", "nodeState", n.State())
-		var err error
-		writableCh := make(chan *evmtypes.Head)
-		sub, err = n.EthSubscribe(n.nodeCtx, writableCh, "newHeads")
-		headsC = writableCh
-		if err != nil {
-			lggr.Errorw("Initial subscribe for liveness checking failed", "nodeState", n.State())
-			n.declareUnreachable()
-			return
-		}
-		defer sub.Unsubscribe()
 		outOfSyncT = time.NewTicker(noNewHeadsTimeoutThreshold)
 		defer outOfSyncT.Stop()
 		outOfSyncTC = outOfSyncT.C
-		subErrC = sub.Err()
 	} else {
 		lggr.Debug("Head liveness checking disabled")
 	}
@@ -126,7 +121,7 @@ func (n *node) aliveLoop() {
 		lggr.Debug("Polling disabled")
 	}
 
-	_, highestReceivedBlockNumber := n.StateAndLatestBlockNumber()
+	_, highestReceivedBlockNumber, _ := n.StateAndLatest()
 	var pollFailures uint32
 
 	for {
@@ -178,9 +173,11 @@ func (n *node) aliveLoop() {
 			} else {
 				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 			}
-			outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
-			n.setLatestReceivedBlockNumber(bh.Number)
-		case err := <-subErrC:
+			if outOfSyncT != nil {
+				outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
+			}
+			n.setLatestReceived(bh.Number, bh.TotalDifficulty)
+		case err := <-sub.Err():
 			lggr.Errorw("Subscription was terminated", "err", err, "nodeState", n.State())
 			n.declareUnreachable()
 			return

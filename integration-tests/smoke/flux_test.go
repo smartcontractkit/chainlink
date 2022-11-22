@@ -195,6 +195,8 @@ func defaultFluxEnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
+	baseTOML := `[OCR]
+Enabled = true`
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
@@ -202,7 +204,7 @@ func defaultFluxEnv() *smokeTestInputs {
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConf).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env":      network.ChainlinkValuesMap(),
+			"toml":     client.AddNetworksConfig(baseTOML, network),
 			"replicas": 3,
 		}))
 	return &smokeTestInputs{

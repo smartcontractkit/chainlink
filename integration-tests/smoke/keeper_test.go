@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -69,6 +68,8 @@ var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	MaxPerformGas:        uint32(5000000),
 	FallbackGasPrice:     big.NewInt(2e11),
 	FallbackLinkPrice:    big.NewInt(2e18),
+	MaxCheckDataSize:     uint32(5000),
+	MaxPerformDataSize:   uint32(5000),
 }
 
 var lowBCPTRegistryConfig = contracts.KeeperRegistrySettings{
@@ -113,44 +114,44 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		testEnvironment      *environment.Environment
 
 		testScenarios = []TableEntry{
-			Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Basic smoke test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Basic smoke test @simulated @keeperv1.1", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Basic smoke test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Basic smoke test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 BCPT test @simulated", ethereum.RegistryVersion_1_3, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 BCPT test @simulated @keeperv1.1", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 BCPT test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 BCPT test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Perform simulation test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Perform simulation test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Perform simulation test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Check/Perform Gas limit test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Check/Perform Gas limit test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Register upkeep test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Register upkeep test @simulated @keeperv1.1", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Register upkeep test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Register upkeep test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			Entry("v1.3 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			Entry("v1.1 Add funds to upkeep test @simulated @keeperv1.1", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			Entry("v1.2 Add funds to upkeep test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			Entry("v1.3 Add funds to upkeep test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
 
-			Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Removing one keeper test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Removing one keeper test @simulated @keeperv1.1", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Removing one keeper test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Removing one keeper test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Pause registry test @simulated", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Pause registry test @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Pause registry test @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Migrate upkeep from a registry to another @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
-			Entry("v1.3 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Handle keeper nodes going down @simulated @keeperv1.1", ethereum.RegistryVersion_1_1, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Handle keeper nodes going down @simulated @keeperv1.2", ethereum.RegistryVersion_1_2, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Handle keeper nodes going down @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.3 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Pause and unpause upkeeps @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds)),
 
-			Entry("v1.3 Update check data @simulated", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.3 Update check data @simulated @keeperv1.3", ethereum.RegistryVersion_1_3, lowBCPTRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds)),
 		}
 	)
 
@@ -162,17 +163,19 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		linkFundsForEachUpkeep *big.Int,
 	) {
 		By("Deploying the environment")
+		baseTOML := `[Keeper]
+TurnLookBack = 0
+TurnFlagEnabled = true
+[Keeper.Registry]
+SyncInterval = '5s'
+PerformGasOverhead = 150_000`
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-keeper"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(eth.New(nil)).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
-				"env": map[string]interface{}{
-					"MIN_INCOMING_CONFIRMATIONS": "1",
-					"KEEPER_TURN_FLAG_ENABLED":   "true",
-					"KEEPER_TURN_LOOK_BACK":      "0",
-				},
+				"toml":     client.AddNetworksConfig(baseTOML, networks.SimulatedEVM),
 			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
@@ -236,7 +239,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		}
 
 		By("Register Keeper Jobs")
-		actions.CreateKeeperJobs(chainlinkNodes, registry)
+		actions.CreateKeeperJobs(chainlinkNodes, registry, contracts.OCRConfig{})
 		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
@@ -442,7 +445,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			}, "1m", "1s").Should(Succeed())
 
 			// Now set BCPT to be low, so keepers change turn frequently
-			err = registry.SetConfig(lowBCPTRegistryConfig)
+			err = registry.SetConfig(lowBCPTRegistryConfig, contracts.OCRConfig{})
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
@@ -564,7 +567,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := defaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
-			err = registry.SetConfig(highCheckGasLimit)
+			err = registry.SetConfig(highCheckGasLimit, contracts.OCRConfig{})
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
@@ -692,7 +695,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				Expect(err).ShouldNot(HaveOccurred(), "Encountered error when building the payee list")
 			}
 
-			err = registry.SetKeepers(newKeeperList, payees)
+			err = registry.SetKeepers(newKeeperList, payees, contracts.OCRConfig{})
 			Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new list of Keepers")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
@@ -766,7 +769,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			)
 
 			// Set the jobs for the second registry
-			actions.CreateKeeperJobs(chainlinkNodes, secondRegistry)
+			actions.CreateKeeperJobs(chainlinkNodes, secondRegistry, contracts.OCRConfig{})
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 

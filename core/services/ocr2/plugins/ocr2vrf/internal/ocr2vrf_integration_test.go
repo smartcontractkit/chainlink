@@ -434,8 +434,6 @@ dkgContractAddress     	= "%s"
 
 vrfCoordinatorAddress   = "%s"
 linkEthFeedAddress     	= "%s"
-confirmationDelays     	= %s # This is an array
-lookbackBlocks         	= %d # This is an integer
 `, uni.beaconAddress.String(),
 			kbs[i].ID(),
 			transmitters[i],
@@ -446,8 +444,6 @@ lookbackBlocks         	= %d # This is an integer
 			uni.dkgAddress.String(),
 			uni.coordinatorAddress.String(),
 			uni.feedAddress.String(),
-			"[1, 2, 3, 4, 5, 6, 7, 8]", // conf delays
-			1000,                       // lookback blocks
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
 		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, jobSpec)
@@ -497,23 +493,23 @@ lookbackBlocks         	= %d # This is an integer
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead) * (gas price) / (LINK/ETH ratio)
 	// = (50_000 * 1 Gwei) / .01
-	// = 5_000_000 Gwei
+	// = 5_000_000 GJuels
 	subAfterBeaconRequest, err := uni.coordinator.GetSubscription(nil, 1)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(initialSub.Balance.Int64()-assets.GWei(5_000_000).Int64()), subAfterBeaconRequest.Balance)
 
 	// Send a fulfillment VRF request and mine it
-	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, 1, 1, big.NewInt(2), 50_000, []byte{})
+	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, 1, 1, big.NewInt(2), 100_000, []byte{})
 	require.NoError(t, err)
 	uni.backend.Commit()
 
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)
-	// = ((50_000 + 50_000) * 1 Gwei) / .01
-	// = 10_000_000 Gwei
+	// = ((50_000 + 100_000) * 1 Gwei) / .01
+	// = 15_000_000 GJuels
 	subAfterFulfillmentRequest, err := uni.coordinator.GetSubscription(nil, 1)
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt(subAfterBeaconRequest.Balance.Int64()-assets.GWei(10_000_000).Int64()), subAfterFulfillmentRequest.Balance)
+	require.Equal(t, big.NewInt(subAfterBeaconRequest.Balance.Int64()-assets.GWei(15_000_000).Int64()), subAfterFulfillmentRequest.Balance)
 
 	// Send two batched fulfillment VRF requests and mine them
 	_, err = uni.loadTestConsumer.TestRequestRandomnessFulfillmentBatch(uni.owner, 1, 1, big.NewInt(2), 200_000, []byte{}, big.NewInt(2))
@@ -523,7 +519,7 @@ lookbackBlocks         	= %d # This is an integer
 	// There is no premium on these requests, so the cost of the requests should have been:
 	// = ((request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)) * batch size
 	// = (((50_000 + 200_000) * 1 Gwei) / .01) * 2
-	// = 50_000_000 Gwei
+	// = 50_000_000 GJuels
 	subAfterBatchFulfillmentRequest, err := uni.coordinator.GetSubscription(nil, 1)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(subAfterFulfillmentRequest.Balance.Int64()-assets.GWei(50_000_000).Int64()), subAfterBatchFulfillmentRequest.Balance)
@@ -533,10 +529,10 @@ lookbackBlocks         	= %d # This is an integer
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
-		// Ensure a refund is provided. Refund amount comes out to ~23_800_000 million Gwei.
+		// Ensure a refund is provided. Refund amount comes out to ~29_000_000 million GJuels.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
-		refundUpperBound := big.NewInt(0).Add(assets.GWei(25_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
-		refundLowerBound := big.NewInt(0).Add(assets.GWei(23_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundUpperBound := big.NewInt(0).Add(assets.GWei(30_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundLowerBound := big.NewInt(0).Add(assets.GWei(28_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
 		subAfterRefund, err := uni.coordinator.GetSubscription(nil, 1)
 		require.NoError(t, err)
 		if ok := ((subAfterRefund.Balance.Cmp(refundUpperBound) == -1) && (subAfterRefund.Balance.Cmp(refundLowerBound) == 1)); !ok {
@@ -670,7 +666,14 @@ func setVRFConfig(
 	confDelaysSl []int,
 	keyID [32]byte,
 ) {
-	offchainConfig := ocr2vrf.OffchainConfig()
+	offchainConfig := ocr2vrf.OffchainConfig(&ocr2vrftypes.CoordinatorConfig{
+		CacheEvictionWindowSeconds: 1,
+		BatchGasLimit:              5_000_000,
+		CoordinatorOverhead:        50_000,
+		CallbackOverhead:           50_000,
+		BlockGasOverhead:           50_000,
+		LookbackBlocks:             1_000,
+	})
 
 	confDelays := make(map[uint32]struct{})
 	for _, c := range confDelaysSl {

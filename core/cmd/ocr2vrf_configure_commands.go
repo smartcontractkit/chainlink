@@ -52,11 +52,9 @@ type ocr2vrfTemplateArgs struct {
 	vrfBeaconAddress      string
 	vrfCoordinatorAddress string
 	linkEthFeedAddress    string
-	confirmationDelays    string
-	lookbackBlocks        int64
 }
 
-const dkgTemplate = `
+const DKGTemplate = `
 # DKGSpec
 type                 = "offchainreporting2"
 schemaVersion        = 1
@@ -64,10 +62,10 @@ name                 = "ocr2"
 maxTaskDuration      = "30s"
 contractID           = "%s"
 ocrKeyBundleID       = "%s"
-p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]
 relay                = "evm"
 pluginType           = "dkg"
 transmitterID        = "%s"
+%s
 
 [relayConfig]
 chainID              = %d
@@ -78,17 +76,17 @@ KeyID                = "%s"
 SigningPublicKey     = "%s"
 `
 
-const ocr2vrfTemplate = `
+const OCR2VRFTemplate = `
 type                 = "offchainreporting2"
 schemaVersion        = 1
 name                 = "ocr2"
 maxTaskDuration      = "30s"
 contractID           = "%s"
 ocrKeyBundleID       = "%s"
-p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]
 relay                = "evm"
 pluginType           = "ocr2vrf"
 transmitterID        = "%s"
+%s
 
 [relayConfig]
 chainID              = %d
@@ -101,11 +99,9 @@ dkgContractAddress     = "%s"
 
 vrfCoordinatorAddress  = "%s"
 linkEthFeedAddress     = "%s"
-confirmationDelays     = %s # This is an array
-lookbackBlocks         = %d # This is an integer
 `
 
-const bootstrapTemplate = `
+const BootstrapTemplate = `
 type                               = "bootstrap"
 schemaVersion                      = 1
 name                               = ""
@@ -279,8 +275,6 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 			vrfBeaconAddress:      c.String("vrf-beacon-address"),
 			vrfCoordinatorAddress: c.String("vrf-coordinator-address"),
 			linkEthFeedAddress:    c.String("link-eth-feed-address"),
-			lookbackBlocks:        c.Int64("lookback-blocks"),
-			confirmationDelays:    c.String("confirmation-delays"),
 		})
 	} else {
 		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
@@ -336,7 +330,7 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 }
 
 func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.Application) error {
-	sp := fmt.Sprintf(bootstrapTemplate,
+	sp := fmt.Sprintf(BootstrapTemplate,
 		c.String("contractID"),
 		c.Int64("chainID"),
 	)
@@ -365,12 +359,11 @@ func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.
 }
 
 func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
-	sp := fmt.Sprintf(dkgTemplate,
+	sp := fmt.Sprintf(DKGTemplate,
 		args.contractID,
 		args.ocrKeyBundleID,
-		args.p2pv2BootstrapperPeerID,
-		args.p2pv2BootstrapperPort,
 		args.transmitterID,
+		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
 		args.encryptionPublicKey,
 		args.keyID,
@@ -399,12 +392,11 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 }
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
-	sp := fmt.Sprintf(ocr2vrfTemplate,
+	sp := fmt.Sprintf(OCR2VRFTemplate,
 		args.vrfBeaconAddress,
 		args.ocrKeyBundleID,
-		args.p2pv2BootstrapperPeerID,
-		args.p2pv2BootstrapperPort,
 		args.transmitterID,
+		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
 		args.encryptionPublicKey,
 		args.signingPublicKey,
@@ -412,8 +404,6 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.contractID,
 		args.vrfCoordinatorAddress,
 		args.linkEthFeedAddress,
-		fmt.Sprintf("[%s]", args.confirmationDelays), // conf delays should be comma separated
-		args.lookbackBlocks,
 	)
 
 	var jb job.Job
