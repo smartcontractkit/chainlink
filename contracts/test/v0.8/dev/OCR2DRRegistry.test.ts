@@ -118,13 +118,14 @@ describe('OCR2DRRegistry', () => {
     )
   })
 
-  describe('General', () => {
-    it('#typeAndVersion', async () => {
-      expect(await registry.callStatic.typeAndVersion()).to.be.equal(
-        'OCR2DRRegistry 0.0.0',
-      )
-    })
-  })
+  // NOTE: Temporarily disabled until contract size can be reduced in another way
+  // describe('General', () => {
+  //   it('#typeAndVersion', async () => {
+  //     expect(await registry.callStatic.typeAndVersion()).to.be.equal(
+  //       'OCR2DRRegistry 0.0.0',
+  //     )
+  //   })
+  // })
 
   describe('Config', () => {
     it('non-owner is unable set config', async () => {
