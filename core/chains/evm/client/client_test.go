@@ -67,6 +67,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 				resp.Notify = headResult
 				return
 			case "eth_unsubscribe":
+				resp.Result = "true"
 				return
 			}
 			if assert.Equal(t, "eth_getTransactionReceipt", method) && assert.True(t, params.IsArray()) &&
@@ -96,6 +97,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 				resp.Notify = headResult
 				return
 			case "eth_unsubscribe":
+				resp.Result = "true"
 				return
 			}
 			if assert.Equal(t, "eth_getTransactionReceipt", method) && assert.True(t, params.IsArray()) &&
@@ -127,6 +129,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 			resp.Notify = headResult
 			return
 		case "eth_unsubscribe":
+			resp.Result = "true"
 			return
 		}
 		if !assert.Equal(t, "eth_getTransactionCount", method) || !assert.True(t, params.IsArray()) {
@@ -175,6 +178,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 					resp.Notify = headResult
 					return
 				case "eth_unsubscribe":
+					resp.Result = "true"
 					return
 				}
 				if assert.Equal(t, "eth_getBalance", method) && assert.True(t, params.IsArray()) &&
@@ -224,6 +228,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 					resp.Notify = headResult
 					return
 				case "eth_unsubscribe":
+					resp.Result = "true"
 					return
 				}
 				if !assert.Equal(t, "eth_call", method) || !assert.True(t, params.IsArray()) {
@@ -302,6 +307,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 					resp.Notify = headResult
 					return
 				case "eth_unsubscribe":
+					resp.Result = "true"
 					return
 				}
 				if !assert.Equal(t, "eth_getBlockByNumber", method) || !assert.True(t, params.IsArray()) {
@@ -349,6 +355,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 			resp.Notify = headResult
 			return
 		case "eth_unsubscribe":
+			resp.Result = "true"
 			return
 		}
 		if !assert.Equal(t, "eth_sendRawTransaction", method) {
@@ -378,6 +385,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 			resp.Notify = headResult
 			return
 		case "eth_unsubscribe":
+			resp.Result = "true"
 			return
 		case "eth_sendRawTransaction":
 			resp.Result = `"` + tx.Hash().Hex() + `"`

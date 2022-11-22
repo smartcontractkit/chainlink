@@ -174,12 +174,12 @@ func (n *node) transitionToInSync(fn func()) {
 }
 
 // declareOutOfSync puts a node into OutOfSync state, disconnecting all current
-// clients and making it unavailable for use
-func (n *node) declareOutOfSync(latestReceivedBlockNumber int64) {
+// clients and making it unavailable for use until back in-sync.
+func (n *node) declareOutOfSync(isOutOfSync func(num int64, td *utils.Big) bool) {
 	n.transitionToOutOfSync(func() {
 		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
-		go n.outOfSyncLoop(latestReceivedBlockNumber)
+		go n.outOfSyncLoop(isOutOfSync)
 	})
 }
 
