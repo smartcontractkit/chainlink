@@ -294,9 +294,10 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
-	queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
 	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-1*time.Minute))
+	require.NoError(t, err)
 
 	result2, _ := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
@@ -314,9 +315,10 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	require.Nil(t, result2.Value)
 
 	// Insert entry 10s in the past, under 30 seconds and should be used in case of failure.
-	queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 		DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-10*time.Second))
+	require.NoError(t, err)
 
 	result2, _ = task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
@@ -353,6 +355,58 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 	require.Error(t, result2.Error)
 	require.Nil(t, result2.Value)
+
+	task2 := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge2", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+		CacheTTL:    "35m", // more than the stalenessCap 30m
+	}
+	task2.HelperSetDependencies(cfg2, orm, specID, uuid.UUID{}, c)
+
+	// Insert entry 32m in the past, under cacheTTL of 35m but more than stalenessCap of 30m.
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+		DO UPDATE SET value = $3, finished_at = $4;`, task2.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-32*time.Minute))
+	require.NoError(t, err)
+
+	// Run fails even though cacheTTL > lastvalue.finished_at because cacheTTL exceeds stalenessCap.
+	result2, _ = task2.Run(testutils.Context(t), logger.TestLogger(t),
+		pipeline.NewVarsFrom(
+			map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": map[string]interface{}{
+						"shouldFail": true,
+					},
+				},
+			},
+		),
+		nil)
+
+	require.Error(t, result2.Error)
+	require.Nil(t, result2.Value)
+
+	// Insert entry 25m in the past, under stalenessCap
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+		DO UPDATE SET value = $3, finished_at = $4;`, task2.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-25*time.Minute))
+	require.NoError(t, err)
+
+	// Run succeeds using the cached value that's under stalenessCap.
+	result2, _ = task2.Run(testutils.Context(t), logger.TestLogger(t),
+		pipeline.NewVarsFrom(
+			map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": map[string]interface{}{
+						"shouldFail": true,
+					},
+				},
+			},
+		),
+		nil)
+
+	require.NoError(t, result2.Error)
+	require.Equal(t, string(big.NewInt(9700).Bytes()), result2.Value)
 }
 
 func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
