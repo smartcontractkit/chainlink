@@ -29,3 +29,6 @@ SamplingInterval = '1s'
 DatabaseTimeout = '2s'
 ContractTransmitterTransmitTimeout = '2s'
 ObservationGracePeriod = '500ms'
+
+[NodePool]
+SyncThreshold = 10

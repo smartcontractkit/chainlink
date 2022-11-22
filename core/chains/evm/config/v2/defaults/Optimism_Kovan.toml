@@ -24,3 +24,6 @@ SamplingInterval = '1s'
 
 [OCR2.Automation]
 GasLimit = 6500000
+
+[NodePool]
+SyncThreshold = 10

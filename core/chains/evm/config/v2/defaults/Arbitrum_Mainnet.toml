@@ -20,3 +20,6 @@ BumpThreshold = 0
 [GasEstimator.BlockHistory]
 # Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10

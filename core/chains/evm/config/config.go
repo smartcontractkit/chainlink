@@ -1293,6 +1293,15 @@ func (c *chainScopedConfig) NodeSelectionMode() string {
 	return c.defaultSet.nodeSelectionMode
 }
 
+func (c *chainScopedConfig) NodeSyncThreshold() uint32 {
+	val, ok := c.GeneralConfig.GlobalNodeSyncThreshold()
+	if ok {
+		c.logEnvOverrideOnce("NodeSyncThreshold", val)
+		return val
+	}
+	return c.defaultSet.nodeSyncThreshold
+}
+
 // OCR2AutomationGasLimit is the gas limit for automation OCR2 plugin
 func (c *chainScopedConfig) OCR2AutomationGasLimit() uint32 {
 	val, ok := c.GeneralConfig.GlobalOCR2AutomationGasLimit()

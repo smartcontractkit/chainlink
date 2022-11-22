@@ -508,6 +508,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
+					SyncThreshold:        ptr[uint32](13),
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -881,6 +882,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
 
 [EVM.OCR]
 ContractConfirmations = 11
