@@ -37,13 +37,13 @@ var (
 	)
 	promBridgeCacheHits = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "bridge_cache_hits_total",
-		Help: "Bridge error count scoped by name",
+		Help: "Bridge cache hits count scoped by name",
 	},
 		[]string{"name"},
 	)
 	promBridgeCacheErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "bridge_cache_errors_total",
-		Help: "Bridge error count scoped by name",
+		Help: "Bridge cache errors count scoped by name",
 	},
 		[]string{"name"},
 	)
