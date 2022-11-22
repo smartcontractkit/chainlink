@@ -471,8 +471,8 @@ func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
 	return
 }
 
-func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupOCR2VRFNodePayload {
-	payload, err := client.ConfigureOCR2VRFNode(context)
+func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e helpers.Environment) *cmd.SetupOCR2VRFNodePayload {
+	payload, err := client.ConfigureOCR2VRFNode(context, e.Owner, e.Ec)
 	helpers.PanicErr(err)
 
 	return payload
