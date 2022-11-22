@@ -12,13 +12,7 @@ import "../../ConfirmedOwner.sol";
 import "../AuthorizedReceiver.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 
-contract OCR2DRRegistry is
-  ConfirmedOwner,
-  TypeAndVersionInterface,
-  OCR2DRRegistryInterface,
-  ERC677ReceiverInterface,
-  AuthorizedReceiver
-{
+contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677ReceiverInterface, AuthorizedReceiver {
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
 
@@ -26,9 +20,6 @@ contract OCR2DRRegistry is
   // This bound ensures we are able to loop over them as needed.
   // Should a user require more consumers, they can use multiple subscriptions.
   uint16 public constant MAX_CONSUMERS = 100;
-  // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
-  // and some arithmetic operations.
-  uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
 
   error TooManyConsumers();
   error InsufficientBalance();
@@ -90,7 +81,9 @@ contract OCR2DRRegistry is
   mapping(address => uint96) /* oracle */ /* LINK balance */
     private s_withdrawableTokens;
   struct Commitment {
-    OCR2DRRegistryInterface.RequestBilling billing;
+    uint64 subscriptionId;
+    address client;
+    uint32 gasLimit;
     address don;
     uint96 donFee;
     uint96 registryFee;
@@ -103,7 +96,14 @@ contract OCR2DRRegistry is
     uint96 transmitterPayment;
     uint96 totalCost;
   }
-  event BillingEnd(uint64 subscriptionId, bytes32 indexed requestId, ItemizedBill bill, bool success);
+  event BillingEnd(
+    uint64 subscriptionId,
+    bytes32 indexed requestId,
+    uint96 signerPayment,
+    uint96 transmitterPayment,
+    uint96 totalCost,
+    bool success
+  );
 
   struct Config {
     uint32 maxGasLimit;
@@ -194,20 +194,17 @@ contract OCR2DRRegistry is
     return s_totalBalance;
   }
 
-  function getFallbackWeiPerUnitLink() external view returns (int256) {
-    return s_fallbackWeiPerUnitLink;
-  }
-
   /**
    * @notice Owner cancel subscription, sends remaining link directly to the subscription owner.
    * @param subscriptionId subscription id
    * @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
    */
   function ownerCancelSubscription(uint64 subscriptionId) external onlyOwner {
-    if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
+    address owner = s_subscriptionConfigs[subscriptionId].owner;
+    if (owner == address(0)) {
       revert InvalidSubscription();
     }
-    cancelSubscriptionHelper(subscriptionId, s_subscriptionConfigs[subscriptionId].owner);
+    cancelSubscriptionHelper(subscriptionId, owner);
   }
 
   /**
@@ -232,8 +229,7 @@ contract OCR2DRRegistry is
    * @inheritdoc OCR2DRRegistryInterface
    */
   function getRequestConfig() external view override returns (uint32, address[] memory) {
-    address[] memory authorizedSendersList = getAuthorizedSenders();
-    return (s_config.maxGasLimit, authorizedSendersList);
+    return (s_config.maxGasLimit, getAuthorizedSenders());
   }
 
   /**
@@ -250,18 +246,6 @@ contract OCR2DRRegistry is
   /**
    * @inheritdoc OCR2DRRegistryInterface
    */
-  function estimateExecutionGas(OCR2DRRegistryInterface.RequestBilling memory billing)
-    public
-    view
-    override
-    returns (uint256)
-  {
-    return s_config.gasOverhead + s_config.gasAfterPaymentCalculation + billing.gasLimit;
-  }
-
-  /**
-   * @inheritdoc OCR2DRRegistryInterface
-   */
   function estimateCost(
     bytes calldata data,
     OCR2DRRegistryInterface.RequestBilling memory billing,
@@ -272,7 +256,7 @@ contract OCR2DRRegistry is
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    uint256 executionGas = estimateExecutionGas(billing);
+    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + billing.gasLimit;
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * tx.gasprice * executionGas) / uint256(weiPerUnitLink);
     uint96 registryFee = getRequiredFee(data, billing);
@@ -311,22 +295,21 @@ contract OCR2DRRegistry is
     }
 
     // Check that subscription can afford the estimated cost
-    uint256 estimatedCost = estimateCost(
-      data,
-      billing,
-      OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing)
-    );
+    uint96 oracleFee = OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing);
+    uint256 estimatedCost = estimateCost(data, billing, oracleFee);
     if (s_subscriptions[billing.subscriptionId].balance < estimatedCost) {
       revert InsufficientBalance();
     }
 
     uint64 nonce = currentNonce + 1;
-    (bytes32 requestId, ) = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce);
+    bytes32 requestId = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce);
 
     Commitment memory commitment = Commitment(
-      billing,
+      billing.subscriptionId,
+      billing.client,
+      billing.gasLimit,
       msg.sender,
-      OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing),
+      oracleFee,
       getRequiredFee(data, billing)
     );
     s_requestCommitments[requestId] = commitment;
@@ -336,31 +319,13 @@ contract OCR2DRRegistry is
     return requestId;
   }
 
-  /**
-   * @inheritdoc OCR2DRRegistryInterface
-   */
-  function getCommitment(bytes32 requestId)
-    external
-    view
-    override
-    returns (
-      address,
-      uint64,
-      uint32
-    )
-  {
-    Commitment memory commitment = s_requestCommitments[requestId];
-    return (commitment.billing.client, commitment.billing.subscriptionId, commitment.billing.gasLimit);
-  }
-
   function computeRequestId(
     address don,
     address client,
     uint64 subscriptionId,
     uint64 nonce
-  ) private pure returns (bytes32, uint256) {
-    uint256 preSeed = uint256(keccak256(abi.encode(don, client, subscriptionId, nonce)));
-    return (keccak256(abi.encode(don, preSeed)), preSeed);
+  ) private pure returns (bytes32) {
+    return keccak256(abi.encode(don, client, subscriptionId, nonce));
   }
 
   /**
@@ -375,16 +340,17 @@ contract OCR2DRRegistry is
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
+      // GAS_FOR_CALL_EXACT_CHECK = 5000
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
       // The gas actually passed to the callee is min(gasAmount, 63//64*gas available).
       // We want to ensure that we revert if gasAmount >  63//64*gas available
       // as we do not want to provide them with less, however that check itself costs
       // gas.  GAS_FOR_CALL_EXACT_CHECK ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
-      if lt(g, GAS_FOR_CALL_EXACT_CHECK) {
+      if lt(g, 5000) {
         revert(0, 0)
       }
-      g := sub(g, GAS_FOR_CALL_EXACT_CHECK)
+      g := sub(g, 5000)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
@@ -433,7 +399,7 @@ contract OCR2DRRegistry is
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    success = callWithExactGas(commitment.billing.gasLimit, commitment.billing.client, callback);
+    success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
@@ -448,10 +414,10 @@ contract OCR2DRRegistry is
       reportValidationGas,
       tx.gasprice
     );
-    if (s_subscriptions[commitment.billing.subscriptionId].balance < bill.totalCost) {
+    if (s_subscriptions[commitment.subscriptionId].balance < bill.totalCost) {
       revert InsufficientBalance();
     }
-    s_subscriptions[commitment.billing.subscriptionId].balance -= bill.totalCost;
+    s_subscriptions[commitment.subscriptionId].balance -= bill.totalCost;
     // Pay out signers their portion of the DON fee
     for (uint256 i = 0; i < signerCount; i++) {
       if (signers[i] != transmitter) {
@@ -463,7 +429,14 @@ contract OCR2DRRegistry is
     // Reimburse the transmitter for the execution gas cost + pay them their portion of the DON fee
     s_withdrawableTokens[transmitter] += bill.transmitterPayment;
     // Include payment in the event for tracking costs.
-    emit BillingEnd(commitment.billing.subscriptionId, requestId, bill, success);
+    emit BillingEnd(
+      commitment.subscriptionId,
+      requestId,
+      bill.signerPayment,
+      bill.transmitterPayment,
+      bill.totalCost,
+      success
+    );
   }
 
   // Determine the cost breakdown for payment
@@ -475,7 +448,7 @@ contract OCR2DRRegistry is
     uint96 registryFee,
     uint256 reportValidationGas,
     uint256 weiPerUnitGas
-  ) internal view returns (ItemizedBill memory) {
+  ) private view returns (ItemizedBill memory) {
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
     if (weiPerUnitLink <= 0) {
@@ -498,9 +471,7 @@ contract OCR2DRRegistry is
   function getFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
-    uint256 timestamp;
-    int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, int256 weiPerUnitLink, , uint256 timestamp, ) = LINK_ETH_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
@@ -704,8 +675,7 @@ contract OCR2DRRegistry is
 
   function cancelSubscriptionHelper(uint64 subscriptionId, address to) private nonReentrant {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
-    Subscription memory sub = s_subscriptions[subscriptionId];
-    uint96 balance = sub.balance;
+    uint96 balance = s_subscriptions[subscriptionId].balance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
@@ -730,18 +700,17 @@ contract OCR2DRRegistry is
    */
 
   function pendingRequestExists(uint64 subscriptionId) public view returns (bool) {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
+    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
     address[] memory authorizedSendersList = getAuthorizedSenders();
-    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; i++) {
       for (uint256 j = 0; j < authorizedSendersList.length; j++) {
-        (bytes32 requestId, ) = computeRequestId(
+        bytes32 requestId = computeRequestId(
           authorizedSendersList[j],
-          subConfig.consumers[i],
+          consumers[i],
           subscriptionId,
-          s_consumers[subConfig.consumers[i]][subscriptionId]
+          s_consumers[consumers[i]][subscriptionId]
         );
-        Commitment memory commitment = s_requestCommitments[requestId];
-        if (commitment.don == address(0)) {
+        if (s_requestCommitments[requestId].don == address(0)) {
           return true;
         }
       }
@@ -769,13 +738,5 @@ contract OCR2DRRegistry is
 
   function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
     return true;
-  }
-
-  /**
-   * @notice The type and version of this contract
-   * @return Type and version string
-   */
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "OCR2DRRegistry 0.0.0";
   }
 }

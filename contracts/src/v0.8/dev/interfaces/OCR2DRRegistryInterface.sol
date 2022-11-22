@@ -34,13 +34,6 @@ interface OCR2DRRegistryInterface {
     returns (uint96);
 
   /**
-   * @notice Estimate the execution cost in gas that will be reimbursed to the Node Operator who transmits the data on-chain
-   * @param billing The request's billing configuration
-   * @return gasAmount
-   */
-  function estimateExecutionGas(OCR2DRRegistryInterface.RequestBilling memory billing) external view returns (uint256);
-
-  /**
    * @notice Estimate the total cost to make a request: gas re-imbursement, plus DON fee, plus Registry fee
    * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
    * @param billing The request's billing configuration
@@ -86,19 +79,4 @@ interface OCR2DRRegistryInterface {
     uint256 reportValidationGas,
     uint256 initialGas
   ) external returns (bool success);
-
-  /**
-   * @notice Get request commitment hash
-   * @param requestId id of request
-   * @return commitmentHash the keccack32 hash of the commitment
-   * @dev used to determine if a request is fulfilled or not
-   */
-  function getCommitment(bytes32 requestId)
-    external
-    view
-    returns (
-      address,
-      uint64,
-      uint32
-    );
 }
