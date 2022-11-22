@@ -117,12 +117,9 @@ func KeeperBenchmark(t *testing.T, registryToTest string, numberOfNodes int) {
 	blockTime := "1"
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	//staticValues := activeEVMNetwork.ChainlinkValuesMap()
-
-	staticValues := map[string]interface{}{}
-	if !activeEVMNetwork.Simulated {
-		staticValues["ETH_URL"] = activeEVMNetwork.URLs[0]
-		staticValues["ETH_CHAIN_ID"] = fmt.Sprint(activeEVMNetwork.ChainID)
+	staticValues := map[string]interface{}{
+		"ETH_URL":      activeEVMNetwork.URLs[0],
+		"ETH_HTTP_URL": activeEVMNetwork.HTTPURLs[0],
 	}
 
 	keeperBenchmarkValues := map[string]interface{}{
@@ -246,7 +243,6 @@ func benchmarkTestHelper(
 	activeEVMNetwork *blockchain.EVMNetwork,
 	blockTime string,
 ) {
-
 	remoteRunnerValues := map[string]interface{}{
 		"focus":                 testTag,
 		"env_namespace":         testEnvironment.Cfg.Namespace,
