@@ -103,7 +103,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 	require.NoError(t, err)
 }
 
-func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContract *ocr2dr_oracle.OCR2DROracle) {
+func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
 	var maxGasLimit =  uint32(1_000_000)
 	var stalenessSeconds =  uint32(86_400)
 	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315)
@@ -120,8 +120,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 	)
 	require.NoError(t, err)
 
-	var senders []common.Address
-	senders[0] = oracleContract.Address()
+	var senders = []common.Address{oracleContractAddress}
 	_, err = registryContract.SetAuthorizedSenders(
 		owner,
 		senders,
@@ -129,13 +128,14 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 	require.NoError(t, err)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, numClients int64, linkToken *link_token_interface.LinkToken, registryContract *ocr2dr_registry.OCR2DRRegistry, clientContracts []deployedClientContract) (subscriptionId uint64) {
+func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registryContract *ocr2dr_registry.OCR2DRRegistry, clientContracts []deployedClientContract) (subscriptionId uint64) {
 	_, err := registryContract.CreateSubscription(owner)
 	require.NoError(t, err)
 
 	subscriptionID := uint64(1)
 
-	for i := 0; i < len(clientContracts); i++ {
+	numContracts :=len(clientContracts)
+	for i := 0; i < numContracts; i++ {
 		_, err = registryContract.AddConsumer(owner, subscriptionID, clientContracts[i].Address)
 		require.NoError(t, err)
 	}
@@ -143,7 +143,7 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, numClien
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
 	require.NoError(t, err)
 	
-	amount := big.NewInt(0).Mul(big.NewInt(numClients), big.NewInt(1e18)) // 1 LINK per client
+	amount := big.NewInt(0).Mul(big.NewInt(int64(numContracts)), big.NewInt(1e18)) // 1 LINK per client
 	linkToken.TransferAndCall(owner, registryContract.Address(), amount, data)
 
 	return subscriptionID
