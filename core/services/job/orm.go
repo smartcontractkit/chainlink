@@ -265,9 +265,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 						if err != nil {
 							return errors.Wrapf(err, "internal error while validating contract_id")
 						}
-						if chainID == newChainID {
-							return errors.Errorf("a job with contract address %v already exists for chain ID %v", jb.OCROracleSpec.ContractAddress, chainID)
-						}
+						return errors.Errorf("Job ID %v already exists for chain ID %v with contract address %v",
+							jb.ID, chainID, jb.OCROracleSpec.ContractAddress)
 					}
 				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
