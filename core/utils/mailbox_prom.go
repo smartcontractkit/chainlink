@@ -18,7 +18,7 @@ var mailboxLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	[]string{"appID", "name", "capacity"},
 )
 
-const mailboxPromInterval = 10 * time.Second
+const mailboxPromInterval = 5 * time.Second
 
 type MailboxMonitor struct {
 	StartStopOnce
@@ -34,7 +34,7 @@ func NewMailboxMonitor(appID string) *MailboxMonitor {
 
 func (m *MailboxMonitor) Start(context.Context) error {
 	return m.StartOnce("MailboxMonitor", func() error {
-		t := time.NewTicker(mailboxPromInterval)
+		t := time.NewTicker(WithJitter(mailboxPromInterval))
 		m.stop = t.Stop
 		go m.monitorLoop(t.C)
 		return nil
