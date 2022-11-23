@@ -180,7 +180,7 @@ var nethermind = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)$`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
-	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds$`),
+	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+)?$`),
 	Fatal:           nethermindFatal,
 }
 
