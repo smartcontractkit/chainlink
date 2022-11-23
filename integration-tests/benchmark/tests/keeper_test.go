@@ -226,6 +226,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					FirstEligibleBuffer:   1,
 					PreDeployedConsumers:  testEntry.predeployedConsumers,
 					UpkeepResetterAddress: testEntry.upkeepResetterAddress,
+					BlockTime:             testEntry.blockTime,
 				},
 			)
 			keeperBenchmarkTest.Setup(testEnvironment)
