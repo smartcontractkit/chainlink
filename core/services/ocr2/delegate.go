@@ -548,8 +548,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		// TODO replace with a DB: https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
-		pluginORM := drocr_service.NewInMemoryORM()
+		pluginORM := drocr_service.NewORM(d.db, d.lggr, d.cfg, common.HexToAddress(spec.ContractID))
 		pluginOracle, _ = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
