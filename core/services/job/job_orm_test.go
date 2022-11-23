@@ -614,7 +614,6 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	jb.Name = null.StringFrom("Job 1")
 	jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-	require.NoError(t, err)
 
 	err = jobORM.CreateJob(&jb)
 	require.NoError(t, err)
