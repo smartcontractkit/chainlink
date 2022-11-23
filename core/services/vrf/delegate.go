@@ -29,12 +29,13 @@ import (
 )
 
 type Delegate struct {
-	q    pg.Q
-	pr   pipeline.Runner
-	porm pipeline.ORM
-	ks   keystore.Master
-	cc   evm.ChainSet
-	lggr logger.Logger
+	q       pg.Q
+	pr      pipeline.Runner
+	porm    pipeline.ORM
+	ks      keystore.Master
+	cc      evm.ChainSet
+	lggr    logger.Logger
+	mailMon *utils.MailboxMonitor
 }
 
 //go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
@@ -58,14 +59,16 @@ func NewDelegate(
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg pg.QConfig) *Delegate {
+	cfg pg.QConfig,
+	mailMon *utils.MailboxMonitor) *Delegate {
 	return &Delegate{
-		q:    pg.NewQ(db, lggr, cfg),
-		ks:   ks,
-		pr:   pr,
-		porm: porm,
-		cc:   chainSet,
-		lggr: lggr,
+		q:       pg.NewQ(db, lggr, cfg),
+		ks:      ks,
+		pr:      pr,
+		porm:    porm,
+		cc:      chainSet,
+		lggr:    lggr,
+		mailMon: mailMon,
 	}
 }
 
@@ -146,6 +149,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.pr,
 				d.ks.Eth(),
 				jb,
+				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
 				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
@@ -164,6 +168,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				pipelineRunner:  d.pr,
 				gethks:          d.ks.Eth(),
 				job:             jb,
+				mailMon:         d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
 				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),

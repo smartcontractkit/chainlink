@@ -15,6 +15,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -29,6 +30,7 @@ type (
 		pipelineORM    pipeline.ORM
 		chHeads        chan *evmtypes.Head
 		chainSet       evm.ChainSet
+		mailMon        *utils.MailboxMonitor
 	}
 
 	Config interface {
@@ -44,6 +46,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
 	chainSet evm.ChainSet,
+	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		logger.Named("DirectRequest"),
@@ -51,6 +54,7 @@ func NewDelegate(
 		pipelineORM,
 		make(chan *evmtypes.Head, 1),
 		chainSet,
+		mailMon,
 	}
 }
 
@@ -93,6 +97,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
 		pipelineORM:              d.pipelineORM,
+		mailMon:                  d.mailMon,
 		job:                      jb,
 		mbOracleRequests:         utils.NewHighCapacityMailbox[log.Broadcast](),
 		mbOracleCancelRequests:   utils.NewHighCapacityMailbox[log.Broadcast](),
@@ -119,6 +124,7 @@ type listener struct {
 	oracle                   operator_wrapper.OperatorInterface
 	pipelineRunner           pipeline.Runner
 	pipelineORM              pipeline.ORM
+	mailMon                  *utils.MailboxMonitor
 	job                      job.Job
 	runs                     sync.Map
 	shutdownWaitGroup        sync.WaitGroup
@@ -153,6 +159,9 @@ func (l *listener) Start(context.Context) error {
 			l.shutdownWaitGroup.Done()
 		}()
 
+		l.mailMon.Monitor(l.mbOracleRequests, "DirectRequest", "Requests", fmt.Sprint(l.job.PipelineSpec.JobID))
+		l.mailMon.Monitor(l.mbOracleCancelRequests, "DirectRequest", "Cancel", fmt.Sprint(l.job.PipelineSpec.JobID))
+
 		return nil
 	})
 }
@@ -170,7 +179,7 @@ func (l *listener) Close() error {
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
 
-		return nil
+		return services.MultiClose{l.mbOracleRequests, l.mbOracleCancelRequests}.Close()
 	})
 }
 
