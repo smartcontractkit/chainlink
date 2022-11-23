@@ -254,7 +254,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					var spec OCR2OracleSpec
 					chainIdPath := []string{"chainID"}
 					err = tx.Get(&spec, `SELECT * FROM ocr2_oracle_specs WHERE relay = $1 AND contract_id = $2 AND relay_config #>> $3 = $4 LIMIT 1`,
-						relay.EVM, jb.OCR2OracleSpec.ContractID, chainIdPath, fmt.Sprintf("%v", newChainID),
+						relay.EVM, jb.OCR2OracleSpec.ContractID, chainIdPath, fmt.Sprintf("%d", newChainID),
 					)
 
 					if !errors.Is(err, sql.ErrNoRows) {
