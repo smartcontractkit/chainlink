@@ -80,7 +80,7 @@ func NewUpkeepExecuter(
 		headBroadcaster:        headBroadcaster,
 		gasEstimator:           gasEstimator,
 		job:                    job,
-		mailbox:                utils.NewMailbox[*evmtypes.Head](1),
+		mailbox:                utils.NewSingleMailbox[*evmtypes.Head](),
 		config:                 config,
 		orm:                    orm,
 		pr:                     pr,
