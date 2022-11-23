@@ -961,6 +961,7 @@ func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.
 		SELECT pipeline_runs.*
 		FROM pipeline_runs
 		WHERE id = ANY($1)
+		ORDER BY created_at DESC, id DESC
 	`
 	if err = tx.Select(&runs, stmt, ids); err != nil {
 		err = errors.Wrap(err, "error loading runs")
