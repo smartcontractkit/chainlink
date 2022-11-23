@@ -94,7 +94,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 			continue
 		}
 
-		if p.Confirmations < 3 {
+		if p.Confirmations <= 3 {
 			continue
 		}
 
