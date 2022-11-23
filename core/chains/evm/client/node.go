@@ -158,12 +158,11 @@ type node struct {
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
-	// nLiveNodes is a passed in function that allows this node to
-	// query a parent object to see how many live nodes there are in total.
-	// This is done so we can prevent the last alive node in a pool from being
-	// moved to out-of-sync state. It is better to have one out-of-sync node
-	// than no nodes at all.
-	nLiveNodes func() int
+	// nLiveNodes is a passed in function that allows this node to:
+	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
+	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
+	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
+	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
 }
 
 // NodeConfig allows configuration of the node
@@ -172,6 +171,7 @@ type NodeConfig interface {
 	NodePollFailureThreshold() uint32
 	NodePollInterval() time.Duration
 	NodeSelectionMode() string
+	NodeSyncThreshold() uint32
 }
 
 // NewNode returns a new *node as Node

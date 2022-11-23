@@ -30,7 +30,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 	}
 
 	selector := evmclient.NewHighestHeadNodeSelector(nodes)
-	assert.Equal(t, nodes[2], selector.Select())
+	assert.Same(t, nodes[2], selector.Select())
 
 	t.Run("stick to the same node", func(t *testing.T) {
 		node := evmmocks.NewNode(t)
@@ -39,7 +39,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		nodes = append(nodes, node)
 
 		selector := evmclient.NewHighestHeadNodeSelector(nodes)
-		assert.Equal(t, nodes[2], selector.Select())
+		assert.Same(t, nodes[2], selector.Select())
 	})
 
 	t.Run("another best node", func(t *testing.T) {
@@ -49,27 +49,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		nodes = append(nodes, node)
 
 		selector := evmclient.NewHighestHeadNodeSelector(nodes)
-		assert.Equal(t, nodes[4], selector.Select())
-	})
-
-	t.Run("update lastBestNode", func(t *testing.T) {
-		node1 := evmmocks.NewNode(t)
-		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), nil).Once()
-		node1.On("StateAndLatest").Return(evmclient.NodeStateOutOfSync, int64(1), nil).Once()
-		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), nil).Once()
-		node2 := evmmocks.NewNode(t)
-		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), nil)
-		nodes := []evmclient.Node{node1, node2}
-
-		selector := evmclient.NewHighestHeadNodeSelector(nodes)
-		// node1 would be set as lastBestNode (it is alive)
-		assert.Equal(t, node1, selector.Select())
-
-		// node1 is out of sync, node2 must be selected and set as the last best node
-		assert.Equal(t, node2, selector.Select())
-
-		// node1 is alive again, node2 must be returned as the last best node
-		assert.Equal(t, node2, selector.Select())
+		assert.Same(t, nodes[4], selector.Select())
 	})
 
 	t.Run("nodes never update latest block number", func(t *testing.T) {
@@ -80,7 +60,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		nodes := []evmclient.Node{node1, node2}
 
 		selector := evmclient.NewHighestHeadNodeSelector(nodes)
-		assert.Equal(t, node1, selector.Select())
+		assert.Same(t, node1, selector.Select())
 	})
 }
 

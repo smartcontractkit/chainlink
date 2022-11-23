@@ -18,12 +18,14 @@ type TestNodeConfig struct {
 	PollFailureThreshold uint32
 	PollInterval         time.Duration
 	SelectionMode        string
+	SyncThreshold        uint32
 }
 
 func (tc TestNodeConfig) NodeNoNewHeadsThreshold() time.Duration { return tc.NoNewHeadsThreshold }
 func (tc TestNodeConfig) NodePollFailureThreshold() uint32       { return tc.PollFailureThreshold }
 func (tc TestNodeConfig) NodePollInterval() time.Duration        { return tc.PollInterval }
 func (tc TestNodeConfig) NodeSelectionMode() string              { return tc.SelectionMode }
+func (tc TestNodeConfig) NodeSyncThreshold() uint32              { return tc.SyncThreshold }
 
 func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)

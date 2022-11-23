@@ -173,6 +173,7 @@ type ConfigSchema struct {
 	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
 	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
 	NodeSelectionMode        string        `env:"NODE_SELECTION_MODE"`
+	NodeSyncThreshold        uint32        `env:"NODE_SYNC_THRESHOLD"`
 
 	// EVM Gas Controls
 	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
