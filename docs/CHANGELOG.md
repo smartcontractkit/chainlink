@@ -12,6 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+- Add the following prometheus metrics (labelled by bridge name) for monitoring external adapter queries:
+    - `bridge_latency_seconds`
+    - `bridge_errors_total`
+    - `bridge_cache_hits_total`
+    - `bridge_cache_errors_total`
+- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
+- `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
+> ```toml
+> SyncThreshold = 5 # Default
+> ```
+> 
+> SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+>
+> Set to 0 to disable this check.
 
 #### TOML Configuration (optional)
 
@@ -37,6 +52,8 @@ Secrets must be configured manually and passed via `-secrets <filename>` or equi
 - Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
 
 ### Updated
+
+- OCR2 jobs may now re-use the same contract address on multiple chains.
 
 - `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
 

@@ -30,13 +30,13 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
     string calldata source,
     bytes calldata secrets,
     string[] calldata args,
-    uint256 subscriptionId
+    uint64 subscriptionId
   ) external onlyOwner {
     OCR2DR.Request memory req;
     req.initializeRequestForInlineJavaScript(source);
     if (secrets.length > 0) req.addInlineSecrets(secrets);
     if (args.length > 0) req.addArgs(args);
-    lastRequestId = sendRequest(req, subscriptionId);
+    lastRequestId = sendRequest(req, subscriptionId, 50_000);
   }
 
   /**

@@ -1,6 +1,7 @@
 # Chains
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
-/core/chains/evm/txmgr @samsondav @prashantkumar1982
+/core/chains/evm @samsondav @prashantkumar1982
+/core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
 /core/chains/evm @samsondav @prashantkumar1982
 /core/chains/terra @connorwstein @jmank88

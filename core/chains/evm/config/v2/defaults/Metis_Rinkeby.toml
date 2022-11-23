@@ -15,3 +15,6 @@ BumpThreshold = 0
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10

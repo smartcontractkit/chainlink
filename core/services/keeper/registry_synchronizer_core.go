@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ type RegistrySynchronizerOptions struct {
 	ORM                      ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
+	MailMon                  *utils.MailboxMonitor
 	SyncInterval             time.Duration
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
@@ -35,6 +37,7 @@ type RegistrySynchronizerOptions struct {
 }
 
 type RegistrySynchronizer struct {
+	utils.StartStopOnce
 	chStop                   chan struct{}
 	newTurnEnabled           bool
 	registryWrapper          RegistryWrapper
@@ -49,7 +52,7 @@ type RegistrySynchronizer struct {
 	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
 	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
-	utils.StartStopOnce
+	mailMon                  *utils.MailboxMonitor
 }
 
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
@@ -61,13 +64,14 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		job:                      opts.Job,
 		jrm:                      opts.JRM,
 		logBroadcaster:           opts.LogBroadcaster,
-		mbLogs:                   utils.NewMailbox[log.Broadcast](5000), // Arbitrary limit, better to have excess capacity
+		mbLogs:                   utils.NewMailbox[log.Broadcast](5_000), // Arbitrary limit, better to have excess capacity
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
 		effectiveKeeperAddress:   opts.EffectiveKeeperAddress,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 		newTurnEnabled:           opts.newTurnEnabled,
+		mailMon:                  opts.MailMon,
 	}
 }
 
@@ -100,6 +104,9 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 			defer lbUnsubscribe()
 			<-rs.chStop
 		}()
+
+		rs.mailMon.Monitor(rs.mbLogs, "RegistrySynchronizer", "Logs", fmt.Sprint(rs.job.ID))
+
 		return nil
 	})
 }
@@ -108,7 +115,7 @@ func (rs *RegistrySynchronizer) Close() error {
 	return rs.StopOnce("RegistrySynchronizer", func() error {
 		close(rs.chStop)
 		rs.wgDone.Wait()
-		return nil
+		return rs.mbLogs.Close()
 	})
 }
 
