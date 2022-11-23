@@ -94,6 +94,10 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 			continue
 		}
 
+		if p.Confirmations < 3 {
+			continue
+		}
+
 		// broadcast log to subscribers
 		l := plugintypes.PerformLog{
 			Key:           pluginutils.BlockAndIdToKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),

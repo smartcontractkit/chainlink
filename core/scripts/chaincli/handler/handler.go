@@ -273,6 +273,9 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			"CHAINLINK_TLS_PORT=0",
 			"SECURE_COOKIES=false",
 			"ALLOW_ORIGINS=*",
+			"FEATURE_UI_CSA_KEYS=true",
+			"TELEMETRY_INGRESS_PUBLIC_KEY=5ed3374f6e20e956c913e7498a59238fe84584e916bb92e97d149e35ca70cea7",
+			"TELEMETRY_INGRESS_URL=localhost:1337",
 		}, extraEnvVars...),
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
