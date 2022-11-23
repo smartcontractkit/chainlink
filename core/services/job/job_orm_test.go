@@ -607,11 +607,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	require.NoError(t, evm.NewORM(db, lggr, config).EnsureChains([]utils.Big{*customChainID}))
 
-	// defaultChainID := config.DefaultChainID()
-
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	//_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-	//_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 	jb, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
 	jb.Name = null.StringFrom("Job 1")
