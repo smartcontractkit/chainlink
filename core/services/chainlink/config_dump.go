@@ -307,6 +307,11 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].NodePool.SelectionMode = e
 		}
 	}
+	if e := envvar.NewUint32("NodeSyncThreshold").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].NodePool.SyncThreshold = e
+		}
+	}
 	if e := envvar.NewBool("EvmEIP1559DynamicFees").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].GasEstimator.EIP1559DynamicFees = e
