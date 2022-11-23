@@ -27,6 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_client_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_registry"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -38,11 +41,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func ptr[T any](v T) *T { return &v }
 
-func SetConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra) {
+func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra) {
 	S := make([]int, len(oracles))
 	for i := 0; i < len(S); i++ {
 		S[i] = 1
@@ -99,6 +103,54 @@ func SetConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_or
 	require.NoError(t, err)
 }
 
+func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
+	var maxGasLimit =  uint32(1_000_000)
+	var stalenessSeconds =  uint32(86_400)
+	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315)
+	var weiPerUnitLink =  big.NewInt(5000000000000000)
+	var gasOverhead =  uint32(500_000)
+
+	_, err := registryContract.SetConfig(
+		owner,
+		maxGasLimit,
+		stalenessSeconds,
+		gasAfterPaymentCalculation,
+		weiPerUnitLink,
+		gasOverhead,
+	)
+	require.NoError(t, err)
+
+	var senders = []common.Address{oracleContractAddress}
+	_, err = registryContract.SetAuthorizedSenders(
+		owner,
+		senders,
+	)
+	require.NoError(t, err)
+}
+
+func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registryContractAddress common.Address, registryContract *ocr2dr_registry.OCR2DRRegistry, clientContracts []deployedClientContract) (subscriptionId uint64) {
+	_, err := registryContract.CreateSubscription(owner)
+	require.NoError(t, err)
+
+	subscriptionID := uint64(1)
+
+	numContracts := len(clientContracts)
+	for i := 0; i < numContracts; i++ {
+		_, err = registryContract.AddConsumer(owner, subscriptionID, clientContracts[i].Address)
+		require.NoError(t, err)
+	}
+
+	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
+	require.NoError(t, err)
+	
+	amount := big.NewInt(0).Mul(big.NewInt(int64(numContracts)), big.NewInt(2e18)) // 2 LINK per client
+	linkToken.TransferAndCall(owner, registryContractAddress, amount, data)
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return subscriptionID
+}
+
 const finalityDepth int = 4
 
 func CommitWithFinality(b *backends.SimulatedBackend) {
@@ -112,7 +164,7 @@ type deployedClientContract struct {
 	Contract *ocr2dr_client_example.OCR2DRClientExample
 }
 
-func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, common.Address, *ocr2dr_oracle.OCR2DROracle, []deployedClientContract) {
+func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, common.Address, *ocr2dr_oracle.OCR2DROracle, []deployedClientContract, common.Address, *ocr2dr_registry.OCR2DRRegistry, *link_token_interface.LinkToken) {
 	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
@@ -121,7 +173,20 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	b.Commit()
 
+	// Deploy contracts
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(owner, b)
+	require.NoError(t, err)
+
+	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 0, big.NewInt(5021530000000000))
+	require.NoError(t, err)
+
+	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr,linkEthFeedAddr )
+	require.NoError(t, err)
+
 	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
+	require.NoError(t, err)
+
+	_, err = ocrContract.SetRegistry(owner, registryAddress)
 	require.NoError(t, err)
 
 	clientContracts := []deployedClientContract{}
@@ -140,7 +205,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 			b.Commit()
 		}
 	}()
-	return owner, b, ticker, ocrContractAddress, ocrContract, clientContracts
+	return owner, b, ticker, ocrContractAddress, ocrContract, clientContracts, registryAddress, registryContract, linkToken
 }
 
 type Node struct {

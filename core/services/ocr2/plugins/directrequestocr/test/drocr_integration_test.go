@@ -3,7 +3,6 @@ package directrequestocr_test
 import (
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"sync"
 	"testing"
@@ -23,7 +22,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	nClients := 20
 
 	// simulated chain with all contracts
-	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts := utils.StartNewChainWithContracts(t, nClients)
+	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryAddress, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
 
 	// bootstrap node and job
@@ -49,9 +48,15 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 		jobIds = append(jobIds, ocrJob.ID)
 	}
 
+	// config for registry contract
+	utils.SetRegistryConfig(t, owner, registryContract, oracleContractAddress)
+
 	// config for oracle contract
-	utils.SetConfig(t, owner, oracleContract, oracles)
+	utils.SetOracleConfig(t, owner, oracleContract, oracles)
 	utils.CommitWithFinality(b)
+
+	// set up subscription
+	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryAddress, registryContract, clientContracts)
 
 	// send requests
 	sent := make([][]byte, nClients)
@@ -59,7 +64,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	r := rand.New(s)
 	for i := 0; i < nClients; i++ {
 		sent[i] = []byte{byte(r.Uint32() % 256)}
-		_, err := clientContracts[i].Contract.SendRequest(owner, hex.EncodeToString(sent[i]), []byte{}, []string{}, big.NewInt(3))
+		_, err := clientContracts[i].Contract.SendRequest(owner, hex.EncodeToString(sent[i]), []byte{}, []string{}, subscriptionId)
 		require.NoError(t, err)
 	}
 	utils.CommitWithFinality(b)
@@ -76,7 +81,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	}
 	wg.Wait()
 
-	// validate that all client contracts got correct reponses to their requests
+	// validate that all client contracts got correct responses to their requests
 	for i := 0; i < nClients; i++ {
 		ic := i
 		wg.Add(1)
