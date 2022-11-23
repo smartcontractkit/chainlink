@@ -143,7 +143,7 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
 	require.NoError(t, err)
 	
-	amount := big.NewInt(0).Mul(big.NewInt(int64(numContracts)), big.NewInt(1e18)) // 1 LINK per client
+	amount := big.NewInt(0).Mul(big.NewInt(int64(numContracts)), big.NewInt(2e18)) // 2 LINK per client
 	linkToken.TransferAndCall(owner, registryContractAddress, amount, data)
 
 	time.Sleep(1000 * time.Millisecond)

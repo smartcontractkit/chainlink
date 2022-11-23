@@ -81,7 +81,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	}
 	wg.Wait()
 
-	// validate that all client contracts got correct reponses to their requests
+	// validate that all client contracts got correct responses to their requests
 	for i := 0; i < nClients; i++ {
 		ic := i
 		wg.Add(1)
