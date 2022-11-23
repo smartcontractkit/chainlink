@@ -406,6 +406,7 @@ type ChainSetOpts struct {
 	KeyStore         keystore.Eth
 	EventBroadcaster pg.EventBroadcaster
 	ORM              types.ORM
+	MailMon          *utils.MailboxMonitor
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
