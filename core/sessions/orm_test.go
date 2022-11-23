@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -23,9 +24,8 @@ import (
 func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
 	t.Helper()
 
-	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
 
 	return db, orm
 }
@@ -67,7 +67,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
 
 			user := cltest.MustNewUser(t, "have@email", cltest.Password)
 			require.NoError(t, orm.CreateUser(&user))
@@ -250,6 +250,7 @@ func TestORM_WebAuthn(t *testing.T) {
 			},
 		},
 	})
+	require.NoError(t, err)
 	_, err = orm.CreateSession(sessions.SessionRequest{
 		Email:    initial.Email,
 		Password: cltest.Password,

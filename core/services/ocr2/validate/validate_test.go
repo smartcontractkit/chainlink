@@ -1,8 +1,7 @@
-package validate
+package validate_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -10,19 +9,21 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
 	var tt = []struct {
-		name       string
-		toml       string
-		setGlobals func(t *testing.T, c *configtest.TestGeneralConfig)
-		assertion  func(t *testing.T, os job.Job, err error)
+		name      string
+		toml      string
+		overrides func(c *chainlink.Config, s *chainlink.Secrets)
+		assertion func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "minimal OCR2 oracle spec",
@@ -304,9 +305,8 @@ chainID = 1337
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "database timeout must be between 100ms and 10s, but is currently 20m0s")
 			},
-			setGlobals: func(t *testing.T, c *configtest.TestGeneralConfig) {
-				to := 20 * time.Minute
-				c.Overrides.OCR2DatabaseTimeout = &to
+			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.OCR2.DatabaseTimeout = models.MustNewDuration(20 * time.Minute)
 			},
 		},
 		{
@@ -359,7 +359,7 @@ ds1          [type=bridge name=voter_turnout];
 chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				fmt.Println("relay", os.OCR2OracleSpec.Relay)
+				t.Log("relay", os.OCR2OracleSpec.Relay)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "no such relay blerg supported")
 			},
@@ -583,13 +583,13 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := configtest.NewTestGeneralConfig(t)
-			c.Overrides.Dev = null.BoolFrom(false)
-			c.Overrides.EVMRPCEnabled = null.BoolFrom(false)
-			if tc.setGlobals != nil {
-				tc.setGlobals(t, c)
-			}
-			s, err := ValidatedOracleSpecToml(c, tc.toml)
+			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.DevMode = false
+				if tc.overrides != nil {
+					tc.overrides(c, s)
+				}
+			})
+			s, err := validate.ValidatedOracleSpecToml(c, tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

@@ -12,15 +12,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-func newAdvisoryLock(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) pg.AdvisoryLock {
-	return pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), logger.TestLogger(t), cfg.AdvisoryLockCheckInterval())
+func newAdvisoryLock(t *testing.T, db *sqlx.DB, cfg pg.AdvisoryLockConfig) pg.AdvisoryLock {
+	return pg.NewAdvisoryLock(db, logger.TestLogger(t), cfg)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_AdvisoryLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBEmpty(t, "advisorylock")
 	check := 1 * time.Second
@@ -74,7 +74,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		advLock := newAdvisoryLock(t, db, cfg)
 
 		// simulate another application holding advisory lock to force it to retry
-		ctx, cancel := pg.DefaultQueryCtx()
+		ctx, cancel := context.WithTimeout(testutils.Context(t), cfg.DatabaseDefaultQueryTimeout())
 		defer cancel()
 		conn, err := db.Conn(ctx)
 		require.NoError(t, err)

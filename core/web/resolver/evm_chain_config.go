@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
@@ -207,6 +206,17 @@ func (r *ChainConfigResolver) EvmGasBumpWei() *string {
 func (r *ChainConfigResolver) EvmGasLimitDefault() *int32 {
 	if r.cfg.EvmGasLimitDefault.Valid {
 		val := r.cfg.EvmGasLimitDefault.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) EvmGasLimitMax() *int32 {
+	if r.cfg.EvmGasLimitMax.Valid {
+		val := r.cfg.EvmGasLimitMax.Int64
 		intVal := int32(val)
 
 		return &intVal
@@ -487,6 +497,7 @@ type ChainConfigInput struct {
 	EvmGasBumpTxDepth                     *int32
 	EvmGasBumpWei                         *string
 	EvmGasLimitDefault                    *int32
+	EvmGasLimitMax                        *int32
 	EvmGasLimitMultiplier                 *float64
 	EvmGasLimitOCRJobType                 *int32
 	EvmGasLimitDRJobType                  *int32
@@ -568,12 +579,16 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		if err != nil {
 			inputErrs["EvmGasBumpWei"] = "invalid value"
 		} else {
-			cfg.EvmGasBumpWei = utils.NewBigI(val)
+			cfg.EvmGasBumpWei = assets.NewWeiI(val)
 		}
 	}
 
 	if input.EvmGasLimitDefault != nil {
 		cfg.EvmGasLimitDefault = null.IntFrom(int64(*input.EvmGasLimitDefault))
+	}
+
+	if input.EvmGasLimitMax != nil {
+		cfg.EvmGasLimitMax = null.IntFrom(int64(*input.EvmGasLimitMax))
 	}
 
 	if input.EvmGasLimitMultiplier != nil {
@@ -605,7 +620,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		if err != nil {
 			inputErrs["EvmGasPriceDefault"] = "invalid value"
 		} else {
-			cfg.EvmGasPriceDefault = utils.NewBigI(val)
+			cfg.EvmGasPriceDefault = assets.NewWeiI(val)
 		}
 	}
 
@@ -614,7 +629,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		if err != nil {
 			inputErrs["EvmGasTipCapDefault"] = "invalid value"
 		} else {
-			cfg.EvmGasTipCapDefault = utils.NewBigI(val)
+			cfg.EvmGasTipCapDefault = assets.NewWeiI(val)
 		}
 	}
 
@@ -623,7 +638,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		if err != nil {
 			inputErrs["EvmGasTipCapMinimum"] = "invalid value"
 		} else {
-			cfg.EvmGasTipCapMinimum = utils.NewBigI(val)
+			cfg.EvmGasTipCapMinimum = assets.NewWeiI(val)
 		}
 	}
 
@@ -653,7 +668,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		if err != nil {
 			inputErrs["EvmMaxGasPriceWei"] = "invalid value"
 		} else {
-			cfg.EvmMaxGasPriceWei = utils.NewBigI(val)
+			cfg.EvmMaxGasPriceWei = assets.NewWeiI(val)
 		}
 	}
 

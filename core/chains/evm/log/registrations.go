@@ -23,10 +23,10 @@ import (
 //
 // 3. Information about already consumed logs is fetched from the database and used as a filter
 //
-// 4. The logs are attempted to be sent after every new head arrival:
-// 		Each stored log is checked against every matched listener and is sent unless:
-//    A) is too young for that listener
-//    B) matches a log already consumed (via the database information from log_broadcasts table)
+//  4. The logs are attempted to be sent after every new head arrival:
+//     Each stored log is checked against every matched listener and is sent unless:
+//     A) is too young for that listener
+//     B) matches a log already consumed (via the database information from log_broadcasts table)
 //
 // A log might be sent multiple times, if a consumer processes logs asynchronously (e.g. via a queue or a Mailbox), in which case the log
 // may not be marked as consumed before the next sending operation. That's why customers must still check the state via WasAlreadyConsumed
@@ -64,12 +64,6 @@ type (
 	Listener interface {
 		HandleLog(b Broadcast)
 		JobID() int32
-	}
-
-	// Metadata structure maintained per listener
-	listenerMetadata struct {
-		opts    ListenerOpts
-		filters [][]Topic
 	}
 
 	// subscribers type for convenience and readability

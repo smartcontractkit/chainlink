@@ -18,13 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name SendOnlyNode --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name SendOnlyNode --output ../mocks/ --case=underscore
 
 // SendOnlyNode represents one ethereum node used as a sendonly
 type SendOnlyNode interface {
 	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
-	Close()
+	Close() error
 
 	ChainID() (chainID *big.Int)
 
@@ -34,14 +34,14 @@ type SendOnlyNode interface {
 	String() string
 }
 
-//go:generate mockery --name TxSender --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name TxSender --output ./mocks/ --case=underscore
 
 type TxSender interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	ChainID(context.Context) (*big.Int, error)
 }
 
-//go:generate mockery --name BatchSender --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name BatchSender --output ./mocks/ --case=underscore
 
 type BatchSender interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -50,6 +50,7 @@ type BatchSender interface {
 // It only supports sending transactions
 // It must a http(s) url
 type sendOnlyNode struct {
+	utils.StartStopOnce
 	uri         url.URL
 	batchSender BatchSender
 	sender      TxSender
@@ -73,11 +74,17 @@ func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *
 	return s
 }
 
+func (s *sendOnlyNode) Start(ctx context.Context) error {
+	return s.StartOnce(s.name, func() error {
+		return s.start(ctx)
+	})
+}
+
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
 // TODO: Failures to dial should put it into a retry loop
 // https://app.shortcut.com/chainlinklabs/story/28182/eth-node-failover-consider-introducing-a-state-for-sendonly-nodes
-func (s *sendOnlyNode) Start(startCtx context.Context) error {
+func (s *sendOnlyNode) start(startCtx context.Context) error {
 	s.log.Debugw("evmclient.Client#Dial(...)")
 	if s.dialed {
 		panic("evmclient.Client.Dial(...) should only be called once during the node's lifetime.")
@@ -92,7 +99,7 @@ func (s *sendOnlyNode) Start(startCtx context.Context) error {
 	s.SetEthClient(rpc, geth)
 
 	if id, err := s.getChainID(startCtx); err != nil {
-		s.log.Warn("sendonly rpc ChainID verification skipped", "err", err)
+		s.log.Warnw("sendonly rpc ChainID verification skipped", "err", err)
 	} else if id.Cmp(s.chainID) != 0 {
 		return errors.Errorf(
 			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
@@ -114,8 +121,11 @@ func (s *sendOnlyNode) SetEthClient(newBatchSender BatchSender, newSender TxSend
 	s.sender = newSender
 }
 
-func (s *sendOnlyNode) Close() {
-	close(s.chStop)
+func (s *sendOnlyNode) Close() error {
+	return s.StopOnce(s.name, func() error {
+		close(s.chStop)
+		return nil
+	})
 }
 
 func (s *sendOnlyNode) logTiming(lggr logger.Logger, duration time.Duration, err error, callName string) {

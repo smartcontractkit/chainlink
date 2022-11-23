@@ -12,7 +12,7 @@
 // that means that querying unfinalized logs may change between queries but finalized logs remain stable.
 // The threshold between unfinalized and finalized logs is the finalityDepth parameter, chosen such that with
 // exceedingly high probability logs finalityDepth deep cannot be reorged.
-// - After calling MergeFilter with a particular event, it will never miss logs for that event
+// - After calling RegisterFilter with a particular event, it will never miss logs for that event
 // despite node crashes and reorgs. The granularity of the filter is always at least one block (more when backfilling).
 // - After calling Replay(fromBlock), all blocks including that one to the latest chain tip will be polled
 // with the current filter. This can be used on first time job add to specify a start block from which you wish to capture

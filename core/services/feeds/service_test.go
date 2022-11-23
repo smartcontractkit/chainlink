@@ -11,12 +11,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/proto"
@@ -27,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -73,11 +76,14 @@ type TestService struct {
 	p2pKeystore  *ksmocks.P2P
 	ocr1Keystore *ksmocks.OCR
 	ocr2Keystore *ksmocks.OCR2
-	cfg          *mocks.Config
 	cc           evm.ChainSet
 }
 
 func setupTestService(t *testing.T) *TestService {
+	return setupTestServiceCfg(t, nil)
+}
+
+func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *chainlink.Secrets)) *TestService {
 	var (
 		orm          = mocks.NewORM(t)
 		jobORM       = jobmocks.NewORM(t)
@@ -88,19 +94,21 @@ func setupTestService(t *testing.T) *TestService {
 		p2pKeystore  = ksmocks.NewP2P(t)
 		ocr1Keystore = ksmocks.NewOCR(t)
 		ocr2Keystore = ksmocks.NewOCR2(t)
-		cfg          = mocks.NewConfig(t)
 	)
 
+	lggr := logger.TestLogger(t)
+
 	db := pgtest.NewSqlxDB(t)
-	gcfg := configtest.NewTestGeneralConfig(t)
-	gcfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
+	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
+	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
+		HeadTracker: headtracker.NullTracker})
 	keyStore := new(ksmocks.Master)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, cfg, cc, logger.TestLogger(t), "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig, cc, lggr, "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -114,7 +122,6 @@ func setupTestService(t *testing.T) *TestService {
 		p2pKeystore:  p2pKeystore,
 		ocr1Keystore: ocr1Keystore,
 		ocr2Keystore: ocr2Keystore,
-		cfg:          cfg,
 		cc:           cc,
 	}
 }
@@ -482,7 +489,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "Create success",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
 				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
@@ -493,7 +499,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "Update success",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
 					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
@@ -514,10 +519,8 @@ func Test_Service_ProposeJob(t *testing.T) {
 			wantErr: "invalid job type",
 		},
 		{
-			name: "must be an ocr job to include bootstraps",
-			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-			},
+			name:   "must be an ocr job to include bootstraps",
+			before: func(svc *TestService) {},
 			args: &feeds.ProposeJobArgs{
 				Spec:       TestSpec,
 				Multiaddrs: pq.StringArray{"/dns4/example.com"},
@@ -527,7 +530,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "ensure an upsert validates the job proposal belongs to the feeds manager",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
 					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
@@ -541,7 +543,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "spec version already exists",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
 					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
@@ -557,7 +558,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "upsert error",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(int64(0), errors.New("orm error"))
 			},
@@ -567,7 +567,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 		{
 			name: "Create spec error",
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
 				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(0), errors.New("orm error"))
@@ -583,7 +582,9 @@ func Test_Service_ProposeJob(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			svc := setupTestService(t)
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
+			})
 			if tc.before != nil {
 				tc.before(svc)
 			}
@@ -1040,20 +1041,21 @@ answer1 [type=median index=0];
 	)
 
 	testCases := []struct {
-		name    string
-		before  func(svc *TestService)
-		id      int64
-		force   bool
-		wantErr string
+		name        string
+		httpTimeout *models.Duration
+		before      func(svc *TestService)
+		id          int64
+		force       bool
+		wantErr     string
 	}{
 		{
-			name: "pending job success",
+			name:        "pending job success",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -1083,14 +1085,14 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
-			name: "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when it is the latest spec",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -1145,13 +1147,13 @@ answer1 [type=median index=0];
 			wantErr: "cannot approve a rejected spec",
 		},
 		{
-			name: "already existing job replacement error",
+			name:        "already existing job replacement error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(j.ID, nil)
 			},
@@ -1160,13 +1162,13 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
 		},
 		{
-			name: "already existing job replacement success if forced",
+			name:        "already existing job replacement success if forced",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
@@ -1241,6 +1243,18 @@ answer1 [type=median index=0];
 			wantErr: "orm: job proposal: Not Found",
 		},
 		{
+			name:        "bridges do not exist",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
+			},
+			id:      spec.ID,
+			wantErr: "failed to approve job spec due to bridge check: bridges do not exist",
+		},
+		{
 			name: "rpc client not connected",
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -1252,13 +1266,13 @@ answer1 [type=median index=0];
 			wantErr: "fms rpc client: Not Connected",
 		},
 		{
-			name: "create job error",
+			name:        "create job error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -1276,13 +1290,13 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: could not save",
 		},
 		{
-			name: "approve spec orm error",
+			name:        "approve spec orm error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -1306,13 +1320,13 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: failure",
 		},
 		{
-			name: "fms call error",
+			name:        "fms call error",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -1347,7 +1361,11 @@ answer1 [type=median index=0];
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			svc := setupTestService(t)
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				if tc.httpTimeout != nil {
+					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
+				}
+			})
 
 			if tc.before != nil {
 				tc.before(svc)

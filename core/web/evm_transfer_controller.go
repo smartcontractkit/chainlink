@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -63,6 +64,10 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		return
 	}
 
+	tc.App.GetAuditLogger().Audit(audit.EthTransactionCreated, map[string]interface{}{
+		"ethTX": etx,
+	})
+
 	jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
 }
 
@@ -88,19 +93,19 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)
 	}
 
-	var gasPrice *big.Int
+	var gasPrice *assets.Wei
 
 	gasLimit := chain.Config().EvmGasLimitTransfer()
 	estimator := chain.TxManager().GetGasEstimator()
 
-	gasPrice, gasLimit, err = estimator.GetLegacyGas(nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
+	gasPrice, gasLimit, err = estimator.GetLegacyGas(c, nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
 	if err != nil {
 		return errors.Wrap(err, "failed to estimate gas")
 	}
 
 	// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
 	amountAsBig := utils.NewBig(amount.ToInt())
-	fee := new(big.Int).Mul(gasPrice, big.NewInt(int64(gasLimit)))
+	fee := new(big.Int).Mul(gasPrice.ToInt(), big.NewInt(int64(gasLimit)))
 	amountWithFees := new(big.Int).Add(amountAsBig.ToInt(), fee)
 	if balance.Cmp(amountWithFees) < 0 {
 		// ETH balance is less than the sent amount + fees

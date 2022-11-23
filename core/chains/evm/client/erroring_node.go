@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,7 +24,7 @@ func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
 
 func (e *erroringNode) Start(ctx context.Context) error { return errors.New(e.errMsg) }
 
-func (e *erroringNode) Close() {}
+func (e *erroringNode) Close() error { return nil }
 
 func (e *erroringNode) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
 	return errors.New(e.errMsg)
@@ -117,12 +118,12 @@ func (e *erroringNode) State() NodeState {
 	return NodeStateUnreachable
 }
 
-func (e *erroringNode) StateAndLatestBlockNumber() (NodeState, int64) {
-	return NodeStateUnreachable, -1
+func (e *erroringNode) StateAndLatest() (NodeState, int64, *utils.Big) {
+	return NodeStateUnreachable, -1, nil
 }
 
 func (e *erroringNode) DeclareOutOfSync()            {}
 func (e *erroringNode) DeclareInSync()               {}
 func (e *erroringNode) DeclareUnreachable()          {}
-func (e *erroringNode) ID() int32                    { return 0 }
+func (e *erroringNode) Name() string                 { return "" }
 func (e *erroringNode) NodeStates() map[int32]string { return nil }

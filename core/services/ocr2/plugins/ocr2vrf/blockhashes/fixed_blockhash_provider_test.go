@@ -2,136 +2,158 @@ package blockhashes_test
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func Test_FixedBlockhashProvider(t *testing.T) {
+func Test_CurrentHeight(t *testing.T) {
 	t.Parallel()
 
-	client := evmtest.NewEthClientMockWithDefaultChain(t)
-
-	p := blockhashes.NewFixedBlockhashProvider(client, 0, 0)
 	ctx := testutils.Context(t)
+	lp := lp_mocks.NewLogPoller(t)
+	lggr := logger.TestLogger(t)
+	p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 8)
 
 	t.Run("returns current height", func(t *testing.T) {
-		h := &evmtypes.Head{Number: 100}
-		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
-			return val == nil
-		})).Return(h, nil).Once()
+		h := int64(100)
+		lp.On("LatestBlock", mock.Anything).Return(h, nil).Once()
 		height, err := p.CurrentHeight(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(100), height)
+		lp.AssertExpectations(t)
 	})
 
-	t.Run("returns error when negative block number", func(t *testing.T) {
-		h := &evmtypes.Head{Number: -10}
-		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
-			return val == nil
-		})).Return(h, nil).Once()
+	t.Run("returns error when log poller throws error", func(t *testing.T) {
+		lp.On("LatestBlock", mock.Anything).Return(int64(0), errors.New("error in latest block")).Once()
 		height, err := p.CurrentHeight(ctx)
 		require.Error(t, err)
 		assert.Equal(t, uint64(0), height)
+		lp.AssertExpectations(t)
 	})
 }
 
 func Test_OnchainVerifiableBlocks(t *testing.T) {
 	t.Parallel()
 
-	client := evmtest.NewEthClientMockWithDefaultChain(t)
 	ctx := testutils.Context(t)
-	h := &evmtypes.Head{Number: 100}
+	lggr := logger.TestLogger(t)
+	h := int64(100)
 
 	t.Run("returns expected number of hashes", func(t *testing.T) {
-		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
-			return val == nil
-		})).Return(h, nil).Once()
+		lp := lp_mocks.NewLogPoller(t)
+		lp.On("LatestBlock", mock.Anything).Return(h, nil).Once()
 
-		client.On("BatchCallContext", ctx, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			reqs := args.Get(1).([]rpc.BatchElem)
-			for i := 0; i < len(reqs); i++ {
-				reqs[i].Result = &evmtypes.Head{Hash: utils.NewHash()}
-			}
-		}).Times(5)
+		blocks := []logpoller.LogPollerBlock{
+			createLogPollerBlock(93),
+			createLogPollerBlock(94),
+			createLogPollerBlock(95),
+			createLogPollerBlock(96),
+			createLogPollerBlock(97),
+			createLogPollerBlock(98),
+			createLogPollerBlock(99),
+			createLogPollerBlock(100),
+		}
 
-		p := blockhashes.NewFixedBlockhashProvider(client, 8, 2)
+		lp.On("GetBlocks", ctx, mock.MatchedBy(func(val []uint64) bool {
+			return slicesEqual(val, []uint64{93, 94, 95, 96, 97, 98, 99, 100})
+		})).Return(blocks, nil).Once()
+
+		p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 8)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, uint64(100-8), startHeight)
-		assert.Equal(t, 9, len(hashes))
+		assert.Equal(t, uint64(100-7), startHeight)
+		assert.Equal(t, 8, len(hashes))
 		for _, hash := range hashes {
 			assert.NotEmpty(t, hash)
 		}
+		lp.AssertExpectations(t)
 	})
 
-	t.Run("returns error when underlying batch call returns error", func(t *testing.T) {
-		client = evmtest.NewEthClientMockWithDefaultChain(t)
-		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
-			return val == nil
-		})).Return(h, nil).Once()
+	t.Run("returns max expected blocks", func(t *testing.T) {
+		lp := lp_mocks.NewLogPoller(t)
+		lp.On("LatestBlock", mock.Anything).Return(int64(1000), nil).Once()
 
-		e := errors.New("network error")
-		client.On("BatchCallContext", ctx, mock.Anything).Return(e).Once()
+		var blocks []logpoller.LogPollerBlock
+		var blockHeights []uint64
+		for i := (1000 - 255); i <= 1000; i++ {
+			blocks = append(blocks, createLogPollerBlock(int64(i)))
+			blockHeights = append(blockHeights, uint64(i))
+		}
 
-		p := blockhashes.NewFixedBlockhashProvider(client, 8, 2)
+		lp.On("GetBlocks", ctx, mock.MatchedBy(func(val []uint64) bool {
+			return slicesEqual(val, blockHeights)
+		})).Return(blocks, nil).Once()
+
+		p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 500)
+		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1000-255), startHeight)
+		assert.Equal(t, 256, len(hashes))
+		for _, hash := range hashes {
+			assert.NotEmpty(t, hash)
+		}
+		lp.AssertExpectations(t)
+	})
+
+	t.Run("returns error when get blocks errors", func(t *testing.T) {
+		lp := lp_mocks.NewLogPoller(t)
+		lp.On("LatestBlock", mock.Anything).Return(h, nil).Once()
+
+		lp.On("GetBlocks", ctx, mock.MatchedBy(func(val []uint64) bool {
+			return slicesEqual(val, []uint64{93, 94, 95, 96, 97, 98, 99, 100})
+		})).Return(nil, errors.New("error in LP")).Once()
+
+		p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 8)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.Error(t, err)
-		assert.Equal(t, "batch call context eth_getBlockByNumber: network error", err.Error())
 		assert.Equal(t, uint64(0), startHeight)
 		assert.Nil(t, hashes)
+		assert.Equal(t, "error in LP", err.Error())
+		lp.AssertExpectations(t)
 	})
 
-	t.Run("returns error when nil block received", func(t *testing.T) {
-		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
-			return val == nil
-		})).Return(h, nil).Once()
+	t.Run("returns error when current height errors", func(t *testing.T) {
+		lp := lp_mocks.NewLogPoller(t)
+		lp.On("LatestBlock", mock.Anything).Return(int64(0), errors.New("error in latest block")).Once()
 
-		client.On("BatchCallContext", ctx, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			reqs := args.Get(1).([]rpc.BatchElem)
-			for i := 0; i < len(reqs); i++ {
-				reqs[i].Result = nil
-			}
-		}).Times(5)
-
-		p := blockhashes.NewFixedBlockhashProvider(client, 8, 2)
+		p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 8)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.Error(t, err)
 		assert.Equal(t, uint64(0), startHeight)
 		assert.Nil(t, hashes)
+		lp.AssertExpectations(t)
 	})
+}
 
-	t.Run("returns error when empty blockhash received", func(t *testing.T) {
-		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
-			return val == nil
-		})).Return(h, nil).Once()
+func createLogPollerBlock(blockNumber int64) logpoller.LogPollerBlock {
+	return logpoller.LogPollerBlock{
+		BlockNumber: blockNumber,
+		BlockHash:   utils.NewHash(),
+	}
+}
 
-		client.On("BatchCallContext", ctx, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			reqs := args.Get(1).([]rpc.BatchElem)
-			for i := 0; i < len(reqs); i++ {
-				reqs[i].Result = &evmtypes.Head{Hash: utils.EmptyHash}
-			}
-		}).Times(5)
-
-		p := blockhashes.NewFixedBlockhashProvider(client, 8, 2)
-		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
-
-		require.Error(t, err)
-		assert.Equal(t, "missing block hash", err.Error())
-		assert.Equal(t, uint64(0), startHeight)
-		assert.Nil(t, hashes)
-	})
+func slicesEqual(a, b []uint64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }

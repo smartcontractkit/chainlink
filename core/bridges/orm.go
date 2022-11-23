@@ -2,6 +2,9 @@ package bridges
 
 import (
 	"database/sql"
+	"fmt"
+	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -11,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name ORM --output ./mocks --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks --case=underscore
 
 type ORM interface {
 	FindBridge(name BridgeName) (bt BridgeType, err error)
@@ -20,6 +23,9 @@ type ORM interface {
 	BridgeTypes(offset int, limit int) ([]BridgeType, int, error)
 	CreateBridgeType(bt *BridgeType) error
 	UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error
+
+	GetCachedResponse(dotId string, specId int32, maxElapsed time.Duration) ([]byte, error)
+	UpsertBridgeResponse(dotId string, specId int32, response []byte) error
 
 	ExternalInitiators(offset int, limit int) ([]ExternalInitiator, int, error)
 	CreateExternalInitiator(externalInitiator *ExternalInitiator) error
@@ -30,20 +36,29 @@ type ORM interface {
 
 type orm struct {
 	q pg.Q
+
+	bridgeTypesCache sync.Map
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("BridgeORM")
-	return &orm{pg.NewQ(db, namedLogger, cfg)}
+	return &orm{q: pg.NewQ(db, namedLogger, cfg)}
 }
 
 // FindBridge looks up a Bridge by its Name.
 // Returns sql.ErrNoRows if name not present
 func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
-	sql := "SELECT * FROM bridge_types WHERE name = $1"
-	err = o.q.Get(&bt, sql, name.String())
+	if bridgeType, ok := o.bridgeTypesCache.Load(name); ok {
+		return bridgeType.(BridgeType), nil
+	}
+
+	stmt := "SELECT * FROM bridge_types WHERE name = $1"
+	err = o.q.Get(&bt, stmt, name.String())
+	if err == nil {
+		o.bridgeTypesCache.Store(bt.Name, bt)
+	}
 	return
 }
 
@@ -51,8 +66,27 @@ func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
 // Errors unless all bridges successfully found. Requires at least one bridge.
 // Expects all bridges to be unique
 func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
-	sql := "SELECT * FROM bridge_types WHERE name IN (?)"
-	query, args, err := sqlx.In(sql, names)
+	if len(names) == 0 {
+		return nil, errors.Errorf("at least one bridge name is required")
+	}
+
+	var allFoundBts []BridgeType
+	var searchNames []BridgeName
+
+	for _, n := range names {
+		if bridgeType, ok := o.bridgeTypesCache.Load(n); ok {
+			allFoundBts = append(allFoundBts, bridgeType.(BridgeType))
+		} else {
+			searchNames = append(searchNames, n)
+		}
+	}
+
+	if len(allFoundBts) == len(names) {
+		return allFoundBts, nil
+	}
+
+	stmt := "SELECT * FROM bridge_types WHERE name IN (?)"
+	query, args, err := sqlx.In(stmt, searchNames)
 	if err != nil {
 		return nil, err
 	}
@@ -60,10 +94,14 @@ func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(bts) != len(names) {
-		return nil, errors.Errorf("not all bridges exist, asked for %v, exists %v", names, bts)
+	for _, bt := range bts {
+		o.bridgeTypesCache.Store(bt.Name, bt)
 	}
-	return
+	allFoundBts = append(allFoundBts, bts...)
+	if len(allFoundBts) != len(names) {
+		return nil, errors.Errorf("not all bridges exist, asked for %v, exists %v", names, allFoundBts)
+	}
+	return allFoundBts, nil
 }
 
 // DeleteBridgeType removes the bridge type
@@ -77,6 +115,8 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 	if err != nil {
 		return err
 	}
+	// We delete regardless of the rows affected, in case it gets out of sync
+	o.bridgeTypesCache.Delete(bt.Name)
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
@@ -112,14 +152,44 @@ func (o *orm) CreateBridgeType(bt *BridgeType) error {
 		}
 		return stmt.Get(bt, bt)
 	})
+	if err == nil {
+		o.bridgeTypesCache.Store(bt.Name, *bt)
+	}
+
 	return errors.Wrap(err, "CreateBridgeType failed")
 }
 
 // UpdateBridgeType updates the bridge type.
-func (o *orm) UpdateBridgeType(bt *BridgeType,
-	btr *BridgeTypeRequest) error {
-	sql := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
-	return o.q.Get(bt, sql, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
+func (o *orm) UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error {
+	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
+	err := o.q.Get(bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
+	if err == nil {
+		o.bridgeTypesCache.Store(bt.Name, *bt)
+	}
+
+	return err
+}
+
+func (o *orm) GetCachedResponse(dotId string, specId int32, maxElapsed time.Duration) (response []byte, err error) {
+	stalenessThreshold := time.Now().Add(-maxElapsed)
+	sql := `SELECT value FROM bridge_last_value WHERE
+				dot_id = $1 AND 
+				spec_id = $2 AND 
+				finished_at > ($3)	
+				ORDER BY finished_at 
+				DESC LIMIT 1;`
+	err = errors.Wrap(o.q.Get(&response, sql, dotId, specId, stalenessThreshold), fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId))
+	return
+}
+
+func (o *orm) UpsertBridgeResponse(dotId string, specId int32, response []byte) error {
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+				VALUES($1, $2, $3, $4)
+			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+				DO UPDATE SET value = $3, finished_at = $4;`
+
+	err := o.q.ExecQ(sql, dotId, specId, response, time.Now())
+	return errors.Wrap(err, "failed to upsert bridge response")
 }
 
 // --- External Initiator

@@ -1,6 +1,6 @@
 ChainID = '1'
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
-MinimumContractPayment = '0.1 link'
+MinContractPayment = '0.1 link'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 
 [GasEstimator]
@@ -8,7 +8,6 @@ EIP1559DynamicFees = true
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 # EIP-1559 does well on a smaller block history size
 BlockHistorySize = 4
 TransactionPercentile = 50

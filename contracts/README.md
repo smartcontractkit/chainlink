@@ -3,8 +3,8 @@
 ## Installation
 
 ```sh
-# via Yarn
-$ yarn add @chainlink/contracts
+# via pnpm
+$ pnpm add @chainlink/contracts
 # via npm
 $ npm install @chainlink/contracts --save
 ```
@@ -32,7 +32,7 @@ $ npm install @chainlink/contracts --save
 The solidity smart contracts themselves can be imported via the `src` directory of `@chainlink/contracts`:
 
 ```solidity
-import '@chainlink/contracts/src/v0.8/KeeperCompatibleInterface.sol';
+import '@chainlink/contracts/src/v0.8/AutomationCompatibleInterface.sol';
 
 ```
 
@@ -43,13 +43,15 @@ Note: Contracts in `dev/` directories are under active development and are likel
 ```bash
 # Clone Chainlink repository
 $ git clone https://github.com/smartcontractkit/chainlink.git
-# Continuing via Yarn
+# Continuing via pnpm
 $ cd contracts/
-$ yarn
-$ yarn test
+$ pnpm
+$ pnpm test
 ```
 
 ## Contributing
+
+Please try to adhere to [Solidity Style Guide](./STYLE.md).
 
 Contributions are welcome! Please refer to
 [Chainlink's contributing guidelines](../docs/CONTRIBUTING.md) for detailed

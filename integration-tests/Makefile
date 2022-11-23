@@ -32,8 +32,10 @@ ifeq ($(shell which asdf), )
 ifeq ($(OSFLAG),$(LINUX))
 	echo "You will need to install asdf via your linux installer https://asdf-vm.com/guide/getting-started.html"
 	exit 1
-else ($(OSFLAG),$(OSX))
+else
+ifeq ($(OSFLAG),$(OSX))
 	brew install asdf
+endif
 endif
 endif
 # install the plugins if needed and then install the dependencies
@@ -48,3 +50,7 @@ endif
 	helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
 	helm repo add bitnami https://charts.bitnami.com/bitnami
 	helm repo update
+
+.PHONY: test_smoke_product
+test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
+	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests

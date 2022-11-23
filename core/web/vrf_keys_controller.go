@@ -1,11 +1,12 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -36,6 +37,14 @@ func (vrfkc *VRFKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+		"type":                "vrf",
+		"id":                  pk.ID(),
+		"vrfPublicKey":        pk.PublicKey,
+		"vrfPublicKeyAddress": pk.PublicKey.Address(),
+	})
+
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(pk, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -55,6 +64,12 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": "vrf",
+		"id":   keyID,
+	})
+
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -64,7 +79,7 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -75,6 +90,13 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]interface{}{
+		"type":                "vrf",
+		"id":                  key.ID(),
+		"vrfPublicKey":        key.PublicKey,
+		"vrfPublicKeyAddress": key.PublicKey.Address(),
+	})
 
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
@@ -93,6 +115,11 @@ func (vrfkc *VRFKeysController) Export(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	vrfkc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
+		"type": "vrf",
+		"id":   keyID,
+	})
 
 	c.Data(http.StatusOK, MediaType, bytes)
 }

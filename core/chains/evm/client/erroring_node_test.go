@@ -87,7 +87,7 @@ func TestErroringNode(t *testing.T) {
 	require.Equal(t, "<erroring node>", n.String())
 	require.Equal(t, NodeStateUnreachable, n.State())
 
-	state, num := n.StateAndLatestBlockNumber()
+	state, num, _ := n.StateAndLatest()
 	require.Equal(t, NodeStateUnreachable, state)
 	require.Equal(t, int64(-1), num)
 
@@ -95,6 +95,6 @@ func TestErroringNode(t *testing.T) {
 	n.DeclareOutOfSync()
 	n.DeclareUnreachable()
 
-	require.Zero(t, n.ID())
+	require.Zero(t, n.Name())
 	require.Nil(t, n.NodeStates())
 }

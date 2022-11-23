@@ -1,0 +1,18 @@
+ChainID = '28528'
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '60s'
+Transactions.ResendAfterThreshold = '30s'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+SyncThreshold = 10

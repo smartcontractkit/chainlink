@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name Eth --output mocks/ --case=underscore
+//go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
 
 // Eth is the external interface for EthKeyStore
 type Eth interface {
@@ -28,8 +28,8 @@ type Eth interface {
 	Export(id string, password string) ([]byte, error)
 
 	Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
-	Disable(address common.Address, chainID *big.Int) error
-	Reset(address common.Address, chainID *big.Int, nonce int64) error
+	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
+	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
 
 	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
@@ -109,6 +109,7 @@ func (ks *eth) Create(chainIDs ...*big.Int) (ethkey.KeyV2, error) {
 	if err == nil {
 		ks.notify()
 	}
+	ks.logger.Infow(fmt.Sprintf("Created EVM key with ID %s", key.Address.Hex()), "address", key.Address.Hex(), "evmChainIDs", chainIDs)
 	return key, err
 }
 
@@ -224,6 +225,10 @@ func (ks *eth) IncrementNextNonce(address common.Address, chainID *big.Int, curr
 func (ks *eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
+	_, found := ks.keyRing.Eth[address.Hex()]
+	if !found {
+		return errors.Errorf("no key exists with ID %s", address.Hex())
+	}
 	return ks.enable(address, chainID, qopts...)
 }
 
@@ -244,22 +249,32 @@ RETURNING id, next_nonce, address, evm_chain_id, disabled, created_at, updated_a
 	return nil
 }
 
-func (ks *eth) Disable(address common.Address, chainID *big.Int) error {
-	_, err := ks.orm.q.Exec(`UPDATE evm_key_states SET disabled = true WHERE address = $1 AND evm_chain_id = $2`, address, chainID.String())
+func (ks *eth) Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	_, found := ks.keyRing.Eth[address.Hex()]
+	if !found {
+		return errors.Errorf("no key exists with ID %s", address.Hex())
+	}
+	return ks.disable(address, chainID, qopts...)
+}
+
+func (ks *eth) disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
+	q := ks.orm.q.WithOpts(qopts...)
+	_, err := q.Exec(`UPDATE evm_key_states SET disabled = true WHERE address = $1 AND evm_chain_id = $2`, address, chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "failed to disable state")
 	}
 
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
 	ks.keyStates.disable(address, chainID)
 	ks.notify()
 	return nil
 }
 
 // Reset the key/chain nonce to the given one
-func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64) error {
-	res, err := ks.orm.q.Exec(`UPDATE evm_key_states SET next_nonce = $1 WHERE address = $2 AND evm_chain_id = $3`, nonce, address, chainID.String())
+func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error {
+	q := ks.orm.q.WithOpts(qopts...)
+	res, err := q.Exec(`UPDATE evm_key_states SET next_nonce = $1 WHERE address = $2 AND evm_chain_id = $3`, nonce, address, chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "failed to reset state")
 	}

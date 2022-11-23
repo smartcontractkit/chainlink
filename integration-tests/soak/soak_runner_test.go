@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 func init() {
@@ -30,7 +32,7 @@ var baseEnvironmentConfig = &environment.Config{
 
 // Run the OCR soak test defined in ./tests/ocr_test.go
 func TestOCRSoak(t *testing.T) {
-	activeEVMNetwork := networks.GeneralEVM() // Environment currently being used to soak test on
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-ocr-%s",
@@ -41,7 +43,15 @@ func TestOCRSoak(t *testing.T) {
 		AddHelm(mockserver.New(nil))
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	baseTOML := `[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V1]
+Enabled = true
+ListenIP = '0.0.0.0'
+ListenPort = 6690`
+
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -63,14 +73,63 @@ func TestOCRSoak(t *testing.T) {
 			"dynamic_value": "5",
 		},
 	}
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+	addSeparateChainlinkDeployments(testEnvironment, client.AddNetworksConfig(baseTOML, activeEVMNetwork), dynamicValues)
 
 	soakTestHelper(t, "@soak-ocr", testEnvironment, activeEVMNetwork)
 }
 
+// Run the OCR soak test defined in ./tests/ocr_test.go
+func TestForwarderOCRSoak(t *testing.T) {
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
+
+	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
+		"soak-forwarder-ocr-%s",
+		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
+	)
+	testEnvironment := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil))
+
+	// Values you want each node to have the exact same of (e.g. eth_chain_id)
+	baseTOML := `[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V1]
+Enabled = true
+ListenIP = '0.0.0.0'
+ListenPort = 6690`
+	networkDetailTOML := `[EVM.Transactions]
+ForwardersEnabled = true`
+	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
+	dynamicValues := []map[string]interface{}{
+		{
+			"dynamic_value": "0",
+		},
+		{
+			"dynamic_value": "1",
+		},
+		{
+			"dynamic_value": "2",
+		},
+		{
+			"dynamic_value": "3",
+		},
+		{
+			"dynamic_value": "4",
+		},
+		{
+			"dynamic_value": "5",
+		},
+	}
+	addSeparateChainlinkDeployments(testEnvironment, client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork), dynamicValues)
+
+	soakTestHelper(t, "@soak-forwarder-ocr", testEnvironment, activeEVMNetwork)
+}
+
 // Run the keeper soak test defined in ./tests/keeper_test.go
 func TestKeeperSoak(t *testing.T) {
-	activeEVMNetwork := networks.GeneralEVM() // Environment currently being used to soak test on
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-keeper-%s",
@@ -79,7 +138,12 @@ func TestKeeperSoak(t *testing.T) {
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	baseTOML := `[Keeper]
+TurnLookBack = 0
+TurnFlagEnabled = true
+[Keeper.Registry]
+SyncInterval = '5s'
+PerformGasOverhead = 150_000`
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -101,7 +165,7 @@ func TestKeeperSoak(t *testing.T) {
 			"dynamic_value": "5",
 		},
 	}
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+	addSeparateChainlinkDeployments(testEnvironment, client.AddNetworksConfig(baseTOML, activeEVMNetwork), dynamicValues)
 
 	soakTestHelper(t, "@soak-keeper", testEnvironment, activeEVMNetwork)
 }
@@ -110,17 +174,15 @@ func TestKeeperSoak(t *testing.T) {
 // a single dynamicVal to each Chainlink deployment
 func addSeparateChainlinkDeployments(
 	testEnvironment *environment.Environment,
-	staticValues map[string]interface{},
+	toml string,
 	dynamicValueList []map[string]interface{},
 ) {
 	for index, dynamicValues := range dynamicValueList {
 		envVals := map[string]interface{}{}
-		for key, value := range staticValues {
-			envVals[key] = value
-		}
 		for key, value := range dynamicValues {
 			envVals[key] = value
 		}
+		envVals["cl_config"] = toml
 		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{"env": envVals}))
 	}
 }
@@ -132,22 +194,18 @@ func soakTestHelper(
 	testEnvironment *environment.Environment,
 	activeEVMNetwork *blockchain.EVMNetwork,
 ) {
-	exeFile, exeFileSize, err := actions.BuildGoTests("./", "./tests", "../")
-	require.NoError(t, err, "Error building go tests")
-
-	remoteRunnerValues := map[string]interface{}{
-		"test_name":      testTag,
-		"env_namespace":  testEnvironment.Cfg.Namespace,
-		"test_file_size": fmt.Sprint(exeFileSize),
-		"test_log_level": "debug",
-	}
+	remoteRunnerValues := actions.BasicRunnerValuesSetup(
+		testTag,
+		testEnvironment.Cfg.Namespace,
+		"./integration-tests/soak/tests",
+	)
 	// Set evm network connection for remote runner
 	for key, value := range activeEVMNetwork.ToMap() {
 		remoteRunnerValues[key] = value
 	}
 	remoteRunnerWrapper := map[string]interface{}{"remote_test_runner": remoteRunnerValues}
 
-	err = testEnvironment.
+	err := testEnvironment.
 		AddHelm(remotetestrunner.New(remoteRunnerWrapper)).
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: activeEVMNetwork.Name,
@@ -156,6 +214,6 @@ func soakTestHelper(
 		})).
 		Run()
 	require.NoError(t, err, "Error launching test environment")
-	err = actions.TriggerRemoteTest(exeFile, testEnvironment)
+	err = actions.TriggerRemoteTest("../../", testEnvironment)
 	require.NoError(t, err, "Error activating remote test")
 }

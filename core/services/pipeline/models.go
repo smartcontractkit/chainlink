@@ -131,11 +131,20 @@ func (r *Run) StringOutputs() ([]*string, error) {
 				case decimal.Decimal:
 					s := v.String()
 					outputs = append(outputs, &s)
+				case *decimal.Decimal:
+					s := v.String()
+					outputs = append(outputs, &s)
+				case big.Int:
+					s := v.String()
+					outputs = append(outputs, &s)
 				case *big.Int:
 					s := v.String()
 					outputs = append(outputs, &s)
+				case int8, uint8, int16, uint16, int32, uint32, int64, uint64:
+					s := fmt.Sprintf("%v", v)
+					outputs = append(outputs, &s)
 				case float64:
-					s := fmt.Sprintf("%f", v)
+					s := strconv.FormatFloat(v, 'f', -1, 64)
 					outputs = append(outputs, &s)
 				case nil:
 					outputs = append(outputs, nil)

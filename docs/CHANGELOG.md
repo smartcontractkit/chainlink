@@ -5,7 +5,164 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+
+<!-- unreleased -->
+## [Unreleased]
+
+### Added
+
+- New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+- Add the following prometheus metrics (labelled by bridge name) for monitoring external adapter queries:
+    - `bridge_latency_seconds`
+    - `bridge_errors_total`
+    - `bridge_cache_hits_total`
+    - `bridge_cache_errors_total`
+- `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
+> ```toml
+> SyncThreshold = 5 # Default
+> ```
+> 
+> SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+>
+> Set to 0 to disable this check.
+
+#### TOML Configuration (optional)
+
+Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
+This is currently _optional_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method.
+
+##### How to use
+
+TOML configuration can be enabled by simply using the new `-config <filename>` flag or `CL_CONFIG` environment variable.
+Multiple files can be used (`-c configA.toml -c configB.toml`), and will be applied in order with duplicated fields overriding any earlier values.
+
+Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
+Secrets must be configured manually and passed via `-secrets <filename>` or equivalent environment variables.
+
+**Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
+
+##### Detailed Docs
+
+[CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+
+### Fixed
+
+- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
+
+### Updated
+
+- OCR2 jobs may now re-use the same contract address on multiple chains.
+
+- `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
+
+<!-- unreleasedstop -->
+
+## 1.10.0 - 2022-11-15
+
+### Added
+
+#### Bridge caching
+##### BridgeCacheTTL
+
+- Default: 0s
+
+When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
+
+Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
+
+#### New optional external logger added
+##### AUDIT_LOGGER_FORWARD_TO_URL
+
+- Default: _none_
+
+When set, this environment variable configures and enables an optional HTTP logger which is used specifically to send audit log events. Audit logs events are emitted when specific actions are performed by any of the users through the node's API. The value of this variable should be a full URL. Log items will be sent via POST
+
+There are audit log implemented for the following events:
+  - Auth & Sessions (new session, login success, login failed, 2FA enrolled, 2FA failed, password reset, password reset failed, etc.)
+  - CRUD actions for all resources (add/create/delete resources such as bridges, nodes, keys)
+  - Sensitive actions (keys exported/imported, config changed, log level changed, environment dumped)
+
+A full list of audit log enum types can be found in the source within the `audit` package (`audit_types.go`).
+
+The following `AUDIT_LOGGER_*` environment variables below configure this optional audit log HTTP forwarder.
+
+##### AUDIT_LOGGER_HEADERS
+
+- Default: _none_
+
+An optional list of HTTP headers to be added for every optional audit log event. If the above `AUDIT_LOGGER_FORWARD_TO_URL` is set, audit log events will be POSTed to that URL, and will include headers specified in this environment variable. One example use case is auth for example: ```AUDIT_LOGGER_HEADERS="Authorization||{{token}}"```.
+
+Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\\'). An example of multiple key value pairs:
+```AUDIT_LOGGER_HEADERS="Authorization||{{token}}\Some-Other-Header||{{token2}}"```
+
+##### AUDIT_LOGGER_JSON_WRAPPER_KEY
+
+- Default: _none_
+
+When the audit log HTTP forwarder is enabled, if there is a value set for this optional environment variable then the POST body will be wrapped in a dictionary in a field specified by the value of set variable. This is to help enable specific logging service integrations that may require the event JSON in a special shape. For example: `AUDIT_LOGGER_JSON_WRAPPER_KEY=event` will create the POST body:
+```
+{
+  "event": {
+    "eventID":  EVENT_ID_ENUM,
+    "data": ...
+  }
+}
+```
+
+#### Automatic connectivity detection; Chainlink will no longer bump excessively if the network is broken
+
+This feature only applies on EVM chains when using BlockHistoryEstimator (the most common case).
+
+Chainlink will now try to automatically detect if there is a transaction propagation/connectivity issue and prevent bumping in these cases. This can help avoid the situation where RPC nodes are not propagating transactions for some reason (e.g. go-ethereum bug, networking issue etc) and Chainlink responds in a suboptimal way by bumping transactions to a very high price in an effort to get them mined. This can lead to unnecessary expense when the connectivity issue is resolved and the transactions are finally propagated into the mempool.
+
+This feature is enabled by default with fairly conservative settings: if a transaction has been priced above the 90th percentile of the past 12 blocks, but still wants to bump due to not being mined, a connectivity/propagation issue is assumed and all further bumping will be prevented for this transaction. In this situation, Chainlink will start firing the `block_history_estimator_connectivity_failure_count` prometheus counter and logging at critical level until the transaction is mined.
+
+The default settings should work fine for most users. For advanced users, the values can be tweaked by changing `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_BLOCKS` and `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_PERCENTILE`.
+
+To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_BLOCKS=0`.
+
+### Changed
+
+- The default maximum gas price on most networks is now effectively unlimited.
+  - Chainlink will bump as high as necessary to get a transaction included. The connectivity checker is relied on to prevent excessive bumping when there is a connectivity failure.
+  - If you want to change this, you can manually set `ETH_MAX_GAS_PRICE_WEI`.
+
+- EVMChainID field will be auto-added with default chain id to job specs of newly created OCR jobs, if not explicitly included.
+  - Old OCR jobs missing EVMChainID will continue to run on any chain ETH_CHAIN_ID is set to (or first chain if unset), which may be changed after a restart.
+  - Newly created OCR jobs will only run on a single fixed chain, unaffected by changes to ETH_CHAIN_ID after the job is added.
+  - It should no longer be possible to end up with multiple OCR jobs for a single contract running on the same chain; only one job per contract per chain is allowed
+  - If there are any existing duplicate jobs (per contract per chain), all but the job with the latest creation date will be pruned during upgrade.
+
+### Fixed
+
+- Fixed minor bug where Chainlink would attempt (and fail) to estimate a tip cap higher than the maximum configured gas price in EIP1559 mode. It now caps the tipcap to the max instead of erroring.
+- Fixed bug whereby it was impossible to remove eth keys that had extant transactions. Now, removing an eth key will drop all associated data automatically including past transactions.
+
+## 1.9.0 - 2022-10-12
+
+### Added
+
+- Added `length` and `lessthan` tasks (pipeline).
+- Added `gasUnlimited` parameter to `ethcall` task. 
+- `/keys` page in Operator UI now exposes several admin commands, namely:
+  - "abandon" to abandon all current txes
+  - enable/disable a key for a given chain
+  - manually set the nonce for a key
+  See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
+
+## 1.8.1 - 2022-09-29
+
+### Added
+
+-  New `GAS_ESTIMATOR_MODE` for Arbitrum to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
+   -  NOTE: It is recommended to remove `GAS_ESTIMATOR_MODE` as an env var if you have it set in order to use the new default.
+   -  This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
+- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+
+### Changed
+
+- EIP1559 is now enabled by default on Goerli network
 
 ## 1.8.0 - 2022-09-01
 
@@ -31,6 +188,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --enable`
     - Disable a key for a particular chain:
       - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --disable`
+    - Abandon all currently pending transactions (use with caution!):
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --abandon`
+  - Commands can be combined e.g.
+    - Reset nonce and abandon all currently pending transaction:
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42 --abandon`
 
 ### Changed
 
@@ -120,7 +282,7 @@ For backward compatibility all insecure passwords will continue to work, however
 
 - The `p2pBootstrapPeers` property on OCR2 job specs has been renamed to `p2pv2Bootstrappers`.
 
-### Added 
+### Added
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
 - In job pipeline (direct request) the three new block variables are exposed:
   - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)

@@ -176,7 +176,7 @@ func TestRequireAuth_Error(t *testing.T) {
 }
 
 // Test RBAC (Role based access control) of each route and their required user roles
-// Admin is omited from the fields here since admin should be able to access all routes
+// Admin is omitted from the fields here since admin should be able to access all routes
 type routeRules struct {
 	verb               string
 	path               string
@@ -318,7 +318,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -355,7 +355,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -401,7 +401,7 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -447,7 +447,7 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 

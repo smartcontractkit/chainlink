@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -16,7 +17,7 @@ type Config interface {
 	EvmGasLimitFMJobType() *uint32
 	EvmMaxQueuedTransactions() uint64
 	FMDefaultTransactionQueueDepth() uint32
-	LogSQL() bool
+	pg.QConfig
 }
 
 // MinimumPollingInterval returns the minimum duration between polling ticks

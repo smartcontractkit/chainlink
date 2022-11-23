@@ -31,7 +31,7 @@ minIncomingConfirmations = 3
 evmChainID = "%d"
 fromAddresses = ["%s"]
 pollPeriod = "5s"
-requestTimeout = "24hr"
+requestTimeout = "24h"
 observationSource = """decode_log   [type=ethabidecodelog
               abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
@@ -62,10 +62,10 @@ func deployUniverse(e helpers.Environment) {
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
-	subscriptionBalanceString := deployCmd.String("subscription-balance", assets.Ether(10).String(), "amount to fund subscription")
+	subscriptionBalanceString := deployCmd.String("subscription-balance", "1e19", "amount to fund subscription")
 
 	// optional flags
-	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", assets.GWei(60_000_000).String(), "fallback wei/link ratio")
+	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
 	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle sender address")
 	minConfs := deployCmd.Int("min-confs", 3, "min confs")

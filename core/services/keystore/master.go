@@ -33,7 +33,7 @@ var ErrLocked = errors.New("Keystore is locked")
 // necessary because it is lazily evaluated
 type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 
-//go:generate mockery --name Master --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Master --output ./mocks/ --case=underscore
 
 type Master interface {
 	CSA() CSA
@@ -67,11 +67,11 @@ type master struct {
 	dkgEncrypt *dkgEncrypt
 }
 
-func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
+func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) Master {
 	return newMaster(db, scryptParams, lggr, cfg)
 }
 
-func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) *master {
+func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) *master {
 	km := &keyManager{
 		orm:          NewORM(db, lggr, cfg),
 		scryptParams: scryptParams,
@@ -287,7 +287,7 @@ func (km *keyManager) save(callbacks ...func(pg.Queryer) error) error {
 
 // caller must hold lock!
 func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) error) error {
-	fieldName, err := getFieldNameForKey(unknownKey)
+	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) e
 
 // caller must hold lock!
 func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(pg.Queryer) error) (err error) {
-	fieldName, err := getFieldNameForKey(unknownKey)
+	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (km *keyManager) isLocked() bool {
 	return len(km.password) == 0
 }
 
-func getFieldNameForKey(unknownKey Key) (string, error) {
+func GetFieldNameForKey(unknownKey Key) (string, error) {
 	switch unknownKey.(type) {
 	case csakey.KeyV2:
 		return "CSA", nil

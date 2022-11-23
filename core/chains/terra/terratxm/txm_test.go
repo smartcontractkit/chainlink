@@ -12,13 +12,13 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/terra.go/msg"
 	"github.com/stretchr/testify/require"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
-	"gopkg.in/guregu/null.v4"
 
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-	"github.com/smartcontractkit/terra.go/msg"
+	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -35,27 +36,27 @@ import (
 
 func TestTxm_Integration(t *testing.T) {
 	t.Skip("requires terrad")
-	cfg, db := heavyweight.FullTestDBNoFixtures(t, "terra_txm")
-	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	logCfg := pgtest.NewPGCfg(true)
 	fallbackGasPrice := sdk.NewDecCoinFromDec("uluna", sdk.MustNewDecFromStr("0.01"))
+	chain := terra.TerraConfig{ChainID: &chainID, Enabled: ptr(true), Chain: tercfg.Chain{
+		FallbackGasPriceULuna: ptr(decimal.RequireFromString("0.01")),
+		GasLimitMultiplier:    ptr(decimal.RequireFromString("1.5")),
+	}}
+	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "terra_txm", func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Terra = terra.TerraConfigs{&chain}
+	})
+	lggr := logger.TestLogger(t)
+	logCfg := pgtest.NewQConfig(true)
 	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
 		terraclient.NewFixedGasPriceEstimator(map[string]sdk.DecCoin{
 			"uluna": fallbackGasPrice,
 		}),
 	}, lggr)
-	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, &ChainCfg{
-		FallbackGasPriceULuna: null.StringFrom(fallbackGasPrice.Amount.String()),
-		GasLimitMultiplier:    null.FloatFrom(1.5),
-	})
-	require.NoError(t, err)
-	chainCfg := pkgterra.NewConfig(*dbChain.Cfg, lggr)
 	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
-	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
+	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	accounts, testdir, tendermintURL := terraclient.SetupLocalTerraNode(t, "42")
 	tc, err := terraclient.NewClient("42", tendermintURL, terra.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
@@ -82,7 +83,7 @@ func TestTxm_Integration(t *testing.T) {
 
 	tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 	// Start txm
-	txm := terratxm.NewTxm(db, tcFn, *gpe, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
+	txm := terratxm.NewTxm(db, tcFn, *gpe, chainID, &chain, ks.Terra(), lggr, pgtest.NewQConfig(true), eb)
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
 	// Change the contract state
@@ -126,3 +127,5 @@ func TestTxm_Integration(t *testing.T) {
 	// Observe the messages have been marked as completed
 	require.NoError(t, txm.Close())
 }
+
+func ptr[T any](t T) *T { return &t }

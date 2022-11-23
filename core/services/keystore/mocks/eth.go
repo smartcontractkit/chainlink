@@ -82,13 +82,20 @@ func (_m *Eth) Delete(id string) (ethkey.KeyV2, error) {
 	return r0, r1
 }
 
-// Disable provides a mock function with given fields: address, chainID
-func (_m *Eth) Disable(address common.Address, chainID *big.Int) error {
-	ret := _m.Called(address, chainID)
+// Disable provides a mock function with given fields: address, chainID, qopts
+func (_m *Eth) Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, address, chainID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) error); ok {
-		r0 = rf(address, chainID)
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) error); ok {
+		r0 = rf(address, chainID, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -401,13 +408,20 @@ func (_m *Eth) IncrementNextNonce(address common.Address, chainID *big.Int, curr
 	return r0
 }
 
-// Reset provides a mock function with given fields: address, chainID, nonce
-func (_m *Eth) Reset(address common.Address, chainID *big.Int, nonce int64) error {
-	ret := _m.Called(address, chainID, nonce)
+// Reset provides a mock function with given fields: address, chainID, nonce, qopts
+func (_m *Eth) Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, address, chainID, nonce)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, int64) error); ok {
-		r0 = rf(address, chainID, nonce)
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, int64, ...pg.QOpt) error); ok {
+		r0 = rf(address, chainID, nonce, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

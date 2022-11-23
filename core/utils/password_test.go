@@ -1,7 +1,6 @@
 package utils_test
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -21,7 +20,7 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 	}{
 		{"thispasswordislongenough", "", []error{}},
 		{"exactlyrightlen1", "", []error{}},
-		{"notlongenough", "", []error{errors.New("password is 13 characters long")}},
+		{"notlongenough", "", []error{errors.New("password is less than 16 characters long")}},
 		{"whitespace in password is ok", "", []error{}},
 		{"\t leading whitespace not ok", "", []error{utils.ErrWhitespace}},
 		{"trailing whitespace not ok\n", "", []error{utils.ErrWhitespace}},
@@ -70,7 +69,7 @@ func TestPasswordFromFile(t *testing.T) {
 		t.Run(test.password, func(t *testing.T) {
 			t.Parallel()
 
-			pwdFile, err := ioutil.TempFile("", "")
+			pwdFile, err := os.CreateTemp("", "")
 			assert.NoError(t, err)
 			defer os.Remove(pwdFile.Name())
 			_, err = pwdFile.WriteString(test.password)

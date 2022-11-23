@@ -22,6 +22,20 @@ type ORM struct {
 	mock.Mock
 }
 
+// AssertBridgesExist provides a mock function with given fields: p
+func (_m *ORM) AssertBridgesExist(p pipeline.Pipeline) error {
+	ret := _m.Called(p)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(pipeline.Pipeline) error); ok {
+		r0 = rf(p)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *ORM) Close() error {
 	ret := _m.Called()
@@ -426,6 +440,29 @@ func (_m *ORM) FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]job.Spec
 	var r1 error
 	if rf, ok := ret.Get(1).(func([]int32, ...pg.QOpt) error); ok {
 		r1 = rf(ids, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTaskResultByRunIDAndTaskName provides a mock function with given fields: runID, taskName
+func (_m *ORM) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error) {
+	ret := _m.Called(runID, taskName)
+
+	var r0 []byte
+	if rf, ok := ret.Get(0).(func(int64, string) []byte); ok {
+		r0 = rf(runID, taskName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, string) error); ok {
+		r1 = rf(runID, taskName)
 	} else {
 		r1 = ret.Error(1)
 	}

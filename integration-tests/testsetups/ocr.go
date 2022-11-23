@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -38,8 +39,9 @@ type OCRSoakTest struct {
 	chainClient     blockchain.EVMClient
 	mockServer      *ctfClient.MockserverClient
 
-	ocrInstances   []contracts.OffchainAggregator
-	ocrInstanceMap map[string]contracts.OffchainAggregator // address : instance
+	ocrInstances          []contracts.OffchainAggregator
+	ocrInstanceMap        map[string]contracts.OffchainAggregator // address : instance
+	OperatorForwarderFlow bool
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -83,7 +85,6 @@ func (t *OCRSoakTest) Setup(env *environment.Environment) {
 	t.mockServer, err = ctfClient.ConnectMockServer(env)
 	Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 	t.chainClient.ParallelTransactions(true)
-
 	// Deploy LINK
 	linkTokenContract, err := contractDeployer.DeployLinkTokenContract()
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
@@ -92,13 +93,41 @@ func (t *OCRSoakTest) Setup(env *environment.Environment) {
 	err = actions.FundChainlinkNodes(t.chainlinkNodes[1:], t.chainClient, t.Inputs.ChainlinkNodeFunding)
 	Expect(err).ShouldNot(HaveOccurred(), "Error funding Chainlink nodes")
 
-	t.ocrInstances = actions.DeployOCRContracts(
-		t.Inputs.NumberOfContracts,
-		linkTokenContract,
-		contractDeployer,
-		t.chainlinkNodes,
-		t.chainClient,
-	)
+	if t.OperatorForwarderFlow {
+		contractLoader, err := contracts.NewContractLoader(t.chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Loading contracts shouldn't fail")
+
+		By("Prepare forwarder contracts onchain")
+		operators, authorizedForwarders, _ := actions.DeployForwarderContracts(contractDeployer, linkTokenContract, t.chainClient, len(t.chainlinkNodes[1:]))
+		forwarderNodes := t.chainlinkNodes[1:]
+		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(t.chainlinkNodes[1:])
+		Expect(err).ShouldNot(HaveOccurred(), "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+		for i := range forwarderNodes {
+			actions.AcceptAuthorizedReceiversOperator(operators[i], authorizedForwarders[i], []common.Address{forwarderNodesAddresses[i]}, t.chainClient, contractLoader)
+			Expect(err).ShouldNot(HaveOccurred(), "Accepting Authorize Receivers on Operator shouldn't fail")
+			By("Add forwarder track into DB")
+			actions.TrackForwarder(t.chainClient, authorizedForwarders[i], forwarderNodes[i])
+			err = t.chainClient.WaitForEvents()
+		}
+
+		t.ocrInstances = actions.DeployOCRContractsForwarderFlow(
+			t.Inputs.NumberOfContracts,
+			linkTokenContract,
+			contractDeployer,
+			t.chainlinkNodes,
+			authorizedForwarders,
+			t.chainClient,
+		)
+	} else {
+		t.ocrInstances = actions.DeployOCRContracts(
+			t.Inputs.NumberOfContracts,
+			linkTokenContract,
+			contractDeployer,
+			t.chainlinkNodes,
+			t.chainClient,
+		)
+	}
+
 	err = t.chainClient.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for OCR contracts to be deployed")
 	for _, ocrInstance := range t.ocrInstances {
@@ -117,7 +146,11 @@ func (t *OCRSoakTest) Run() {
 	// Set initial value and create jobs
 	By("Setting adapter responses",
 		actions.SetAllAdapterResponsesToTheSameValue(t.Inputs.StartingAdapterValue, t.ocrInstances, t.chainlinkNodes, t.mockServer))
-	By("Creating OCR jobs", actions.CreateOCRJobs(t.ocrInstances, t.chainlinkNodes, t.mockServer))
+	if t.OperatorForwarderFlow {
+		By("Creating OCR jobs operator forwarder flow", actions.CreateOCRJobsWithForwarder(t.ocrInstances, t.chainlinkNodes, t.mockServer))
+	} else {
+		By("Creating OCR jobs", actions.CreateOCRJobs(t.ocrInstances, t.chainlinkNodes, t.mockServer))
+	}
 
 	log.Info().
 		Str("Test Duration", t.Inputs.TestDuration.Truncate(time.Second).String()).
@@ -170,7 +203,7 @@ func (t *OCRSoakTest) Run() {
 			log.Warn().Msg("OCR round timed out")
 			expiredRoundTrigger = time.NewTimer(t.Inputs.RoundTimeout)
 			remainingExpectedAnswers = len(t.ocrInstances)
-			t.triggerNewRound(rand.Int()) // #nosec G404 | Just triggering a random number
+			t.triggerNewRound(rand.Intn(t.Inputs.StartingAdapterValue*25-1-t.Inputs.StartingAdapterValue) + t.Inputs.StartingAdapterValue) // #nosec G404 | Just triggering a random number
 		}
 	}
 }

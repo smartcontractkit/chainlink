@@ -1,0 +1,29 @@
+[[Solana]]
+ChainID = 'mainnet'
+BalancePollPeriod = '8s'
+ConfirmPollPeriod = '5m9s'
+OCR2CachePollPeriod = '1h7m0s'
+OCR2CacheTTL = '42m10s'
+TxTimeout = '1s'
+TxRetryTimeout = '1m0s'
+TxConfirmTimeout = '1h0m0s'
+SkipPreflight = true
+Commitment = 'foobar'
+MaxRetries = 7
+
+[[Solana.Nodes]]
+Name = 'mainnet'
+URL = 'http://foo.bar'
+
+[[Solana.Nodes]]
+Name = 'mainnet-2'
+URL = 'http://fake.url'
+
+[[Solana]]
+ChainID = 'testnet'
+Enabled = false
+SkipPreflight = false
+
+[[Solana.Nodes]]
+Name = 'testnet'
+URL = 'http://test.sol'

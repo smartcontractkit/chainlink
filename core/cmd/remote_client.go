@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -431,7 +430,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 }
 
 func (cli *Client) configDumpStr() (string, error) {
-	resp, err := cli.HTTP.Get("/v2/config/v2")
+	resp, err := cli.HTTP.Get("/v2/config/dump-v1-as-v2")
 	if err != nil {
 		return "", cli.errorOut(err)
 	}
@@ -441,7 +440,7 @@ func (cli *Client) configDumpStr() (string, error) {
 		}
 	}()
 
-	respPayload, err := ioutil.ReadAll(resp.Body)
+	respPayload, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", cli.errorOut(err)
 	}
@@ -463,13 +462,49 @@ func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
 	return nil
 }
 
-func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	err := cli.Config.Validate()
+func (cli *Client) ConfigV2(c *clipkg.Context) error {
+	userOnly := c.Bool("user-only")
+	s, err := cli.configV2Str(userOnly)
 	if err != nil {
 		return err
 	}
+	fmt.Println(s)
+	return nil
+}
+
+func (cli *Client) configV2Str(userOnly bool) (string, error) {
+	resp, err := cli.HTTP.Get(fmt.Sprintf("/v2/config/v2?userOnly=%t", userOnly))
+	if err != nil {
+		return "", cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	respPayload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", cli.errorOut(err)
+	}
+	if resp.StatusCode != 200 {
+		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
+	}
+	var configV2Resource web.ConfigV2Resource
+	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
+	if err != nil {
+		return "", cli.errorOut(err)
+	}
+	return configV2Resource.Config, nil
+}
+
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	err := cli.Config.Validate()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+	}
 	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
-	return err
+	return nil
 }
 
 func normalizePassword(password string) string {
@@ -553,7 +588,7 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := ioutil.ReadFile(dir)
+	file, err := os.ReadFile(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -573,7 +608,7 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 }
 
 func parseResponse(resp *http.Response) ([]byte, error) {
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return b, multierr.Append(errors.New(resp.Status), err)
 	}
@@ -604,7 +639,7 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 	}
 	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
 
-	remoteSemverUnset := remoteVersion == "unset" || remoteVersion == "" || remoteSha == "unset" || remoteSha == ""
+	remoteSemverUnset := remoteVersion == static.Unset || remoteVersion == "" || remoteSha == static.Unset || remoteSha == ""
 	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
 
 	if remoteSemverUnset || cliRemoteSemverMismatch {
@@ -614,7 +649,9 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 			return nil
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
-		cli.CookieAuthenticator.Logout()
+		if err2 := cli.CookieAuthenticator.Logout(); err2 != nil {
+			cli.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2)
+		}
 		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}
 	return nil

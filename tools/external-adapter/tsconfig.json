@@ -1,7 +1,0 @@
-{
-  "extends": "../../tsconfig.cjs.json",
-  "compilerOptions": {
-    "outDir": "./dist" /* Redirect output structure to the directory. */
-  },
-  "files": ["src/index.ts"]
-}

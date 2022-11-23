@@ -29,6 +29,12 @@ func (rw *RegistryWrapper) GetUpkeepIdFromRawRegistrationLog(rawLog types.Log) (
 			return nil, errors.Wrap(err, "failed to get parse UpkeepRegistered log")
 		}
 		return parsedLog.Id, nil
+	case RegistryVersion_1_3:
+		parsedLog, err := rw.contract1_3.ParseUpkeepRegistered(rawLog)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get parse UpkeepRegistered log")
+		}
+		return parsedLog.Id, nil
 	default:
 		return nil, newUnsupportedVersionError("GetUpkeepIdFromRawRegistrationLog", rw.Version)
 	}

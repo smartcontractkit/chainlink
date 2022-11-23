@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
@@ -39,8 +40,8 @@ const (
 	BootstrapJobType          string = "bootstrap"
 )
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --name Task --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -60,6 +61,7 @@ type (
 
 	Config interface {
 		BridgeResponseURL() *url.URL
+		BridgeCacheTTL() time.Duration
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
@@ -233,6 +235,34 @@ type JSONSerializable struct {
 	Valid bool
 }
 
+func reinterpetJsonNumbers(val interface{}) (interface{}, error) {
+	switch v := val.(type) {
+	case json.Number:
+		return getJsonNumberValue(v)
+	case []interface{}:
+		s := make([]interface{}, len(v))
+		for i, vv := range v {
+			ival, ierr := reinterpetJsonNumbers(vv)
+			if ierr != nil {
+				return nil, ierr
+			}
+			s[i] = ival
+		}
+		return s, nil
+	case map[string]interface{}:
+		m := make(map[string]interface{}, len(v))
+		for k, vv := range v {
+			ival, ierr := reinterpetJsonNumbers(vv)
+			if ierr != nil {
+				return nil, ierr
+			}
+			m[k] = ival
+		}
+		return m, nil
+	}
+	return val, nil
+}
+
 // UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
@@ -242,9 +272,27 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 		js.Valid = false
 		return nil
 	}
-	err := json.Unmarshal(bs, &js.Val)
-	js.Valid = err == nil && js.Val != nil
-	return err
+
+	var decoded interface{}
+	d := json.NewDecoder(bytes.NewReader(bs))
+	d.UseNumber()
+	if err := d.Decode(&decoded); err != nil {
+		return err
+	}
+
+	if decoded != nil {
+		reinterpreted, err := reinterpetJsonNumbers(decoded)
+		if err != nil {
+			return err
+		}
+
+		*js = JSONSerializable{
+			Valid: true,
+			Val:   reinterpreted,
+		}
+	}
+
+	return nil
 }
 
 // MarshalJSON implements custom marshaling logic
@@ -289,34 +337,38 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP             TaskType = "http"
-	TaskTypeBridge           TaskType = "bridge"
-	TaskTypeMean             TaskType = "mean"
-	TaskTypeMedian           TaskType = "median"
-	TaskTypeMode             TaskType = "mode"
-	TaskTypeSum              TaskType = "sum"
-	TaskTypeMultiply         TaskType = "multiply"
-	TaskTypeDivide           TaskType = "divide"
-	TaskTypeJSONParse        TaskType = "jsonparse"
-	TaskTypeCBORParse        TaskType = "cborparse"
 	TaskTypeAny              TaskType = "any"
-	TaskTypeVRF              TaskType = "vrf"
-	TaskTypeVRFV2            TaskType = "vrfv2"
-	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
-	TaskTypeETHCall          TaskType = "ethcall"
-	TaskTypeETHTx            TaskType = "ethtx"
-	TaskTypeETHABIEncode     TaskType = "ethabiencode"
-	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
-	TaskTypeETHABIDecode     TaskType = "ethabidecode"
-	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
-	TaskTypeMerge            TaskType = "merge"
-	TaskTypeLowercase        TaskType = "lowercase"
-	TaskTypeUppercase        TaskType = "uppercase"
-	TaskTypeConditional      TaskType = "conditional"
-	TaskTypeHexDecode        TaskType = "hexdecode"
-	TaskTypeHexEncode        TaskType = "hexencode"
 	TaskTypeBase64Decode     TaskType = "base64decode"
 	TaskTypeBase64Encode     TaskType = "base64encode"
+	TaskTypeBridge           TaskType = "bridge"
+	TaskTypeCBORParse        TaskType = "cborparse"
+	TaskTypeConditional      TaskType = "conditional"
+	TaskTypeDivide           TaskType = "divide"
+	TaskTypeETHABIDecode     TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
+	TaskTypeETHABIEncode     TaskType = "ethabiencode"
+	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
+	TaskTypeETHCall          TaskType = "ethcall"
+	TaskTypeETHGetBlock      TaskType = "ethgetblock"
+	TaskTypeETHTx            TaskType = "ethtx"
+	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
+	TaskTypeHTTP             TaskType = "http"
+	TaskTypeHexDecode        TaskType = "hexdecode"
+	TaskTypeHexEncode        TaskType = "hexencode"
+	TaskTypeJSONParse        TaskType = "jsonparse"
+	TaskTypeLength           TaskType = "length"
+	TaskTypeLessThan         TaskType = "lessthan"
+	TaskTypeLookup           TaskType = "lookup"
+	TaskTypeLowercase        TaskType = "lowercase"
+	TaskTypeMean             TaskType = "mean"
+	TaskTypeMedian           TaskType = "median"
+	TaskTypeMerge            TaskType = "merge"
+	TaskTypeMode             TaskType = "mode"
+	TaskTypeMultiply         TaskType = "multiply"
+	TaskTypeSum              TaskType = "sum"
+	TaskTypeUppercase        TaskType = "uppercase"
+	TaskTypeVRF              TaskType = "vrf"
+	TaskTypeVRFV2            TaskType = "vrfv2"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -377,6 +429,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHGetBlock:
+		task = &ETHGetBlockTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:
@@ -393,6 +447,12 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMerge:
 		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLength:
+		task = &LengthTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLessThan:
+		task = &LessThanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLookup:
+		task = &LookupTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeLowercase:
 		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeUppercase:
@@ -566,4 +626,28 @@ func uint8ArrayToSlice(arr interface{}) interface{} {
 	s := reflect.MakeSlice(reflect.SliceOf(t.Elem()), v.Len(), v.Len())
 	reflect.Copy(s, v)
 	return s.Interface()
+}
+
+func getJsonNumberValue(value json.Number) (interface{}, error) {
+	var result interface{}
+
+	bn, ok := new(big.Int).SetString(value.String(), 10)
+	if ok {
+		if bn.IsInt64() {
+			result = bn.Int64()
+		} else if bn.IsUint64() {
+			result = bn.Uint64()
+		} else {
+			result = bn
+		}
+	} else {
+		f, err := value.Float64()
+		if err == nil {
+			result = f
+		} else {
+			return nil, errors.Errorf("failed to parse json.Value: %v", err)
+		}
+	}
+
+	return result, nil
 }

@@ -10,6 +10,7 @@ func NewDKGEncryptKeysController(app chainlink.Application) KeysController {
 	return NewKeysController[dkgencryptkey.Key, presenters.DKGEncryptKeyResource](
 		app.GetKeyStore().DKGEncrypt(),
 		app.GetLogger(),
+		app.GetAuditLogger(),
 		"dkgencryptKey",
 		presenters.NewDKGEncryptKeyResource,
 		presenters.NewDKGEncryptKeyResources)

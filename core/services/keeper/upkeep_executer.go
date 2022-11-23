@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const (
@@ -45,18 +45,19 @@ var (
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
-	chStop          chan struct{}
-	ethClient       evmclient.Client
-	config          Config
-	executionQueue  chan struct{}
-	headBroadcaster httypes.HeadBroadcasterRegistry
-	gasEstimator    gas.Estimator
-	job             job.Job
-	mailbox         *utils.Mailbox[*evmtypes.Head]
-	orm             ORM
-	pr              pipeline.Runner
-	logger          logger.Logger
-	wgDone          sync.WaitGroup
+	chStop                 chan struct{}
+	ethClient              evmclient.Client
+	config                 Config
+	executionQueue         chan struct{}
+	headBroadcaster        httypes.HeadBroadcasterRegistry
+	gasEstimator           gas.Estimator
+	job                    job.Job
+	mailbox                *utils.Mailbox[*evmtypes.Head]
+	orm                    ORM
+	pr                     pipeline.Runner
+	logger                 logger.Logger
+	wgDone                 sync.WaitGroup
+	effectiveKeeperAddress common.Address
 	utils.StartStopOnce
 }
 
@@ -70,19 +71,21 @@ func NewUpkeepExecuter(
 	gasEstimator gas.Estimator,
 	logger logger.Logger,
 	config Config,
+	effectiveKeeperAddress common.Address,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:          make(chan struct{}),
-		ethClient:       ethClient,
-		executionQueue:  make(chan struct{}, executionQueueSize),
-		headBroadcaster: headBroadcaster,
-		gasEstimator:    gasEstimator,
-		job:             job,
-		mailbox:         utils.NewMailbox[*evmtypes.Head](1),
-		config:          config,
-		orm:             orm,
-		pr:              pr,
-		logger:          logger.Named("UpkeepExecuter"),
+		chStop:                 make(chan struct{}),
+		ethClient:              ethClient,
+		executionQueue:         make(chan struct{}, executionQueueSize),
+		headBroadcaster:        headBroadcaster,
+		gasEstimator:           gasEstimator,
+		job:                    job,
+		mailbox:                utils.NewMailbox[*evmtypes.Head](1),
+		config:                 config,
+		orm:                    orm,
+		pr:                     pr,
+		effectiveKeeperAddress: effectiveKeeperAddress,
+		logger:                 logger.Named("UpkeepExecuter"),
 	}
 }
 
@@ -215,27 +218,10 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		evmChainID = ex.job.KeeperSpec.EVMChainID.String()
 	}
 
-	var gasPrice, gasTipCap, gasFeeCap *big.Int
-	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
-		price, fee, err := ex.estimateGasPrice(upkeep)
-		if err != nil {
-			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
-			return
-		}
-		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
-
-		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
-		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
-		// Note: gasPrice will be nil if EvmEIP1559DynamicFees is enabled.
-		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
-			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), ex.config.KeeperBaseFeeBufferPercent())
-			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
-				gasPrice = baseFee
-			}
-		}
-	}
-
-	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, upkeep, ex.orm.config, ex.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
+	var gasPrice, gasTipCap, gasFeeCap *assets.Wei
+	// effectiveKeeperAddress is always fromAddress when forwarding is not enabled.
+	// when forwarding is enabled, effectiveKeeperAddress is on-chain forwarder.
+	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, ex.effectiveKeeperAddress, upkeep, ex.orm.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
 
 	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
 	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
@@ -261,39 +247,6 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	}
 }
 
-func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
-	var performTxData []byte
-	performTxData, err = Registry1_1ABI.Pack(
-		"performUpkeep", // performUpkeep is same across registry ABI versions
-		upkeep.UpkeepID.ToInt(),
-		common.Hex2Bytes("1234"), // placeholder
-	)
-	if err != nil {
-		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
-	}
-
-	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
-	if ex.config.EvmEIP1559DynamicFees() {
-		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas, keySpecificGasPriceWei)
-		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasTipCapBufferPercent())
-	} else {
-		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
-		gasPrice = addBuffer(gasPrice, ex.config.KeeperGasPriceBufferPercent())
-	}
-	if err != nil {
-		return nil, fee, errors.Wrap(err, "unable to estimate gas")
-	}
-
-	return gasPrice, fee, nil
-}
-
-func addBuffer(val *big.Int, prct uint32) *big.Int {
-	return bigmath.Div(
-		bigmath.Mul(val, 100+prct),
-		100,
-	)
-}
-
 func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
 	block, err := ex.ethClient.HeaderByNumber(context.Background(), big.NewInt(turnBlock))
@@ -307,28 +260,31 @@ func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.
 
 func buildJobSpec(
 	jb job.Job,
+	effectiveKeeperAddress common.Address,
 	upkeep UpkeepRegistration,
 	ormConfig RegistryGasChecker,
-	exConfig RegistryGasChecker,
-	gasPrice *big.Int,
-	gasTipCap *big.Int,
-	gasFeeCap *big.Int,
+	gasPrice *assets.Wei,
+	gasTipCap *assets.Wei,
+	gasFeeCap *assets.Wei,
 	chainID string,
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"jobID":                 jb.ID,
-			"fromAddress":           upkeep.Registry.FromAddress.String(),
-			"contractAddress":       upkeep.Registry.ContractAddress.String(),
-			"upkeepID":              upkeep.UpkeepID.String(),
-			"prettyID":              upkeep.PrettyID(),
+			"jobID":                  jb.ID,
+			"fromAddress":            upkeep.Registry.FromAddress.String(),
+			"effectiveKeeperAddress": effectiveKeeperAddress.String(),
+			"contractAddress":        upkeep.Registry.ContractAddress.String(),
+			"upkeepID":               upkeep.UpkeepID.String(),
+			"prettyID":               upkeep.PrettyID(),
+			"pipelineSpec": &pipeline.Spec{
+				ForwardingAllowed: jb.ForwardingAllowed,
+			},
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
-			"checkUpkeepGasLimit": exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
-				exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":   gasPrice,
-			"gasTipCap":  gasTipCap,
-			"gasFeeCap":  gasFeeCap,
-			"evmChainID": chainID,
+			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
+			"gasPrice":              gasPrice.ToInt(),
+			"gasTipCap":             gasTipCap.ToInt(),
+			"gasFeeCap":             gasFeeCap.ToInt(),
+			"evmChainID":            chainID,
 		},
 	}
 }

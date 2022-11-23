@@ -11,10 +11,13 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -37,37 +40,36 @@ func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
 func TestClient_IndexEVMNodes(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	orm := app.EVMORM()
-	_, initialCount, err := orm.Nodes(0, 25)
-	require.NoError(t, err)
-	chain := mustInsertEVMChain(t, orm)
-
-	params := types.Node{
-		Name:       "Test node",
-		EVMChainID: chain.ID,
-		WSURL:      null.StringFrom("ws://localhost:8546"),
-		HTTPURL:    null.StringFrom("http://localhost:8546"),
-		SendOnly:   false,
+	chainID := newRandChainID()
+	node := evmcfg.Node{
+		Name:     ptr("Test node"),
+		WSURL:    models.MustParseURL("ws://localhost:8546"),
+		HTTPURL:  models.MustParseURL("http://localhost:8546"),
+		SendOnly: ptr(false),
 	}
-	node, err := orm.CreateNode(params)
-	require.NoError(t, err)
+	chain := evmcfg.EVMConfig{
+		ChainID: chainID,
+		Chain:   evmcfg.Defaults(chainID),
+		Nodes:   evmcfg.EVMNodes{&node},
+	}
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM = evmcfg.EVMConfigs{&chain}
+	})
+	client, r := app.NewClientAndRenderer()
 
 	require.Nil(t, cmd.NewEVMNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.EVMNodePresenters)
-	require.Len(t, nodes, initialCount+1)
-	n := nodes[initialCount]
-	assert.Equal(t, strconv.FormatInt(int64(node.ID), 10), n.ID)
-	assert.Equal(t, params.Name, n.Name)
-	assert.Equal(t, params.EVMChainID, n.EVMChainID)
-	assert.Equal(t, params.WSURL, n.WSURL)
-	assert.Equal(t, params.HTTPURL, n.HTTPURL)
+	require.Len(t, nodes, 1)
+	n := nodes[0]
+	assert.Equal(t, "0", n.ID)
+	assert.Equal(t, *node.Name, n.Name)
+	assert.Equal(t, node.WSURL.String(), n.WSURL.String)
+	assert.Equal(t, node.HTTPURL.String(), n.HTTPURL.String)
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_CreateEVMNode(t *testing.T) {
 	t.Parallel()
 
@@ -120,6 +122,7 @@ func TestClient_CreateEVMNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func TestClient_RemoveEVMNode(t *testing.T) {
 	t.Parallel()
 

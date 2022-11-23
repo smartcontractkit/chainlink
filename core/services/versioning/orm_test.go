@@ -9,11 +9,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(db, logger.TestLogger(t))
+	orm := NewORM(db, logger.TestLogger(t), pg.DefaultQueryTimeout)
 
 	err := orm.UpsertNodeVersion(NewNodeVersion("9.9.8"))
 	require.NoError(t, err)
@@ -61,13 +63,13 @@ func Test_Version_CheckVersion(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	orm := NewORM(db, lggr)
+	orm := NewORM(db, lggr, pg.DefaultQueryTimeout)
 
 	err := orm.UpsertNodeVersion(NewNodeVersion("9.9.8"))
 	require.NoError(t, err)
 
 	// invalid app version semver returns error
-	_, _, err = CheckVersion(db, lggr, "unset")
+	_, _, err = CheckVersion(db, lggr, static.Unset)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `Application version "unset" is not valid semver`)
 	_, _, err = CheckVersion(db, lggr, "some old bollocks")
@@ -95,7 +97,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 
 func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(db, logger.TestLogger(t))
+	orm := NewORM(db, logger.TestLogger(t), pg.DefaultQueryTimeout)
 
 	// Not Found
 	_, err := orm.FindLatestNodeVersion()

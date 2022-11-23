@@ -33,9 +33,11 @@ import (
 
 // Config encompasses config used by txmgr package
 // Unless otherwise specified, these should support changing at runtime
-//go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
+//
+//go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
 	gas.Config
+	pg.QConfig
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -47,19 +49,19 @@ type Config interface {
 	EvmNonceAutoSync() bool
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	TriggerFallbackDBPollInterval() time.Duration
-	LogSQL() bool
 }
 
 // KeyStore encompasses the subset of keystore used by txmgr
 type KeyStore interface {
+	CheckEnabled(address common.Address, chainID *big.Int) error
+	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
+	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
+	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
-	CheckEnabled(address common.Address, chainID *big.Int) error
 }
 
 // For more information about the Txm architecture, see the design doc:
@@ -70,12 +72,13 @@ var _ TxManager = &Txm{}
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 
-//go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
+//go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
 	httypes.HeadTrackable
 	services.ServiceCtx
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
+	GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error)
 	GetGasEstimator() gas.Estimator
 	RegisterResumeCallback(fn ResumeCallback)
 	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error)
@@ -152,7 +155,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		reset:            make(chan reset),
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, db, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
@@ -164,7 +167,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	if cfg.EvmUseForwarders() {
 		b.fwdMgr = forwarders.NewFwdMgr(db, ethClient, logPoller, lggr, cfg)
 	} else {
-		b.logger.Info("EvmForwardManager: Disabled")
+		b.logger.Info("EvmForwarderManager: Disabled")
 	}
 
 	return &b
@@ -191,17 +194,17 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 				return errors.Wrap(err, "Txm: failed to sync with on-chain nonce")
 			}
 		}
-
+		var ms services.MultiStart
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-		if err = eb.Start(ctx); err != nil {
+		if err = ms.Start(ctx, eb); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err = ec.Start(); err != nil {
+		if err = ms.Start(ctx, ec); err != nil {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err = b.gasEstimator.Start(ctx); err != nil {
+		if err = ms.Start(ctx, b.gasEstimator); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
@@ -218,7 +221,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		if b.fwdMgr != nil {
-			if err = b.fwdMgr.Start(ctx); err != nil {
+			if err = ms.Start(ctx, b.fwdMgr); err != nil {
 				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}
@@ -267,7 +270,7 @@ func (b *Txm) Close() (merr error) {
 			b.ethResender.Stop()
 		}
 		if b.fwdMgr != nil {
-			if err := b.fwdMgr.Stop(); err != nil {
+			if err := b.fwdMgr.Close(); err != nil {
 				return errors.Wrap(err, "Txm: failed to stop EVMForwarderManager")
 			}
 		}
@@ -352,7 +355,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := ec.Start(); err != nil {
+					if err := ec.Start(ctx); err != nil {
 						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
 						continue
 					}
@@ -448,12 +451,12 @@ func (b *Txm) Trigger(addr common.Address) {
 }
 
 type NewTx struct {
-	FromAddress    common.Address
-	ToAddress      common.Address
-	EncodedPayload []byte
-	GasLimit       uint32
-	Meta           *EthTxMeta
-	Forwardable    bool
+	FromAddress      common.Address
+	ToAddress        common.Address
+	EncodedPayload   []byte
+	GasLimit         uint32
+	Meta             *EthTxMeta
+	ForwarderAddress common.Address
 
 	// Pipeline variables - if you aren't calling this from ethtx task within
 	// the pipeline, you don't need these variables
@@ -474,8 +477,8 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 
 	q := b.q.WithOpts(qs...)
 
-	if b.config.EvmUseForwarders() && newTx.Forwardable {
-		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
+	if b.config.EvmUseForwarders() && (newTx.ForwarderAddress != common.Address{}) {
+		fwdPayload, fwdErr := b.fwdMgr.GetForwardedPayload(newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
 			if newTx.Meta != nil {
@@ -485,10 +488,10 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 					FwdrDestAddress: &newTx.ToAddress,
 				}
 			}
-			newTx.ToAddress = fwdAddr
+			newTx.ToAddress = newTx.ForwarderAddress
 			newTx.EncodedPayload = fwdPayload
 		} else {
-			b.logger.Infof("Skipping using forwarders: %s", fwdErr.Error())
+			b.logger.Errorf("Failed to use forwarder set upstream: %s", fwdErr.Error())
 		}
 	}
 
@@ -530,6 +533,15 @@ RETURNING "eth_txes".*
 		}
 		return nil
 	})
+	return
+}
+
+// Calls forwarderMgr to get a proper forwarder for a given EOA.
+func (b *Txm) GetForwarderForEOA(eoa common.Address) (forwarder common.Address, err error) {
+	if !b.config.EvmUseForwarders() {
+		return common.Address{}, errors.Errorf("Forwarding is not enabled, to enable set ETH_USE_FORWARDERS=true")
+	}
+	forwarder, err = b.fwdMgr.GetForwarderForEOA(eoa)
 	return
 }
 
@@ -714,6 +726,9 @@ func (n *NullTxManager) Close() error { return nil }
 func (n *NullTxManager) Trigger(common.Address) { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
+}
+func (n *NullTxManager) GetForwarderForEOA(addr common.Address) (fwdr common.Address, err error) {
+	return fwdr, err
 }
 func (n *NullTxManager) Reset(f func(), addr common.Address, abandon bool) error {
 	return nil

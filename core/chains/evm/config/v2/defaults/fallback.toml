@@ -1,27 +1,34 @@
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
 FinalityDepth = 50
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxInFlightTransactions = 16
-MaxQueuedTransactions = 250
+LogKeepBlocksDepth = 100000
+MinContractPayment = '.00001 link'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '.00001 link'
 NonceAutoSync = true
+NoNewHeadsThreshold = '3m'
 RPCDefaultBatchSize = 100
-TxReaperInterval = '1h'
-TxReaperThreshold = '168h'
-TxResendAfterThreshold = '1m'
-UseForwarders = false
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h'
+ReaperThreshold = '168h'
+ResendAfterThreshold = '1m'
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '100000 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500_000
+LimitMax = 500_000
 LimitMultiplier = '1'
 LimitTransfer = 21_000
 BumpMin = '5 gwei'
@@ -31,28 +38,31 @@ BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
-TipCapMinimum = '1'
+TipCapMin = '1'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
+
+[OCR2.Automation]
+GasLimit = 5300000

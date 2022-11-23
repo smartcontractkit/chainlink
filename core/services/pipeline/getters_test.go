@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -64,6 +65,9 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 	errVal, err := vars.Get("err")
 	require.NoError(t, err)
 
+	big, ok := new(big.Int).SetString("314159265358979323846264338327950288419716939937510582097494459", 10)
+	require.True(t, ok)
+
 	tests := []struct {
 		json        string
 		field       string
@@ -80,6 +84,10 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 		{`{}`, "", map[string]interface{}{}, nil, false},
 		{`{ "e": $(err) }`, "e", errVal, nil, true},
 		{`null`, "", nil, nil, false},
+		{`{ "x": 314159265358979323846264338327950288419716939937510582097494459 }`, "x", big, nil, false},
+		{`{ "x": 3141592653589 }`, "x", int64(3141592653589), nil, false},
+		{`{ "x": 18446744073709551615 }`, "x", uint64(18446744073709551615), nil, false},
+		{`{ "x": 3141592653589.567 }`, "x", float64(3141592653589.567), nil, false},
 		// errors
 		{`  `, "", nil, pipeline.ErrParameterEmpty, false},
 		{`{ "x": $(missing) }`, "x", nil, pipeline.ErrKeypathNotFound, false},
@@ -178,6 +186,40 @@ func TestGetters_NonemptyString(t *testing.T) {
 		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
 		_, err = pipeline.NonemptyString(" ")()
 		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+	})
+}
+
+func TestGetters_ValidDurationInSeconds(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns duration in seconds", func(t *testing.T) {
+		val, err := pipeline.ValidDurationInSeconds("10s")()
+		assert.NoError(t, err)
+		assert.Equal(t, 10, val)
+
+		val, err = pipeline.ValidDurationInSeconds("1m")()
+		assert.NoError(t, err)
+		assert.Equal(t, 60, val)
+
+		val, err = pipeline.ValidDurationInSeconds("1h")()
+		assert.NoError(t, err)
+		assert.Equal(t, 3600, val)
+	})
+
+	t.Run("returns ErrParameterEmpty when given an empty string (including only spaces)", func(t *testing.T) {
+		_, err := pipeline.ValidDurationInSeconds("")()
+		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+		_, err = pipeline.ValidDurationInSeconds(" ")()
+		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+	})
+
+	t.Run("returns duration errors when given invalid durations", func(t *testing.T) {
+		_, err := pipeline.ValidDurationInSeconds("1b")()
+		assert.Contains(t, err.Error(), "unknown unit")
+		_, err = pipeline.ValidDurationInSeconds("5")()
+		assert.Contains(t, err.Error(), "missing unit")
+		_, err = pipeline.ValidDurationInSeconds("!m")()
+		assert.Contains(t, err.Error(), "invalid duration")
 	})
 }
 

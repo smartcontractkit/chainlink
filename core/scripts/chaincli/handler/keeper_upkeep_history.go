@@ -21,8 +21,6 @@ import (
 	registry11 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
@@ -62,26 +60,17 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		log.Fatalf("blocks range difference must not more than %d", defaultMaxBlocksRange)
 	}
 
-	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
-	var registryAddr common.Address
 	var keeperRegistry11 *registry11.KeeperRegistry
 	var keeperRegistry12 *registry12.KeeperRegistry
+	// var keeperRegistry20 *registry20.KeeperRegistry
 
-	if isVersion12 {
-		registryAddr, keeperRegistry12 = k.getRegistry2(ctx)
-	} else {
-		registryAddr, keeperRegistry11 = k.getRegistry1(ctx)
-	}
-
-	// Get positioning constant of the current registry
-	var positioningConstant int32
-	var err error
-	if !isVersion12 {
-		positioningConstant, err = keeper.CalcPositioningConstant(utils.NewBig(upkeepId), ethkey.EIP55AddressFromAddress(registryAddr))
-		if err != nil {
-			log.Fatal("failed to get positioning constant: ", err)
-		}
-		log.Println("Calculated Positioning Constant for the registry: ", positioningConstant)
+	switch k.cfg.RegistryVersion {
+	case keeper.RegistryVersion_1_1:
+		_, keeperRegistry11 = k.getRegistry11(ctx)
+	case keeper.RegistryVersion_1_2:
+		_, keeperRegistry12 = k.getRegistry12(ctx)
+	default:
+		panic("unsupported registry version")
 	}
 
 	log.Println("Preparing a batch call request")
@@ -99,48 +88,10 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		var bcpt uint64
 		var payload []byte
 		var keeperIndex uint64
+		var lastKeeper common.Address
 
-		if isVersion12 {
-			state, err2 := keeperRegistry12.GetState(callOpts)
-			if err2 != nil {
-				log.Fatal("failed to fetch registry state: ", err2)
-			}
-			bcpt = state.Config.BlockCountPerTurn.Uint64()
-			keepers = state.Keepers
-			keepersCnt := uint64(len(state.Keepers))
-
-			upkeep, err2 := keeperRegistry12.GetUpkeep(callOpts, upkeepId)
-			if err2 != nil {
-				log.Fatal("failed to fetch the upkeep: ", err2)
-			}
-
-			turnBinary, err2 := turnBlockHashBinary(block, bcpt, defaultLookBackRange, k.client)
-			if err2 != nil {
-				log.Fatal("failed to calculate turn block hash: ", err2)
-			}
-
-			// least significant 32 bits of upkeep id
-			lhs := keeper.LeastSignificant32(upkeepId)
-
-			// least significant 32 bits of the turn block hash
-			turnBinaryPtr, ok := math.ParseBig256(string([]byte(turnBinary)[len(turnBinary)-32:]))
-			if !ok {
-				log.Fatal("failed to parse turn binary ", turnBinary)
-			}
-			rhs := keeper.LeastSignificant32(turnBinaryPtr)
-
-			// bitwise XOR
-			turn := lhs ^ rhs
-
-			keeperIndex = turn % keepersCnt
-			if keepers[keeperIndex] == upkeep.LastKeeper {
-				keeperIndex = (keeperIndex + keepersCnt - 1) % keepersCnt
-			}
-			payload, err2 = registry12ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
-			if err2 != nil {
-				log.Fatal("failed to pack checkUpkeep: ", err2)
-			}
-		} else {
+		switch k.cfg.RegistryVersion {
+		case keeper.RegistryVersion_1_1:
 			config, err2 := keeperRegistry11.GetConfig(callOpts)
 			if err2 != nil {
 				log.Fatal("failed to fetch registry config: ", err2)
@@ -152,11 +103,67 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 				log.Fatal("failed to fetch keepers list: ", err2)
 			}
 
-			keeperIndex = (uint64(positioningConstant) + ((block - (block % bcpt)) / bcpt)) % uint64(len(keepers))
+			upkeep, err2 := keeperRegistry11.GetUpkeep(callOpts, upkeepId)
+			if err2 != nil {
+				log.Fatal("failed to fetch the upkeep: ", err2)
+			}
+			lastKeeper = upkeep.LastKeeper
+
+		case keeper.RegistryVersion_1_2:
+			state, err2 := keeperRegistry12.GetState(callOpts)
+			if err2 != nil {
+				log.Fatal("failed to fetch registry state: ", err2)
+			}
+			bcpt = state.Config.BlockCountPerTurn.Uint64()
+			keepers = state.Keepers
+
+			upkeep, err2 := keeperRegistry12.GetUpkeep(callOpts, upkeepId)
+			if err2 != nil {
+				log.Fatal("failed to fetch the upkeep: ", err2)
+			}
+			lastKeeper = upkeep.LastKeeper
+
+		default:
+			panic("unsupported registry version")
+		}
+
+		turnBinary, err2 := turnBlockHashBinary(block, bcpt, defaultLookBackRange, k.client)
+		if err2 != nil {
+			log.Fatal("failed to calculate turn block hash: ", err2)
+		}
+
+		// least significant 32 bits of upkeep id
+		lhs := keeper.LeastSignificant32(upkeepId)
+
+		// least significant 32 bits of the turn block hash
+		turnBinaryPtr, ok := math.ParseBig256(string([]byte(turnBinary)[len(turnBinary)-32:]))
+		if !ok {
+			log.Fatal("failed to parse turn binary ", turnBinary)
+		}
+		rhs := keeper.LeastSignificant32(turnBinaryPtr)
+
+		// bitwise XOR
+		turn := lhs ^ rhs
+
+		keepersCnt := uint64(len(keepers))
+		keeperIndex = turn % keepersCnt
+		if keepers[keeperIndex] == lastKeeper {
+			keeperIndex = (keeperIndex + keepersCnt - 1) % keepersCnt
+		}
+
+		switch k.cfg.RegistryVersion {
+		case keeper.RegistryVersion_1_1:
 			payload, err2 = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
 			if err2 != nil {
 				log.Fatal("failed to pack checkUpkeep: ", err2)
 			}
+		case keeper.RegistryVersion_1_2:
+			payload, err2 = registry12ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
+			if err2 != nil {
+				log.Fatal("failed to pack checkUpkeep: ", err2)
+			}
+		default:
+			panic("unsupported registry version")
 		}
 
 		args := map[string]interface{}{

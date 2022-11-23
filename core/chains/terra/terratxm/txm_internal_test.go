@@ -46,7 +46,7 @@ func newReaderWriterMock(t *testing.T) *tcmocks.ReaderWriter {
 func TestTxm(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := testutils.LoggerAssertMaxLevel(t, zapcore.ErrorLevel)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
+	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	require.NoError(t, ks.Unlock("blah"))
 	k1, err := ks.Terra().Create()
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	contract2, err := cosmostypes.AccAddressFromBech32("terra1mx72uukvzqtzhc6gde7shrjqfu5srk22v7gmww")
 	require.NoError(t, err)
-	logCfg := pgtest.NewPGCfg(true)
+	logCfg := pgtest.NewQConfig(true)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	terratest.MustInsertChain(t, db, &Chain{ID: chainID})
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
-		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewQConfig(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different contracts", func(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
-		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewQConfig(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
@@ -231,7 +231,7 @@ func TestTxm(t *testing.T) {
 		}, errors.New("not found")).Twice()
 		cfg := terra.NewConfig(ChainCfg{}, lggr)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
-		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewQConfig(true), nil)
 		i, err := txm.orm.InsertMsg("blah", "", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
@@ -261,7 +261,7 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash3},
 		}, nil).Once()
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
-		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewQConfig(true), nil)
 
 		// Insert and broadcast 3 msgs with different txhashes.
 		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x01})
@@ -302,7 +302,7 @@ func TestTxm(t *testing.T) {
 			MaxMsgsPerBatch: null.IntFrom(2),
 			TxMsgTimeout:    &timeout,
 		}, lggr)
-		txm := NewTxm(db, tcFn, *gpe, chainID, cfgShortExpiry, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfgShortExpiry, ks.Terra(), lggr, pgtest.NewQConfig(true), nil)
 
 		// Send a single one expired
 		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
@@ -323,6 +323,7 @@ func TestTxm(t *testing.T) {
 		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
 		ms, err := txm.orm.GetMsgs(id2, id3)
+		require.NoError(t, err)
 		assert.Equal(t, Errored, ms[0].State)
 		assert.Equal(t, Errored, ms[1].State)
 	})
@@ -344,7 +345,7 @@ func TestTxm(t *testing.T) {
 		cfg := terra.NewConfig(ChainCfg{
 			MaxMsgsPerBatch: null.IntFrom(2),
 		}, lggr)
-		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewQConfig(true), nil)
 
 		// Leftover started is processed
 		msg1 := generateExecuteMsg(t, []byte{0x03}, sender1, contract)
@@ -385,6 +386,7 @@ func TestTxm(t *testing.T) {
 		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
 		ms, err := txm.orm.GetMsgs(id2, id3)
+		require.NoError(t, err)
 		assert.Equal(t, Confirmed, ms[0].State)
 		assert.Equal(t, Confirmed, ms[1].State)
 	})

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -420,12 +421,12 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 
 	go func() {
 		ch <- 1
-		once.StartOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StartOnce("slow service", func() (err error) {
 			ready <- true
 			<-next // continue after the other StartOnce call fails
 
 			return nil
-		})
+		}))
 		<-next
 		ch <- 2
 
@@ -433,9 +434,9 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 
 	go func() {
 		<-ready // try starting halfway through startup
-		once.StartOnce("slow service", func() (err error) {
+		assert.Error(t, once.StartOnce("slow service", func() (err error) {
 			return nil
-		})
+		}))
 		next <- true
 		ch <- 3
 		next <- true

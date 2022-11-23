@@ -1,9 +1,11 @@
 package pipeline
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -37,6 +39,21 @@ func NonemptyString(s string) GetterFunc {
 			return nil, ErrParameterEmpty
 		}
 		return trimmed, nil
+	}
+}
+
+// ValidDurationInSeconds creates a getter to ensure the string is a valid duration and return duration in seconds.
+func ValidDurationInSeconds(s string) GetterFunc {
+	return func() (interface{}, error) {
+		trimmed := strings.TrimSpace(s)
+		if len(trimmed) == 0 {
+			return nil, ErrParameterEmpty
+		}
+		dr, err := time.ParseDuration(s)
+		if err != nil {
+			return nil, err
+		}
+		return int(dr.Seconds()), nil
 	}
 }
 
@@ -107,11 +124,19 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 			keypathStr := strings.TrimSpace(string(expr[2 : len(expr)-1]))
 			return []byte(fmt.Sprintf(`{ "%s": "%s" }`, chainlinkKeyPath, keypathStr))
 		})
+
 		var val interface{}
-		err := json.Unmarshal(replaced, &val)
-		if err != nil {
+		jd := json.NewDecoder(bytes.NewReader(replaced))
+		jd.UseNumber()
+		if err := jd.Decode(&val); err != nil {
 			return nil, errors.Wrapf(ErrBadInput, "while unmarshalling JSON: %v; js: %s", err, string(replaced))
 		}
+		reinterpreted, err := reinterpetJsonNumbers(val)
+		if err != nil {
+			return nil, errors.Wrapf(ErrBadInput, "while processing json.Number: %v; js: %s", err, string(replaced))
+		}
+		val = reinterpreted
+
 		return mapGoValue(val, func(val interface{}) (interface{}, error) {
 			if m, is := val.(map[string]interface{}); is {
 				maybeKeypath, exists := m[chainlinkKeyPath]

@@ -33,20 +33,20 @@ func (_m *LogPoller) Close() error {
 	return r0
 }
 
-// GetBlocks provides a mock function with given fields: numbers, qopts
-func (_m *LogPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+// GetBlocks provides a mock function with given fields: ctx, numbers, qopts
+func (_m *LogPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, numbers)
+	_ca = append(_ca, ctx, numbers)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 []logpoller.LogPollerBlock
-	if rf, ok := ret.Get(0).(func([]uint64, ...pg.QOpt) []logpoller.LogPollerBlock); ok {
-		r0 = rf(numbers, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, []uint64, ...pg.QOpt) []logpoller.LogPollerBlock); ok {
+		r0 = rf(ctx, numbers, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]logpoller.LogPollerBlock)
@@ -54,8 +54,8 @@ func (_m *LogPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]logpoller.
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]uint64, ...pg.QOpt) error); ok {
-		r1 = rf(numbers, qopts...)
+	if rf, ok := ret.Get(1).(func(context.Context, []uint64, ...pg.QOpt) error); ok {
+		r1 = rf(ctx, numbers, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -374,20 +374,6 @@ func (_m *LogPoller) LogsWithSigs(start int64, end int64, eventSigs []common.Has
 	return r0, r1
 }
 
-// MergeFilter provides a mock function with given fields: eventSigs, addresses
-func (_m *LogPoller) MergeFilter(eventSigs []common.Hash, addresses []common.Address) error {
-	ret := _m.Called(eventSigs, addresses)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func([]common.Hash, []common.Address) error); ok {
-		r0 = rf(eventSigs, addresses)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Ready provides a mock function with given fields:
 func (_m *LogPoller) Ready() error {
 	ret := _m.Called()
@@ -400,6 +386,27 @@ func (_m *LogPoller) Ready() error {
 	}
 
 	return r0
+}
+
+// RegisterFilter provides a mock function with given fields: filter
+func (_m *LogPoller) RegisterFilter(filter logpoller.Filter) (int, error) {
+	ret := _m.Called(filter)
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func(logpoller.Filter) int); ok {
+		r0 = rf(filter)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(logpoller.Filter) error); ok {
+		r1 = rf(filter)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Replay provides a mock function with given fields: ctx, fromBlock
@@ -423,6 +430,20 @@ func (_m *LogPoller) Start(_a0 context.Context) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
 		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UnregisterFilter provides a mock function with given fields: filterID
+func (_m *LogPoller) UnregisterFilter(filterID int) error {
+	ret := _m.Called(filterID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int) error); ok {
+		r0 = rf(filterID)
 	} else {
 		r0 = ret.Error(0)
 	}

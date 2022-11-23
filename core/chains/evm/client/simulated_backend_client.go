@@ -241,6 +241,22 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	}, nil
 }
 
+// HeadByHash returns our own header type.
+func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
+	header, err := c.b.HeaderByHash(ctx, h)
+	if err != nil {
+		return nil, err
+	} else if header == nil {
+		return nil, ethereum.NotFound
+	}
+	return &evmtypes.Head{
+		EVMChainID: utils.NewBigI(c.chainId.Int64()),
+		Hash:       header.Hash(),
+		Number:     header.Number.Int64(),
+		ParentHash: header.ParentHash,
+	}, nil
+}
+
 // BlockByNumber returns a geth block type.
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
 	return c.b.BlockByNumber(ctx, n)
@@ -361,9 +377,41 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	return err
 }
 
+type revertError struct {
+	error
+	reason string
+}
+
+func (e *revertError) ErrorCode() int {
+	return 3
+}
+
+// ErrorData returns the hex encoded revert reason.
+func (e *revertError) ErrorData() interface{} {
+	return e.reason
+}
+
+var _ rpc.DataError = &revertError{}
+
 // CallContract calls a contract.
 func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return c.b.CallContract(ctx, msg, blockNumber)
+	// Expected error is
+	// type JsonError struct {
+	//	Code    int         `json:"code"`
+	//	Message string      `json:"message"`
+	//	Data    interface{} `json:"data,omitempty"`
+	//}
+	res, err := c.b.CallContract(ctx, msg, blockNumber)
+	if err != nil {
+		dataErr := revertError{}
+		isCustomRevert := errors.As(err, &dataErr)
+		if isCustomRevert {
+			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
+		}
+		// Generic revert, no data
+		return nil, &JsonError{Data: []byte{}, Message: err.Error(), Code: 3}
+	}
+	return res, nil
 }
 
 // CodeAt gets the code associated with an account as of a specified block.
@@ -388,12 +436,22 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 
 // BatchCallContext makes a batch rpc call.
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("context canceled")
+	default:
+		//do nothing
+	}
+
 	for i, elem := range b {
-		if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
-			return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
-		}
-		switch v := elem.Result.(type) {
-		case *evmtypes.Receipt:
+		switch elem.Method {
+		case "eth_getTransactionReceipt":
+			if _, ok := elem.Result.(*evmtypes.Receipt); !ok {
+				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Receipt for eth_getTransactionReceipt, got type %T", elem.Result)
+			}
+			if len(elem.Args) != 1 {
+				return errors.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_getTransactionReceipt", len(elem.Args))
+			}
 			hash, is := elem.Args[0].(common.Hash)
 			if !is {
 				return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
@@ -401,8 +459,50 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			receipt, err := c.b.TransactionReceipt(ctx, hash)
 			b[i].Result = evmtypes.FromGethReceipt(receipt)
 			b[i].Error = err
+		case "eth_getBlockByNumber":
+			switch v := elem.Result.(type) {
+			case *evmtypes.Head:
+			case *evmtypes.Block:
+			default:
+				return errors.Errorf("SimulatedBackendClient expected return type of [*evmtypes.Head] or [*evmtypes.Block] for eth_getBlockByNumber, got type %T", v)
+			}
+			if len(elem.Args) != 2 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
+			}
+			blockNum, is := elem.Args[0].(string)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", elem.Args[0])
+			}
+			_, is = elem.Args[1].(bool)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected second arg to be a boolean for eth_getBlockByNumber, got: %T", elem.Args[1])
+			}
+			n, ok := new(big.Int).SetString(blockNum, 0)
+			if !ok {
+				return errors.Errorf("error while converting block number string: %s to big.Int ", blockNum)
+			}
+			header, err := c.b.HeaderByNumber(ctx, n)
+			if err != nil {
+				return err
+			}
+			switch v := elem.Result.(type) {
+			case *evmtypes.Head:
+				b[i].Result = &evmtypes.Head{
+					Number: header.Number.Int64(),
+					Hash:   header.Hash(),
+				}
+			case *evmtypes.Block:
+				b[i].Result = &evmtypes.Block{
+					Number: header.Number.Int64(),
+					Hash:   header.Hash(),
+				}
+			default:
+				return errors.Errorf("SimulatedBackendClient Unexpected Type %T", v)
+			}
+
+			b[i].Error = err
 		default:
-			return errors.Errorf("SimulatedBackendClient unsupported elem.Result type %T", v)
+			return errors.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
 	}
 	return nil
@@ -419,4 +519,4 @@ func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *
 }
 
 // NodeStates implements evmclient.Client
-func (c *SimulatedBackendClient) NodeStates() map[int32]string { return nil }
+func (c *SimulatedBackendClient) NodeStates() map[string]string { return nil }

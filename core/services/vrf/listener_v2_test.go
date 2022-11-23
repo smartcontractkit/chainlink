@@ -72,30 +72,12 @@ func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink s
 	require.NoError(t, err)
 }
 
-// cannot import cltest, because of circular imports
-type config struct{}
-
-func (c *config) LogSQL() bool {
-	return false
-}
-
-type executionRevertedError struct{}
-
-func (executionRevertedError) Error() string {
-	return "execution reverted"
-}
-
-type networkError struct{}
-
-func (networkError) Error() string {
-	return "network Error"
-}
-
 func TestMaybeSubtractReservedLink(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	q := pg.NewQ(db, lggr, &config{})
-	ks := keystore.New(db, utils.FastScryptParams, lggr, &config{})
+	cfg := pgtest.NewQConfig(false)
+	q := pg.NewQ(db, lggr, cfg)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := uint64(1337)
 	k, err := ks.Eth().Create(big.NewInt(int64(chainID)))

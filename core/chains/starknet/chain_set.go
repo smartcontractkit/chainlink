@@ -6,9 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
-
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -19,9 +18,8 @@ import (
 )
 
 type ChainSetOpts struct {
-	Config   coreconfig.GeneralConfig
+	Config   coreconfig.BasicConfig
 	Logger   logger.Logger
-	DB       *sqlx.DB
 	KeyStore keystore.StarkNet
 	ORM      types.ORM
 }
@@ -35,9 +33,6 @@ func (o *ChainSetOpts) Validate() (err error) {
 	}
 	if o.Logger == nil {
 		err = multierr.Append(err, required("Logger'"))
-	}
-	if o.DB == nil {
-		err = multierr.Append(err, required("DB"))
 	}
 	if o.KeyStore == nil {
 		err = multierr.Append(err, required("KeyStore"))
@@ -56,7 +51,20 @@ func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (starkchain.Chain, error)
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
-	return NewChain(o.DB, o.KeyStore, dbchain, o.ORM, o.Logger)
+	cfg := config.NewConfig(*dbchain.Cfg, o.Logger)
+	return newChain(dbchain.ID, cfg, o.KeyStore, o.ORM, o.Logger)
+}
+
+func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.ORM, o.Logger)
+	if err != nil {
+		return nil, err
+	}
+	c.cfgImmutable = true
+	return c, nil
 }
 
 type ChainSet interface {
@@ -74,6 +82,27 @@ type ChainSet interface {
 }
 
 // NewChainSet returns a new chain set for opts.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
 	return chains.NewChainSet[string, *db.ChainCfg, db.Node, starkchain.Chain](&opts, func(s string) string { return s })
+}
+
+func NewChainSetImmut(opts ChainSetOpts, cfgs StarknetConfigs) (ChainSet, error) {
+	stkChains := map[string]starkchain.Chain{}
+	var err error
+	for _, chain := range cfgs {
+		if !chain.IsEnabled() {
+			continue
+		}
+		var err2 error
+		stkChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
+		if err2 != nil {
+			err = multierr.Combine(err, err2)
+			continue
+		}
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load some Solana chains")
+	}
+	return chains.NewChainSetImmut[string, *db.ChainCfg, db.Node, starkchain.Chain](stkChains, &opts, func(s string) string { return s })
 }

@@ -8,6 +8,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
@@ -125,6 +126,7 @@ ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 chainID = "Chainlink-99"`
+
 	OCR2TerraSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
@@ -143,6 +145,24 @@ chainID = "Chainlink-99"`
 	OCR2TerraNodeSpecMinimal = OCR2TerraSpecMinimal + `
 nodeName = "some-test-node"`
 
+	OCR2EVMSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+relay = "evm"
+contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pv2Bootstrappers = []
+transmitterID = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
+pluginType         = "median"
+observationSource = """
+	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+	ds_parse    [type=jsonparse path="data.price" separator="."];
+	ds_multiply [type=multiply times=100];
+	ds -> ds_parse -> ds_multiply;
+"""
+[relayConfig]
+chainID = 0
+[pluginConfig]
+`
 	WebhookSpecNoBody = `
 type            = "webhook"
 schemaVersion   = 1
@@ -231,9 +251,9 @@ type VRFSpecParams struct {
 	RequestTimeout                time.Duration
 	V2                            bool
 	ChunkSize                     int
-	MaxGasPriceGWei               int
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
+	GasLanePrice                  *assets.Wei
 }
 
 type VRFSpec struct {
@@ -270,6 +290,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
 	}
+	gasLanePrice := assets.GWei(100)
+	if params.GasLanePrice != nil {
+		gasLanePrice = params.GasLanePrice
+	}
 	requestTimeout := 24 * time.Hour
 	if params.RequestTimeout != 0 {
 		requestTimeout = params.RequestTimeout
@@ -281,10 +305,6 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	chunkSize := 20
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
-	}
-	maxGasPriceGWei := 200
-	if params.MaxGasPriceGWei != 0 {
-		maxGasPriceGWei = params.MaxGasPriceGWei
 	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
@@ -351,7 +371,7 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
-maxGasPriceGWei = %d
+gasLanePrice = "%s"
 observationSource = """
 %s
 """
@@ -360,7 +380,7 @@ observationSource = """
 		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), maxGasPriceGWei, observationSource)
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {

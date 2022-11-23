@@ -5,11 +5,13 @@ ChainType = 'optimism'
 FinalityDepth = 1
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 MinIncomingConfirmations = 1
+# Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
-TxResendAfterThreshold = '15s'
+Transactions.ResendAfterThreshold = '15s'
 
 [BalanceMonitor]
-BlockDelay = 0
+Enabled = true
 
 [GasEstimator]
 Mode = 'L2Suggested'
@@ -23,10 +25,11 @@ BumpThreshold = 0
 BlockHistorySize = 0
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '0'
 HistoryDepth = 10
 SamplingInterval = '1s'
 
+[OCR2.Automation]
+GasLimit = 6500000
+
 [NodePool]
-# Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
-NoNewHeadsThreshold = '0'
+SyncThreshold = 10

@@ -1,16 +1,12 @@
 package client_test
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func newSendErrorWrapped(s string) *evmclient.SendError {
@@ -37,6 +33,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"nonce too low: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 			{"Nonce too low", true, "Besu"},
 			{"nonce too low", true, "Erigon"},
+			{"nonce too low", true, "Klaytn"},
 			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
 			{"transaction rejected: nonce too low", true, "Arbitrum"},
 			{"invalid transaction nonce", true, "Arbitrum"},
@@ -78,6 +75,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"replacement transaction underpriced", true, "geth"},
 			{"Replacement transaction underpriced", true, "Besu"},
 			{"replacement transaction underpriced", true, "Erigon"},
+			{"replacement transaction underpriced", true, "Klaytn"},
+			{"there is another tx which has the same nonce in the tx pool", true, "Klaytn"},
 			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true, "Parity"},
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"gas price too low", false, "Arbitrum"},
@@ -107,6 +106,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction with the same hash was already imported.", true, "Parity"},
 			{"call failed: AlreadyKnown", true, "Nethermind"},
 			{"call failed: OwnNonceAlreadyUsed", true, "Nethermind"},
+			{"known transaction", true, "Klaytn"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -129,6 +129,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"gas price too low", true, "Arbitrum"},
 			{"FeeTooLow", true, "Nethermind"},
 			{"FeeTooLowToCompete", true, "Nethermind"},
+			{"transaction underpriced", true, "Klaytn"},
+			{"intrinsic gas too low", true, "Klaytn"},
 		}
 
 		for _, test := range tests {
@@ -169,6 +171,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
 			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
+			{"insufficient funds", true, "Klaytn"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -185,6 +188,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
 			{"Transaction fee cap exceeded", true, "Besu"},
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "Erigon"},
+			{"invalid gas fee cap", true, "Klaytn"},
+			{"max fee per gas higher than max priority fee per gas", true, "Klaytn"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -199,39 +204,44 @@ func Test_Eth_Errors(t *testing.T) {
 		assert.False(t, err.IsTxFeeExceedsCap())
 	})
 
-	t.Run("Optimism Fees errors", func(t *testing.T) {
+	t.Run("L2 Fees errors", func(t *testing.T) {
 		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsOptimismFeeTooHigh())
-		assert.False(t, err.IsOptimismFeeTooLow())
+		assert.True(t, err.IsL2FeeTooHigh())
+		assert.False(t, err.L2FeeTooLow())
 		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsOptimismFeeTooHigh())
-		assert.False(t, err.IsOptimismFeeTooLow())
+		assert.True(t, err.IsL2FeeTooHigh())
+		assert.False(t, err.L2FeeTooLow())
 
 		err = evmclient.NewSendErrorS("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
-		assert.False(t, err.IsOptimismFeeTooHigh())
-		assert.True(t, err.IsOptimismFeeTooLow())
+		assert.False(t, err.IsL2FeeTooHigh())
+		assert.True(t, err.L2FeeTooLow())
 		err = newSendErrorWrapped("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
-		assert.False(t, err.IsOptimismFeeTooHigh())
-		assert.True(t, err.IsOptimismFeeTooLow())
+		assert.False(t, err.IsL2FeeTooHigh())
+		assert.True(t, err.L2FeeTooLow())
 
-		assert.False(t, randomError.IsOptimismFeeTooHigh())
-		assert.False(t, randomError.IsOptimismFeeTooLow())
+		err = evmclient.NewSendErrorS("queue full")
+		assert.True(t, err.IsL2Full())
+		err = evmclient.NewSendErrorS("sequencer pending tx pool full, please try again")
+		assert.True(t, err.IsL2Full())
+
+		assert.False(t, randomError.IsL2FeeTooHigh())
+		assert.False(t, randomError.L2FeeTooLow())
 		// Nil
 		err = evmclient.NewSendError(nil)
-		assert.False(t, err.IsOptimismFeeTooHigh())
-		assert.False(t, err.IsOptimismFeeTooLow())
+		assert.False(t, err.IsL2FeeTooHigh())
+		assert.False(t, err.L2FeeTooLow())
 	})
 
 	t.Run("Metis gas price errors", func(t *testing.T) {
 		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
-		assert.True(t, err.IsOptimismFeeTooLow())
+		assert.True(t, err.L2FeeTooLow())
 		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
-		assert.True(t, err.IsOptimismFeeTooLow())
+		assert.True(t, err.L2FeeTooLow())
 
-		assert.False(t, randomError.IsOptimismFeeTooLow())
+		assert.False(t, randomError.L2FeeTooLow())
 		// Nil
 		err = evmclient.NewSendError(nil)
-		assert.False(t, err.IsOptimismFeeTooLow())
+		assert.False(t, err.L2FeeTooLow())
 	})
 
 	t.Run("moonriver errors", func(t *testing.T) {
@@ -290,6 +300,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"forbidden sender address", true, "Arbitrum"},
 		{"tx dropped due to L2 congestion", false, "Arbitrum"},
 		{"execution reverted: error code", true, "Arbitrum"},
+		{"execution reverted: stale report", true, "Arbitrum"},
 		{"execution reverted", true, "Arbitrum"},
 		{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 
@@ -311,57 +322,4 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 			assert.Equal(t, test.expect, err.Fatal())
 		})
 	}
-}
-
-func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
-	t.Parallel()
-
-	message := "important revert reason"
-	messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
-	sigHash := "12345678"
-	var jsonErr error = &evmclient.JsonError{
-		Code:    1,
-		Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
-		Message: "something different",
-	}
-
-	t.Run("it extracts revert reasons when present", func(tt *testing.T) {
-		revertReason, err := evmclient.ExtractRevertReasonFromRPCError(jsonErr)
-		require.NoError(t, err)
-		require.Equal(t, message, revertReason)
-	})
-
-	t.Run("it unwraps wrapped errors", func(tt *testing.T) {
-		wrappedErr := errors.Wrap(jsonErr, "wrapped message")
-		revertReason, err := evmclient.ExtractRevertReasonFromRPCError(wrappedErr)
-		require.NoError(t, err)
-		require.Equal(t, message, revertReason)
-	})
-
-	t.Run("it unwraps multi-wrapped errors", func(tt *testing.T) {
-		wrappedErr := errors.Wrap(jsonErr, "wrapped message")
-		wrappedErr = errors.Wrap(wrappedErr, "wrapped again!!")
-		revertReason, err := evmclient.ExtractRevertReasonFromRPCError(wrappedErr)
-		require.NoError(t, err)
-		require.Equal(t, message, revertReason)
-	})
-
-	t.Run("it gracefully errors when no data present", func(tt *testing.T) {
-		var jsonErr error = &evmclient.JsonError{
-			Code:    1,
-			Message: "something different",
-		}
-		_, err := evmclient.ExtractRevertReasonFromRPCError(jsonErr)
-		require.Error(t, err)
-	})
-
-	t.Run("gracefully errors when given a normal error", func(tt *testing.T) {
-		_, err := evmclient.ExtractRevertReasonFromRPCError(errors.New("normal error"))
-		require.Error(tt, err)
-	})
-
-	t.Run("gracefully errors when given no error", func(tt *testing.T) {
-		_, err := evmclient.ExtractRevertReasonFromRPCError(nil)
-		require.Error(tt, err)
-	})
 }

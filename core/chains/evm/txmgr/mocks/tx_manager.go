@@ -69,6 +69,29 @@ func (_m *TxManager) CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (
 	return r0, r1
 }
 
+// GetForwarderForEOA provides a mock function with given fields: eoa
+func (_m *TxManager) GetForwarderForEOA(eoa common.Address) (common.Address, error) {
+	ret := _m.Called(eoa)
+
+	var r0 common.Address
+	if rf, ok := ret.Get(0).(func(common.Address) common.Address); ok {
+		r0 = rf(eoa)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(common.Address)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
+		r1 = rf(eoa)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetGasEstimator provides a mock function with given fields:
 func (_m *TxManager) GetGasEstimator() gas.Estimator {
 	ret := _m.Called()

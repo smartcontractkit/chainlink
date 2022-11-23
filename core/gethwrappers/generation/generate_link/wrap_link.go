@@ -15,7 +15,6 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -31,7 +30,7 @@ func main() {
 	className := "LinkToken"
 	tmpDir, cleanup := gethwrappers2.TempDir(className)
 	defer cleanup()
-	linkDetails, err := ioutil.ReadFile(filepath.Join(
+	linkDetails, err := os.ReadFile(filepath.Join(
 		gethwrappers2.GetProjectRoot(), "contracts/LinkToken.json"))
 	if err != nil {
 		gethwrappers2.Exit("could not read LINK contract details", err)
@@ -46,7 +45,7 @@ func main() {
 		gethwrappers2.Exit("could not extract LINK ABI", err)
 	}
 	abiPath := filepath.Join(tmpDir, "abi")
-	if aErr := ioutil.WriteFile(abiPath, []byte(abi), 0600); aErr != nil {
+	if aErr := os.WriteFile(abiPath, []byte(abi), 0600); aErr != nil {
 		gethwrappers2.Exit("could not write contract ABI to temp dir.", aErr)
 	}
 	bin := gjson.Get(string(linkDetails), "bytecode").String()
@@ -54,7 +53,7 @@ func main() {
 		gethwrappers2.Exit("could not extract LINK bytecode", nil)
 	}
 	binPath := filepath.Join(tmpDir, "bin")
-	if bErr := ioutil.WriteFile(binPath, []byte(bin), 0600); bErr != nil {
+	if bErr := os.WriteFile(binPath, []byte(bin), 0600); bErr != nil {
 		gethwrappers2.Exit("could not write contract binary to temp dir.", bErr)
 	}
 	cwd, err := os.Getwd()

@@ -92,7 +92,17 @@ func (ks *keyStates) add(state *ethkey.State) {
 	}
 	chainStates[kid] = state
 
-	ks.All = append(ks.All, state)
+	exists = false
+	for i, existingState := range ks.All {
+		if existingState.ID == state.ID {
+			ks.All[i] = state
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		ks.All = append(ks.All, state)
+	}
 }
 
 // warning: not thread-safe! caller must sync
@@ -102,12 +112,6 @@ func (ks *keyStates) get(addr common.Address, chainID *big.Int) *ethkey.State {
 		return nil
 	}
 	return chainStates[chainID.String()]
-}
-
-// warning: not thread-safe! caller must sync
-func (ks *keyStates) enable(addr common.Address, chainID *big.Int) {
-	state := ks.get(addr, chainID)
-	state.Disabled = false
 }
 
 // warning: not thread-safe! caller must sync

@@ -12,7 +12,7 @@ import (
 
 func TestListener_EstimateFeeJuels(t *testing.T) {
 	callbackGasLimit := uint32(150_000)
-	maxGasPriceGwei := assets.GWei(30)
+	maxGasPriceGwei := assets.GWei(30).ToInt()
 	weiPerUnitLink := big.NewInt(5898160000000000)
 	actual, err := vrf.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, weiPerUnitLink)
 	expected := big.NewInt(1780216203019246680)

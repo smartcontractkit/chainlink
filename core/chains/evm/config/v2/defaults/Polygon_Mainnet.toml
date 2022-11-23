@@ -4,21 +4,24 @@ ChainID = '137'
 FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogPollInterval = '1s'
-# Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
-MaxQueuedTransactions = 5000
 MinIncomingConfirmations = 5
+NoNewHeadsThreshold = '30s'
+# Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
+RPCBlockQueryDelay = 10
+
+[Transactions]
 # Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
-TxResendAfterThreshold = '1m'
+ResendAfterThreshold = '1m'
+# Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+MaxQueued = 5000
 
 [BalanceMonitor]
-# equivalent of 1 eth block seems reasonable
-BlockDelay = 13
+Enabled = true
 
 [GasEstimator]
 # Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
 PriceDefault = '30 gwei'
-# 200,000 GWei
-PriceMax = '0.2 milli'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 # Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
 PriceMin = '30 gwei'
 BumpMin = '20 gwei'
@@ -26,15 +29,12 @@ BumpMin = '20 gwei'
 BumpThreshold = 5
 
 [GasEstimator.BlockHistory]
-# Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
-BlockDelay = 10
 BlockHistorySize = 24
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
 # Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 HistoryDepth = 2000
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
+SyncThreshold = 10

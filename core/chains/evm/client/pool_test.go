@@ -152,8 +152,7 @@ func TestPool_Dial(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
-			defer cancel()
+			ctx := testutils.Context(t)
 
 			nodes := make([]evmclient.Node, len(test.nodes))
 			for i, n := range test.nodes {
@@ -165,12 +164,14 @@ func TestPool_Dial(t *testing.T) {
 			}
 			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID)
 			err := p.Dial(ctx)
+			if err == nil {
+				t.Cleanup(func() { assert.NoError(t, p.Close()) })
+			}
 			if test.errStr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.errStr)
 			} else {
 				require.NoError(t, err)
-				p.Close()
 			}
 		})
 	}
@@ -205,9 +206,18 @@ type chainIDResps struct {
 }
 
 func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
-	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (string, string) {
+	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
+		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
-		return "", ""
+		return
 	})
 
 	wsURL, err := url.Parse(ws)
@@ -248,9 +258,9 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	n2.On("String").Maybe().Return("n2")
 	n3.On("String").Maybe().Return("n3")
 
-	n1.On("Close").Maybe()
-	n2.On("Close").Maybe()
-	n3.On("Close").Maybe()
+	n1.On("Close").Maybe().Return(nil)
+	n2.On("Close").Maybe().Return(nil)
+	n3.On("Close").Maybe().Return(nil)
 
 	// n1 is alive
 	n1.On("Start", mock.Anything).Return(nil).Once()
@@ -266,7 +276,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	n3.On("ChainID").Return(testutils.FixtureChainID).Once()
 
 	require.NoError(t, p.Dial(testutils.Context(t)))
-	t.Cleanup(p.Close)
+	t.Cleanup(func() { assert.NoError(t, p.Close()) })
 
 	testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")
 

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/Depado/ginprom"
 	"github.com/Masterminds/semver/v3"
+	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
@@ -29,11 +29,13 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
@@ -65,9 +67,9 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         config.GeneralConfig
-	Logger                         logger.Logger
-	CloseLogger                    func() error
+	Config                         config.GeneralConfig // initialized in Before
+	Logger                         logger.Logger        // initialized in Before
+	CloseLogger                    func() error         // called in After
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -89,22 +91,21 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
-	appLggr, closeLggr := logger.NewLogger()
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
 	// Set up the versioning ORM
-	verORM := versioning.NewORM(db, appLggr)
+	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
 
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
 		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
 		if err != nil {
@@ -135,7 +136,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	}
 
 	// Update to latest version
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		version := versioning.NewNodeVersion(static.Version)
 		if err = verORM.UpsertNodeVersion(version); err != nil {
 			return nil, errors.Wrap(err, "UpsertNodeVersion")
@@ -144,8 +145,20 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
-		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
-			return nil, err
+		if h, ok := cfg.(v2.HasEVMConfigs); ok {
+			var ids []utils.Big
+			for _, c := range h.EVMConfigs() {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup EVM chains")
+				}
+			}
+		} else {
+			if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -154,7 +167,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		Config:           cfg,
 		Logger:           appLggr,
 		DB:               db,
-		ORM:              evm.NewORM(db, appLggr, cfg),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
@@ -166,17 +178,34 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	if cfg.TerraEnabled() {
 		terraLggr := appLggr.Named("Terra")
-		if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
-			return nil, errors.Wrap(err, "failed to setup Terra nodes")
-		}
-		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		opts := terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
 			DB:               db,
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
-			ORM:              terra.NewORM(db, terraLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface{ TerraConfigs() terra.TerraConfigs }); ok {
+			cfgs := newCfg.TerraConfigs()
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = terra.NewORM(db, terraLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup Terra chains")
+				}
+			}
+			opts.ORM = terra.NewORMImmut(cfgs)
+			chains.Terra, err = terra.NewChainSetImmut(opts, cfgs)
+
+		} else {
+			if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Terra nodes")
+			}
+			opts.ORM = terra.NewORM(db, terraLggr, cfg)
+			chains.Terra, err = terra.NewChainSet(opts)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Terra chainset")
 		}
@@ -184,17 +213,33 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
-			return nil, errors.Wrap(err, "failed to setup Solana nodes")
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			DB:       db,
+			KeyStore: keyStore.Solana(),
 		}
-		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
-			Config:           cfg,
-			Logger:           solLggr,
-			DB:               db,
-			KeyStore:         keyStore.Solana(),
-			EventBroadcaster: eventBroadcaster,
-			ORM:              solana.NewORM(db, solLggr, cfg),
-		})
+		if newCfg, ok := cfg.(interface {
+			SolanaConfigs() solana.SolanaConfigs
+		}); ok {
+			cfgs := newCfg.SolanaConfigs()
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup Solana chains")
+				}
+			}
+			opts.ORM = solana.NewORMImmut(cfgs)
+			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+		} else {
+			if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Solana nodes")
+			}
+			opts.ORM = solana.NewORM(db, solLggr, cfg)
+			chains.Solana, err = solana.NewChainSet(opts)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
@@ -202,20 +247,42 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	if cfg.StarkNetEnabled() {
 		starkLggr := appLggr.Named("StarkNet")
-		if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
-			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
-		}
-		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+		opts := starknet.ChainSetOpts{
 			Config:   cfg,
 			Logger:   starkLggr,
-			DB:       db,
 			KeyStore: keyStore.StarkNet(),
-			//TODO EventBroadcaster: eventBroadcaster,
-			ORM: starknet.NewORM(db, starkLggr, cfg),
-		})
+		}
+		if newCfg, ok := cfg.(interface {
+			StarknetConfigs() starknet.StarknetConfigs
+		}); ok {
+			cfgs := newCfg.StarknetConfigs()
+			var ids []string
+			for _, c := range cfgs {
+				ids = append(ids, *c.ChainID)
+			}
+			if len(ids) > 0 {
+				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
+					return nil, errors.Wrap(err, "failed to setup StarkNet chains")
+				}
+			}
+			opts.ORM = starknet.NewORMImmut(cfgs)
+			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
+		} else {
+			if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
+				return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
+			}
+			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
+			chains.StarkNet, err = starknet.NewChainSet(opts)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}
+	}
+
+	// Configure and optionally start the audit log forwarder service
+	auditLogger, err := audit.NewAuditLogger(appLggr, cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg, appLggr)
@@ -228,7 +295,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
-		CloseLogger:              closeLggr,
+		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 		RestrictedHTTPClient:     restrictedClient,
@@ -271,6 +338,7 @@ type ChainlinkRunner struct{}
 // for input and return data.
 func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) error {
 	config := app.GetConfig()
+
 	mode := gin.ReleaseMode
 	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
@@ -279,16 +347,22 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
-	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
 
-	g, gCtx := errgroup.WithContext(ctx)
+	if err := sentryInit(config); err != nil {
+		return errors.Wrap(err, "failed to initialize sentry")
+	}
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
 		return errors.New("You must specify at least one port to listen on")
 	}
 
+	handler, err := web.NewRouter(app, prometheus)
+	if err != nil {
+		return errors.Wrap(err, "failed to create web router")
+	}
 	server := server{handler: handler, lggr: app.GetLogger()}
 
+	g, gCtx := errgroup.WithContext(ctx)
 	if config.Port() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
@@ -318,6 +392,39 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	})
 
 	return errors.WithStack(g.Wait())
+}
+
+func sentryInit(cfg config.BasicConfig) error {
+	sentrydsn := cfg.SentryDSN()
+	if sentrydsn == "" {
+		// Do not initialize sentry at all if the DSN is missing
+		return nil
+	}
+
+	var sentryenv string
+	if env := cfg.SentryEnvironment(); env != "" {
+		sentryenv = env
+	} else if cfg.Dev() {
+		sentryenv = "dev"
+	} else {
+		sentryenv = "prod"
+	}
+
+	var sentryrelease string
+	if release := cfg.SentryRelease(); release != "" {
+		sentryrelease = release
+	} else {
+		sentryrelease = static.Version
+	}
+
+	return sentry.Init(sentry.ClientOptions{
+		// AttachStacktrace is needed to send stacktrace alongside panics
+		AttachStacktrace: true,
+		Dsn:              sentrydsn,
+		Environment:      sentryenv,
+		Release:          sentryrelease,
+		Debug:            cfg.SentryDebug(),
+	})
 }
 
 func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, runServer func() error) {
@@ -591,18 +698,18 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
 }
 
 // Removes any stored cookie.
 func (d DiskCookieStore) Reset() error {
 	// Write empty bytes
-	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
-	b, err := ioutil.ReadFile(d.cookiePath())
+	b, err := os.ReadFile(d.cookiePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -663,22 +770,21 @@ func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest,
 // needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
 	// Initialize creates a new user for API access, or does nothing if one exists.
-	Initialize(orm sessions.ORM) (sessions.User, error)
+	Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error)
 }
 
 type promptingAPIInitializer struct {
 	prompter Prompter
-	lggr     logger.Logger
 }
 
 // NewPromptingAPIInitializer creates a concrete instance of APIInitializer
 // that uses the terminal to solicit credentials from the user.
-func NewPromptingAPIInitializer(prompter Prompter, lggr logger.Logger) APIInitializer {
-	return &promptingAPIInitializer{prompter: prompter, lggr: lggr}
+func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
+	return &promptingAPIInitializer{prompter: prompter}
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
-func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
+func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
@@ -697,18 +803,18 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 			// On a fresh DB, create an admin user
 			user, err2 := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
 			if err2 != nil {
-				t.lggr.Errorw("Error creating API user", "err", err2)
+				lggr.Errorw("Error creating API user", "err", err2)
 				continue
 			}
 			if err = orm.CreateUser(&user); err != nil {
-				t.lggr.Errorf("Error creating API user: ", err, "err")
+				lggr.Errorf("Error creating API user: ", err, "err")
 			}
 			return user, err
 		}
 	}
 
 	// Attempt to contextually return the correct admin user, CLI access here implies admin
-	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, t.lggr); found {
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, lggr); found {
 		return adminUser, nil
 	}
 
@@ -724,17 +830,16 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 
 type fileAPIInitializer struct {
 	file string
-	lggr logger.Logger
 }
 
 // NewFileAPIInitializer creates a concrete instance of APIInitializer
 // that pulls API user credentials from the passed file path.
-func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
-	return fileAPIInitializer{file: file, lggr: lggr.With("file", file)}
+func NewFileAPIInitializer(file string) APIInitializer {
+	return fileAPIInitializer{file: file}
 }
 
-func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	request, err := credentialsFromFile(f.file, f.lggr)
+func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+	request, err := credentialsFromFile(f.file, lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
@@ -755,7 +860,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 	}
 
 	// Attempt to contextually return the correct admin user, CLI access here implies admin
-	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, f.lggr); found {
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, lggr); found {
 		return adminUser, nil
 	}
 
@@ -767,7 +872,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 	return user, nil
 }
 
-func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger.Logger) (sessions.User, bool) {
+func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions.User, bool) {
 	if len(users) == 0 {
 		return sessions.User{}, false
 	}
@@ -809,7 +914,7 @@ func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionReque
 	}
 
 	lggr.Debug("Initializing API credentials")
-	dat, err := ioutil.ReadFile(file)
+	dat, err := os.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err
 	}
