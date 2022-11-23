@@ -38,6 +38,7 @@ type Delegate struct {
 	chainSet              evm.ChainSet
 	lggr                  logger.Logger
 	cfg                   Config
+	mailMon               *utils.MailboxMonitor
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -54,6 +55,7 @@ func NewDelegate(
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
 	cfg Config,
+	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -65,6 +67,7 @@ func NewDelegate(
 		chainSet,
 		lggr.Named("OCR"),
 		cfg,
+		mailMon,
 	}
 }
 
@@ -124,6 +127,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		ocrDB,
 		chain.Config(),
 		chain.HeadBroadcaster(),
+		d.mailMon,
 	)
 	services = append(services, tracker)
 
