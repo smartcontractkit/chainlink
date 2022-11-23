@@ -16,7 +16,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
 
-  error SenderIsNotOracle();
+  error SenderIsNotRegistry();
   error RequestIsAlreadyPending();
   error RequestIsNotPending();
 
@@ -24,20 +24,42 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     setOracle(oracle);
   }
 
-  /// @inheritdoc OCR2DRClientInterface
+  /**
+   * @inheritdoc OCR2DRClientInterface
+   */
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_oracle.getDONPublicKey();
+  }
+
+  /**
+   * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
+   * @param req The initialized OCR2DR.Request
+   * @param subscriptionId The subscription ID
+   * @param gasLimit gas limit for the fulfillment callback
+   * @return billedCost Cost in Juels (1e18) of LINK
+   */
+  function estimateCost(
+    OCR2DR.Request memory req,
+    uint64 subscriptionId,
+    uint32 gasLimit
+  ) public view returns (uint96) {
+    return s_oracle.estimateCost(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit);
   }
 
   /**
    * @notice Sends OCR2DR request to the stored oracle address
    * @param req The initialized OCR2DR.Request
    * @param subscriptionId The subscription ID
+   * @param gasLimit gas limit for the fulfillment callback
    * @return requestId The generated request ID
    */
-  function sendRequest(OCR2DR.Request memory req, uint256 subscriptionId) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req));
-    s_pendingRequests[requestId] = address(s_oracle);
+  function sendRequest(
+    OCR2DR.Request memory req,
+    uint64 subscriptionId,
+    uint32 gasLimit
+  ) internal returns (bytes32) {
+    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit);
+    s_pendingRequests[requestId] = s_oracle.getRegistry();
     emit RequestSent(requestId);
     return requestId;
   }
@@ -55,7 +77,9 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
     bytes memory err
   ) internal virtual;
 
-  /// @inheritdoc OCR2DRClientInterface
+  /**
+   * @inheritdoc OCR2DRClientInterface
+   */
   function handleOracleFulfillment(
     bytes32 requestId,
     bytes memory response,
@@ -97,7 +121,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
    */
   modifier recordChainlinkFulfillment(bytes32 requestId) {
     if (msg.sender != s_pendingRequests[requestId]) {
-      revert SenderIsNotOracle();
+      revert SenderIsNotRegistry();
     }
     delete s_pendingRequests[requestId];
     emit RequestFulfilled(requestId);
