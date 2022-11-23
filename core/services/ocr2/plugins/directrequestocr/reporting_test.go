@@ -1,7 +1,6 @@
 package directrequestocr_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -13,27 +12,24 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	drocr_serv "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
-func reqID(id int) drocr_serv.RequestID {
-	byteArr := (*[32]byte)([]byte(fmt.Sprintf("%032d\n", id)))
-	return *byteArr
-}
-
-func sliceToByte32(slice []byte) [32]byte {
-	var res [32]byte
-	copy(res[:], slice[:32])
-	return res
+func newRequestID() drocr_serv.RequestID {
+	return testutils.Random32Byte()
 }
 
 func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, drocr_serv.ORM) {
-	ocrLogger := logger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
+	contract := testutils.NewAddress()
 
-	orm := drocr_serv.NewInMemoryORM()
+	orm := drocr_serv.NewORM(db, lggr, pgtest.NewQConfig(true), contract)
 	factory := directrequestocr.DirectRequestReportingPluginFactory{
 		Logger:    ocrLogger,
 		PluginORM: orm,
@@ -92,7 +88,7 @@ func buildObservation(t *testing.T, requestId []byte, compResult []byte, compErr
 func TestDRReporting_Query_PickOnlyReadyRequests(t *testing.T) {
 	t.Parallel()
 	plugin, orm := preparePlugin(t, 10)
-	reqId1, reqId2 := reqID(13), reqID(67)
+	reqId1, reqId2 := newRequestID(), newRequestID()
 
 	// Two requests but only one ready
 	createRequestWithResult(t, orm, reqId1, []byte{})
@@ -113,7 +109,7 @@ func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
 	plugin, orm := preparePlugin(t, 5)
 
 	for i := 0; i < 20; i++ {
-		createRequestWithResult(t, orm, reqID(10+i), []byte{})
+		createRequestWithResult(t, orm, newRequestID(), []byte{})
 	}
 
 	// 20 results are ready but batch size is only 5
@@ -124,9 +120,9 @@ func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(queryProto.RequestIDs))
-	uniqueCounter := make(map[[32]byte]bool)
+	uniqueCounter := make(map[common.Hash]bool)
 	for _, r := range queryProto.RequestIDs {
-		uniqueCounter[sliceToByte32(r)] = true
+		uniqueCounter[common.BytesToHash(r)] = true
 	}
 	require.Equal(t, 5, len(uniqueCounter), "wrong number of unique IDs")
 }
@@ -134,7 +130,7 @@ func TestDRReporting_Query_LimitToBatchSize(t *testing.T) {
 func TestDRReporting_Observation(t *testing.T) {
 	t.Parallel()
 	plugin, orm := preparePlugin(t, 10)
-	reqId1, reqId2, reqId3, reqId4 := reqID(13), reqID(14), reqID(15), reqID(16)
+	reqId1, reqId2, reqId3, reqId4 := newRequestID(), newRequestID(), newRequestID(), newRequestID()
 
 	createRequestWithResult(t, orm, reqId1, []byte("abc"))
 	createRequest(t, orm, reqId2)
@@ -166,7 +162,7 @@ func TestDRReporting_Report(t *testing.T) {
 	plugin, _ := preparePlugin(t, 10)
 	codec, err := directrequestocr.NewReportCodec()
 	require.NoError(t, err)
-	reqId1, reqId2, reqId3 := reqID(13), reqID(14), reqID(15)
+	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 
 	queryProto := directrequestocr.Query{}

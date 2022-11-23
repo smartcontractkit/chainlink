@@ -113,7 +113,7 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 	return uni, log, runBeganAwaiter
 }
 
-var RequestID drocr_service.RequestID = reqID(123)
+var RequestID drocr_service.RequestID = newRequestID()
 
 const (
 	ParseResultTaskName string = "parse_result"
