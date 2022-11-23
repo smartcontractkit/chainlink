@@ -619,6 +619,8 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	jb2, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+	
 	jb2.Name = null.StringFrom("Job 2")
 	jb2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 
