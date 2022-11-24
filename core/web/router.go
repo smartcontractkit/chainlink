@@ -289,7 +289,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/csa/import", auth.RequiresAdminRole(csakc.Import))
 		authv2.POST("/keys/csa/export/:ID", auth.RequiresAdminRole(csakc.Export))
 
-		ekc := ETHKeysController{app}
+		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
 		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))
