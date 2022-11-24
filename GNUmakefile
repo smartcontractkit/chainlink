@@ -140,6 +140,10 @@ test_soak_forwarder_ocr: test_need_operator_assets ## Run the Forwarder OCR soak
 test_soak_keeper: test_need_operator_assets ## Run the OCR soak test
 	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
 
+.PHONY: test_benchmark_automation
+test_benchmark_automation: test_need_operator_assets ## Run the OCR soak test
+	cd ./integration-tests && go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1 && cd ..
+
 .PHONY: test_perf
 test_perf: test_need_operator_assets ## Run core node performance tests.
 	ACK_GINKGO_DEPRECATIONS=2.5.0 ginkgo -v -r --junit-report=tests-perf-report.xml \
