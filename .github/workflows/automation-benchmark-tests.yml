@@ -62,6 +62,8 @@ jobs:
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: C03KJ5S7KEK
       TEST_INPUTS: ${{ inputs.TestInputs }}
+      TEST_TRIGGERED_BY: automation-benchmark
+      CHAINLINK_ENV_USER: ${{ github.actor }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
