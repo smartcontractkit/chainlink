@@ -46,6 +46,12 @@ on:
 jobs:
   automation_benchmark:
     environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: ${{ inputs.network }} Automation Benchmark Tests
     runs-on: ubuntu-latest
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
