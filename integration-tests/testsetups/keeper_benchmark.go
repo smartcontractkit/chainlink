@@ -35,6 +35,7 @@ type KeeperBenchmarkTest struct {
 	TestReporter testreporters.KeeperBenchmarkTestReporter
 
 	keeperRegistries        []contracts.KeeperRegistry
+	keeperRegistrars        []contracts.KeeperRegistrar
 	keeperConsumerContracts [][]contracts.KeeperConsumerBenchmark
 	upkeepIDs               [][]*big.Int
 
@@ -61,6 +62,7 @@ type KeeperBenchmarkTestInputs struct {
 	PreDeployedConsumers   []string                          // PreDeployed consumer contracts to re-use in test
 	UpkeepResetterAddress  string
 	InitialBatchReset      bool
+	BlockTime              time.Duration
 }
 
 // NewKeeperBenchmarkTest prepares a new keeper benchmark test to be run
@@ -79,6 +81,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	inputs := k.Inputs
 
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
+	k.keeperRegistrars = make([]contracts.KeeperRegistrar, len(inputs.RegistryVersions))
 	k.keeperConsumerContracts = make([][]contracts.KeeperConsumerBenchmark, len(inputs.RegistryVersions))
 	k.upkeepIDs = make([][]*big.Int, len(inputs.RegistryVersions))
 
@@ -108,14 +111,14 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 		err = k.chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
 
-		k.keeperRegistries[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
+		k.keeperRegistries[index], k.keeperRegistrars[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
 			inputs.RegistryVersions[index],
 			inputs.NumberOfContracts,
 			uint32(inputs.UpkeepGasLimit), //upkeepGasLimit
 			linkToken,
 			contractDeployer,
 			k.chainClient,
-			k.Inputs.KeeperRegistrySettings,
+			inputs.KeeperRegistrySettings,
 			inputs.BlockRange,
 			inputs.BlockInterval,
 			inputs.CheckGasToBurn,
@@ -123,12 +126,18 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			inputs.FirstEligibleBuffer,
 			inputs.PreDeployedConsumers,
 			inputs.UpkeepResetterAddress,
+			k.chainlinkNodes,
+			inputs.BlockTime,
 		)
 	}
 
 	for index := range inputs.RegistryVersions {
 		// Fund chainlink nodes
-		err = actions.FundChainlinkNodesAddress(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
+		nodesToFund := k.chainlinkNodes
+		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 {
+			nodesToFund = k.chainlinkNodes[1:]
+		}
+		err = actions.FundChainlinkNodesAddress(nodesToFund, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
 		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 	}
 
@@ -162,14 +171,24 @@ func (k *KeeperBenchmarkTest) Run() {
 	inputs := k.Inputs
 	startTime := time.Now()
 
-	rampUpBlocks := int64(k.Inputs.NumberOfContracts) / int64(k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock*2)
+	nodesWithoutBootstrap := k.chainlinkNodes[1:]
 
 	for rIndex := range k.keeperRegistries {
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.BlockTime*5)
+
+		// Send keeper jobs to registry and chainlink nodes
+		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 {
+			actions.CreateOCRKeeperJobs(k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), rIndex)
+			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
+			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+		} else {
+			actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, ocrConfig)
+		}
+		err = k.chainClient.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred(), "Error waiting for registry setConfig")
 		// Reset upkeeps so that they become eligible gradually after the test starts
 		actions.ResetUpkeeps(contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
 			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, k.keeperConsumerContracts[rIndex], inputs.UpkeepResetterAddress)
-		// Send keeper jobs to registry and chainlink nodes
-		actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, contracts.OCRConfig{})
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
@@ -177,7 +196,6 @@ func (k *KeeperBenchmarkTest) Run() {
 					k.keeperRegistries[rIndex],
 					k.upkeepIDs[rIndex][index],
 					inputs.BlockRange+inputs.UpkeepSLA,
-					rampUpBlocks,
 					inputs.UpkeepSLA,
 					&k.TestReporter,
 					int64(index),
@@ -242,6 +260,8 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 		contractABI, err = ethereum.KeeperRegistry12MetaData.GetAbi()
 	case ethereum.RegistryVersion_1_3:
 		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
+	case ethereum.RegistryVersion_2_0:
+		contractABI, err = ethereum.KeeperRegistry20MetaData.GetAbi()
 	default:
 		contractABI, err = ethereum.KeeperRegistry13MetaData.GetAbi()
 	}
@@ -326,6 +346,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	Expect(inputs.UpkeepSLA).ShouldNot(BeNil(), "You need to set UpkeepSLA")
 	Expect(inputs.FirstEligibleBuffer).ShouldNot(BeNil(), "You need to set FirstEligibleBuffer")
 	Expect(inputs.RegistryVersions[0]).ShouldNot(BeNil(), "You need to set RegistryVersion")
+	Expect(inputs.BlockTime).ShouldNot(BeNil(), "You need to set BlockTime")
 }
 
 func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) error {
@@ -333,7 +354,7 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) e
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
 
-	headerText := ":white_check_mark: Keeper Benchmark Test Started :white_check_mark:"
+	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
 	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", testreporters.DashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
