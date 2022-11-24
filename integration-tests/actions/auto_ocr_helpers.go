@@ -43,7 +43,7 @@ func BuildAutoOCR2ConfigVars(chainlinkNodes []*client.Chainlink, registryConfig 
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		types2.OffchainConfig{
 			TargetProbability:    "0.999",
-			TargetInRounds:       2,
+			TargetInRounds:       1,
 			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
 			UniqueReports:        false,           // set quorum requirements
 		}.Encode(), // reportingPluginConfig []byte,
