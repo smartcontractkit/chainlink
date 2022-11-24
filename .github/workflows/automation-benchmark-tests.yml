@@ -37,7 +37,7 @@ on:
       slackMemberID:
         description: Notifies test results (Not your @)
         required: true
-        default: U01A2B2C3D4
+        default: U02Q14G80TY
         type: string
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
@@ -54,7 +54,7 @@ jobs:
       EVM_HTTP_URLS: ${{ inputs.httpURL }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
-      SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
+      SLACK_CHANNEL: C03KJ5S7KEK
       TEST_INPUTS: ${{ inputs.TestInputs }}
     steps:
       - name: Collect Metrics
