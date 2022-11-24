@@ -86,6 +86,7 @@ jobs:
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          should_cleanup: false
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
