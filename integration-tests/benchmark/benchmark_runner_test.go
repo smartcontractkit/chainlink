@@ -2,6 +2,7 @@ package benchmark_test
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"os"
 	"strconv"
 	"strings"
@@ -226,8 +227,8 @@ func addSeparateChainlinkDeployments(
 			"env": envVals,
 		}
 		chartResources := chainlinkPerformance
-		testType, testTypeExists := os.LookupEnv("TEST_TYPE")
-		if testTypeExists && strings.ToLower(testType) == "soak" {
+		testType := getEnv("TEST_TYPE", "benchmark")
+		if strings.ToLower(testType) == "soak" {
 			chartResources = chainlinkSoak
 		}
 		mergo.Merge(&chartValues, &chartResources)
@@ -258,6 +259,14 @@ func benchmarkTestHelper(
 	}
 	remoteRunnerWrapper := map[string]interface{}{
 		"remote_test_runner": remoteRunnerValues,
+	}
+
+	if activeEVMNetwork.Simulated {
+		testEnvironment.
+			AddChart(blockscout.New(&blockscout.Props{
+				Name:    "geth-blockscout",
+				WsURL:   activeEVMNetwork.URL,
+				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
 	}
 
 	err := testEnvironment.
