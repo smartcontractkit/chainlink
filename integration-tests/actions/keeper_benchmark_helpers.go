@@ -3,8 +3,10 @@ package actions
 //revive:disable:dot-imports
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
@@ -32,7 +34,9 @@ func DeployBenchmarkKeeperContracts(
 	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 	predeployedContracts []string, // Array of addresses of predeployed consumer addresses to load
 	upkeepResetterAddress string,
-) (contracts.KeeperRegistry, []contracts.KeeperConsumerBenchmark, []*big.Int) {
+	chainlinkNodes []*client.Chainlink,
+	blockTime time.Duration,
+) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumerBenchmark, []*big.Int) {
 	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
@@ -63,6 +67,12 @@ func DeployBenchmarkKeeperContracts(
 		MinLinkJuels:          big.NewInt(0),
 	}
 	registrar := DeployKeeperRegistrar(registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
+	if registryVersion == ethereum.RegistryVersion_2_0 {
+		nodesWithoutBootstrap := chainlinkNodes[1:]
+		ocrConfig := BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime)
+		err = registry.SetConfig(*registrySettings, ocrConfig)
+		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+	}
 
 	upkeeps := DeployKeeperConsumersBenchmark(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn, firstEligibleBuffer, predeployedContracts, upkeepResetterAddress)
 
@@ -83,7 +93,7 @@ func DeployBenchmarkKeeperContracts(
 
 	upkeepIds := RegisterUpkeepContracts(linkToken, linkFunds, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses)
 
-	return registry, upkeeps, upkeepIds
+	return registry, registrar, upkeeps, upkeepIds
 }
 
 func ResetUpkeeps(
