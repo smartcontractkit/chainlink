@@ -167,13 +167,16 @@ var klaytn = ClientErrors{
 // Nethermind
 // All errors: https://github.com/NethermindEth/nethermind/blob/master/src/Nethermind/Nethermind.TxPool/AcceptTxResult.cs
 // All filters: https://github.com/NethermindEth/nethermind/tree/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters
-var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid|Int256Overflow|FailedToResolveSender|GasLimitExceeded)$`)
+var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid(, transaction Hash is null)?|Int256Overflow|FailedToResolveSender|GasLimitExceeded(, Gas limit: \d+, gas limit of rejected tx: \d+)?|NonceGap(, Future nonce. Expected nonce: \d+)?)$`)
 var nethermind = ClientErrors{
 	// OldNonce: The EOA (externally owned account) that signed this transaction (sender) has already signed and executed a transaction with the same nonce.
-	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce$`),
+	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce(, Current nonce: \d+, nonce of rejected tx: \d+)?$`),
 
 	// FeeTooLow/FeeTooLowToCompete: Fee paid by this transaction is not enough to be accepted in the mempool.
-	TerminallyUnderpriced: regexp.MustCompile(`(: |^)(FeeTooLow|FeeTooLowToCompete)$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(: |^)(FeeTooLow(, MaxFeePerGas too low. MaxFeePerGas: \d+, BaseFee: \d+, MaxPriorityFeePerGas:\d+, Block number: \d+|` +
+		`, EffectivePriorityFeePerGas too low \d+ < \d+, BaseFee: \d+|` +
+		`, FeePerGas needs to be higher than \d+ to be added to the TxPool. Affordable FeePerGas of rejected tx: \d+.)?|` +
+		`FeeTooLowToCompete)$`),
 
 	// AlreadyKnown: A transaction with the same hash has already been added to the pool in the past.
 	// OwnNonceAlreadyUsed: A transaction with same nonce has been signed locally already and is awaiting in the pool.
