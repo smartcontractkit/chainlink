@@ -55,7 +55,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
-      EVM_KEYS: ${{ inputs.fundingPrivateKey }}
       EVM_URLS: ${{ inputs.wsURL }}
       EVM_HTTP_URLS: ${{ inputs.httpURL }}
       SLACK_USER: ${{ inputs.slackMemberID }}
@@ -65,6 +64,10 @@ jobs:
       TEST_TRIGGERED_BY: automation-benchmark
       CHAINLINK_ENV_USER: ${{ github.actor }}
     steps:
+      - name: Add mask
+        run: |
+          echo "::add-mask::${{ inputs.fundingPrivateKey }}"
+          echo EVM_KEYS=${{ inputs.fundingPrivateKey }} >> $GITHUB_ENV
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@v1
