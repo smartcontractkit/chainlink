@@ -2,6 +2,7 @@ package benchmark
 
 //revive:disable:dot-imports
 import (
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"os"
 	"strconv"
@@ -29,6 +30,10 @@ var (
 	upkeepResetterContractEmpty  = ""
 	upkeepResetterContractGoerli = "0xaeA9bD8f60C9EB1771900B9338dE8Ab52584E80e"
 	simulatedBLockTime           = time.Second
+	goerliTag                    = strings.ReplaceAll(strings.ToLower(networks.GoerliTestnet.Name), " ", "-")
+	arbitrumTag                  = strings.ReplaceAll(strings.ToLower(networks.ArbitrumGoerli.Name), " ", "-")
+	optimismTag                  = strings.ReplaceAll(strings.ToLower(networks.OptimismGoerli.Name), " ", "-")
+	mumbaiTag                    = strings.ReplaceAll(strings.ToLower(networks.PolygonMumbai.Name), " ", "-")
 )
 
 type BenchmarkTestEntry struct {
@@ -64,7 +69,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractEmpty,
 					time.Second},
 			),
-			Entry("Keeper benchmark suite on Goerli Network @goerli-registry-1-3",
+			Entry("Keeper benchmark suite on Goerli Network @"+goerliTag+"-registry-1-3",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
@@ -72,7 +77,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractGoerli,
 					12 * time.Second},
 			),
-			Entry("Keeper benchmark suite on Arbitrum Goerli Network @arbitrum-goerli-registry-1-3",
+			Entry("Keeper benchmark suite on Arbitrum Goerli Network @"+arbitrumTag+"-registry-1-3",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 					big.NewFloat(0.5),
 					int64(20),
@@ -80,7 +85,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractEmpty,
 					time.Second},
 			),
-			Entry("Keeper benchmark suite on Optimistic Goerli Network @optimistic-goerli-registry-1-3",
+			Entry("Keeper benchmark suite on Optimistic Goerli Network @"+optimismTag+"-registry-1-3",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(20),
@@ -96,7 +101,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractEmpty,
 					time.Second},
 			),
-			Entry("Keeper benchmark suite on Goerli Network with Multiple Registries @goerli-multiple-registries",
+			Entry("Keeper benchmark suite on Goerli Network with Multiple Registries @"+goerliTag+"-multiple-registries",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
@@ -112,7 +117,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractEmpty,
 					time.Second},
 			),
-			Entry("Keeper benchmark suite on Goerli Network with 1.2 registry @goerli-registry-1-2",
+			Entry("Keeper benchmark suite on Goerli Network with 1.2 registry @"+goerliTag+"-registry-1-2",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
@@ -128,7 +133,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractEmpty,
 					12 * time.Second},
 			),
-			Entry("Keeper benchmark suite on Goerli Network with 2.0 registry @goerli-registry-2-0",
+			Entry("Keeper benchmark suite on Goerli Network with 2.0 registry @"+goerliTag+"-registry-2-0",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
@@ -136,7 +141,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractGoerli,
 					12 * time.Second},
 			),
-			Entry("Keeper benchmark suite on Arbitrum Goerli Network with 2.0 registry @arbitrum-goerli-registry-2-0",
+			Entry("Keeper benchmark suite on Arbitrum Goerli Network with 2.0 registry @"+arbitrumTag+"-registry-2-0",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 					big.NewFloat(0.5),
 					int64(20),
@@ -144,7 +149,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractEmpty,
 					time.Second},
 			),
-			Entry("Keeper benchmark suite on Optimistic Goerli Network with 2.0 registry @optimistic-goerli-registry-2-0",
+			Entry("Keeper benchmark suite on Optimistic Goerli Network with 2.0 registry @"+optimismTag+"-registry-2-0",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(20),
@@ -152,7 +157,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					upkeepResetterContractEmpty,
 					time.Second},
 			),
-			Entry("Keeper benchmark suite on Mumbai Testnet Network with 2.0 registry @polygon-mumbai-registry-2-0",
+			Entry("Keeper benchmark suite on Mumbai Testnet Network with 2.0 registry @"+mumbaiTag+"-registry-2-0",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(20),
@@ -187,6 +192,11 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					Simulated:   benchmarkNetwork.Simulated,
 					WsURLs:      benchmarkNetwork.URLs,
 				}))
+			for _, version := range testEntry.registryVersions {
+				if version == eth_contracts.RegistryVersion_2_0 {
+					NumberOfNodes++
+				}
+			}
 			for i := 0; i < NumberOfNodes; i++ {
 				testEnvironment.AddHelm(chainlink.New(i, nil))
 			}

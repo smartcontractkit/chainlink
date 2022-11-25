@@ -181,6 +181,8 @@ func (k *KeeperBenchmarkTest) Run() {
 			actions.CreateOCRKeeperJobs(k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), rIndex)
 			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+			// Give time for OCR nodes to bootstrap
+			time.Sleep(2 * time.Minute)
 		} else {
 			actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, ocrConfig)
 		}
