@@ -165,6 +165,7 @@ func DeployKeeperConsumersBenchmark(
 	upkeepResetterAddr string,
 ) []contracts.KeeperConsumerBenchmark {
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
+	firstEligibleBuffer = 10000
 
 	if len(predeployedContracts) >= numberOfContracts {
 		contractLoader, err := contracts.NewContractLoader(client)
@@ -183,7 +184,7 @@ func DeployKeeperConsumersBenchmark(
 		}
 		// Reset upkeeps so that they are not eligible when being registered
 		ResetUpkeeps(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn,
-			performGasToBurn, 10000, upkeeps, upkeepResetterAddr)
+			performGasToBurn, firstEligibleBuffer, upkeeps, upkeepResetterAddr)
 		return upkeeps
 	}
 
