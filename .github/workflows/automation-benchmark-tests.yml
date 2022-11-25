@@ -51,7 +51,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: ${{ inputs.network }} Automation Benchmark Tests
+    name: ${{ inputs.network }} Automation Benchmark Test
     runs-on: ubuntu-latest
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
@@ -81,7 +81,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.network }} Automation Benchmark Tests
+          this-job-name: ${{ inputs.network }} Automation Benchmark Test
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
