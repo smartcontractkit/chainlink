@@ -116,7 +116,7 @@ func KeeperBenchmark(t *testing.T, registryToTest string, numberOfNodes int) {
 	staticValues := map[string]interface{}{
 		"ETH_URL":      activeEVMNetwork.URLs[0],
 		"ETH_HTTP_URL": activeEVMNetwork.HTTPURLs[0],
-		"ETH_CHAIN_ID": activeEVMNetwork.ChainID,
+		"ETH_CHAIN_ID": strconv.Itoa(int(activeEVMNetwork.ChainID)),
 	}
 
 	keeperBenchmarkValues := map[string]interface{}{
