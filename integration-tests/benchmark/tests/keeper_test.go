@@ -192,6 +192,11 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					Simulated:   benchmarkNetwork.Simulated,
 					WsURLs:      benchmarkNetwork.URLs,
 				}))
+			for _, version := range testEntry.registryVersions {
+				if version == eth_contracts.RegistryVersion_2_0 {
+					NumberOfNodes++
+				}
+			}
 			for i := 0; i < NumberOfNodes; i++ {
 				testEnvironment.AddHelm(chainlink.New(i, nil))
 			}
