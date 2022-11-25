@@ -283,10 +283,12 @@ func DeployKeeperRegistrar(
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying KeeperRegistrar contract shouldn't fail")
 	err = client.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for registrar to deploy")
-	err = registry.SetRegistrar(registrar.Address())
-	Expect(err).ShouldNot(HaveOccurred(), "Registering the registrar address on the registry shouldn't fail")
-	err = client.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for registry to set registrar")
+	if registryVersion != ethereum.RegistryVersion_2_0 {
+		err = registry.SetRegistrar(registrar.Address())
+		Expect(err).ShouldNot(HaveOccurred(), "Registering the registrar address on the registry shouldn't fail")
+		err = client.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for registry to set registrar")
+	}
 
 	return registrar
 }

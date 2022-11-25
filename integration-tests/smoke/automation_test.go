@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -145,9 +146,9 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		)
 
 		By("Create OCR Automation Jobs")
-		actions.CreateOCRKeeperJobs(chainlinkNodes, registry.Address(), network.ChainID)
+		actions.CreateOCRKeeperJobs(chainlinkNodes, registry.Address(), network.ChainID, 0)
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, registryConfig, registrar.Address())
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
 		err = registry.SetConfig(defaultRegistryConfig, ocrConfig)
 		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 		Expect(chainClient.WaitForEvents()).ShouldNot(HaveOccurred(), "Waiting for config to be set")
@@ -594,7 +595,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := defaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
-			ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, highCheckGasLimit, registrar.Address())
+			ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 5*time.Second)
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
 			Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 			err = chainClient.WaitForEvents()
