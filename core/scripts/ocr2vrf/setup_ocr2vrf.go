@@ -25,11 +25,11 @@ const (
 func fundOCR2VRFNodes(e helpers.Environment) {
 	fs := flag.NewFlagSet("ocr2vrf-setup", flag.ExitOnError)
 	ethSendingKeysString := fs.String("eth-sending-keys", "", "eth sending keys")
-	fundingAmount := fs.Int64("funding-amount", 1e18, "amount to fund nodes") // 1 ETH
+	fundingAmount := fs.String("funding-amount", "1e18", "funding amount in wei. can use scientific notation, e.g 10e18 for 10 ether") // 1 ETH
 	helpers.ParseArgs(fs, os.Args[2:], "eth-sending-keys")
 
 	flatSendingKeys := strings.Split(*ethSendingKeysString, ",")
-	helpers.FundNodes(e, flatSendingKeys, big.NewInt(*fundingAmount))
+	helpers.FundNodes(e, flatSendingKeys, decimal.RequireFromString(*fundingAmount).BigInt())
 }
 
 func setupOCR2VRFNodes(e helpers.Environment) {
@@ -181,7 +181,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		}
 		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
-		payload := setupNode(flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder)
+		payload := setupNode(e, flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder)
 
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)
 		offChainPublicKeys = append(offChainPublicKeys, payload.OffChainPublicKey)
@@ -413,7 +413,8 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 				vrfBeaconAddress.String(),
 				ocr2KeyBundleIDs[adjustedIndex],
 				forwarderAddresses[adjustedIndex].String(),
-				"", // P2P Bootstrapper
+				true, // forwardingAllowed
+				"",   // P2P Bootstrapper
 				e.ChainID,
 				dkgEncrypters[adjustedIndex],
 				dkgSigners[adjustedIndex],
@@ -520,7 +521,7 @@ func printStandardCommands(
 	fmt.Println()
 }
 
-func setupNode(flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool) *cmd.SetupOCR2VRFNodePayload {
+func setupNode(e helpers.Environment, flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool) *cmd.SetupOCR2VRFNodePayload {
 	client := newSetupClient()
 	app := cmd.NewApp(client)
 	ctx := cli.NewContext(app, flagSet, nil)
@@ -536,5 +537,5 @@ func setupNode(flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffi
 	resetDatabase(client, ctx, nodeIdx, databasePrefix, databaseSuffixes)
 	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0))
 
-	return setupOCR2VRFNodeFromClient(client, ctx)
+	return setupOCR2VRFNodeFromClient(client, ctx, e)
 }

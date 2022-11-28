@@ -371,8 +371,8 @@ func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 // WaitForLogMessageCount waits until at least count log message containing the
 // specified msg is emitted
 func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, msg string, count int) {
-	i := 0
 	AssertEventually(t, func() bool {
+		i := 0
 		for _, l := range observedLogs.All() {
 			if strings.Contains(l.Message, msg) {
 				i++

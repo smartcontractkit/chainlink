@@ -87,6 +87,7 @@ func newListenerV2(
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
+	mailMon *utils.MailboxMonitor,
 	reqLogs *utils.Mailbox[log.Broadcast],
 	reqAdded func(),
 	respCount map[string]uint64,
@@ -100,6 +101,7 @@ func newListenerV2(
 		chainID:            chainID,
 		logBroadcaster:     logBroadcaster,
 		txm:                txm,
+		mailMon:            mailMon,
 		coordinator:        coordinator,
 		batchCoordinator:   batchCoordinator,
 		pipelineRunner:     pipelineRunner,
@@ -150,6 +152,7 @@ type listenerV2 struct {
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
 	txm            txmgr.TxManager
+	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
@@ -247,6 +250,8 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		go func() {
 			lsn.runRequestHandler(spec.PollPeriod, lsn.wg)
 		}()
+
+		lsn.mailMon.Monitor(lsn.reqLogs, "VRFListenerV2", "RequestLogs", fmt.Sprint(lsn.job.ID))
 		return nil
 	})
 }
@@ -1155,7 +1160,7 @@ func (lsn *listenerV2) Close() error {
 		close(lsn.chStop)
 		// wait on the request handler, log listener, and head listener to stop
 		lsn.wg.Wait()
-		return nil
+		return lsn.reqLogs.Close()
 	})
 }
 

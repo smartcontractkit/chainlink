@@ -34,10 +34,9 @@ import (
 )
 
 var (
-	ErrNoSuchKeyBundle       = errors.New("no such key bundle exists")
-	ErrNoSuchTransmitterKey  = errors.New("no such transmitter key exists")
-	ErrSendingKeyIsForwarder = errors.New("forwarding is enabled, but the transmitter is set to a local sending key")
-	ErrNoSuchPublicKey       = errors.New("no such public key exists")
+	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
+	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
+	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -238,33 +237,54 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
+
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
 				case relay.EVM:
-					chain, err := EVMChainForJob(jb, o.chainSet)
+					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrap(err, "error getting EVMChain for job")
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 
-					useForwarders := chain.Config().EvmUseForwarders()
-					_, err = o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					newChainID, err := EVMChainIDForJobSpec(jb.OCR2OracleSpec)
+					if err != nil {
+						return err
+					}
 
-					// If not using forwarders, the transmitter should be a local sending key.
-					if !useForwarders && err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					var spec OCR2OracleSpec
+					chainIdPath := []string{"chainID"}
+					err = tx.Get(&spec, `SELECT * FROM ocr2_oracle_specs WHERE relay = $1 AND contract_id = $2 AND relay_config #>> $3 = $4 LIMIT 1`,
+						relay.EVM, jb.OCR2OracleSpec.ContractID, chainIdPath, fmt.Sprintf("%d", newChainID),
+					)
+
+					if !errors.Is(err, sql.ErrNoRows) {
+						if err != nil {
+							return errors.Wrapf(err, "db read error while validating contract_id")
+						}
+						return errors.Errorf("Job ID %v already exists for chain ID %d with contract address %v",
+							jb.ID, newChainID, jb.OCR2OracleSpec.ContractID)
 					}
 				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+					// TODO: add unique contract per chain constraint for Solana and other non-EVM chains
+					//   ( prereq: chainlink-solana (etc.) should implement GetChainIDAsString() or similar method )
 				case relay.Terra:
 					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				case relay.StarkNet:
+					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					}
 				}
+
 			}
+
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)

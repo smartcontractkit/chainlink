@@ -168,6 +168,27 @@ func (_m *ORM) SetState(requestID directrequestocr.RequestID, state directreques
 	return r0, r1
 }
 
+// SetTransmitted provides a mock function with given fields: requestID, transmittedResult, transmittedError, qopts
+func (_m *ORM) SetTransmitted(requestID directrequestocr.RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, requestID, transmittedResult, transmittedError)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, []byte, []byte, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, transmittedResult, transmittedError, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 type mockConstructorTestingTNewORM interface {
 	mock.TestingT
 	Cleanup(func())

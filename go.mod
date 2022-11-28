@@ -63,7 +63,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.0.2-0.20220930034647-edd5a863b876
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
-	github.com/smartcontractkit/libocr v0.0.0-20221116154421-f18bda99324f
+	github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8
 	github.com/smartcontractkit/ocr2keepers v0.4.8
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20221108213147-df72abedd302
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
@@ -357,6 +357,9 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
 
 // updating CosmWasm to v1.0.0 which brings ARM support
 replace github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
+
+// moved but still using old module name
+replace github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
 
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94

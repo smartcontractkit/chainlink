@@ -75,7 +75,7 @@ func setAuthorizedSenders(e helpers.Environment, forwarder common.Address, sende
 
 func deployVRFBeacon(e helpers.Environment, coordinatorAddress, linkAddress, dkgAddress, keyID string) common.Address {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
-	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
+	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec, common.HexToAddress(linkAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -471,8 +471,8 @@ func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
 	return
 }
 
-func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupOCR2VRFNodePayload {
-	payload, err := client.ConfigureOCR2VRFNode(context)
+func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e helpers.Environment) *cmd.SetupOCR2VRFNodePayload {
+	payload, err := client.ConfigureOCR2VRFNode(context, e.Owner, e.Ec)
 	helpers.PanicErr(err)
 
 	return payload
