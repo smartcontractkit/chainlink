@@ -44,7 +44,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 
 	AfterEach(func() {
 		log.Info().Str("after", "each").Msg("AfterEach")
-		time.Sleep(6 * time.Minute)
+		// time.Sleep(6 * time.Minute)
 		By("Tearing env down")
 		chainClient.GasStats().PrintStats()
 		err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
