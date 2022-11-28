@@ -27,7 +27,7 @@ func NewOCR2DRProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs 
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, nil)
 	if err != nil {
 		return nil, err
 	}

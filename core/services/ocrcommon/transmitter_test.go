@@ -1,6 +1,7 @@
 package ocrcommon_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,13 +27,23 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	gasLimit := uint32(1000)
+	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
-	transmitter := ocrcommon.NewTransmitter(txm, []common.Address{fromAddress}, gasLimit, effectiveTransmitterAddress, strategy, txmgr.TransmitCheckerSpec{})
+	transmitter := ocrcommon.NewTransmitter(
+		txm,
+		[]common.Address{fromAddress},
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		txmgr.TransmitCheckerSpec{},
+		chainID,
+		nil,
+	)
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    fromAddress,
@@ -42,5 +53,95 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		Meta:           nil,
 		Strategy:       strategy,
 	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+}
+
+func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+
+	gasLimit := uint32(1000)
+	chainID := big.NewInt(0)
+	effectiveTransmitterAddress := common.Address{}
+	toAddress := testutils.NewAddress()
+	payload := []byte{1, 2, 3}
+	txm := txmmocks.NewTxManager(t)
+	strategy := txmmocks.NewTxStrategy(t)
+
+	transmitter := ocrcommon.NewTransmitter(
+		txm,
+		[]common.Address{fromAddress, fromAddress2},
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		txmgr.TransmitCheckerSpec{},
+		chainID,
+		&ethKeyStore,
+	)
+
+	txm.On("CreateEthTransaction", txmgr.NewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       strategy,
+	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", txmgr.NewTx{
+		FromAddress:    fromAddress2,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       strategy,
+	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+}
+
+func Test_DefaultTransmitter_Forwarding_Enabled_No_Keystore_CreateEthTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+
+	gasLimit := uint32(1000)
+	chainID := big.NewInt(0)
+	effectiveTransmitterAddress := common.Address{}
+	toAddress := testutils.NewAddress()
+	payload := []byte{1, 2, 3}
+	txm := txmmocks.NewTxManager(t)
+	strategy := txmmocks.NewTxStrategy(t)
+
+	transmitter := ocrcommon.NewTransmitter(
+		txm,
+		[]common.Address{fromAddress, fromAddress2},
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		txmgr.TransmitCheckerSpec{},
+		chainID,
+		nil,
+	)
+
+	txm.On("CreateEthTransaction", txmgr.NewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       strategy,
+	}, mock.Anything).Return(txmgr.EthTx{}, nil).Twice()
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
 }

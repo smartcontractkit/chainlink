@@ -2,11 +2,13 @@ package ocrcommon
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
@@ -27,10 +29,21 @@ type transmitter struct {
 	effectiveTransmitterAddress common.Address
 	strategy                    txmgr.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
+	chainID                     *big.Int
+	ethKeyStore                 *keystore.Eth
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(txm txManager, fromAddresses []common.Address, gasLimit uint32, effectiveTransmitterAddress common.Address, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
+func NewTransmitter(
+	txm txManager,
+	fromAddresses []common.Address,
+	gasLimit uint32,
+	effectiveTransmitterAddress common.Address,
+	strategy txmgr.TxStrategy,
+	checker txmgr.TransmitCheckerSpec,
+	chainID *big.Int,
+	ethKeyStore *keystore.Eth,
+) Transmitter {
 	return &transmitter{
 		txm:                         txm,
 		fromAddresses:               fromAddresses,
@@ -38,6 +51,8 @@ func NewTransmitter(txm txManager, fromAddresses []common.Address, gasLimit uint
 		effectiveTransmitterAddress: effectiveTransmitterAddress,
 		strategy:                    strategy,
 		checker:                     checker,
+		chainID:                     chainID,
+		ethKeyStore:                 ethKeyStore,
 	}
 }
 
@@ -62,11 +77,11 @@ func (t *transmitter) FromAddressForTransaction() common.Address {
 	// Use Round-Robin to select the next fromAddress.
 	nextFromAddress := t.fromAddresses[t.nextFromAddressIndex]
 
-	// Only apply round-robin logic for multiple sending keys.
-	if len(t.fromAddresses) > 1 {
-		t.nextFromAddressIndex++
-		if t.nextFromAddressIndex >= len(t.fromAddresses) {
-			t.nextFromAddressIndex = 0
+	// Only apply round-robin logic for multiple sending keys and a valid keystore.
+	if len(t.fromAddresses) > 1 && t.ethKeyStore != nil {
+		fromAddress, err := (*t.ethKeyStore).GetRoundRobinAddress(t.chainID, t.fromAddresses...)
+		if err == nil {
+			nextFromAddress = fromAddress
 		}
 	}
 
