@@ -2,12 +2,13 @@ package benchmark_test
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 
 	"github.com/stretchr/testify/require"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 )
 
@@ -121,7 +123,6 @@ func KeeperBenchmark(t *testing.T, registryToTest string, numberOfNodes int) {
 
 	keeperBenchmarkValues := map[string]interface{}{
 		"MIN_INCOMING_CONFIRMATIONS":  "1",
-		"KEEPER_TURN_FLAG_ENABLED":    "true",
 		"CHAINLINK_DEV":               "false",
 		"P2P_NETWORKING_STACK":        "V2",
 		"P2PV2_LISTEN_ADDRESSES":      "0.0.0.0:6690",
@@ -138,7 +139,6 @@ func KeeperBenchmark(t *testing.T, registryToTest string, numberOfNodes int) {
 	if registryToTest == "registry-2-0" {
 		numberOfNodes = numberOfNodes + 1
 		blockTime = "12"
-		keeperBenchmarkValues["KEEPER_TURN_FLAG_ENABLED"] = "false"
 	}
 
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)

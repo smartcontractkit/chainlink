@@ -237,7 +237,6 @@ func TestKeeperEthIntegration(t *testing.T) {
 				c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
 				c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 
-				c.Keeper.TurnFlagEnabled = ptr(true)  // testing new turn taking
 				c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
 
 				c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
@@ -393,7 +392,6 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
 			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 
-			c.Keeper.TurnFlagEnabled = ptr(true)  // testing new turn taking
 			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
 
 			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
@@ -536,7 +534,6 @@ func TestMaxPerformDataSize(t *testing.T) {
 			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 			c.Keeper.Registry.MaxPerformDataSize = ptr(uint32(maxPerformDataSize))  // set the max perform data size
 
-			c.Keeper.TurnFlagEnabled = ptr(true)  // testing new turn taking
 			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
 
 			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
