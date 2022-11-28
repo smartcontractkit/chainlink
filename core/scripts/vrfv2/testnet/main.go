@@ -991,6 +991,16 @@ func main() {
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
+	case "get-byte-code":
+		cmd := flag.NewFlagSet("get-byte-code", flag.ExitOnError)
+		contractAddress := cmd.String("contract-address", "", "contract address")
+		bytecode, err := e.Ec.CodeAt(context.Background(), common.HexToAddress(*contractAddress), nil)
+		helpers.PanicErr(err)
+
+		fmt.Println("Contract Bytecode")
+		fmt.Println(bytecode)
+		fmt.Println(hex.EncodeToString(bytecode))
+
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
