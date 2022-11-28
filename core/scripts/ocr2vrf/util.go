@@ -529,30 +529,3 @@ func requestRandomnessCallbackBatch(
 
 	return requestID
 }
-
-func getLoadtestResults(e helpers.Environment, consumerAddress string) (requestID *big.Int) {
-	consumer := newLoadTestVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
-
-	totalRequests, err := consumer.STotalRequests(nil)
-	helpers.PanicErr(err)
-
-	totalFulfilled, err := consumer.STotalFulfilled(nil)
-	helpers.PanicErr(err)
-
-	avgBlocksInMil, err := consumer.SAverageFulfillmentInMillions(nil)
-	helpers.PanicErr(err)
-
-	slowestBlocks, err := consumer.SSlowestFulfillment(nil)
-	helpers.PanicErr(err)
-
-	fastestBlock, err := consumer.SFastestFulfillment(nil)
-	helpers.PanicErr(err)
-
-	fmt.Println("Total Requests: ", totalRequests.Uint64())
-	fmt.Println("Total Fulfilled: ", totalFulfilled.Uint64())
-	fmt.Println("Average Fulfillment Delay in Blocks: ", float64(avgBlocksInMil.Uint64())/1000000)
-	fmt.Println("Slowest Fulfillment Delay in Blocks: ", slowestBlocks.Uint64())
-	fmt.Println("Fastest Fulfillment Delay in Blocks: ", fastestBlock.Uint64())
-
-	return requestID
-}
