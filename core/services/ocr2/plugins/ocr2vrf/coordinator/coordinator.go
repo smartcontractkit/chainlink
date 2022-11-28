@@ -919,5 +919,20 @@ func (c *coordinator) SetOffChainConfig(b []byte) error {
 		return errors.Wrap(err, "error setting offchain config on coordinator")
 	}
 
+	c.lggr.Infow("set offchain config",
+		offchainConfigFields(c.coordinatorConfig)...,
+	)
+
 	return nil
+}
+
+func offchainConfigFields(coordinatorConfig *ocr2vrftypes.CoordinatorConfig) []any {
+	return []any{
+		"cacheEvictionWindowSeconds", coordinatorConfig.CacheEvictionWindowSeconds,
+		"batchGasLimit", coordinatorConfig.BatchGasLimit,
+		"coordinatorOverhead", coordinatorConfig.CoordinatorOverhead,
+		"lookbackBlocks", coordinatorConfig.LookbackBlocks,
+		"blockGasOverhead", coordinatorConfig.BlockGasOverhead,
+		"callbackOverhead", coordinatorConfig.CallbackOverhead,
+	}
 }
