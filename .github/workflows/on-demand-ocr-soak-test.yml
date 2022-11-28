@@ -39,22 +39,10 @@ on:
         description: Duration of the test (time string)
         required: false
         default: 15m
-      numberOfFeeds:
-        description: Number of OCR feeds
-        required: false
-        default: "2"
       chainlinkNodeFunding:
         description: How much to fund each Chainlink node (in ETH)
         required: false
         default: ".001"
-      expectedRoundTime:
-        description: How long a typical OCR round should take
-        required: false
-        default: 2m
-      roundTimeout:
-        description: How long to wait for a round before killing the test
-        required: false
-        default: 15m
       timeBetweenRounds:
         description: How long to wait before starting a new round
         required: false
@@ -73,10 +61,7 @@ jobs:
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       OCR_TEST_DURATION: ${{ inputs.testDuration }}
-      OCR_NUMBER_OF_FEEDS: ${{ inputs.numberOfFeeds }}
       OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
-      OCR_EXPECTED_ROUND_TIME: ${{ inputs.expectedRoundTime }}
-      OCR_ROUND_TIMEOUT: ${{ inputs.roundTimeout }}
       OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
     steps:
       - name: Collect Metrics
