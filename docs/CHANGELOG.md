@@ -54,8 +54,8 @@ Secrets must be configured manually and passed via `-secrets <filename>` or equi
 ### Updated
 
 - OCR2 jobs may now re-use the same contract address on multiple chains.
-
 - `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
 
 <!-- unreleasedstop -->
 
