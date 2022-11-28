@@ -29,29 +29,31 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
-func BuildAutoOCR2ConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contracts.KeeperRegistrySettings, registrar string) contracts.OCRConfig {
+func BuildAutoOCR2ConfigVars(chainlinkNodes []*client.Chainlink, registryConfig contracts.KeeperRegistrySettings, registrar string, deltaStage time.Duration) contracts.OCRConfig {
 	S, oracleIdentities := getOracleIdentities(chainlinkNodes)
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		10*time.Second,       // deltaProgress time.Duration,
-		10*time.Second,       // deltaResend time.Duration,
-		3*time.Second,        // deltaRound time.Duration,
-		500*time.Millisecond, // deltaGrace time.Duration,
-		2*time.Second,        // deltaStage time.Duration,
-		3,                    // rMax uint8,
-		S,                    // s []int,
-		oracleIdentities,     // oracles []OracleIdentityExtra,
+		5*time.Second,         // deltaProgress time.Duration,
+		10*time.Second,        // deltaResend time.Duration,
+		2500*time.Millisecond, // deltaRound time.Duration,
+		50*time.Millisecond,   // deltaGrace time.Duration,
+		deltaStage,            // deltaStage time.Duration,
+		48,                    // rMax uint8,
+		S,                     // s []int,
+		oracleIdentities,      // oracles []OracleIdentityExtra,
 		types2.OffchainConfig{
+			TargetProbability:    "0.999",
+			TargetInRounds:       1,
 			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
 			UniqueReports:        false,           // set quorum requirements
 		}.Encode(), // reportingPluginConfig []byte,
-		50*time.Millisecond, // maxDurationQuery time.Duration,
-		time.Second,         // maxDurationObservation time.Duration,
-		time.Second,         // maxDurationReport time.Duration,
-		50*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
-		50*time.Millisecond, // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                   // f int,
-		nil,                 // onchainConfig []byte,
+		20*time.Millisecond,   // maxDurationQuery time.Duration,
+		1600*time.Millisecond, // maxDurationObservation time.Duration,
+		800*time.Millisecond,  // maxDurationReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                     // f int,
+		nil,                   // onchainConfig []byte,
 	)
 	Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail ContractSetConfigArgsForTests")
 
@@ -143,7 +145,7 @@ func getOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighel
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
-func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string, chainID int64) {
+func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string, chainID int64, keyIndex int) {
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.RemoteIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -167,14 +169,14 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
-		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].PrimaryEthAddress()
+		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
 		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
 		Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
-		var nodeOCRKeyId string
+		var nodeOCRKeyId []string
 		for _, key := range nodeOCRKeys.Data {
 			if key.Attributes.ChainType == string(chaintype.EVM) {
-				nodeOCRKeyId = key.ID
+				nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
 				break
 			}
 		}
@@ -189,10 +191,10 @@ func CreateOCRKeeperJobs(chainlinkNodes []*client.Chainlink, registryAddr string
 					"chainID": int(chainID),
 				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
-				ContractID:                        registryAddr,                            // registryAddr
-				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
-				TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
-				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:8000
+				ContractID:                        registryAddr,                                      // registryAddr
+				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[keyIndex]),           // get node ocr2config.ID
+				TransmitterID:                     null.StringFrom(nodeTransmitterAddress[keyIndex]), // node addr
+				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},                 // bootstrap node key and address <p2p-key>@bootstrap:8000
 			},
 		}
 

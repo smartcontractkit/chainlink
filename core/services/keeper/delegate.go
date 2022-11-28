@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
@@ -20,6 +21,7 @@ type Delegate struct {
 	jrm      job.ORM
 	pr       pipeline.Runner
 	chainSet evm.ChainSet
+	mailMon  *utils.MailboxMonitor
 }
 
 // NewDelegate is the constructor of Delegate
@@ -29,6 +31,7 @@ func NewDelegate(
 	pr pipeline.Runner,
 	logger logger.Logger,
 	chainSet evm.ChainSet,
+	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		logger:   logger,
@@ -36,6 +39,7 @@ func NewDelegate(
 		jrm:      jrm,
 		pr:       pr,
 		chainSet: chainSet,
+		mailMon:  mailMon,
 	}
 }
 
@@ -96,6 +100,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		ORM:                      orm,
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),
+		MailMon:                  d.mailMon,
 		SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,

@@ -231,12 +231,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.OCROracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
+
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
+
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
 				case relay.EVM:
@@ -254,8 +256,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				case relay.StarkNet:
+					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					}
 				}
 			}
+
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)

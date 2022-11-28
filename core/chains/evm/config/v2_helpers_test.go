@@ -94,6 +94,7 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			PollFailureThreshold: ptr(set.nodePollFailureThreshold),
 			PollInterval:         models.MustNewDuration(set.nodePollInterval),
 			SelectionMode:        ptr(set.nodeSelectionMode),
+			SyncThreshold:        ptr(set.nodeSyncThreshold),
 		},
 		OCR: v2.OCR{
 			ContractConfirmations:              ptr(set.ocrContractConfirmations),

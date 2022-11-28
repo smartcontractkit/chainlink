@@ -75,7 +75,7 @@ func setAuthorizedSenders(e helpers.Environment, forwarder common.Address, sende
 
 func deployVRFBeacon(e helpers.Environment, coordinatorAddress, linkAddress, dkgAddress, keyID string) common.Address {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
-	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
+	_, tx, _, err := vrf_beacon.DeployVRFBeacon(e.Owner, e.Ec, common.HexToAddress(linkAddress), common.HexToAddress(coordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -198,15 +198,6 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 
 	onchainConfig := ocr2vrf.OnchainConfig(confDelays)
 
-	coordinatorConfig := ocr2vrftypes.CoordinatorConfig{
-		CacheEvictionWindowSeconds: 60,
-		BatchGasLimit:              5_000_000,
-		CoordinatorOverhead:        50_000,
-		CallbackOverhead:           50_000,
-		BlockGasOverhead:           50_000,
-		LookbackBlocks:             1_000,
-	}
-
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		c.deltaProgress,
 		c.deltaResend,
@@ -216,7 +207,7 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 		c.maxRounds,
 		helpers.ParseIntSlice(c.schedule),
 		oracleIdentities,
-		ocr2vrf.OffchainConfig(&coordinatorConfig), // off-chain config
+		ocr2vrf.OffchainConfig(&c.coordinatorConfig), // off-chain config
 		c.maxDurationQuery,
 		c.maxDurationObservation,
 		c.maxDurationReport,

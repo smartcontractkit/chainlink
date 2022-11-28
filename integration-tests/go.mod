@@ -383,6 +383,9 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
 // updating CosmWasm to v1.0.0 which brings ARM support
 replace github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 
+// moved but still using old module name
+replace github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
+
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4

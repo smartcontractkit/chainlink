@@ -400,7 +400,12 @@ func (c *coordinator) getBlockhashesMapping(
 	sort.Slice(blockNumbers, func(a, b int) bool {
 		return blockNumbers[a] < blockNumbers[b]
 	})
+
 	heads, err := c.lp.GetBlocks(ctx, blockNumbers, pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, errors.Wrap(err, "logpoller.GetBlocks")
+	}
+
 	if len(heads) != len(blockNumbers) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
 		return

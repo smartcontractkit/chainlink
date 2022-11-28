@@ -276,8 +276,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
    * @param report serialized report
    */
   function _report(
-    uint32 initialGas,
+    uint256 initialGas,
     address transmitter,
+    uint8 signerCount,
     address[maxNumOracles] memory signers,
     bytes calldata report
   ) internal virtual;
@@ -340,7 +341,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       bytes32 configDigest = reportContext[0];
       uint32 epochAndRound = uint32(uint256(reportContext[1]));
 
-      if (!_validateReport(configDigest, epochAndRound, report)) revert ReportInvalid();
+      if (!_validateReport(configDigest, epochAndRound, report)) {
+        revert ReportInvalid();
+      }
 
       emit Transmitted(configDigest, uint32(epochAndRound >> 8));
 
@@ -367,6 +370,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     }
 
     address[maxNumOracles] memory signed;
+    uint8 signerCount = 0;
 
     {
       // Verify signatures attached to report
@@ -379,10 +383,10 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
         require(o.role == Role.Signer, "address not authorized to sign");
         require(signed[o.index] == address(0), "non-unique signature");
         signed[o.index] = signer;
+        signerCount += 1;
       }
     }
 
-    assert(initialGas < maxUint32);
-    _report(uint32(initialGas), msg.sender, signed, report);
+    _report(initialGas, msg.sender, signerCount, signed, report);
   }
 }

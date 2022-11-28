@@ -227,6 +227,9 @@ func (e *Eth) Cmp(y *Eth) int {
 }
 
 func (e *Eth) String() string {
+	if e == nil {
+		return "<nil>"
+	}
 	return format(e.ToInt(), 18)
 }
 
