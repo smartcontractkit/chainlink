@@ -290,8 +290,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # network: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
-        network: [GOERLI]
+        network: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     environment: integration
     name: Live Smoke Tests Matrix
     permissions:
