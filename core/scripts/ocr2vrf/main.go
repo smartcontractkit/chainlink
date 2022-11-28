@@ -9,13 +9,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -57,6 +61,20 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "forwarder-authorized-senders":
+		cmd := flag.NewFlagSet("forwarder-authorized-senders", flag.ExitOnError)
+		forwarderAddress := cmd.String("forwarder-address", "", "forwarder contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "forwarder-address")
+		forwarder, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(*forwarderAddress), e.Ec)
+		helpers.PanicErr(err)
+		senders, err := forwarder.GetAuthorizedSenders(nil)
+		helpers.PanicErr(err)
+		fmt.Println("authorized senders:", strings.Join(func() (r []string) {
+			for _, a := range senders {
+				r = append(r, a.Hex())
+			}
+			return
+		}(), ","))
 	case "dkg-deploy":
 		deployDKG(e)
 	case "coordinator-deploy":
@@ -416,6 +434,52 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "coordinator-address", "beacon-address", "height", "conf-delay")
 
 		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *coordinatorAddress, *height, *confDelay, *searchWindow)
+	case "beacon-get-config":
+		cmd := flag.NewFlagSet("beacon-get-config", flag.ExitOnError)
+		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
+		startBlock := cmd.Uint64("start-block", 0, "start block")
+		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address", "start-block")
+		beacon, err := vrf_beacon.NewVRFBeacon(common.HexToAddress(*beaconAddress), e.Ec)
+		helpers.PanicErr(err)
+		iterator, err := beacon.FilterConfigSet(&bind.FilterOpts{
+			Start:   *startBlock,
+			End:     nil,
+			Context: nil,
+		})
+		helpers.PanicErr(err)
+		for iterator.Next() {
+			e := iterator.Event
+			fmt.Println("config at block number", e.Raw.BlockNumber, "blockhash", e.Raw.BlockHash)
+			fmt.Println("---------------")
+			fmt.Println("signers:", strings.Join(func() (r []string) {
+				for _, s := range e.Signers {
+					r = append(r, s.Hex())
+				}
+				return
+			}(), ","))
+			fmt.Println("transmitters:", strings.Join(func() (r []string) {
+				for _, s := range e.Transmitters {
+					r = append(r, s.Hex())
+				}
+				return
+			}(), ","))
+			fmt.Println("f:", e.F)
+			fmt.Println("config count:", e.ConfigCount)
+			fmt.Println("config digest:", hexutil.Encode(e.ConfigDigest[:]))
+			fmt.Println("onchain config:", hexutil.Encode(e.OnchainConfig))
+			fmt.Println("previous config block number:", e.PreviousConfigBlockNumber)
+
+			var coordinatorConfig ocr2vrftypes.CoordinatorConfig
+			err := proto.Unmarshal(iterator.Event.OffchainConfig, &coordinatorConfig)
+			helpers.PanicErr(err)
+			fmt.Println("offchain config lookback blocks", coordinatorConfig.LookbackBlocks)
+			fmt.Println("offchain config cache eviction window", coordinatorConfig.CacheEvictionWindowSeconds)
+			fmt.Println("offchain config batch gas limit", coordinatorConfig.BatchGasLimit)
+			fmt.Println("offchain config coordinator overhead", coordinatorConfig.CoordinatorOverhead)
+			fmt.Println("offchain config block gas overhead", coordinatorConfig.BlockGasOverhead)
+			fmt.Println("offchain config callback overhead", coordinatorConfig.CallbackOverhead)
+			fmt.Println()
+		}
 	case "dkg-setup":
 		setupDKGNodes(e)
 	case "ocr2vrf-setup":
