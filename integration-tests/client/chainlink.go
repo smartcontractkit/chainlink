@@ -977,7 +977,7 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	internalURLs := e.URLs[chainlinkChart.NodesInternalURLsKey]
 	for i, localURL := range localURLs {
 		internalHost := parseHostname(internalURLs[i])
-		attemptMax := 5
+		attemptMax := 10
 		var err error
 		var c *Chainlink
 		for i := 0; i < attemptMax; i++ {
