@@ -61,6 +61,9 @@ type Pool struct {
 	config       PoolConfig
 	nodeSelector NodeSelector
 
+	activeMu   sync.RWMutex
+	activeNode Node
+
 	chStop chan struct{}
 	wg     sync.WaitGroup
 }
@@ -86,15 +89,13 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
 
 	p := &Pool{
-		utils.StartStopOnce{},
-		nodes,
-		sendonlys,
-		chainID,
-		lggr,
-		cfg,
-		nodeSelector,
-		make(chan struct{}),
-		sync.WaitGroup{},
+		nodes:        nodes,
+		sendonlys:    sendonlys,
+		chainID:      chainID,
+		logger:       lggr,
+		config:       cfg,
+		nodeSelector: nodeSelector,
+		chStop:       make(chan struct{}),
 	}
 
 	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", cfg.NodeSelectionMode())
@@ -141,11 +142,17 @@ func (p *Pool) Dial(ctx context.Context) error {
 	})
 }
 
-// nLiveNodes returns the number of currently alive nodes
-func (p *Pool) nLiveNodes() (nLiveNodes int) {
+// nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
+func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
 	for _, n := range p.nodes {
-		if n.State() == NodeStateAlive {
+		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++
+			if num > blockNumber {
+				blockNumber = num
+			}
+			if totalDifficulty == nil || td.Cmp(totalDifficulty) > 0 {
+				totalDifficulty = td
+			}
 		}
 	}
 	return
@@ -225,15 +232,31 @@ func (p *Pool) ChainID() *big.Int {
 	return p.chainID
 }
 
-func (p *Pool) selectNode() Node {
-	node := p.nodeSelector.Select()
+// selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
+func (p *Pool) selectNode() (node Node) {
+	p.activeMu.RLock()
+	node = p.activeNode
+	p.activeMu.RUnlock()
+	if node != nil && node.State() == NodeStateAlive {
+		return // still alive
+	}
 
-	if node == nil {
+	// select a new one
+	p.activeMu.Lock()
+	defer p.activeMu.Unlock()
+	node = p.activeNode
+	if node != nil && node.State() == NodeStateAlive {
+		return // another goroutine beat us here
+	}
+
+	p.activeNode = p.nodeSelector.Select()
+
+	if p.activeNode == nil {
 		p.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", p.nodeSelector.Name())
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
 	}
 
-	return node
+	return p.activeNode
 }
 
 func (p *Pool) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {

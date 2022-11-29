@@ -38,7 +38,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
    * @notice Retrieve a list of authorized senders
    * @return array of addresses
    */
-  function getAuthorizedSenders() external view override returns (address[] memory) {
+  function getAuthorizedSenders() public view override returns (address[] memory) {
     return s_authorizedSendersList;
   }
 

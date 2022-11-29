@@ -1127,6 +1127,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			1000000000/100, // threshold PPB
 		)
 		require.NoError(t, err)
+		require.Equal(t, effectiveTransmitters, forwardersContracts)
 		_, err = ocrContract.SetConfig(owner,
 			signers,
 			effectiveTransmitters, // forwarder Addresses

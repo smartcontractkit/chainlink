@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type DRListenerUniverse struct {
@@ -47,9 +49,10 @@ func NewDRListenerUniverse(t *testing.T) *DRListenerUniverse {
 	broadcaster := log_mocks.NewBroadcaster(t)
 	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon})
 	chain := cc.Chains()[0]
 	lggr := logger.TestLogger(t)
 
@@ -63,7 +66,7 @@ func NewDRListenerUniverse(t *testing.T) *DRListenerUniverse {
 		OCR2OracleSpec: &job.OCR2OracleSpec{},
 	}
 
-	oracle, err := directrequestocr.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil)
+	oracle, err := directrequestocr.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
 	require.NoError(t, err)
 
 	serviceArray, err := oracle.GetServices()
@@ -113,7 +116,7 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 	return uni, log, runBeganAwaiter
 }
 
-var RequestID drocr_service.RequestID = reqID(123)
+var RequestID drocr_service.RequestID = newRequestID()
 
 const (
 	ParseResultTaskName string = "parse_result"

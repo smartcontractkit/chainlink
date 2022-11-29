@@ -708,6 +708,7 @@ type NodePool struct {
 	PollFailureThreshold *uint32
 	PollInterval         *models.Duration
 	SelectionMode        *string
+	SyncThreshold        *uint32
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -719,6 +720,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.SelectionMode; v != nil {
 		p.SelectionMode = v
+	}
+	if v := f.SyncThreshold; v != nil {
+		p.SyncThreshold = v
 	}
 }
 

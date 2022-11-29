@@ -82,11 +82,12 @@ type ocr2vrfUniverse struct {
 }
 
 type ocr2Node struct {
-	app         *cltest.TestApplication
-	peerID      string
-	transmitter common.Address
-	keybundle   ocr2key.KeyBundle
-	config      config.GeneralConfig
+	app                  *cltest.TestApplication
+	peerID               string
+	transmitter          common.Address
+	effectiveTransmitter common.Address
+	keybundle            ocr2key.KeyBundle
+	config               config.GeneralConfig
 }
 
 func setupOCR2VRFContracts(
@@ -235,6 +236,7 @@ func setupNodeOCR2(
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address
+	effectiveTransmitter := sendingKeys[0].Address
 
 	if useForwarders {
 		sendingKeysAddresses := []common.Address{sendingKeys[0].Address}
@@ -262,9 +264,7 @@ func setupNodeOCR2(
 		chainID := utils.Big(*b.Blockchain().Config().ChainID)
 		_, err = forwarderORM.CreateForwarder(faddr, chainID)
 		require.NoError(t, err)
-
-		// Set the transmitter to the forwarder's address.
-		transmitter = faddr
+		effectiveTransmitter = faddr
 	}
 
 	// Fund the sending keys with some ETH.
@@ -289,11 +289,12 @@ func setupNodeOCR2(
 	require.NoError(t, err)
 
 	return &ocr2Node{
-		app:         app,
-		peerID:      p2pKey.PeerID().Raw(),
-		transmitter: transmitter,
-		keybundle:   kb,
-		config:      config,
+		app:                  app,
+		peerID:               p2pKey.PeerID().Raw(),
+		transmitter:          transmitter,
+		effectiveTransmitter: effectiveTransmitter,
+		keybundle:            kb,
+		config:               config,
 	}
 }
 
@@ -317,13 +318,14 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 
 	t.Log("Creating OCR2 nodes")
 	var (
-		oracles        []confighelper2.OracleIdentityExtra
-		transmitters   []common.Address
-		onchainPubKeys []common.Address
-		kbs            []ocr2key.KeyBundle
-		apps           []*cltest.TestApplication
-		dkgEncrypters  []dkgencryptkey.Key
-		dkgSigners     []dkgsignkey.Key
+		oracles               []confighelper2.OracleIdentityExtra
+		transmitters          []common.Address
+		effectiveTransmitters []common.Address
+		onchainPubKeys        []common.Address
+		kbs                   []ocr2key.KeyBundle
+		apps                  []*cltest.TestApplication
+		dkgEncrypters         []dkgencryptkey.Key
+		dkgSigners            []dkgsignkey.Key
 	)
 	for i := 0; i < numNodes; i++ {
 		// Supply the bootstrap IP and port as a V2 peer address
@@ -343,6 +345,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
 		transmitters = append(transmitters, node.transmitter)
+		effectiveTransmitters = append(effectiveTransmitters, node.effectiveTransmitter)
 		dkgEncrypters = append(dkgEncrypters, dkgEncryptKey)
 		dkgSigners = append(dkgSigners, dkgSignKey)
 		onchainPubKeys = append(onchainPubKeys, common.BytesToAddress(node.keybundle.PublicKey()))
@@ -376,7 +379,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		t,
 		uni,
 		onchainPubKeys,
-		transmitters,
+		effectiveTransmitters,
 		1,
 		oracles,
 		dkgSigners,
@@ -421,6 +424,7 @@ ocrKeyBundleID       	= "%s"
 relay                	= "evm"
 pluginType           	= "ocr2vrf"
 transmitterID        	= "%s"
+forwardingAllowed       = %t
 
 [relayConfig]
 chainID              	= 1337
@@ -437,6 +441,7 @@ linkEthFeedAddress     	= "%s"
 `, uni.beaconAddress.String(),
 			kbs[i].ID(),
 			transmitters[i],
+			useForwarders,
 			blockBeforeConfig.Number().Int64(),
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
@@ -473,7 +478,7 @@ linkEthFeedAddress     	= "%s"
 		t,
 		uni,
 		onchainPubKeys,
-		transmitters,
+		effectiveTransmitters,
 		1,
 		oracles,
 		[]int{1, 2, 3, 4, 5, 6, 7, 8},
