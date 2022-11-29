@@ -25,6 +25,7 @@ type ORM interface {
 	InsertEthTx(etx *EthTx) error
 	InsertEthReceipt(receipt *EthReceipt) error
 	FindEthTxWithAttempts(etxID int64) (etx EthTx, err error)
+	FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) (etx []EthTxAttempt, err error)
 }
 
 type orm struct {
@@ -164,7 +165,7 @@ func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 func (o *orm) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error) {
 	var attempts []EthTxAttempt
 
-	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY id desc`
+	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1)`
 	if err := o.q.Select(&attempts, sql, ids); err != nil {
 		return nil, err
 	}
@@ -232,6 +233,20 @@ func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
 	return etx, errors.Wrap(err, "FindEthTxWithAttempts failed")
 }
 
+func (o *orm) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) (etx []EthTxAttempt, err error) {
+	var attempts []EthTxAttempt
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		if err = tx.Select(&attempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, ids); err != nil {
+			return err
+		}
+		if etx, err = loadConfirmedAttemptsReceipts(tx, attempts); err != nil {
+			return err
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
+	return etx, errors.Wrap(err, "FindEthTxAttemptConfirmedByEthTxIDs failed")
+}
+
 func loadEthTxAttempts(q pg.Queryer, etx *EthTx) error {
 	err := q.Select(&etx.EthTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = $1 ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, etx.ID)
 	return errors.Wrapf(err, "failed to load ethtxattempts for eth tx %d", etx.ID)
@@ -262,4 +277,24 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
 	}
 	return nil
+}
+
+func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EthTxAttempt) ([]EthTxAttempt, error) {
+	attemptHashM := make(map[common.Hash]*EthTxAttempt, len(attempts))
+	attemptHashes := make([][]byte, len(attempts))
+	for i, attempt := range attempts {
+		attemptHashM[attempt.Hash] = &attempts[i]
+		attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
+	}
+	var receipts []EthReceipt
+	if err := q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
+		return nil, errors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
+	}
+	var confirmedAttempts []EthTxAttempt
+	for _, receipt := range receipts {
+		attempt := attemptHashM[receipt.TxHash]
+		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
+		confirmedAttempts = append(confirmedAttempts, *attempt)
+	}
+	return confirmedAttempts, nil
 }
