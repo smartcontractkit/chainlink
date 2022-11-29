@@ -26,9 +26,6 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-// Make sure we're working with the latest chainlink libs
-replace github.com/smartcontractkit/chainlink => ../
-
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
@@ -364,28 +361,33 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-// Fix go mod tidy issue for ambiguous imports from go-ethereum
-// See https://github.com/ugorji/go/issues/279
-replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
+replace (
+	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
+	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
 
-// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
-// See https://github.com/dgrijalva/jwt-go/issues/463
-// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
-// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
-replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
+	// updating CosmWasm to v1.0.0 which brings ARM support
+	github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 
-// replicating the replace directive on cosmos SDK
-replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+	// Fix go mod tidy issue for ambiguous imports from go-ethereum
+	// See https://github.com/ugorji/go/issues/279
+	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
-// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
-replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
+	// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
+	// See https://github.com/dgrijalva/jwt-go/issues/463
+	// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
+	// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
+	github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
 
-// updating CosmWasm to v1.0.0 which brings ARM support
-replace github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
+	// replicating the replace directive on cosmos SDK
+	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-// moved but still using old module name
-replace github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
+	// fixes deprecation warnings and keychain undefined bugs on macOS
+	// See https://github.com/99designs/keyring/issues/94
+	github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 
-// fixes deprecation warnings and keychain undefined bugs on macOS
-// See https://github.com/99designs/keyring/issues/94
-replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+	// Make sure we're working with the latest chainlink libs
+	github.com/smartcontractkit/chainlink => ../
+
+	// moved but still using old module name
+	github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
+)
