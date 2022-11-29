@@ -5,7 +5,7 @@ import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/Enumerabl
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
-import {OnchainConfig, State, UpkeepFailureReason} from "../interfaces/KeeperRegistryInterface2_0.sol";
+import {OnchainConfig, State, UpkeepFailureReason} from "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
