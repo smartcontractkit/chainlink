@@ -405,6 +405,13 @@ func main() {
 				big.NewInt(*batchSize),
 			)
 		}
+
+	case "get-load-test-results":
+		cmd := flag.NewFlagSet("get-load-test-results", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "Load test contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+
+		getLoadtestResults(e, *consumerAddress)
 	case "verify-beacon-randomness":
 		cmd := flag.NewFlagSet("verify-randomness", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
