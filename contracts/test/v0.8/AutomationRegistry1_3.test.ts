@@ -10,12 +10,12 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factor
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry13__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry13__factory'
+import { AutomationRegistry13__factory as AutomationRegistryFactory } from '../../typechain/factories/AutomationRegistry13__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryLogic13__factory as KeeperRegistryLogicFactory } from '../../typechain/factories/KeeperRegistryLogic13__factory'
-import { KeeperRegistry13 as KeeperRegistry } from '../../typechain/KeeperRegistry13'
-import { KeeperRegistryLogic13 as KeeperRegistryLogic } from '../../typechain/KeeperRegistryLogic13'
+import { AutomationRegistryLogic13__factory as AutomationRegistryLogicFactory } from '../../typechain/factories/AutomationRegistryLogic13__factory'
+import { AutomationRegistry13 as AutomationRegistry } from '../../typechain/AutomationRegistry13'
+import { AutomationRegistryLogic13 as AutomationRegistryLogic } from '../../typechain/AutomationRegistryLogic13'
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
@@ -41,8 +41,8 @@ const CHECK_GAS_OVERHEAD = BigNumber.from(362287)
 // Smart contract factories
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
-let keeperRegistryFactory: KeeperRegistryFactory
-let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
+let automationRegistryFactory: AutomationRegistryFactory
+let automationRegistryLogicFactory: AutomationRegistryLogicFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
@@ -60,10 +60,12 @@ before(async () => {
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
   // @ts-ignore bug in autogen file
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_3')
+  automationRegistryFactory = await ethers.getContractFactory(
+    'AutomationRegistry1_3',
+  )
   // @ts-ignore bug in autogen file
-  keeperRegistryLogicFactory = await ethers.getContractFactory(
-    'KeeperRegistryLogic1_3',
+  automationRegistryLogicFactory = await ethers.getContractFactory(
+    'AutomationRegistryLogic1_3',
   )
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
@@ -75,7 +77,7 @@ before(async () => {
   )
 })
 
-describe('KeeperRegistry1_3', () => {
+describe('AutomationRegistry1_3', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -113,10 +115,10 @@ describe('KeeperRegistry1_3', () => {
   let linkToken: LinkToken
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
-  let registry: KeeperRegistry
-  let registryLogic: KeeperRegistryLogic
-  let registry2: KeeperRegistry
-  let registryLogic2: KeeperRegistryLogic
+  let registry: AutomationRegistry
+  let registryLogic: AutomationRegistryLogic
+  let registry2: AutomationRegistry
+  let registryLogic2: AutomationRegistryLogic
   let mock: UpkeepMock
   let transcoder: UpkeepTranscoder
   let mockArbGasInfo: MockArbGasInfo
@@ -177,7 +179,7 @@ describe('KeeperRegistry1_3', () => {
       optOracleCode,
     ])
 
-    registryLogic = await keeperRegistryLogicFactory
+    registryLogic = await automationRegistryLogicFactory
       .connect(owner)
       .deploy(
         0,
@@ -201,10 +203,10 @@ describe('KeeperRegistry1_3', () => {
       transcoder: transcoder.address,
       registrar: ethers.constants.AddressZero,
     }
-    registry = await keeperRegistryFactory
+    registry = await automationRegistryFactory
       .connect(owner)
       .deploy(registryLogic.address, config)
-    registryLogic2 = await keeperRegistryLogicFactory
+    registryLogic2 = await automationRegistryLogicFactory
       .connect(owner)
       .deploy(
         0,
@@ -213,7 +215,7 @@ describe('KeeperRegistry1_3', () => {
         linkEthFeed.address,
         gasPriceFeed.address,
       )
-    registry2 = await keeperRegistryFactory
+    registry2 = await automationRegistryFactory
       .connect(owner)
       .deploy(registryLogic2.address, config)
     mock = await upkeepMockFactory.deploy()
@@ -260,7 +262,7 @@ describe('KeeperRegistry1_3', () => {
   }
 
   const verifyMaxPayment = async (
-    keeperRegistryLogic: KeeperRegistryLogic,
+    AutomationRegistryLogic: AutomationRegistryLogic,
     gasAmounts: number[],
     premiums: number[],
     flatFees: number[],
@@ -281,9 +283,9 @@ describe('KeeperRegistry1_3', () => {
       registrar: ethers.constants.AddressZero,
     }
 
-    let registry = await keeperRegistryFactory
+    let registry = await automationRegistryFactory
       .connect(owner)
-      .deploy(keeperRegistryLogic.address, config)
+      .deploy(AutomationRegistryLogic.address, config)
 
     for (let idx = 0; idx < gasAmounts.length; idx++) {
       const gas = gasAmounts[idx]
@@ -315,7 +317,7 @@ describe('KeeperRegistry1_3', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 1.3.0')
+      assert.equal(typeAndVersion, 'AutomationRegistry 1.3.0')
     })
   })
 
@@ -2332,7 +2334,7 @@ describe('KeeperRegistry1_3', () => {
     const premiums = [0, 250000000]
     const flatFees = [0, 1000000]
     it('calculates the max fee appropriately', async () => {
-      const registryLogicL1 = await keeperRegistryLogicFactory
+      const registryLogicL1 = await automationRegistryLogicFactory
         .connect(owner)
         .deploy(
           0,
@@ -2345,7 +2347,7 @@ describe('KeeperRegistry1_3', () => {
     })
 
     it('calculates the max fee appropriately for Arbitrum', async () => {
-      const registryLogicArb = await keeperRegistryLogicFactory
+      const registryLogicArb = await automationRegistryLogicFactory
         .connect(owner)
         .deploy(
           1,
@@ -2364,7 +2366,7 @@ describe('KeeperRegistry1_3', () => {
     })
 
     it('calculates the max fee appropriately for Optimism', async () => {
-      const registryLogicOpt = await keeperRegistryLogicFactory
+      const registryLogicOpt = await automationRegistryLogicFactory
         .connect(owner)
         .deploy(
           2,

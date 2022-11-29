@@ -4,9 +4,9 @@ pragma solidity 0.8.6;
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "./KeeperRegistryBase1_3.sol";
-import "./KeeperRegistryLogic1_3.sol";
-import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterface1_3.sol";
+import "./AutomationRegistryBase1_3.sol";
+import "./AutomationRegistryLogic1_3.sol";
+import {AutomationRegistryExecutableInterface} from "./interfaces/AutomationRegistryInterface1_3.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";
@@ -15,18 +15,18 @@ import "./interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry1_3 is
-  KeeperRegistryBase1_3,
+contract AutomationRegistry1_3 is
+  AutomationRegistryBase1_3,
   Proxy,
   TypeAndVersionInterface,
-  KeeperRegistryExecutableInterface,
+  AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   ERC677ReceiverInterface
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
-  address public immutable KEEPER_REGISTRY_LOGIC;
+  address public immutable AUTOMATION_REGISTRY_LOGIC;
 
   /**
    * @notice versions:
@@ -44,19 +44,19 @@ contract KeeperRegistry1_3 is
   string public constant override typeAndVersion = "KeeperRegistry 1.3.0";
 
   /**
-   * @param keeperRegistryLogic the address of keeper registry logic
+   * @param automationRegistryLogic the address of automation registry logic
    * @param config registry config settings
    */
-  constructor(KeeperRegistryLogic1_3 keeperRegistryLogic, Config memory config)
-    KeeperRegistryBase1_3(
-      keeperRegistryLogic.PAYMENT_MODEL(),
-      keeperRegistryLogic.REGISTRY_GAS_OVERHEAD(),
-      address(keeperRegistryLogic.LINK()),
-      address(keeperRegistryLogic.LINK_ETH_FEED()),
-      address(keeperRegistryLogic.FAST_GAS_FEED())
+  constructor(AutomationRegistryLogic1_3 automationRegistryLogic, Config memory config)
+    AutomationRegistryBase1_3(
+      automationRegistryLogic.PAYMENT_MODEL(),
+      automationRegistryLogic.REGISTRY_GAS_OVERHEAD(),
+      address(automationRegistryLogic.LINK()),
+      address(automationRegistryLogic.LINK_ETH_FEED()),
+      address(automationRegistryLogic.FAST_GAS_FEED())
     )
   {
-    KEEPER_REGISTRY_LOGIC = address(keeperRegistryLogic);
+    AUTOMATION_REGISTRY_LOGIC = address(automationRegistryLogic);
     setConfig(config);
   }
 
@@ -503,7 +503,7 @@ contract KeeperRegistry1_3 is
    * @dev This is the address to which proxy functions are delegated to
    */
   function _implementation() internal view override returns (address) {
-    return KEEPER_REGISTRY_LOGIC;
+    return AUTOMATION_REGISTRY_LOGIC;
   }
 
   /**

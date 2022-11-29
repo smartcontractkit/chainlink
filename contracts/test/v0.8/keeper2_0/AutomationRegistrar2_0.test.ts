@@ -7,12 +7,12 @@ import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/facto
 
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
-import { KeeperRegistry20 as KeeperRegistry } from '../../../typechain/KeeperRegistry20'
-import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic20'
-import { KeeperRegistrar20 as KeeperRegistrar } from '../../../typechain/KeeperRegistrar20'
-import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry20__factory'
-import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
-import { KeeperRegistrar20__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrar20__factory'
+import { AutomationRegistry20 as AutomationRegistry } from '../../../typechain/AutomationRegistry20'
+import { AutomationRegistryLogic20 as AutomationRegistryLogic } from '../../../typechain/AutomationRegistryLogic20'
+import { AutomationRegistrar20 as AutomationRegistrar } from '../../../typechain/AutomationRegistrar20'
+import { AutomationRegistry20__factory as AutomationRegistryFactory } from '../../../typechain/factories/AutomationRegistry20__factory'
+import { AutomationRegistryLogic20__factory as AutomationRegistryLogicFactory } from '../../../typechain/factories/AutomationRegistryLogic20__factory'
+import { AutomationRegistrar20__factory as AutomationRegistrarFactory } from '../../../typechain/factories/AutomationRegistrar20__factory'
 
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
@@ -21,9 +21,9 @@ import { toWei } from '../../test-helpers/helpers'
 
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
-let keeperRegistryFactory: KeeperRegistryFactory
-let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
-let keeperRegistrar: KeeperRegistrarFactory
+let automationRegistryFactory: AutomationRegistryFactory
+let automationRegistryLogicFactory: AutomationRegistryLogicFactory
+let automationRegistrar: AutomationRegistrarFactory
 let upkeepMockFactory: UpkeepMockFactory
 
 let personas: Personas
@@ -36,13 +36,17 @@ before(async () => {
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
   // @ts-ignore bug in autogen file
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_0')
-  // @ts-ignore bug in autogen file
-  keeperRegistryLogicFactory = await ethers.getContractFactory(
-    'KeeperRegistryLogic2_0',
+  automationRegistryFactory = await ethers.getContractFactory(
+    'AutomationRegistry2_0',
   )
   // @ts-ignore bug in autogen file
-  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrar2_0')
+  automationRegistryLogicFactory = await ethers.getContractFactory(
+    'AutomationRegistryLogic2_0',
+  )
+  // @ts-ignore bug in autogen file
+  automationRegistrar = await ethers.getContractFactory(
+    'AutomationRegistrar2_0',
+  )
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
 
@@ -53,7 +57,7 @@ const errorMsgs = {
   requestNotFound: 'RequestNotFound()',
 }
 
-describe('KeeperRegistrar2_0', () => {
+describe('AutomationRegistrar2_0', () => {
   const upkeepName = 'SampleUpkeep'
 
   const linkEth = BigNumber.from(300000000)
@@ -93,10 +97,10 @@ describe('KeeperRegistrar2_0', () => {
   let linkToken: LinkToken
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
-  let registry: KeeperRegistry
-  let registryLogic: KeeperRegistryLogic
+  let registry: AutomationRegistry
+  let registryLogic: AutomationRegistryLogic
   let mock: UpkeepMock
-  let registrar: KeeperRegistrar
+  let registrar: AutomationRegistrar
 
   beforeEach(async () => {
     owner = personas.Default
@@ -113,17 +117,17 @@ describe('KeeperRegistrar2_0', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
-    registryLogic = await keeperRegistryLogicFactory
+    registryLogic = await automationRegistryLogicFactory
       .connect(owner)
       .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
 
-    registry = await keeperRegistryFactory
+    registry = await automationRegistryFactory
       .connect(owner)
       .deploy(registryLogic.address)
 
     mock = await upkeepMockFactory.deploy()
 
-    registrar = await keeperRegistrar
+    registrar = await automationRegistrar
       .connect(registrarOwner)
       .deploy(
         linkToken.address,
@@ -175,7 +179,7 @@ describe('KeeperRegistrar2_0', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registrar.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistrar 2.0.0')
+      assert.equal(typeAndVersion, 'AutomationRegistrar 2.0.0')
     })
   })
 
@@ -279,7 +283,7 @@ describe('KeeperRegistrar2_0', () => {
       )
     })
 
-    it('Auto Approve ON - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
+    it('Auto Approve ON - registers an upkeep on AutomationRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
       //set auto approve ON with high threshold limits
       await registrar
         .connect(registrarOwner)
@@ -324,7 +328,7 @@ describe('KeeperRegistrar2_0', () => {
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
     })
 
-    it('Auto Approve OFF - does not registers an upkeep on KeeperRegistry, emits only RegistrationRequested event', async () => {
+    it('Auto Approve OFF - does not registers an upkeep on AutomationRegistry, emits only RegistrationRequested event', async () => {
       //get upkeep count before attempting registration
       const beforeCount = (await registry.getState()).state.numUpkeeps
 
@@ -373,7 +377,7 @@ describe('KeeperRegistrar2_0', () => {
       assert.ok(amount.eq(pendingRequest[1]))
     })
 
-    it('Auto Approve ON - Throttle max approvals - does not register an upkeep on KeeperRegistry beyond the max limit, emits only RegistrationRequested event after limit is hit', async () => {
+    it('Auto Approve ON - Throttle max approvals - does not register an upkeep on AutomationRegistry beyond the max limit, emits only RegistrationRequested event after limit is hit', async () => {
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 0)
 
       //set auto approve on, with max 1 allowed
@@ -459,7 +463,7 @@ describe('KeeperRegistrar2_0', () => {
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 2) // Still 2
     })
 
-    it('Auto Approve Sender Allowlist - sender in allowlist - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
+    it('Auto Approve Sender Allowlist - sender in allowlist - registers an upkeep on AutomationRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
       const senderAddress = await requestSender.getAddress()
 
       //set auto approve to ENABLED_SENDER_ALLOWLIST type with high threshold limits
@@ -510,7 +514,7 @@ describe('KeeperRegistrar2_0', () => {
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
     })
 
-    it('Auto Approve Sender Allowlist - sender NOT in allowlist - does not registers an upkeep on KeeperRegistry, emits only RegistrationRequested event', async () => {
+    it('Auto Approve Sender Allowlist - sender NOT in allowlist - does not registers an upkeep on AutomationRegistry, emits only RegistrationRequested event', async () => {
       const beforeCount = (await registry.getState()).state.numUpkeeps
       const senderAddress = await requestSender.getAddress()
 
@@ -610,7 +614,7 @@ describe('KeeperRegistrar2_0', () => {
       )
     })
 
-    it('Auto Approve ON - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
+    it('Auto Approve ON - registers an upkeep on AutomationRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
       //set auto approve ON with high threshold limits
       await registrar
         .connect(registrarOwner)
