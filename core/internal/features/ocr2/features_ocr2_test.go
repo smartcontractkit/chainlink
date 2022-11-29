@@ -465,7 +465,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
-		forwarderContracts = append(forwarderContracts, node.transmitter)
+		forwarderContracts = append(forwarderContracts, node.effectiveTransmitter)
 		transmitters = append(transmitters, node.transmitter)
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
@@ -488,6 +488,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	}()
 
 	lggr.Debugw("Setting Payees on OraclePlugin Contract", "transmitters", forwarderContracts)
+	require.NotEqual(t, forwarderContracts, transmitters)
 	_, err := ocrContract.SetPayees(
 		owner,
 		forwarderContracts,
