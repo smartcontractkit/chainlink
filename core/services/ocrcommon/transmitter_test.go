@@ -82,7 +82,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		strategy,
 		txmgr.TransmitCheckerSpec{},
 		chainID,
-		&ethKeyStore,
+		ethKeyStore,
 	)
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{

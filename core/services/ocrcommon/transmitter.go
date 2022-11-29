@@ -30,7 +30,7 @@ type transmitter struct {
 	strategy                    txmgr.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
 	chainID                     *big.Int
-	ethKeyStore                 *keystore.Eth
+	ethKeyStore                 keystore.Eth
 }
 
 // NewTransmitter creates a new eth transmitter
@@ -42,7 +42,7 @@ func NewTransmitter(
 	strategy txmgr.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	ethKeyStore *keystore.Eth,
+	ethKeyStore keystore.Eth,
 ) Transmitter {
 	return &transmitter{
 		txm:                         txm,
@@ -79,7 +79,7 @@ func (t *transmitter) FromAddressForTransaction() common.Address {
 
 	// Only apply round-robin logic for multiple sending keys and a valid keystore.
 	if len(t.fromAddresses) > 1 && t.ethKeyStore != nil {
-		fromAddress, err := (*t.ethKeyStore).GetRoundRobinAddress(t.chainID, t.fromAddresses...)
+		fromAddress, err := t.ethKeyStore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
 		if err == nil {
 			nextFromAddress = fromAddress
 		}

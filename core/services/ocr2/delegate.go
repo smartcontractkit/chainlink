@@ -259,7 +259,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			}, &d.ethKs)
+			}, d.ethKs)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -339,7 +339,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			}, &d.ethKs)
+			}, d.ethKs)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new vrf provider")
 		}
@@ -353,7 +353,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			}, &d.ethKs)
+			}, d.ethKs)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new dkg provider")
 		}
