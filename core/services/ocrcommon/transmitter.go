@@ -24,7 +24,6 @@ type Transmitter interface {
 type transmitter struct {
 	txm                         txManager
 	fromAddresses               []common.Address
-	nextFromAddressIndex        int
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    txmgr.TxStrategy
@@ -74,11 +73,11 @@ func (t *transmitter) FromAddress() common.Address {
 }
 
 func (t *transmitter) FromAddressForTransaction() common.Address {
-	// Use Round-Robin to select the next fromAddress.
-	nextFromAddress := t.fromAddresses[t.nextFromAddressIndex]
+	// Default to first sending key.
+	nextFromAddress := t.fromAddresses[0]
 
-	// Only apply round-robin logic for multiple sending keys and a valid keystore.
-	if len(t.fromAddresses) > 1 && t.ethKeyStore != nil {
+	// Apply round-robin logic for a valid keystore.
+	if t.ethKeyStore != nil {
 		fromAddress, err := t.ethKeyStore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
 		if err == nil {
 			nextFromAddress = fromAddress
