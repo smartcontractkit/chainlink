@@ -26,6 +26,9 @@ type = "vrf"
 name = "vrf_v2"
 schemaVersion = 1
 coordinatorAddress = "%s"
+batchCoordinatorAddress = "%s"
+batchFulfillmentEnabled = %t
+batchFulfillmentGasMultiplier = 1.1
 publicKey = "%s"
 minIncomingConfirmations = 3
 evmChainID = "%d"
@@ -82,6 +85,7 @@ func deployUniverse(e helpers.Environment) {
 	reqsForTier3 := deployCmd.Int64("reqs-for-tier-3", 0, "requests for tier 3")
 	reqsForTier4 := deployCmd.Int64("reqs-for-tier-4", 0, "requests for tier 4")
 	reqsForTier5 := deployCmd.Int64("reqs-for-tier-5", 0, "requests for tier 5")
+	noCancelEnabled := deployCmd.Bool("no-cancel-enabled", false, "whether to deploy the no-cancel coordinator")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -131,8 +135,15 @@ func deployUniverse(e helpers.Environment) {
 	fmt.Println("\nDeploying Batch BHS...")
 	batchBHSAddress := deployBatchBHS(e, bhsContractAddress)
 
-	fmt.Println("\nDeploying Coordinator...")
-	coordinatorAddress := deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
+	var coordinatorAddress common.Address
+	if *noCancelEnabled {
+		fmt.Println("\nDeploying NoCancelCoordinator...")
+		coordinatorAddress = deployNoCancelCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
+	} else {
+		fmt.Println("\nDeploying Coordinator...")
+		coordinatorAddress = deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
+	}
+
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
@@ -206,6 +217,8 @@ func deployUniverse(e helpers.Environment) {
 	formattedJobSpec := fmt.Sprintf(
 		formattedVRFJob,
 		coordinatorAddress,
+		batchCoordinatorAddress,
+		false,
 		compressedPkHex,
 		e.ChainID,
 		*registerKeyOracleAddress,
