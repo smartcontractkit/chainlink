@@ -463,6 +463,9 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})
 
+		// Effective transmitter should be a forwarder not an EOA.
+		require.NotEqual(t, node.effectiveTransmitter, node.transmitter)
+
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
 		forwarderContracts = append(forwarderContracts, node.effectiveTransmitter)
@@ -488,7 +491,6 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	}()
 
 	lggr.Debugw("Setting Payees on OraclePlugin Contract", "transmitters", forwarderContracts)
-	require.NotEqual(t, forwarderContracts, transmitters)
 	_, err := ocrContract.SetPayees(
 		owner,
 		forwarderContracts,
