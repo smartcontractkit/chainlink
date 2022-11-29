@@ -13,10 +13,10 @@ interface AggregatorV3Interface {
     view
     returns (
       uint80 roundId,
+      uint80 answeredInRound,
       int256 answer,
       uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
+      uint256 updatedAt
     );
 
   function latestRoundData()
@@ -24,9 +24,10 @@ interface AggregatorV3Interface {
     view
     returns (
       uint80 roundId,
+      uint80 answeredInRound,
       int256 answer,
       uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
+      uint256 updatedAt
+     
     );
 }
