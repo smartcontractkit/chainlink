@@ -4,8 +4,8 @@ pragma solidity 0.8.6;
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import "./KeeperRegistryBase2_0.sol";
-import {KeeperRegistryExecutableInterface, UpkeepInfo} from "../interfaces/KeeperRegistryInterface2_0.sol";
+import "./AutomationRegistryBase2_0.sol";
+import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 import "../OCR2Abstract.sol";
@@ -19,11 +19,11 @@ import "../OCR2Abstract.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry2_0 is
-  KeeperRegistryBase2_0,
+contract AutomationRegistry2_0 is
+  AutomationRegistryBase2_0,
   Proxy,
   OCR2Abstract,
-  KeeperRegistryExecutableInterface,
+  AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   ERC677ReceiverInterface
 {
@@ -31,7 +31,7 @@ contract KeeperRegistry2_0 is
   using EnumerableSet for EnumerableSet.UintSet;
 
   // Immutable address of logic contract where some functionality is delegated to
-  address private immutable i_keeperRegistryLogic;
+  address private immutable i_automationRegistryLogic;
 
   /**
    * @notice versions:
@@ -55,17 +55,17 @@ contract KeeperRegistry2_0 is
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
   /**
-   * @param keeperRegistryLogic address of the logic contract
+   * @param automationRegistryLogic address of the logic contract
    */
-  constructor(KeeperRegistryBase2_0 keeperRegistryLogic)
-    KeeperRegistryBase2_0(
-      keeperRegistryLogic.getPaymentModel(),
-      keeperRegistryLogic.getLinkAddress(),
-      keeperRegistryLogic.getLinkNativeFeedAddress(),
-      keeperRegistryLogic.getFastGasFeedAddress()
+  constructor(AutomationRegistryBase2_0 automationRegistryLogic)
+    AutomationRegistryBase2_0(
+      automationRegistryLogic.getPaymentModel(),
+      automationRegistryLogic.getLinkAddress(),
+      automationRegistryLogic.getLinkNativeFeedAddress(),
+      automationRegistryLogic.getFastGasFeedAddress()
     )
   {
-    i_keeperRegistryLogic = address(keeperRegistryLogic);
+    i_automationRegistryLogic = address(automationRegistryLogic);
   }
 
   ////////
@@ -533,8 +533,8 @@ contract KeeperRegistry2_0 is
   /**
    * @notice retrieves the address of the logic address
    */
-  function getKeeperRegistryLogicAddress() external view returns (address) {
-    return i_keeperRegistryLogic;
+  function getAutomationRegistryLogicAddress() external view returns (address) {
+    return i_automationRegistryLogic;
   }
 
   /**
@@ -577,7 +577,7 @@ contract KeeperRegistry2_0 is
    * @dev This is the address to which proxy functions are delegated to
    */
   function _implementation() internal view override returns (address) {
-    return i_keeperRegistryLogic;
+    return i_automationRegistryLogic;
   }
 
   /**

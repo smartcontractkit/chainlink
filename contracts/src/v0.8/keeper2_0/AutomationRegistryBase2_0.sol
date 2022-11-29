@@ -5,7 +5,7 @@ import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/Enumerabl
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
-import {OnchainConfig, State, UpkeepFailureReason} from "../interfaces/KeeperRegistryInterface2_0.sol";
+import {OnchainConfig, State, UpkeepFailureReason} from "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
@@ -13,10 +13,10 @@ import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
- * @notice Base Keeper Registry contract, contains shared logic between
- * KeeperRegistry and KeeperRegistryLogic
+ * @notice Base Automation Registry contract, contains shared logic between
+ * AutomationRegistry and AutomationRegistryLogic
  */
-abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
+abstract contract AutomationRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;

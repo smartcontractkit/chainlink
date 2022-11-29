@@ -3,14 +3,14 @@ pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "./KeeperRegistryBase1_3.sol";
+import "./AutomationRegistryBase1_3.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
 
 /**
- * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
+ * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
  */
-contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
+contract AutomationRegistryLogic1_3 is AutomationRegistryBase1_3 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
@@ -27,7 +27,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
     address link,
     address linkEthFeed,
     address fastGasFeed
-  ) KeeperRegistryBase1_3(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
+  ) AutomationRegistryBase1_3(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
 
   function checkUpkeep(uint256 id, address from)
     external
@@ -64,7 +64,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function withdrawOwnerFunds() external onlyOwner {
     uint96 amount = s_ownerLinkBalance;
@@ -77,7 +77,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function recoverFunds() external onlyOwner {
     uint256 total = LINK.balanceOf(address(this));
@@ -85,7 +85,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
     if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
@@ -112,28 +112,28 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function pause() external onlyOwner {
     _pause();
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function unpause() external onlyOwner {
     _unpause();
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external onlyOwner {
     s_peerRegistryMigrationPermission[peer] = permission;
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function registerUpkeep(
     address target,
@@ -151,7 +151,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
@@ -185,7 +185,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function addFunds(uint256 id, uint96 amount) external {
     Upkeep memory upkeep = s_upkeep[id];
@@ -198,7 +198,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function withdrawFunds(uint256 id, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
@@ -215,7 +215,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
@@ -229,7 +229,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
@@ -244,7 +244,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function transferPayeeship(address keeper, address proposed) external {
     if (s_keeperInfo[keeper].payee != msg.sender) revert OnlyCallableByPayee();
@@ -257,7 +257,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function acceptPayeeship(address keeper) external {
     if (s_proposedPayee[keeper] != msg.sender) revert OnlyCallableByProposedPayee();
@@ -269,7 +269,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function transferUpkeepAdmin(uint256 id, address proposed) external {
     Upkeep memory upkeep = s_upkeep[id];
@@ -284,7 +284,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function acceptUpkeepAdmin(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
@@ -298,7 +298,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
@@ -339,7 +339,7 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @dev Called through AutomationRegistry main contract
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
     if (

@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperRegistryInterface2_0.sol";
+import "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -13,11 +13,11 @@ import "../interfaces/ERC677ReceiverInterface.sol";
  * Flow 1. auto approve OFF / manual registration - UI calls `register` function on this contract, this contract owner at a later time then manually
  *  calls `approve` to register upkeep and emit events to inform UI and others interested.
  * Flow 2. auto approve ON / real time registration - UI calls `register` function as before, which calls the `registerUpkeep` function directly on
- *  keeper registry and then emits approved event to finish the flow automatically without manual intervention.
+ *  automation registry and then emits approved event to finish the flow automatically without manual intervention.
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677ReceiverInterface {
+contract AutomationRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677ReceiverInterface {
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.
@@ -49,7 +49,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     AutoApproveType autoApproveConfigType;
     uint32 autoApproveMaxAllowed;
     uint32 approvedCount;
-    KeeperRegistryBaseInterface keeperRegistry;
+    AutomationRegistryBaseInterface automationRegistry;
     uint96 minLINKJuels;
   }
 
@@ -93,7 +93,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   event ConfigChanged(
     AutoApproveType autoApproveConfigType,
     uint32 autoApproveMaxAllowed,
-    address keeperRegistry,
+    address automationRegistry,
     uint96 minLINKJuels
   );
 
@@ -114,18 +114,18 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param LINKAddress Address of Link token
    * @param autoApproveConfigType setting for auto-approve registrations
    * @param autoApproveMaxAllowed max number of registrations that can be auto approved
-   * @param keeperRegistry keeper registry address
+   * @param automationRegistry automation registry address
    * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
    */
   constructor(
     address LINKAddress,
     AutoApproveType autoApproveConfigType,
     uint16 autoApproveMaxAllowed,
-    address keeperRegistry,
+    address automationRegistry,
     uint96 minLINKJuels
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(LINKAddress);
-    setRegistrationConfig(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
+    setRegistrationConfig(autoApproveConfigType, autoApproveMaxAllowed, automationRegistry, minLINKJuels);
   }
 
   //EXTERNAL
@@ -183,7 +183,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   }
 
   /**
-   * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
+   * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
    */
   function approve(
     string memory name,
@@ -239,17 +239,17 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   }
 
   /**
-   * @notice owner calls this function to set if registration requests should be sent directly to the Keeper Registry
+   * @notice owner calls this function to set if registration requests should be sent directly to the Automation Registry
    * @param autoApproveConfigType setting for auto-approve registrations
    *                   note: autoApproveAllowedSenders list persists across config changes irrespective of type
    * @param autoApproveMaxAllowed max number of registrations that can be auto approved
-   * @param keeperRegistry new keeper registry address
+   * @param automationRegistry new automation registry address
    * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
    */
   function setRegistrationConfig(
     AutoApproveType autoApproveConfigType,
     uint16 autoApproveMaxAllowed,
-    address keeperRegistry,
+    address automationRegistry,
     uint96 minLINKJuels
   ) public onlyOwner {
     uint32 approvedCount = s_config.approvedCount;
@@ -258,10 +258,10 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       autoApproveMaxAllowed: autoApproveMaxAllowed,
       approvedCount: approvedCount,
       minLINKJuels: minLINKJuels,
-      keeperRegistry: KeeperRegistryBaseInterface(keeperRegistry)
+      automationRegistry: AutomationRegistryBaseInterface(automationRegistry)
     });
 
-    emit ConfigChanged(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
+    emit ConfigChanged(autoApproveConfigType, autoApproveMaxAllowed, automationRegistry, minLINKJuels);
   }
 
   /**
@@ -293,7 +293,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       AutoApproveType autoApproveConfigType,
       uint32 autoApproveMaxAllowed,
       uint32 approvedCount,
-      address keeperRegistry,
+      address automationRegistry,
       uint256 minLINKJuels
     )
   {
@@ -302,7 +302,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       config.autoApproveConfigType,
       config.autoApproveMaxAllowed,
       config.approvedCount,
-      address(config.keeperRegistry),
+      address(config.automationRegistry),
       config.minLINKJuels
     );
   }
@@ -383,13 +383,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   }
 
   /**
-   * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
+   * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
-    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
+    AutomationRegistryBaseInterface automationRegistry = s_config.automationRegistry;
 
     // register upkeep
-    uint256 upkeepId = keeperRegistry.registerUpkeep(
+    uint256 upkeepId = automationRegistry.registerUpkeep(
       params.upkeepContract,
       params.gasLimit,
       params.adminAddress,
@@ -397,9 +397,9 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       params.offchainConfig
     );
     // fund upkeep
-    bool success = LINK.transferAndCall(address(keeperRegistry), params.amount, abi.encode(upkeepId));
+    bool success = LINK.transferAndCall(address(automationRegistry), params.amount, abi.encode(upkeepId));
     if (!success) {
-      revert LinkTransferFailed(address(keeperRegistry));
+      revert LinkTransferFailed(address(automationRegistry));
     }
 
     emit RegistrationApproved(hash, params.name, upkeepId);
