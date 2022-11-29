@@ -233,20 +233,26 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
 
+	transmitter, err := ocrcommon.NewTransmitter(
+		configWatcher.chain.TxManager(),
+		fromAddresses,
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		txm.TransmitCheckerSpec{},
+		configWatcher.chain.ID(),
+		ethKeyStore,
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create transmitter")
+	}
+
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(
-			configWatcher.chain.TxManager(),
-			fromAddresses,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			txm.TransmitCheckerSpec{},
-			configWatcher.chain.ID(),
-			ethKeyStore,
-		),
+		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)

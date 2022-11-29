@@ -8,9 +8,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
+
+type roundRobinKeystore interface {
+	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
+}
 
 type txManager interface {
 	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
@@ -29,7 +32,7 @@ type transmitter struct {
 	strategy                    txmgr.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
 	chainID                     *big.Int
-	ethKeyStore                 keystore.Eth
+	keystore                    roundRobinKeystore
 }
 
 // NewTransmitter creates a new eth transmitter
@@ -41,8 +44,14 @@ func NewTransmitter(
 	strategy txmgr.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	ethKeyStore keystore.Eth,
-) Transmitter {
+	keystore roundRobinKeystore,
+) (Transmitter, error) {
+
+	// Ensure that a keystore is provided.
+	if keystore == nil {
+		return nil, errors.New("nil keystore provided to transmitter")
+	}
+
 	return &transmitter{
 		txm:                         txm,
 		fromAddresses:               fromAddresses,
@@ -51,8 +60,8 @@ func NewTransmitter(
 		strategy:                    strategy,
 		checker:                     checker,
 		chainID:                     chainID,
-		ethKeyStore:                 ethKeyStore,
-	}
+		keystore:                    keystore,
+	}, nil
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
@@ -77,11 +86,9 @@ func (t *transmitter) FromAddressForTransaction() common.Address {
 	nextFromAddress := t.fromAddresses[0]
 
 	// Apply round-robin logic for a valid keystore.
-	if t.ethKeyStore != nil {
-		fromAddress, err := t.ethKeyStore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
-		if err == nil {
-			nextFromAddress = fromAddress
-		}
+	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
+	if err == nil {
+		nextFromAddress = roundRobinFromAddress
 	}
 
 	return nextFromAddress

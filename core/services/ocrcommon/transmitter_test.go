@@ -34,7 +34,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
-	transmitter := ocrcommon.NewTransmitter(
+	transmitter, err := ocrcommon.NewTransmitter(
 		txm,
 		[]common.Address{fromAddress},
 		gasLimit,
@@ -42,8 +42,9 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		strategy,
 		txmgr.TransmitCheckerSpec{},
 		chainID,
-		nil,
+		ethKeyStore,
 	)
+	require.NoError(t, err)
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    fromAddress,
@@ -74,7 +75,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
-	transmitter := ocrcommon.NewTransmitter(
+	transmitter, err := ocrcommon.NewTransmitter(
 		txm,
 		[]common.Address{fromAddress, fromAddress2},
 		gasLimit,
@@ -84,6 +85,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		chainID,
 		ethKeyStore,
 	)
+	require.NoError(t, err)
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    fromAddress,
@@ -118,12 +120,10 @@ func Test_DefaultTransmitter_Forwarding_Enabled_No_Keystore_CreateEthTransaction
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
-	toAddress := testutils.NewAddress()
-	payload := []byte{1, 2, 3}
 	txm := txmmocks.NewTxManager(t)
 	strategy := txmmocks.NewTxStrategy(t)
 
-	transmitter := ocrcommon.NewTransmitter(
+	_, err := ocrcommon.NewTransmitter(
 		txm,
 		[]common.Address{fromAddress, fromAddress2},
 		gasLimit,
@@ -133,15 +133,5 @@ func Test_DefaultTransmitter_Forwarding_Enabled_No_Keystore_CreateEthTransaction
 		chainID,
 		nil,
 	)
-
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
-	}, mock.Anything).Return(txmgr.EthTx{}, nil).Twice()
-	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
-	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+	require.Error(t, err)
 }
