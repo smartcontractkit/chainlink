@@ -9,10 +9,10 @@ import "../ocr2/OCR2Base.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
-  event OracleRequest(bytes32 requestId, bytes data);
-  event OracleResponse(bytes32 requestId);
-  event UserCallbackError(bytes32 requestId, string reason);
-  event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
+  event OracleRequest(bytes32 indexed requestId, uint64 subscriptionId, bytes data);
+  event OracleResponse(bytes32 indexed requestId);
+  event UserCallbackError(bytes32 indexed requestId, string reason);
+  event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -111,7 +111,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
       data,
       OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
     );
-    emit OracleRequest(requestId, data);
+    emit OracleRequest(requestId, subscriptionId, data);
     return requestId;
   }
 
