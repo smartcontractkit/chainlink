@@ -82,6 +82,17 @@ describe('AuthorizedForwarder', () => {
       assert.equal(await forwarder.getChainlinkToken(), link.address)
     })
 
+    it('reverts on zeroAddress value for link token', async () => {
+      await evmRevert(
+        forwarderFactory.connect(roles.defaultAccount).deploy(
+          zeroAddress, // Link Address
+          await roles.defaultAccount.getAddress(),
+          zeroAddress,
+          '0x',
+        ),
+      )
+    })
+
     it('sets no authorized senders', async () => {
       const senders = await forwarder.getAuthorizedSenders()
       assert.equal(senders.length, 0)

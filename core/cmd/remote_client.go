@@ -296,7 +296,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	}
 	wgPprof.Wait()
 	if len(errs) > 0 {
-		return cli.errorOut(errors.New("One or more profile collections failed %s"))
+		return cli.errorOut(fmt.Errorf("%d profile collections failed", len(errs)))
 	}
 	return nil
 }

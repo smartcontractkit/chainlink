@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -72,6 +74,80 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 		}
 	}
+}
+
+func TestETHKeysController_Index_Errors(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = false
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+
+	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(nil, errors.New("fake error")).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, addr).Return(nil, errors.New("fake error")).Once()
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	resp, cleanup := client.Get("/v2/keys/eth")
+	defer cleanup()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var actualBalances []webpresenters.ETHKeyResource
+	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
+	assert.NoError(t, err)
+
+	require.Len(t, actualBalances, 1)
+
+	balance := actualBalances[0]
+	assert.Equal(t, addr.String(), balance.Address)
+	assert.Nil(t, balance.EthBalance)
+	assert.Nil(t, balance.LinkBalance)
+	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457584007913129639935", balance.MaxGasPriceWei.String())
+}
+
+func TestETHKeysController_Index_Disabled(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.DevMode = false
+		c.EVM[0].Enabled = ptr(false)
+	})
+
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	resp, cleanup := client.Get("/v2/keys/eth")
+	defer cleanup()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var actualBalances []webpresenters.ETHKeyResource
+	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
+	assert.NoError(t, err)
+
+	require.Len(t, actualBalances, 1)
+
+	balance := actualBalances[0]
+	assert.Equal(t, addr.String(), balance.Address)
+	assert.Nil(t, balance.EthBalance)
+	assert.Nil(t, balance.LinkBalance)
+	assert.Nil(t, balance.MaxGasPriceWei)
 }
 
 func TestETHKeysController_Index_NotDev(t *testing.T) {
