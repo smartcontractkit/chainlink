@@ -158,7 +158,6 @@ BaseFeeBufferPercent = 89
 MaxGracePeriod = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
-UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
 CheckGasOverhead = 90

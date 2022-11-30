@@ -1103,7 +1103,6 @@ BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
 TurnFlagEnabled = false # Default
-UpkeepCheckGasPriceEnabled = false # Default
 ```
 
 
@@ -1150,13 +1149,6 @@ TurnLookBack is the number of blocks in the past to look back when getting a blo
 TurnFlagEnabled = false # Default
 ```
 TurnFlagEnabled enables a new algorithm for how keepers take turns.
-
-### UpkeepCheckGasPriceEnabled<a id='Keeper-UpkeepCheckGasPriceEnabled'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-UpkeepCheckGasPriceEnabled = false # Default
-```
-UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
 
 ## Keeper.Registry<a id='Keeper-Registry'></a>
 ```toml

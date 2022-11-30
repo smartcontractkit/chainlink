@@ -385,7 +385,6 @@ func TestConfig_Marshal(t *testing.T) {
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
 		TurnFlagEnabled:              ptr(true),
-		UpkeepCheckGasPriceEnabled:   ptr(true),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
@@ -770,7 +769,6 @@ BaseFeeBufferPercent = 89
 MaxGracePeriod = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
-UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
 CheckGasOverhead = 90

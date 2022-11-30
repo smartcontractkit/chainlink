@@ -2379,7 +2379,6 @@ func (_m *GeneralConfig) KeeperBaseFeeBufferPercent() uint16 {
 	return r0
 }
 
-
 // KeeperDefaultTransactionQueueDepth provides a mock function with given fields:
 func (_m *GeneralConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	ret := _m.Called()

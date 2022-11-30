@@ -416,9 +416,6 @@ MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
 # TurnFlagEnabled enables a new algorithm for how keepers take turns.
 TurnFlagEnabled = false # Default
-# **ADVANCED**
-# UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
-UpkeepCheckGasPriceEnabled = false # Default
 
 [Keeper.Registry]
 # **ADVANCED**
