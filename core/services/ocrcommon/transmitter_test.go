@@ -107,7 +107,38 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
 }
 
-func Test_DefaultTransmitter_Forwarding_Enabled_No_Keystore_CreateEthTransaction(t *testing.T) {
+func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin_Error(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	fromAddress := common.Address{}
+
+	gasLimit := uint32(1000)
+	chainID := big.NewInt(0)
+	effectiveTransmitterAddress := common.Address{}
+	toAddress := testutils.NewAddress()
+	payload := []byte{1, 2, 3}
+	txm := txmmocks.NewTxManager(t)
+	strategy := txmmocks.NewTxStrategy(t)
+
+	transmitter, err := ocrcommon.NewTransmitter(
+		txm,
+		[]common.Address{fromAddress},
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		txmgr.TransmitCheckerSpec{},
+		chainID,
+		ethKeyStore,
+	)
+	require.NoError(t, err)
+	require.Error(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+}
+
+func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore_Error(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)

@@ -65,8 +65,14 @@ func NewTransmitter(
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
-	_, err := t.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:      t.FromAddressForTransaction(),
+
+	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
+	if err != nil {
+		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
+	}
+
+	_, err = t.txm.CreateEthTransaction(txmgr.NewTx{
+		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
 		GasLimit:         t.gasLimit,
@@ -74,24 +80,11 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		Strategy:         t.strategy,
 		Checker:          t.checker,
 	}, pg.WithParentCtx(ctx))
-	return errors.Wrap(err, "Skipped OCR transmission")
+	return errors.Wrap(err, "skipped OCR transmission")
 }
 
 func (t *transmitter) FromAddress() common.Address {
 	return t.effectiveTransmitterAddress
-}
-
-func (t *transmitter) FromAddressForTransaction() common.Address {
-	// Default to first sending key.
-	nextFromAddress := t.fromAddresses[0]
-
-	// Apply round-robin logic for a valid keystore.
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
-	if err == nil {
-		nextFromAddress = roundRobinFromAddress
-	}
-
-	return nextFromAddress
 }
 
 func (t *transmitter) forwarderAddress() common.Address {
