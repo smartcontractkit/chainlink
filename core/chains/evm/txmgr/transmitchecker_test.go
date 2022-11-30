@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -154,10 +155,12 @@ func TestTransmitCheckers(t *testing.T) {
 
 		newTx := func(t *testing.T, vrfReqID [32]byte) (txmgr.EthTx, txmgr.EthTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
+			txHash := common.Hash{}
 			meta := txmgr.EthTxMeta{
-				RequestID: &h,
-				MaxLink:   &testDefaultMaxLink, // 1 LINK
-				SubID:     &testDefaultSubID,
+				RequestID:     &h,
+				MaxLink:       &testDefaultMaxLink, // 1 LINK
+				SubID:         &testDefaultSubID,
+				RequestTxHash: &txHash,
 			}
 
 			b, err := json.Marshal(meta)
@@ -186,21 +189,37 @@ func TestTransmitCheckers(t *testing.T) {
 		r2 := [32]byte{2}
 		r3 := [32]byte{3}
 
-		checker := txmgr.VRFV1Checker{Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
-			if reqID == r1 {
-				// Request 1 is already fulfilled
-				return v1.Callbacks{
-					SeedAndBlockNum: [32]byte{},
+		checker := txmgr.VRFV1Checker{
+			Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
+				if opts.BlockNumber.Cmp(big.NewInt(6)) != 0 {
+					// Ensure correct logic is applied to get callbacks.
+					return v1.Callbacks{}, errors.New("error getting callback")
+				}
+				if reqID == r1 {
+					// Request 1 is already fulfilled
+					return v1.Callbacks{
+						SeedAndBlockNum: [32]byte{},
+					}, nil
+				} else if reqID == r2 {
+					// Request 2 errors
+					return v1.Callbacks{}, errors.New("error getting commitment")
+				} else {
+					return v1.Callbacks{
+						SeedAndBlockNum: [32]byte{1},
+					}, nil
+				}
+			},
+			HeaderByNumber: func(ctx context.Context, n *big.Int) (*types.Header, error) {
+				return &types.Header{
+					Number: big.NewInt(10),
 				}, nil
-			} else if reqID == r2 {
-				// Request 2 errors
-				return v1.Callbacks{}, errors.New("error getting commitment")
-			} else {
-				return v1.Callbacks{
-					SeedAndBlockNum: [32]byte{1},
+			},
+			TransactionReceipt: func(ctx context.Context, txHash common.Hash) (*gethtypes.Receipt, error) {
+				return &gethtypes.Receipt{
+					BlockNumber: big.NewInt(6),
 				}, nil
-			}
-		}}
+			},
+		}
 
 		t.Run("already fulfilled", func(t *testing.T) {
 			tx, attempt := newTx(t, r1)
@@ -215,6 +234,22 @@ func TestTransmitCheckers(t *testing.T) {
 
 		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
 			tx, attempt := newTx(t, r2)
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("can't get tx receipt", func(t *testing.T) {
+			checker.TransactionReceipt = func(ctx context.Context, txHash common.Hash) (*gethtypes.Receipt, error) {
+				return nil, errors.New("can't get tx receipt")
+			}
+			tx, attempt := newTx(t, r1)
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("can't get header", func(t *testing.T) {
+			checker.HeaderByNumber = func(ctx context.Context, n *big.Int) (*types.Header, error) {
+				return nil, errors.New("can't get head")
+			}
+			tx, attempt := newTx(t, r1)
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 	})
