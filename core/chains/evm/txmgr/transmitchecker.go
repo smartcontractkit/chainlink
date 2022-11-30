@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -46,7 +47,11 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V1 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
-		return &VRFV1Checker{coord.Callbacks}, nil
+		return &VRFV1Checker{
+			Callbacks:          coord.Callbacks,
+			HeaderByNumber:     c.Client.HeaderByNumber,
+			TransactionReceipt: c.Client.TransactionReceipt,
+		}, nil
 	case TransmitCheckerTypeVRFV2:
 		if spec.VRFCoordinatorAddress == nil {
 			return nil, errors.Errorf("malformed checker, expected non-nil VRFCoordinatorAddress, got: %v", spec)
@@ -134,6 +139,13 @@ type VRFV1Checker struct {
 	// Callbacks checks whether a VRF V1 request has already been fulfilled on the VRFCoordinator
 	// Solidity contract
 	Callbacks func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error)
+
+	// HeaderByNumber fetches the header given the number. If nil is provided,
+	// the latest header is fetched.
+	HeaderByNumber func(ctx context.Context, n *big.Int) (*gethtypes.Header, error)
+
+	// TransactionReceipt fetches the receipt for a transaction, given a tx hash.
+	TransactionReceipt func(ctx context.Context, txHash common.Hash) (*gethtypes.Receipt, error)
 }
 
 // Check satisfies the TransmitChecker interface.
@@ -168,9 +180,36 @@ func (v *VRFV1Checker) Check(
 		return nil
 	}
 
+	h, err := v.HeaderByNumber(ctx, nil)
+	if err != nil {
+		l.Errorw("Failed to fetch latest header. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxID", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
+	r, err := v.TransactionReceipt(ctx, *meta.RequestTxHash)
+	if err != nil {
+		l.Errorw("Failed to fetch request block number. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxID", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
+	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not found"
+	// errors.
+	latest := new(big.Int).Sub(h.Number, big.NewInt(5))
+	blockNumber := bigmath.Max(latest, r.BlockNumber)
 	var reqID [32]byte
 	copy(reqID[:], meta.RequestID.Bytes())
-	callback, err := v.Callbacks(&bind.CallOpts{Context: ctx}, reqID)
+	callback, err := v.Callbacks(&bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: blockNumber,
+	}, reqID)
 	if err != nil {
 		l.Errorw("Unable to check if already fulfilled. Attempting to transmit anyway.",
 			"err", err,
