@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -209,9 +210,9 @@ func TestTransmitCheckers(t *testing.T) {
 					}, nil
 				}
 			},
-			HeaderByNumber: func(ctx context.Context, n *big.Int) (*types.Header, error) {
-				return &types.Header{
-					Number: big.NewInt(10),
+			HeadByNumber: func(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
+				return &evmtypes.Head{
+					Number: 10,
 				}, nil
 			},
 			TransactionReceipt: func(ctx context.Context, txHash common.Hash) (*gethtypes.Receipt, error) {
@@ -246,7 +247,7 @@ func TestTransmitCheckers(t *testing.T) {
 		})
 
 		t.Run("can't get header", func(t *testing.T) {
-			checker.HeaderByNumber = func(ctx context.Context, n *big.Int) (*types.Header, error) {
+			checker.HeadByNumber = func(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 				return nil, errors.New("can't get head")
 			}
 			tx, attempt := newTx(t, r1)
