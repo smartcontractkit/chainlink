@@ -39,18 +39,20 @@ type RelayerConfig interface {
 }
 
 type Relayer struct {
-	db       *sqlx.DB
-	chainSet evm.ChainSet
-	lggr     logger.Logger
-	cfg      RelayerConfig
+	db          *sqlx.DB
+	chainSet    evm.ChainSet
+	lggr        logger.Logger
+	cfg         RelayerConfig
+	ethKeystore keystore.Eth
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig) *Relayer {
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ethKeystore keystore.Eth) *Relayer {
 	return &Relayer{
-		db:       db,
-		chainSet: chainSet,
-		lggr:     lggr.Named("Relayer"),
-		cfg:      cfg,
+		db:          db,
+		chainSet:    chainSet,
+		lggr:        lggr.Named("Relayer"),
+		cfg:         cfg,
+		ethKeystore: ethKeystore,
 	}
 }
 
@@ -194,7 +196,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, configPoller, chain, relayConfig.FromBlock, args.New), nil
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeyStore keystore.Eth) (*ContractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*ContractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -241,7 +243,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		strategy,
 		txm.TransmitCheckerSpec{},
 		configWatcher.chain.ID(),
-		ethKeyStore,
+		ethKeystore,
 	)
 
 	if err != nil {
@@ -323,7 +325,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	} else {
 		r.lggr.Debugf("On-chain mode enabled for job %d", rargs.JobID)
 		reportCodec = evmreportcodec.ReportCodec{}
-		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, nil)
+		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	}
 	if err != nil {
 		return nil, err

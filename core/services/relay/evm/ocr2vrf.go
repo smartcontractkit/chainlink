@@ -34,8 +34,8 @@ type OCR2VRFProvider interface {
 
 // OCR2VRFRelayer contains the relayer and instantiating functions for OCR2VRF providers.
 type OCR2VRFRelayer interface {
-	NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, ethKeystore keystore.Eth) (DKGProvider, error)
-	NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, ethKeystore keystore.Eth) (OCR2VRFProvider, error)
+	NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (DKGProvider, error)
+	NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2VRFProvider, error)
 }
 
 var (
@@ -46,25 +46,27 @@ var (
 
 // Relayer with added DKG and OCR2VRF provider functions.
 type ocr2vrfRelayer struct {
-	db    *sqlx.DB
-	chain evm.Chain
-	lggr  logger.Logger
+	db          *sqlx.DB
+	chain       evm.Chain
+	lggr        logger.Logger
+	ethKeystore keystore.Eth
 }
 
-func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger) OCR2VRFRelayer {
+func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
 	return &ocr2vrfRelayer{
-		db:    db,
-		chain: chain,
-		lggr:  lggr,
+		db:          db,
+		chain:       chain,
+		lggr:        lggr,
+		ethKeystore: ethKeystore,
 	}
 }
 
-func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, ethKeystore keystore.Eth) (DKGProvider, error) {
+func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (DKGProvider, error) {
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, ethKeystore)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +84,12 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 	}, nil
 }
 
-func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, ethKeystore keystore.Eth) (OCR2VRFProvider, error) {
+func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2VRFProvider, error) {
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, ethKeystore)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	if err != nil {
 		return nil, err
 	}

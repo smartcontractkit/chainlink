@@ -248,7 +248,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
-		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"))
+		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"), d.ethKs)
 		dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
@@ -259,7 +259,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			}, d.ethKs)
+			})
 		if err2 != nil {
 			return nil, err2
 		}
@@ -327,7 +327,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "validate ocr2vrf plugin config")
 		}
 
-		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"))
+		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"), d.ethKs)
 
 		vrfProvider, err2 := ocr2vrfRelayer.NewOCR2VRFProvider(
 			types.RelayArgs{
@@ -339,7 +339,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			}, d.ethKs)
+			})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new vrf provider")
 		}
@@ -353,7 +353,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			}, d.ethKs)
+			})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new dkg provider")
 		}
