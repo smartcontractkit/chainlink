@@ -1163,7 +1163,7 @@ func Test_SetOffchainConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("valid binary", func(t *testing.T) {
-		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10)}
+		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10), lggr: logger.TestLogger(t)}
 		newCoordinatorConfig := &ocr2vrftypes.CoordinatorConfig{
 			CacheEvictionWindowSeconds: 30,
 			BatchGasLimit:              1_000_000,
@@ -1184,7 +1184,7 @@ func Test_SetOffchainConfig(t *testing.T) {
 	})
 
 	t.Run("invalid binary", func(t *testing.T) {
-		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10)}
+		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10), lggr: logger.TestLogger(t)}
 
 		err := c.SetOffChainConfig([]byte{123})
 		require.Error(t, err)
