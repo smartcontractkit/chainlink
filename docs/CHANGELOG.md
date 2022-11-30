@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 <!-- unreleased -->
+## [dev]
+
+### Updated
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+
 ## [Unreleased]
 
 ### Added

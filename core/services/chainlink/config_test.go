@@ -19,6 +19,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -384,7 +385,6 @@ func TestConfig_Marshal(t *testing.T) {
 		BaseFeeBufferPercent:         ptr[uint16](89),
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
-		TurnFlagEnabled:              ptr(true),
 		UpkeepCheckGasPriceEnabled:   ptr(true),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
@@ -769,7 +769,6 @@ GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaxGracePeriod = 31
 TurnLookBack = 91
-TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
