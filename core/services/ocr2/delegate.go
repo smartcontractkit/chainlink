@@ -533,6 +533,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			},
 			lggr.Named("OCR2DRRelayer"),
+			d.ethKs,
 		)
 		if err2 != nil {
 			return nil, err2
