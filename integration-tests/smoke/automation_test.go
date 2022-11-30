@@ -4,15 +4,16 @@ import (
 	"context"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -57,22 +58,22 @@ var _ = Describe("Automation OCR Suite @automation", func() {
 
 		testScenarios = []TableEntry{
 			Entry("v2.0 Basic smoke test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
-			Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
+			/*Entry("v2.0 Add funds to upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1), numberOfUpkeeps),
 			Entry("v2.0 Pause and unpause upkeeps @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseUnpauseUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Register upkeep test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Pause registry test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Handle f keeper nodes going down @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
 			Entry("v2.0 Perform simulation test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds), 1),
 			Entry("v2.0 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds), 1),
-			Entry("v2.0 Update check data @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),
+			Entry("v2.0 Update check data @simulated", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, PerformDataChecker, UpdateCheckDataTest, big.NewInt(defaultLinkFunds), numberOfUpkeeps),*/
 		}
 	)
 
 	AfterEach(func() {
 		By("Tearing down the environment")
 		chainClient.GasStats().PrintStats()
-		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+		//err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		//Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	})
 
 	DescribeTable("Automation OCR Suite @automation", func(
@@ -104,10 +105,31 @@ PerformGasOverhead = 150_000
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-automation"}).
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "debug-automation", TTL: time.Hour * 1}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
-			AddHelm(eth.New(nil)).
+			AddHelm(eth.New(&eth.Props{
+				Simulated: true,
+				Values: map[string]interface{}{
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu":    "4000m",
+							"memory": "4Gi",
+						},
+						"limits": map[string]interface{}{
+							"cpu":    "4000m",
+							"memory": "4Gi",
+						},
+					},
+					"geth": map[string]interface{}{
+						"blocktime": "12",
+					},
+				},
+			})).
+			AddChart(blockscout.New(&blockscout.Props{
+				Name:    "geth-blockscout",
+				WsURL:   "ws://geth:8546",
+				HttpURL: "http://geth:8544"})).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"replicas": "5",
 				"toml":     client.AddNetworksConfig(baseTOML, network),

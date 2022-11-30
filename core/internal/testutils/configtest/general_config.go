@@ -92,7 +92,6 @@ type GeneralConfigOverrides struct {
 	GlobalMinimumContractPayment                    *assets.Link
 	GlobalOCRObservationGracePeriod                 time.Duration
 	GlobalOCR2AutomationGasLimit                    null.Int
-	KeeperCheckUpkeepGasPriceFeatureEnabled         null.Bool
 	KeeperRegistryMaxPerformDataSize                null.Int
 	KeeperMaximumGracePeriod                        null.Int
 	KeeperRegistrySyncInterval                      *time.Duration
@@ -466,14 +465,6 @@ func (c *TestGeneralConfig) KeeperRegistryMaxPerformDataSize() uint32 {
 		return uint32(c.Overrides.KeeperRegistryMaxPerformDataSize.Int64)
 	}
 	return c.GeneralConfig.KeeperRegistryMaxPerformDataSize()
-}
-
-// KeeperCheckUpkeepGasPriceFeatureEnabled overrides
-func (c *TestGeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	if c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Valid {
-		return c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Bool
-	}
-	return c.GeneralConfig.KeeperCheckUpkeepGasPriceFeatureEnabled()
 }
 
 func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {

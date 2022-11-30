@@ -376,10 +376,6 @@ func (g *generalConfig) EthereumURL() string {
 	return ""
 }
 
-func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return *g.c.Keeper.UpkeepCheckGasPriceEnabled
-}
-
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
 	return *p.V1.Enabled || *p.V2.Enabled

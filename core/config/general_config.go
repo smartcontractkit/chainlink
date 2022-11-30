@@ -55,7 +55,6 @@ type FeatureFlags interface {
 	AutoPprofEnabled() bool
 	EVMEnabled() bool
 	EVMRPCEnabled() bool
-	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	TerraEnabled() bool
@@ -969,11 +968,6 @@ func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
 // KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
 func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return getEnvWithFallback(c, envvar.KeeperRegistrySyncUpkeepQueueSize)
-}
-
-// KeeperCheckUpkeepGasPriceFeatureEnabled enables keepers to include a gas price when running checkUpkeep
-func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return getEnvWithFallback(c, envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled"))
 }
 
 // KeeperTurnLookBack represents the number of blocks in the past to loo back when getting block for turn
