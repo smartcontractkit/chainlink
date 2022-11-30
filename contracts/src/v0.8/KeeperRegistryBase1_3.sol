@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "./ExecutionPrevention.sol";
-import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterface1_3.sol";
+import {Config, State, Upkeep} from "./interfaces/AutomationRegistryInterface1_3.sol";
 import "./ConfirmedOwner.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/LinkTokenInterface.sol";
