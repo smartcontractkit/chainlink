@@ -400,7 +400,12 @@ func (c *coordinator) getBlockhashesMapping(
 	sort.Slice(blockNumbers, func(a, b int) bool {
 		return blockNumbers[a] < blockNumbers[b]
 	})
+
 	heads, err := c.lp.GetBlocks(ctx, blockNumbers, pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, errors.Wrap(err, "logpoller.GetBlocks")
+	}
+
 	if len(heads) != len(blockNumbers) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockNumbers), len(heads))
 		return
@@ -914,5 +919,20 @@ func (c *coordinator) SetOffChainConfig(b []byte) error {
 		return errors.Wrap(err, "error setting offchain config on coordinator")
 	}
 
+	c.lggr.Infow("set offchain config",
+		offchainConfigFields(c.coordinatorConfig)...,
+	)
+
 	return nil
+}
+
+func offchainConfigFields(coordinatorConfig *ocr2vrftypes.CoordinatorConfig) []any {
+	return []any{
+		"cacheEvictionWindowSeconds", coordinatorConfig.CacheEvictionWindowSeconds,
+		"batchGasLimit", coordinatorConfig.BatchGasLimit,
+		"coordinatorOverhead", coordinatorConfig.CoordinatorOverhead,
+		"lookbackBlocks", coordinatorConfig.LookbackBlocks,
+		"blockGasOverhead", coordinatorConfig.BlockGasOverhead,
+		"callbackOverhead", coordinatorConfig.CallbackOverhead,
+	}
 }

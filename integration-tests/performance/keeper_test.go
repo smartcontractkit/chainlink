@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 )
@@ -48,7 +47,6 @@ var _ = Describe("Keeper suite @keeper", func() {
 					"replicas": "5",
 					"env": map[string]interface{}{
 						"MIN_INCOMING_CONFIRMATIONS": "1",
-						"KEEPER_TURN_FLAG_ENABLED":   "true",
 						"HTTP_SERVER_WRITE_TIMEOUT":  "300s",
 					},
 				}))

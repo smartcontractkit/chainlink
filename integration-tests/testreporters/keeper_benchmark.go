@@ -244,9 +244,9 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(slackClient *slack.C
 	}
 
 	testFailed := ginkgo.CurrentSpecReport().Failed()
-	headerText := ":white_check_mark: Keeper Benchmark Test PASSED :white_check_mark:"
+	headerText := ":white_check_mark: Automation Benchmark Test FINISHED :white_check_mark:"
 	if testFailed {
-		headerText = ":x: Keeper Benchmark Test FAILED :x:"
+		headerText = ":x: Automation Benchmark Test FAILED :x:"
 	}
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(slackClient, headerText, k.namespace, k.keeperReportFile, testreporters.SlackUserID, testFailed)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
@@ -258,11 +258,11 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(slackClient *slack.C
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
 	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
-		Title:           fmt.Sprintf("Keeper Benchmark Test Summary %s", k.namespace),
+		Title:           fmt.Sprintf("Automation Benchmark Test Summary %s", k.namespace),
 		Filetype:        "json",
-		Filename:        fmt.Sprintf("keeper_benchmark_summary_%s.json", k.namespace),
+		Filename:        fmt.Sprintf("automation_benchmark_summary_%s.json", k.namespace),
 		File:            k.keeperSummaryFile,
-		InitialComment:  fmt.Sprintf("Keeper Benchmark Test Summary %s.\nDashboard: %s ", k.namespace, formattedDashboardUrl),
+		InitialComment:  fmt.Sprintf("Automation Benchmark Test Summary %s.\n<%s|Test Dashboard> ", k.namespace, formattedDashboardUrl),
 		Channels:        []string{testreporters.SlackChannel},
 		ThreadTimestamp: ts,
 	}); err != nil {
@@ -270,22 +270,22 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(slackClient *slack.C
 	}
 
 	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
-		Title:           fmt.Sprintf("Keeper Benchmark Test Report %s", k.namespace),
+		Title:           fmt.Sprintf("Automation Benchmark Test Report %s", k.namespace),
 		Filetype:        "csv",
-		Filename:        fmt.Sprintf("keeper_benchmark_report_%s.csv", k.namespace),
+		Filename:        fmt.Sprintf("automation_benchmark_report_%s.csv", k.namespace),
 		File:            k.keeperReportFile,
-		InitialComment:  fmt.Sprintf("Keeper Benchmark Test Report %s", k.namespace),
+		InitialComment:  fmt.Sprintf("Automation Benchmark Test Report %s", k.namespace),
 		Channels:        []string{testreporters.SlackChannel},
 		ThreadTimestamp: ts,
 	}); err != nil {
 		return err
 	}
 	return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
-		Title:           fmt.Sprintf("Keeper Benchmark Attempted Chainlink Txs %s", k.namespace),
+		Title:           fmt.Sprintf("Automation Benchmark Attempted Chainlink Txs %s", k.namespace),
 		Filetype:        "json",
 		Filename:        fmt.Sprintf("attempted_cl_txs_%s.json", k.namespace),
 		File:            k.attemptedTransactionsFile,
-		InitialComment:  fmt.Sprintf("Keeper Benchmark Attempted Txs %s", k.namespace),
+		InitialComment:  fmt.Sprintf("Automation Benchmark Attempted Txs %s", k.namespace),
 		Channels:        []string{testreporters.SlackChannel},
 		ThreadTimestamp: ts,
 	})

@@ -95,6 +95,7 @@ func (g *generalConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
 func (g *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalNodePollInterval() (time.Duration, bool)  { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalNodeSelectionMode() (string, bool)        { panic(v2.ErrUnsupported) }
+func (g *generalConfig) GlobalNodeSyncThreshold() (uint32, bool)        { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalOCRContractConfirmations() (uint16, bool) { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
 	panic(v2.ErrUnsupported)

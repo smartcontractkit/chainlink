@@ -34,10 +34,9 @@ import (
 )
 
 var (
-	ErrNoSuchKeyBundle       = errors.New("no such key bundle exists")
-	ErrNoSuchTransmitterKey  = errors.New("no such transmitter key exists")
-	ErrSendingKeyIsForwarder = errors.New("forwarding is enabled, but the transmitter is set to a local sending key")
-	ErrNoSuchPublicKey       = errors.New("no such public key exists")
+	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
+	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
+	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -232,25 +231,19 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.OCROracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
+
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
+
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
 				case relay.EVM:
-					chain, err := EVMChainForJob(jb, o.chainSet)
+					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrap(err, "error getting EVMChain for job")
-					}
-
-					useForwarders := chain.Config().EvmUseForwarders()
-					_, err = o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
-
-					// If not using forwarders, the transmitter should be a local sending key.
-					if !useForwarders && err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				case relay.Solana:
@@ -263,8 +256,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				case relay.StarkNet:
+					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					}
 				}
 			}
+
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)

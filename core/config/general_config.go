@@ -143,7 +143,6 @@ type BasicConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
-	KeeperTurnFlagEnabled() bool
 	KeyFile() string
 	KeystorePassword() string
 	LeaseLockDuration() time.Duration
@@ -269,6 +268,7 @@ type GlobalConfig interface {
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
 	GlobalNodeSelectionMode() (string, bool)
+	GlobalNodeSyncThreshold() (uint32, bool)
 }
 
 type GeneralConfig interface {
@@ -980,11 +980,6 @@ func (c *generalConfig) KeeperTurnLookBack() int64 {
 	return c.viper.GetInt64(envvar.Name("KeeperTurnLookBack"))
 }
 
-// KeeperTurnFlagEnabled enables new turn taking algo for keepers
-func (c *generalConfig) KeeperTurnFlagEnabled() bool {
-	return getEnvWithFallback(c, envvar.NewBool("KeeperTurnFlagEnabled"))
-}
-
 // JSONConsole when set to true causes logging to be made in JSON format
 // If set to false, logs in console format
 func (c *generalConfig) JSONConsole() bool {
@@ -1502,6 +1497,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 
 func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
 	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
+func (c *generalConfig) GlobalNodeSyncThreshold() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("NodeSyncThreshold"), parse.Uint32)
 }
 
 func (c *generalConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {

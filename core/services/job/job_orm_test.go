@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	ocr2validate "github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -579,6 +580,62 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb4.OCROracleSpec.ContractAddress, customChainID), err.Error())
 	})
+}
+
+func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
+	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: customChainID,
+			Chain:   evmcfg.Defaults(customChainID),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config)
+	bridgesORM := bridges.NewORM(db, lggr, config)
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config)
+
+	require.NoError(t, evm.NewORM(db, lggr, config).EnsureChains([]utils.Big{*customChainID}))
+
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	jb.Name = null.StringFrom("Job 1")
+	jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+
+	err = jobORM.CreateJob(&jb)
+	require.NoError(t, err)
+
+	jb2, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	jb2.Name = null.StringFrom("Job with same chain id & contract address")
+	jb2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+
+	err = jobORM.CreateJob(&jb2)
+	require.Error(t, err)
+
+	jb3, err := ocr2validate.ValidatedOracleSpecToml(config, testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
+	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+
+	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.Int64()
+
+	err = jobORM.CreateJob(&jb3)
+	require.Error(t, err)
 }
 
 func Test_FindJobs(t *testing.T) {

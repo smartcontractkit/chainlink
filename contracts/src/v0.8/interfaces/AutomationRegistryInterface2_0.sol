@@ -101,7 +101,7 @@ enum UpkeepFailureReason {
   INSUFFICIENT_BALANCE
 }
 
-interface KeeperRegistryBaseInterface {
+interface AutomationRegistryBaseInterface {
   function registerUpkeep(
     address target,
     uint32 gasLimit,
@@ -160,7 +160,7 @@ interface KeeperRegistryBaseInterface {
  * but we want them to be easily queried off-chain. Solidity will not compile
  * if we actually inherit from this interface, so we document it here.
  */
-interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
+interface AutomationRegistryInterface is AutomationRegistryBaseInterface {
   function checkUpkeep(uint256 upkeepId)
     external
     view
@@ -174,7 +174,7 @@ interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
     );
 }
 
-interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
+interface AutomationRegistryExecutableInterface is AutomationRegistryBaseInterface {
   function checkUpkeep(uint256 upkeepId)
     external
     returns (
