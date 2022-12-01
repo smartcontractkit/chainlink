@@ -34,10 +34,10 @@ import (
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
 
 var (
-	dkgABI                      = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
-	vrfBeaconABI                = evmtypes.MustGetABI(vrf_beacon.VRFBeaconMetaData.ABI)
-	vrfCoordinatorABI           = evmtypes.MustGetABI(vrf_coordinator.VRFCoordinatorMetaData.ABI)
-	buckets           []float64 = []float64{
+	dkgABI            = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
+	vrfBeaconABI      = evmtypes.MustGetABI(vrf_beacon.VRFBeaconMetaData.ABI)
+	vrfCoordinatorABI = evmtypes.MustGetABI(vrf_coordinator.VRFCoordinatorMetaData.ABI)
+	buckets           = []float64{
 		0,
 		1,
 		2,
