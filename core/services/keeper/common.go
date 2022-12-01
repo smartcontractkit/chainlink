@@ -31,7 +31,6 @@ type Config interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
-	KeeperTurnFlagEnabled() bool
 	pg.QConfig
 }
 

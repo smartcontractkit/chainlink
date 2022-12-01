@@ -129,7 +129,7 @@ describe('OCR2DRClientTestHelper', () => {
         .to.emit(client, 'RequestSent')
         .withArgs(anyValue)
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, anyValue)
+        .withArgs(anyValue, subscriptionId, anyValue)
     })
 
     it('encodes user request to CBOR', async () => {
