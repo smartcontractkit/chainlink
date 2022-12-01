@@ -108,9 +108,11 @@ type Logger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 
 	// ErrorIf logs the error if present.
+	// Deprecated: use SugaredLogger.ErrorIf
 	ErrorIf(err error, msg string)
 
 	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
+	// Deprecated: use SugaredLogger.ErrorIfFn with c.Close
 	ErrorIfClosing(c io.Closer, name string)
 
 	// Sync flushes any buffered log entries.
