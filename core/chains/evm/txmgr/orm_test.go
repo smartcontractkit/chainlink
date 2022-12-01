@@ -194,7 +194,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 
 	// add receipt for the second attempt
 	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
-	err := orm.InsertEthReceipt(&r)
+	require.NoError(t, orm.InsertEthReceipt(&r))
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
@@ -203,7 +203,11 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
 	var count int
-	err = db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	require.NoError(t, err)
+	require.Equal(t, 3, count)
+
+	err = db.Get(&count, `SELECT count(*) FROM eth_tx_attempts`)
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 

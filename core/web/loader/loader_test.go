@@ -364,7 +364,6 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	assert.Equal(t, []txmgr.EthTxAttempt{}, found[0].Data)
 	assert.Equal(t, []txmgr.EthTxAttempt{attempt2}, found[1].Data)
 	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[2].Data)
-	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[2].Data)
 }
 
 func TestLoader_SpecErrorsByJobID(t *testing.T) {
@@ -429,13 +428,9 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txmORM := &txmgrMocks.ORM{}
-	app := &coremocks.Application{}
+	txmORM := txmgrMocks.NewORM(t)
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
-
-	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, txmORM)
-	})
 
 	ethTxID := int64(3)
 	ethTxHash := utils.NewHash()
