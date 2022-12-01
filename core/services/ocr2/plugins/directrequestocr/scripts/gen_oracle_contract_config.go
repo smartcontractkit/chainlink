@@ -37,35 +37,35 @@ func addrArrayToPrettyString(addrs []string) string {
 func main() {
 	// NOTE: replace values below with actual keys fetched from DON members
 	offchainPubKeysHex := []string{
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // replace this
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01", // replace this
+		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01",
+		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01",
+		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01"}
 
 	configPublicKeys := []string{
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // replace this
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a", // replace this
+		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a",
+		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a",
+		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a"}
 
 	onchainPubKeys := []common.Address{
-		common.HexToAddress("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), // replace this (on-chain pub key)
-		common.HexToAddress("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-		common.HexToAddress("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-		common.HexToAddress("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")}
+		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"), // replace this (on-chain pub key)
+		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"),
+		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"),
+		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b")}
 
 	peerIDs := []string{
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // replace this
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h", // replace this
+		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
+		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
+		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
 	}
 
 	transmiterAddresses := []string{
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // replace this
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac", // replace this
+		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
+		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
+		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
 	}
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
