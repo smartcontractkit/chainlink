@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"google.golang.org/protobuf/proto"
@@ -32,9 +34,44 @@ import (
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
 
 var (
-	dkgABI            = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
-	vrfBeaconABI      = evmtypes.MustGetABI(vrf_beacon.VRFBeaconMetaData.ABI)
-	vrfCoordinatorABI = evmtypes.MustGetABI(vrf_coordinator.VRFCoordinatorMetaData.ABI)
+	dkgABI                      = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
+	vrfBeaconABI                = evmtypes.MustGetABI(vrf_beacon.VRFBeaconMetaData.ABI)
+	vrfCoordinatorABI           = evmtypes.MustGetABI(vrf_coordinator.VRFCoordinatorMetaData.ABI)
+	buckets           []float64 = []float64{
+		0,
+		1,
+		2,
+		4,
+		8,
+		16,
+		32,
+		64,
+		128,
+		256,
+		512,
+		1024,
+		2048,
+	}
+	promBlocksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_blocks_to_report",
+		Help:    "Number of unfulfilled blocks in ReportBlocks",
+		Buckets: buckets,
+	}, []string{"evmChainID"})
+	promCallbacksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_callbacks_to_report",
+		Help:    "Number of unfulfilled callbacks in ReportBlocks",
+		Buckets: buckets,
+	}, []string{"evmChainID"})
+	promBlocksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_blocks_in_report",
+		Help:    "Number of blocks found in reportWillBeTransmitted",
+		Buckets: buckets,
+	}, []string{"evmChainID"})
+	promCallbacksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_callbacks_in_report",
+		Help:    "Number of callbacks found in reportWillBeTransmitted",
+		Buckets: buckets,
+	}, []string{"evmChainID"})
 )
 
 const (
@@ -321,6 +358,7 @@ func (c *coordinator) ReportBlocks(
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
+	c.emitReportBlocksMetrics(len(blocks), len(callbacks))
 
 	c.lggr.Trace(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
@@ -742,6 +780,8 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 		c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
 	}
 
+	c.emitReportWillBeTransmittedMetrics(len(blocksRequested), len(callbacksRequested))
+
 	return nil
 }
 
@@ -935,4 +975,18 @@ func offchainConfigFields(coordinatorConfig *ocr2vrftypes.CoordinatorConfig) []a
 		"blockGasOverhead", coordinatorConfig.BlockGasOverhead,
 		"callbackOverhead", coordinatorConfig.CallbackOverhead,
 	}
+}
+
+func (c *coordinator) emitReportBlocksMetrics(
+	numBlocks int,
+	numCallbacks int) {
+	promBlocksToReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numBlocks))
+	promCallbacksToReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
+}
+
+func (c *coordinator) emitReportWillBeTransmittedMetrics(
+	numBlocks int,
+	numCallbacks int) {
+	promBlocksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numBlocks))
+	promCallbacksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
 }
