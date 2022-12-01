@@ -54,12 +54,12 @@ var (
 	}
 	promBlocksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_blocks_to_report",
-		Help:    "Number of unfulfilled and in-flight blocks in ReportBlocks",
+		Help:    "Number of unfulfilled and in-flight blocks that fit in current report in reportBlocks",
 		Buckets: buckets,
 	}, []string{"evmChainID"})
 	promCallbacksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_callbacks_to_report",
-		Help:    "Number of unfulfilled and and in-flight callbacks in ReportBlocks",
+		Help:    "Number of unfulfilled and and in-flight callbacks fit in current report in reportBlocks",
 		Buckets: buckets,
 	}, []string{"evmChainID"})
 	promBlocksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
