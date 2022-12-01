@@ -220,7 +220,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
 				fn := args.Get(4).(func(pg.Queryer) error)
-				fn(nil)
+				require.NoError(t, fn(nil))
 			}).Once().Return(false, nil)
 
 		// but should after this one, as the head Number is larger
@@ -383,7 +383,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 			fn := args.Get(4).(func(pg.Queryer) error)
-			fn(nil)
+			require.NoError(t, fn(nil))
 		}).Once().Return(false, nil)
 
 		err := uni.service.Start(testutils.Context(t))
@@ -479,7 +479,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 			fn := args.Get(4).(func(pg.Queryer) error)
-			fn(nil)
+			require.NoError(t, fn(nil))
 		}).Once().Return(false, nil)
 
 		err := uni.service.Start(testutils.Context(t))
