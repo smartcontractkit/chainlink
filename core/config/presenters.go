@@ -71,7 +71,6 @@ type EnvPrinter struct {
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
 	KeeperTurnLookBack                         int64           `json:"KEEPER_TURN_LOOK_BACK"`
-	KeeperTurnFlagEnabled                      bool            `json:"KEEPER_TURN_FLAG_ENABLED"`
 	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
 	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
@@ -194,7 +193,6 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperRegistrySyncInterval:         cfg.KeeperRegistrySyncInterval(),
 			KeeperRegistrySyncUpkeepQueueSize:  cfg.KeeperRegistrySyncUpkeepQueueSize(),
 			KeeperTurnLookBack:                 cfg.KeeperTurnLookBack(),
-			KeeperTurnFlagEnabled:              cfg.KeeperTurnFlagEnabled(),
 
 			LeaseLockDuration:        cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval: cfg.LeaseLockRefreshInterval(),

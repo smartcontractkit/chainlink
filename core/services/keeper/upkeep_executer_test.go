@@ -67,7 +67,6 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 ) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Keeper.TurnLookBack = ptr[int64](0)
-		c.Keeper.TurnFlagEnabled = ptr(true)
 		if fn := overrideFn; fn != nil {
 			fn(c, s)
 		}

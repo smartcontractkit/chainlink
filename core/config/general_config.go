@@ -142,7 +142,6 @@ type BasicConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
-	KeeperTurnFlagEnabled() bool
 	KeyFile() string
 	KeystorePassword() string
 	LeaseLockDuration() time.Duration
@@ -973,11 +972,6 @@ func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 // KeeperTurnLookBack represents the number of blocks in the past to loo back when getting block for turn
 func (c *generalConfig) KeeperTurnLookBack() int64 {
 	return c.viper.GetInt64(envvar.Name("KeeperTurnLookBack"))
-}
-
-// KeeperTurnFlagEnabled enables new turn taking algo for keepers
-func (c *generalConfig) KeeperTurnFlagEnabled() bool {
-	return getEnvWithFallback(c, envvar.NewBool("KeeperTurnFlagEnabled"))
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format

@@ -699,7 +699,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		BaseFeeBufferPercent:         envvar.NewUint16("KeeperBaseFeeBufferPercent").ParsePtr(),
 		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
-		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
 			PerformGasOverhead:  envvar.NewUint32("KeeperRegistryPerformGasOverhead").ParsePtr(),

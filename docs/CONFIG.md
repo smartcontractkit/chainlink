@@ -1102,7 +1102,11 @@ GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
+<<<<<<< HEAD
 TurnFlagEnabled = false # Default
+=======
+UpkeepCheckGasPriceEnabled = false # Default
+>>>>>>> develop
 ```
 
 
@@ -1143,12 +1147,6 @@ MaxGracePeriod is the maximum number of blocks that a keeper will wait after per
 TurnLookBack = 1_000 # Default
 ```
 TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
-
-### TurnFlagEnabled<a id='Keeper-TurnFlagEnabled'></a>
-```toml
-TurnFlagEnabled = false # Default
-```
-TurnFlagEnabled enables a new algorithm for how keepers take turns.
 
 ## Keeper.Registry<a id='Keeper-Registry'></a>
 ```toml

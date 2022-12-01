@@ -822,7 +822,6 @@ type Keeper struct {
 	BaseFeeBufferPercent         *uint16
 	MaxGracePeriod               *int64
 	TurnLookBack                 *int64
-	TurnFlagEnabled              *bool
 
 	Registry KeeperRegistry `toml:",omitempty"`
 }
@@ -845,9 +844,6 @@ func (k *Keeper) setFrom(f *Keeper) {
 	}
 	if v := f.TurnLookBack; v != nil {
 		k.TurnLookBack = v
-	}
-	if v := f.TurnFlagEnabled; v != nil {
-		k.TurnFlagEnabled = v
 	}
 
 	k.Registry.setFrom(&f.Registry)

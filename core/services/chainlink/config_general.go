@@ -23,6 +23,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -664,10 +665,6 @@ func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 
 func (g *generalConfig) KeeperTurnLookBack() int64 {
 	return *g.c.Keeper.TurnLookBack
-}
-
-func (g *generalConfig) KeeperTurnFlagEnabled() bool {
-	return *g.c.Keeper.TurnFlagEnabled
 }
 
 func (g *generalConfig) KeyFile() string {

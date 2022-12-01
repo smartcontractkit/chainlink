@@ -93,7 +93,6 @@ LogPoller = true
 Enabled = true
 
 [Keeper]
-TurnFlagEnabled = true
 TurnLookBack = 0
 
 [Keeper.Registry]
