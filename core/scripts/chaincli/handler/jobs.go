@@ -13,7 +13,7 @@ func (k *Keeper) CreateJob(ctx context.Context) {
 
 func (k *Keeper) createJobs() {
 	lggr, closeLggr := logger.NewLogger()
-	defer closeLggr()
+	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	// Create Keeper Jobs on Nodes for Registry
 	for i, keeperAddr := range k.cfg.Keepers {
