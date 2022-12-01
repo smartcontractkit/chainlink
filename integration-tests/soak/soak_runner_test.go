@@ -182,7 +182,7 @@ func addSeparateChainlinkDeployments(
 			envVals[key] = value
 		}
 		envVals["cl_config"] = toml
-		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{"env": envVals}))
+		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{"prometheus": "true", "env": envVals}))
 	}
 }
 
