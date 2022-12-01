@@ -171,14 +171,10 @@ func TestDRListener_RequestTimeout(t *testing.T) {
 	t.Parallel()
 
 	reqId := newRequestID()
-	ts := time.Now().Add(-time.Minute)
 	done := make(chan bool)
 	uni := NewDRListenerUniverse(t, 1)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
-	uni.pluginORM.On("FindExpiredResults", mock.Anything, mock.Anything).Return(
-		[]drocr_service.Request{{RequestID: reqId, ReceivedAt: ts}}, nil,
-	)
-	uni.pluginORM.On("SetTimedOut", reqId).Return(nil).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1)).Return([]drocr_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
 		done <- true
 	})
 

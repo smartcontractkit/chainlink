@@ -31,15 +31,17 @@ func newRequestID() directrequestocr.RequestID {
 }
 
 func createRequest(t *testing.T, orm directrequestocr.ORM) (directrequestocr.RequestID, common.Hash, time.Time) {
-	return createRequestWithTimestamp(t, orm, time.Now().Round(time.Second))
+	ts := time.Now().Round(time.Second)
+	id, hash := createRequestWithTimestamp(t, orm, ts)
+	return id, hash, ts
 }
 
-func createRequestWithTimestamp(t *testing.T, orm directrequestocr.ORM, ts time.Time) (directrequestocr.RequestID, common.Hash, time.Time) {
+func createRequestWithTimestamp(t *testing.T, orm directrequestocr.ORM, ts time.Time) (directrequestocr.RequestID, common.Hash) {
 	id := newRequestID()
 	txHash := testutils.NewAddress().Hash()
 	err := orm.CreateRequest(id, ts, &txHash)
 	require.NoError(t, err)
-	return id, txHash, ts
+	return id, txHash
 }
 
 func TestORM_CreateRequestsAndFindByID(t *testing.T) {
@@ -157,12 +159,19 @@ func TestORM_StateTransitions(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
-	id, _, _ := createRequest(t, orm)
+	now := time.Now()
+	id, _ := createRequestWithTimestamp(t, orm, now)
 	req, err := orm.FindById(id)
 	require.NoError(t, err)
 	require.Equal(t, directrequestocr.IN_PROGRESS, req.State)
 
-	err = orm.SetTimedOut(id)
+	err = orm.SetResult(id, 0, []byte{}, now)
+	require.NoError(t, err)
+	req, err = orm.FindById(id)
+	require.NoError(t, err)
+	require.Equal(t, directrequestocr.RESULT_READY, req.State)
+
+	_, err = orm.TimeoutExpiredResults(now.Add(time.Minute), 1)
 	require.NoError(t, err)
 	req, err = orm.FindById(id)
 	require.NoError(t, err)
@@ -186,9 +195,9 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 
 	orm := setupORM(t)
 	now := time.Now()
-	id2, _, _ := createRequestWithTimestamp(t, orm, now.Add(2*time.Minute))
+	id2, _ := createRequestWithTimestamp(t, orm, now.Add(2*time.Minute))
 	createRequestWithTimestamp(t, orm, now.Add(3*time.Minute))
-	id1, _, _ := createRequestWithTimestamp(t, orm, now.Add(1*time.Minute))
+	id1, _ := createRequestWithTimestamp(t, orm, now.Add(1*time.Minute))
 
 	t.Run("with limit", func(t *testing.T) {
 		result, err := orm.FindOldestEntriesByState(directrequestocr.IN_PROGRESS, 2)
@@ -211,29 +220,39 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	})
 }
 
-func TestORM_FindExpiredResults(t *testing.T) {
+func TestORM_TimeoutExpiredResults(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
 	now := time.Now()
-	id2, _, _ := createRequestWithTimestamp(t, orm, now.Add(-20*time.Minute))
-	err := orm.SetResult(id2, 123, []byte("result"), time.Now())
-	require.NoError(t, err)
-	id3, _, _ := createRequestWithTimestamp(t, orm, now.Add(-30*time.Minute))
-	err = orm.SetResult(id3, 123, []byte("result"), time.Now())
-	require.NoError(t, err)
-	id1, _, _ := createRequestWithTimestamp(t, orm, now.Add(-10*time.Minute))
-	err = orm.SetResult(id1, 123, []byte("result"), time.Now())
+	var ids []directrequestocr.RequestID
+	for offset := -50; offset <= -10; offset += 10 {
+		id, _ := createRequestWithTimestamp(t, orm, now.Add(time.Duration(offset)*time.Minute))
+		ids = append(ids, id)
+	}
+	// time out both IN_PROGRESS and RESULTS_READY states
+	err := orm.SetResult(ids[0], 123, []byte("result"), now)
 	require.NoError(t, err)
 
-	results, err := orm.FindExpiredResults(now.Add(-15*time.Minute), 10)
+	results, err := orm.TimeoutExpiredResults(now.Add(-35*time.Minute), 1)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(results), "incorrect results length")
-	require.Equal(t, id3, results[0].RequestID, "incorrect results order")
-	require.Equal(t, id2, results[1].RequestID, "incorrect results order")
+	require.Equal(t, 1, len(results), "not respecting limit")
+	require.Equal(t, ids[0], results[0], "incorrect results order")
 
-	partialResults, err := orm.FindExpiredResults(now.Add(-15*time.Minute), 1)
+	results, err = orm.TimeoutExpiredResults(now.Add(-15*time.Minute), 10)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(partialResults), "incorrect partialResults length")
-	require.Equal(t, id3, partialResults[0].RequestID, "incorrect oldest result")
+	require.Equal(t, 3, len(results), "incorrect results length")
+	require.Equal(t, ids[1], results[0], "incorrect results order")
+	require.Equal(t, ids[2], results[1], "incorrect results order")
+	require.Equal(t, ids[3], results[2], "incorrect results order")
+
+	results, err = orm.TimeoutExpiredResults(now.Add(-15*time.Minute), 10)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(results), "not idempotent")
+
+	for i := 0; i < 4; i++ {
+		req, err := orm.FindById(ids[i])
+		require.NoError(t, err)
+		require.Equal(t, req.State, directrequestocr.TIMED_OUT, "incorrect state")
+	}
 }

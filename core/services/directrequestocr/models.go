@@ -76,28 +76,29 @@ const (
  *                  +---------+
  */
 func CheckStateTransition(prev RequestState, next RequestState) error {
-	if prev == next {
-		return errors.New("attempt to set the same state")
-	}
+	sameStateError := errors.New("attempt to set the same state")
 	if prev == CONFIRMED {
 		return errors.New("cannot transition out of CONFIRMED state")
 	}
 	transitions := map[RequestState]map[RequestState]error{
 		IN_PROGRESS: {
+			IN_PROGRESS:  sameStateError,
 			RESULT_READY: nil, // computation completed (either successfully or not)
 			TIMED_OUT:    nil, // timing out a request in progress - what happened to the computation?
 			TRANSMITTED:  nil, // transmitted a report without this node's participation in OCR round
 			CONFIRMED:    nil, // received an on-chain result confirmation
 		},
 		RESULT_READY: {
-			IN_PROGRESS: errors.New("cannot go back from RESULT_READY to IN_PROGRESS"),
-			TIMED_OUT:   nil, // timing out a request - why was it never picked up by OCR reporting?
-			TRANSMITTED: nil, // transmitted via OCR as expected
-			CONFIRMED:   nil, // received an on-chain result confirmation
+			IN_PROGRESS:  errors.New("cannot go back from RESULT_READY to IN_PROGRESS"),
+			RESULT_READY: sameStateError,
+			TIMED_OUT:    nil, // timing out a request - why was it never picked up by OCR reporting?
+			TRANSMITTED:  nil, // transmitted via OCR as expected
+			CONFIRMED:    nil, // received an on-chain result confirmation
 		},
 		TIMED_OUT: {
 			IN_PROGRESS:  errors.New("cannot go back from TIMED_OUT to IN_PROGRESS"),
 			RESULT_READY: errors.New("cannot go back from TIMED_OUT to RESULT_READY"),
+			TIMED_OUT:    sameStateError,
 			TRANSMITTED:  errors.New("result already timed out but we're trying to transmit it (maybe a harmless race with the timer?)"),
 			CONFIRMED:    nil, // received an on-chain result confirmation
 		},
@@ -105,8 +106,10 @@ func CheckStateTransition(prev RequestState, next RequestState) error {
 			IN_PROGRESS:  errors.New("cannot go back from TRANSMITTED to IN_PROGRESS"),
 			RESULT_READY: errors.New("cannot go back from TRANSMITTED to RESULT_READY"),
 			TIMED_OUT:    errors.New("result already transmitted, no need to time it out (maybe a harmless race with the timer?)"),
+			TRANSMITTED:  sameStateError,
 			CONFIRMED:    nil, // received an on-chain result confirmation
 		},
+		// CONFIRMED handled earlier
 	}
 
 	nextMap, exists := transitions[prev]

@@ -26,7 +26,7 @@ type directRequestReporting struct {
 	logger         commontypes.Logger
 	pluginORM      directrequestocr.ORM
 	jobID          uuid.UUID
-	reportCodec    *reportCodec
+	reportCodec    *ReportCodec
 	genericConfig  *types.ReportingPluginConfig
 	specificConfig *config.ReportingPluginConfigWrapper
 }

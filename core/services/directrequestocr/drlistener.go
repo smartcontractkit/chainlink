@@ -301,7 +301,7 @@ func (l *DRListener) timeoutRequests() {
 	defer l.shutdownWaitGroup.Done()
 	timeoutSec, freqSec, batchSize := l.pluginConfig.RequestTimeoutSec, l.pluginConfig.RequestTimeoutCheckFrequencySec, l.pluginConfig.RequestTimeoutBatchLookupSize
 	if timeoutSec == 0 || freqSec == 0 || batchSize == 0 {
-		l.logger.Warnw("request timeout checker not configured - disabling it")
+		l.logger.Warn("request timeout checker not configured - disabling it")
 		return
 	}
 	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
@@ -312,16 +312,15 @@ func (l *DRListener) timeoutRequests() {
 			return
 		case <-ticker.C:
 			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
-			reqs, err := l.pluginORM.FindExpiredResults(cutoff, batchSize)
+			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize)
 			if err != nil {
 				l.logger.Errorw("error when calling FindExpiredResults", "err", err)
 				break
 			}
-			for _, req := range reqs {
-				err = l.pluginORM.SetTimedOut(req.RequestID)
-				if err != nil {
-					l.logger.Errorw("error while timing out a request", "err", err, "requestID", req.RequestID)
-				}
+			if len(ids) > 0 {
+				l.logger.Debugw("timed out requests", "ids", ids)
+			} else {
+				l.logger.Debug("no requests to time out")
 			}
 		}
 	}
