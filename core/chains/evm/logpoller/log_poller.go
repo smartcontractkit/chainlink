@@ -84,7 +84,7 @@ var (
 	}, []string{"evmChainID"})
 	promGetBlocksCacheMissCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "log_poller_get_blocks_count_cache_miss",
-		Help: "Total number of times GetBlocks fallsback to RPC for at least one block",
+		Help: "Total number of times GetBlocks falls back to RPC to fetch at least one block",
 	}, []string{"evmChainID"})
 )
 
@@ -776,8 +776,6 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 	}
 
 	lp.emitGetBlocksMetrics(len(reqs) > 0)
-
-	// RPC hit or miss metrics
 
 	for i := 0; i < len(reqs); i += int(lp.rpcBatchSize) {
 		j := i + int(lp.rpcBatchSize)
