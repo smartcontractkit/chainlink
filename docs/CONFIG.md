@@ -1102,11 +1102,6 @@ GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
-<<<<<<< HEAD
-TurnFlagEnabled = false # Default
-=======
-UpkeepCheckGasPriceEnabled = false # Default
->>>>>>> develop
 ```
 
 

@@ -385,11 +385,6 @@ func TestConfig_Marshal(t *testing.T) {
 		BaseFeeBufferPercent:         ptr[uint16](89),
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
-<<<<<<< HEAD
-		TurnFlagEnabled:              ptr(true),
-=======
-		UpkeepCheckGasPriceEnabled:   ptr(true),
->>>>>>> develop
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
