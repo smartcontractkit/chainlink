@@ -463,9 +463,12 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})
 
+		// Effective transmitter should be a forwarder not an EOA.
+		require.NotEqual(t, node.effectiveTransmitter, node.transmitter)
+
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
-		forwarderContracts = append(forwarderContracts, node.transmitter)
+		forwarderContracts = append(forwarderContracts, node.effectiveTransmitter)
 		transmitters = append(transmitters, node.transmitter)
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
