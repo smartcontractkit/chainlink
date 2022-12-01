@@ -62,7 +62,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PeerID().String(), resource.PeerID)
 
 	var peerID p2pkey.PeerID
-	peerID.UnmarshalText([]byte(resource.PeerID))
+	require.NoError(t, peerID.UnmarshalText([]byte(resource.PeerID)))
 	_, err = keyStore.P2P().Get(peerID)
 	require.NoError(t, err)
 }

@@ -49,5 +49,5 @@ jobs:
         # any scheduled run or push, but skip PRs from release branches
         if: github.event.schedule != '' || github.event_name == 'push' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/'))
         with:
-          version: v1.50.0
+          version: v1.50.1
           only-new-issues: ${{github.event.schedule == ''}} # show only new issues, unless it's a scheduled run
