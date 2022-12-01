@@ -16,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -60,6 +62,30 @@ var (
 	_                          LogPoller = &logPoller{}
 	ErrReplayAbortedByClient             = errors.New("replay aborted by client")
 	ErrReplayAbortedOnShutdown           = errors.New("replay aborted, log poller shutdown")
+	promQueryTime                        = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "log_poller_query_time",
+		Help: "The duration of given log poller query",
+		Buckets: []float64{
+			float64(10 * time.Millisecond),
+			float64(20 * time.Millisecond),
+			float64(50 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(200 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(1 * time.Second),
+			float64(2 * time.Second),
+			float64(5 * time.Second),
+			float64(10 * time.Second),
+		},
+	}, []string{"evmChainID", "queryName"})
+	promGetBlocksCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "log_poller_get_blocks_count_total",
+		Help: "Total number of times GetBlocks is called",
+	}, []string{"evmChainID"})
+	promGetBlocksCacheMissCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "log_poller_get_blocks_count_cache_miss",
+		Help: "Total number of times GetBlocks fallsback to RPC for at least one block",
+	}, []string{"evmChainID"})
 )
 
 type logPoller struct {
@@ -651,41 +677,49 @@ func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
 // Logs returns logs matching topics and address (exactly) in the given block range,
 // which are canonical at time of query.
 func (lp *logPoller) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "Logs")
 	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig, qopts...)
 }
 
 func (lp *logPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "LogsWithSigs")
 	return lp.orm.SelectLogsWithSigsByBlockRangeFilter(start, end, address, eventSigs, qopts...)
 }
 
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.
 func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "IndexedLogs")
 	return lp.orm.SelectIndexedLogs(address, eventSig, topicIndex, topicValues, confs, qopts...)
 }
 
 // LogsDataWordGreaterThan note index is 0 based.
 func (lp *logPoller) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "LogsDataWordGreaterThan")
 	return lp.orm.SelectDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, confs, qopts...)
 }
 
 // LogsDataWordRange note index is 0 based.
 func (lp *logPoller) LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "LogsDataWordRange")
 	return lp.orm.SelectDataWordRange(address, eventSig, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
 }
 
 // IndexedLogsTopicGreaterThan finds all the logs that have a topic value greater than topicValueMin at index topicIndex.
 // Only works for integer topics.
 func (lp *logPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "IndexedLogsTopicGreaterThan")
 	return lp.orm.SelectIndexLogsTopicGreaterThan(address, eventSig, topicIndex, topicValueMin, confs, qopts...)
 }
 
 func (lp *logPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "IndexedLogsTopicRange")
 	return lp.orm.SelectIndexLogsTopicRange(address, eventSig, topicIndex, topicValueMin, topicValueMax, confs, qopts...)
 }
 
 // LatestBlock returns the latest block the log poller is on. It tracks blocks to be able
 // to detect reorgs.
 func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
+	defer lp.postQuery(time.Now(), "LatestBlock")
 	b, err := lp.orm.SelectLatestBlock(qopts...)
 	if err != nil {
 		return 0, err
@@ -695,15 +729,18 @@ func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 }
 
 func (lp *logPoller) BlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, error) {
+	defer lp.postQuery(time.Now(), "BlockByNumber")
 	return lp.orm.SelectBlockByNumber(n, qopts...)
 }
 
 // LatestLogByEventSigWithConfs finds the latest log that has confs number of blocks on top of the log.
 func (lp *logPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error) {
+	defer lp.postQuery(time.Now(), "LatestLogByEventSigWithConfs")
 	return lp.orm.SelectLatestLogEventSigWithConfs(eventSig, address, confs, qopts...)
 }
 
 func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	defer lp.postQuery(time.Now(), "LatestLogEventSigsAddrsWithConfs")
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
@@ -714,6 +751,7 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 // response contains blocks in the same order as "numbers" in request parameters
 // the first context parameter takes precedence over contexts passed through qopts
 func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	defer lp.postQuery(time.Now(), "GetBlocks")
 	blocksFound := make(map[uint64]LogPollerBlock)
 	qopts = append(qopts, pg.WithParentCtx(ctx))
 	lpBlocks, err := lp.orm.GetBlocks(numbers, qopts...)
@@ -736,6 +774,10 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 			reqs = append(reqs, req)
 		}
 	}
+
+	lp.emitGetBlocksMetrics(len(reqs) > 0)
+
+	// RPC hit or miss metrics
 
 	for i := 0; i < len(reqs); i += int(lp.rpcBatchSize) {
 		j := i + int(lp.rpcBatchSize)
@@ -792,4 +834,16 @@ func EvmWord(i uint64) common.Hash {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
 	return common.BytesToHash(b)
+}
+
+func (lp *logPoller) postQuery(begin time.Time, name string) {
+	elapsed := time.Since(begin)
+	promQueryTime.WithLabelValues(lp.ec.ChainID().String(), name).Observe(float64(elapsed.Nanoseconds()))
+}
+
+func (lp *logPoller) emitGetBlocksMetrics(cacheMiss bool) {
+	promGetBlocksCounter.WithLabelValues(lp.ec.ChainID().String()).Inc()
+	if cacheMiss {
+		promGetBlocksCacheMissCounter.WithLabelValues(lp.ec.ChainID().String()).Inc()
+	}
 }
