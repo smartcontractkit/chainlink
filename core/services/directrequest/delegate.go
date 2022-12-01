@@ -232,6 +232,11 @@ func (l *listener) processCancelOracleRequests() {
 
 func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 	for {
+		select {
+		case <-l.chStop:
+			return
+		default:
+		}
 		lb, exists := mailbox.Retrieve()
 		if !exists {
 			return
@@ -239,22 +244,22 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
 			l.logger.Errorw("Could not determine if log was already consumed", "error", err)
-			return
+			continue
 		} else if was {
-			return
+			continue
 		}
 
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
 			l.logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
 			l.markLogConsumed(lb)
-			return
+			continue
 		}
 
 		log := lb.DecodedLog()
 		if log == nil || reflect.ValueOf(log).IsNil() {
 			l.logger.Error("HandleLog: ignoring nil value")
-			return
+			continue
 		}
 
 		switch log := log.(type) {
