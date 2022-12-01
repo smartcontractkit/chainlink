@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/big"
 	"strconv"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -42,35 +43,6 @@ const (
 	PauseUnpauseUpkeepTest
 	UpdateCheckDataTest
 )
-
-type KeeperConsumerContracts int32
-
-const (
-	BasicCounter KeeperConsumerContracts = iota
-	PerformanceCounter
-	PerformDataChecker
-
-	defaultUpkeepGasLimit             = uint32(2500000)
-	defaultLinkFunds                  = int64(9e18)
-	defaultUpkeepsToDeploy            = 10
-	numUpkeepsAllowedForStragglingTxs = 6
-	expectedData                      = "abcdef"
-)
-
-var defaultRegistryConfig = contracts.KeeperRegistrySettings{
-	PaymentPremiumPPB:    uint32(200000000),
-	FlatFeeMicroLINK:     uint32(0),
-	BlockCountPerTurn:    big.NewInt(10),
-	CheckGasLimit:        uint32(2500000),
-	StalenessSeconds:     big.NewInt(90000),
-	GasCeilingMultiplier: uint16(1),
-	MinUpkeepSpend:       big.NewInt(0),
-	MaxPerformGas:        uint32(5000000),
-	FallbackGasPrice:     big.NewInt(2e11),
-	FallbackLinkPrice:    big.NewInt(2e18),
-	MaxCheckDataSize:     uint32(5000),
-	MaxPerformDataSize:   uint32(5000),
-}
 
 var lowBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -197,9 +169,11 @@ PerformGasOverhead = 150_000`
 		linkToken, err = contractDeployer.DeployLinkTokenContract()
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
+		// TODO: MOCKED T, MAKE IT REALLLLLL
+		mockedT := &testing.T{}
 		switch consumerContract {
 		case BasicCounter:
-			registry, registrar, consumers, upkeepIDs = actions.DeployKeeperContracts(
+			registry, registrar, consumers, upkeepIDs = actions.DeployKeeperContracts(mockedT,
 				registryVersion,
 				registryConfig,
 				defaultUpkeepsToDeploy,
@@ -210,7 +184,7 @@ PerformGasOverhead = 150_000`
 				linkFundsForEachUpkeep,
 			)
 		case PerformanceCounter:
-			registry, registrar, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
+			registry, registrar, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(mockedT,
 				registryVersion,
 				defaultUpkeepsToDeploy,
 				defaultUpkeepGasLimit,
@@ -225,7 +199,7 @@ PerformGasOverhead = 150_000`
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 			)
 		case PerformDataChecker:
-			registry, registrar, performDataChecker, upkeepIDs = actions.DeployPerformDataCheckerContracts(
+			registry, registrar, performDataChecker, upkeepIDs = actions.DeployPerformDataCheckerContracts(mockedT,
 				registryVersion,
 				defaultUpkeepsToDeploy,
 				defaultUpkeepGasLimit,
@@ -239,7 +213,7 @@ PerformGasOverhead = 150_000`
 		}
 
 		By("Register Keeper Jobs")
-		actions.CreateKeeperJobs(chainlinkNodes, registry, contracts.OCRConfig{})
+		actions.CreateKeeperJobs(mockedT, chainlinkNodes, registry, contracts.OCRConfig{})
 		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
@@ -603,7 +577,7 @@ PerformGasOverhead = 150_000`
 				}
 			}, "1m", "1s").Should(Succeed())
 
-			newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, chainClient, linkToken,
+			newConsumers, _ := actions.RegisterNewUpkeeps(mockedT, contractDeployer, chainClient, linkToken,
 				registry, registrar, defaultUpkeepGasLimit, 1)
 
 			// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
@@ -757,7 +731,7 @@ PerformGasOverhead = 150_000`
 		if testToRun == MigrateUpkeepTest {
 			By("creates another registry and migrates one upkeep to the new registry")
 			// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
-			secondRegistry, _, _, _ := actions.DeployKeeperContracts(
+			secondRegistry, _, _, _ := actions.DeployKeeperContracts(mockedT,
 				ethereum.RegistryVersion_1_2,
 				defaultRegistryConfig,
 				defaultUpkeepsToDeploy,
@@ -769,7 +743,7 @@ PerformGasOverhead = 150_000`
 			)
 
 			// Set the jobs for the second registry
-			actions.CreateKeeperJobs(chainlinkNodes, secondRegistry, contracts.OCRConfig{})
+			actions.CreateKeeperJobs(mockedT, chainlinkNodes, secondRegistry, contracts.OCRConfig{})
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
