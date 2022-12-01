@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Updated
 - Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+- Removed `KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` as this feature is deprecated now. The variable should be completely removed my NOPs.
 
 ## [Unreleased]
 
