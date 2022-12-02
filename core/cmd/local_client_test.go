@@ -289,6 +289,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("16charlengthp4SsW0rD1!@#_")
 				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 			})
 			db := pgtest.NewSqlxDB(t)
