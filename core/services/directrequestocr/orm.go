@@ -2,106 +2,119 @@ package directrequestocr
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CreateRequest(contractRequestID [32]byte, receivedAt time.Time, requestTxHash *common.Hash) (int64, error)
+	CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error
 
-	SetResult(id int64, runID int64, computationResult []byte, readyAt time.Time) error
-	SetError(id int64, runID int64, errorType ErrType, computationError string, readyAt time.Time) error
-	SetConfirmed(contractRequestID [32]byte) error
+	SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error
+	SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error
+	SetState(requestID RequestID, state RequestState, qopts ...pg.QOpt) (RequestState, error)
+	SetTransmitted(requestID RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error
 
-	// TODO additional operations will be needed by the Reporting Plugin
-	// https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
+	FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error)
+	FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error)
 
-	// TODO include QOpts or context when moving to the DB ORM
+	// TODO add state transition validation
 	// https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
 }
 
-type inmemoryorm struct {
-	counter                int64
-	db                     map[int64]Request
-	contractRequestIDIndex map[[32]byte]int64
-	mutex                  *sync.Mutex
+type orm struct {
+	q               pg.Q
+	contractAddress common.Address
 }
 
-var _ ORM = (*inmemoryorm)(nil)
+var _ ORM = (*orm)(nil)
 
-func NewInMemoryORM() *inmemoryorm {
-	return &inmemoryorm{
-		counter:                0,
-		db:                     make(map[int64]Request),
-		contractRequestIDIndex: make(map[[32]byte]int64),
-		mutex:                  &sync.Mutex{},
+const requestFields = "request_id, run_id, received_at, request_tx_hash, " +
+	"state, result_ready_at, result, error_type, error, " +
+	"transmitted_result, transmitted_error"
+
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, contractAddress common.Address) ORM {
+	return &orm{
+		q:               pg.NewQ(db, lggr, cfg),
+		contractAddress: contractAddress,
 	}
 }
 
-func (o *inmemoryorm) CreateRequest(contractRequestID [32]byte, receivedAt time.Time, requestTxHash *common.Hash) (int64, error) {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-	if dbID, ok := o.contractRequestIDIndex[contractRequestID]; ok {
-		return dbID, fmt.Errorf("Request already exists! DBID: %v", dbID)
-	}
-
-	o.counter++
-	newEntry := Request{
-		ID:                o.counter,
-		ContractRequestID: contractRequestID,
-		ReceivedAt:        receivedAt,
-		RequestTxHash:     requestTxHash,
-		State:             IN_PROGRESS,
-	}
-	o.db[o.counter] = newEntry
-	o.contractRequestIDIndex[contractRequestID] = o.counter
-	return o.counter, nil
+func (o orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
+	stmt := `
+		INSERT INTO ocr2dr_requests (request_id, contract_address, received_at, request_tx_hash, state)
+		VALUES ($1,$2,$3,$4,$5);
+	`
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS)
 }
 
-func (o *inmemoryorm) SetResult(id int64, runID int64, computationResult []byte, readyAt time.Time) error {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-	if val, ok := o.db[id]; ok {
-		val.RunID = runID
-		val.ErrorType = NONE
-		val.Result = computationResult
-		val.ResultReadyAt = readyAt
-		o.db[id] = val
-		return nil
-	}
-	return fmt.Errorf("can't find entry with dbid: %v", id)
+func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+	stmt := `
+		UPDATE ocr2dr_requests
+		SET run_id=$3, result=$4, result_ready_at=$5, state=$6
+		WHERE request_id=$1 AND contract_address=$2;
+	`
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, runID, computationResult, readyAt, RESULT_READY)
 }
 
-func (o *inmemoryorm) SetError(id int64, runID int64, errorType ErrType, computationError string, readyAt time.Time) error {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-	if val, ok := o.db[id]; ok {
-		val.RunID = runID
-		val.ErrorType = errorType
-		val.Error = computationError
-		val.ResultReadyAt = readyAt
-		o.db[id] = val
-		return nil
-	}
-	return fmt.Errorf("can't find entry with dbid: %v", id)
+func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+	stmt := `
+		UPDATE ocr2dr_requests
+		SET run_id=$3, error=$4, error_type=$5, result_ready_at=$6, state=$7
+		WHERE request_id=$1 AND contract_address=$2;
+	`
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, runID, computationError, errorType, readyAt, RESULT_READY)
 }
 
-func (o *inmemoryorm) SetConfirmed(contractRequestID [32]byte) error {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-	if dbid, ok := o.contractRequestIDIndex[contractRequestID]; ok {
-		if val, ok := o.db[dbid]; ok {
-			val.State = CONFIRMED
-			o.db[dbid] = val
-			return nil
+func (o orm) SetState(requestID RequestID, state RequestState, qopts ...pg.QOpt) (RequestState, error) {
+	var oldState RequestState
+
+	err := o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) (err error) {
+		stmt := `SELECT state FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`
+		err = tx.Get(&oldState, stmt, requestID, o.contractAddress)
+		if err == nil {
+			if oldState == state {
+				return nil
+			}
+			stmt = `UPDATE ocr2dr_requests SET state=$3 WHERE request_id=$1 AND contract_address=$2;`
+			_, err = tx.Exec(stmt, requestID, o.contractAddress, state)
 		}
-		return fmt.Errorf("can't find entry with dbid: %v", dbid)
-	}
-	return fmt.Errorf("can't find entry with id: %v", contractRequestID)
+		return
+	})
+
+	return oldState, err
 }
 
-// TODO actual DB: https://app.shortcut.com/chainlinklabs/story/54049/database-table-in-core-node
+func (o orm) SetTransmitted(requestID RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error {
+	stmt := `
+		UPDATE ocr2dr_requests
+		SET transmitted_result=$3, transmitted_error=$4
+		WHERE request_id=$1 AND contract_address=$2;
+	`
+	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, transmittedResult, transmittedError)
+}
+
+func (o orm) FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error) {
+	var requests []Request
+	stmt := fmt.Sprintf(`SELECT %s FROM ocr2dr_requests WHERE state=$1 ORDER BY received_at LIMIT $2;`, requestFields)
+	if err := o.q.WithOpts(qopts...).Select(&requests, stmt, state, limit); err != nil {
+		return nil, err
+	}
+	return requests, nil
+}
+
+func (o orm) FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error) {
+	var request Request
+	stmt := fmt.Sprintf(`SELECT %s FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`, requestFields)
+	if err := o.q.WithOpts(qopts...).Get(&request, stmt, requestID, o.contractAddress); err != nil {
+		return nil, err
+	}
+	return &request, nil
+}

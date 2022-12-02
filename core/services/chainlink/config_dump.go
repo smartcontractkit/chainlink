@@ -307,6 +307,11 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].NodePool.SelectionMode = e
 		}
 	}
+	if e := envvar.NewUint32("NodeSyncThreshold").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].NodePool.SyncThreshold = e
+		}
+	}
 	if e := envvar.NewBool("EvmEIP1559DynamicFees").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].GasEstimator.EIP1559DynamicFees = e
@@ -574,6 +579,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.WebServer = config.WebServer{
 		AllowOrigins:            envvar.NewString("AllowOrigins").ParsePtr(),
 		BridgeResponseURL:       envURL("BridgeResponseURL"),
+		BridgeCacheTTL:          envDuration("BridgeCacheTTL"),
 		HTTPWriteTimeout:        envDuration("HTTPServerWriteTimeout"),
 		HTTPPort:                envvar.NewUint16("Port").ParsePtr(),
 		SecureCookies:           envvar.NewBool("SecureCookies").ParsePtr(),
@@ -693,7 +699,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		BaseFeeBufferPercent:         envvar.NewUint16("KeeperBaseFeeBufferPercent").ParsePtr(),
 		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
-		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
 		UpkeepCheckGasPriceEnabled:   envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),

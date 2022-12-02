@@ -74,7 +74,7 @@ var ErrConnectivity = errors.New("connectivity issue: transactions are not being
 
 var _ Estimator = &BlockHistoryEstimator{}
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
 	BlockHistoryEstimator struct {
 		utils.StartStopOnce
@@ -114,7 +114,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
 		size:      int64(mathutil.Max(cfg.BlockHistoryEstimatorBlockHistorySize(), cfg.BlockHistoryEstimatorCheckInclusionBlocks())),
-		mb:        utils.NewMailbox[*evmtypes.Head](1),
+		mb:        utils.NewSingleMailbox[*evmtypes.Head](),
 		wg:        new(sync.WaitGroup),
 		ctx:       ctx,
 		ctxCancel: cancel,

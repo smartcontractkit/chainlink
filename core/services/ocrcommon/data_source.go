@@ -6,16 +6,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 // inMemoryDataSource is an abstraction over the process of initiating a pipeline run
@@ -171,7 +171,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	case ds.runResults <- run:
 	default:
 		// If we're unable to enqueue a right, still return the value we have but warn.
-		ds.ocrLogger.Warnw("unable to enqueue run save for job ID %v, buffer full", ds.inMemoryDataSource.spec.JobID)
+		ds.ocrLogger.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.inMemoryDataSource.spec.JobID)
 		return ds.inMemoryDataSource.parse(finalResult)
 	}
 

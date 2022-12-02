@@ -2,9 +2,12 @@ package benchmark
 
 //revive:disable:dot-imports
 import (
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -26,6 +29,11 @@ var (
 	predeployedConsumersGoerli   = []string{""} //Copy Addresses here before you run
 	upkeepResetterContractEmpty  = ""
 	upkeepResetterContractGoerli = "0xaeA9bD8f60C9EB1771900B9338dE8Ab52584E80e"
+	simulatedBLockTime           = time.Second
+	goerliTag                    = strings.ReplaceAll(strings.ToLower(networks.GoerliTestnet.Name), " ", "-")
+	arbitrumTag                  = strings.ReplaceAll(strings.ToLower(networks.ArbitrumGoerli.Name), " ", "-")
+	optimismTag                  = strings.ReplaceAll(strings.ToLower(networks.OptimismGoerli.Name), " ", "-")
+	mumbaiTag                    = strings.ReplaceAll(strings.ToLower(networks.PolygonMumbai.Name), " ", "-")
 )
 
 type BenchmarkTestEntry struct {
@@ -34,11 +42,17 @@ type BenchmarkTestEntry struct {
 	upkeepSLA             int64
 	predeployedConsumers  []string
 	upkeepResetterAddress string
+	blockTime             time.Duration
 }
 
 func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
+	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
+		values := strings.Split(inputs, ",")
+		for _, value := range values {
+			if strings.Contains(value, key) {
+				return strings.Split(value, "=")[1]
+			}
+		}
 	}
 	return fallback
 }
@@ -52,56 +66,104 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					big.NewFloat(100000),
 					int64(20),
 					predeployedConsumersEmpty,
-					upkeepResetterContractEmpty},
+					upkeepResetterContractEmpty,
+					time.Second},
 			),
-			Entry("Keeper benchmark suite on Goerli Network @goerli-registry-1-3",
+			Entry("Keeper benchmark suite on Goerli Network @"+goerliTag+"-registry-1-3",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
-					big.NewFloat(0.5),
+					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
 					predeployedConsumersGoerli,
-					upkeepResetterContractGoerli},
+					upkeepResetterContractGoerli,
+					12 * time.Second},
 			),
-			Entry("Keeper benchmark suite on Arbitrum Goerli Network @arbitrum-goerli-registry-1-3",
+			Entry("Keeper benchmark suite on Arbitrum Goerli Network @"+arbitrumTag+"-registry-1-3",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 					big.NewFloat(0.5),
 					int64(20),
 					predeployedConsumersEmpty,
-					upkeepResetterContractEmpty},
+					upkeepResetterContractEmpty,
+					time.Second},
 			),
-			Entry("Keeper benchmark suite on Optimistic Goerli Network @optimistic-goerli-registry-1-3",
+			Entry("Keeper benchmark suite on Optimistic Goerli Network @"+optimismTag+"-registry-1-3",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
-					big.NewFloat(0.5),
+					big.NewFloat(ChainlinkNodeFunding),
 					int64(20),
 					predeployedConsumersEmpty,
-					upkeepResetterContractEmpty},
+					upkeepResetterContractEmpty,
+					time.Second},
 			),
 			Entry("Keeper benchmark suite on Simulated Network with Multiple Registries @simulated-multiple-registries",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
 					big.NewFloat(100000),
 					int64(20),
 					predeployedConsumersEmpty,
-					upkeepResetterContractEmpty},
+					upkeepResetterContractEmpty,
+					time.Second},
 			),
-			Entry("Keeper benchmark suite on Goerli Network with Multiple Registries @goerli-multiple-registries",
+			Entry("Keeper benchmark suite on Goerli Network with Multiple Registries @"+goerliTag+"-multiple-registries",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
-					big.NewFloat(0.5),
+					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
 					predeployedConsumersGoerli,
-					upkeepResetterContractGoerli},
+					upkeepResetterContractGoerli,
+					time.Second},
 			),
-			Entry("Keeper benchmark suite on Simulated Network with 1.2 registry @simulated-registry1-2",
+			Entry("Keeper benchmark suite on Simulated Network with 1.2 registry @simulated-registry-1-2",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 					big.NewFloat(100000),
 					int64(20),
 					predeployedConsumersEmpty,
-					upkeepResetterContractEmpty},
+					upkeepResetterContractEmpty,
+					time.Second},
 			),
-			Entry("Keeper benchmark suite on Goerli Network with 1.2 registry @goerli-registry1-2",
+			Entry("Keeper benchmark suite on Goerli Network with 1.2 registry @"+goerliTag+"-registry-1-2",
 				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 					big.NewFloat(ChainlinkNodeFunding),
 					int64(4),
 					predeployedConsumersGoerli,
-					upkeepResetterContractGoerli},
+					upkeepResetterContractGoerli,
+					12 * time.Second},
+			),
+			Entry("Keeper benchmark suite on Simulated Network with 2.0 registry @simulated-registry-2-0",
+				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+					big.NewFloat(100000),
+					int64(4),
+					predeployedConsumersEmpty,
+					upkeepResetterContractEmpty,
+					12 * time.Second},
+			),
+			Entry("Keeper benchmark suite on Goerli Network with 2.0 registry @"+goerliTag+"-registry-2-0",
+				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+					big.NewFloat(ChainlinkNodeFunding),
+					int64(4),
+					predeployedConsumersGoerli,
+					upkeepResetterContractGoerli,
+					12 * time.Second},
+			),
+			Entry("Keeper benchmark suite on Arbitrum Goerli Network with 2.0 registry @"+arbitrumTag+"-registry-2-0",
+				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+					big.NewFloat(0.5),
+					int64(20),
+					predeployedConsumersEmpty,
+					upkeepResetterContractEmpty,
+					time.Second},
+			),
+			Entry("Keeper benchmark suite on Optimistic Goerli Network with 2.0 registry @"+optimismTag+"-registry-2-0",
+				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+					big.NewFloat(ChainlinkNodeFunding),
+					int64(20),
+					predeployedConsumersEmpty,
+					upkeepResetterContractEmpty,
+					time.Second},
+			),
+			Entry("Keeper benchmark suite on Mumbai Testnet Network with 2.0 registry @"+mumbaiTag+"-registry-2-0",
+				BenchmarkTestEntry{[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
+					big.NewFloat(ChainlinkNodeFunding),
+					int64(20),
+					predeployedConsumersEmpty,
+					upkeepResetterContractEmpty,
+					5 * time.Second},
 			),
 		}
 		err                 error
@@ -116,25 +178,29 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 	var BlockRange, _ = strconv.ParseInt(getEnv("BLOCKRANGE", "3600"), 0, 64)
 	var BlockInterval, _ = strconv.ParseInt(getEnv("BLOCKINTERVAL", "20"), 0, 64)
 
+	var NumberOfNodes, _ = strconv.Atoi(getEnv("AUTOMATION_NUMBER_OF_NODES", "6"))
+
 	DescribeTable("Keeper benchmark suite on different EVM networks", func(
 		testEntry BenchmarkTestEntry,
 	) {
 		By("Deploying the environment", func() {
 			benchmarkNetwork = blockchain.LoadNetworkFromEnvironment()
 			testEnvironment = environment.New(&environment.Config{InsideK8s: true})
-			err = testEnvironment.
+			testEnvironment.
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: benchmarkNetwork.Name,
 					Simulated:   benchmarkNetwork.Simulated,
 					WsURLs:      benchmarkNetwork.URLs,
-				})).
-				AddHelm(chainlink.New(0, nil)).
-				AddHelm(chainlink.New(1, nil)).
-				AddHelm(chainlink.New(2, nil)).
-				AddHelm(chainlink.New(3, nil)).
-				AddHelm(chainlink.New(4, nil)).
-				AddHelm(chainlink.New(5, nil)).
-				Run()
+				}))
+			for _, version := range testEntry.registryVersions {
+				if version == eth_contracts.RegistryVersion_2_0 {
+					NumberOfNodes++
+				}
+			}
+			for i := 0; i < NumberOfNodes; i++ {
+				testEnvironment.AddHelm(chainlink.New(i, nil))
+			}
+			err = testEnvironment.Run()
 			Expect(err).ShouldNot(HaveOccurred())
 			log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 		})
@@ -157,6 +223,8 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 						MinUpkeepSpend:       big.NewInt(0),
 						FallbackGasPrice:     big.NewInt(2e11),
 						FallbackLinkPrice:    big.NewInt(2e18),
+						MaxCheckDataSize:     uint32(5000),
+						MaxPerformDataSize:   uint32(5000),
 					},
 					CheckGasToBurn:        CheckGasToBurn,
 					PerformGasToBurn:      PerformGasToBurn,
@@ -168,6 +236,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					FirstEligibleBuffer:   1,
 					PreDeployedConsumers:  testEntry.predeployedConsumers,
 					UpkeepResetterAddress: testEntry.upkeepResetterAddress,
+					BlockTime:             testEntry.blockTime,
 				},
 			)
 			keeperBenchmarkTest.Setup(testEnvironment)

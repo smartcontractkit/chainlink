@@ -38,16 +38,15 @@ func TestETHKeyResource(t *testing.T) {
 		Disabled:   true,
 	}
 
-	r, err := NewETHKeyResource(key, state,
+	r := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
 		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
-		SetETHKeyMaxGasPriceWei(*utils.NewBigI(12345)),
+		SetETHKeyMaxGasPriceWei(utils.NewBigI(12345)),
 	)
-	require.NoError(t, err)
 
 	assert.Equal(t, assets.NewEth(1), r.EthBalance)
 	assert.Equal(t, assets.NewLinkFromJuels(1), r.LinkBalance)
-	assert.Equal(t, *utils.NewBigI(12345), r.MaxGasPriceWei)
+	assert.Equal(t, utils.NewBigI(12345), r.MaxGasPriceWei)
 
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
@@ -74,12 +73,11 @@ func TestETHKeyResource(t *testing.T) {
 
 	assert.JSONEq(t, expected, string(b))
 
-	r, err = NewETHKeyResource(key, state,
-		SetETHKeyEthBalance(assets.NewEth(1)),
-		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
-		SetETHKeyMaxGasPriceWei(*utils.NewBigI(12345)),
+	r = NewETHKeyResource(key, state,
+		SetETHKeyEthBalance(nil),
+		SetETHKeyLinkBalance(nil),
+		SetETHKeyMaxGasPriceWei(nil),
 	)
-	require.NoError(t, err)
 	b, err = jsonapi.Marshal(r)
 	require.NoError(t, err)
 
@@ -92,12 +90,12 @@ func TestETHKeyResource(t *testing.T) {
 				"address":"%s",
 			  	"evmChainID":"42",
 			    "nextNonce": 99,
-				"ethBalance":"1",
-				"linkBalance":"1",
+				"ethBalance":null,
+				"linkBalance":null,
 				"disabled":true,
 				"createdAt":"2000-01-01T00:00:00Z",
 				"updatedAt":"2000-01-01T00:00:00Z",
-				"maxGasPriceWei":"12345"
+				"maxGasPriceWei":null
 			}
 		}
 	}`,

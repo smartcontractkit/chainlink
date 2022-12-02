@@ -224,6 +224,29 @@ func (_m *VRFCoordinatorInterface) CreateSubscription(opts *bind.TransactOpts) (
 	return r0, r1
 }
 
+// FilterConfigSet provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) FilterConfigSet(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorConfigSetIterator, error) {
+	ret := _m.Called(opts)
+
+	var r0 *vrf_coordinator.VRFCoordinatorConfigSetIterator
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *vrf_coordinator.VRFCoordinatorConfigSetIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorConfigSetIterator)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterOutputsServed provides a mock function with given fields: opts
 func (_m *VRFCoordinatorInterface) FilterOutputsServed(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorOutputsServedIterator, error) {
 	ret := _m.Called(opts)
@@ -881,6 +904,29 @@ func (_m *VRFCoordinatorInterface) Owner(opts *bind.CallOpts) (common.Address, e
 	return r0, r1
 }
 
+// ParseConfigSet provides a mock function with given fields: log
+func (_m *VRFCoordinatorInterface) ParseConfigSet(log types.Log) (*vrf_coordinator.VRFCoordinatorConfigSet, error) {
+	ret := _m.Called(log)
+
+	var r0 *vrf_coordinator.VRFCoordinatorConfigSet
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorConfigSet); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorConfigSet)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *VRFCoordinatorInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -1203,27 +1249,6 @@ func (_m *VRFCoordinatorInterface) ParseSubscriptionOwnerTransferred(log types.L
 	return r0, r1
 }
 
-// PendingRequestExists provides a mock function with given fields: opts, subId
-func (_m *VRFCoordinatorInterface) PendingRequestExists(opts *bind.CallOpts, subId uint64) (bool, error) {
-	ret := _m.Called(opts, subId)
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) bool); ok {
-		r0 = rf(opts, subId)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64) error); ok {
-		r1 = rf(opts, subId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // ProcessVRFOutputs provides a mock function with given fields: opts, vrfOutputs, juelsPerFeeCoin, blockHeight, arg3
 func (_m *VRFCoordinatorInterface) ProcessVRFOutputs(opts *bind.TransactOpts, vrfOutputs []vrf_coordinator.VRFBeaconTypesVRFOutput, juelsPerFeeCoin *big.Int, blockHeight uint64, arg3 [32]byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, vrfOutputs, juelsPerFeeCoin, blockHeight, arg3)
@@ -1493,6 +1518,29 @@ func (_m *VRFCoordinatorInterface) TransferOwnership(opts *bind.TransactOpts, to
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address) error); ok {
 		r1 = rf(opts, to)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchConfigSet provides a mock function with given fields: opts, sink
+func (_m *VRFCoordinatorInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorConfigSet) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	var r0 event.Subscription
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorConfigSet) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorConfigSet) error); ok {
+		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
 	}

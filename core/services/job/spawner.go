@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Spawner --output ./mocks/ --case=underscore
-//go:generate mockery --name Delegate --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Spawner --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Delegate --output ./mocks/ --case=underscore
 
 type (
 	// Spawner manages the spinning up and down of the long-running
@@ -120,7 +120,7 @@ func (js *spawner) startAllServices(ctx context.Context) {
 
 	for _, spec := range specs {
 		if err = js.StartService(ctx, spec); err != nil {
-			js.lggr.Errorf("Couldn't start service %v: %v", spec.Name, err)
+			js.lggr.Errorf("Couldn't start service %q: %v", spec.Name.ValueOrZero(), err)
 		}
 	}
 	// Log Broadcaster fully starts after all initial Register calls are done from other starting services

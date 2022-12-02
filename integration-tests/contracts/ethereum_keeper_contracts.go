@@ -4,21 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
-
-	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	goabi "github.com/umbracle/ethgo/abi"
+
+	int_ethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
@@ -48,12 +49,12 @@ type UpkeepTranscoder interface {
 type KeeperRegistry interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
-	SetConfig(config KeeperRegistrySettings) error
+	SetConfig(config KeeperRegistrySettings, ocrConfig OCRConfig) error
 	SetRegistrar(registrarAddr string) error
 	AddUpkeepFunds(id *big.Int, amount *big.Int) error
 	GetUpkeepInfo(ctx context.Context, id *big.Int) (*UpkeepInfo, error)
 	GetKeeperInfo(ctx context.Context, keeperAddr string) (*KeeperInfo, error)
-	SetKeepers(keepers []string, payees []string) error
+	SetKeepers(keepers []string, payees []string, ocrConfig OCRConfig) error
 	GetKeeperList(ctx context.Context) ([]string, error)
 	RegisterUpkeep(target string, gasLimit uint32, admin string, checkData []byte) error
 	CancelUpkeep(id *big.Int) error
@@ -125,6 +126,15 @@ type UpkeepResetter interface {
 		averageEligibilityCadence *big.Int, firstEligibleBuffer *big.Int, checkGasToBurn *big.Int, performGasToBurn *big.Int) error
 }
 
+type OCRConfig struct {
+	Signers               []common.Address
+	Transmitters          []common.Address
+	F                     uint8
+	OnchainConfig         []byte
+	OffchainConfigVersion uint64
+	OffchainConfig        []byte
+}
+
 type UpkeepPerformedLog struct {
 	Id      *big.Int
 	Success bool
@@ -154,6 +164,8 @@ type KeeperRegistrySettings struct {
 	MaxPerformGas        uint32   // max gas allowed for an upkeep within perform
 	FallbackGasPrice     *big.Int // gas price used if the gas price feed is stale
 	FallbackLinkPrice    *big.Int // LINK price used if the LINK price feed is stale
+	MaxCheckDataSize     uint32
+	MaxPerformDataSize   uint32
 }
 
 // KeeperRegistrarSettings represents settings for registrar contract
@@ -173,13 +185,17 @@ type KeeperInfo struct {
 
 // UpkeepInfo keeper target info
 type UpkeepInfo struct {
-	Target              string
-	ExecuteGas          uint32
-	CheckData           []byte
-	Balance             *big.Int
-	LastKeeper          string
-	Admin               string
-	MaxValidBlocknumber uint64
+	Target                 string
+	ExecuteGas             uint32
+	CheckData              []byte
+	Balance                *big.Int
+	LastKeeper             string
+	Admin                  string
+	MaxValidBlocknumber    uint64
+	LastPerformBlockNumber uint32
+	AmountSpent            *big.Int
+	Paused                 bool
+	OffchainConfig         []byte
 }
 
 // EthereumKeeperRegistry represents keeper registry contract
@@ -189,6 +205,7 @@ type EthereumKeeperRegistry struct {
 	registry1_1 *ethereum.KeeperRegistry11
 	registry1_2 *ethereum.KeeperRegistry12
 	registry1_3 *ethereum.KeeperRegistry13
+	registry2_0 *ethereum.KeeperRegistry20
 	address     *common.Address
 }
 
@@ -200,7 +217,27 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount)
 }
 
-func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings) error {
+func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {
+	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
+	onchainConfig, err := goabi.Encode(map[string]interface{}{
+		"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
+		"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
+		"checkGasLimit":        rcs.CheckGasLimit,
+		"stalenessSeconds":     rcs.StalenessSeconds,
+		"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
+		"minUpkeepSpend":       rcs.MinUpkeepSpend,
+		"maxPerformGas":        rcs.MaxPerformGas,
+		"maxCheckDataSize":     rcs.MaxCheckDataSize,
+		"maxPerformDataSize":   rcs.MaxPerformDataSize,
+		"fallbackGasPrice":     rcs.FallbackGasPrice,
+		"fallbackLinkPrice":    rcs.FallbackLinkPrice,
+		"transcoder":           common.Address{},
+		"registrar":            registrar,
+	}, configType)
+	return onchainConfig, err
+}
+
+func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRConfig) error {
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -276,6 +313,19 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings) error 
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_0:
+		tx, err := v.registry2_0.SetConfig(txOpts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -305,6 +355,12 @@ func (v *EthereumKeeperRegistry) Pause() error {
 		return v.client.ProcessTransaction(tx)
 	case ethereum.RegistryVersion_1_3:
 		tx, err = v.registry1_3.Pause(txOpts)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_0:
+		tx, err = v.registry2_0.Pause(txOpts)
 		if err != nil {
 			return err
 		}
@@ -353,6 +409,11 @@ func (v *EthereumKeeperRegistry) SetMigrationPermissions(peerAddress common.Addr
 }
 
 func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
+	if v.version == ethereum.RegistryVersion_2_0 {
+		// we short circuit and exit, so we don't create a new txs messing up the nonce before exiting
+		return fmt.Errorf("please use set config")
+	}
+
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -413,6 +474,8 @@ func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) er
 		tx, err = v.registry1_2.AddFunds(opts, id, amount)
 	case ethereum.RegistryVersion_1_3:
 		tx, err = v.registry1_3.AddFunds(opts, id, amount)
+	case ethereum.RegistryVersion_2_0:
+		tx, err = v.registry2_0.AddFunds(opts, id, amount)
 	}
 
 	if err != nil {
@@ -471,6 +534,23 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Admin:               uk.Admin.Hex(),
 			MaxValidBlocknumber: uk.MaxValidBlocknumber,
 		}, nil
+	case ethereum.RegistryVersion_2_0:
+		uk, err := v.registry2_0.GetUpkeep(opts, id)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepInfo{
+			Target:                 uk.Target.Hex(),
+			ExecuteGas:             uk.ExecuteGas,
+			CheckData:              uk.CheckData,
+			Balance:                uk.Balance,
+			Admin:                  uk.Admin.Hex(),
+			MaxValidBlocknumber:    uk.MaxValidBlocknumber,
+			LastPerformBlockNumber: uk.LastPerformBlockNumber,
+			AmountSpent:            uk.AmountSpent,
+			Paused:                 uk.Paused,
+			OffchainConfig:         uk.OffchainConfig,
+		}, nil
 	}
 
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -495,6 +575,9 @@ func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr s
 		info, err = v.registry1_2.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
 	case ethereum.RegistryVersion_1_3:
 		info, err = v.registry1_3.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
+	case ethereum.RegistryVersion_2_0:
+		// this is not used anywhere
+		return nil, fmt.Errorf("not supported")
 	}
 
 	if err != nil {
@@ -507,7 +590,7 @@ func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr s
 	}, nil
 }
 
-func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string) error {
+func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, ocrConfig OCRConfig) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -529,6 +612,15 @@ func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string) e
 		tx, err = v.registry1_2.SetKeepers(opts, keepersAddresses, payeesAddresses)
 	case ethereum.RegistryVersion_1_3:
 		tx, err = v.registry1_3.SetKeepers(opts, keepersAddresses, payeesAddresses)
+	case ethereum.RegistryVersion_2_0:
+		tx, err = v.registry2_0.SetConfig(opts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
 	}
 
 	if err != nil {
@@ -570,6 +662,15 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			common.HexToAddress(admin),
 			checkData,
 		)
+	case ethereum.RegistryVersion_2_0:
+		tx, err = v.registry2_0.RegisterUpkeep(
+			opts,
+			common.HexToAddress(target),
+			gasLimit,
+			common.HexToAddress(admin),
+			checkData,
+			nil, //offchain config
+		)
 	}
 
 	if err != nil {
@@ -602,6 +703,11 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 		if err != nil {
 			return err
 		}
+	case ethereum.RegistryVersion_2_0:
+		tx, err = v.registry2_0.CancelUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
 	}
 
 	log.Info().
@@ -628,6 +734,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 		}
 	case ethereum.RegistryVersion_1_3:
 		tx, err = v.registry1_3.SetUpkeepGasLimit(opts, id, gas)
+		if err != nil {
+			return err
+		}
+	case ethereum.RegistryVersion_2_0:
+		tx, err = v.registry2_0.SetUpkeepGasLimit(opts, id, gas)
 		if err != nil {
 			return err
 		}
@@ -661,6 +772,12 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 			return []string{}, err
 		}
 		list = state.Keepers
+	case ethereum.RegistryVersion_2_0:
+		state, err := v.registry2_0.GetState(opts)
+		if err != nil {
+			return []string{}, err
+		}
+		list = state.Transmitters
 	}
 
 	if err != nil {
@@ -675,7 +792,9 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 
 // UpdateCheckData updates the check data of an upkeep
 func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byte) error {
-	if v.version == ethereum.RegistryVersion_1_3 {
+
+	switch v.version {
+	case ethereum.RegistryVersion_1_3:
 		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 		if err != nil {
 			return err
@@ -686,13 +805,26 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_0:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_0.UpdateCheckData(opts, id, newCheckData)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
 	}
-	return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
 }
 
 // PauseUpkeep stops an upkeep from an upkeep
 func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
-	if v.version == ethereum.RegistryVersion_1_3 {
+	switch v.version {
+	case ethereum.RegistryVersion_1_3:
 		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 		if err != nil {
 			return err
@@ -703,13 +835,26 @@ func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_0:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_0.PauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
 	}
-	return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
 }
 
 // UnpauseUpkeep get list of all registered keeper addresses
 func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
-	if v.version == ethereum.RegistryVersion_1_3 {
+	switch v.version {
+	case ethereum.RegistryVersion_1_3:
 		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 		if err != nil {
 			return err
@@ -720,8 +865,20 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_0:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_0.UnpauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
 	}
-	return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
 }
 
 // Parses upkeep performed log
@@ -757,6 +914,16 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
 		}, nil
+	case ethereum.RegistryVersion_2_0:
+		parsedLog, err := v.registry2_0.ParseUpkeepPerformed(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepPerformedLog{
+			Id:      parsedLog.Id,
+			Success: parsedLog.Success,
+			From:    utils.ZeroAddress,
+		}, nil
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
@@ -778,6 +945,12 @@ func (v *EthereumKeeperRegistry) ParseUpkeepIdFromRegisteredLog(log *types.Log) 
 		return parsedLog.Id, nil
 	case ethereum.RegistryVersion_1_3:
 		parsedLog, err := v.registry1_3.ParseUpkeepRegistered(*log)
+		if err != nil {
+			return nil, err
+		}
+		return parsedLog.Id, nil
+	case ethereum.RegistryVersion_2_0:
+		parsedLog, err := v.registry2_0.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
 		}
@@ -1016,7 +1189,6 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	upkeepSLA       int64                                      // SLA after which an upkeep is counted as 'missed'
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
 	upkeepIndex     int64
-	rampUpBlocks    int64
 
 	// State variables, changes as we get blocks
 	blocksSinceSubscription int64   // How many blocks have passed since subscribing
@@ -1035,7 +1207,6 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	registry KeeperRegistry,
 	upkeepID *big.Int,
 	blockRange int64,
-	rampUpBlocks int64,
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
@@ -1058,7 +1229,6 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		complete:                false,
 		lastBlockNum:            0,
 		upkeepIndex:             upkeepIndex,
-		rampUpBlocks:            rampUpBlocks,
 		firstBlockNum:           0,
 	}
 }
@@ -1517,9 +1687,10 @@ func (v *EthereumKeeperConsumerBenchmark) SetFirstEligibleBuffer(ctx context.Con
 // EthereumKeeperRegistrar corresponds to the registrar which is used to send requests to the registry when
 // registering new upkeeps.
 type EthereumKeeperRegistrar struct {
-	client    blockchain.EVMClient
-	registrar *ethereum.KeeperRegistrar
-	address   *common.Address
+	client      blockchain.EVMClient
+	registrar   *ethereum.KeeperRegistrar
+	registrar20 *ethereum.KeeperRegistrar20
+	address     *common.Address
 }
 
 func (v *EthereumKeeperRegistrar) Address() string {
@@ -1542,26 +1713,49 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 	source uint8,
 	senderAddr string,
 ) ([]byte, error) {
-	registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrarMetaData.ABI))
-	if err != nil {
-		return nil, err
+	if v.registrar20 != nil {
+		registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrar20MetaData.ABI))
+		if err != nil {
+			return nil, err
+		}
+		req, err := registryABI.Pack(
+			"register",
+			name,
+			email,
+			common.HexToAddress(upkeepAddr),
+			gasLimit,
+			common.HexToAddress(adminAddr),
+			checkData,
+			[]byte{}, //offchainConfig
+			amount,
+			common.HexToAddress(senderAddr),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return req, nil
+	} else {
+		registryABI, err := abi.JSON(strings.NewReader(ethereum.KeeperRegistrarMetaData.ABI))
+		if err != nil {
+			return nil, err
+		}
+		req, err := registryABI.Pack(
+			"register",
+			name,
+			email,
+			common.HexToAddress(upkeepAddr),
+			gasLimit,
+			common.HexToAddress(adminAddr),
+			checkData,
+			amount,
+			source,
+			common.HexToAddress(senderAddr),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return req, nil
 	}
-	req, err := registryABI.Pack(
-		"register",
-		name,
-		email,
-		common.HexToAddress(upkeepAddr),
-		gasLimit,
-		common.HexToAddress(adminAddr),
-		checkData,
-		amount,
-		source,
-		common.HexToAddress(senderAddr),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return req, nil
 }
 
 // EthereumUpkeepTranscoder represents the transcoder which is used to perform migrations

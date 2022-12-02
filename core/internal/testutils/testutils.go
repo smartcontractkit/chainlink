@@ -149,7 +149,16 @@ func MustParseBigInt(t *testing.T, input string) *big.Int {
 
 // JSONRPCHandler is called with the method and request param(s).
 // respResult will be sent immediately. notifyResult is optional, and sent after a short delay.
-type JSONRPCHandler func(reqMethod string, reqParams gjson.Result) (respResult, notifyResult string)
+type JSONRPCHandler func(reqMethod string, reqParams gjson.Result) JSONRPCResponse
+
+type JSONRPCResponse struct {
+	Result, Notify string // raw JSON (i.e. quoted strings etc.)
+
+	Error struct {
+		Code    int
+		Message string
+	}
+}
 
 type testWSServer struct {
 	t       *testing.T
@@ -208,6 +217,9 @@ func (ts *testWSServer) MustWriteBinaryMessageSync(t *testing.T, msg string) {
 }
 
 func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) (handler http.HandlerFunc) {
+	if callback == nil {
+		callback = func(method string, params gjson.Result) (resp JSONRPCResponse) { return }
+	}
 	t := ts.t
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
@@ -246,8 +258,8 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 			if e := req.Get("error"); e.Exists() {
-				ts.t.Logf("Received jsonrpc error message: %v", e)
-				break
+				ts.t.Logf("Received jsonrpc error: %v", e)
+				continue
 			}
 			m := req.Get("method")
 			if m.Type != gjson.String {
@@ -255,14 +267,19 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 
-			var resp, notify string
+			var resp JSONRPCResponse
 			if chainID != nil && m.String() == "eth_chainId" {
-				resp = `"0x` + chainID.Text(16) + `"`
+				resp.Result = `"0x` + chainID.Text(16) + `"`
 			} else {
-				resp, notify = callback(m.String(), req.Get("params"))
+				resp = callback(m.String(), req.Get("params"))
 			}
 			id := req.Get("id")
-			msg := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp)
+			var msg string
+			if resp.Error.Message != "" {
+				msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"error":{"code":%d,"message":"%s"}}`, id, resp.Error.Code, resp.Error.Message)
+			} else {
+				msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp.Result)
+			}
 			ts.t.Logf("Sending message: %v", msg)
 			ts.mu.Lock()
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
@@ -272,9 +289,9 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 
-			if notify != "" {
+			if resp.Notify != "" {
 				time.Sleep(100 * time.Millisecond)
-				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, notify)
+				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, resp.Notify)
 				ts.t.Log("Sending message", msg)
 				ts.mu.Lock()
 				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
@@ -313,7 +330,7 @@ func IntToHex(n int) string {
 
 // TestInterval is just a sensible poll interval that gives fast tests without
 // risk of spamming
-const TestInterval = 10 * time.Millisecond
+const TestInterval = 100 * time.Millisecond
 
 // AssertEventually waits for f to return true
 func AssertEventually(t *testing.T, f func() bool) {
@@ -354,8 +371,8 @@ func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 // WaitForLogMessageCount waits until at least count log message containing the
 // specified msg is emitted
 func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, msg string, count int) {
-	i := 0
 	AssertEventually(t, func() bool {
+		i := 0
 		for _, l := range observedLogs.All() {
 			if strings.Contains(l.Message, msg) {
 				i++

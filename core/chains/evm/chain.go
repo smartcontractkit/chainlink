@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Chain --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	services.ServiceCtx
 	ID() *big.Int
@@ -127,7 +127,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	} else if opts.GenHeadTracker == nil {
 		orm := headtracker.NewORM(db, l, cfg, *chainID)
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
-		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver)
+		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
@@ -166,7 +166,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(db, l, cfg, *chainID)
-		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead)
+		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
 	}

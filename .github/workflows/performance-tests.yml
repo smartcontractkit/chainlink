@@ -63,7 +63,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cd9e407a6e0aa8ef7f315067644c0333846ffd40 # v2.0.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
         with:
           test_command_to_run: make test_perf args="--procs=10 --focus=${{ github.event.inputs.focus }}"
           test_download_vendor_packages_command: make gomod
@@ -77,7 +77,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-          CGO_ENABLED: "1"
       - name: Publish pprof artifacts
         if: ${{ success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0

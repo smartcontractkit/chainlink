@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -36,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 func newHead() evmtypes.Head {
@@ -69,8 +67,6 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 ) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Keeper.TurnLookBack = ptr[int64](0)
-		c.Keeper.TurnFlagEnabled = ptr(true)
-		c.Keeper.UpkeepCheckGasPriceEnabled = ptr(true)
 		if fn := overrideFn; fn != nil {
 			fn(c, s)
 		}
@@ -132,7 +128,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), nil)
 
 		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
@@ -148,7 +143,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
-				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
+				return callArgs.GasPrice == nil &&
 					callArgs.Gas == 0
 			},
 			checkUpkeepResponse,
@@ -176,8 +171,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			})
 
 			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
-			baseFeePerGas := gasPrice.Mul(big.NewInt(2))
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
@@ -193,12 +186,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			registryMock.MockMatchedResponse(
 				"checkUpkeep",
 				func(callArgs ethereum.CallMsg) bool {
-					expectedGasPrice := bigmath.Div(
-						bigmath.Mul(baseFeePerGas.ToInt(), 100+config.KeeperBaseFeeBufferPercent()),
-						100,
-					)
-
-					return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
+					return callArgs.GasPrice == nil &&
 						callArgs.Gas == 0
 				},
 				checkUpkeepResponse,
@@ -210,7 +198,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			)
 
 			head := newHead()
-			head.BaseFeePerGas = baseFeePerGas
 
 			executer.OnNewLongestChain(testutils.Context(t), &head)
 			ethTxCreated.AwaitOrFail(t)
@@ -231,7 +218,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("errors if submission key not found", func(t *testing.T) {
-		_, config, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, mockEstimator(t), nil)
+		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, mockEstimator(t), nil)
 
 		// replace expected key with random one
 		_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
@@ -239,13 +226,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		_, err = keyStore.Eth().Delete(job.KeeperSpec.FromAddress.Hex())
 		require.NoError(t, err)
 
-		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
-
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
-				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
+				return callArgs.GasPrice == nil &&
 					callArgs.Gas == 0
 			},
 			checkUpkeepResponse,
@@ -314,78 +299,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		assert.False(t, runs[0].HasErrors())
 		etxs[0].AwaitOrFail(t)
 		waitLastRunHeight(t, db, upkeep, 36)
-	})
-
-	t.Run("verify key specific max gas price is passed into estimator for EIP1559 and non-EIP1559 chains", func(t *testing.T) {
-		runTest := func(t *testing.T, estimator *gasmocks.Estimator, eip1559 bool) {
-			db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, estimator, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
-			})
-
-			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-			gasPrice := assets.NewWei(bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100))
-			baseFeePerGas := gasPrice.Mul(big.NewInt(2))
-
-			ethTxCreated := cltest.NewAwaiter()
-			txm.On("CreateEthTransaction",
-				mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
-			).
-				Once().
-				Return(txmgr.EthTx{
-					ID: 1,
-				}, nil).
-				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
-
-			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-			registryMock.MockMatchedResponse(
-				"checkUpkeep",
-				func(callArgs ethereum.CallMsg) bool {
-					expectedGasPrice := bigmath.Div(
-						bigmath.Mul(baseFeePerGas.ToInt(), 100+config.KeeperBaseFeeBufferPercent()),
-						100,
-					)
-
-					return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
-						callArgs.Gas == 0
-				},
-				checkUpkeepResponse,
-			)
-			registryMock.MockMatchedResponse(
-				"performUpkeep",
-				func(callArgs ethereum.CallMsg) bool { return true },
-				checkPerformResponse,
-			)
-
-			head := newHead()
-			head.BaseFeePerGas = baseFeePerGas
-
-			executer.OnNewLongestChain(testutils.Context(t), &head)
-			ethTxCreated.AwaitOrFail(t)
-			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, taskRuns, jpv2.Jrm, time.Second, 100*time.Millisecond)
-			require.Len(t, runs, 1)
-			assert.False(t, runs[0].HasErrors())
-			assert.False(t, runs[0].HasFatalErrors())
-			waitLastRunHeight(t, db, upkeep, 20)
-		}
-
-		t.Run("EIP1559", func(t *testing.T) {
-			testutils.SkipShort(t, "db dependency")
-
-			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetDynamicFee", mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(gas.DynamicFee{
-				FeeCap: assets.GWei(60),
-				TipCap: assets.GWei(60),
-			}, uint32(60), nil)
-			runTest(t, estimator, true)
-		})
-
-		t.Run("non-EIP1559", func(t *testing.T) {
-			testutils.SkipShort(t, "db dependency")
-
-			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, evmconfig.MaxLegalGasPrice).Return(assets.GWei(60), uint32(0), nil)
-			runTest(t, estimator, false)
-		})
 	})
 }
 

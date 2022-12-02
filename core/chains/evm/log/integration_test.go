@@ -1474,7 +1474,10 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch3 := make(chan types.Log)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil)
+	mailMon := utils.NewMailboxMonitor(t.Name())
+	mailMon.Start(testutils.Context(t))
+	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil, mailMon)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 

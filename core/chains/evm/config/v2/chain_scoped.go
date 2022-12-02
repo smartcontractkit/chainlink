@@ -310,6 +310,10 @@ func (c *ChainScoped) NodeSelectionMode() string {
 	return *c.cfg.NodePool.SelectionMode
 }
 
+func (c *ChainScoped) NodeSyncThreshold() uint32 {
+	return *c.cfg.NodePool.SyncThreshold
+}
+
 func (c *ChainScoped) OCRContractConfirmations() uint16 {
 	return *c.cfg.OCR.ContractConfirmations
 }

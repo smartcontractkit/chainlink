@@ -42,7 +42,7 @@ func TestDoc(t *testing.T) {
 	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docsTOML), &defaults, config.DecodeTOML))
 
 	t.Run("EVM", func(t *testing.T) {
-		fallbackDefaults, _ := evmcfg.Defaults(nil)
+		fallbackDefaults := evmcfg.Defaults(nil)
 		docDefaults := defaults.EVM[0].Chain
 
 		require.Equal(t, "", *docDefaults.ChainType)
@@ -121,6 +121,7 @@ var (
 
 func Test_generateDocs(t *testing.T) {
 	got, err := generateDocs(exampleTOML, `[//]: # (Generated - DO NOT EDIT.)
+`, `Bar = 7 # Required
 `)
 	require.NoError(t, err)
 	assert.Equal(t, exampleMarkdown, got)

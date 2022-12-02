@@ -43,7 +43,7 @@ func init() {
 	}
 }
 
-//go:generate mockery --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+//go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
@@ -108,9 +108,11 @@ type Logger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 
 	// ErrorIf logs the error if present.
+	// Deprecated: use SugaredLogger.ErrorIf
 	ErrorIf(err error, msg string)
 
 	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
+	// Deprecated: use SugaredLogger.ErrorIfFn with c.Close
 	ErrorIfClosing(c io.Closer, name string)
 
 	// Sync flushes any buffered log entries.

@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name BalanceMonitor --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name BalanceMonitor --output ../mocks/ --case=underscore
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {

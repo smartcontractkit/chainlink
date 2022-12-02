@@ -63,6 +63,7 @@ MaxBackups = 1
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
+BridgeCacheTTL = '0s'
 HTTPWriteTimeout = '10s'
 HTTPPort = 6688
 SecureCookies = true
@@ -156,7 +157,6 @@ GasTipCapBufferPercent = 20
 BaseFeeBufferPercent = 20
 MaxGracePeriod = 100
 TurnLookBack = 1000
-TurnFlagEnabled = false
 UpkeepCheckGasPriceEnabled = false
 
 [Keeper.Registry]
@@ -252,6 +252,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -334,6 +335,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -410,6 +412,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [EVM.OCR]
 ContractConfirmations = 4

@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
-//go:generate mockery --name OCR --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name OCR --output ./mocks/ --case=underscore
 
 type OCR interface {
 	Get(id string) (ocrkey.KeyV2, error)

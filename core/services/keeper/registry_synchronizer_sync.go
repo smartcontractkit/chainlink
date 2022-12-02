@@ -52,21 +52,13 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 		return errors.Wrap(err, "unable to fetch existing upkeep IDs from DB")
 	}
 
-	existingSet := make(map[string]bool)
 	activeSet := make(map[string]bool)
-
-	// New upkeeps are all elements in activeUpkeepIDs which are not in existingUpkeepIDs
-	newUpkeeps := make([]utils.Big, 0)
-	for _, upkeepID := range existingUpkeepIDs {
-		existingSet[upkeepID.ToInt().String()] = true
-	}
+	allActiveUpkeeps := make([]utils.Big, 0)
 	for _, upkeepID := range activeUpkeepIDs {
 		activeSet[upkeepID.String()] = true
-		if _, found := existingSet[upkeepID.String()]; !found {
-			newUpkeeps = append(newUpkeeps, *utils.NewBig(upkeepID))
-		}
+		allActiveUpkeeps = append(allActiveUpkeeps, *utils.NewBig(upkeepID))
 	}
-	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
+	rs.batchSyncUpkeepsOnRegistry(reg, allActiveUpkeeps)
 
 	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
 	canceled := make([]utils.Big, 0)
@@ -117,6 +109,11 @@ func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registr
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
+
+	if upkeep.ExecuteGas <= uint32(0) {
+		return errors.Errorf("execute gas is zero for upkeep %s", NewUpkeepIdentifier(upkeepID).String())
+	}
+
 	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	if err != nil {
 		return errors.Wrap(err, "failed to calc positioning constant")

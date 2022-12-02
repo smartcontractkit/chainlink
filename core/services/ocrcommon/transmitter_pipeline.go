@@ -21,6 +21,7 @@ const txObservationSource = `
                  evmChainID="$(jobSpec.evmChainID)"
                  data="$(jobSpec.data)"
                  gasLimit="$(jobSpec.gasLimit)"
+                 forwardingAllowed="$(jobSpec.forwardingAllowed)"
                  transmitChecker="$(jobSpec.transmitChecker)"]
     transmit_tx
 `
@@ -66,12 +67,13 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 	// t.strategy is ignored currently as pipeline does not support passing this (sc-55115)
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"contractAddress": toAddress.String(),
-			"fromAddress":     t.fromAddress.String(),
-			"gasLimit":        t.gasLimit,
-			"evmChainID":      t.chainID,
-			"data":            payload,
-			"transmitChecker": t.checker,
+			"contractAddress":   toAddress.String(),
+			"fromAddress":       t.fromAddress.String(),
+			"gasLimit":          t.gasLimit,
+			"evmChainID":        t.chainID,
+			"forwardingAllowed": t.spec.ForwardingAllowed,
+			"data":              payload,
+			"transmitChecker":   t.checker,
 		},
 	})
 

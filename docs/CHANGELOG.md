@@ -7,9 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 <!-- unreleased -->
+## [dev]
+
+### Updated
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+
 ## [Unreleased]
 
 ### Added
+
+- New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+- Add the following prometheus metrics (labelled by bridge name) for monitoring external adapter queries:
+    - `bridge_latency_seconds`
+    - `bridge_errors_total`
+    - `bridge_cache_hits_total`
+    - `bridge_cache_errors_total`
+- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
+- `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
+> ```toml
+> SyncThreshold = 5 # Default
+> ```
+> 
+> SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+>
+> Set to 0 to disable this check.
+
+#### TOML Configuration (optional)
+
+Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
+This is currently _optional_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method.
+
+##### How to use
+
+TOML configuration can be enabled by simply using the new `-config <filename>` flag or `CL_CONFIG` environment variable.
+Multiple files can be used (`-c configA.toml -c configB.toml`), and will be applied in order with duplicated fields overriding any earlier values.
+
+Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
+Secrets must be configured manually and passed via `-secrets <filename>` or equivalent environment variables.
+
+**Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
+
+##### Detailed Docs
+
+[CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+
+### Fixed
+
+- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
+
+### Updated
+
+- `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
+
+<!-- unreleasedstop -->
+
+## 1.10.0 - 2022-11-15
+
+### Added
+
+#### Bridge caching
+##### BridgeCacheTTL
+
+- Default: 0s
+
+When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
+
+Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
 
 #### New optional external logger added
 ##### AUDIT_LOGGER_FORWARD_TO_URL
@@ -74,8 +138,6 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
   - It should no longer be possible to end up with multiple OCR jobs for a single contract running on the same chain; only one job per contract per chain is allowed
   - If there are any existing duplicate jobs (per contract per chain), all but the job with the latest creation date will be pruned during upgrade.
 
-<!-- unreleasedstop -->
-
 ### Fixed
 
 - Fixed minor bug where Chainlink would attempt (and fail) to estimate a tip cap higher than the maximum configured gas price in EIP1559 mode. It now caps the tipcap to the max instead of erroring.
@@ -93,8 +155,6 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
   - manually set the nonce for a key
   See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
 
-
-
 ## 1.8.1 - 2022-09-29
 
 ### Added
@@ -104,6 +164,9 @@ To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_
    -  This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 - `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
 
+### Changed
+
+- EIP1559 is now enabled by default on Goerli network
 
 ## 1.8.0 - 2022-09-01
 

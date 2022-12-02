@@ -3,8 +3,10 @@ package actions
 //revive:disable:dot-imports
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -31,7 +34,9 @@ func DeployBenchmarkKeeperContracts(
 	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 	predeployedContracts []string, // Array of addresses of predeployed consumer addresses to load
 	upkeepResetterAddress string,
-) (contracts.KeeperRegistry, []contracts.KeeperConsumerBenchmark, []*big.Int) {
+	chainlinkNodes []*client.Chainlink,
+	blockTime time.Duration,
+) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumerBenchmark, []*big.Int) {
 	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
@@ -61,7 +66,13 @@ func DeployBenchmarkKeeperContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
+	registrar := DeployKeeperRegistrar(registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
+	if registryVersion == ethereum.RegistryVersion_2_0 {
+		nodesWithoutBootstrap := chainlinkNodes[1:]
+		ocrConfig := BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime)
+		err = registry.SetConfig(*registrySettings, ocrConfig)
+		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+	}
 
 	upkeeps := DeployKeeperConsumersBenchmark(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn, firstEligibleBuffer, predeployedContracts, upkeepResetterAddress)
 
@@ -82,7 +93,7 @@ func DeployBenchmarkKeeperContracts(
 
 	upkeepIds := RegisterUpkeepContracts(linkToken, linkFunds, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses)
 
-	return registry, upkeeps, upkeepIds
+	return registry, registrar, upkeeps, upkeepIds
 }
 
 func ResetUpkeeps(
@@ -94,22 +105,29 @@ func ResetUpkeeps(
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn, // How much gas should be burned on performUpkeep() calls
 	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block
-	predeployedContracts []string,
+	predeployedContracts []contracts.KeeperConsumerBenchmark,
 	upkeepResetterAddr string,
 ) {
 	contractLoader, err := contracts.NewContractLoader(client)
 	Expect(err).ShouldNot(HaveOccurred(), "Error loading upkeep contract")
 	upkeepChunkSize := 500
+	if client.NetworkSimulated() {
+		upkeepChunkSize = 100
+	}
 	upkeepChunks := make([][]string, int(math.Ceil(float64(numberOfContracts)/float64(upkeepChunkSize))))
-	upkeepResetter, err := contractLoader.LoadUpkeepResetter(common.HexToAddress(upkeepResetterAddr))
-	log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Loaded UpkeepResetter")
-	if err != nil {
-		upkeepResetter, err = contractDeployer.DeployUpkeepResetter()
-		log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Deployed UpkeepResetter")
+	if len(upkeepResetterAddr) == 0 {
+		upkeepResetter, err := contractDeployer.DeployUpkeepResetter()
 		if err != nil {
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Upkeep Resetter shouldn't fail")
 		}
+		err = client.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for deploying UpkeepResetter")
+		log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Deployed UpkeepResetter")
+		upkeepResetterAddr = upkeepResetter.Address()
 	}
+	upkeepResetter, _ := contractLoader.LoadUpkeepResetter(common.HexToAddress(upkeepResetterAddr))
+	log.Info().Str("UpkeepResetter Address", upkeepResetter.Address()).Msg("Loaded UpkeepResetter")
+
 	iter := 0
 	upkeepChunks[iter] = make([]string, 0)
 	for count := 0; count < numberOfContracts; count++ {
@@ -117,13 +135,15 @@ func ResetUpkeeps(
 			iter++
 			upkeepChunks[iter] = make([]string, 0)
 		}
-		upkeepChunks[iter] = append(upkeepChunks[iter], predeployedContracts[count])
+		upkeepChunks[iter] = append(upkeepChunks[iter], predeployedContracts[count].Address())
 	}
 	log.Debug().Int("UpkeepChunk length", len(upkeepChunks))
 	for it, upkeepChunk := range upkeepChunks {
 		err := upkeepResetter.ResetManyConsumerBenchmark(context.Background(), upkeepChunk, big.NewInt(blockRange),
 			big.NewInt(blockInterval), big.NewInt(firstEligibleBuffer), big.NewInt(checkGasToBurn), big.NewInt(performGasToBurn))
 		log.Info().Int("Number of Contracts", len(upkeepChunk)).Int("Batch", it).Msg("Resetting batch of Contracts")
+		log.Debug().Str("Address", upkeepChunk[0]).Msg("First Upkeep to be reset")
+		log.Debug().Str("Address", upkeepChunk[len(upkeepChunk)-1]).Msg("Last Upkeep to be reset")
 		if err != nil {
 			Expect(err).ShouldNot(HaveOccurred(), "Resetting upkeeps shouldn't fail")
 		}
@@ -145,6 +165,7 @@ func DeployKeeperConsumersBenchmark(
 	upkeepResetterAddr string,
 ) []contracts.KeeperConsumerBenchmark {
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
+	firstEligibleBuffer = 10000
 
 	if len(predeployedContracts) >= numberOfContracts {
 		contractLoader, err := contracts.NewContractLoader(client)
@@ -163,7 +184,7 @@ func DeployKeeperConsumersBenchmark(
 		}
 		// Reset upkeeps so that they are not eligible when being registered
 		ResetUpkeeps(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn,
-			performGasToBurn, 10000, predeployedContracts, upkeepResetterAddr)
+			performGasToBurn, firstEligibleBuffer, upkeeps, upkeepResetterAddr)
 		return upkeeps
 	}
 

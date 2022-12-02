@@ -30,9 +30,7 @@ type Config interface {
 	KeeperRegistryMaxPerformDataSize() uint32
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
-	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeeperTurnLookBack() int64
-	KeeperTurnFlagEnabled() bool
 	pg.QConfig
 }
 

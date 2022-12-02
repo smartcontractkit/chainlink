@@ -63,6 +63,7 @@ MaxBackups = 9
 [WebServer]
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
+BridgeCacheTTL = '10s'
 HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
@@ -156,7 +157,6 @@ GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaxGracePeriod = 31
 TurnLookBack = 91
-TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
@@ -269,6 +269,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
 
 [EVM.OCR]
 ContractConfirmations = 11

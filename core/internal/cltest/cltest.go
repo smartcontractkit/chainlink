@@ -419,6 +419,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			}
 		}
 	}
+	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
@@ -433,6 +434,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			}
 			return ethClient
 		},
+		MailMon: mailMon,
 	})
 	if err != nil {
 		lggr.Fatal(err)
@@ -531,6 +533,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
+		MailMon:                  mailMon,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		Chains:                   chains,
@@ -549,7 +552,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 		ChainlinkApplication: app,
 		Logger:               lggr,
 	}
-	ta.Server = newServer(ta)
+	ta.Server = httptest.NewServer(web.Router(t, app, nil))
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
@@ -622,11 +625,6 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
-}
-
-func newServer(app chainlink.Application) *httptest.Server {
-	engine := web.Router(app, nil)
-	return httptest.NewServer(engine)
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.

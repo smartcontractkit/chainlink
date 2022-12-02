@@ -154,7 +154,6 @@ GasTipCapBufferPercent = 12
 BaseFeeBufferPercent = 7
 MaxGracePeriod = 42
 TurnLookBack = 67
-TurnFlagEnabled = true
 UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
@@ -264,6 +263,7 @@ PriceMax = '42 wei'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
 
 [[EVM.Nodes]]
 Name = 'primary_0_1'

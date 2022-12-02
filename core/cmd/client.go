@@ -143,6 +143,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		}
 	}
 
+	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
 		if h, ok := cfg.(v2.HasEVMConfigs); ok {
@@ -169,6 +171,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
+		MailMon:          mailMon,
 	}
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
@@ -294,6 +297,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
+		MailMon:                  mailMon,
 		Logger:                   appLggr,
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: externalInitiatorManager,
@@ -356,7 +360,11 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		return errors.New("You must specify at least one port to listen on")
 	}
 
-	server := server{handler: web.Router(app.(*chainlink.ChainlinkApplication), prometheus), lggr: app.GetLogger()}
+	handler, err := web.NewRouter(app, prometheus)
+	if err != nil {
+		return errors.Wrap(err, "failed to create web router")
+	}
+	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
 	if config.Port() != 0 {

@@ -24,7 +24,12 @@ var (
 	// ChainlinkKeyPassword used to encrypt exported keys
 	ChainlinkKeyPassword = "twochains"
 	// OneLINK representation of a single LINK token
-	OneLINK = big.NewFloat(1e18)
+	OneLINK           = big.NewFloat(1e18)
+	mapKeyTypeToChain = map[string]string{
+		"evm":      "eTHKeys",
+		"solana":   "encryptedStarkNetKeys",
+		"starknet": "encryptedSolanaKeys",
+	}
 )
 
 type Chainlink struct {
@@ -353,6 +358,17 @@ func (c *Chainlink) ReadOCR2Keys() (*OCR2Keys, *http.Response, error) {
 	return ocr2Keys, resp.RawResponse, err
 }
 
+// MustReadOCR2Keys reads all OCR2Keys from the Chainlink node returns err if response not 200
+func (c *Chainlink) MustReadOCR2Keys() (*OCR2Keys, error) {
+	ocr2Keys := &OCR2Keys{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading OCR2 Keys")
+	resp, err := c.APIClient.R().
+		SetResult(ocr2Keys).
+		Get("/v2/keys/ocr2")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	return ocr2Keys, err
+}
+
 // DeleteOCR2Key deletes an OCR2Key based on the provided ID
 func (c *Chainlink) DeleteOCR2Key(id string) (*http.Response, error) {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting OCR2 Key")
@@ -503,6 +519,21 @@ func (c *Chainlink) EthAddresses() ([]string, error) {
 		}
 	}
 	return c.ethAddresses, nil
+}
+
+// EthAddresses returns the ETH addresses of the Chainlink node for a specific chain id
+func (c *Chainlink) EthAddressesForChain(chainId string) ([]string, error) {
+	var ethAddresses []string
+	ethKeys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	for _, ethKey := range ethKeys.Data {
+		if ethKey.Attributes.ChainID == chainId {
+			ethAddresses = append(ethAddresses, ethKey.Attributes.Address)
+		}
+	}
+	return ethAddresses, nil
 }
 
 // PrimaryEthAddressForChain returns the primary ETH address for the Chainlink node for mentioned chain
@@ -985,9 +1016,28 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 		}
 
 		peerID := p2pkeys.Data[0].Attributes.PeerID
-		txKey, _, err := n.CreateTxKey(chainName, chainId)
+		// If there is already a txkey present for the chain skip creating a new one
+		// otherwise the test logic will need multiple key management (like funding all the keys,
+		// for ocr scenarios adding all keys to ocr config)
+		var txKey *TxKey
+		txKeys, _, err := n.ReadTxKeys(chainName)
 		if err != nil {
 			return nil, nil, err
+		}
+		if _, ok := mapKeyTypeToChain[chainName]; ok {
+			for _, key := range txKeys.Data {
+				if key.Type == mapKeyTypeToChain[chainName] {
+					txKey = &TxKey{Data: key}
+					break
+				}
+			}
+		}
+		// if no txkey is found for the chain, create a new one
+		if txKey == nil {
+			txKey, _, err = n.CreateTxKey(chainName, chainId)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 
 		ocrKey, _, err := n.CreateOCR2Key(chainName)

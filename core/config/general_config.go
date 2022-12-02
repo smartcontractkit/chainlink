@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GeneralConfig --output ./mocks/ --case=underscore
 
 // nolint
 var (
@@ -94,6 +94,7 @@ type BasicConfig interface {
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
+	BridgeCacheTTL() time.Duration
 	CertFile() string
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
@@ -142,7 +143,6 @@ type BasicConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
-	KeeperTurnFlagEnabled() bool
 	KeyFile() string
 	KeystorePassword() string
 	LeaseLockDuration() time.Duration
@@ -154,6 +154,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
+	MercuryCredentials(url string) (username, password string, err error)
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
@@ -267,6 +268,7 @@ type GlobalConfig interface {
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
 	GlobalNodeSelectionMode() (string, bool)
+	GlobalNodeSyncThreshold() (uint32, bool)
 }
 
 type GeneralConfig interface {
@@ -633,6 +635,11 @@ func (c *generalConfig) BridgeResponseURL() *url.URL {
 	return getEnvWithFallback(c, envvar.New("BridgeResponseURL", url.Parse))
 }
 
+// BridgeCacheTTL represents the max acceptable duration for a cached bridge value to be used in case of intermittent failure.
+func (c *generalConfig) BridgeCacheTTL() time.Duration {
+	return getEnvWithFallback(c, envvar.NewDuration("BridgeCacheTTL"))
+}
+
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUICSAKeys() bool {
 	return getEnvWithFallback(c, envvar.NewBool("FeatureUICSAKeys"))
@@ -973,11 +980,6 @@ func (c *generalConfig) KeeperTurnLookBack() int64 {
 	return c.viper.GetInt64(envvar.Name("KeeperTurnLookBack"))
 }
 
-// KeeperTurnFlagEnabled enables new turn taking algo for keepers
-func (c *generalConfig) KeeperTurnFlagEnabled() bool {
-	return getEnvWithFallback(c, envvar.NewBool("KeeperTurnFlagEnabled"))
-}
-
 // JSONConsole when set to true causes logging to be made in JSON format
 // If set to false, logs in console format
 func (c *generalConfig) JSONConsole() bool {
@@ -1123,6 +1125,10 @@ func (c *generalConfig) SetLogSQL(logSQL bool) {
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
 	return getEnvWithFallback(c, envvar.LogUnixTS)
+}
+
+func (c *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
+	return "", "", errors.New("legacy config does not support Mercury credentials; use V2 TOML config to enable this feature")
 }
 
 // Port represents the port Chainlink should listen on for client requests.
@@ -1491,6 +1497,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 
 func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
 	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
+func (c *generalConfig) GlobalNodeSyncThreshold() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("NodeSyncThreshold"), parse.Uint32)
 }
 
 func (c *generalConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {

@@ -1,21 +1,23 @@
 # Chains
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
+/core/chains/evm @samsondav @prashantkumar1982
+/core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
 /core/chains/evm @samsondav @prashantkumar1982
 /core/chains/terra @connorwstein @jmank88
 
 # Services
-/core/services/cron @spooktheducks @samsondav
-/core/services/directrequest @spooktheducks @connorwstein @samsondav
+/core/services/cron @samsondav
+/core/services/directrequest @connorwstein @samsondav
 /core/services/feeds @jkongie
-/core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
+/core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @connorwstein
 /core/services/health @samsondav
-/core/services/job @spooktheducks @connorwstein
+/core/services/job @connorwstein
 /core/services/keystore @RyanRHall
-/core/services/offchainreporting @spooktheducks @connorwstein @samsondav
+/core/services/offchainreporting @connorwstein @samsondav
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pg @samsondav
-/core/services/pipeline @spooktheducks @connorwstein @prashantkumar1982
+/core/services/pipeline @connorwstein @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
 
@@ -29,7 +31,7 @@
 /core/services/keeper @smartcontractkit/keepers
 /core/services/ocr2/plugins/ocr2keeper @smartcontractkit/keepers
 
-/core/services/webhook @spooktheducks
+/core/services/webhook @samsondav
 
 # API
 /core/web @jkongie

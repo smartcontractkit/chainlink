@@ -27,7 +27,7 @@ chainID = %d`
 // StartBootstrapNode starts the ocr2 bootstrap node with the given contract address
 func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPort, p2pv2Port int) {
 	lggr, closeLggr := logger.NewLogger()
-	defer closeLggr()
+	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	const containerName = "bootstrap"
 	urlRaw, _, err := h.launchChainlinkNode(

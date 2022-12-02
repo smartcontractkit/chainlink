@@ -108,6 +108,7 @@ BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY: 0
 BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE: 0
 BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE: 0
 BRIDGE_RESPONSE_URL: 
+BRIDGE_CACHE_TTL: 
 CHAIN_TYPE: 
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
@@ -143,7 +144,6 @@ KEEPER_REGISTRY_SYNC_INTERVAL: 30m0s
 KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 10
 KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED: false
 KEEPER_TURN_LOOK_BACK: 1000
-KEEPER_TURN_FLAG_ENABLED: false
 LEASE_LOCK_DURATION: 10s
 LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
@@ -289,6 +289,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("16charlengthp4SsW0rD1!@#_")
 				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 			})
 			db := pgtest.NewSqlxDB(t)
@@ -373,7 +374,7 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
 			lggr, close := cfg.New()
-			defer close()
+			t.Cleanup(func() { assert.NoError(t, close()) })
 
 			// Tries to create a log file by logging. The log file won't be created if there's no logging happening.
 			lggr.Debug("Trying to create a log file by logging.")

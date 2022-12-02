@@ -38,13 +38,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
-// Router listens and responds to requests to the node for valid paths.
-func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+// NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
+func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
-		app.GetLogger().Panic(err)
+		return nil, err
 	}
 	sessionStore := sessions.NewCookieStore(secret)
 	sessionStore.Options(config.SessionOptions())
@@ -87,7 +87,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		graphqlHandler(app),
 	)
 
-	return engine
+	return engine, nil
 }
 
 // Defining the Graphql handler
@@ -289,7 +289,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/csa/import", auth.RequiresAdminRole(csakc.Import))
 		authv2.POST("/keys/csa/export/:ID", auth.RequiresAdminRole(csakc.Export))
 
-		ekc := ETHKeysController{app}
+		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
 		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))
@@ -532,7 +532,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 		c.Next()
 		end := time.Now()
 
-		lggr.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
+		lggr.Debugw(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,

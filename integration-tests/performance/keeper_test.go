@@ -14,12 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 )
@@ -47,7 +47,6 @@ var _ = Describe("Keeper suite @keeper", func() {
 					"replicas": "5",
 					"env": map[string]interface{}{
 						"MIN_INCOMING_CONFIRMATIONS": "1",
-						"KEEPER_TURN_FLAG_ENABLED":   "true",
 						"HTTP_SERVER_WRITE_TIMEOUT":  "300s",
 					},
 				}))
@@ -106,8 +105,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 					// Not the last node, hence not all nodes started profiling yet.
 					return
 				}
-
-				actions.CreateKeeperJobs(chainlinkNodes, registry)
+				actions.CreateKeeperJobs(chainlinkNodes, registry, contracts.OCRConfig{})
 				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
