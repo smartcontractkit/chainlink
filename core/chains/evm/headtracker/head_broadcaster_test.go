@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -69,8 +70,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	hb := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
-	mailMon := utils.NewMailboxMonitor(t.Name())
-	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hb, hs, mailMon)
 	var ms services.MultiStart
 	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
