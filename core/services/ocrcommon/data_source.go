@@ -25,7 +25,7 @@ type inMemoryDataSource struct {
 	pipelineRunner pipeline.Runner
 	jb             job.Job
 	spec           pipeline.Spec
-	ocrLogger      logger.Logger
+	lggr           logger.Logger
 
 	current bridges.BridgeMetaData
 	mu      sync.RWMutex
@@ -46,38 +46,38 @@ func (ds *dataSourceV2) Observe(ctx context.Context) (*big.Int, error) {
 	return ds.dataSource.Observe(ctx)
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger, runResults chan<- pipeline.Run) ocrtypes.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run) ocrtypes.DataSource {
 	return &dataSource{
 		inMemoryDataSource: inMemoryDataSource{
 			pipelineRunner: pr,
 			jb:             jb,
 			spec:           spec,
-			ocrLogger:      ocrLogger,
+			lggr:           lggr,
 		},
 		runResults: runResults,
 	}
 }
 
-func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger, runResults chan<- pipeline.Run) median.DataSource {
+func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run) median.DataSource {
 	return &dataSourceV2{
 		dataSource: dataSource{
 			inMemoryDataSource: inMemoryDataSource{
 				pipelineRunner: pr,
 				jb:             jb,
 				spec:           spec,
-				ocrLogger:      ocrLogger,
+				lggr:           lggr,
 			},
 			runResults: runResults,
 		},
 	}
 }
 
-func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger) median.DataSource {
+func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger) median.DataSource {
 	return &inMemoryDataSource{
 		pipelineRunner: pr,
 		jb:             jb,
 		spec:           spec,
-		ocrLogger:      ocrLogger,
+		lggr:           lggr,
 	}
 }
 
@@ -103,7 +103,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pipeline.FinalResult, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
-		ds.ocrLogger.Warnw("unable to attach metadata for run", "err", err)
+		ds.lggr.Warnw("unable to attach metadata for run", "err", err)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -117,11 +117,11 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pip
 		},
 	})
 
-	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.ocrLogger)
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
 		return pipeline.Run{}, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
-	finalResult := trrs.FinalResult(ds.ocrLogger)
+	finalResult := trrs.FinalResult(ds.lggr)
 
 	return run, finalResult, err
 }
@@ -170,8 +170,9 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	select {
 	case ds.runResults <- run:
 	default:
-		// If we're unable to enqueue a right, still return the value we have but warn.
-		ds.ocrLogger.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.inMemoryDataSource.spec.JobID)
+		// If we're unable to enqueue a write, still return the value we have but warn.
+		// FIXME: ds.lggr has an odd number of keys/values here?!
+		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.inMemoryDataSource.spec.JobID)
 		return ds.inMemoryDataSource.parse(finalResult)
 	}
 
