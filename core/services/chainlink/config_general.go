@@ -616,6 +616,10 @@ func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
 	return g.c.JobPipeline.MaxRunDuration.Duration()
 }
 
+func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return *g.c.JobPipeline.MaxSuccessfulRuns
+}
+
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }

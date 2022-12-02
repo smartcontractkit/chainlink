@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New config variable, `JobPipeline.MaxSuccessfulRuns` caps the total number of
+  saved completed runs per job. This is done in response to the `pipeline_runs`
+  table potentially becoming large, which can cause performance degradation.
+  The default is set to 10,000. You can set it to 0 to disable run saving
+  entirely.
 - New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
 - Add the following prometheus metrics (labelled by bridge name) for monitoring external adapter queries:
     - `bridge_latency_seconds`

@@ -292,6 +292,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
 	)
 
+	srvcs = append(srvcs, pipelineORM)
+
 	for _, chain := range chains.EVM.Chains() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)

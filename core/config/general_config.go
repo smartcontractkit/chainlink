@@ -131,6 +131,7 @@ type BasicConfig interface {
 	InsecureFastScrypt() bool
 	JSONConsole() bool
 	JobPipelineMaxRunDuration() time.Duration
+	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineReaperInterval() time.Duration
 	JobPipelineReaperThreshold() time.Duration
 	JobPipelineResultWriteQueueDepth() uint64
@@ -902,6 +903,10 @@ func (c *generalConfig) JobPipelineMaxRunDuration() time.Duration {
 
 func (c *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return getEnvWithFallback(c, envvar.JobPipelineResultWriteQueueDepth)
+}
+
+func (c *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return getEnvWithFallback(c, envvar.JobPipelineMaxSuccessfulRuns)
 }
 
 func (c *generalConfig) JobPipelineReaperInterval() time.Duration {
