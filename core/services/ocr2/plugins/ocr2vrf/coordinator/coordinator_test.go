@@ -63,6 +63,8 @@ func TestCoordinator_BeaconPeriod(t *testing.T) {
 
 func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 	t.Parallel()
+	evmClient := evm_mocks.NewClient(t)
+	evmClient.On("ChainID").Return(big.NewInt(1))
 
 	t.Run("happy path", func(t *testing.T) {
 		// In this test the DKG and VRF committees have the same signers and
@@ -108,6 +110,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 			coordinatorAddress: coordinatorAddress,
 			dkgAddress:         dkgAddress,
 			finalityDepth:      10,
+			evmClient:          evmClient,
 		}
 		actualDKG, actualVRF, err := c.DKGVRFCommittees(testutils.Context(t))
 		assert.NoError(t, err)
@@ -131,6 +134,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 			topics:        tp,
 			beaconAddress: beaconAddress,
 			finalityDepth: 10,
+			evmClient:     evmClient,
 		}
 
 		_, _, err := c.DKGVRFCommittees(testutils.Context(t))
@@ -158,6 +162,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 			coordinatorAddress: coordinatorAddress,
 			dkgAddress:         dkgAddress,
 			finalityDepth:      10,
+			evmClient:          evmClient,
 		}
 		_, _, err := c.DKGVRFCommittees(testutils.Context(t))
 		assert.Error(t, err)
@@ -1011,6 +1016,9 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 }
 
 func TestCoordinator_ReportIsOnchain(t *testing.T) {
+	evmClient := evm_mocks.NewClient(t)
+	evmClient.On("ChainID").Return(big.NewInt(1))
+
 	t.Run("report is on-chain", func(t *testing.T) {
 		tp := newTopics()
 		beaconAddress := newAddress(t)
@@ -1033,6 +1041,7 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 			lggr:          logger.TestLogger(t),
 			beaconAddress: beaconAddress,
 			topics:        tp,
+			evmClient:     evmClient,
 		}
 
 		present, err := c.ReportIsOnchain(testutils.Context(t), epoch, round)
@@ -1058,6 +1067,7 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 			lggr:          logger.TestLogger(t),
 			beaconAddress: beaconAddress,
 			topics:        tp,
+			evmClient:     evmClient,
 		}
 
 		present, err := c.ReportIsOnchain(testutils.Context(t), epoch, round)
