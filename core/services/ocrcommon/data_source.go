@@ -171,7 +171,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	case ds.runResults <- run:
 	default:
 		// If we're unable to enqueue a right, still return the value we have but warn.
-		ds.ocrLogger.Warnw("unable to enqueue run save for job ID %v, buffer full", ds.inMemoryDataSource.spec.JobID)
+		ds.ocrLogger.Warnf("unable to enqueue run save for job ID %v, buffer full", ds.inMemoryDataSource.spec.JobID)
 		return ds.inMemoryDataSource.parse(finalResult)
 	}
 
