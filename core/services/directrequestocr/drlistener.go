@@ -101,7 +101,7 @@ func (l *DRListener) Close() error {
 	})
 }
 
-// HandleLog() complies with log.Listener
+// HandleLog implements log.Listener
 func (l *DRListener) HandleLog(lb log.Broadcast) {
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
@@ -126,13 +126,18 @@ func (l *DRListener) JobID() int32 {
 }
 
 func (l *DRListener) processOracleEvents() {
+	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
 		case <-l.chStop:
-			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleEvents.Notify():
 			for {
+				select {
+				case <-l.chStop:
+					return
+				default:
+				}
 				lb, exists := l.mbOracleEvents.Retrieve()
 				if !exists {
 					break
@@ -140,15 +145,15 @@ func (l *DRListener) processOracleEvents() {
 				was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 				if err != nil {
 					l.logger.Errorw("Could not determine if log was already consumed", "error", err)
-					break
+					continue
 				} else if was {
-					break
+					continue
 				}
 
 				log := lb.DecodedLog()
 				if log == nil || reflect.ValueOf(log).IsNil() {
 					l.logger.Error("processOracleEvents: ignoring nil value")
-					break
+					continue
 				}
 
 				switch log := log.(type) {

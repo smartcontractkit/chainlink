@@ -116,12 +116,13 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("missing EnabledKeysForChain", func(t *testing.T) {
-		testData.ethKeyStore.Delete(testData.sendingKey.ID())
+		_, err := testData.ethKeyStore.Delete(testData.sendingKey.ID())
+		require.NoError(t, err)
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			WaitBlocks: defaultWaitBlocks,
 		}}
-		_, err := delegate.ServicesForSpec(spec)
+		_, err = delegate.ServicesForSpec(spec)
 		assert.Error(t, err)
 	})
 }
