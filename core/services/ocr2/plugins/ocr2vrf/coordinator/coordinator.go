@@ -370,14 +370,14 @@ func (c *coordinator) ReportBlocks(
 		}
 	}
 
-	c.lggr.Trace(fmt.Sprintf("got blocks: %+v", blocks))
+	c.lggr.Debug(fmt.Sprintf("got blocks: %+v", blocks))
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
 	c.emitReportBlocksMetrics(len(blocks), len(callbacks))
 
-	c.lggr.Trace(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
+	c.lggr.Debug(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
 	return
 }
