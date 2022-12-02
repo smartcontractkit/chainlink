@@ -200,12 +200,13 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	proofG1X := big.NewInt(1)
 	proofG1Y := big.NewInt(2)
+	evmClient := evm_mocks.NewClient(t)
+	evmClient.On("ChainID").Return(big.NewInt(1))
 	t.Run("happy path, beacon requests", func(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
 
 		latestHeadNumber := int64(200)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -262,7 +263,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
 		latestHeadNumber := int64(200)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -319,7 +319,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
 		latestHeadNumber := int64(200)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -384,7 +383,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
 		latestHeadNumber := int64(200)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -453,7 +451,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
 		latestHeadNumber := int64(200)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -513,7 +510,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
 		latestHeadNumber := int64(200)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -604,7 +600,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, blocks requested hits batch gas limit", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 		beaconAddress := newAddress(t)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -668,7 +663,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, last callback hits batch gas limit", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 		beaconAddress := newAddress(t)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -730,7 +724,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, sandwiched callbacks hit batch gas limit", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 		beaconAddress := newAddress(t)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -791,7 +784,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, sandwiched callbacks with valid callback in next block hit batch gas limit", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 		beaconAddress := newAddress(t)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -855,7 +847,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("logpoller GetBlocks returns error", func(tt *testing.T) {
 		coordinatorAddress := newAddress(t)
 		beaconAddress := newAddress(t)
-		evmClient := evm_mocks.NewClient(t)
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 		require.NoError(t, err)
 
@@ -921,7 +912,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 }
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
-
+	evmClient := evm_mocks.NewClient(t)
+	evmClient.On("ChainID").Return(big.NewInt(1))
 	t.Run("happy path", func(t *testing.T) {
 		lookbackBlocks := int64(0)
 		lp := getLogPoller(t, []uint64{199}, 200, false)
@@ -931,6 +923,7 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			evmClient:                evmClient,
 		}
 		assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
 			RecentBlockHeight: 199,
@@ -947,6 +940,7 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 			toBeTransmittedBlocks:    NewBlockCache[blockInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			toBeTransmittedCallbacks: NewBlockCache[callbackInReport](time.Duration(lookbackBlocks * int64(time.Second))),
 			coordinatorConfig:        newCoordinatorConfig(lookbackBlocks),
+			evmClient:                evmClient,
 		}
 		assert.Error(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
 			RecentBlockHeight: 199,
