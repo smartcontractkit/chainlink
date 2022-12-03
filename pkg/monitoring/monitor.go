@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -120,6 +121,10 @@ func NewMonitor(
 	httpServer := NewHTTPServer(rootCtx, cfg.HTTP.Address, logger.With(log, "component", "http-server"))
 	httpServer.Handle("/metrics", metrics.HTTPHandler())
 	httpServer.Handle("/debug", manager.HTTPHandler())
+	// Required for k8s.
+	httpServer.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
 
 	return &Monitor{
 		rootCtx,
