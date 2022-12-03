@@ -13,6 +13,8 @@ interface OCR2DRRegistryInterface {
     address client;
     // customer specified gas limit for the fulfillment callback
     uint32 gasLimit;
+    // the expected gas price used to execute the transaction
+    uint256 gasPrice;
   }
 
   /**
