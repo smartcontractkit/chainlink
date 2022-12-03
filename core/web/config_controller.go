@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -25,24 +26,8 @@ type ConfigController struct {
 //	"<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
 	cfg := cc.App.GetConfig()
-	if cfg2, ok := cfg.(chainlink.ConfigV2); ok {
-		var userOnly bool
-		if s, has := c.GetQuery("userOnly"); has {
-			var err error
-			userOnly, err = strconv.ParseBool(s)
-			if err != nil {
-				jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("invalid bool for userOnly: %v", err))
-				return
-			}
-		}
-		var toml string
-		user, effective := cfg2.ConfigTOML()
-		if userOnly {
-			toml = user
-		} else {
-			toml = effective
-		}
-		jsonAPIResponse(c, ConfigV2Resource{toml}, "config")
+	if _, ok := cfg.(chainlink.ConfigV2); ok {
+		jsonAPIError(c, http.StatusUnprocessableEntity, v2.ErrUnsupported)
 		return
 	}
 	// Legacy config
@@ -50,6 +35,32 @@ func (cc *ConfigController) Show(c *gin.Context) {
 
 	cc.App.GetAuditLogger().Audit(audit.EnvNoncriticalEnvDumped, map[string]interface{}{})
 	jsonAPIResponse(c, cw, "config")
+}
+
+func (cc *ConfigController) Show2(c *gin.Context) {
+	cfg := cc.App.GetConfig()
+	cfg2, ok := cfg.(chainlink.ConfigV2)
+	if !ok {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("unsupported with legacy ENV config"))
+		return
+	}
+	var userOnly bool
+	if s, has := c.GetQuery("userOnly"); has {
+		var err error
+		userOnly, err = strconv.ParseBool(s)
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("invalid bool for userOnly: %v", err))
+			return
+		}
+	}
+	var toml string
+	user, effective := cfg2.ConfigTOML()
+	if userOnly {
+		toml = user
+	} else {
+		toml = effective
+	}
+	jsonAPIResponse(c, ConfigV2Resource{toml}, "config")
 }
 
 type ConfigV2Resource struct {
