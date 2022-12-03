@@ -674,6 +674,8 @@ func (g *generalConfig) KeyFile() string {
 	return g.TLSKeyPath()
 }
 
+func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
+
 func (g *generalConfig) LeaseLockDuration() time.Duration {
 	return g.c.Database.Lock.LeaseDuration.Duration()
 }

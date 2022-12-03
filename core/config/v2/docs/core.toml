@@ -78,13 +78,11 @@ FallbackPollInterval = '30s' # Default
 # - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 # - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
 [Database.Lock]
+# Enabled enables the database lock.
+Enabled = true # Default
 # LeaseDuration is how long the lease lock will last before expiring.
-#
-# This setting applies only if `Mode` is set to enable lease locking.
 LeaseDuration = '10s' # Default
 # LeaseRefreshInterval determines how often to refresh the lease lock. Also controls how often a standby node will check to see if it can grab the lease.
-#
-# This setting applies only if Mode is set to enable lease locking.
 LeaseRefreshInterval = '1s' # Default
 
 [TelemetryIngress]

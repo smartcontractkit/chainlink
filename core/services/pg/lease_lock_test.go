@@ -26,6 +26,8 @@ func newLeaseLock(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig) pg.LeaseL
 
 func Test_LeaseLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "leaselock", func(c *chainlink.Config, s *chainlink.Secrets) {
+		t := true
+		c.Database.Lock.Enabled = &t
 		c.Database.Lock.LeaseDuration = models.MustNewDuration(15 * time.Second)
 		c.Database.Lock.LeaseRefreshInterval = models.MustNewDuration(100 * time.Millisecond)
 	})
