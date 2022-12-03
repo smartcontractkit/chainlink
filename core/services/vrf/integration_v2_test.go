@@ -1390,14 +1390,15 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_consumerproxy_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, v2.KeySpecific{
 			Key:          ptr(key2.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: assets.GWei(10)},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1409,7 +1410,8 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 
 	// Create a subscription and fund with 5 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(
-		t, consumerContract, consumerOwner, consumerContractAddress, assets.Ether(5).ToInt(), uni.rootContract, uni)
+		t, consumerContract, consumerOwner, consumerContractAddress,
+		assets.Ether(5).ToInt(), uni.rootContract, uni)
 
 	// Create gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
@@ -1417,7 +1419,16 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1, key2}}, app, uni.rootContract, uni.rootContractAddress, uni.batchCoordinatorContractAddress, uni, false)
+	jbs := createVRFJobs(
+		t,
+		[][]ethkey.KeyV2{{key1, key2}},
+		app,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		uni,
+		false,
+		gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
