@@ -294,7 +294,11 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			chainID := utils.NewBigI(id)
 			c.EVM[0] = &v2.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: v2.Defaults(chainID, chains...),
-				Nodes: v2.EVMNodes{{Name: ptr("fake"), HTTPURL: models.MustParseURL("http://foo.test")}}}
+				Nodes: v2.EVMNodes{{
+					Name:    ptr("fake"),
+					WSURL:   models.MustParseURL("wss://foo.test/ws"),
+					HTTPURL: models.MustParseURL("http://foo.test"),
+				}}}
 		})
 	}
 

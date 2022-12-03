@@ -29,6 +29,7 @@ MinReconnectInterval = '1m0s'
 FallbackPollInterval = '30s'
 
 [Database.Lock]
+Enabled = true
 LeaseDuration = '10s'
 LeaseRefreshInterval = '1s'
 
