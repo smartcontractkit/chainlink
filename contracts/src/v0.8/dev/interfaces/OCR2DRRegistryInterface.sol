@@ -37,15 +37,17 @@ interface OCR2DRRegistryInterface {
 
   /**
    * @notice Estimate the total cost to make a request: gas re-imbursement, plus DON fee, plus Registry fee
-   * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
-   * @param billing The request's billing configuration
-   * @param donRequiredFee Fee charged by the DON that is paid to Oracle Node
-   * @return billedCost Cost in Juels (1e18) of LINK
+   * @param gasLimit Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param gasPrice The request's billing configuration
+   * @param donFee Fee charged by the DON that is paid to Oracle Node
+   * @param registryFee Fee charged by the DON that is paid to Oracle Node
+   * @return costEstimate Cost in Juels (1e18) of LINK
    */
   function estimateCost(
-    bytes calldata data,
-    OCR2DRRegistryInterface.RequestBilling memory billing,
-    uint96 donRequiredFee
+    uint32 gasLimit,
+    uint256 gasPrice,
+    uint96 donFee,
+    uint96 registryFee
   ) external view returns (uint96);
 
   /**

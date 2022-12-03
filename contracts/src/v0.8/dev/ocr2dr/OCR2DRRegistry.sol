@@ -84,6 +84,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     uint64 subscriptionId;
     address client;
     uint32 gasLimit;
+    uint256 gasPrice;
     address don;
     uint96 donFee;
     uint96 registryFee;
@@ -247,20 +248,20 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
    * @inheritdoc OCR2DRRegistryInterface
    */
   function estimateCost(
-    bytes calldata data,
-    OCR2DRRegistryInterface.RequestBilling memory billing,
-    uint96 donRequiredFee
+    uint32 gasLimit,
+    uint256 gasPrice,
+    uint96 donFee,
+    uint96 registryFee
   ) public view override returns (uint96) {
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + billing.gasLimit;
+    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + gasLimit;
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * billing.gasPrice * executionGas) / uint256(weiPerUnitLink);
-    uint96 registryFee = getRequiredFee(data, billing);
-    uint256 fee = uint256(donRequiredFee) + uint256(registryFee);
+    uint256 paymentNoFee = (1e18 * gasPrice * executionGas) / uint256(weiPerUnitLink);
+    uint256 fee = uint256(donFee) + uint256(registryFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
@@ -296,8 +297,11 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
 
     // Check that subscription can afford the estimated cost
     uint96 oracleFee = OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing);
-    uint256 estimatedCost = estimateCost(data, billing, oracleFee);
-    if (s_subscriptions[billing.subscriptionId].balance < estimatedCost) {
+    uint96 registryFee = getRequiredFee(data, billing);
+    uint256 estimatedCost = estimateCost(billing.gasLimit, billing.gasPrice, oracleFee, registryFee);
+    uint96 effectiveBalance = s_subscriptions[billing.subscriptionId].balance -
+      estimateCostPendingRequests(billing.subscriptionId);
+    if (effectiveBalance < estimatedCost) {
       revert InsufficientBalance();
     }
 
@@ -308,9 +312,10 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       billing.subscriptionId,
       billing.client,
       billing.gasLimit,
+      billing.gasPrice,
       msg.sender,
       oracleFee,
-      getRequiredFee(data, billing)
+      registryFee
     );
     s_requestCommitments[requestId] = commitment;
 
@@ -716,6 +721,37 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       }
     }
     return false;
+  }
+
+  /**
+   * @notice Total the estimated cost of all pending request commitments for all consumers for a given sub.
+   * @param subscriptionId - ID of the subscription
+   * @return costEstimate estimated cost in Juels of LINK that will be charged once all pending requests are completed
+   * @dev Looping is bounded to MAX_CONSUMERS*(number of DONs).
+   * @dev TODO: use pointer to only iterate possibly pending requests
+   */
+
+  function estimateCostPendingRequests(uint64 subscriptionId) public view returns (uint96) {
+    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
+    address[] memory authorizedSendersList = getAuthorizedSenders();
+    uint96 cost;
+    for (uint256 i = 0; i < consumers.length; i++) {
+      for (uint256 j = 0; j < authorizedSendersList.length; j++) {
+        bytes32 requestId = computeRequestId(
+          authorizedSendersList[j],
+          consumers[i],
+          subscriptionId,
+          s_consumers[consumers[i]][subscriptionId]
+        );
+        cost += estimateCost(
+          s_requestCommitments[requestId].gasLimit,
+          s_requestCommitments[requestId].gasPrice,
+          s_requestCommitments[requestId].donFee,
+          s_requestCommitments[requestId].registryFee
+        );
+      }
+    }
+    return cost;
   }
 
   modifier onlySubOwner(uint64 subscriptionId) {
