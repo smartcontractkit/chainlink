@@ -253,6 +253,7 @@ func TestConfig_Marshal(t *testing.T) {
 			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
 		Lock: config.DatabaseLock{
+			Enabled:              ptr(false),
 			LeaseDuration:        &minute,
 			LeaseRefreshInterval: &second,
 		},
@@ -647,6 +648,7 @@ MinReconnectInterval = '5m0s'
 FallbackPollInterval = '2m0s'
 
 [Database.Lock]
+Enabled = false
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
