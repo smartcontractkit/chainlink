@@ -24,7 +24,8 @@ jobs:
   tests:
     needs: [changes]
     name: Tests
-    runs-on: ubuntu-latest
+    # See https://github.com/foundry-rs/foundry/issues/3827
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Collect Metrics
