@@ -592,6 +592,7 @@ describe('OCR2DRRegistry', () => {
           requester: consumerAddress,
           client: consumerAddress,
           subscriptionId: subId,
+          gasPrice: 20_000,
           gasLimit: 20_000,
           confirmations: 50,
         }),
@@ -602,7 +603,7 @@ describe('OCR2DRRegistry', () => {
       await expect(
         oracle
           .connect(stranger)
-          .sendRequest(subId, stringToBytes('some data'), 0),
+          .sendRequest(subId, stringToBytes('some data'), 0, 0),
       ).to.be.revertedWith(
         `reverted with custom error 'InvalidConsumer(${subId}, "${strangerAddress}")`,
       )
