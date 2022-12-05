@@ -36,6 +36,9 @@ func (s *SendError) CauseStr() string {
 
 const (
 	NonceTooLow = iota
+	// Nethermind specific error. Nethermind throws a NonceGap error when the tx nonce is greater than current_nonce + tx_count_in_mempool, instead of keeping the tx in mempool.
+	// See: https://github.com/NethermindEth/nethermind/blob/master/src/Nethermind/Nethermind.TxPool/Filters/GapNonceFilter.cs
+	NonceTooHigh
 	ReplacementTransactionUnderpriced
 	LimitReached
 	TransactionAlreadyInMempool
@@ -167,10 +170,11 @@ var klaytn = ClientErrors{
 // Nethermind
 // All errors: https://github.com/NethermindEth/nethermind/blob/master/src/Nethermind/Nethermind.TxPool/AcceptTxResult.cs
 // All filters: https://github.com/NethermindEth/nethermind/tree/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters
-var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid(, transaction Hash is null)?|Int256Overflow|FailedToResolveSender|GasLimitExceeded(, Gas limit: \d+, gas limit of rejected tx: \d+)?|NonceGap(, Future nonce. Expected nonce: \d+)?)$`)
+var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid(, transaction Hash is null)?|Int256Overflow|FailedToResolveSender|GasLimitExceeded(, Gas limit: \d+, gas limit of rejected tx: \d+)?)$`)
 var nethermind = ClientErrors{
 	// OldNonce: The EOA (externally owned account) that signed this transaction (sender) has already signed and executed a transaction with the same nonce.
-	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce(, Current nonce: \d+, nonce of rejected tx: \d+)?$`),
+	NonceTooLow:  regexp.MustCompile(`(: |^)OldNonce(, Current nonce: \d+, nonce of rejected tx: \d+)?$`),
+	NonceTooHigh: regexp.MustCompile(`(: |^)NonceGap(, Future nonce. Expected nonce: \d+)?$`),
 
 	// FeeTooLow/FeeTooLowToCompete: Fee paid by this transaction is not enough to be accepted in the mempool.
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)(FeeTooLow(, MaxFeePerGas too low. MaxFeePerGas: \d+, BaseFee: \d+, MaxPriorityFeePerGas:\d+, Block number: \d+|` +
@@ -222,6 +226,10 @@ func (s *SendError) IsReplacementUnderpriced() bool {
 
 func (s *SendError) IsNonceTooLowError() bool {
 	return s.is(NonceTooLow)
+}
+
+func (s *SendError) IsNonceTooHighError() bool {
+	return s.is(NonceTooHigh)
 }
 
 // IsTransactionAlreadyMined - Harmony returns this error if the transaction has already been mined

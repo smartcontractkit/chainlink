@@ -53,6 +53,21 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 	})
 
+	t.Run("IsNonceTooHigh", func(t *testing.T) {
+
+		tests := []errorCase{
+			{"call failed: NonceGap", true, "Nethermind"},
+			{"call failed: NonceGap, Future nonce. Expected nonce: 10", true, "Nethermind"},
+		}
+
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
+		}
+	})
+
 	t.Run("IsTransactionAlreadyMined", func(t *testing.T) {
 		assert.False(t, randomError.IsTransactionAlreadyMined())
 
@@ -316,8 +331,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"call failed: FailedToResolveSender", true, "Nethermind"},
 		{"call failed: GasLimitExceeded", true, "Nethermind"},
 		{"call failed: GasLimitExceeded, Gas limit: 100, gas limit of rejected tx: 150", true, "Nethermind"},
-		{"call failed: NonceGap", true, "Nethermind"},
-		{"call failed: NonceGap, Future nonce. Expected nonce: 10", true, "Nethermind"},
 
 		{"invalid shard", true, "Harmony"},
 		{"`to` address of transaction in blacklist", true, "Harmony"},
