@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type reportCodec struct {
+type ReportCodec struct {
 	reportTypes abi.Arguments
 }
 
@@ -27,12 +27,12 @@ func getReportTypes() (abi.Arguments, error) {
 	}), nil
 }
 
-func NewReportCodec() (*reportCodec, error) {
+func NewReportCodec() (*ReportCodec, error) {
 	reportTypes, err := getReportTypes()
 	if err != nil {
 		return nil, err
 	}
-	return &reportCodec{
+	return &ReportCodec{
 		reportTypes: reportTypes,
 	}, nil
 }
@@ -43,7 +43,7 @@ func sliceToByte32(slice []byte) [32]byte {
 	return res
 }
 
-func (c *reportCodec) EncodeReport(requests []*ProcessedRequest) ([]byte, error) {
+func (c *ReportCodec) EncodeReport(requests []*ProcessedRequest) ([]byte, error) {
 	size := len(requests)
 	if size == 0 {
 		return []byte{}, nil
@@ -59,7 +59,7 @@ func (c *reportCodec) EncodeReport(requests []*ProcessedRequest) ([]byte, error)
 	return c.reportTypes.Pack(ids, results, errors)
 }
 
-func (c *reportCodec) DecodeReport(raw []byte) ([]*ProcessedRequest, error) {
+func (c *ReportCodec) DecodeReport(raw []byte) ([]*ProcessedRequest, error) {
 	reportElems := map[string]interface{}{}
 	if err := c.reportTypes.UnpackIntoMap(reportElems, raw); err != nil {
 		return nil, errors.WithMessage(err, "unable to unpack elements from raw report")
