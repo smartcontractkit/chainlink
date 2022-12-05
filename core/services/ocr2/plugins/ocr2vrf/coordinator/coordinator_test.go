@@ -25,6 +25,7 @@ import (
 	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -1158,7 +1159,7 @@ func TestCoordinator_KeyID(t *testing.T) {
 
 func TestTopics_DKGConfigSet_VRFConfigSet(t *testing.T) {
 	dkgConfigSetTopic := dkg_wrapper.DKGConfigSet{}.Topic()
-	vrfConfigSetTopic := vrf_wrapper.VRFBeaconCoordinatorConfigSet{}.Topic()
+	vrfConfigSetTopic := vrf_beacon.VRFBeaconConfigSet{}.Topic()
 	assert.Equal(t, dkgConfigSetTopic, vrfConfigSetTopic, "config set topics of vrf and dkg must be equal")
 }
 
