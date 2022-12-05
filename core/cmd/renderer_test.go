@@ -62,7 +62,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	t.Run("effective", func(t *testing.T) {
-		resp, cleanup := client.Get("/v2/config")
+		resp, cleanup := client.Get("/v2/config/v2")
 		t.Cleanup(cleanup)
 		var effective web.ConfigV2Resource
 		require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &effective))
@@ -71,7 +71,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	})
 
 	t.Run("user", func(t *testing.T) {
-		resp, cleanup := client.Get("/v2/config?userOnly=true")
+		resp, cleanup := client.Get("/v2/config/v2?userOnly=true")
 		t.Cleanup(cleanup)
 		var user web.ConfigV2Resource
 		require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &user))
