@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -444,7 +445,9 @@ func (cli *Client) configDumpStr() (string, error) {
 	if err != nil {
 		return "", cli.errorOut(err)
 	}
-
+	if resp.StatusCode != 200 {
+		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
+	}
 	var configV2Resource web.ConfigV2Resource
 	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
 	if err != nil {
@@ -498,12 +501,17 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 }
 
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	if _, ok := cli.Config.(chainlink.ConfigV2); !ok {
+		return errors.New("unsupported with legacy ENV config")
+	}
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
 	err := cli.Config.Validate()
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
+		return nil
 	}
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	fmt.Println("Valid configuration.")
 	return nil
 }
 
