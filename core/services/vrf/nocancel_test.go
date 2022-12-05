@@ -12,6 +12,7 @@ import (
 )
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_NoCancel(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerHappyPathBatchFulfillment(
@@ -37,6 +38,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_NoCancel(t *
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_NoCancel(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerHappyPath(
@@ -59,6 +61,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_NoCancel(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback_NoCancel(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerHappyPathBatchFulfillment(
@@ -84,6 +87,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore_NoCancel(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerNeedsBHS(
@@ -107,6 +111,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore_NoCancel(t *testing
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp_NoCancel(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerNeedsTopUp(
