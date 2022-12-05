@@ -210,7 +210,7 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/transfers/solana", false, false, false},
 	{"GET", "/v2/config", true, true, true},
 	{"PATCH", "/v2/config", false, false, false},
-	{"GET", "/v2/config/v2", false, false, false},
+	{"GET", "/v2/config/v2", true, true, true},
 	{"GET", "/v2/tx_attempts", true, true, true},
 	{"GET", "/v2/tx_attempts/evm", true, true, true},
 	{"GET", "/v2/transactions/evm", true, true, true},
