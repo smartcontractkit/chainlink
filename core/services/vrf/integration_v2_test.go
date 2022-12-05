@@ -1781,7 +1781,7 @@ func TestRequestCost(t *testing.T) {
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		carolContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+		"requestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
