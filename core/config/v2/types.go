@@ -222,10 +222,10 @@ type Database struct {
 }
 
 func (d *Database) LockingMode() string {
-	if d.Lock.Mode == "" {
+	if *d.Lock.Enabled {
 		return "lease"
 	}
-	return d.Lock.Mode
+	return "none"
 }
 
 func (d *Database) setFrom(f *Database) {
@@ -275,7 +275,7 @@ func (d *DatabaseListener) setFrom(f *DatabaseListener) {
 }
 
 type DatabaseLock struct {
-	Mode                 string `toml:"-"`
+	Enabled              *bool
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
 }
@@ -289,6 +289,9 @@ func (l *DatabaseLock) ValidateConfig() (err error) {
 }
 
 func (l *DatabaseLock) setFrom(f *DatabaseLock) {
+	if v := f.Enabled; v != nil {
+		l.Enabled = v
+	}
 	if v := f.LeaseDuration; v != nil {
 		l.LeaseDuration = v
 	}
