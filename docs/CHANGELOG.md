@@ -51,6 +51,15 @@ Secrets must be configured manually and passed via `-secrets <filename>` or equi
 
 [CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
 
+#### Bridge caching
+##### BridgeCacheTTL
+
+- Default: 0s
+
+When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
+
+Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
+
 ### Fixed
 
 - Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
@@ -62,15 +71,6 @@ Secrets must be configured manually and passed via `-secrets <filename>` or equi
 ## 1.10.0 - 2022-11-15
 
 ### Added
-
-#### Bridge caching
-##### BridgeCacheTTL
-
-- Default: 0s
-
-When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
-
-Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
 
 #### New optional external logger added
 ##### AUDIT_LOGGER_FORWARD_TO_URL
