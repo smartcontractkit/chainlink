@@ -63,7 +63,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ba50ba531993cf33ac8a709759fcd7891a8053cd # v2.0.29
         with:
           test_command_to_run: make test_perf args="--procs=10 --focus=${{ github.event.inputs.focus }}"
           test_download_vendor_packages_command: make gomod
