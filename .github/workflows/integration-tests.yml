@@ -275,5 +275,4 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
-
   ### End Solana Section
