@@ -59,6 +59,10 @@ Secrets must be configured manually and passed via `-secrets <filename>` or equi
 
 - `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`. 
 
+## 1.10.0 - 2022-11-15
+
+### Added
+
 #### Bridge caching
 ##### BridgeCacheTTL
 
@@ -106,11 +110,6 @@ When the audit log HTTP forwarder is enabled, if there is a value set for this o
   }
 }
 ```
-
-
-## 1.10.0 - 2022-11-15
-
-### Added
 
 #### Automatic connectivity detection; Chainlink will no longer bump excessively if the network is broken
 
