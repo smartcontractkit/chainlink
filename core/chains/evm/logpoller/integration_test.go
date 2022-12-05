@@ -8,8 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -147,5 +151,124 @@ func TestLogPoller_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	assert.True(t, errors.Is(th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient))
+
 	require.NoError(t, th.LogPoller.Close())
+}
+
+// Simulate a badly behaving rpc server, where unfinalized blocks can return different logs
+// for the same block hash.  We should be able to handle this without missing any logs, as
+// long as the logs returned for finalized blocks are consistent.
+func Test_EventualConsistency(t *testing.T) {
+	th := logpoller.SetupTH(t, 2, 3, 2)
+	// later, we will need at least 32 blocks filled with logs for cache invalidation
+	for i := int64(0); i < 32; i++ {
+		// to invalidate geth's internal read-cache, a matching log must be found in the bloom filter
+		// for each of the 32 blocks
+		tx, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(i + 7)})
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		th.Client.Commit()
+	}
+
+	ctx := testutils.Context(t)
+
+	filterID1, err := th.LogPoller.RegisterFilter(
+		logpoller.Filter{[]common.Hash{
+			EmitterABI.Events["Log1"].ID,
+			EmitterABI.Events["Log2"].ID},
+			[]common.Address{th.EmitterAddress1}})
+	require.NoError(t, err)
+	filterID2, err := th.LogPoller.RegisterFilter(
+		logpoller.Filter{[]common.Hash{
+			EmitterABI.Events["Log1"].ID},
+			[]common.Address{th.EmitterAddress2}})
+	require.NoError(t, err)
+
+	defer th.LogPoller.UnregisterFilter(filterID1)
+	defer th.LogPoller.UnregisterFilter(filterID2)
+
+	// generate some tx's with logs
+	tx1, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+
+	tx2, err := th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(2)})
+	require.NoError(t, err)
+	require.NotNil(t, tx2)
+
+	tx3, err := th.Emitter2.EmitLog1(th.Owner, []*big.Int{big.NewInt(3)})
+	require.NoError(t, err)
+	require.NotNil(t, tx3)
+
+	th.Client.Commit() // commit block 34 with 3 tx's included
+
+	h := th.Client.Blockchain().CurrentHeader() // get latest header
+	require.Equal(t, uint64(34), h.Number.Uint64())
+
+	// save these 3 receipts for later
+	receipts := rawdb.ReadReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), params.AllEthashProtocolChanges)
+	require.NotZero(t, receipts.Len())
+
+	// Simulate a situation where the rpc server has a block, but no logs available for it yet
+	//  this can't happen with geth itself, but can with other clients.
+	rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), types.Receipts{}) // wipes out all logs for block 34
+
+	body := rawdb.ReadBody(th.EthDB, h.Hash(), h.Number.Uint64())
+	require.Equal(t, 3, len(body.Transactions))
+	txs := body.Transactions                 // save transactions for later
+	body.Transactions = types.Transactions{} // number of tx's must match # of logs for GetLogs() to succeed
+	rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
+
+	currentBlock := th.LogPoller.PollAndSaveLogs(ctx, 1)
+	assert.Equal(t, int64(35), currentBlock)
+
+	// simluate logs becoming available
+	rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
+	require.True(t, rawdb.HasReceipts(th.EthDB, h.Hash(), h.Number.Uint64()))
+	body.Transactions = txs
+	rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
+
+	// flush out cached block 34 by reading logs from first 32 blocks
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(int64(2)),
+		ToBlock:   big.NewInt(int64(33)),
+		Addresses: []common.Address{th.EmitterAddress1},
+		Topics:    [][]common.Hash{{EmitterABI.Events["Log1"].ID}},
+	}
+	fLogs, err := th.Client.FilterLogs(ctx, query)
+	require.NoError(t, err)
+	require.Equal(t, 32, len(fLogs))
+
+	// logs shouldn't show up yet, because block 34 hasn't been finalized yet.
+	logs, err := th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(logs))
+
+	th.Client.Commit()
+	th.Client.Commit() // after adding blocks 35 & 36, block 34 should become the last finalized block
+
+	currentBlock = th.LogPoller.PollAndSaveLogs(ctx, currentBlock)
+	assert.Equal(t, int64(37), currentBlock)
+
+	// logs still shouldn't show up, because we don't want to backfill the last finalized log
+	//  to help with reorg detection
+	logs, err = th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(logs))
+
+	th.Client.Commit() // after adding block 37, logs for block 34 should get re-requested
+
+	currentBlock = th.LogPoller.PollAndSaveLogs(ctx, currentBlock)
+	assert.Equal(t, int64(38), currentBlock)
+
+	// all 3 logs in block 34 should show up now, thanks to backup logger
+	logs, err = th.LogPoller.Logs(30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 5, len(logs))
+	logs, err = th.LogPoller.Logs(34, 34, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(logs))
+	logs, err = th.LogPoller.Logs(32, 36, EmitterABI.Events["Log1"].ID, th.EmitterAddress2)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(logs))
 }

@@ -293,6 +293,7 @@ func (lp *logPoller) run() {
 	defer close(lp.done)
 	logPollPendingTick := time.After(0)
 	logPollFinalizedTick := time.After(utils.WithJitter(lp.pollPeriod))
+
 	blockPruneTick := time.After(0)
 	var firstUnfinalizedBlockNumber *int64
 
