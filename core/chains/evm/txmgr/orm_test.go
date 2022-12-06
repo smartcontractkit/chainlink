@@ -202,18 +202,21 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
+	cltest.MustInsertUnconfirmedEthTx(t, orm, 3, from)                           // tx4
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, orm, 4, from) // tx5
+
 	var count int
 	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
 	require.NoError(t, err)
-	require.Equal(t, 3, count)
+	require.Equal(t, 5, count)
 
 	err = db.Get(&count, `SELECT count(*) FROM eth_tx_attempts`)
 	require.NoError(t, err)
-	require.Equal(t, 3, count)
+	require.Equal(t, 4, count)
 
 	confirmedAttempts, err := orm.FindEthTxAttemptConfirmedByEthTxIDs([]int64{tx1.ID, tx2.ID}) // should omit tx3
 	require.NoError(t, err)
-	assert.Equal(t, 3, count, "only eth txs with attempts are counted")
+	assert.Equal(t, 4, count, "only eth txs with attempts are counted")
 	require.Len(t, confirmedAttempts, 1)
 	assert.Equal(t, confirmedAttempts[0].ID, attempt.ID)
 	require.Len(t, confirmedAttempts[0].EthReceipts, 1, "should have only one EthRecipts for a confirmed transaction")
