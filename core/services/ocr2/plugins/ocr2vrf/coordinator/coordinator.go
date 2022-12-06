@@ -209,7 +209,12 @@ func New(
 
 // ReportIsOnchain returns true iff a report for the given OCR epoch/round is
 // present onchain.
-func (c *coordinator) ReportIsOnchain(ctx context.Context, epoch uint32, round uint8) (presentOnchain bool, err error) {
+func (c *coordinator) ReportIsOnchain(
+	ctx context.Context,
+	epoch uint32,
+	round uint8,
+	configDigest [32]byte,
+) (presentOnchain bool, err error) {
 	now := time.Now().UTC()
 	defer c.logAndEmitFunctionDuration("ReportIsOnchain", now)
 
@@ -238,9 +243,28 @@ func (c *coordinator) ReportIsOnchain(ctx context.Context, epoch uint32, round u
 		return false, errors.Wrap(err, "log poller IndexedLogs")
 	}
 
-	c.lggr.Info(fmt.Sprintf("NewTransmission logs: %+v", logs))
+	// Filter for valid logs that match the current config digest.
+	var logsWithCorrectConfigDigest []logpoller.Log
+	for i := 0; i < len(logs); i++ {
+		rawLog := toGethLog(logs[i])
+		unpacked, err := c.onchainRouter.ParseLog(rawLog)
+		if err != nil {
+			c.lggr.Warnw("Incorrect log found in NewTransmissions", "log", logs[i], "err", err)
+			continue
+		}
+		nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
+		if !ok {
+			c.lggr.Warnw("Type error for log in NewTransmissisons", "log", logs[i], "err", err)
+			continue
+		}
+		if nt.ConfigDigest == configDigest {
+			logsWithCorrectConfigDigest = append(logsWithCorrectConfigDigest, logs[i])
+		}
+	}
 
-	return len(logs) >= 1, nil
+	c.lggr.Info(fmt.Sprintf("NewTransmission logs: %+v", logsWithCorrectConfigDigest))
+
+	return len(logsWithCorrectConfigDigest) >= 1, nil
 }
 
 // ReportBlocks returns the heights and hashes of the blocks which require VRF
