@@ -1038,6 +1038,7 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 		lggr := logger.TestLogger(t)
 
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		assert.NoError(t, err)
 
 		epoch := uint32(20)
 		round := uint8(3)
@@ -1072,6 +1073,7 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 		lggr := logger.TestLogger(t)
 
 		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		assert.NoError(t, err)
 
 		epoch := uint32(20)
 		round := uint8(3)
