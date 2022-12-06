@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"testing"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/rs/zerolog/log"
@@ -238,7 +239,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 }
 
 // SendSlackNotification sends a slack notification on the results of the test
-func (k *KeeperBenchmarkTestReporter) SendSlackNotification(slackClient *slack.Client) error {
+func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
 	if slackClient == nil {
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
@@ -248,7 +249,9 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(slackClient *slack.C
 	if testFailed {
 		headerText = ":x: Automation Benchmark Test FAILED :x:"
 	}
-	messageBlocks := testreporters.CommonSlackNotificationBlocks(slackClient, headerText, k.namespace, k.keeperReportFile, testreporters.SlackUserID, testFailed)
+	messageBlocks := testreporters.CommonSlackNotificationBlocks(
+		t, slackClient, headerText, k.namespace, k.keeperReportFile, testreporters.SlackUserID, testFailed,
+	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
 		return err

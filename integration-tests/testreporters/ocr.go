@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -52,7 +53,7 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 }
 
 // SendNotification sends a slack message to a slack webhook and uploads test artifacts
-func (o *OCRSoakTestReporter) SendSlackNotification(slackClient *slack.Client) error {
+func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
 	if slackClient == nil {
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
@@ -66,7 +67,9 @@ func (o *OCRSoakTestReporter) SendSlackNotification(slackClient *slack.Client) e
 	} else if o.AnomaliesDetected {
 		headerText = ":warning: OCR Soak Test Found Anomalies :warning:"
 	}
-	messageBlocks := testreporters.CommonSlackNotificationBlocks(slackClient, headerText, o.namespace, o.csvLocation, testreporters.SlackUserID, testFailed)
+	messageBlocks := testreporters.CommonSlackNotificationBlocks(
+		t, slackClient, headerText, o.namespace, o.csvLocation, testreporters.SlackUserID, testFailed,
+	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
 		return err

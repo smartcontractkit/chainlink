@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -38,10 +39,6 @@ func TestOCRSoak(t *testing.T) {
 		"soak-ocr-%s",
 		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
 	)
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil))
-
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	baseTOML := `[OCR]
 Enabled = true
@@ -51,31 +48,15 @@ Enabled = true
 Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
+	testEnvironment := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml":     client.AddNetworksConfig(baseTOML, activeEVMNetwork),
+			"replicas": 6,
+		}))
 
-	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
-	dynamicValues := []map[string]interface{}{
-		{
-			"dynamic_value": "0",
-		},
-		{
-			"dynamic_value": "1",
-		},
-		{
-			"dynamic_value": "2",
-		},
-		{
-			"dynamic_value": "3",
-		},
-		{
-			"dynamic_value": "4",
-		},
-		{
-			"dynamic_value": "5",
-		},
-	}
-	addSeparateChainlinkDeployments(testEnvironment, client.AddNetworksConfig(baseTOML, activeEVMNetwork), dynamicValues)
-
-	soakTestHelper(t, "@soak-ocr", testEnvironment, activeEVMNetwork)
+	soakTestHelper(t, testEnvironment, activeEVMNetwork)
 }
 
 // Run the OCR soak test defined in ./tests/ocr_test.go
@@ -86,9 +67,6 @@ func TestForwarderOCRSoak(t *testing.T) {
 		"soak-forwarder-ocr-%s",
 		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
 	)
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil))
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	baseTOML := `[OCR]
@@ -101,30 +79,16 @@ ListenIP = '0.0.0.0'
 ListenPort = 6690`
 	networkDetailTOML := `[EVM.Transactions]
 ForwardersEnabled = true`
+	testEnvironment := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml":     client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
+			"replicas": 6,
+		}))
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
-	dynamicValues := []map[string]interface{}{
-		{
-			"dynamic_value": "0",
-		},
-		{
-			"dynamic_value": "1",
-		},
-		{
-			"dynamic_value": "2",
-		},
-		{
-			"dynamic_value": "3",
-		},
-		{
-			"dynamic_value": "4",
-		},
-		{
-			"dynamic_value": "5",
-		},
-	}
-	addSeparateChainlinkDeployments(testEnvironment, client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork), dynamicValues)
 
-	soakTestHelper(t, "@soak-forwarder-ocr", testEnvironment, activeEVMNetwork)
+	soakTestHelper(t, testEnvironment, activeEVMNetwork)
 }
 
 // Run the keeper soak test defined in ./tests/keeper_test.go
@@ -135,7 +99,6 @@ func TestKeeperSoak(t *testing.T) {
 		"soak-keeper-%s",
 		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
 	)
-	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	baseTOML := `[Keeper]
@@ -144,60 +107,31 @@ TurnFlagEnabled = true
 [Keeper.Registry]
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
-	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
-	dynamicValues := []map[string]interface{}{
-		{
-			"dynamic_value": "0",
-		},
-		{
-			"dynamic_value": "1",
-		},
-		{
-			"dynamic_value": "2",
-		},
-		{
-			"dynamic_value": "3",
-		},
-		{
-			"dynamic_value": "4",
-		},
-		{
-			"dynamic_value": "5",
-		},
-	}
-	addSeparateChainlinkDeployments(testEnvironment, client.AddNetworksConfig(baseTOML, activeEVMNetwork), dynamicValues)
+	testEnvironment := environment.New(baseEnvironmentConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml":     client.AddNetworksConfig(baseTOML, activeEVMNetwork),
+			"replicas": 6,
+		}))
 
-	soakTestHelper(t, "@soak-keeper", testEnvironment, activeEVMNetwork)
-}
-
-// adds distinct Chainlink deployments to the test environment, using staticVals on all of them, while distributing
-// a single dynamicVal to each Chainlink deployment
-func addSeparateChainlinkDeployments(
-	testEnvironment *environment.Environment,
-	toml string,
-	dynamicValueList []map[string]interface{},
-) {
-	for index, dynamicValues := range dynamicValueList {
-		envVals := map[string]interface{}{}
-		for key, value := range dynamicValues {
-			envVals[key] = value
-		}
-		envVals["cl_config"] = toml
-		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{"env": envVals}))
-	}
+	soakTestHelper(t, testEnvironment, activeEVMNetwork)
 }
 
 // builds tests, launches environment, and triggers the soak test to run
 func soakTestHelper(
 	t *testing.T,
-	testTag string,
 	testEnvironment *environment.Environment,
 	activeEVMNetwork *blockchain.EVMNetwork,
 ) {
+	testDirectory := "./integration-tests/soak/tests"
+	log.Info().
+		Str("Name", t.Name()).
+		Str("Directory", testDirectory).
+		Str("Namespace", testEnvironment.Cfg.Namespace).
+		Msg("Soak Test")
 	remoteRunnerValues := actions.BasicRunnerValuesSetup(
-		testTag,
+		t.Name(),
 		testEnvironment.Cfg.Namespace,
-		"./integration-tests/soak/tests",
+		testDirectory,
 	)
 	// Set evm network connection for remote runner
 	for key, value := range activeEVMNetwork.ToMap() {

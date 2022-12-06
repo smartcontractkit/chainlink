@@ -41,7 +41,6 @@ endif
 # install the plugins if needed and then install the dependencies
 	asdf plugin-add nodejs || true
 	asdf plugin-add golang || true
-	asdf plugin-add ginkgo || true
 	asdf plugin-add k3d || true
 	asdf plugin-add helm || true
 	asdf install

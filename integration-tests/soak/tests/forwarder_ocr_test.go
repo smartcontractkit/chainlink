@@ -1,15 +1,16 @@
 package soak
 
-//revive:disable:dot-imports
 import (
 	"math/big"
+	"os"
+	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -20,65 +21,52 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
-var _ = Describe("OCR Forwarder flow Soak Test - each node got one pair of operator forwarder @soak-forwarder-ocr", func() {
-	var (
-		err             error
-		testEnvironment *environment.Environment
-		ocrSoakTest     *testsetups.OCRSoakTest
-		soakNetwork     *blockchain.EVMNetwork
-	)
+func TestMain(m *testing.M) {
+	logging.Init()
+	os.Exit(m.Run())
+}
 
-	BeforeEach(func() {
-		By("Connecting to the soak environment", func() {
-			soakNetwork = blockchain.LoadNetworkFromEnvironment()
-			testEnvironment = environment.New(&environment.Config{InsideK8s: true})
-			err = testEnvironment.
-				AddHelm(mockservercfg.New(nil)).
-				AddHelm(mockserver.New(nil)).
-				AddHelm(ethereum.New(&ethereum.Props{
-					NetworkName: soakNetwork.Name,
-					Simulated:   soakNetwork.Simulated,
-					WsURLs:      soakNetwork.URLs,
-				})).
-				AddHelm(chainlink.New(0, nil)).
-				AddHelm(chainlink.New(1, nil)).
-				AddHelm(chainlink.New(2, nil)).
-				AddHelm(chainlink.New(3, nil)).
-				AddHelm(chainlink.New(4, nil)).
-				AddHelm(chainlink.New(5, nil)).
-				Run()
-			Expect(err).ShouldNot(HaveOccurred())
-			log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Soak Environment")
-		})
+func TestForwarderOCRSoak(t *testing.T) {
+	soakNetwork := blockchain.LoadNetworkFromEnvironment()
+	testEnvironment := environment.New(&environment.Config{InsideK8s: true})
+	err := testEnvironment.
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(ethereum.New(&ethereum.Props{
+			NetworkName: soakNetwork.Name,
+			Simulated:   soakNetwork.Simulated,
+			WsURLs:      soakNetwork.URLs,
+		})).
+		AddHelm(chainlink.New(0, nil)).
+		AddHelm(chainlink.New(1, nil)).
+		AddHelm(chainlink.New(2, nil)).
+		AddHelm(chainlink.New(3, nil)).
+		AddHelm(chainlink.New(4, nil)).
+		AddHelm(chainlink.New(5, nil)).
+		Run()
+	require.NoError(t, err, "Error deploying test environment")
+	log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Soak Environment")
 
-		By("Setting up Soak Test", func() {
-			chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			ocrSoakTest = testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
-				BlockchainClient:     chainClient,
-				TestDuration:         time.Minute * 15,
-				NumberOfContracts:    2,
-				ChainlinkNodeFunding: big.NewFloat(.1),
-				ExpectedRoundTime:    time.Minute * 2,
-				RoundTimeout:         time.Minute * 15,
-				TimeBetweenRounds:    time.Minute * 1,
-				StartingAdapterValue: 5,
-			})
-			ocrSoakTest.OperatorForwarderFlow = true
-			ocrSoakTest.Setup(testEnvironment)
-		})
+	chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
+	require.NoError(t, err, "Error connecting to blockchain")
+	ocrSoakTest := testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
+		BlockchainClient:     chainClient,
+		TestDuration:         time.Minute * 15,
+		NumberOfContracts:    2,
+		ChainlinkNodeFunding: big.NewFloat(.1),
+		ExpectedRoundTime:    time.Minute * 2,
+		RoundTimeout:         time.Minute * 15,
+		TimeBetweenRounds:    time.Minute * 1,
+		StartingAdapterValue: 5,
 	})
-
-	Describe("With soak test contracts deployed", func() {
-		It("runs the soak test until error or timeout", func() {
-			ocrSoakTest.Run()
-		})
-	})
-
-	AfterEach(func() {
-		if err = actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals()); err != nil {
+	t.Cleanup(func() {
+		if err = actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
 			log.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
-		log.Info().Msg("Soak Test Concluded")
-	})
-})
+	},
+	)
+	ocrSoakTest.OperatorForwarderFlow = true
+	ocrSoakTest.Setup(t, testEnvironment)
+	log.Info().Msg("Setup soak test")
+	ocrSoakTest.Run(t)
+}

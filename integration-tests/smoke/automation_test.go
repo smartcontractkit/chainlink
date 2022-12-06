@@ -39,6 +39,15 @@ const (
 	defaultAmountOfUpkeeps            = 2
 )
 
+// 2022/12/05 01:12:37 Error running app: failed to parse file: /etc/node-secrets-volume/overrides.toml: failed to decode config TOML:  5| Enabled = true
+//  6|
+//  7| [Keeper]
+//  8| TurnFlagEnabled = true
+//   | ~~~~~~~~~~~~~~~ missing field
+//  9| TurnLookBack = 0
+// 10|
+// 11| [Keeper.Registry]
+
 var (
 	automationBaseTOML = `[Feature]
 LogPoller = true
@@ -47,7 +56,6 @@ LogPoller = true
 Enabled = true
 
 [Keeper]
-TurnFlagEnabled = true
 TurnLookBack = 0
 
 [Keeper.Registry]
@@ -103,85 +111,8 @@ func CleanupSmokeTest(
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
-}
-
-func setupAutomationTest(
-	t *testing.T,
-	testName string,
-	registryVersion ethereum.KeeperRegistryVersion,
-	registryConfig contracts.KeeperRegistrySettings,
-) (
-	blockchain.EVMClient,
-	[]*client.Chainlink,
-	contracts.ContractDeployer,
-	contracts.LinkToken,
-	contracts.KeeperRegistry,
-	contracts.KeeperRegistrar,
-) {
-	network := networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !network.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
-	}
-
-	testEnvironment := environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-automation-%s-%s", testName, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "5",
-			"toml":     client.AddNetworksConfig(automationBaseTOML, network),
-		}))
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error setting up test environment")
-
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
-	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err, "Error building contract deployer")
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Error connecting to Chainlink nodes")
-	chainClient.ParallelTransactions(true)
-
-	// Register cleanup for any test
-	t.Cleanup(func() {
-		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
-	})
-
-	txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
-	require.NoError(t, err, "Error funding Chainlink nodes")
-
-	linkToken, err := contractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Error deploying LINK token")
-
-	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
-		t,
-		registryVersion,
-		registryConfig,
-		defaultAmountOfUpkeeps,
-		linkToken,
-		contractDeployer,
-		chainClient,
-	)
-
-	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
-	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
-	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
-	require.NoError(t, err, "Registry config should be be set successfully")
-	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
-
-	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar
 }
 
 func TestAutomatedBasic(t *testing.T) {
@@ -788,4 +719,81 @@ func TestUpdateCheckData(t *testing.T) {
 			log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 		}
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
+}
+
+func setupAutomationTest(
+	t *testing.T,
+	testName string,
+	registryVersion ethereum.KeeperRegistryVersion,
+	registryConfig contracts.KeeperRegistrySettings,
+) (
+	blockchain.EVMClient,
+	[]*client.Chainlink,
+	contracts.ContractDeployer,
+	contracts.LinkToken,
+	contracts.KeeperRegistry,
+	contracts.KeeperRegistrar,
+) {
+	network := networks.SelectedNetwork
+	evmConfig := eth.New(nil)
+	if !network.Simulated {
+		evmConfig = eth.New(&eth.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+
+	testEnvironment := environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-automation-%s-%s", testName, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"replicas": "5",
+			"toml":     client.AddNetworksConfig(automationBaseTOML, network),
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error setting up test environment")
+
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	require.NoError(t, err, "Error connecting to blockchain")
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	require.NoError(t, err, "Error building contract deployer")
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
+	chainClient.ParallelTransactions(true)
+
+	// Register cleanup for any test
+	t.Cleanup(func() {
+		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
+	})
+
+	txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
+	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
+	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+	require.NoError(t, err, "Error funding Chainlink nodes")
+
+	linkToken, err := contractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Error deploying LINK token")
+
+	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
+		t,
+		registryVersion,
+		registryConfig,
+		defaultAmountOfUpkeeps,
+		linkToken,
+		contractDeployer,
+		chainClient,
+	)
+
+	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+	nodesWithoutBootstrap := chainlinkNodes[1:]
+	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
+	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
+	require.NoError(t, err, "Registry config should be be set successfully")
+	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
+
+	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar
 }

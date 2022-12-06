@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,7 +34,6 @@ const (
 var (
 	keeperBaseTOML = `[Keeper]
 TurnLookBack = 0
-TurnFlagEnabled = true
 
 [Keeper.Registry]
 SyncInterval = '5s'
@@ -53,7 +53,6 @@ PerformGasOverhead = 150_000`
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
 	}
-
 	lowBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -79,60 +78,6 @@ PerformGasOverhead = 150_000`
 		FallbackLinkPrice:    big.NewInt(2e18),
 	}
 )
-
-func setupKeeperTest(
-	t *testing.T,
-	testName string,
-) (
-	blockchain.EVMClient,
-	[]*client.Chainlink,
-	contracts.ContractDeployer,
-	contracts.LinkToken,
-) {
-	network := networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !network.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
-	}
-
-	testEnvironment := environment.New(
-		&environment.Config{NamespacePrefix: fmt.Sprintf("smoke-keeper-%s", testName)},
-	).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "5",
-			"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
-		}))
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error deploying test environment")
-
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
-	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err, "Deploying contracts shouldn't fail")
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-	chainClient.ParallelTransactions(true)
-
-	// Register cleanup for any test
-	t.Cleanup(func() {
-		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
-	})
-
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.5))
-	require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
-
-	linkToken, err := contractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-
-	return chainClient, chainlinkNodes, contractDeployer, linkToken
-}
 
 func TestKeeperBasicSmoke(t *testing.T) {
 	t.Parallel()
@@ -1044,4 +989,58 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 			log.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 		}
 	}, "3m", "1s").Should(gomega.Succeed())
+}
+
+func setupKeeperTest(
+	t *testing.T,
+	testName string,
+) (
+	blockchain.EVMClient,
+	[]*client.Chainlink,
+	contracts.ContractDeployer,
+	contracts.LinkToken,
+) {
+	network := networks.SelectedNetwork
+	evmConfig := eth.New(nil)
+	if !network.Simulated {
+		evmConfig = eth.New(&eth.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
+	testEnvironment := environment.New(
+		&environment.Config{NamespacePrefix: fmt.Sprintf("smoke-keeper-%s-%s", testName, networkName)},
+	).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"replicas": "5",
+			"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error deploying test environment")
+
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	require.NoError(t, err, "Deploying contracts shouldn't fail")
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	chainClient.ParallelTransactions(true)
+
+	// Register cleanup for any test
+	t.Cleanup(func() {
+		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
+	})
+
+	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.5))
+	require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
+
+	linkToken, err := contractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+
+	return chainClient, chainlinkNodes, contractDeployer, linkToken
 }

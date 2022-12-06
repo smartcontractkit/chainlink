@@ -27,28 +27,6 @@ import (
 
 var linkEthFeedResponse = big.NewInt(1e18)
 
-func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork *blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-	}).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig("", testNetwork),
-		}))
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
-}
-
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	testEnvironment, testNetwork := setupVRFv2Test(t)
@@ -168,4 +146,26 @@ func TestVRFv2Basic(t *testing.T) {
 			g.Expect(w.Uint64()).ShouldNot(gomega.BeNumerically("==", 0), "Expected the VRF job give an answer other than 0")
 		}
 	}, timeout, "1s").Should(gomega.Succeed())
+}
+
+func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork *blockchain.EVMNetwork) {
+	testNetwork = networks.SelectedNetwork
+	evmConfig := eth.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = eth.New(&eth.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
+		})
+	}
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+	}).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml": client.AddNetworksConfig("", testNetwork),
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment, testNetwork
 }

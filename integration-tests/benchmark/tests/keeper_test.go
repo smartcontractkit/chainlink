@@ -2,12 +2,14 @@ package benchmark
 
 //revive:disable:dot-imports
 import (
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"os"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
+
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -19,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 )
@@ -45,16 +46,8 @@ type BenchmarkTestEntry struct {
 	blockTime             time.Duration
 }
 
-func getEnv(key, fallback string) string {
-	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
-		values := strings.Split(inputs, ",")
-		for _, value := range values {
-			if strings.Contains(value, key) {
-				return strings.Split(value, "=")[1]
-			}
-		}
-	}
-	return fallback
+func TestKeeperBenchmark(t *testing.T) {
+
 }
 
 var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
@@ -256,3 +249,15 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 		})
 	})
 })
+
+func getEnv(key, fallback string) string {
+	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
+		values := strings.Split(inputs, ",")
+		for _, value := range values {
+			if strings.Contains(value, key) {
+				return strings.Split(value, "=")[1]
+			}
+		}
+	}
+	return fallback
+}

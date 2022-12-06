@@ -19,30 +19,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
-	network := networks.SelectedNetwork
-	evmConfig := ethereum.New(nil)
-	if !network.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
-	}
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig("", network),
-		}))
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error launching test environment")
-	return testEnvironment
-}
-
 func TestCronBasic(t *testing.T) {
 	t.Parallel()
 	testEnvironment := setupCronTest(t)
@@ -84,4 +60,28 @@ func TestCronBasic(t *testing.T) {
 			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
 	}, "2m", "1s").Should(gomega.Succeed())
+}
+
+func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
+	network := networks.SelectedNetwork
+	evmConfig := ethereum.New(nil)
+	if !network.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml": client.AddNetworksConfig("", network),
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error launching test environment")
+	return testEnvironment
 }
