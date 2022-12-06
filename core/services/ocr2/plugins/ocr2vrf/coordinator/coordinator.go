@@ -251,6 +251,7 @@ func (c *coordinator) ReportIsOnchain(
 		if err != nil {
 			c.lggr.Warnw("Incorrect log found in NewTransmissions", "log", logs[i], "err", err)
 			continue
+		}
 		nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
 		if !ok {
 			c.lggr.Warnw("Type error for log in NewTransmissisons", "log", logs[i], "err", err)
