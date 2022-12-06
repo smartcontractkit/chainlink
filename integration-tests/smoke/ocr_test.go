@@ -97,7 +97,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 
 		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
 		Expect(err).ShouldNot(HaveOccurred())
-		Expect(answer.Int64()).Should(Equal(int64(10)), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+		Expect(answer.Int64()).Should(Equal(int64(11)), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 	},
 		testScenarios,
 	)
