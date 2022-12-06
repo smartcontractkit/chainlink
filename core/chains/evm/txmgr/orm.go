@@ -241,10 +241,7 @@ func (o *orm) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]EthTxAttempt, 
 			join eth_receipts er on eta.hash = er.tx_hash where eta.eth_tx_id = ANY($1) ORDER BY eta.gas_price DESC, eta.gas_tip_cap DESC`, ids); err != nil {
 			return err
 		}
-		if err := loadConfirmedAttemptsReceipts(tx, attempts); err != nil {
-			return err
-		}
-		return nil
+		return loadConfirmedAttemptsReceipts(tx, attempts)
 	}, pg.OptReadOnlyTx())
 	return attempts, errors.Wrap(err, "FindEthTxAttemptConfirmedByEthTxIDs failed")
 }
