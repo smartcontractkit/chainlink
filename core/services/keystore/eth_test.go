@@ -772,7 +772,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	require.NoError(t, ks.Disable(k2.Address, testutils.SimulatedChainID))
 
 	k3, addr3 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
-	ks.Enable(k3.Address, testutils.SimulatedChainID)
+	require.NoError(t, ks.Enable(k3.Address, testutils.SimulatedChainID))
 
 	t.Run("enabling the same key multiple times does not create duplicate states", func(t *testing.T) {
 		require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
