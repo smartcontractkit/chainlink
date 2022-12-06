@@ -250,12 +250,11 @@ func (c *coordinator) ReportIsOnchain(
 		unpacked, err := c.onchainRouter.ParseLog(rawLog)
 		if err != nil {
 			c.lggr.Warnw("Incorrect log found in NewTransmissions", "log", logs[i], "err", err)
-			continue // error parsing log, continue
-		}
+			continue
 		nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
 		if !ok {
 			c.lggr.Warnw("Type error for log in NewTransmissisons", "log", logs[i], "err", err)
-			continue // log was not the correct type, should not happen
+			continue
 		}
 		if nt.ConfigDigest == configDigest {
 			logsWithCorrectConfigDigest = append(logsWithCorrectConfigDigest, logs[i])
