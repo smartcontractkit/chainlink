@@ -23,6 +23,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -670,16 +671,14 @@ func (g *generalConfig) KeeperTurnLookBack() int64 {
 	return *g.c.Keeper.TurnLookBack
 }
 
-func (g *generalConfig) KeeperTurnFlagEnabled() bool {
-	return *g.c.Keeper.TurnFlagEnabled
-}
-
 func (g *generalConfig) KeyFile() string {
 	if g.TLSKeyPath() == "" {
 		return filepath.Join(g.TLSDir(), "server.key")
 	}
 	return g.TLSKeyPath()
 }
+
+func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
 
 func (g *generalConfig) LeaseLockDuration() time.Duration {
 	return g.c.Database.Lock.LeaseDuration.Duration()

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 <!-- unreleased -->
+## [dev]
+
+### Updated
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+
 ## [Unreleased]
 
 ### Added
@@ -41,11 +46,26 @@ Multiple files can be used (`-c configA.toml -c configB.toml`), and will be appl
 Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
 Secrets must be configured manually and passed via `-secrets <filename>` or equivalent environment variables.
 
+Format details: [CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+
 **Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
 
-##### Detailed Docs
+##### Examples
 
-[CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+Dump your current configuration as TOML.
+```bash
+chainlink config dump > config.toml
+```
+
+Inspect your full effective configuration, and ensure it is valid. This includes defaults.
+```bash
+chainlink --config config.toml --secrets secrets.toml config validate
+```
+
+Run the node.
+```bash
+chainlink -c config.toml -s secrets.toml node start
+```
 
 ### Fixed
 

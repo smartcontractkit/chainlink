@@ -262,6 +262,7 @@ FallbackPollInterval controls how often clients should manually poll as a fallba
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
 ```toml
 [Database.Lock]
+Enabled = true # Default
 LeaseDuration = '10s' # Default
 LeaseRefreshInterval = '1s' # Default
 ```
@@ -275,21 +276,23 @@ Because of the complications with advisory locks, Chainlink nodes with v2.0 and 
 - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
 
+### Enabled<a id='Database-Lock-Enabled'></a>
+```toml
+Enabled = true # Default
+```
+Enabled enables the database lock.
+
 ### LeaseDuration<a id='Database-Lock-LeaseDuration'></a>
 ```toml
 LeaseDuration = '10s' # Default
 ```
 LeaseDuration is how long the lease lock will last before expiring.
 
-This setting applies only if `Mode` is set to enable lease locking.
-
 ### LeaseRefreshInterval<a id='Database-Lock-LeaseRefreshInterval'></a>
 ```toml
 LeaseRefreshInterval = '1s' # Default
 ```
 LeaseRefreshInterval determines how often to refresh the lease lock. Also controls how often a standby node will check to see if it can grab the lease.
-
-This setting applies only if Mode is set to enable lease locking.
 
 ## TelemetryIngress<a id='TelemetryIngress'></a>
 ```toml
@@ -1102,7 +1105,6 @@ GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
-TurnFlagEnabled = false # Default
 UpkeepCheckGasPriceEnabled = false # Default
 ```
 
@@ -1144,12 +1146,6 @@ MaxGracePeriod is the maximum number of blocks that a keeper will wait after per
 TurnLookBack = 1_000 # Default
 ```
 TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
-
-### TurnFlagEnabled<a id='Keeper-TurnFlagEnabled'></a>
-```toml
-TurnFlagEnabled = false # Default
-```
-TurnFlagEnabled enables a new algorithm for how keepers take turns.
 
 ### UpkeepCheckGasPriceEnabled<a id='Keeper-UpkeepCheckGasPriceEnabled'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._

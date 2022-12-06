@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"google.golang.org/protobuf/proto"
@@ -35,6 +37,58 @@ var (
 	dkgABI            = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
 	vrfBeaconABI      = evmtypes.MustGetABI(vrf_beacon.VRFBeaconMetaData.ABI)
 	vrfCoordinatorABI = evmtypes.MustGetABI(vrf_coordinator.VRFCoordinatorMetaData.ABI)
+	counterBuckets    = []float64{
+		0,
+		1,
+		2,
+		4,
+		8,
+		16,
+		32,
+		64,
+		128,
+		256,
+		512,
+		1024,
+		2048,
+	}
+	timingBuckets = []float64{
+		float64(1 * time.Millisecond),
+		float64(5 * time.Millisecond),
+		float64(10 * time.Millisecond),
+		float64(50 * time.Millisecond),
+		float64(100 * time.Millisecond),
+		float64(500 * time.Millisecond),
+		float64(time.Second),
+		float64(5 * time.Second),
+		float64(10 * time.Second),
+		float64(30 * time.Second),
+	}
+	promBlocksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_blocks_to_report",
+		Help:    "Number of unfulfilled and in-flight blocks that fit in current report in reportBlocks",
+		Buckets: counterBuckets,
+	}, []string{"evmChainID"})
+	promCallbacksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_callbacks_to_report",
+		Help:    "Number of unfulfilled and and in-flight callbacks fit in current report in reportBlocks",
+		Buckets: counterBuckets,
+	}, []string{"evmChainID"})
+	promBlocksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_blocks_in_report",
+		Help:    "Number of blocks found in reportWillBeTransmitted",
+		Buckets: counterBuckets,
+	}, []string{"evmChainID"})
+	promCallbacksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_callbacks_in_report",
+		Help:    "Number of callbacks found in reportWillBeTransmitted",
+		Buckets: counterBuckets,
+	}, []string{"evmChainID"})
+	promMethodDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ocr2vrf_coordinator_method_time",
+		Help:    "The amount of time elapsed for given method call",
+		Buckets: timingBuckets,
+	}, []string{"evmChainID", "methodName"})
 )
 
 const (
@@ -157,7 +211,7 @@ func New(
 // present onchain.
 func (c *coordinator) ReportIsOnchain(ctx context.Context, epoch uint32, round uint8) (presentOnchain bool, err error) {
 	now := time.Now().UTC()
-	defer c.logDurationOfFunction("ReportIsOnchain", now)
+	defer c.logAndEmitFunctionDuration("ReportIsOnchain", now)
 
 	// Check if a NewTransmission event was emitted on-chain with the
 	// provided epoch and round.
@@ -213,7 +267,7 @@ func (c *coordinator) ReportBlocks(
 	maxCallbacks int, // TODO: unused for now
 ) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
 	now := time.Now().UTC()
-	defer c.logDurationOfFunction("ReportBlocks", now)
+	defer c.logAndEmitFunctionDuration("ReportBlocks", now)
 
 	// Instantiate the gas used by this batch.
 	currentBatchGasLimit := c.coordinatorConfig.CoordinatorOverhead
@@ -316,13 +370,14 @@ func (c *coordinator) ReportBlocks(
 		}
 	}
 
-	c.lggr.Trace(fmt.Sprintf("got blocks: %+v", blocks))
+	c.lggr.Debug(fmt.Sprintf("got blocks: %+v", blocks))
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
+	c.emitReportBlocksMetrics(len(blocks), len(callbacks))
 
-	c.lggr.Trace(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
+	c.lggr.Debug(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
 	return
 }
@@ -356,7 +411,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 
 			// Also get the blockhash for the most recent cached report on this callback,
 			// if one exists.
-			cacheKey := getCallbackCacheKey(l.Callback.RequestID.Int64())
+			cacheKey := getCallbackCacheKey(l.RequestID.Int64())
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
 			if t != nil {
 				rawBlocksRequested[t.recentBlockHeight] = struct{}{}
@@ -457,7 +512,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		aHeight := callbacksRequested[a].NextBeaconOutputHeight + callbacksRequested[a].ConfDelay.Uint64()
 		bHeight := callbacksRequested[b].NextBeaconOutputHeight + callbacksRequested[b].ConfDelay.Uint64()
 		if aHeight == bHeight {
-			return callbacksRequested[a].Callback.GasAllowance.Int64() < callbacksRequested[b].Callback.GasAllowance.Int64()
+			return callbacksRequested[a].GasAllowance < callbacksRequested[b].GasAllowance
 		}
 		return aHeight < bHeight
 	})
@@ -466,11 +521,11 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		// Check if there is room left in the batch. If there is no room left, the coordinator
 		// will keep iterating, until it either finds a callback in a subsequent output height that
 		// can fit into the current batch or reaches the end of the sorted callbacks slice.
-		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (r.Callback.GasAllowance.Int64() + c.coordinatorConfig.CallbackOverhead) {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (int64(r.GasAllowance) + c.coordinatorConfig.CallbackOverhead) {
 			continue
 		}
 
-		requestID := r.Callback.RequestID
+		requestID := r.RequestID
 		if _, ok := fulfilledRequestIDs[requestID.Uint64()]; !ok {
 			// The on-chain machinery will revert requests that specify an unsupported
 			// confirmation delay, so this is more of a sanity check than anything else.
@@ -491,14 +546,14 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					SubscriptionID:    r.SubID,
 					Price:             big.NewInt(0), // TODO: no price tracking
 					RequestID:         requestID.Uint64(),
-					NumWords:          r.Callback.NumWords,
-					Requester:         r.Callback.Requester,
-					Arguments:         r.Callback.Arguments,
-					GasAllowance:      r.Callback.GasAllowance,
-					GasPrice:          r.Callback.GasPrice,
-					WeiPerUnitLink:    r.Callback.WeiPerUnitLink,
+					NumWords:          r.NumWords,
+					Requester:         r.Requester,
+					Arguments:         r.Arguments,
+					GasAllowance:      big.NewInt(int64(r.GasAllowance)),
+					GasPrice:          r.GasPrice,
+					WeiPerUnitLink:    r.WeiPerUnitLink,
 				})
-				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
+				currentBatchGasLimit += int64(r.GasAllowance)
 			}
 		}
 	}
@@ -528,7 +583,7 @@ func (c *coordinator) filterEligibleCallbacks(
 
 		// Check that the callback is elligible.
 		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
-			cacheKey := getCallbackCacheKey(r.Callback.RequestID.Int64())
+			cacheKey := getCallbackCacheKey(r.RequestID.Int64())
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
 			// If the callback is found in the cache and the recentBlockHash from the report containing the callback
 			// is correct, then the callback is in-flight and should not be included in the current observation. If that
@@ -679,7 +734,7 @@ func (c *coordinator) unmarshalLogs(
 // blocks and callbacks can be tracked for possible later retransmission
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
 	now := time.Now().UTC()
-	defer c.logDurationOfFunction("ReportWillBeTransmitted", now)
+	defer c.logAndEmitFunctionDuration("ReportWillBeTransmitted", now)
 
 	// Evict expired items from the cache.
 	c.toBeTransmittedBlocks.EvictExpiredItems(now)
@@ -742,6 +797,8 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 		c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
 	}
 
+	c.emitReportWillBeTransmittedMetrics(len(blocksRequested), len(callbacksRequested))
+
 	return nil
 }
 
@@ -750,7 +807,7 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 // from the most recent ConfigSet events for each contract.
 func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCommittee ocr2vrftypes.OCRCommittee, err error) {
 	startTime := time.Now().UTC()
-	defer c.logDurationOfFunction("DKGVRFCommittees", startTime)
+	defer c.logAndEmitFunctionDuration("DKGVRFCommittees", startTime)
 
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
@@ -908,9 +965,11 @@ func getCallbackCacheKey(requestID int64) common.Hash {
 	return common.BigToHash(big.NewInt(requestID))
 }
 
-// logDurationOfFunction logs the time in milliseconds a function took to execute.
-func (c *coordinator) logDurationOfFunction(funcName string, startTime time.Time) {
-	c.lggr.Debugf("%s took %d milliseconds to complete", funcName, time.Now().UTC().Sub(startTime).Milliseconds())
+// logAndEmitFunctionDuration logs the time in milliseconds and emits metrics in nanosecond for function duration
+func (c *coordinator) logAndEmitFunctionDuration(funcName string, startTime time.Time) {
+	elapsed := time.Now().UTC().Sub(startTime)
+	c.lggr.Debugf("%s took %d milliseconds to complete", funcName, elapsed.Milliseconds())
+	promMethodDuration.WithLabelValues(c.evmClient.ChainID().String(), funcName).Observe(float64(elapsed.Nanoseconds()))
 }
 
 func (c *coordinator) SetOffChainConfig(b []byte) error {
@@ -935,4 +994,18 @@ func offchainConfigFields(coordinatorConfig *ocr2vrftypes.CoordinatorConfig) []a
 		"blockGasOverhead", coordinatorConfig.BlockGasOverhead,
 		"callbackOverhead", coordinatorConfig.CallbackOverhead,
 	}
+}
+
+func (c *coordinator) emitReportBlocksMetrics(
+	numBlocks int,
+	numCallbacks int) {
+	promBlocksToReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numBlocks))
+	promCallbacksToReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
+}
+
+func (c *coordinator) emitReportWillBeTransmittedMetrics(
+	numBlocks int,
+	numCallbacks int) {
+	promBlocksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numBlocks))
+	promCallbacksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
 }

@@ -103,7 +103,6 @@ func TestKeeperSoak(t *testing.T) {
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	baseTOML := `[Keeper]
 TurnLookBack = 0
-TurnFlagEnabled = true
 [Keeper.Registry]
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`

@@ -6,8 +6,11 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
@@ -29,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/kylelemons/godebug/diff"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -47,7 +49,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.Empty(t, invalid)
 	require.Equal(t, zapcore.InfoLevel, ll)
 
-	lggr := logger.TestLogger(t)
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	cfg := config.NewGeneralConfig(lggr)
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
@@ -75,8 +77,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.NoError(t, err)
 
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
-	client := cmd.Client{
-		Config:                 cfg,
+	client := &cmd.Client{
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -85,7 +86,17 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	// Start RunNode in a goroutine, it will block until we resume the runner
 	awaiter := cltest.NewAwaiter()
 	go func() {
-		assert.NoError(t, cmd.NewApp(&client).
+		cliApp := cmd.NewApp(client)
+		original := cliApp.Before
+		cliApp.Before = func(c *cli.Context) error {
+			if err := original(c); err != nil {
+				return err
+			}
+			client.Logger = lggr
+			client.Config = cfg
+			return nil
+		}
+		assert.NoError(t, cliApp.
 			Run([]string{"", "node", "start", "-debug", "-password", "../internal/fixtures/correct_password.txt"}))
 		awaiter.ItHappened()
 	}()
@@ -144,7 +155,6 @@ KEEPER_REGISTRY_SYNC_INTERVAL: 30m0s
 KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 10
 KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED: false
 KEEPER_TURN_LOOK_BACK: 1000
-KEEPER_TURN_FLAG_ENABLED: false
 LEASE_LOCK_DURATION: 10s
 LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
@@ -191,10 +201,11 @@ CHAINLINK_TLS_HOST:
 CHAINLINK_TLS_PORT: 6689
 CHAINLINK_TLS_REDIRECT: false`, cfg.RootDir())
 
-	logs, err := cltest.ReadLogs(cfg.LogFileDir())
-	assert.NoError(t, err)
-
-	require.Contains(t, logs, expected, fmt.Sprintf("Expected to find:\n\n%s\n\nWithin:\n\n%s\n\nDiff:\n\n%s", expected, logs, diff.Diff(expected, logs)))
+	logs := observed.Filter(func(e observer.LoggedEntry) bool {
+		return strings.Contains(e.Message, "Environment variables")
+	}).All()
+	require.Len(t, logs, 1)
+	require.Contains(t, logs[0].Message, expected)
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
@@ -290,6 +301,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("16charlengthp4SsW0rD1!@#_")
 				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 			})
 			db := pgtest.NewSqlxDB(t)
@@ -374,7 +386,7 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
 			lggr, close := cfg.New()
-			defer close()
+			t.Cleanup(func() { assert.NoError(t, close()) })
 
 			// Tries to create a log file by logging. The log file won't be created if there's no logging happening.
 			lggr.Debug("Trying to create a log file by logging.")

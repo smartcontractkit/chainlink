@@ -85,12 +85,14 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    uint256 gasPrice
   ) external view override registryIsSet returns (uint96) {
     OCR2DRRegistryInterface.RequestBilling memory billing = OCR2DRRegistryInterface.RequestBilling(
       subscriptionId,
       msg.sender,
-      gasLimit
+      gasLimit,
+      gasPrice
     );
     uint96 requiredFee = getRequiredFee(data, billing);
     return s_registry.estimateCost(data, billing, requiredFee);
@@ -102,14 +104,15 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    uint256 gasPrice
   ) external override registryIsSet returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
     bytes32 requestId = s_registry.startBilling(
       data,
-      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
+      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
     );
     emit OracleRequest(requestId, subscriptionId, data);
     return requestId;

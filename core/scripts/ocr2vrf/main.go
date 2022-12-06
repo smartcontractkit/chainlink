@@ -405,6 +405,19 @@ func main() {
 				big.NewInt(*batchSize),
 			)
 		}
+	case "deploy-load-test-consumer":
+		cmd := flag.NewFlagSet("deploy-load-test-consumer", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
+		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-period-blocks")
+
+		deployLoadTestVRFBeaconCoordinatorConsumer(e, *coordinatorAddress, false, big.NewInt(*beaconPeriodBlocks))
+	case "get-load-test-results":
+		cmd := flag.NewFlagSet("get-load-test-results", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "Load test contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+
+		printLoadtestResults(e, *consumerAddress)
 	case "verify-beacon-randomness":
 		cmd := flag.NewFlagSet("verify-randomness", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")

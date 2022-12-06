@@ -112,7 +112,9 @@ func configDump(data dbData) (string, error) {
 
 	c.loadLegacyEVMEnv()
 
-	c.loadLegacyCoreEnv()
+	if err := c.loadLegacyCoreEnv(); err != nil {
+		return "", err
+	}
 
 	return c.TOMLString()
 }
@@ -511,7 +513,7 @@ func (c *Config) loadLegacyEVMEnv() {
 }
 
 // loadLegacyCoreEnv loads Core values from legacy environment variables.
-func (c *Config) loadLegacyCoreEnv() {
+func (c *Config) loadLegacyCoreEnv() error {
 	c.ExplorerURL = envURL("ExplorerURL")
 	c.InsecureFastScrypt = envvar.NewBool("InsecureFastScrypt").ParsePtr()
 	c.RootDir = envvar.RootDir.ParsePtr()
@@ -527,6 +529,21 @@ func (c *Config) loadLegacyCoreEnv() {
 		Headers:        (*[]audit.ServiceHeader)(audit.AuditLoggerHeaders.ParsePtr()),
 	}
 
+	var lockEnabled *bool
+	if mode := envvar.NewString("DatabaseLockingMode").ParsePtr(); mode == nil { // dual default
+		lockEnabled = nil // lease default
+	} else {
+		switch *mode {
+		case "advisorylock":
+			return fmt.Errorf("%w: '%s' mode: must use 'lease' or 'none'", config.ErrUnsupported, *mode)
+		case "none":
+			lockEnabled = ptr(false)
+		case "lease", "dual":
+			lockEnabled = nil // lease default
+		default:
+			return fmt.Errorf("%w: unrecognized mode '%s': must use one of 'lease', 'dual', or 'none'", config.ErrUnsupported, *mode)
+		}
+	}
 	c.Database = config.Database{
 		DefaultIdleInTxSessionTimeout: mustParseDuration(os.Getenv("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT")),
 		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
@@ -541,6 +558,7 @@ func (c *Config) loadLegacyCoreEnv() {
 			FallbackPollInterval: envDuration("TriggerFallbackDBPollInterval"),
 		},
 		Lock: config.DatabaseLock{
+			Enabled:              lockEnabled,
 			LeaseDuration:        envDuration("LeaseLockDuration"),
 			LeaseRefreshInterval: envDuration("LeaseLockRefreshInterval"),
 		},
@@ -699,7 +717,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		BaseFeeBufferPercent:         envvar.NewUint16("KeeperBaseFeeBufferPercent").ParsePtr(),
 		MaxGracePeriod:               envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
 		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
-		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
 		UpkeepCheckGasPriceEnabled:   envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    envvar.NewUint32("KeeperRegistryCheckGasOverhead").ParsePtr(),
@@ -742,6 +759,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	if rel := os.Getenv("SENTRY_RELEASE"); rel != "" {
 		c.Sentry.Release = &rel
 	}
+	return nil
 }
 
 func first[T any](es ...*envvar.EnvVar[T]) *T {
