@@ -1,0 +1,34 @@
+name: "Build publish Chainlink develop on private ECR"
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  push-chainlink-develop:
+    # runs-on: ubuntu-20.04
+    runs-on:
+      # labels: ubuntu20.04-8cores-32GB
+      labels: ubuntu20.04-16cores-64GB
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@67fbcbb121271f7775d2e7715933280b06314838 # v1.7.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Build, sign, and publish image
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          enable-docker-publish: "true"
+          docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
+          enable-goreleaser-snapshot: "true"
+          goreleaser-exec: ./tools/bin/goreleaser_wrapper
+          goreleaser-config: .goreleaser.develop.yaml

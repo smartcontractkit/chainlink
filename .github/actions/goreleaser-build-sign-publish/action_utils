@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+publish_snapshot_images() {
+  local full_sha=$(git rev-parse HEAD)
+  local images=$(docker images --filter "label=org.opencontainers.image.revision=$full_sha" --format "{{.Repository}}:{{.Tag}}")
+  for image in $images; do
+    docker push $image
+  done
+}
+
+publish_snapshot_manifests() {
+  local full_sha=$(git rev-parse HEAD)
+  local images=$(docker images --filter "label=org.opencontainers.image.revision=$full_sha" --format "{{.Repository}}:{{.Tag}}" | sort)
+  local arches=(amd64 arm64)
+  local raw_manifest_lists=""
+  for image in $images; do
+    for arch in ${arches[@]}; do
+      image=${image%"-$arch"}
+    done
+    raw_manifest_lists+="$image"$'\n'
+  done
+  
+  local manifest_lists=$(echo "$raw_manifest_lists" | sort | uniq)
+  for manifest_list in $manifest_lists; do
+    manifests=""
+    for arch in ${arches[@]}; do
+      archExists=$(echo $images | grep -c "$manifest_lists-$arch")
+      if [[ $archExists -ne 0 ]]; then
+        manifests+="$manifest_list-$arch "
+      fi
+    done
+    docker manifest create $manifest_list $manifests
+    docker manifest push $manifest_list
+  done
+}
+
+"$@"
