@@ -246,19 +246,19 @@ func (c *coordinator) ReportIsOnchain(
 	// Filter for valid logs that match the current config digest.
 	var logsWithCorrectConfigDigest []logpoller.Log
 	for i := 0; i < len(logs); i++ {
-		if logs[i].EventSig == c.newTransmissionTopic {
-			rawLog := toGethLog(logs[i])
-			unpacked, err := c.onchainRouter.ParseLog(rawLog)
-			if err != nil {
-				continue // error parsing log, continue
-			}
-			nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
-			if !ok {
-				continue // log was not the correct type, should not happen
-			}
-			if nt.ConfigDigest == configDigest {
-				logsWithCorrectConfigDigest = append(logsWithCorrectConfigDigest, logs[i])
-			}
+		rawLog := toGethLog(logs[i])
+		unpacked, err := c.onchainRouter.ParseLog(rawLog)
+		if err != nil {
+			c.lggr.Warnw("Incorrect log found in NewTransmissions", "log", logs[i], "err", err)
+			continue // error parsing log, continue
+		}
+		nt, ok := unpacked.(*vrf_beacon.VRFBeaconNewTransmission)
+		if !ok {
+			c.lggr.Warnw("Type error for log in NewTransmissisons", "log", logs[i], "err", err)
+			continue // log was not the correct type, should not happen
+		}
+		if nt.ConfigDigest == configDigest {
+			logsWithCorrectConfigDigest = append(logsWithCorrectConfigDigest, logs[i])
 		}
 	}
 
