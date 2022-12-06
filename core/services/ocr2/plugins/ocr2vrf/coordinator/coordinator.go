@@ -435,7 +435,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 
 			// Also get the blockhash for the most recent cached report on this callback,
 			// if one exists.
-			cacheKey := getCallbackCacheKey(l.Callback.RequestID.Int64())
+			cacheKey := getCallbackCacheKey(l.RequestID.Int64())
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
 			if t != nil {
 				rawBlocksRequested[t.recentBlockHeight] = struct{}{}
@@ -536,7 +536,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		aHeight := callbacksRequested[a].NextBeaconOutputHeight + callbacksRequested[a].ConfDelay.Uint64()
 		bHeight := callbacksRequested[b].NextBeaconOutputHeight + callbacksRequested[b].ConfDelay.Uint64()
 		if aHeight == bHeight {
-			return callbacksRequested[a].Callback.GasAllowance.Int64() < callbacksRequested[b].Callback.GasAllowance.Int64()
+			return callbacksRequested[a].GasAllowance < callbacksRequested[b].GasAllowance
 		}
 		return aHeight < bHeight
 	})
@@ -545,11 +545,11 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 		// Check if there is room left in the batch. If there is no room left, the coordinator
 		// will keep iterating, until it either finds a callback in a subsequent output height that
 		// can fit into the current batch or reaches the end of the sorted callbacks slice.
-		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (r.Callback.GasAllowance.Int64() + c.coordinatorConfig.CallbackOverhead) {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < (int64(r.GasAllowance) + c.coordinatorConfig.CallbackOverhead) {
 			continue
 		}
 
-		requestID := r.Callback.RequestID
+		requestID := r.RequestID
 		if _, ok := fulfilledRequestIDs[requestID.Uint64()]; !ok {
 			// The on-chain machinery will revert requests that specify an unsupported
 			// confirmation delay, so this is more of a sanity check than anything else.
@@ -570,14 +570,14 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					SubscriptionID:    r.SubID,
 					Price:             big.NewInt(0), // TODO: no price tracking
 					RequestID:         requestID.Uint64(),
-					NumWords:          r.Callback.NumWords,
-					Requester:         r.Callback.Requester,
-					Arguments:         r.Callback.Arguments,
-					GasAllowance:      r.Callback.GasAllowance,
-					GasPrice:          r.Callback.GasPrice,
-					WeiPerUnitLink:    r.Callback.WeiPerUnitLink,
+					NumWords:          r.NumWords,
+					Requester:         r.Requester,
+					Arguments:         r.Arguments,
+					GasAllowance:      big.NewInt(int64(r.GasAllowance)),
+					GasPrice:          r.GasPrice,
+					WeiPerUnitLink:    r.WeiPerUnitLink,
 				})
-				currentBatchGasLimit += r.Callback.GasAllowance.Int64()
+				currentBatchGasLimit += int64(r.GasAllowance)
 			}
 		}
 	}
@@ -607,7 +607,7 @@ func (c *coordinator) filterEligibleCallbacks(
 
 		// Check that the callback is elligible.
 		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
-			cacheKey := getCallbackCacheKey(r.Callback.RequestID.Int64())
+			cacheKey := getCallbackCacheKey(r.RequestID.Int64())
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
 			// If the callback is found in the cache and the recentBlockHash from the report containing the callback
 			// is correct, then the callback is in-flight and should not be included in the current observation. If that
