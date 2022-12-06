@@ -13,6 +13,10 @@ inputs:
     description: The cosign version
     default: v1.13.1
     required: false
+  macos-sdk-dir:
+    description: The macos sdk directory
+    default: MacOSX12.3.sdk
+    required: false
   # publising inputs
   enable-docker-publish:
     description: Enable publishing of docker images / manifests
@@ -76,41 +80,24 @@ runs:
       uses: sigstore/cosign-installer@581838fbedd492d2350a9ecd427a95d6de1e5d01 # v2.1.0
       with:
         cosign-release: ${{ inputs.cosign-version }}
-    - name: Setup cosign pt2
-      if: inputs.enable-cosign == 'true'
-      shell: bash
-      run: |
-        echo "${{ inputs.cosign-public-key }}" > cosign.pub
-        echo "${{ inputs.cosign-private-key }}" > cosign.key
     - name: Login to docker registry
       if: inputs.enable-docker-publish == 'true'
       uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
       with:
         registry: ${{ inputs.docker-registry }}
     - name: Goreleaser release
-      if: inputs.enable-goreleaser-snapshot != 'true'
       shell: bash
-      run: |
-        IMAGE_PREFIX=${{ inputs.docker-registry }} \
-        COSIGN_PASSWORD=${{ inputs.cosign-password }} \
-        MACOS_SDK_DIR=$PWD/MacOSX12.3.sdk \
-          ${{ inputs.goreleaser-exec }} release --rm-dist --config ${{ inputs.goreleaser-config }}
-    - name: Goreleaser snapshot release
-      if: inputs.enable-goreleaser-snapshot == 'true'
-      shell: bash
-      run: |
-        IMAGE_PREFIX=${{ inputs.docker-registry }} \
-        MACOS_SDK_DIR=$PWD/MacOSX12.3.sdk \
-          ${{ inputs.goreleaser-exec }} release --snapshot --rm-dist --config ${{ inputs.goreleaser-config }}
-    - name: Publish snapshot docker images
-      shell: bash
-      if: inputs.enable-docker-publish == 'true' && inputs.enable-goreleaser-snapshot == 'true'
+      env:
+        ENABLE_COSIGN: ${{ inputs.enable-cosign }}
+        ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
+        ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
+        IMAGE_PREFIX: ${{ inputs.docker-registry }}
+        GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
+        GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
+        COSIGN_PASSWORD: ${{ inputs.cosign-password }}
+        COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
+        COSIGN_PRIVATE_KEY: ${{ inputs.cosign-private-key }}
+        MACOS_SDK_DIR: ${{ inputs.macos-sdk-dir }}
       run: |
         # https://github.com/orgs/community/discussions/24950
-        ${GITHUB_ACTION_PATH}/action_utils publish_snapshot_images
-    - name: Publish snapshot docker manifests
-      shell: bash
-      if: inputs.enable-docker-publish == 'true' && inputs.enable-goreleaser-snapshot == 'true'
-      run: |
-        # https://github.com/orgs/community/discussions/24950
-        ${GITHUB_ACTION_PATH}/action_utils publish_snapshot_manifests
+        ${GITHUB_ACTION_PATH}/action_utils goreleaser_release

@@ -28,6 +28,10 @@ macos_sdk_dir=$(_get_macos_sdk_dir)
 framework_search_path="/System/Library/Frameworks"
 include_search_path='/usr/include'
 
-ZIG_FLAGS_DARWIN="-isysroot$macos_sdk_dir -F$macos_sdk_dir$framework_search_path -iframeworkwithsysroot$framework_search_path -iwithsysroot$include_search_path -mmacosx-version-min=11.7.1" \
+ZIG_FLAGS_DARWIN="-isysroot$macos_sdk_dir \
+  -F$macos_sdk_dir$framework_search_path \
+  -iframeworkwithsysroot$framework_search_path \
+  -iwithsysroot$include_search_path \
+  -mmacosx-version-min=11.7.1" \
 ZIG_EXEC=$(which zig) \
 goreleaser "$@"
