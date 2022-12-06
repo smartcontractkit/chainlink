@@ -73,8 +73,8 @@ func TestRunner(t *testing.T) {
 	runner := pipeline.NewRunner(pipelineORM, btORM, config, cc, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config)
 
-	runner.Start(testutils.Context(t))
-	defer runner.Close()
+	require.NoError(t, runner.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))

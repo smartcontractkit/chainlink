@@ -65,7 +65,7 @@ require (
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 	github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8
 	github.com/smartcontractkit/ocr2keepers v0.4.8
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20221108213147-df72abedd302
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20221202203357-5ec9e13932e8
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
@@ -343,31 +343,33 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
-// See https://github.com/dgrijalva/jwt-go/issues/463
-// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
-// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
-replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
+replace (
+	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
+	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
 
-// replicating the replace directive on cosmos SDK
-replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+	// updating CosmWasm to v1.0.0 which brings ARM support
+	github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 
-// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
-replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
+	// Fix go mod tidy issue for ambiguous imports from go-ethereum
+	// See https://github.com/ugorji/go/issues/279
+	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
-// updating CosmWasm to v1.0.0 which brings ARM support
-replace github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
+	// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
+	// See https://github.com/dgrijalva/jwt-go/issues/463
+	// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
+	// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
+	github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
 
-// moved but still using old module name
-replace github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
+	// replicating the replace directive on cosmos SDK
+	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-// fixes deprecation warnings and keychain undefined bugs on macOS
-// See https://github.com/99designs/keyring/issues/94
-replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+	// fixes deprecation warnings and keychain undefined bugs on macOS
+	// See https://github.com/99designs/keyring/issues/94
+	github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 
-// Fix go mod tidy issue for ambiguous imports from go-ethereum
-// See https://github.com/ugorji/go/issues/279
-replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
+	// moved but still using old module name
+	github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
+)
 
 exclude (
 	github.com/influxdata/influxdb v1.8.3

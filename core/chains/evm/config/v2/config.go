@@ -940,11 +940,11 @@ func (n *Node) ValidateConfig() (err error) {
 		sendOnly = *n.SendOnly
 	}
 	if n.WSURL == nil {
-		if sendOnly {
+		if !sendOnly {
 			err = multierr.Append(err, v2.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else if n.WSURL.IsZero() {
-		if sendOnly {
+		if !sendOnly {
 			err = multierr.Append(err, v2.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else {

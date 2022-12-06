@@ -47,7 +47,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
 
 	c.Database.Dialect = dialects.TransactionWrappedPostgres
-	c.Database.Lock.Mode = "none"
+	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
 	c.Database.MigrateOnStartup = ptr(false)

@@ -267,8 +267,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
-		authv2.GET("/config/dump-v1-as-v2", auth.RequiresAdminRole(cc.Dump))
-		authv2.GET("/config/v2", auth.RequiresAdminRole(cc.Show))
+		authv2.GET("/config/dump-v1-as-v2", cc.Dump)
+		authv2.GET("/config/v2", cc.Show2)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -289,7 +289,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/csa/import", auth.RequiresAdminRole(csakc.Import))
 		authv2.POST("/keys/csa/export/:ID", auth.RequiresAdminRole(csakc.Export))
 
-		ekc := ETHKeysController{app}
+		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
 		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))

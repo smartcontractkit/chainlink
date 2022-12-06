@@ -6,8 +6,11 @@ type SugaredLogger interface {
 	AssumptionViolation(args ...interface{})
 	AssumptionViolationf(format string, vals ...interface{})
 	AssumptionViolationw(msg string, keyvals ...interface{})
+	ErrorIf(error, string)
+	ErrorIfFn(func() error, string)
 }
 
+// Sugared returns a new SugaredLogger wrapping the given Logger.
 func Sugared(l Logger) SugaredLogger {
 	return &sugared{
 		Logger: l,
@@ -33,4 +36,16 @@ func (s *sugared) AssumptionViolationf(format string, vals ...interface{}) {
 // AssumptionViolationw wraps Errorw logs with assumption violation tag.
 func (s *sugared) AssumptionViolationw(msg string, keyvals ...interface{}) {
 	s.h.Errorw("AssumptionViolation: "+msg, keyvals...)
+}
+
+func (s *sugared) ErrorIf(err error, msg string) {
+	if err != nil {
+		s.h.Errorw(msg, "err", err)
+	}
+}
+
+func (s *sugared) ErrorIfFn(fn func() error, msg string) {
+	if err := fn(); err != nil {
+		s.h.Errorw(msg, "err", err)
+	}
 }

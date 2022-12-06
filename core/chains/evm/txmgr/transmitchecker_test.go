@@ -11,8 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -152,12 +156,18 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID [32]byte) (txmgr.EthTx, txmgr.EthTxAttempt) {
+		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EthTx, txmgr.EthTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
+			txHash := common.Hash{}
 			meta := txmgr.EthTxMeta{
-				RequestID: &h,
-				MaxLink:   &testDefaultMaxLink, // 1 LINK
-				SubID:     &testDefaultSubID,
+				RequestID:     &h,
+				MaxLink:       &testDefaultMaxLink, // 1 LINK
+				SubID:         &testDefaultSubID,
+				RequestTxHash: &txHash,
+			}
+
+			if nilTxHash {
+				meta.RequestTxHash = nil
 			}
 
 			b, err := json.Marshal(meta)
@@ -186,36 +196,70 @@ func TestTransmitCheckers(t *testing.T) {
 		r2 := [32]byte{2}
 		r3 := [32]byte{3}
 
-		checker := txmgr.VRFV1Checker{Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
-			if reqID == r1 {
-				// Request 1 is already fulfilled
-				return v1.Callbacks{
-					SeedAndBlockNum: [32]byte{},
-				}, nil
-			} else if reqID == r2 {
-				// Request 2 errors
-				return v1.Callbacks{}, errors.New("error getting commitment")
-			} else {
-				return v1.Callbacks{
-					SeedAndBlockNum: [32]byte{1},
-				}, nil
-			}
-		}}
+		checker := txmgr.VRFV1Checker{
+			Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
+				if opts.BlockNumber.Cmp(big.NewInt(6)) != 0 {
+					// Ensure correct logic is applied to get callbacks.
+					return v1.Callbacks{}, errors.New("error getting callback")
+				}
+				if reqID == r1 {
+					// Request 1 is already fulfilled
+					return v1.Callbacks{
+						SeedAndBlockNum: [32]byte{},
+					}, nil
+				} else if reqID == r2 {
+					// Request 2 errors
+					return v1.Callbacks{}, errors.New("error getting commitment")
+				} else {
+					return v1.Callbacks{
+						SeedAndBlockNum: [32]byte{1},
+					}, nil
+				}
+			},
+			Client: client,
+		}
+
+		mockBatch := client.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 && b[0].Method == "eth_getBlockByNumber" && b[1].Method == "eth_getTransactionReceipt"
+		})).Return(nil).Run(func(args mock.Arguments) {
+			batch := args.Get(1).([]rpc.BatchElem)
+
+			// Return block 10 for eth_getBlockByNumber
+			mostRecentHead := batch[0].Result.(*evmtypes.Head)
+			mostRecentHead.Number = 10
+
+			// Return block 6 for eth_getTransactionReceipt
+			requestTransactionReceipt := batch[1].Result.(*types.Receipt)
+			requestTransactionReceipt.BlockNumber = big.NewInt(6)
+		})
 
 		t.Run("already fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, r1)
+			tx, attempt := newTx(t, r1, false)
 			err := checker.Check(ctx, log, tx, attempt)
 			require.Error(t, err, "request already fulfilled")
 		})
 
+		t.Run("nil RequestTxHash", func(t *testing.T) {
+			tx, attempt := newTx(t, r1, true)
+			err := checker.Check(ctx, log, tx, attempt)
+			require.NoError(t, err)
+		})
+
 		t.Run("not fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, r3)
+			tx, attempt := newTx(t, r3, false)
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
 		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
-			tx, attempt := newTx(t, r2)
+			tx, attempt := newTx(t, r2, false)
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("failure fetching tx receipt and block head", func(t *testing.T) {
+			tx, attempt := newTx(t, r1, false)
+			mockBatch.Return(errors.New("could not fetch"))
+			err := checker.Check(ctx, log, tx, attempt)
+			require.NoError(t, err)
 		})
 	})
 

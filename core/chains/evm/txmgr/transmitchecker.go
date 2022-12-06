@@ -7,9 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -46,7 +48,10 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V1 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
-		return &VRFV1Checker{coord.Callbacks}, nil
+		return &VRFV1Checker{
+			Callbacks: coord.Callbacks,
+			Client:    c.Client,
+		}, nil
 	case TransmitCheckerTypeVRFV2:
 		if spec.VRFCoordinatorAddress == nil {
 			return nil, errors.Errorf("malformed checker, expected non-nil VRFCoordinatorAddress, got: %v", spec)
@@ -134,6 +139,8 @@ type VRFV1Checker struct {
 	// Callbacks checks whether a VRF V1 request has already been fulfilled on the VRFCoordinator
 	// Solidity contract
 	Callbacks func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error)
+
+	Client evmclient.Client
 }
 
 // Check satisfies the TransmitChecker interface.
@@ -168,9 +175,47 @@ func (v *VRFV1Checker) Check(
 		return nil
 	}
 
+	if meta.RequestTxHash == nil {
+		l.Errorw("Request tx hash is nil. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxID", tx.ID,
+			"meta", tx.Meta)
+		return nil
+	}
+
+	// Construct and execute batch call to retrieve most the recent block number and the
+	// block number of the request transaction.
+	mostRecentHead := &types.Head{}
+	requestTransactionReceipt := &gethtypes.Receipt{}
+	batch := []rpc.BatchElem{{
+		Method: "eth_getBlockByNumber",
+		Args:   []interface{}{nil},
+		Result: mostRecentHead,
+	}, {
+		Method: "eth_getTransactionReceipt",
+		Args:   []interface{}{*meta.RequestTxHash},
+		Result: requestTransactionReceipt,
+	}}
+	err = v.Client.BatchCallContext(ctx, batch)
+	if err != nil {
+		l.Errorw("Failed to fetch latest header and transaction receipt. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxID", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
+	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not found"
+	// errors.
+	latest := new(big.Int).Sub(big.NewInt(mostRecentHead.Number), big.NewInt(5))
+	blockNumber := bigmath.Max(latest, requestTransactionReceipt.BlockNumber)
 	var reqID [32]byte
 	copy(reqID[:], meta.RequestID.Bytes())
-	callback, err := v.Callbacks(&bind.CallOpts{Context: ctx}, reqID)
+	callback, err := v.Callbacks(&bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: blockNumber,
+	}, reqID)
 	if err != nil {
 		l.Errorw("Unable to check if already fulfilled. Attempting to transmit anyway.",
 			"err", err,
