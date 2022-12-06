@@ -27,7 +27,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@99ffae9ed0463803a71b54d75f9610a2cea30674
+        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -60,7 +60,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@99ffae9ed0463803a71b54d75f9610a2cea30674
+        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -161,7 +161,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@99ffae9ed0463803a71b54d75f9610a2cea30674
+        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -223,7 +223,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@99ffae9ed0463803a71b54d75f9610a2cea30674
+        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -274,7 +274,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@99ffae9ed0463803a71b54d75f9610a2cea30674
+        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
