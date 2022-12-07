@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,7 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
+
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -1274,6 +1276,7 @@ func (c *generalConfig) SessionOptions() sessions.Options {
 		Secure:   c.SecureCookies(),
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
