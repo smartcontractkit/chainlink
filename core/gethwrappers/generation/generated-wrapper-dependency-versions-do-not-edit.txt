@@ -43,6 +43,7 @@ type_and_version_interface_wrapper: ../../contracts/solc/v0.8.6/TypeAndVersionIn
 upkeep_counter_wrapper: ../../contracts/solc/v0.7/UpkeepCounter.abi ../../contracts/solc/v0.7/UpkeepCounter.bin 901961ebf18906febc1c350f02da85c7ea1c2a68da70cfd94efa27c837a48663
 upkeep_perform_counter_restrictive_wrapper: ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.abi ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.bin 8975a058fba528e16d8414dc6f13946d17a145fcbc66cf25a32449b6fe1ce878
 vrf_consumer_v2: ../../contracts/solc/v0.8.6/VRFConsumerV2.abi ../../contracts/solc/v0.8.6/VRFConsumerV2.bin 9ef258bf8e9f8d880fd229ceb145593d91e24fc89366baa0bf19169c5787d15f
+vrf_consumer_v2_upgradeable_example: ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.abi ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.bin f1790a9a2f2a04c730593e483459709cb89e897f8a19d7a3ac0cfe6a97265e6e
 vrf_coordinator_v2: ../../contracts/solc/v0.8.6/VRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2.bin 7839d54d662197ad8f987495b6461e8ea9c66746b79a744bfd74ff086c276be0
 vrf_external_sub_owner_example: ../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.abi ../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.bin 14f888eb313930b50233a6f01ea31eba0206b7f41a41f6311670da8bb8a26963
 vrf_load_test_external_sub_owner: ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.abi ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.bin 2097faa70265e420036cc8a3efb1f1e0836ad2d7323b295b9a26a125dbbe6c7d
@@ -50,7 +51,9 @@ vrf_load_test_ownerless_consumer: ../../contracts/solc/v0.8.6/VRFLoadTestOwnerle
 vrf_malicious_consumer_v2: ../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.abi ../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.bin fe81f869c49051c2cb4116204a1d6521fa3a70ce2d8f8467e8ee92268a5beea2
 vrf_ownerless_consumer_example: ../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.abi ../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.bin 9893b3805863273917fb282eed32274e32aa3d5c2a67a911510133e1218132be
 vrf_single_consumer_example: ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.abi ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.bin 892a5ed35da2e933f7fd7835cd6f7f70ef3aa63a9c03a22c5b1fd026711b0ece
+vrfv2_proxy_admin: ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.abi ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.bin 30b6d1af9c4ae05daddda2afdab1877d857ab5321afe3540a01e94d5ded9bcef
 vrfv2_reverting_example: ../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin 1ae46f80351d428bd85ba58b9041b2a608a1845300d79a8fed83edf96606de87
+vrfv2_transparent_upgradeable_proxy: ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.abi ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.bin 84be44ffac513ef5b009d53846b76d3247ceb9fa0545dec2a0dd11606a915850
 vrfv2_wrapper: ../../contracts/solc/v0.8.6/VRFV2Wrapper.abi ../../contracts/solc/v0.8.6/VRFV2Wrapper.bin 222fd44179525a758a0d29c191271d83882e39cd0492a316fdf0d488e21dcce9
 vrfv2_wrapper_consumer_example: ../../contracts/solc/v0.8.6/VRFV2WrapperConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2WrapperConsumerExample.bin 8c62ac8da7086c185162e66ec0c382c620cfa79319b621bcede828faac1d7954
 vrfv2_wrapper_interface: ../../contracts/solc/v0.8.6/VRFV2WrapperInterface.abi ../../contracts/solc/v0.8.6/VRFV2WrapperInterface.bin ff8560169de171a68b360b7438d13863682d07040d984fd0fb096b2379421003
