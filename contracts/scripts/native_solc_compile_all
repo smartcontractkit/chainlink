@@ -62,6 +62,9 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFMaliciousConsumerV2.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFV2RevertingExample.sol
 
+$SCRIPTPATH/native_solc8_6_compile tests/VRFV2ProxyAdmin.sol
+$SCRIPTPATH/native_solc8_6_compile tests/VRFV2TransparentUpgradeableProxy.sol
+$SCRIPTPATH/native_solc8_6_compile tests/VRFConsumerV2UpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile BatchVRFCoordinatorV2.sol
 
