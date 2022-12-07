@@ -35,7 +35,8 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
 
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
-    uint96 balance; // Common link balance used for all consumer requests.
+    uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
+    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -88,6 +89,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     address don;
     uint96 donFee;
     uint96 registryFee;
+    uint96 estimatedCost;
   }
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
@@ -298,9 +300,9 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     // Check that subscription can afford the estimated cost
     uint96 oracleFee = OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing);
     uint96 registryFee = getRequiredFee(data, billing);
-    uint256 estimatedCost = estimateCost(billing.gasLimit, billing.gasPrice, oracleFee, registryFee);
+    uint96 estimatedCost = estimateCost(billing.gasLimit, billing.gasPrice, oracleFee, registryFee);
     uint96 effectiveBalance = s_subscriptions[billing.subscriptionId].balance -
-      estimateCostPendingRequests(billing.subscriptionId);
+      s_subscriptions[billing.subscriptionId].blockedBalance;
     if (effectiveBalance < estimatedCost) {
       revert InsufficientBalance();
     }
@@ -315,9 +317,11 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       billing.gasPrice,
       msg.sender,
       oracleFee,
-      registryFee
+      registryFee,
+      estimatedCost
     );
     s_requestCommitments[requestId] = commitment;
+    s_subscriptions[billing.subscriptionId].blockedBalance += estimatedCost;
 
     emit BillingStart(requestId, commitment);
     s_consumers[billing.client][billing.subscriptionId] = nonce;
@@ -433,6 +437,8 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     s_withdrawableTokens[owner()] += commitment.registryFee;
     // Reimburse the transmitter for the execution gas cost + pay them their portion of the DON fee
     s_withdrawableTokens[transmitter] += bill.transmitterPayment;
+    // Remove blocked balance
+    s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
     // Include payment in the event for tracking costs.
     emit BillingEnd(
       commitment.subscriptionId,
@@ -571,7 +577,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
-    s_subscriptions[currentsubscriptionId] = Subscription({balance: 0});
+    s_subscriptions[currentsubscriptionId] = Subscription({balance: 0, blockedBalance: 0});
     s_subscriptionConfigs[currentsubscriptionId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
@@ -721,37 +727,6 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       }
     }
     return false;
-  }
-
-  /**
-   * @notice Total the estimated cost of all pending request commitments for all consumers for a given sub.
-   * @param subscriptionId - ID of the subscription
-   * @return costEstimate estimated cost in Juels of LINK that will be charged once all pending requests are completed
-   * @dev Looping is bounded to MAX_CONSUMERS*(number of DONs).
-   * @dev TODO: use pointer to only iterate possibly pending requests
-   */
-
-  function estimateCostPendingRequests(uint64 subscriptionId) public view returns (uint96) {
-    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
-    address[] memory authorizedSendersList = getAuthorizedSenders();
-    uint96 cost;
-    for (uint256 i = 0; i < consumers.length; i++) {
-      for (uint256 j = 0; j < authorizedSendersList.length; j++) {
-        bytes32 requestId = computeRequestId(
-          authorizedSendersList[j],
-          consumers[i],
-          subscriptionId,
-          s_consumers[consumers[i]][subscriptionId]
-        );
-        cost += estimateCost(
-          s_requestCommitments[requestId].gasLimit,
-          s_requestCommitments[requestId].gasPrice,
-          s_requestCommitments[requestId].donFee,
-          s_requestCommitments[requestId].registryFee
-        );
-      }
-    }
-    return cost;
   }
 
   modifier onlySubOwner(uint64 subscriptionId) {
