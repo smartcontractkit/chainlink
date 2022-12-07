@@ -32,10 +32,11 @@ Depending on `SelectionMode`, this represents a difference in the number of bloc
 >
 > Set to 0 to disable this check.
 
-#### TOML Configuration (optional)
+#### TOML Configuration (experimental)
 
 Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
-This is currently _optional_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method.
+
+This is currently _experimental_, but in the future (with `v2.0.0`), it will become *mandatory* as the only supported configuration method. Avoid using TOML for configuration unless running on a test network for this release.
 
 ##### How to use
 
