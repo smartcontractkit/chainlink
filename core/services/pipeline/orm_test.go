@@ -144,16 +144,19 @@ func TestInsertFinishedRuns(t *testing.T) {
 	_, err := db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 	require.NoError(t, err)
 
+	ps := cltest.MustInsertPipelineSpec(t, db)
+
 	var runs []*pipeline.Run
 	for i := 0; i < 3; i++ {
 		now := time.Now()
 		r := pipeline.Run{
-			State:       pipeline.RunStatusRunning,
-			AllErrors:   pipeline.RunErrors{},
-			FatalErrors: pipeline.RunErrors{},
-			CreatedAt:   now,
-			FinishedAt:  null.Time{},
-			Outputs:     pipeline.JSONSerializable{},
+			PipelineSpecID: ps.ID,
+			State:          pipeline.RunStatusRunning,
+			AllErrors:      pipeline.RunErrors{},
+			FatalErrors:    pipeline.RunErrors{},
+			CreatedAt:      now,
+			FinishedAt:     null.Time{},
+			Outputs:        pipeline.JSONSerializable{},
 		}
 
 		require.NoError(t, orm.InsertRun(&r))
