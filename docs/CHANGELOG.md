@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 ## [dev]
 
+### Added
+
+- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
+
 ### Updated
 
 - Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
@@ -24,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `bridge_errors_total`
     - `bridge_cache_hits_total`
     - `bridge_cache_errors_total`
-- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
 - `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
 
 > ```toml
