@@ -67,10 +67,10 @@ import (
 // vrfConsumerContract is the common interface implemented by
 // the example contracts used for the integration tests.
 type vrfConsumerContract interface {
-	TestCreateSubscriptionAndFund(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error)
+	CreateSubscriptionAndFund(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error)
 	SSubId(opts *bind.CallOpts) (uint64, error)
 	SRequestId(opts *bind.CallOpts) (*big.Int, error)
-	TestRequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, minReqConfs uint16, callbackGasLimit uint32, numWords uint32) (*gethtypes.Transaction, error)
+	RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, minReqConfs uint16, callbackGasLimit uint32, numWords uint32) (*gethtypes.Transaction, error)
 	SRandomWords(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error)
 }
 
@@ -383,7 +383,7 @@ func subscribeVRF(
 	backend *backends.SimulatedBackend,
 	fundingJuels *big.Int,
 ) (vrf_coordinator_v2.GetSubscription, uint64) {
-	_, err := consumerContract.TestCreateSubscriptionAndFund(author, fundingJuels)
+	_, err := consumerContract.CreateSubscriptionAndFund(author, fundingJuels)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -530,7 +530,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	uni coordinatorV2Universe,
 ) (requestID *big.Int, requestBlockNumber uint64) {
 	minRequestConfirmations := uint16(2)
-	_, err := vrfConsumerHandle.TestRequestRandomness(
+	_, err := vrfConsumerHandle.RequestRandomness(
 		consumerOwner,
 		keyHash,
 		subID,
@@ -1521,7 +1521,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		big.NewInt(0),             // 0 link
 	})
 	subFunding := decimal.RequireFromString("1000000000000000000")
-	_, err = carolContract.TestCreateSubscriptionAndFund(carol,
+	_, err = carolContract.CreateSubscriptionAndFund(carol,
 		subFunding.BigInt())
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -1545,7 +1545,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500_000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = carolContract.TestRequestRandomness(carol, keyHash, subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	_, err = carolContract.RequestRandomness(carol, keyHash, subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fulfilled should fail
@@ -1601,7 +1601,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// which should be fixed in this test.
 	ga, err := carolContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(3679))
+	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(3701))
 	assert.Equal(t, 0, gaDecoding.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", gaDecoding, gasRequested)
 	t.Log("gas available", ga.String())
 
@@ -1705,13 +1705,13 @@ func TestMaliciousConsumer(t *testing.T) {
 		vrfkey.PublicKey.MustHash())
 	require.NoError(t, err)
 	subFunding := decimal.RequireFromString("1000000000000000000")
-	_, err = uni.maliciousConsumerContract.TestCreateSubscriptionAndFund(carol,
+	_, err = uni.maliciousConsumerContract.CreateSubscriptionAndFund(carol,
 		subFunding.BigInt())
 	require.NoError(t, err)
 	uni.backend.Commit()
 
 	// Send a re-entrant request
-	_, err = uni.maliciousConsumerContract.TestRequestRandomness(carol)
+	_, err = uni.maliciousConsumerContract.RequestRandomness(carol)
 	require.NoError(t, err)
 
 	// We expect the request to be serviced
@@ -1776,7 +1776,7 @@ func TestRequestCost(t *testing.T) {
 		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
-	_, err = carolContract.TestCreateSubscriptionAndFund(carol,
+	_, err = carolContract.CreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -1792,7 +1792,7 @@ func TestRequestCost(t *testing.T) {
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		carolContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+		"requestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
@@ -1810,7 +1810,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	cfg := configtest.NewGeneralConfigSimulated(t, nil)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	_, err := carolContract.TestCreateSubscriptionAndFund(carol,
+	_, err := carolContract.CreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -1854,7 +1854,7 @@ func TestFulfillmentCost(t *testing.T) {
 		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
-	_, err = carolContract.TestCreateSubscriptionAndFund(carol,
+	_, err = carolContract.CreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -1864,7 +1864,7 @@ func TestFulfillmentCost(t *testing.T) {
 	gasRequested := 50000
 	nw := 1
 	requestedIncomingConfs := 3
-	_, err = carolContract.TestRequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	_, err = carolContract.RequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 	for i := 0; i < requestedIncomingConfs; i++ {
 		uni.backend.Commit()
