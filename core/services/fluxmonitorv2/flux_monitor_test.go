@@ -892,16 +892,17 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 // chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
-// 63 bytes is max and chainlink_test_ takes up 15
+// 63 bytes is max and chainlink_test_ takes up 15, plus 4 for a random hex suffix.
 func dbName(s string) string {
-	if len(s) <= 47 {
+	diff := len("chainlink_test_") + len("_FFF")
+	if len(s) <= diff {
 		return strings.ReplaceAll(strings.ToLower(s), "/", "")
 	}
-	return strings.ReplaceAll(strings.ToLower(s[len(s)-47:]), "/", "")
+	return strings.ReplaceAll(strings.ToLower(s[len(s)-diff:]), "/", "")
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
-	db, nodeAddr := setupFullDBWithKey(t, dbName(t.Name()))
+	db, nodeAddr := setupFullDBWithKey(t, "hibernation")
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	const (

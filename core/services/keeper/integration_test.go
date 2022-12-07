@@ -156,23 +156,25 @@ func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		eip1559         bool
 		registryVersion keeper.RegistryVersion
 	}{
 		// name should be a valid ORM name, only containing alphanumeric/underscore
-		{"legacy_mode_registry1_1", false, keeper.RegistryVersion_1_1},
-		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
-		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
-		{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
-		{"legacy_mode_registry1_3", false, keeper.RegistryVersion_1_3},
-		{"eip1559_mode_registry1_3", true, keeper.RegistryVersion_1_3},
+		{"legacy_registry1_1", false, keeper.RegistryVersion_1_1},
+		{"eip1559_registry1_1", true, keeper.RegistryVersion_1_1},
+		{"legacy_registry1_2", false, keeper.RegistryVersion_1_2},
+		{"eip1559_registry1_2", true, keeper.RegistryVersion_1_2},
+		{"legacy_registry1_3", false, keeper.RegistryVersion_1_3},
+		{"eip1559_registry1_3", true, keeper.RegistryVersion_1_3},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			g := gomega.NewWithT(t)
 
 			// setup node key
@@ -322,6 +324,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
+	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
@@ -387,7 +390,8 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		backend.Commit()
 
 		// setup app
-		config, db := heavyweight.FullTestDBV2(t, "keeper_forwarder_eth_integration", func(c *chainlink.Config, s *chainlink.Secrets) {
+		config, db := heavyweight.FullTestDBV2(t, "keeper_forwarder_flow", func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.Feature.LogPoller = ptr(true)
 			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
 			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
@@ -472,6 +476,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 }
 
 func TestMaxPerformDataSize(t *testing.T) {
+	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		maxPerformDataSize := 1000 // Will be set as config override
 		g := gomega.NewWithT(t)
