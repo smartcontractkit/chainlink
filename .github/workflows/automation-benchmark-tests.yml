@@ -80,7 +80,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@966f889fe6989138e01773204ff23d96d0b485aa # v2.0.30
         with:
           test_command_to_run: make test_benchmark_automation
           test_download_vendor_packages_command: make gomod
