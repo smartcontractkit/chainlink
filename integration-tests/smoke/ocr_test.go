@@ -14,6 +14,7 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -37,7 +38,8 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
 	t.Cleanup(func() {
-		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		require.NoError(t, err, "Error tearing down environment")
 	})
 	chainClient.ParallelTransactions(true)
 
@@ -67,7 +69,7 @@ func TestOCRBasic(t *testing.T) {
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 }
 
-func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork *blockchain.EVMNetwork) {
+func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {

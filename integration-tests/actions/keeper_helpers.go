@@ -147,6 +147,8 @@ func DeployKeeperContracts(
 	upkeepIds := RegisterUpkeepContracts(
 		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
 	)
+	err = client.WaitForEvents()
+	require.NoError(t, err, "Error waiting for events")
 
 	return registry, registrar, upkeeps, upkeepIds
 }

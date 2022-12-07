@@ -31,22 +31,12 @@ import (
 )
 
 const (
-	automationDefaultUpkeepGasLimit   = uint32(2500000)
-	automationDefaultLinkFunds        = int64(9e18)
-	automationDefaultUpkeepsToDeploy  = 10
-	numUpkeepsAllowedForStragglingTxs = 6
-	expectedData                      = "abcdef"
-	defaultAmountOfUpkeeps            = 2
+	automationDefaultUpkeepGasLimit  = uint32(2500000)
+	automationDefaultLinkFunds       = int64(9e18)
+	automationDefaultUpkeepsToDeploy = 10
+	automationExpectedData           = "abcdef"
+	defaultAmountOfUpkeeps           = 2
 )
-
-// 2022/12/05 01:12:37 Error running app: failed to parse file: /etc/node-secrets-volume/overrides.toml: failed to decode config TOML:  5| Enabled = true
-//  6|
-//  7| [Keeper]
-//  8| TurnFlagEnabled = true
-//   | ~~~~~~~~~~~~~~~ missing field
-//  9| TurnLookBack = 0
-// 10|
-// 11| [Keeper.Registry]
 
 var (
 	automationBaseTOML = `[Feature]
@@ -100,19 +90,6 @@ ListenAddresses = ["0.0.0.0:6690"]`
 func TestMain(m *testing.M) {
 	logging.Init()
 	os.Exit(m.Run())
-}
-
-func CleanupSmokeTest(
-	t *testing.T,
-	testEnvironment *environment.Environment,
-	chainlinkNodes []*client.Chainlink,
-	chainClient blockchain.EVMClient,
-) {
-	if chainClient != nil {
-		chainClient.GasStats().PrintStats()
-	}
-	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-	require.NoError(t, err, "Error tearing down environment")
 }
 
 func TestAutomatedBasic(t *testing.T) {
@@ -677,7 +654,7 @@ func TestUpdateCheckData(t *testing.T) {
 		defaultAmountOfUpkeeps,
 		big.NewInt(automationDefaultLinkFunds),
 		automationDefaultUpkeepGasLimit,
-		[]byte(expectedData),
+		[]byte(automationExpectedData),
 	)
 	gom := gomega.NewGomegaWithT(t)
 
@@ -694,7 +671,7 @@ func TestUpdateCheckData(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 	for i := 0; i < len(upkeepIDs); i++ {
-		err := registry.UpdateCheckData(upkeepIDs[i], []byte(expectedData))
+		err := registry.UpdateCheckData(upkeepIDs[i], []byte(automationExpectedData))
 		require.NoError(t, err, "Could not update check data for upkeep at index %d", i)
 	}
 
@@ -705,7 +682,7 @@ func TestUpdateCheckData(t *testing.T) {
 	for i := 0; i < len(upkeepIDs); i++ {
 		upkeep, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[i])
 		require.NoError(t, err, "Failed to get upkeep info at index %d", i)
-		require.Equal(t, []byte(expectedData), upkeep.CheckData, "Upkeep data not as expected")
+		require.Equal(t, []byte(automationExpectedData), upkeep.CheckData, "Upkeep data not as expected")
 	}
 
 	gom.Eventually(func(g gomega.Gomega) {
@@ -767,7 +744,8 @@ func setupAutomationTest(
 
 	// Register cleanup for any test
 	t.Cleanup(func() {
-		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		require.NoError(t, err, "Error tearing down environment")
 	})
 
 	txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)

@@ -63,8 +63,7 @@ func TestForwarderOCRSoak(t *testing.T) {
 		if err = actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
 			log.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
-	},
-	)
+	})
 	ocrSoakTest.OperatorForwarderFlow = true
 	ocrSoakTest.Setup(t, testEnvironment)
 	log.Info().Msg("Setup soak test")

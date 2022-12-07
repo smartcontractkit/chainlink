@@ -65,8 +65,7 @@ func TestKeeperSoak(t *testing.T) {
 		if err := actions.TeardownRemoteSuite(keeperBlockTimeTest.TearDownVals(t)); err != nil {
 			log.Error().Err(err).Msg("Error tearing down environment")
 		}
-	},
-	)
+	})
 	keeperBlockTimeTest.Setup(t, testEnvironment)
 	keeperBlockTimeTest.Run(t)
 }

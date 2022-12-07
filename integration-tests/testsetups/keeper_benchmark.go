@@ -10,7 +10,6 @@ import (
 	goeath "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/onsi/ginkgo"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -281,7 +280,6 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 	sub, err := k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
 	require.NoError(t, err, "Subscribing to upkeep performed events log shouldn't fail")
 	go func() {
-		defer ginkgo.GinkgoRecover()
 		var numRevertedUpkeeps int64
 		for {
 			select {

@@ -129,7 +129,7 @@ func TestVRFBasic(t *testing.T) {
 	profileTest.Run()
 }
 
-func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork *blockchain.EVMNetwork) {
+func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {

@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/onsi/ginkgo/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
@@ -263,7 +262,7 @@ func TeardownSuite(
 	case "ALWAYS":
 		return nil
 	case "ONFAIL":
-		if !ginkgo.CurrentSpecReport().Failed() {
+		if !t.Failed() {
 			return env.Shutdown()
 		}
 	case "NEVER":

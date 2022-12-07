@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -38,7 +39,8 @@ func TestVRFv2Basic(t *testing.T) {
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		require.NoError(t, err, "Error tearing down environment")
 	})
 	chainClient.ParallelTransactions(true)
 
@@ -148,7 +150,7 @@ func TestVRFv2Basic(t *testing.T) {
 	}, timeout, "1s").Should(gomega.Succeed())
 }
 
-func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork *blockchain.EVMNetwork) {
+func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {

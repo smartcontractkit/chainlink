@@ -18,6 +18,7 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -43,7 +44,8 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Creating mock server client shouldn't fail")
 	// Register cleanup
 	t.Cleanup(func() {
-		CleanupSmokeTest(t, testEnvironment, chainlinkNodes, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		require.NoError(t, err, "Error tearing down environment")
 	})
 
 	chainClient.ParallelTransactions(true)
@@ -154,7 +156,7 @@ func TestFluxBasic(t *testing.T) {
 	}
 }
 
-func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork *blockchain.EVMNetwork) {
+func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
 	evmConf := ethereum.New(nil)
 	if !testNetwork.Simulated {

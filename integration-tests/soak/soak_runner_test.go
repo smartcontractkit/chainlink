@@ -119,7 +119,7 @@ PerformGasOverhead = 150_000`
 func soakTestHelper(
 	t *testing.T,
 	testEnvironment *environment.Environment,
-	activeEVMNetwork *blockchain.EVMNetwork,
+	activeEVMNetwork blockchain.EVMNetwork,
 ) {
 	testDirectory := "./integration-tests/soak/tests"
 	log.Info().

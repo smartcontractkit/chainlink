@@ -78,7 +78,7 @@ func TestOCRBasic(t *testing.T) {
 	profileTest.Run()
 }
 
-func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork *blockchain.EVMNetwork) {
+func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {

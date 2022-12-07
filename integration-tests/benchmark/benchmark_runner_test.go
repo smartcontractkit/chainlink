@@ -202,7 +202,7 @@ func benchmarkTestHelper(
 	t *testing.T,
 	testTag string,
 	testEnvironment *environment.Environment,
-	activeEVMNetwork *blockchain.EVMNetwork,
+	activeEVMNetwork blockchain.EVMNetwork,
 	blockTime string,
 ) {
 	remoteRunnerValues := map[string]interface{}{

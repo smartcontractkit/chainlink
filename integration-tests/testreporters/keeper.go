@@ -10,7 +10,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/onsi/ginkgo/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
@@ -125,7 +124,7 @@ func (k *KeeperBlockTimeTestReporter) SendSlackNotification(t *testing.T, slackC
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
 
-	testFailed := ginkgo.CurrentSpecReport().Failed()
+	testFailed := t.Failed()
 	headerText := ":white_check_mark: Keeper Block Time Test PASSED :white_check_mark:"
 	if testFailed {
 		headerText = ":x: Keeper Block Time Test FAILED :x:"

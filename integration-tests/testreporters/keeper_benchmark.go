@@ -11,7 +11,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/onsi/ginkgo/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
@@ -244,7 +243,7 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
 
-	testFailed := ginkgo.CurrentSpecReport().Failed()
+	testFailed := t.Failed()
 	headerText := ":white_check_mark: Automation Benchmark Test FINISHED :white_check_mark:"
 	if testFailed {
 		headerText = ":x: Automation Benchmark Test FAILED :x:"

@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	networkSettings = &blockchain.EVMNetwork{
+	networkSettings = blockchain.EVMNetwork{
 		Name:      "geth",
 		Simulated: true,
 		ChainID:   1337,

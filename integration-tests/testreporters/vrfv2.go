@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
@@ -75,7 +74,7 @@ func (o *VRFV2SoakTestReporter) SendSlackNotification(t *testing.T, slackClient 
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
 
-	testFailed := ginkgo.CurrentSpecReport().Failed()
+	testFailed := t.Failed()
 	headerText := ":white_check_mark: VRFV2 Soak Test PASSED :white_check_mark:"
 	if testFailed {
 		headerText = ":x: VRFV2 Soak Test FAILED :x:"

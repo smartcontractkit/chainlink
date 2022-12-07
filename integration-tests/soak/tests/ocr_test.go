@@ -53,7 +53,9 @@ func TestOCRSoak(t *testing.T) {
 		StartingAdapterValue: 5,
 	})
 	t.Cleanup(func() {
-		actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t))
+		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
+			log.Error().Err(err).Msg("Error tearing down environment")
+		}
 	})
 	ocrSoakTest.Setup(t, testEnvironment)
 	log.Info().Msg("Set up soak test")
