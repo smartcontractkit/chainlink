@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/atomic"
 	"golang.org/x/exp/maps"
@@ -34,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -119,9 +119,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) (evm.ChainSetOpts, []
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = utils.NewMailboxMonitor(t.Name())
-		require.NoError(t, opts.MailMon.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, opts.MailMon.Close()) })
+		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 	}
 
 	chains := []evmtypes.DBChain{

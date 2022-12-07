@@ -690,6 +690,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerHappyPathBatchFulfillment(
@@ -708,6 +709,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerHappyPathBatchFulfillment(
@@ -726,6 +728,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerHappyPath(
@@ -741,6 +744,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
+	t.Parallel()
 	callBackGasLimit := int64(2_500_000)            // base callback gas.
 	eip150Fee := callBackGasLimit / 64              // premium needed for callWithExactGas
 	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
@@ -801,6 +805,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
+	t.Parallel()
 	callBackGasLimit := int64(2_500_000)            // base callback gas.
 	eip150Fee := int64(0)                           // no premium given for callWithExactGas
 	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
@@ -882,6 +887,7 @@ func deployWrapper(t *testing.T, uni coordinatorV2Universe, wrapperOverhead uint
 }
 
 func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
+	t.Parallel()
 	wrapperOverhead := uint32(30_000)
 	coordinatorOverhead := uint32(90_000)
 
@@ -959,6 +965,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 }
 
 func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
+	t.Parallel()
 	wrapperOverhead := uint32(30_000)
 	coordinatorOverhead := uint32(90_000)
 
@@ -1036,6 +1043,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerNeedsBHS(
@@ -1051,6 +1059,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerNeedsTopUp(
@@ -1464,6 +1473,7 @@ func TestSimpleConsumerExample(t *testing.T) {
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
+	t.Parallel()
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
 	// max gas limit of 2M and a key specific max 10 gwei price.
 	// Keep the prices low so we can operate with small link balance subscriptions.
@@ -1648,6 +1658,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 }
 
 func TestMaliciousConsumer(t *testing.T) {
+	t.Parallel()
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration_malicious", func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
