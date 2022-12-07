@@ -247,7 +247,7 @@ describe('VRFCoordinatorV2Mock', () => {
       expect(
         await vrfConsumerV2
           .connect(subOwner)
-          .testRequestRandomness(keyhash, subId, 3, 500_000, 2),
+          .requestRandomness(keyhash, subId, 3, 500_000, 2),
       )
         .to.emit(vrfCoordinatorV2Mock, 'RandomWordsRequested')
         .withArgs(keyhash, 1, 100, subId, 3, 500_000, 2, vrfConsumerV2.address)
@@ -288,7 +288,7 @@ describe('VRFCoordinatorV2Mock', () => {
       expect(
         await vrfConsumerV2
           .connect(subOwner)
-          .testRequestRandomness(keyhash, subId, 3, 500_000, 2),
+          .requestRandomness(keyhash, subId, 3, 500_000, 2),
       )
         .to.emit(vrfCoordinatorV2Mock, 'RandomWordsRequested')
         .withArgs(keyhash, 1, 100, subId, 3, 500_000, 2, vrfConsumerV2.address)
