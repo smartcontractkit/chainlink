@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
