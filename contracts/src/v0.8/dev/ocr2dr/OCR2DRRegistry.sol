@@ -90,6 +90,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     uint96 donFee;
     uint96 registryFee;
     uint96 estimatedCost;
+    uint256 timestamp;
   }
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
@@ -120,6 +121,8 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     uint256 gasAfterPaymentCalculation;
     // Represents the average gas execution cost. Used in estimating cost beforehand.
     uint32 gasOverhead;
+    // how many seconds it takes before we consider a request to be timed out
+    uint32 requestTimeoutSeconds;
   }
   int256 private s_fallbackWeiPerUnitLink;
   Config private s_config;
@@ -143,13 +146,15 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @param gasOverhead fallback eth/link price in the case of a stale feed
+   * @param requestTimeoutSeconds fallback eth/link price in the case of a stale feed
    */
   function setConfig(
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint256 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    uint32 gasOverhead
+    uint32 gasOverhead,
+    uint32 requestTimeoutSeconds
   ) external onlyOwner {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
@@ -159,7 +164,8 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       reentrancyLock: false,
-      gasOverhead: gasOverhead
+      gasOverhead: gasOverhead,
+      requestTimeoutSeconds: requestTimeoutSeconds
     });
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(maxGasLimit, stalenessSeconds, gasAfterPaymentCalculation, fallbackWeiPerUnitLink, gasOverhead);
@@ -318,7 +324,8 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       msg.sender,
       oracleFee,
       registryFee,
-      estimatedCost
+      estimatedCost,
+      block.timestamp
     );
     s_requestCommitments[requestId] = commitment;
     s_subscriptions[billing.subscriptionId].blockedBalance += estimatedCost;
@@ -727,6 +734,33 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       }
     }
     return false;
+  }
+
+  /**
+   * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
+   * @param subscriptionId - ID of the subscription
+   */
+
+  function timeoutRequests(uint64 subscriptionId) external onlySubOwner(subscriptionId) {
+    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
+    address[] memory authorizedSendersList = getAuthorizedSenders();
+    for (uint256 i = 0; i < consumers.length; i++) {
+      for (uint256 j = 0; j < authorizedSendersList.length; j++) {
+        bytes32 requestId = computeRequestId(
+          authorizedSendersList[j],
+          consumers[i],
+          subscriptionId,
+          s_consumers[consumers[i]][subscriptionId]
+        );
+        Commitment memory commitment = s_requestCommitments[requestId];
+        if (commitment.timestamp + s_config.requestTimeoutSeconds > block.timestamp) {
+          // Decrement blocked balance
+          s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
+          // Delete commitment
+          delete s_requestCommitments[requestId];
+        }
+      }
+    }
   }
 
   modifier onlySubOwner(uint64 subscriptionId) {
