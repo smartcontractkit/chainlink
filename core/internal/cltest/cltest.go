@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -851,13 +850,6 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 	var metaCount int
 	err = json.Unmarshal(*meta["count"], &metaCount)
 	return metaCount, err
-}
-
-// ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(dir string) (string, error) {
-	logFile := filepath.Join(dir, logger.LogsFile)
-	b, err := os.ReadFile(logFile)
-	return string(b), err
 }
 
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {

@@ -159,7 +159,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&listenerV1{
 				cfg:             chain.Config(),
-				l:               lV1,
+				l:               logger.Sugared(lV1),
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
 				q:               d.q,
