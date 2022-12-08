@@ -301,7 +301,7 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Trace(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
+	c.lggr.Debug(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
@@ -313,7 +313,7 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
+	c.lggr.Debug(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
 		randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, randomWordsFulfilledLogs, outputsServedLogs))
 
 	// Get blockhashes that pertain to requested blocks.
@@ -333,7 +333,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Trace(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
+	c.lggr.Debug(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
 
 	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
@@ -344,7 +344,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Trace(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
+	c.lggr.Debug(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -353,7 +353,7 @@ func (c *coordinator) ReportBlocks(
 		delete(blocksRequested, f)
 	}
 
-	c.lggr.Trace(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
+	c.lggr.Debug(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
