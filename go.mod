@@ -20,8 +20,8 @@ require (
 	github.com/getsentry/sentry-go v0.15.0
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/expvar v0.0.1
+	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-contrib/size v0.0.0-20220707104239-f5a650759656
-	github.com/gin-gonic/contrib v0.0.0-20201101042839-6a891bf89f19
 	github.com/gin-gonic/gin v1.8.1
 	github.com/gogo/protobuf v1.3.3
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
@@ -65,7 +65,7 @@ require (
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 	github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8
 	github.com/smartcontractkit/ocr2keepers v0.4.8
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20221202203357-5ec9e13932e8
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20221206151523-7ae0ec615c0e
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
@@ -116,7 +116,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/boj/redistore v0.0.0-20180917114910-cd5dcc76aeff // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.1 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
@@ -173,7 +172,6 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/certificate-transparency-go v1.0.21 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect

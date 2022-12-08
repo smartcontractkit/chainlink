@@ -11,8 +11,8 @@ import (
 )
 
 // Start is test helper to automatically Start/Close a ServiceCtx along with a test.
-func Start[S services.ServiceCtx](t *testing.T, s S) S {
-	require.NoError(t, s.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, s.Close()) })
+func Start[S services.ServiceCtx](tb testing.TB, s S) S {
+	require.NoError(tb, s.Start(testutils.Context(tb)))
+	tb.Cleanup(func() { assert.NoError(tb, s.Close()) })
 	return s
 }

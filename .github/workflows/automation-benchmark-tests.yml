@@ -75,14 +75,6 @@ jobs:
           echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.network }} Automation Benchmark Test
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
@@ -101,3 +93,12 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0e12c5d946ba3632e3c319a728bd5f5c13c1f071
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ${{ inputs.network }} Automation Benchmark Test
+        continue-on-error: true

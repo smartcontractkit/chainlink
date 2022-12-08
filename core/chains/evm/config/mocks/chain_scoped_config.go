@@ -28,7 +28,7 @@ import (
 
 	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
-	sessions "github.com/gin-gonic/contrib/sessions"
+	sessions "github.com/gin-contrib/sessions"
 
 	time "time"
 

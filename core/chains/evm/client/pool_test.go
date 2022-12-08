@@ -328,5 +328,5 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 
 	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID)
 
-	p.BatchCallContextAll(ctx, b)
+	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }

@@ -14,15 +14,6 @@ jobs:
   Go:
     runs-on: ubuntu-latest
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Go
-        continue-on-error: true
-
       - name: Check out code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
 
@@ -39,3 +30,12 @@ jobs:
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
           nancyVersion: "v1.0.39"
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0e12c5d946ba3632e3c319a728bd5f5c13c1f071
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Go
+        continue-on-error: true

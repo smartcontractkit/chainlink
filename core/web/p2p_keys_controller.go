@@ -82,7 +82,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/import"
 func (p2pkc *P2PKeysController) Import(c *gin.Context) {
-	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import ")
+	defer p2pkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -111,7 +111,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/export"
 func (p2pkc *P2PKeysController) Export(c *gin.Context) {
-	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+	defer p2pkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Export request body")
 
 	keyID, err := p2pkey.MakePeerID(c.Param("ID"))
 	if err != nil {
