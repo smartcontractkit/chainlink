@@ -866,7 +866,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On("LatestBlock", mock.Anything).
 			Return(latestHeadNumber, nil)
 
-		lp.On("GetBlocks", mock.Anything, requestedBlocks, mock.Anything).
+		lp.On("GetBlocksAscendingUsingRange", mock.Anything, requestedBlocks, mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
 		lp.On(
 			"LogsWithSigs",
@@ -1573,7 +1573,7 @@ func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64
 		})
 	}
 
-	lp.On("GetBlocks", mock.Anything, requestedBlocks, mock.Anything).
+	lp.On("GetBlocksAscendingUsingRange", mock.Anything, requestedBlocks, mock.Anything).
 		Return(logPollerBlocks, nil)
 
 	return lp

@@ -191,6 +191,19 @@ ORDER BY (logs.block_number, logs.log_index)`, a)
 	return logs, err
 }
 
+func (o *ORM) GetBlocksFromRange(start uint64, end uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	var blocks []LogPollerBlock
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&blocks, `
+        SELECT * FROM log_poller_blocks 
+        WHERE block_number >= $1 AND block_number <= $2 AND evm_chain_id = $3
+        ORDER BY (block_number)`, start, end, utils.NewBig(o.chainID))
+	if err != nil {
+		return nil, err
+	}
+	return blocks, nil
+}
+
 func (o *ORM) GetBlocks(blockNumbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
 	if len(blockNumbers) == 0 {
 		return nil, nil

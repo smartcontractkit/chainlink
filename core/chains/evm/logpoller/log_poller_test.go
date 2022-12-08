@@ -468,6 +468,95 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	assert.Equal(t, id2+1, id3)
 }
 
+func TestLogPoller_GetBlocks_Ascending_Using_Range(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+
+	_, err := th.LogPoller.RegisterFilter(Filter{[]common.Hash{
+		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}},
+	)
+	require.NoError(t, err)
+
+	// LP retrieves 0 blocks
+	blockNums := []uint64{}
+	blocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(blocks))
+
+	// LP retrieves block 1
+	blockNums = []uint64{1}
+	blocks, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(blocks))
+	assert.Equal(t, 1, int(blocks[0].BlockNumber))
+
+	// LP fails to retrieve block 2 because it's neither in DB nor returned by RPC
+	blockNums = []uint64{2}
+	_, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	require.Error(t, err)
+	assert.Equal(t, "block: 2 was not found in db or RPC call", err.Error())
+
+	// Emit a log and mine block #2
+	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+	require.NoError(t, err)
+	th.Client.Commit()
+
+	// Assert block 2 is not yet in DB
+	_, err = th.ORM.SelectBlockByNumber(2)
+	require.Error(t, err)
+
+	// getBlocks is able to retrieve block 2 by calling RPC
+	rpcBlocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(rpcBlocks))
+	assert.Equal(t, 2, int(rpcBlocks[0].BlockNumber))
+
+	// after calling PollAndSaveLogs, block 2 is persisted in DB
+	th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
+	block, err := th.ORM.SelectBlockByNumber(2)
+	require.NoError(t, err)
+	assert.Equal(t, 2, int(block.BlockNumber))
+
+	// getBlocks should still be able to return block 2 by fetching from DB
+	lpBlocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lpBlocks))
+	assert.Equal(t, rpcBlocks[0].BlockNumber, lpBlocks[0].BlockNumber)
+	assert.Equal(t, rpcBlocks[0].BlockHash, lpBlocks[0].BlockHash)
+
+	// getBlocks return multiple blocks
+	blockNums = []uint64{1, 2}
+	blocks, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, int(blocks[0].BlockNumber))
+	assert.NotEmpty(t, blocks[0].BlockHash)
+	assert.Equal(t, 2, int(blocks[1].BlockNumber))
+	assert.NotEmpty(t, blocks[1].BlockHash)
+
+	// getBlocks return blocks in-order, regardless of request order
+	blockNums = []uint64{2, 1}
+	reversedBlocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, blocks[0].BlockNumber, reversedBlocks[0].BlockNumber)
+	assert.Equal(t, blocks[0].BlockHash, reversedBlocks[0].BlockHash)
+	assert.Equal(t, blocks[1].BlockNumber, reversedBlocks[1].BlockNumber)
+	assert.Equal(t, blocks[1].BlockHash, reversedBlocks[1].BlockHash)
+
+	// test RPC context cancellation
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	cancel()
+	_, err = th.LogPoller.GetBlocksAscendingUsingRange(ctx, blockNums)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context canceled")
+
+	// test still works when qopts is cancelled
+	// but context object is not
+	ctx, cancel = context.WithCancel(testutils.Context(t))
+	qopts := pg.WithParentCtx(ctx)
+	cancel()
+	_, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums, qopts)
+	require.NoError(t, err)
+}
+
 func TestLogPoller_GetBlocks(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 

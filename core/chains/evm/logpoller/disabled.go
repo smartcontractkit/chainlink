@@ -36,6 +36,10 @@ func (disabled) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOp
 	return nil, ErrDisabled
 }
 
+func (disabled) GetBlocksAscendingUsingRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	return nil, ErrDisabled
+}
+
 func (disabled) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
