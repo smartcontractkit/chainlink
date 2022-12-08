@@ -578,6 +578,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					WeiPerUnitLink:    r.WeiPerUnitLink,
 				})
 				currentBatchGasLimit += int64(r.GasAllowance)
+				c.lggr.Debugw("Request is unfulfilled", "requestID", requestID)
 			}
 		}
 	}
@@ -615,6 +616,7 @@ func (c *coordinator) filterEligibleCallbacks(
 			// the cached callback is ignored, and the callback is added to the current observation.
 			inflightTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
 			if inflightTransmission {
+				c.lggr.Debugw("Request is in-flight", "requestID", r.RequestID)
 				continue
 			}
 
@@ -626,6 +628,7 @@ func (c *coordinator) filterEligibleCallbacks(
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
 			})
+			c.lggr.Debugw("Request is eligible", "requestID", r.RequestID)
 		}
 	}
 	return
@@ -661,6 +664,7 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 			// the cached block is ignored and the block is added to the current observation.
 			validTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
 			if validTransmission {
+				c.lggr.Debugw("Block is in-flight", "blockNumber", r.NextBeaconOutputHeight, "confDelay", r.ConfDelay)
 				continue
 			}
 
@@ -668,6 +672,7 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
 			})
+			c.lggr.Debugw("Block is eligible", "blockNumber", r.NextBeaconOutputHeight, "confDelay", r.ConfDelay)
 		}
 	}
 	return
@@ -813,12 +818,14 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	for _, b := range blocksRequested {
 		cacheKey := getBlockCacheKey(b.blockNumber, uint64(b.confDelay))
 		c.toBeTransmittedBlocks.CacheItem(b, cacheKey, now)
+		c.lggr.Debugw("Block is being transmitted", "blockNumber", b.blockNumber, "confDelay", b.confDelay)
 	}
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
 		cacheKey := getCallbackCacheKey(int64(cb.requestID))
 		c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
+		c.lggr.Debugw("Request is being transmitted", "requestID", cb.requestID)
 	}
 
 	c.emitReportWillBeTransmittedMetrics(len(blocksRequested), len(callbacksRequested))
