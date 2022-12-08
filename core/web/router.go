@@ -447,7 +447,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.SugaredLogger) {
 	// Serve static files
 	var assetsRouterHandlers []gin.HandlerFunc
 	if !devMode {
@@ -504,7 +504,7 @@ func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
 			}
 			return
 		}
-		defer lggr.ErrorIfClosing(file, "file")
+		defer lggr.ErrorIfFn(file.Close, "Error closing file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})
