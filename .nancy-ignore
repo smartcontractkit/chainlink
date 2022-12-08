@@ -63,3 +63,6 @@ CVE-2022-37450
 sonatype-2021-4899
 sonatype-2020-0722
 CVE-2021-41803  # consul
+CVE-2022-44797  # golang/github.com/btcsuite/btcd@v0.22.1
+CVE-2022-39389  # golang/github.com/btcsuite/btcd@v0.22.1
+sonatype-2022-5436 # golang/github.com/labstack/echo/v4@v4.2.1

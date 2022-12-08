@@ -1653,8 +1653,8 @@ github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886 h1:VVB/jdEBD9O01uOPvONEWeUVJr2/crLjVVCfTl1fOLM=
 github.com/smartcontractkit/chainlink-testing-framework v1.7.5 h1:2V7+kaHbSVOT1wWXvz+S4ea2vjoPpu1IMhng9jUAlYU=
 github.com/smartcontractkit/chainlink-testing-framework v1.7.5/go.mod h1:WSxufhaN6qxWI5HbGaDeYKxXdNuA2lFoolDaoVkxtSw=
-github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52 h1:Nac1UCKJwt0AY15bAaorscflOcBs/FnmO7NoCh8Tons=
-github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
+github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8 h1:KcTNxuP5g3GGUqn3WJe7KKnTixqfVZjmHnMAnKkLGJw=
+github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.4.8 h1:pvCDWIsYaSJI/M6qw0xIIXpHs5MPQaYEpmWsJiyi6LM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20221021145954-aef9beb5fcbf h1:cJXYu06PYbWeuoqp8K2U+SoM8PMHy9VMrDLTrM3gOGI=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20221021145954-aef9beb5fcbf/go.mod h1:60/WayFm5nOAPIHtSThJ0DAd4sMKtytPQsjHAwYxGfU=
