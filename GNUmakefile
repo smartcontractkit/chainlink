@@ -15,10 +15,14 @@ install-git-hooks: ## Install git hooks.
 	git config core.hooksPath .githooks
 
 .PHONY: install-chainlink-autoinstall
-install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlink.
+install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
 .PHONY: operator-ui-autoinstall
 operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
+.PHONY: pnpmdep
+pnpmdep: ## Install solidity contract dependencies through pnpm
+	(cd contracts && pnpm i)
+	
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
