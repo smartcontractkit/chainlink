@@ -237,11 +237,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
-	block, err := ex.ethClient.HeaderByNumber(context.Background(), big.NewInt(turnBlock))
+	block, err := ex.ethClient.HeadByNumber(context.Background(), big.NewInt(turnBlock))
 	if err != nil {
 		return "", err
 	}
-	hashAtHeight := block.Hash()
+	hashAtHeight := block.Hash
 	binaryString := fmt.Sprintf("%b", hashAtHeight.Big())
 	return binaryString, nil
 }
