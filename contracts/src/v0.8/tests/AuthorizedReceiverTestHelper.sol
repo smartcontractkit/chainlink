@@ -10,7 +10,7 @@ contract AuthorizedReceiverTestHelper is AuthorizedReceiver {
     s_canSetAuthorizedSenders = on;
   }
 
-  function testValidateAuthorizedSender() external view validateAuthorizedSender returns (bool) {
+  function verifyValidateAuthorizedSender() external view validateAuthorizedSender returns (bool) {
     return true;
   }
 

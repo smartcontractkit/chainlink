@@ -9,3 +9,7 @@ func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EthCon
 func SetResumeCallbackOnEthBroadcaster(resumeCallback ResumeCallback, ethBroadcaster *EthBroadcaster) {
 	ethBroadcaster.resumeCallback = resumeCallback
 }
+
+func (er *EthResender) ResendUnconfirmed() error {
+	return er.resendUnconfirmed()
+}

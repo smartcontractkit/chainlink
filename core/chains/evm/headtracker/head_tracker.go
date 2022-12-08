@@ -153,6 +153,10 @@ func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Hea
 	return ht.backfill(ctx, headWithChain.EarliestInChain(), baseHeight)
 }
 
+func (ht *headTracker) LatestChain() *evmtypes.Head {
+	return ht.headSaver.LatestChain()
+}
+
 func (ht *headTracker) getInitialHead(ctx context.Context) (*evmtypes.Head, error) {
 	head, err := ht.ethClient.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -344,3 +348,4 @@ func (*nullTracker) SetLogLevel(zapcore.Level)   {}
 func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	return nil
 }
+func (*nullTracker) LatestChain() *evmtypes.Head { return nil }

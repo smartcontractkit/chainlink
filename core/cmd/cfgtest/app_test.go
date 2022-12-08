@@ -62,7 +62,7 @@ func TestDefaultConfig(t *testing.T) {
 	})
 	evmCfg := evmcfg2.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg2.DefaultsFrom(chainID, nil),
+		Chain:   evmcfg2.Defaults(chainID),
 	}
 	newConfig := evmcfg2.NewTOMLChainScopedConfig(newGeneral, &evmCfg, lggr)
 	legacyConfig := evmcfg.NewChainScopedConfig(chainID.ToInt(), evmtypes.ChainCfg{}, nil, lggr, legacyGeneral)

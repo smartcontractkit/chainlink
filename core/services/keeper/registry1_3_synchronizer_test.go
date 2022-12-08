@@ -212,7 +212,7 @@ func Test_RegistrySynchronizer1_3_FullSync(t *testing.T) {
 		[]*big.Int{big.NewInt(69), big.NewInt(420), big.NewInt(2022)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_3,
-		1, // 1 new upkeep to sync
+		3, // sync all 3 upkeeps
 		2,
 		1)
 	synchronizer.ExportedFullSync()

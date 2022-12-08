@@ -69,29 +69,35 @@ func NewApp(client *Client) *cli.App {
 			Name:  "insecure-skip-verify",
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "config, c",
-			Hidden: !devMode,
-			Usage:  "EXPERIMENTAL: TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.",
+			Usage:  "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values.",
 			EnvVar: "CL_CONFIG",
 		},
 		cli.StringFlag{
-			Name:   "secrets, s",
-			Hidden: !devMode,
-			Usage:  "EXPERIMENTAL: TOML configuration file for secrets. Must be set if and only if config is set.",
+			Name:  "secrets, s",
+			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
 		},
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.IsSet("config") {
 			// TOML
-			configTOML := v2.EnvConfig.Get()
-			if configTOML == "" {
-				fileName := c.String("config")
-				b, err := os.ReadFile(fileName)
-				if err != nil {
-					return errors.Wrapf(err, "failed to read config file: %s", fileName)
+			var opts chainlink.GeneralConfigOpts
+			if configTOML := v2.EnvConfig.Get(); configTOML != "" {
+				if err := opts.ParseConfig(configTOML); err != nil {
+					return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
 				}
-				configTOML = string(b)
+			} else {
+				fileNames := c.StringSlice("config")
+				for _, fileName := range fileNames {
+					b, err := os.ReadFile(fileName)
+					if err != nil {
+						return errors.Wrapf(err, "failed to read config file: %s", fileName)
+					}
+					if err := opts.ParseConfig(string(b)); err != nil {
+						return errors.Wrapf(err, "failed to parse file: %s", fileName)
+					}
+				}
 			}
 
 			secretsTOML := ""
@@ -103,10 +109,10 @@ func NewApp(client *Client) *cli.App {
 				}
 				secretsTOML = string(b)
 			}
-			var opts chainlink.GeneralConfigOpts
-			if err := opts.ParseTOML(configTOML, secretsTOML); err != nil {
+			if err := opts.ParseSecrets(secretsTOML); err != nil {
 				return err
 			}
+
 			if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 				return err
 			} else {
@@ -334,17 +340,17 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "dump",
-					Usage:  "LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration",
+					Usage:  "Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]",
 					Action: client.ConfigDump,
 				},
 				{
 					Name:   "list",
-					Usage:  "LEGACY CONFIG (ENV) ONLY - Show the node's environment variables",
+					Usage:  "Show the node's environment variables [Not supported with TOML]",
 					Action: client.GetConfiguration,
 				},
 				{
 					Name:   "show",
-					Usage:  "V2 CONFIG (TOML) ONLY - Show the application configuration",
+					Usage:  "Show the application configuration [Only supported with TOML]",
 					Action: client.ConfigV2,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -355,7 +361,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "setgasprice",
-					Usage:  "Set the default gas price to use for outgoing transactions",
+					Usage:  "Set the default gas price to use for outgoing transactions [Not supported with TOML]",
 					Action: client.SetEvmGasPriceDefault,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -396,7 +402,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "validate",
-					Usage:  "Validate provided TOML config file",
+					Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]",
 					Action: client.ConfigFileValidate,
 				},
 			},

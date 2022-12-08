@@ -210,7 +210,7 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/transfers/solana", false, false, false},
 	{"GET", "/v2/config", true, true, true},
 	{"PATCH", "/v2/config", false, false, false},
-	{"GET", "/v2/config/v2", false, false, false},
+	{"GET", "/v2/config/v2", true, true, true},
 	{"GET", "/v2/tx_attempts", true, true, true},
 	{"GET", "/v2/tx_attempts/evm", true, true, true},
 	{"GET", "/v2/transactions/evm", true, true, true},
@@ -318,7 +318,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -355,7 +355,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -401,7 +401,7 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -447,7 +447,7 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	router := web.Router(app, nil)
+	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 

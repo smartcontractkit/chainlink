@@ -5,9 +5,8 @@ import "../dev/ocr2dr/OCR2DRClient.sol";
 
 contract OCR2DRClientTestHelper is OCR2DRClient {
   using OCR2DR for OCR2DR.Request;
-  using OCR2DR for OCR2DR.HttpQuery;
-  using OCR2DR for OCR2DR.HttpHeader;
 
+  event SendRequestInvoked(bytes32 requestId, string sourceCode, uint64 subscriptionId);
   event FulfillRequestInvoked(bytes32 requestId, bytes response, bytes err);
 
   bool private s_revertFulfillRequest;
@@ -15,10 +14,20 @@ contract OCR2DRClientTestHelper is OCR2DRClient {
 
   constructor(address oracle) OCR2DRClient(oracle) {}
 
-  function sendSimpleRequestWithJavaScript(string memory sourceCode, uint256 subscriptionId) public returns (bytes32) {
+  function sendSimpleRequestWithJavaScript(string memory sourceCode, uint64 subscriptionId)
+    public
+    returns (bytes32 requestId)
+  {
     OCR2DR.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    return sendRequest(request, subscriptionId);
+    requestId = sendRequest(request, subscriptionId, 20_000);
+    emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
+  }
+
+  function estimateJuelCost(string memory sourceCode, uint64 subscriptionId) public view returns (uint96) {
+    OCR2DR.Request memory request;
+    request.initializeRequestForInlineJavaScript(sourceCode);
+    return estimateCost(request, subscriptionId, 20_000);
   }
 
   function fulfillRequest(

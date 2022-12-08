@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 )
 
-//go:generate mockery --name VRF --output ./mocks/ --case=underscore --filename vrf.go
+//go:generate mockery --quiet --name VRF --output ./mocks/ --case=underscore --filename vrf.go
 
 type VRF interface {
 	Get(id string) (vrfkey.KeyV2, error)

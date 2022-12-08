@@ -27,6 +27,7 @@ MinReconnectInterval = '10s'
 FallbackPollInterval = '10s'
 
 [Database.Lock]
+Enabled = false
 LeaseDuration = '5s'
 LeaseRefreshInterval = '2s'
 
@@ -264,6 +265,7 @@ PriceMax = '42 wei'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
 
 [[EVM.Nodes]]
 Name = 'primary_0_1'

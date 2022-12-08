@@ -2,7 +2,21 @@
 
 This document describes the TOML format for configuration.
 
-See also [SECRETS.md](secrets.md)
+See also [SECRETS.md](SECRETS.md)
+
+## Example
+
+```toml
+Log.Level = 'debug'
+
+[[EVM]]
+ChainID = '1' # Required
+
+[[EVM.Nodes]]
+Name = 'fake' # Required
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar' # Required
+```
 
 ## Table of contents
 
@@ -248,6 +262,7 @@ FallbackPollInterval controls how often clients should manually poll as a fallba
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
 ```toml
 [Database.Lock]
+Enabled = true # Default
 LeaseDuration = '10s' # Default
 LeaseRefreshInterval = '1s' # Default
 ```
@@ -261,21 +276,23 @@ Because of the complications with advisory locks, Chainlink nodes with v2.0 and 
 - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
 
+### Enabled<a id='Database-Lock-Enabled'></a>
+```toml
+Enabled = true # Default
+```
+Enabled enables the database lock.
+
 ### LeaseDuration<a id='Database-Lock-LeaseDuration'></a>
 ```toml
 LeaseDuration = '10s' # Default
 ```
 LeaseDuration is how long the lease lock will last before expiring.
 
-This setting applies only if `Mode` is set to enable lease locking.
-
 ### LeaseRefreshInterval<a id='Database-Lock-LeaseRefreshInterval'></a>
 ```toml
 LeaseRefreshInterval = '1s' # Default
 ```
 LeaseRefreshInterval determines how often to refresh the lease lock. Also controls how often a standby node will check to see if it can grab the lease.
-
-This setting applies only if Mode is set to enable lease locking.
 
 ## TelemetryIngress<a id='TelemetryIngress'></a>
 ```toml
@@ -464,6 +481,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ```toml
 [WebServer]
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
+BridgeCacheTTL = '0s' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
 HTTPWriteTimeout = '10s' # Default
 HTTPPort = 6688 # Default
@@ -482,6 +500,12 @@ AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` heade
 You should set this to the external URL that you use to access the Chainlink UI.
 
 You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
+
+### BridgeCacheTTL<a id='WebServer-BridgeCacheTTL'></a>
+```toml
+BridgeCacheTTL = '0s' # Default
+```
+BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
 
 ### BridgeResponseURL<a id='WebServer-BridgeResponseURL'></a>
 ```toml
@@ -1396,6 +1420,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1472,6 +1497,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1548,6 +1574,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1624,6 +1651,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1701,6 +1729,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -1777,6 +1806,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1853,6 +1883,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -1930,6 +1961,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2006,6 +2038,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -2081,6 +2114,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2156,6 +2190,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2233,6 +2268,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -2310,6 +2346,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2386,6 +2423,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -2462,6 +2500,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -2538,6 +2577,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -2615,6 +2655,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -2691,6 +2732,83 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Klaytn Testnet (1001)<a id='EVM-1001'></a></summary><p>
+
+```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '750 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -2767,6 +2885,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -2842,6 +2961,7 @@ SamplingInterval = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -2918,9 +3038,86 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5300000
+```
+
+</p></details>
+
+<details><summary>Klaytn Mainnet (8217)<a id='EVM-8217'></a></summary><p>
+
+```toml
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '750 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+
+[OCR]
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -2994,6 +3191,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -3071,6 +3269,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -3147,6 +3346,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -3223,6 +3423,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
@@ -3299,6 +3500,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 4
@@ -3376,6 +3578,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -3453,6 +3656,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -3529,6 +3733,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -3605,6 +3810,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -3681,6 +3887,7 @@ SamplingInterval = '1s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 4
@@ -4279,6 +4486,7 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 PollFailureThreshold = 5 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
+SyncThreshold = 5 # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -4304,7 +4512,19 @@ Set to zero to disable poll checking.
 ```toml
 SelectionMode = 'HighestHead' # Default
 ```
-SelectionMode controls node selection strategy: HighestHead or RoundRobin.
+SelectionMode controls node selection strategy:
+- HighestHead: use the node with the highest head number
+- RoundRobin: rotate through nodes, per-request
+- TotalDifficulty: use the node with the greatest total difficulty
+
+### SyncThreshold<a id='EVM-NodePool-SyncThreshold'></a>
+```toml
+SyncThreshold = 5 # Default
+```
+SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+
+Set to 0 to disable this check.
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml

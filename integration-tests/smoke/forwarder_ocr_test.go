@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to each node @ocr-forwarder", func() {
+var _ = Describe("OCR forwarder flow - each operator forwarder pair belongs to each node @forwarder-ocr", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("OCR with operator forwarder suite @default", forwarderOCREnv()),
@@ -131,8 +131,16 @@ func forwarderOCREnv() *smokeTestInputs {
 			WsURLs:      network.URLs,
 		})
 	}
-	envValueMap := network.ChainlinkValuesMap()
-	envValueMap["ETH_USE_FORWARDERS"] = "true"
+	baseTOML := `[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V1]
+Enabled = true
+ListenIP = '0.0.0.0'
+ListenPort = 6690`
+	networkDetailTOML := `[EVM.Transactions]
+ForwardersEnabled = true`
 	env := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 	}).
@@ -140,7 +148,7 @@ func forwarderOCREnv() *smokeTestInputs {
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env":      envValueMap,
+			"toml":     client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, network),
 			"replicas": 6,
 		}))
 	return &smokeTestInputs{

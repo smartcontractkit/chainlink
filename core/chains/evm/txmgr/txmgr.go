@@ -34,7 +34,7 @@ import (
 // Config encompasses config used by txmgr package
 // Unless otherwise specified, these should support changing at runtime
 //
-//go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
+//go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
 	gas.Config
 	pg.QConfig
@@ -55,12 +55,13 @@ type Config interface {
 
 // KeyStore encompasses the subset of keystore used by txmgr
 type KeyStore interface {
+	CheckEnabled(address common.Address, chainID *big.Int) error
+	EnabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2, err error)
+	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
+	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
-	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
-	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
-	CheckEnabled(address common.Address, chainID *big.Int) error
 }
 
 // For more information about the Txm architecture, see the design doc:
@@ -71,7 +72,7 @@ var _ TxManager = &Txm{}
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 
-//go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
+//go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
 	httypes.HeadTrackable
 	services.ServiceCtx
@@ -154,7 +155,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		reset:            make(chan reset),
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, cfg)
+		b.ethResender = NewEthResender(lggr, db, ethClient, keyStore, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}

@@ -81,11 +81,26 @@ type GeneralConfigOpts struct {
 }
 
 // ParseTOML sets Config and Secrets from the given TOML strings.
-func (o *GeneralConfigOpts) ParseTOML(config, secrets string) error {
-	return multierr.Combine(
-		v2.DecodeTOML(strings.NewReader(config), &o.Config),
-		v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets),
-	)
+func (o *GeneralConfigOpts) ParseTOML(config, secrets string) (err error) {
+	return multierr.Combine(o.ParseConfig(config), o.ParseSecrets(secrets))
+}
+
+// ParseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
+func (o *GeneralConfigOpts) ParseConfig(config string) error {
+	var c Config
+	if err2 := v2.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
+		return fmt.Errorf("failed to decode config TOML: %w", err2)
+	}
+	o.Config.SetFrom(&c)
+	return nil
+}
+
+// ParseSecrets sets Secrets from the given TOML string.
+func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
+	if err2 := v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets); err2 != nil {
+		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
+	}
+	return nil
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
@@ -164,6 +179,10 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
 	}
 
+	if err2 := utils.EnsureDirAndMaxPerms(cfg.RootDir(), os.FileMode(0700)); err2 != nil {
+		return nil, fmt.Errorf(`failed to create root directory %q: %w`, cfg.RootDir(), err2)
+	}
+
 	return cfg, nil
 }
 
@@ -212,6 +231,12 @@ var legacyEnvToV2 = map[string]string{
 
 // validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
 func validateEnv() (err error) {
+	defer func() {
+		if err != nil {
+			_, err = utils.MultiErrorList(err)
+			err = fmt.Errorf("invalid environment: %w", err)
+		}
+	}()
 	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
 		if strings.TrimSpace(kv) == "" {
 			continue
@@ -481,6 +506,10 @@ func (g *generalConfig) BridgeResponseURL() *url.URL {
 	return g.c.WebServer.BridgeResponseURL.URL()
 }
 
+func (g *generalConfig) BridgeCacheTTL() time.Duration {
+	return g.c.WebServer.BridgeCacheTTL.Duration()
+}
+
 func (g *generalConfig) CertFile() string {
 	s := *g.c.WebServer.TLS.CertPath
 	if s == "" {
@@ -651,6 +680,8 @@ func (g *generalConfig) KeyFile() string {
 	}
 	return g.TLSKeyPath()
 }
+
+func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
 
 func (g *generalConfig) LeaseLockDuration() time.Duration {
 	return g.c.Database.Lock.LeaseDuration.Duration()

@@ -12,7 +12,7 @@ import (
 
 // TxStrategy controls how txes are queued and sent
 //
-//go:generate mockery --name TxStrategy --output ./mocks/ --case=underscore --structname TxStrategy --filename tx_strategy.go
+//go:generate mockery --quiet --name TxStrategy --output ./mocks/ --case=underscore --structname TxStrategy --filename tx_strategy.go
 type TxStrategy interface {
 	// Subject will be saved to eth_txes.subject if not null
 	Subject() uuid.NullUUID

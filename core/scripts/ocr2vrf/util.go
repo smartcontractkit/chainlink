@@ -198,6 +198,15 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 
 	onchainConfig := ocr2vrf.OnchainConfig(confDelays)
 
+	coordinatorConfig := ocr2vrftypes.CoordinatorConfig{
+		CacheEvictionWindowSeconds: 60,
+		BatchGasLimit:              5_000_000,
+		CoordinatorOverhead:        50_000,
+		CallbackOverhead:           50_000,
+		BlockGasOverhead:           50_000,
+		LookbackBlocks:             1_000,
+	}
+
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		c.deltaProgress,
 		c.deltaResend,
@@ -207,7 +216,7 @@ func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeacon
 		c.maxRounds,
 		helpers.ParseIntSlice(c.schedule),
 		oracleIdentities,
-		nil, // off-chain config
+		ocr2vrf.OffchainConfig(&coordinatorConfig), // off-chain config
 		c.maxDurationQuery,
 		c.maxDurationObservation,
 		c.maxDurationReport,
@@ -462,8 +471,8 @@ func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
 	return
 }
 
-func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupOCR2VRFNodePayload {
-	payload, err := client.ConfigureOCR2VRFNode(context)
+func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e helpers.Environment) *cmd.SetupOCR2VRFNodePayload {
+	payload, err := client.ConfigureOCR2VRFNode(context, e.Owner, e.Ec)
 	helpers.PanicErr(err)
 
 	return payload

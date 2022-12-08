@@ -47,7 +47,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
 
 	c.Database.Dialect = dialects.TransactionWrappedPostgres
-	c.Database.Lock.Mode = "none"
+	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
 	c.Database.MigrateOnStartup = ptr(false)
@@ -64,7 +64,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	enabled := true
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.DefaultsFrom(chainID, nil),
+		Chain:   evmcfg.Defaults(chainID),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	})
@@ -89,7 +89,7 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 	enabled := true
 	cfg := evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.DefaultsFrom(chainID, nil),
+		Chain:   evmcfg.Defaults(chainID),
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{{}},
 	}

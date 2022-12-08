@@ -102,6 +102,7 @@ type ConfigSchema struct {
 	AuthenticatedRateLimit         int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod   time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
 	BridgeResponseURL              url.URL         `env:"BRIDGE_RESPONSE_URL"`
+	BridgeCacheTTL                 time.Duration   `env:"BRIDGE_CACHE_TTL" default:"0s"`
 	HTTPServerWriteTimeout         time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
 	Port                           uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	SecureCookies                  bool            `env:"SECURE_COOKIES" default:"true"`
@@ -172,6 +173,7 @@ type ConfigSchema struct {
 	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
 	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
 	NodeSelectionMode        string        `env:"NODE_SELECTION_MODE"`
+	NodeSyncThreshold        uint32        `env:"NODE_SYNC_THRESHOLD"`
 
 	// EVM Gas Controls
 	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`

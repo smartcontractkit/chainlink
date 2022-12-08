@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-# Dependencies:
-# jq ^1.6 https://stedolan.github.io/jq/
-
 owner=smartcontractkit
 repo=operator-ui
 fullRepo=${owner}/${repo}
-gitRoot=$(git rev-parse --show-toplevel)
+gitRoot=$(git rev-parse --show-toplevel || pwd)
 cd "$gitRoot/operator_ui"
 unpack_dir="$gitRoot/core/web/assets"
 tag=$(cat TAG)

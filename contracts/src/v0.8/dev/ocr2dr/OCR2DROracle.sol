@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/OCR2DRClientInterface.sol";
 import "../interfaces/OCR2DROracleInterface.sol";
-import "../../ConfirmedOwner.sol";
 import "../ocr2/OCR2Base.sol";
 
 /**
@@ -18,18 +15,13 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
 
   error EmptyRequestData();
-  error InvalidRequestID();
   error InconsistentReportData();
   error EmptyPublicKey();
-
-  struct Commitment {
-    address client;
-    uint256 subscriptionId;
-  }
+  error EmptyBillingRegistry();
+  error InvalidRequestID();
 
   bytes private s_donPublicKey;
-  uint256 private s_nonce;
-  mapping(bytes32 => Commitment) private s_commitments;
+  OCR2DRRegistryInterface private s_registry;
 
   constructor() OCR2Base(true) {}
 
@@ -41,12 +33,33 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
     return "OCR2DROracle 0.0.0";
   }
 
-  /// @inheritdoc OCR2DROracleInterface
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
+  function getRegistry() external view override returns (address) {
+    return address(s_registry);
+  }
+
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
+  function setRegistry(address registryAddress) external override onlyOwner {
+    if (registryAddress == address(0)) {
+      revert EmptyBillingRegistry();
+    }
+    s_registry = OCR2DRRegistryInterface(registryAddress);
+  }
+
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_donPublicKey;
   }
 
-  /// @inheritdoc OCR2DROracleInterface
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
   function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
       revert EmptyPublicKey();
@@ -54,61 +67,114 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
     s_donPublicKey = donPublicKey;
   }
 
-  /// @inheritdoc OCR2DROracleInterface
-  function sendRequest(uint256 subscriptionId, bytes calldata data) external override returns (bytes32) {
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
+  function getRequiredFee(
+    bytes calldata, /* data */
+    OCR2DRRegistryInterface.RequestBilling memory /* billing */
+  ) public pure override returns (uint96) {
+    // NOTE: Optionally, compute additional fee split between oracles here
+    // e.g. 0.1 LINK * s_transmitters.length
+    return 0;
+  }
+
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
+  function estimateCost(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit
+  ) external view override registryIsSet returns (uint96) {
+    OCR2DRRegistryInterface.RequestBilling memory billing = OCR2DRRegistryInterface.RequestBilling(
+      subscriptionId,
+      msg.sender,
+      gasLimit
+    );
+    uint96 requiredFee = getRequiredFee(data, billing);
+    return s_registry.estimateCost(data, billing, requiredFee);
+  }
+
+  /**
+   * @inheritdoc OCR2DROracleInterface
+   */
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit
+  ) external override registryIsSet returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
-    s_nonce++;
-    bytes32 requestId = keccak256(abi.encodePacked(msg.sender, s_nonce));
-    s_commitments[requestId] = Commitment(msg.sender, subscriptionId);
+    bytes32 requestId = s_registry.startBilling(
+      data,
+      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
+    );
     emit OracleRequest(requestId, data);
     return requestId;
-  }
-
-  function fulfillRequest(
-    bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) internal validateRequestId(requestId) {
-    OCR2DRClientInterface client = OCR2DRClientInterface(s_commitments[requestId].client);
-    delete s_commitments[requestId];
-    try client.handleOracleFulfillment(requestId, response, err) {
-      emit OracleResponse(requestId);
-    } catch Error(string memory reason) {
-      emit UserCallbackError(requestId, reason);
-    } catch (bytes memory lowLevelData) {
-      emit UserCallbackRawError(requestId, lowLevelData);
-    }
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
-  function _report(
+  function _validateReport(
     bytes32, /* configDigest */
     uint40, /* epochAndRound */
-    bytes memory report
-  ) internal override {
+    bytes memory /* report */
+  ) internal pure override returns (bool) {
+    // validate within _report to save gas
+    return true;
+  }
+
+  function _report(
+    uint256 initialGas,
+    address transmitter,
+    uint8 signerCount,
+    address[maxNumOracles] memory signers,
+    bytes calldata report
+  ) internal override registryIsSet {
     bytes32[] memory requestIds;
     bytes[] memory results;
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     if (requestIds.length != results.length && requestIds.length != errors.length) {
-      revert InconsistentReportData();
+      revert ReportInvalid();
     }
 
+    uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
+
     for (uint256 i = 0; i < requestIds.length; i++) {
-      fulfillRequest(requestIds[i], results[i], errors[i]);
+      try
+        s_registry.fulfillAndBill(
+          requestIds[i],
+          results[i],
+          errors[i],
+          transmitter,
+          signers,
+          signerCount,
+          reportValidationGasShare,
+          gasleft()
+        )
+      returns (bool success) {
+        if (success) {
+          emit OracleResponse(requestIds[i]);
+        } else {
+          emit UserCallbackError(requestIds[i], "error in callback");
+        }
+      } catch (bytes memory reason) {
+        emit UserCallbackRawError(requestIds[i], reason);
+      }
     }
   }
 
-  function _payTransmitter(uint32 initialGas, address transmitter) internal override {}
-
-  modifier validateRequestId(bytes32 requestId) {
-    if (s_commitments[requestId].client == address(0)) {
-      revert InvalidRequestID();
+  /**
+   * @dev Reverts if the the registry is not set
+   */
+  modifier registryIsSet() {
+    if (address(s_registry) == address(0)) {
+      revert EmptyBillingRegistry();
     }
     _;
   }

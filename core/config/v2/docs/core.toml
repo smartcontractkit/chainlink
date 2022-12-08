@@ -78,13 +78,11 @@ FallbackPollInterval = '30s' # Default
 # - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 # - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
 [Database.Lock]
+# Enabled enables the database lock.
+Enabled = true # Default
 # LeaseDuration is how long the lease lock will last before expiring.
-#
-# This setting applies only if `Mode` is set to enable lease locking.
 LeaseDuration = '10s' # Default
 # LeaseRefreshInterval determines how often to refresh the lease lock. Also controls how often a standby node will check to see if it can grab the lease.
-#
-# This setting applies only if Mode is set to enable lease locking.
 LeaseRefreshInterval = '1s' # Default
 
 [TelemetryIngress]
@@ -161,6 +159,8 @@ MaxBackups = 1 # Default
 #
 # You can set `AllowOrigins = '*'` to allow the UI to work from any URL, but it is recommended for security reasons to make it explicit instead.
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
+# BridgeCacheTTL controls the cache TTL for all bridge tasks to use old values in newer observations in case of intermittent failure. It's disabled by default.
+BridgeCacheTTL = '0s' # Default
 # BridgeResponseURL defines the URL for bridges to send a response to. This _must_ be set when using async external adapters.
 #
 # Usually this will be the same as the URL/IP and port you use to connect to the Chainlink UI.

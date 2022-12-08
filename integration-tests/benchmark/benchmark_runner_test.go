@@ -108,41 +108,14 @@ var chainlinkSoak = map[string]interface{}{
 	},
 }
 
-func TestKeeperBenchmarkSimulated(t *testing.T) {
-	KeeperBenchmarkSimulated(t, "@simulated-registry-1-3 @benchmark-keeper")
-}
-
-func TestKeeperBenchmarkSimulated1_2(t *testing.T) {
-	KeeperBenchmarkSimulated(t, "@simulated-registry1-2 @benchmark-keeper")
-}
-
-func TestKeeperBenchmarkSimulatedMultiple(t *testing.T) {
-	KeeperBenchmarkSimulated(t, "@simulated-multiple-registries @benchmark-keeper")
-}
-
-func TestKeeperBenchmarkGoerli(t *testing.T) {
-	KeeperBenchmarkGoerli(t, "@goerli-registry-1-3 @benchmark-keeper")
-}
-
-func TestKeeperBenchmarkGoerli1_2(t *testing.T) {
-	KeeperBenchmarkGoerli(t, "@goerli-registry1-2 @benchmark-keeper")
-}
-
-func TestKeeperBenchmarkGoerliMultiple(t *testing.T) {
-	KeeperBenchmarkGoerli(t, "@goerli-multiple-registries @benchmark-keeper")
-}
-
-func TestKeeperBenchmarkArbitrumGoerli(t *testing.T) {
-	KeeperBenchmarkArbitrumGoerli(t, "@arbitrum-goerli-registry-1-3 @benchmark-keeper")
-}
-
-func TestKeeperBenchmarkOptimisticGoerli(t *testing.T) {
-	KeeperBenchmarkOptimisticGoerli(t, "@optimistic-goerli-registry-1-3 @benchmark-keeper")
+func TestKeeperBenchmark(t *testing.T) {
+	registryToTest := os.Getenv("AUTOMATION_REGISTRY_TO_TEST")
+	KeeperBenchmark(t, registryToTest)
 }
 
 // Run the Keepers Benchmark test defined in ./tests/keeper_test.go
-func KeeperBenchmarkSimulated(t *testing.T, testTag string) {
-	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to run benchmark test on
+func KeeperBenchmark(t *testing.T, registryToTest string) {
+	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"benchmark-keeper-%s",
@@ -151,15 +124,19 @@ func KeeperBenchmarkSimulated(t *testing.T, testTag string) {
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	staticValues := map[string]interface{}{
+		"ETH_URL":      activeEVMNetwork.URLs[0],
+		"ETH_HTTP_URL": activeEVMNetwork.HTTPURLs[0],
+	}
 
 	keeperBenchmarkValues := map[string]interface{}{
 		"MIN_INCOMING_CONFIRMATIONS": "1",
 		"KEEPER_TURN_FLAG_ENABLED":   "true",
 		"CHAINLINK_DEV":              "false",
-		//"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "2000000",
 	}
-	mergo.Merge(&staticValues, &keeperBenchmarkValues)
+
+	testTag := "simulated"
+
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -181,99 +158,47 @@ func KeeperBenchmarkSimulated(t *testing.T, testTag string) {
 			"dynamic_value": "5",
 		},
 	}
+
+	if !activeEVMNetwork.Simulated {
+		staticValues = map[string]interface{}{
+			"KEEPER_REGISTRY_SYNC_INTERVAL": "",
+			"ETH_URL":                       "",
+			"ETH_CHAIN_ID":                  "",
+		}
+		dynamicValues = dynamicValues_EvmNodes
+		if activeEVMNetwork.Name == "Goerli Testnet" {
+			keeperBenchmarkValues = map[string]interface{}{
+				"MIN_INCOMING_CONFIRMATIONS":     "1",
+				"KEEPER_TURN_FLAG_ENABLED":       "true",
+				"CHAINLINK_DEV":                  "false",
+				"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "3",
+				"ETH_MAX_QUEUED_TRANSACTIONS":    "15",
+				"ETH_GAS_BUMP_TX_DEPTH":          "3",
+			}
+			testTag = "goerli"
+		}
+		if activeEVMNetwork.Name == "Arbitrum Goerli" || activeEVMNetwork.Name == "Optimism Goerli" {
+			keeperBenchmarkValues = map[string]interface{}{
+				"KEEPER_TURN_FLAG_ENABLED":       "true",
+				"CHAINLINK_DEV":                  "false",
+				"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "",
+				"ETH_MAX_QUEUED_TRANSACTIONS":    "",
+				"ETH_GAS_BUMP_TX_DEPTH":          "",
+			}
+			testTag = "arbitrum-goerli"
+		}
+		if activeEVMNetwork.Name == "Optimism Goerli" {
+			testTag = "optimistic-goerli"
+		}
+	}
+
+	testTag = "@" + testTag + "-" + registryToTest
+
+	mergo.Merge(&staticValues, &keeperBenchmarkValues)
+
 	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
 
-	benchmarkTestHelper(t, testTag, testEnvironment, activeEVMNetwork)
-}
-
-func KeeperBenchmarkGoerli(t *testing.T, testTag string) {
-	activeEVMNetwork := networks.GoerliTestnet // Environment currently being used to run benchmark test on
-	activeEVMNetwork.MinimumConfirmations = 1
-	activeEVMNetwork.Timeout = 10 * time.Minute
-
-	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
-		"benchmark-keeper-%s",
-		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
-	)
-	testEnvironment := environment.New(baseEnvironmentConfig)
-
-	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := map[string]interface{}{
-		"KEEPER_REGISTRY_SYNC_INTERVAL":  "",
-		"ETH_URL":                        "",
-		"ETH_CHAIN_ID":                   "",
-		"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "3",
-		"ETH_MAX_QUEUED_TRANSACTIONS":    "15",
-		"ETH_GAS_BUMP_TX_DEPTH":          "3",
-	}
-
-	keeperBenchmarkValues := map[string]interface{}{
-		"MIN_INCOMING_CONFIRMATIONS": "1",
-		"KEEPER_TURN_FLAG_ENABLED":   "true",
-		"CHAINLINK_DEV":              "false",
-	}
-	mergo.Merge(&staticValues, &keeperBenchmarkValues)
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues_EvmNodes)
-
-	benchmarkTestHelper(t, testTag, testEnvironment, activeEVMNetwork)
-}
-
-func KeeperBenchmarkArbitrumGoerli(t *testing.T, testTag string) {
-	activeEVMNetwork := networks.ArbitrumGoerli // Environment currently being used to run benchmark test on
-
-	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
-		"benchmark-keeper-%s",
-		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
-	)
-	testEnvironment := environment.New(baseEnvironmentConfig)
-
-	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := map[string]interface{}{
-		"KEEPER_REGISTRY_SYNC_INTERVAL":  "",
-		"ETH_URL":                        "",
-		"ETH_CHAIN_ID":                   "",
-		"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "",
-		"ETH_MAX_QUEUED_TRANSACTIONS":    "",
-		"ETH_GAS_BUMP_TX_DEPTH":          "",
-	}
-
-	keeperBenchmarkValues := map[string]interface{}{
-		"KEEPER_TURN_FLAG_ENABLED": "true",
-		"CHAINLINK_DEV":            "false",
-	}
-	mergo.Merge(&staticValues, &keeperBenchmarkValues)
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues_EvmNodes)
-
-	benchmarkTestHelper(t, testTag, testEnvironment, activeEVMNetwork)
-}
-
-func KeeperBenchmarkOptimisticGoerli(t *testing.T, testTag string) {
-	activeEVMNetwork := networks.OptimismGoerli // Environment currently being used to run benchmark test on
-
-	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
-		"benchmark-keeper-%s",
-		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
-	)
-	testEnvironment := environment.New(baseEnvironmentConfig)
-
-	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	staticValues := map[string]interface{}{
-		"KEEPER_REGISTRY_SYNC_INTERVAL":  "",
-		"ETH_URL":                        "",
-		"ETH_CHAIN_ID":                   "",
-		"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "",
-		"ETH_MAX_QUEUED_TRANSACTIONS":    "",
-		"ETH_GAS_BUMP_TX_DEPTH":          "",
-	}
-
-	keeperBenchmarkValues := map[string]interface{}{
-		"KEEPER_TURN_FLAG_ENABLED": "true",
-		"CHAINLINK_DEV":            "false",
-	}
-	mergo.Merge(&staticValues, &keeperBenchmarkValues)
-	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues_EvmNodes)
-
-	benchmarkTestHelper(t, testTag, testEnvironment, activeEVMNetwork)
+	benchmarkTestHelper(t, testTag+" @benchmark-keeper", testEnvironment, activeEVMNetwork)
 }
 
 // adds distinct Chainlink deployments to the test environment, using staticVals on all of them, while distributing
@@ -300,7 +225,7 @@ func addSeparateChainlinkDeployments(
 			chartResources = chainlinkSoak
 		}
 		mergo.Merge(&chartValues, &chartResources)
-		testEnvironment.AddHelm(chainlink.New(index, chartValues))
+		testEnvironment.AddHelm(chainlink.NewVersioned(index, "0.0.11", chartValues))
 	}
 }
 
@@ -311,13 +236,10 @@ func benchmarkTestHelper(
 	testEnvironment *environment.Environment,
 	activeEVMNetwork *blockchain.EVMNetwork,
 ) {
-	exeFile, exeFileSize, err := actions.BuildGoTests("./", "./tests", "../")
-	require.NoError(t, err, "Error building go tests")
-
 	remoteRunnerValues := map[string]interface{}{
-		"test_name":             testTag,
+		"focus":                 testTag,
 		"env_namespace":         testEnvironment.Cfg.Namespace,
-		"test_file_size":        fmt.Sprint(exeFileSize),
+		"test_dir":              "./suite/benchmark/tests",
 		"test_log_level":        "debug",
 		"grafana_dashboard_url": os.Getenv("GRAFANA_DASHBOARD_URL"),
 		"NUMBEROFCONTRACTS":     os.Getenv("NUMBEROFCONTRACTS"),
@@ -333,19 +255,9 @@ func benchmarkTestHelper(
 	}
 	remoteRunnerWrapper := map[string]interface{}{
 		"remote_test_runner": remoteRunnerValues,
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
-				"cpu":    "250m",
-				"memory": "1Gi",
-			},
-			"limits": map[string]interface{}{
-				"cpu":    "250m",
-				"memory": "1Gi",
-			},
-		},
 	}
 
-	err = testEnvironment.
+	err := testEnvironment.
 		AddHelm(remotetestrunner.New(remoteRunnerWrapper)).
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: activeEVMNetwork.Name,
@@ -366,6 +278,6 @@ func benchmarkTestHelper(
 		})).
 		Run()
 	require.NoError(t, err, "Error launching test environment")
-	err = actions.TriggerRemoteTest(exeFile, testEnvironment)
+	err = actions.TriggerRemoteTest("../../", testEnvironment)
 	require.NoError(t, err, "Error activating remote test")
 }

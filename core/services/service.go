@@ -11,7 +11,7 @@ import "context"
 //
 // Mockable Foo service with a run loop
 //
-//	//go:generate mockery --name Foo --output ../internal/mocks/ --case=underscore
+//	//go:generate mockery --quiet --name Foo --output ../internal/mocks/ --case=underscore
 //	type (
 //		// Expose a public interface so we can mock the service.
 //		Foo interface {
