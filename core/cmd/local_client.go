@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -508,7 +509,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 
 	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.DatabaseURL()
-	db, err := sql.Open(string(dialects.Postgres), dbUrl.String())
+	db, err := sqlx.Open(string(dialects.Postgres), dbUrl.String())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -527,7 +528,42 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	return nil
+	return cli.errorOut(dropDanglingTestDBs(cli.Logger, db))
+}
+
+func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
+	// Drop all old dangling databases
+	var dbs []string
+	if err = db.Select(&dbs, `SELECT datname FROM pg_database WHERE datistemplate = false;`); err != nil {
+		return err
+	}
+
+	// dropping database is very slow in postgres so we parallelise it here
+	nWorkers := 25
+	ch := make(chan string)
+	wg := sync.WaitGroup{}
+	wg.Add(nWorkers)
+	errMu := sync.Mutex{}
+	for i := 0; i < nWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			for dbname := range ch {
+				lggr.Infof("Dropping test database: %q", dbname)
+				gerr := utils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
+				errMu.Lock()
+				err = multierr.Append(err, gerr)
+				errMu.Unlock()
+			}
+		}()
+	}
+	for _, dbname := range dbs {
+		if strings.HasPrefix(dbname, "chainlink_test_") && !strings.HasSuffix(dbname, "_pristine") {
+			ch <- dbname
+		}
+	}
+	close(ch)
+	wg.Wait()
+	return
 }
 
 // PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
@@ -672,7 +708,7 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	return nil
 }
 
-func dropAndCreatePristineDB(db *sql.DB, template string) (err error) {
+func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, PristineDBName))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
