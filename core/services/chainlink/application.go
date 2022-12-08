@@ -67,7 +67,7 @@ import (
 type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
-	GetLogger() logger.Logger
+	GetLogger() logger.SugaredLogger
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
@@ -135,7 +135,7 @@ type ChainlinkApplication struct {
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
-	logger                   logger.Logger
+	logger                   logger.SugaredLogger
 	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
@@ -201,7 +201,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	eventBroadcaster := opts.EventBroadcaster
 	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
-	globalLogger := opts.Logger
+	globalLogger := logger.Sugared(opts.Logger)
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
@@ -620,7 +620,7 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 	return app.KeyStore
 }
 
-func (app *ChainlinkApplication) GetLogger() logger.Logger {
+func (app *ChainlinkApplication) GetLogger() logger.SugaredLogger {
 	return app.logger
 }
 

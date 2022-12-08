@@ -246,7 +246,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 // Import imports a key
 func (ekc *ETHKeysController) Import(c *gin.Context) {
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
-	defer ekc.app.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
+	defer ekc.app.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -292,7 +292,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 }
 
 func (ekc *ETHKeysController) Export(c *gin.Context) {
-	defer ekc.app.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+	defer ekc.app.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Export request body")
 
 	id := c.Param("address")
 	newPassword := c.Query("newpassword")
@@ -314,7 +314,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 // Chain updates settings for a given chain for the key
 func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	kst := ekc.app.GetKeyStore().Eth()
-	defer ekc.app.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
+	defer ekc.app.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
 	addressHex := c.Query("address")
 	addressBytes, err := hexutil.Decode(addressHex)

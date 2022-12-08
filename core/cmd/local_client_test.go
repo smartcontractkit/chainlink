@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -391,8 +390,7 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 			// Tries to create a log file by logging. The log file won't be created if there's no logging happening.
 			lggr.Debug("Trying to create a log file by logging.")
 
-			filepath := filepath.Join(cfg.Dir, logger.LogsFile)
-			_, err := os.Stat(filepath)
+			_, err := os.Stat(cfg.LogsFile())
 			require.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
 	}

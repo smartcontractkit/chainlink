@@ -58,7 +58,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func (cli *Client) runNode(c *clipkg.Context) error {
-	lggr := cli.Logger.Named("RunNode")
+	lggr := logger.Sugared(cli.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
 	if passwordFile := c.String("password"); passwordFile != "" {
@@ -134,7 +134,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		// If not successful, we know neither locks nor connection remains opened
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
-	defer lggr.ErrorIfClosing(ldb, "db")
+	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
@@ -355,12 +355,12 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 	}
 
-	lggr := cli.Logger.Named("RebroadcastTransactions")
+	lggr := logger.Sugared(cli.Logger.Named("RebroadcastTransactions"))
 	db, err := pg.OpenUnlockedDB(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "opening DB"))
 	}
-	defer lggr.ErrorIfClosing(db, "db")
+	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
 	app, err := cli.AppFactory.NewApplication(context.TODO(), cli.Config, lggr, db)
 	if err != nil {
