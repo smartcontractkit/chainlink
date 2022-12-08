@@ -636,7 +636,7 @@ func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
 		// leave empty
 	default:
-		panic(fmt.Sprintf("unknown status: %s", status))
+		t.Fatalf("unknown status: %s", status)
 	}
 	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`, status, pipelineSpecID, finishedAt, outputs, allErrors, fatalErrors))
 	return run
