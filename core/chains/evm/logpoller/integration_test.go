@@ -219,7 +219,7 @@ func Test_EventualConsistency(t *testing.T) {
 	body.Transactions = types.Transactions{} // number of tx's must match # of logs for GetLogs() to succeed
 	rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
 
-	currentBlock := th.LogPoller.PollAndSaveLogs(ctx, 1)
+	currentBlock := th.LogPoller.PollAndSavePendingLogs(ctx, 1)
 	assert.Equal(t, int64(35), currentBlock)
 
 	// simluate logs becoming available
@@ -247,7 +247,7 @@ func Test_EventualConsistency(t *testing.T) {
 	th.Client.Commit()
 	th.Client.Commit() // after adding blocks 35 & 36, block 34 should become the last finalized block
 
-	currentBlock = th.LogPoller.PollAndSaveLogs(ctx, currentBlock)
+	currentBlock = th.LogPoller.PollAndSavePendingLogs(ctx, currentBlock)
 	assert.Equal(t, int64(37), currentBlock)
 
 	// logs still shouldn't show up, because we don't want to backfill the last finalized log
@@ -258,7 +258,7 @@ func Test_EventualConsistency(t *testing.T) {
 
 	th.Client.Commit() // after adding block 37, logs for block 34 should get re-requested
 
-	currentBlock = th.LogPoller.PollAndSaveLogs(ctx, currentBlock)
+	currentBlock = th.LogPoller.PollAndSavePendingLogs(ctx, currentBlock)
 	assert.Equal(t, int64(38), currentBlock)
 
 	// all 3 logs in block 34 should show up now, thanks to backup logger

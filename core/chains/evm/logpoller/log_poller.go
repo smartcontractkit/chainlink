@@ -101,7 +101,8 @@ type ReplayRequest struct {
 // - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
+func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
+	finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
@@ -292,7 +293,8 @@ func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (i
 func (lp *logPoller) run() {
 	defer close(lp.done)
 	logPollPendingTick := time.After(0)
-	logPollFinalizedTick := time.After(utils.WithJitter(lp.pollPeriod))
+	logPollFinalizedTick := time.After(0)
+	lastBackupPollerRun := time.Now()
 
 	blockPruneTick := time.After(0)
 	var firstUnfinalizedBlockNumber *int64
@@ -356,11 +358,29 @@ func (lp *logPoller) run() {
 				*firstUnfinalizedBlockNumber = start // start backup log poller on the same first block
 			}
 		case <-logPollFinalizedTick:
+			// always run backup poller if it's been at least 10 mins since last run
+			const backupPollerMaxTimeDelay = time.Duration(10 * time.Minute)
+			// always run backup poller if we're behind by 1000 blocks or more
+			const backupPollerMaxBlockDelay = 1000
+
+			logPollPendingTick = time.After(utils.WithJitter(10 * lp.pollPeriod))
 			if firstUnfinalizedBlockNumber == nil {
 				lp.lggr.Warnw("backup log poller triggered before any blocks were fetched")
 				continue
 			}
-			lp.pollAndSaveFinalizedLogs(lp.ctx, firstUnfinalizedBlockNumber)
+
+			latestBlock, err := lp.ec.HeadByNumber(lp.ctx, nil)
+			if err != nil {
+				lp.lggr.Warnw("backup logpoller failed to get latest block", "err", err)
+				continue
+			}
+			latestBlockNumber := latestBlock.Number
+
+			if time.Now().After(lastBackupPollerRun.Add(backupPollerMaxTimeDelay)) ||
+				*firstUnfinalizedBlockNumber < latestBlockNumber-backupPollerMaxBlockDelay {
+				lp.lggr.Debugw("Polling for finalized logs", "firstUnfinalizedBlockNumber", firstUnfinalizedBlockNumber)
+				lp.backfillFinalizedBlocks(lp.ctx, firstUnfinalizedBlockNumber, latestBlockNumber)
+			}
 		case <-blockPruneTick:
 			blockPruneTick = time.After(lp.pollPeriod * 1000)
 			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
@@ -509,18 +529,6 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	}
 	// No reorg, return current block.
 	return currentBlock, nil
-}
-
-func (lp *logPoller) pollAndSaveFinalizedLogs(ctx context.Context, firstUnfinalizedBlockNumber *int64) {
-	lp.lggr.Debugw("Polling for finalized logs", "firstUnfinalizedBlockNumber", firstUnfinalizedBlockNumber)
-	latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
-	if err != nil {
-		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "firstUnfinalizedBlockNumber", firstUnfinalizedBlockNumber)
-		return
-	}
-	latestBlockNumber := latestBlock.Number
-
-	lp.backfillFinalizedBlocks(ctx, firstUnfinalizedBlockNumber, latestBlockNumber)
 }
 
 // backfillFinalizedBlocks backfills finalized blocks if we can for performance. If we crash during backfill, we
