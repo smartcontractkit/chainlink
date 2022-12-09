@@ -625,6 +625,7 @@ func (c *Config) loadLegacyCoreEnv() error {
 	c.JobPipeline = config.JobPipeline{
 		ExternalInitiatorsEnabled: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
 		MaxRunDuration:            envDuration("JobPipelineMaxRunDuration"),
+		MaxSuccessfulRuns:         envvar.NewUint64("JobPipelineMaxSuccessfulRuns").ParsePtr(),
 		ReaperInterval:            envDuration("JobPipelineReaperInterval"),
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
