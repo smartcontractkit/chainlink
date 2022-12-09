@@ -631,7 +631,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			s, n, td := n.StateAndLatest()
+			return s == NodeStateAlive && n != -1 && td != nil
 		})
 	})
 
@@ -688,7 +689,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			s, n, td := n.StateAndLatest()
+			return s == NodeStateAlive && n != -1 && td != nil
 		})
 	})
 
