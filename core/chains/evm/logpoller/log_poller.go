@@ -744,7 +744,7 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	}
 
 	// Fill any remaining blocks from the client.
-	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, blocksFound, numbers)
+	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, numbers, blocksFound)
 	if err != nil {
 		return nil, err
 	}
@@ -770,12 +770,12 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 
 func (lp *logPoller) fillRemainingBlocksFromRPC(
 	ctx context.Context,
+	blocksRequested []uint64,
 	blocksFound map[uint64]LogPollerBlock,
-	numbers []uint64,
 ) (map[uint64]LogPollerBlock, error) {
 	var reqs []rpc.BatchElem
 	var remainingBlocks []uint64
-	for _, num := range numbers {
+	for _, num := range blocksRequested {
 		if _, ok := blocksFound[num]; !ok {
 			req := rpc.BatchElem{
 				Method: "eth_getBlockByNumber",
