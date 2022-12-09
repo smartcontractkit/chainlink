@@ -744,9 +744,12 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	}
 
 	// Fill any remaining blocks from the client.
-	err = lp.fillRemainingBlocksFromRPC(ctx, blocksFound, numbers)
+	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, blocksFound, numbers)
 	if err != nil {
 		return nil, err
+	}
+	for num, b := range blocksFoundFromRPC {
+		blocksFound[num] = b
 	}
 
 	for _, num := range numbers {
@@ -764,7 +767,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	ctx context.Context,
 	blocksFound map[uint64]LogPollerBlock,
 	numbers []uint64,
-) error {
+) (map[uint64]LogPollerBlock, error) {
 	var reqs []rpc.BatchElem
 	var remainingBlocks []uint64
 	for _, num := range numbers {
@@ -791,31 +794,31 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 		}
 
 		err := lp.ec.BatchCallContext(ctx, reqs[i:j])
-
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
+	var blocksFoundFromRPC = make(map[uint64]LogPollerBlock)
 	for _, r := range reqs {
 		if r.Error != nil {
-			return r.Error
+			return nil, r.Error
 		}
 		block, is := r.Result.(*evmtypes.Head)
 
 		if !is {
-			return errors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
+			return nil, errors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
 		}
 		if block == nil {
-			return errors.New("invariant violation: got nil block")
+			return nil, errors.New("invariant violation: got nil block")
 		}
 		if block.Hash == (common.Hash{}) {
-			return errors.Errorf("missing block hash for block number: %d", block.Number)
+			return nil, errors.Errorf("missing block hash for block number: %d", block.Number)
 		}
 		if block.Number < 0 {
-			return errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
+			return nil, errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
 		}
-		blocksFound[uint64(block.Number)] = LogPollerBlock{
+		blocksFoundFromRPC[uint64(block.Number)] = LogPollerBlock{
 			EvmChainId:  block.EVMChainID,
 			BlockHash:   block.Hash,
 			BlockNumber: block.Number,
@@ -823,7 +826,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 		}
 	}
 
-	return nil
+	return blocksFoundFromRPC, nil
 }
 
 func EvmWord(i uint64) common.Hash {
