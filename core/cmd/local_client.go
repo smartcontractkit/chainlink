@@ -541,18 +541,16 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	// dropping database is very slow in postgres so we parallelise it here
 	nWorkers := 25
 	ch := make(chan string)
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(nWorkers)
-	errMu := sync.Mutex{}
+	errCh := make(chan error, len(dbs))
 	for i := 0; i < nWorkers; i++ {
 		go func() {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping test database: %q", dbname)
 				gerr := utils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
-				errMu.Lock()
-				err = multierr.Append(err, gerr)
-				errMu.Unlock()
+				errCh <- gerr
 			}
 		}()
 	}
@@ -563,6 +561,10 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	}
 	close(ch)
 	wg.Wait()
+	close(errCh)
+	for gerr := range errCh {
+		err = multierr.Append(err, gerr)
+	}
 	return
 }
 
