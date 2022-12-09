@@ -468,7 +468,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	assert.Equal(t, id2+1, id3)
 }
 
-func TestLogPoller_GetBlocks_Ascending_Using_Range(t *testing.T) {
+func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 
 	_, err := th.LogPoller.RegisterFilter(Filter{[]common.Hash{
@@ -478,20 +478,20 @@ func TestLogPoller_GetBlocks_Ascending_Using_Range(t *testing.T) {
 
 	// LP retrieves 0 blocks
 	blockNums := []uint64{}
-	blocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	blocks, err := th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(blocks))
 
 	// LP retrieves block 1
 	blockNums = []uint64{1}
-	blocks, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	blocks, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(blocks))
 	assert.Equal(t, 1, int(blocks[0].BlockNumber))
 
 	// LP fails to retrieve block 2 because it's neither in DB nor returned by RPC
 	blockNums = []uint64{2}
-	_, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.Error(t, err)
 	assert.Equal(t, "block: 2 was not found in db or RPC call", err.Error())
 
@@ -504,8 +504,8 @@ func TestLogPoller_GetBlocks_Ascending_Using_Range(t *testing.T) {
 	_, err = th.ORM.SelectBlockByNumber(2)
 	require.Error(t, err)
 
-	// getBlocks is able to retrieve block 2 by calling RPC
-	rpcBlocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	// getBlocksRange is able to retrieve block 2 by calling RPC
+	rpcBlocks, err := th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(rpcBlocks))
 	assert.Equal(t, 2, int(rpcBlocks[0].BlockNumber))
@@ -519,9 +519,9 @@ func TestLogPoller_GetBlocks_Ascending_Using_Range(t *testing.T) {
 	_, err = th.ORM.SelectBlockByNumber(3)
 	require.Error(t, err)
 
-	// getBlocks is able to retrieve blocks 1 and 3, without retrieving block 2
+	// getBlocksRange is able to retrieve blocks 1 and 3, without retrieving block 2
 	blockNums2 := []uint64{1, 3}
-	rpcBlocks2, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums2)
+	rpcBlocks2, err := th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums2)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(rpcBlocks2))
 	assert.Equal(t, 1, int(rpcBlocks2[0].BlockNumber))
@@ -536,35 +536,35 @@ func TestLogPoller_GetBlocks_Ascending_Using_Range(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, int(block.BlockNumber))
 
-	// getBlocks should still be able to return block 2 by fetching from DB
-	lpBlocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	// getBlocksRange should still be able to return block 2 by fetching from DB
+	lpBlocks, err := th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lpBlocks))
 	assert.Equal(t, rpcBlocks[0].BlockNumber, lpBlocks[0].BlockNumber)
 	assert.Equal(t, rpcBlocks[0].BlockHash, lpBlocks[0].BlockHash)
 
-	// getBlocks return multiple blocks
+	// getBlocksRange return multiple blocks
 	blockNums = []uint64{1, 2}
-	blocks, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	blocks, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.NoError(t, err)
 	assert.Equal(t, 1, int(blocks[0].BlockNumber))
 	assert.NotEmpty(t, blocks[0].BlockHash)
 	assert.Equal(t, 2, int(blocks[1].BlockNumber))
 	assert.NotEmpty(t, blocks[1].BlockHash)
 
-	// getBlocks return blocks in-order, regardless of request order
+	// getBlocksRange return blocks in requested order
 	blockNums = []uint64{2, 1}
-	reversedBlocks, err := th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums)
+	reversedBlocks, err := th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.NoError(t, err)
-	assert.Equal(t, blocks[0].BlockNumber, reversedBlocks[0].BlockNumber)
-	assert.Equal(t, blocks[0].BlockHash, reversedBlocks[0].BlockHash)
-	assert.Equal(t, blocks[1].BlockNumber, reversedBlocks[1].BlockNumber)
-	assert.Equal(t, blocks[1].BlockHash, reversedBlocks[1].BlockHash)
+	assert.Equal(t, blocks[0].BlockNumber, reversedBlocks[1].BlockNumber)
+	assert.Equal(t, blocks[0].BlockHash, reversedBlocks[1].BlockHash)
+	assert.Equal(t, blocks[1].BlockNumber, reversedBlocks[0].BlockNumber)
+	assert.Equal(t, blocks[1].BlockHash, reversedBlocks[0].BlockHash)
 
 	// test RPC context cancellation
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	cancel()
-	_, err = th.LogPoller.GetBlocksAscendingUsingRange(ctx, blockNums)
+	_, err = th.LogPoller.GetBlocksRange(ctx, blockNums)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 
@@ -573,7 +573,7 @@ func TestLogPoller_GetBlocks_Ascending_Using_Range(t *testing.T) {
 	ctx, cancel = context.WithCancel(testutils.Context(t))
 	qopts := pg.WithParentCtx(ctx)
 	cancel()
-	_, err = th.LogPoller.GetBlocksAscendingUsingRange(testutils.Context(t), blockNums, qopts)
+	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums, qopts)
 	require.NoError(t, err)
 }
 

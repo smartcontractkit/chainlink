@@ -33,8 +33,8 @@ func (_m *LogPoller) Close() error {
 	return r0
 }
 
-// GetBlocksAscendingUsingRange provides a mock function with given fields: ctx, numbers, qopts
-func (_m *LogPoller) GetBlocksAscendingUsingRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+// GetBlocksRange provides a mock function with given fields: ctx, numbers, qopts
+func (_m *LogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]

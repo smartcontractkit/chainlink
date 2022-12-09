@@ -480,7 +480,7 @@ func (c *coordinator) getBlockhashesMapping(
 		return blockNumbers[a] < blockNumbers[b]
 	})
 
-	heads, err := c.lp.GetBlocksAscendingUsingRange(ctx, blockNumbers, pg.WithParentCtx(ctx))
+	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "logpoller.GetBlocks")
 	}
