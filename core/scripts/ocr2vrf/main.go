@@ -180,7 +180,7 @@ func main() {
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
 		maxDurationReport := cmd.Duration("max-duration-report", 10*time.Second, "maximum duration of report method")
-		maxDurationAccept := cmd.Duration("max-duration-accept", 10*time.Millisecond, "maximum duration of shouldAcceptFinalizedReport method")
+		maxDurationAccept := cmd.Duration("max-duration-accept", 5*time.Second, "maximum duration of shouldAcceptFinalizedReport method")
 		maxDurationTransmit := cmd.Duration("max-duration-transmit", 1*time.Second, "maximum duration of shouldTransmitAcceptedReport method")
 
 		helpers.ParseArgs(cmd,
