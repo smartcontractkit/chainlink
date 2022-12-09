@@ -65,17 +65,17 @@ func TestORM_GetBlocks_From_Range(t *testing.T) {
 		blockNumbers = append(blockNumbers, uint64(b.number))
 	}
 
-	lpBlocks, err := o1.GetBlocksFromRange(blockNumbers[0], blockNumbers[len(blockNumbers)-1])
+	lpBlocks, err := o1.GetBlocksRange(blockNumbers[0], blockNumbers[len(blockNumbers)-1])
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks, len(blocks))
 
 	// Ignores non-existent block
-	lpBlocks2, err := o1.GetBlocksFromRange(blockNumbers[0], 15)
+	lpBlocks2, err := o1.GetBlocksRange(blockNumbers[0], 15)
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks2, len(blocks))
 
 	// Only non-existent blocks
-	lpBlocks3, err := o1.GetBlocksFromRange(15, 15)
+	lpBlocks3, err := o1.GetBlocksRange(15, 15)
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks3, 0)
 }

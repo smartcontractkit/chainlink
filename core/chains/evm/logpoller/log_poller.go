@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -729,15 +730,17 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	// Retrieve all blocks within this range from the log poller.
 	blocksFound := make(map[uint64]LogPollerBlock)
 	qopts = append(qopts, pg.WithParentCtx(ctx))
-	lpBlocks, err := lp.orm.GetBlocksFromRange(sortedNumbers[0], sortedNumbers[len(numbers)-1], qopts...)
+	lpBlocks, err := lp.orm.GetBlocksRange(sortedNumbers[0], sortedNumbers[len(numbers)-1], qopts...)
 	if err != nil {
 		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
-	}
-	for _, b := range lpBlocks {
-		if _, ok := blocksRequested[uint64(b.BlockNumber)]; ok {
-			// Only fill requested blocks.
-			blocksFound[uint64(b.BlockNumber)] = b
+	} else {
+		for _, b := range lpBlocks {
+			if _, ok := blocksRequested[uint64(b.BlockNumber)]; ok {
+				// Only fill requested blocks.
+				blocksFound[uint64(b.BlockNumber)] = b
+			}
 		}
+		lp.lggr.Debugw("Got blocks from log poller", "blockNumbers", maps.Keys(blocksFound))
 	}
 
 	// Fill any remaining blocks from the client.

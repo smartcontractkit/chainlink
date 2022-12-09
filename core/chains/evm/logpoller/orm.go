@@ -191,7 +191,7 @@ ORDER BY (logs.block_number, logs.log_index)`, a)
 	return logs, err
 }
 
-func (o *ORM) GetBlocksFromRange(start uint64, end uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+func (o *ORM) GetBlocksRange(start uint64, end uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
 	var blocks []LogPollerBlock
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&blocks, `
