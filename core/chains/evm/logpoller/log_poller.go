@@ -752,12 +752,17 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 		blocksFound[num] = b
 	}
 
+	var blocksNotFound []uint64
 	for _, num := range numbers {
 		b, ok := blocksFound[num]
 		if !ok {
-			return nil, errors.Errorf("block: %d was not found in db or RPC call", num)
+			blocksNotFound = append(blocksNotFound, num)
 		}
 		blocks = append(blocks, b)
+	}
+
+	if len(blocksNotFound) > 0 {
+		return nil, errors.Errorf("blocks were not found in db or RPC call: %v", blocksNotFound)
 	}
 
 	return blocks, nil

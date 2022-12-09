@@ -493,7 +493,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	blockNums = []uint64{2}
 	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.Error(t, err)
-	assert.Equal(t, "block: 2 was not found in db or RPC call", err.Error())
+	assert.Equal(t, "blocks were not found in db or RPC call: [2]", err.Error())
 
 	// Emit a log and mine block #2
 	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
