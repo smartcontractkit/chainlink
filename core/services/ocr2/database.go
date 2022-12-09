@@ -19,7 +19,7 @@ import (
 type db struct {
 	q            pg.Q
 	oracleSpecID int32
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 }
 
 var (
@@ -33,7 +33,7 @@ func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConf
 	return &db{
 		q:            pg.NewQ(sqlxDB, namedLogger, cfg),
 		oracleSpecID: oracleSpecID,
-		lggr:         lggr,
+		lggr:         logger.Sugared(lggr),
 	}
 }
 
@@ -279,7 +279,7 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
-	defer d.lggr.ErrorIfClosing(rows, "ocr2_pending_transmissions rows")
+	defer d.lggr.ErrorIfFn(rows.Close, "Error closing ocr2_pending_transmissions rows")
 
 	m := make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission)
 

@@ -25,11 +25,11 @@ const (
 func fundOCR2VRFNodes(e helpers.Environment) {
 	fs := flag.NewFlagSet("ocr2vrf-setup", flag.ExitOnError)
 	ethSendingKeysString := fs.String("eth-sending-keys", "", "eth sending keys")
-	fundingAmount := fs.Int64("funding-amount", 1e18, "amount to fund nodes") // 1 ETH
+	fundingAmount := fs.String("funding-amount", "1e18", "funding amount in wei. can use scientific notation, e.g 10e18 for 10 ether") // 1 ETH
 	helpers.ParseArgs(fs, os.Args[2:], "eth-sending-keys")
 
 	flatSendingKeys := strings.Split(*ethSendingKeysString, ",")
-	helpers.FundNodes(e, flatSendingKeys, big.NewInt(*fundingAmount))
+	helpers.FundNodes(e, flatSendingKeys, decimal.RequireFromString(*fundingAmount).BigInt())
 }
 
 func setupOCR2VRFNodes(e helpers.Environment) {

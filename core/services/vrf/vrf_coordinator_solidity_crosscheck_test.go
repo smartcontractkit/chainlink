@@ -251,7 +251,7 @@ func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 
 func requestRandomnessV08(t *testing.T, coordinator coordinatorUniverse,
 	keyHash common.Hash, fee *big.Int) *vrf.RandomnessRequestLog {
-	_, err := coordinator.consumerContractV08.TestRequestRandomness(coordinator.carol,
+	_, err := coordinator.consumerContractV08.DoRequestRandomness(coordinator.carol,
 		keyHash, fee)
 	require.NoError(t, err, "problem during initial VRF randomness request")
 	coordinator.backend.Commit()

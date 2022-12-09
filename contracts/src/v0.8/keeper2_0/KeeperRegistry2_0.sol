@@ -5,7 +5,7 @@ import "../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
-import {KeeperRegistryExecutableInterface, UpkeepInfo} from "../interfaces/KeeperRegistryInterface2_0.sol";
+import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 import "../OCR2Abstract.sol";
@@ -23,7 +23,7 @@ contract KeeperRegistry2_0 is
   KeeperRegistryBase2_0,
   Proxy,
   OCR2Abstract,
-  KeeperRegistryExecutableInterface,
+  AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   ERC677ReceiverInterface
 {

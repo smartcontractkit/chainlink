@@ -212,6 +212,13 @@ ForceRedirect = false # Default
 ExternalInitiatorsEnabled = false # Default
 # MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
 MaxRunDuration = '10m' # Default
+# MaxSuccessfulRuns caps the number of completed successful runs per pipeline
+# spec in the database. You can set it to zero as a performance optimisation;
+# this will avoid saving any successful run.
+#
+# Note this is not a hard cap, it can drift slightly larger than this but not
+# by more than 5% or so.
+MaxSuccessfulRuns = 10000 # Default
 # ReaperInterval controls how often the job pipeline reaper will run to delete completed jobs older than ReaperThreshold, in order to keep database size manageable.
 #
 # Set to `0` to disable the periodic reaper.
@@ -412,8 +419,6 @@ BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 # TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
 TurnLookBack = 1_000 # Default
-# TurnFlagEnabled enables a new algorithm for how keepers take turns.
-TurnFlagEnabled = false # Default
 # **ADVANCED**
 # UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
 UpkeepCheckGasPriceEnabled = false # Default

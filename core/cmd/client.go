@@ -143,6 +143,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		}
 	}
 
+	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
 		if h, ok := cfg.(v2.HasEVMConfigs); ok {
@@ -169,6 +171,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
+		MailMon:          mailMon,
 	}
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
@@ -294,6 +297,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
+		MailMon:                  mailMon,
 		Logger:                   appLggr,
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: externalInitiatorManager,
@@ -605,13 +609,13 @@ type ClientOpts struct {
 type SessionCookieAuthenticator struct {
 	config ClientOpts
 	store  CookieStore
-	lggr   logger.Logger
+	lggr   logger.SugaredLogger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
 func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr logger.Logger) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store, lggr: lggr}
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: logger.Sugared(lggr)}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -638,7 +642,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer t.lggr.ErrorIfClosing(resp.Body, "Authenticate response body")
+	defer t.lggr.ErrorIfFn(resp.Body.Close, "Error closing Authenticate response body")
 
 	_, err = parseResponse(resp)
 	if err != nil {

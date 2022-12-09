@@ -5,7 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
@@ -21,7 +22,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
 	sessionORM := &mocks.ORM{}
-	sessionStore := sessions.NewCookieStore([]byte("secret"))
+	sessionStore := cookie.NewStore([]byte("secret"))
 
 	r := gin.Default()
 	r.Use(sessions.Sessions(auth.SessionName, sessionStore))
@@ -44,7 +45,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
 	sessionORM := &mocks.ORM{}
-	sessionStore := sessions.NewCookieStore([]byte(cltest.SessionSecret))
+	sessionStore := cookie.NewStore([]byte(cltest.SessionSecret))
 	sessionID := "sessionID"
 
 	r := gin.Default()

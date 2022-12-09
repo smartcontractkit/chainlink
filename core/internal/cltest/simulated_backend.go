@@ -23,7 +23,7 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32)
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {
-		logger.TestLogger(t).ErrorIfClosing(backend, "simulated backend")
+		logger.TestLogger(t).ErrorIfFn(backend.Close, "Error closing simulated backend")
 	})
 	return backend
 }

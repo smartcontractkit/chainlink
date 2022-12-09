@@ -28,7 +28,7 @@ import (
 
 	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
-	sessions "github.com/gin-gonic/contrib/sessions"
+	sessions "github.com/gin-contrib/sessions"
 
 	time "time"
 
@@ -1733,6 +1733,20 @@ func (_m *ChainScopedConfig) JobPipelineMaxRunDuration() time.Duration {
 	return r0
 }
 
+// JobPipelineMaxSuccessfulRuns provides a mock function with given fields:
+func (_m *ChainScopedConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // JobPipelineReaperInterval provides a mock function with given fields:
 func (_m *ChainScopedConfig) JobPipelineReaperInterval() time.Duration {
 	ret := _m.Called()
@@ -1924,20 +1938,6 @@ func (_m *ChainScopedConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperTurnFlagEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperTurnFlagEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

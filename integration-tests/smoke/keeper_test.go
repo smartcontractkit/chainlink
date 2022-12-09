@@ -165,7 +165,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		By("Deploying the environment")
 		baseTOML := `[Keeper]
 TurnLookBack = 0
-TurnFlagEnabled = true
 [Keeper.Registry]
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`

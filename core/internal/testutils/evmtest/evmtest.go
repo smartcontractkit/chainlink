@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -63,6 +64,7 @@ type TestChainOpts struct {
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
+	MailMon        *utils.MailboxMonitor
 }
 
 // NewChainSet returns a simple chain collection with one chain and
@@ -89,9 +91,11 @@ func NewMockChainSetWithChain(t testing.TB, ch evm.Chain) *evmmocks.ChainSet {
 func NewChainSetOpts(t testing.TB, testopts TestChainOpts) (evm.ChainSetOpts, []evmtypes.DBChain, map[string][]evmtypes.Node) {
 	opts := evm.ChainSetOpts{
 		Config:           testopts.GeneralConfig,
+		Logger:           logger.TestLogger(t),
 		DB:               testopts.DB,
 		KeyStore:         testopts.KeyStore,
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
+		MailMon:          testopts.MailMon,
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
@@ -113,10 +117,10 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) (evm.ChainSetOpts, []
 		opts.GenTxManager = func(*big.Int) txmgr.TxManager {
 			return testopts.TxManager
 		}
-
 	}
-	opts.Logger = logger.TestLogger(t)
-	opts.Config = testopts.GeneralConfig
+	if opts.MailMon == nil {
+		opts.MailMon = srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	}
 
 	chains := []evmtypes.DBChain{
 		{
