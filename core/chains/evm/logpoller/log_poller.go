@@ -724,8 +724,8 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 		blocksFound[uint64(b.BlockNumber)] = b
 	}
 
-	// Fallback to RPC for blocks not found in log poller blocks table
 	var reqs []rpc.BatchElem
+	var remainingBlocks []uint64
 	for _, num := range numbers {
 		if _, ok := blocksFound[num]; !ok {
 			req := rpc.BatchElem{
@@ -734,7 +734,13 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 				Result: &evmtypes.Head{},
 			}
 			reqs = append(reqs, req)
+			remainingBlocks = append(remainingBlocks, num)
 		}
+	}
+
+	if len(remainingBlocks) > 0 {
+		lp.lggr.Debugw("falling back to RPC for blocks not found in log poller blocks table",
+			"remainingBlocks", remainingBlocks)
 	}
 
 	for i := 0; i < len(reqs); i += int(lp.rpcBatchSize) {

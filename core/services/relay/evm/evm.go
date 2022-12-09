@@ -24,6 +24,7 @@ import (
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
@@ -38,18 +39,20 @@ type RelayerConfig interface {
 }
 
 type Relayer struct {
-	db       *sqlx.DB
-	chainSet evm.ChainSet
-	lggr     logger.Logger
-	cfg      RelayerConfig
+	db          *sqlx.DB
+	chainSet    evm.ChainSet
+	lggr        logger.Logger
+	cfg         RelayerConfig
+	ethKeystore keystore.Eth
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig) *Relayer {
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ethKeystore keystore.Eth) *Relayer {
 	return &Relayer{
-		db:       db,
-		chainSet: chainSet,
-		lggr:     lggr.Named("Relayer"),
-		cfg:      cfg,
+		db:          db,
+		chainSet:    chainSet,
+		lggr:        lggr.Named("Relayer"),
+		cfg:         cfg,
+		ethKeystore: ethKeystore,
 	}
 }
 
@@ -193,7 +196,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, configPoller, chain, relayConfig.FromBlock, args.New), nil
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*ContractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -232,11 +235,26 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
 
+	transmitter, err := ocrcommon.NewTransmitter(
+		configWatcher.chain.TxManager(),
+		fromAddresses,
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		txm.TransmitCheckerSpec{},
+		configWatcher.chain.ID(),
+		ethKeystore,
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create transmitter")
+	}
+
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), fromAddresses, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
+		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)
@@ -307,7 +325,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	} else {
 		r.lggr.Debugf("On-chain mode enabled for job %d", rargs.JobID)
 		reportCodec = evmreportcodec.ReportCodec{}
-		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	}
 	if err != nil {
 		return nil, err

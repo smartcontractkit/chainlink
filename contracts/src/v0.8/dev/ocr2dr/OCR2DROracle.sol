@@ -9,10 +9,10 @@ import "../ocr2/OCR2Base.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
-  event OracleRequest(bytes32 requestId, bytes data);
-  event OracleResponse(bytes32 requestId);
-  event UserCallbackError(bytes32 requestId, string reason);
-  event UserCallbackRawError(bytes32 requestId, bytes lowLevelData);
+  event OracleRequest(bytes32 indexed requestId, uint64 subscriptionId, bytes data);
+  event OracleResponse(bytes32 indexed requestId);
+  event UserCallbackError(bytes32 indexed requestId, string reason);
+  event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -85,12 +85,14 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    uint256 gasPrice
   ) external view override registryIsSet returns (uint96) {
     OCR2DRRegistryInterface.RequestBilling memory billing = OCR2DRRegistryInterface.RequestBilling(
       subscriptionId,
       msg.sender,
-      gasLimit
+      gasLimit,
+      gasPrice
     );
     uint96 requiredFee = getRequiredFee(data, billing);
     return s_registry.estimateCost(data, billing, requiredFee);
@@ -102,16 +104,17 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    uint256 gasPrice
   ) external override registryIsSet returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
     bytes32 requestId = s_registry.startBilling(
       data,
-      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
+      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
     );
-    emit OracleRequest(requestId, data);
+    emit OracleRequest(requestId, subscriptionId, data);
     return requestId;
   }
 

@@ -553,6 +553,7 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 type JobPipeline struct {
 	ExternalInitiatorsEnabled *bool
 	MaxRunDuration            *models.Duration
+	MaxSuccessfulRuns         *uint64
 	ReaperInterval            *models.Duration
 	ReaperThreshold           *models.Duration
 	ResultWriteQueueDepth     *uint32
@@ -575,6 +576,9 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.ResultWriteQueueDepth; v != nil {
 		j.ResultWriteQueueDepth = v
+	}
+	if v := f.MaxSuccessfulRuns; v != nil {
+		j.MaxSuccessfulRuns = v
 	}
 	j.HTTPRequest.setFrom(&f.HTTPRequest)
 
@@ -825,7 +829,6 @@ type Keeper struct {
 	BaseFeeBufferPercent         *uint16
 	MaxGracePeriod               *int64
 	TurnLookBack                 *int64
-	TurnFlagEnabled              *bool
 	UpkeepCheckGasPriceEnabled   *bool
 
 	Registry KeeperRegistry `toml:",omitempty"`
@@ -849,9 +852,6 @@ func (k *Keeper) setFrom(f *Keeper) {
 	}
 	if v := f.TurnLookBack; v != nil {
 		k.TurnLookBack = v
-	}
-	if v := f.TurnFlagEnabled; v != nil {
-		k.TurnFlagEnabled = v
 	}
 	if v := f.UpkeepCheckGasPriceEnabled; v != nil {
 		k.UpkeepCheckGasPriceEnabled = v

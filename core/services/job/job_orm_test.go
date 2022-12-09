@@ -550,7 +550,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb4.OCROracleSpec.ContractAddress, jb4.OCROracleSpec.EVMChainID.ToInt()), err.Error())
 	})
 
-	jobORM.DeleteJob(jb.ID)
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
 
 	t.Run("with a set chain id", func(t *testing.T) {
 		err = jobORM.CreateJob(&jb4) // Add job with custom chain id
