@@ -17,6 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type block struct {
+	number int64
+	hash   common.Hash
+}
+
 // Setup creates two orms representing logs from different chains.
 func setup(t testing.TB) (*ORM, *ORM) {
 	db := pgtest.NewSqlxDB(t)
@@ -29,12 +34,10 @@ func setup(t testing.TB) (*ORM, *ORM) {
 }
 
 func TestORM_GetBlocks_From_Range(t *testing.T) {
+
 	o1, _ := setup(t)
 	// Insert many blocks and read them back together
-	blocks := []struct {
-		number int64
-		hash   common.Hash
-	}{
+	blocks := []block{
 		{
 			number: 10,
 			hash:   common.HexToHash("0x111"),
@@ -76,6 +79,38 @@ func TestORM_GetBlocks_From_Range(t *testing.T) {
 
 	// Only non-existent blocks
 	lpBlocks3, err := o1.GetBlocksRange(15, 15)
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks3, 0)
+}
+
+func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
+
+	o1, _ := setup(t)
+	// Insert many blocks and read them back together
+	var recentBlocks []block
+	for i := 1; i <= 256; i++ {
+		recentBlocks = append(recentBlocks, block{number: int64(i), hash: common.HexToHash(fmt.Sprintf("0x%d", i))})
+	}
+	for _, b := range recentBlocks {
+		require.NoError(t, o1.InsertBlock(b.hash, b.number))
+	}
+
+	var blockNumbers []uint64
+	for _, b := range recentBlocks {
+		blockNumbers = append(blockNumbers, uint64(b.number))
+	}
+
+	lpBlocks, err := o1.GetBlocksRange(blockNumbers[0], blockNumbers[len(blockNumbers)-1])
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks, len(recentBlocks))
+
+	// Ignores non-existent block
+	lpBlocks2, err := o1.GetBlocksRange(blockNumbers[0], 257)
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks2, len(recentBlocks))
+
+	// Only non-existent blocks
+	lpBlocks3, err := o1.GetBlocksRange(257, 257)
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks3, 0)
 }
