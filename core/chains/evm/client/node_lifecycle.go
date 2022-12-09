@@ -311,6 +311,7 @@ func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 				n.declareUnreachable()
 				return
 			}
+			n.setLatestReceived(head.Number, head.TotalDifficulty)
 			if !isOutOfSync(head.Number, head.TotalDifficulty) {
 				// back in-sync! flip back into alive loop
 				lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)), "blockNumber", head.Number, "totalDifficulty", head.TotalDifficulty, "nodeState", n.State())
