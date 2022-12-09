@@ -41,11 +41,17 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 		assert.Len(t, attempts, 0)
 	})
 
+	// Mix up the insert order to assure that they come out sorted by nonce not implicitly or by ID
+	e1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, time.Unix(1616509200, 0))
+	e3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, borm, 3, fromAddress, time.Unix(1616509400, 0))
+	e0 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, time.Unix(1616509100, 0))
+	e2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress, time.Unix(1616509300, 0))
+
 	etxs := []txmgr.EthTx{
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, time.Unix(1616509100, 0)),
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, time.Unix(1616509200, 0)),
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress, time.Unix(1616509300, 0)),
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, borm, 3, fromAddress, time.Unix(1616509400, 0)),
+		e0,
+		e1,
+		e2,
+		e3,
 	}
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etxs[0].ID)
 	attempt1_2.GasPrice = assets.NewWeiI(10)
