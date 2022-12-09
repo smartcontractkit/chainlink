@@ -197,45 +197,11 @@ func (o *ORM) GetBlocksRange(start uint64, end uint64, qopts ...pg.QOpt) ([]LogP
 	err := q.Select(&blocks, `
         SELECT * FROM log_poller_blocks 
         WHERE block_number >= $1 AND block_number <= $2 AND evm_chain_id = $3
-        ORDER BY (block_number)`, start, end, utils.NewBig(o.chainID))
+        ORDER BY block_number ASC`, start, end, utils.NewBig(o.chainID))
 	if err != nil {
 		return nil, err
 	}
 	return blocks, nil
-}
-
-func (o *ORM) GetBlocks(blockNumbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
-	if len(blockNumbers) == 0 {
-		return nil, nil
-	}
-
-	var blocks []LogPollerBlock
-	q := o.q.WithOpts(qopts...)
-	a := map[string]any{
-		"blockNumbers": blockNumbers,
-		"chainid":      utils.NewBig(o.chainID),
-	}
-	query, args, err := sqlx.Named(
-		`
-SELECT
-	*
-FROM log_poller_blocks 
-WHERE evm_chain_id = :chainid
-	AND block_number IN (:blockNumbers)
-`, a)
-	if err != nil {
-		return nil, errors.Wrap(err, "sqlx Named")
-	}
-	query, args, err = sqlx.In(query, args...)
-	if err != nil {
-		return nil, errors.Wrap(err, "sqlx In")
-	}
-	query = q.Rebind(query)
-	err = q.Select(&blocks, query, args...)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	return blocks, err
 }
 
 // SelectLatestLogEventSigsAddrsWithConfs finds the latest log by (address, event) combination that matches a list of Addresses and list of events

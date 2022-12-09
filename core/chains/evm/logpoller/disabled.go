@@ -32,7 +32,7 @@ func (disabled) UnregisterFilter(filterID int) error { return ErrDisabled }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 
-func (disabled) GetBlocksAscendingUsingRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+func (disabled) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
 	return nil, ErrDisabled
 }
 
