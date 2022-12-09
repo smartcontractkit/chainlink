@@ -717,10 +717,6 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 		return blocks, nil
 	}
 
-	// Sort the a copy of the requested blocks in ascending order.
-	sortedNumbers := make([]uint64, len(numbers))
-	sort.Slice(sortedNumbers, func(i, j int) bool { return numbers[i] < numbers[j] })
-
 	// Assign the requested blocks to a mapping.
 	blocksRequested := make(map[uint64]struct{})
 	for _, b := range numbers {
@@ -730,7 +726,9 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	// Retrieve all blocks within this range from the log poller.
 	blocksFound := make(map[uint64]LogPollerBlock)
 	qopts = append(qopts, pg.WithParentCtx(ctx))
-	lpBlocks, err := lp.orm.GetBlocksRange(sortedNumbers[0], sortedNumbers[len(numbers)-1], qopts...)
+	minRequestedBlock := mathutil.Min(numbers[0], numbers[1:]...)
+	maxRequestedBlock := mathutil.Max(numbers[0], numbers[1:]...)
+	lpBlocks, err := lp.orm.GetBlocksRange(minRequestedBlock, maxRequestedBlock, qopts...)
 	if err != nil {
 		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
 	} else {

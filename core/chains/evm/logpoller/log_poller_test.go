@@ -575,6 +575,16 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	cancel()
 	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums, qopts)
 	require.NoError(t, err)
+
+	// getBlocksRange returns blocks with a nil client
+	th.LogPoller.ec = nil
+	blockNums = []uint64{1, 2}
+	blocks, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
+	require.NoError(t, err)
+	assert.Equal(t, 1, int(blocks[0].BlockNumber))
+	assert.NotEmpty(t, blocks[0].BlockHash)
+	assert.Equal(t, 2, int(blocks[1].BlockNumber))
+	assert.NotEmpty(t, blocks[1].BlockHash)
 }
 
 func TestGetReplayFromBlock(t *testing.T) {
