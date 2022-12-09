@@ -91,6 +91,7 @@ KeyPath = 'tls/key/path'
 [JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
+MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
