@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,8 +33,7 @@ type LogPoller interface {
 	RegisterFilter(filter Filter) (int, error)
 	UnregisterFilter(filterID int) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
-	GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
-
+	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
@@ -707,26 +707,75 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
-// GetBlocks tries to get the specified block numbers from the log pollers
-// blocks table. Returns the blocks it was able to find, empty slice if none.
-// When the log poller does not have requested blocks, it falls back
-// to RPC to fetch the missing blocks.
-// response contains blocks in the same order as "numbers" in request parameters
-// the first context parameter takes precedence over contexts passed through qopts
-func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
-	blocksFound := make(map[uint64]LogPollerBlock)
-	qopts = append(qopts, pg.WithParentCtx(ctx))
-	lpBlocks, err := lp.orm.GetBlocks(numbers, qopts...)
-	if err != nil {
-		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
-	}
-	for _, b := range lpBlocks {
-		blocksFound[uint64(b.BlockNumber)] = b
+// GetBlocksRange tries to get the specified block numbers from the log pollers
+// blocks table. It falls back to the RPC for any unfulfilled requested blocks.
+func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	var blocks []LogPollerBlock
+
+	// Do nothing if no blocks are requested.
+	if len(numbers) == 0 {
+		return blocks, nil
 	}
 
+	// Sort the a copy of the requested blocks in ascending order.
+	sortedNumbers := make([]uint64, len(numbers))
+	sort.Slice(sortedNumbers, func(i, j int) bool { return numbers[i] < numbers[j] })
+
+	// Assign the requested blocks to a mapping.
+	blocksRequested := make(map[uint64]struct{})
+	for _, b := range numbers {
+		blocksRequested[b] = struct{}{}
+	}
+
+	// Retrieve all blocks within this range from the log poller.
+	blocksFound := make(map[uint64]LogPollerBlock)
+	qopts = append(qopts, pg.WithParentCtx(ctx))
+	lpBlocks, err := lp.orm.GetBlocksRange(sortedNumbers[0], sortedNumbers[len(numbers)-1], qopts...)
+	if err != nil {
+		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
+	} else {
+		for _, b := range lpBlocks {
+			if _, ok := blocksRequested[uint64(b.BlockNumber)]; ok {
+				// Only fill requested blocks.
+				blocksFound[uint64(b.BlockNumber)] = b
+			}
+		}
+		lp.lggr.Debugw("Got blocks from log poller", "blockNumbers", maps.Keys(blocksFound))
+	}
+
+	// Fill any remaining blocks from the client.
+	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, numbers, blocksFound)
+	if err != nil {
+		return nil, err
+	}
+	for num, b := range blocksFoundFromRPC {
+		blocksFound[num] = b
+	}
+
+	var blocksNotFound []uint64
+	for _, num := range numbers {
+		b, ok := blocksFound[num]
+		if !ok {
+			blocksNotFound = append(blocksNotFound, num)
+		}
+		blocks = append(blocks, b)
+	}
+
+	if len(blocksNotFound) > 0 {
+		return nil, errors.Errorf("blocks were not found in db or RPC call: %v", blocksNotFound)
+	}
+
+	return blocks, nil
+}
+
+func (lp *logPoller) fillRemainingBlocksFromRPC(
+	ctx context.Context,
+	blocksRequested []uint64,
+	blocksFound map[uint64]LogPollerBlock,
+) (map[uint64]LogPollerBlock, error) {
 	var reqs []rpc.BatchElem
 	var remainingBlocks []uint64
-	for _, num := range numbers {
+	for _, num := range blocksRequested {
 		if _, ok := blocksFound[num]; !ok {
 			req := rpc.BatchElem{
 				Method: "eth_getBlockByNumber",
@@ -750,12 +799,12 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 		}
 
 		err := lp.ec.BatchCallContext(ctx, reqs[i:j])
-
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	var blocksFoundFromRPC = make(map[uint64]LogPollerBlock)
 	for _, r := range reqs {
 		if r.Error != nil {
 			return nil, r.Error
@@ -774,7 +823,7 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 		if block.Number < 0 {
 			return nil, errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
 		}
-		blocksFound[uint64(block.Number)] = LogPollerBlock{
+		blocksFoundFromRPC[uint64(block.Number)] = LogPollerBlock{
 			EvmChainId:  block.EVMChainID,
 			BlockHash:   block.Hash,
 			BlockNumber: block.Number,
@@ -782,16 +831,7 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 		}
 	}
 
-	var blocks []LogPollerBlock
-	for _, num := range numbers {
-		b, ok := blocksFound[num]
-		if !ok {
-			return nil, errors.Errorf("block: %d was not found in db or RPC call", num)
-		}
-		blocks = append(blocks, b)
-	}
-
-	return blocks, nil
+	return blocksFoundFromRPC, nil
 }
 
 func EvmWord(i uint64) common.Hash {

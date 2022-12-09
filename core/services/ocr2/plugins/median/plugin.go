@@ -17,6 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
+type MedianConfig interface {
+	JobPipelineMaxSuccessfulRuns() uint64
+}
+
 // NewMedian parses the arguments and returns a new Median struct.
 func NewMedianServices(jb job.Job,
 	ocr2Provider types.MedianProvider,
@@ -25,6 +29,7 @@ func NewMedianServices(jb job.Job,
 	lggr logger.Logger,
 	ocrLogger commontypes.Logger,
 	argsNoPlugin libocr2.OracleArgs,
+	cfg MedianConfig,
 ) ([]job.ServiceCtx, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -61,6 +66,8 @@ func NewMedianServices(jb job.Job,
 		runResults,
 		pipelineRunner,
 		make(chan struct{}),
-		lggr),
+		lggr,
+		cfg.JobPipelineMaxSuccessfulRuns(),
+	),
 		job.NewServiceAdapter(oracle)}, nil
 }
