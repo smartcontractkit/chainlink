@@ -123,6 +123,7 @@ func TestConfigSchema(t *testing.T) {
 		"InsecureFastScrypt":                             "INSECURE_FAST_SCRYPT",
 		"JSONConsole":                                    "JSON_CONSOLE",
 		"JobPipelineMaxRunDuration":                      "JOB_PIPELINE_MAX_RUN_DURATION",
+		"JobPipelineMaxSuccessfulRuns":                   "JOB_PIPELINE_MAX_SUCCESSFUL_RUNS",
 		"JobPipelineReaperInterval":                      "JOB_PIPELINE_REAPER_INTERVAL",
 		"JobPipelineReaperThreshold":                     "JOB_PIPELINE_REAPER_THRESHOLD",
 		"JobPipelineResultWriteQueueDepth":               "JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH",

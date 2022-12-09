@@ -1733,6 +1733,20 @@ func (_m *ChainScopedConfig) JobPipelineMaxRunDuration() time.Duration {
 	return r0
 }
 
+// JobPipelineMaxSuccessfulRuns provides a mock function with given fields:
+func (_m *ChainScopedConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // JobPipelineReaperInterval provides a mock function with given fields:
 func (_m *ChainScopedConfig) JobPipelineReaperInterval() time.Duration {
 	ret := _m.Called()
