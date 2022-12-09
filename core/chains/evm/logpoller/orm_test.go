@@ -28,7 +28,7 @@ func setup(t testing.TB) (*ORM, *ORM) {
 	return o1, o2
 }
 
-func TestORM_GetBlocks(t *testing.T) {
+func TestORM_GetBlocks_From_Range(t *testing.T) {
 	o1, _ := setup(t)
 	// Insert many blocks and read them back together
 	blocks := []struct {
@@ -65,18 +65,17 @@ func TestORM_GetBlocks(t *testing.T) {
 		blockNumbers = append(blockNumbers, uint64(b.number))
 	}
 
-	lpBlocks, err := o1.GetBlocks(blockNumbers)
+	lpBlocks, err := o1.GetBlocksFromRange(blockNumbers[0], blockNumbers[len(blockNumbers)-1])
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks, len(blocks))
 
 	// Ignores non-existent block
-	blockNumbers = append(blockNumbers, 15)
-	lpBlocks2, err := o1.GetBlocks(blockNumbers)
+	lpBlocks2, err := o1.GetBlocksFromRange(blockNumbers[0], 15)
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks2, len(blocks))
 
 	// Only non-existent blocks
-	lpBlocks3, err := o1.GetBlocks([]uint64{15})
+	lpBlocks3, err := o1.GetBlocksFromRange(15, 15)
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks3, 0)
 }

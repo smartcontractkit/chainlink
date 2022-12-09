@@ -32,7 +32,6 @@ type LogPoller interface {
 	RegisterFilter(filter Filter) (int, error)
 	UnregisterFilter(filterID int) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
-	GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 	GetBlocksAscendingUsingRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
@@ -747,41 +746,6 @@ func (lp *logPoller) GetBlocksAscendingUsingRange(ctx context.Context, numbers [
 		return nil, err
 	}
 
-	for _, num := range numbers {
-		b, ok := blocksFound[num]
-		if !ok {
-			return nil, errors.Errorf("block: %d was not found in db or RPC call", num)
-		}
-		blocks = append(blocks, b)
-	}
-
-	return blocks, nil
-}
-
-// GetBlocks tries to get the specified block numbers from the log pollers
-// blocks table. Returns the blocks it was able to find, empty slice if none.
-// When the log poller does not have requested blocks, it falls back
-// to RPC to fetch the missing blocks.
-// response contains blocks in the same order as "numbers" in request parameters
-// the first context parameter takes precedence over contexts passed through qopts
-func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
-	blocksFound := make(map[uint64]LogPollerBlock)
-	qopts = append(qopts, pg.WithParentCtx(ctx))
-	lpBlocks, err := lp.orm.GetBlocks(numbers, qopts...)
-	if err != nil {
-		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
-	}
-	for _, b := range lpBlocks {
-		blocksFound[uint64(b.BlockNumber)] = b
-	}
-
-	// Fill any remaining blocks from the client.
-	err = lp.fillRemainingBlocksFromRPC(ctx, blocksFound, numbers)
-	if err != nil {
-		return nil, err
-	}
-
-	var blocks []LogPollerBlock
 	for _, num := range numbers {
 		b, ok := blocksFound[num]
 		if !ok {
