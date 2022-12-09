@@ -363,6 +363,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismBedrock.nodeSyncThreshold = 10
 	// TODO: remove this testnet when all Optimism networks have migrated: https://app.shortcut.com/chainlinklabs/story/55389/remove-optimism-pre-bedrock-error-messages
 	optimismAlpha := optimismBedrock
+	optimismBeta := optimismBedrock
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -487,6 +488,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
 	chainSpecificConfigDefaultSets[28528] = optimismAlpha
+	chainSpecificConfigDefaultSets[902] = optimismBeta
 	chainSpecificConfigDefaultSets[8217] = klaytnMainnet
 	chainSpecificConfigDefaultSets[1001] = klaytnTestnet
 
