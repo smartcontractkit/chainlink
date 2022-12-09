@@ -64,7 +64,7 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220930034731-ef9eb53de886
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.4.8
+	github.com/smartcontractkit/ocr2keepers v0.5.0
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20221206151523-7ae0ec615c0e
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -91,7 +91,7 @@ require (
 	golang.org/x/term v0.3.0
 	golang.org/x/text v0.5.0
 	golang.org/x/tools v0.3.0
-	gonum.org/v1/gonum v0.11.0
+	gonum.org/v1/gonum v0.12.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	kevm "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/evm"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 )
@@ -58,11 +59,11 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, ktypes.Registry, ktypes.ReportEncoder, *LogProvider, error) {
+func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, ktypes.ReportEncoder, *LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
-	var registry ktypes.Registry
+	var registry *kevm.EvmRegistry
 	var encoder ktypes.ReportEncoder
 
 	oSpec := spec.OCR2OracleSpec
@@ -78,7 +79,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, err = kchain.NewEVMRegistryV2_0(rAddr, chain.Client()); err != nil {
+	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain); err != nil {
 		return nil, nil, nil, nil, err
 	}
 

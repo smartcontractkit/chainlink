@@ -294,7 +294,8 @@ func (k *Keeper) createLegacyKeeperJob(client cmd.HTTPClient, registryAddr, node
 const ocr2keeperJobTemplate = `type = "offchainreporting2"
 pluginType = "ocr2automation"
 relay = "evm"
-name = "ocr2"
+name = "ocr2-automation"
+forwardingAllowed = false
 schemaVersion = 1
 contractID = "%s"
 ocrKeyBundleID = "%s"
@@ -306,7 +307,8 @@ p2pv2Bootstrappers = [
 [relayConfig]
 chainID = %d
 
-[pluginConfig]`
+[pluginConfig]
+maxServiceWorkers = 100`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
 func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
