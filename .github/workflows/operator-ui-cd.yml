@@ -6,7 +6,7 @@ on:
       - develop
   workflow_dispatch:
   schedule:
-    - cron: '0 */1 * * *' # Run every hour
+    - cron: "0 */1 * * *" # Run every hour
 
 jobs:
   update-version:
@@ -22,10 +22,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./operator_ui/check.sh
 
+      - name: Assume role capable of dispatching action
+        uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_PR_TOKEN_ISSUER_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.aws-role-duration-seconds }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer
+        with:
+          url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
       - name: Open PR
         uses: peter-evans/create-pull-request@38e0b6e68b4c852a5500a94740f0e535e0d7ba54 # v4.2.4
         with:
           title: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          token: ${{ steps.get-gh-token.outputs.access-token }}
           branch: chore/update-operator-ui
           commit-message: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
           body: ${{ steps.update.outputs.body }}

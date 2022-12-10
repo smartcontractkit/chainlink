@@ -16,10 +16,23 @@ jobs:
           this-job-name: Breaking Changes GQL Check
         continue-on-error: true
 
+      - name: Assume role capable of dispatching action
+        uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_OPERATOR_UI_DISPATCH_ACTION_TOKEN_ISSUER_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.aws-role-duration-seconds }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer
+        with:
+          url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
       - uses: convictional/trigger-workflow-and-wait@a382075b8ce6e15d85477232d501eb047e21f7aa #v1.6.3
         with:
           owner: smartcontractkit
           repo: operator-ui
-          github_token: ${{ secrets.OPERATOR_UI_CI_PAT }}
-          workflow_file_name: chainlink-ci.yml 
+          github_token: ${{ steps.get-gh-token.outputs.access-token }}
+          workflow_file_name: chainlink-ci.yml
           client_payload: '{"ref": "${{ github.event.pull_request.head.sha }}"}'
