@@ -241,11 +241,25 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			}
 		}
 
+		transmitter, err := ocrcommon.NewTransmitter(
+			chain.TxManager(),
+			[]common.Address{concreteSpec.TransmitterAddress.Address()},
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			chain.ID(),
+			d.keyStore.Eth(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create transmitter")
+		}
+
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), []common.Address{concreteSpec.TransmitterAddress.Address()}, gasLimit, effectiveTransmitterAddress, strategy, checker),
+			transmitter,
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
@@ -307,6 +321,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
+			cfg.JobPipelineMaxSuccessfulRuns(),
 		)}, services...)
 	}
 

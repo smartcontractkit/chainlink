@@ -71,13 +71,7 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 		if config.P2PListenPort() == 0 {
 			return errors.New("networking stack v1 selected but no P2P_LISTEN_PORT specified")
 		}
-		if len(config.P2PV2ListenAddresses()) != 0 {
-			return errors.New("networking stack v1 selected but P2PV2_LISTEN_ADDRESSES specified")
-		}
 	case ocrnetworking.NetworkingStackV2:
-		if config.P2PListenPort() != 0 {
-			return errors.New("networking stack v2 selected but P2P_LISTEN_PORT specified")
-		}
 		if len(config.P2PV2ListenAddresses()) == 0 {
 			return errors.New("networking stack v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
 		}

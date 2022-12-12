@@ -472,6 +472,7 @@ func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e help
 func configureEnvironmentVariables(useForwarder bool) {
 	helpers.PanicErr(os.Setenv("ETH_USE_FORWARDERS", fmt.Sprintf("%t", useForwarder)))
 	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
+	helpers.PanicErr(os.Setenv("FEATURE_LOG_POLLER", "true"))
 	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
 	helpers.PanicErr(os.Setenv("P2P_NETWORKING_STACK", "V2"))
 	helpers.PanicErr(os.Setenv("P2PV2_LISTEN_ADDRESSES", "127.0.0.1:8000"))
@@ -528,4 +529,37 @@ func requestRandomnessCallbackBatch(
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
+}
+
+func printLoadtestResults(e helpers.Environment, consumerAddress string) {
+	consumer := newLoadTestVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+
+	totalRequests, err := consumer.STotalRequests(nil)
+	helpers.PanicErr(err)
+
+	totalFulfilled, err := consumer.STotalFulfilled(nil)
+	helpers.PanicErr(err)
+
+	avgBlocksInMil, err := consumer.SAverageFulfillmentInMillions(nil)
+	helpers.PanicErr(err)
+
+	slowestBlocks, err := consumer.SSlowestFulfillment(nil)
+	helpers.PanicErr(err)
+
+	fastestBlock, err := consumer.SFastestFulfillment(nil)
+	helpers.PanicErr(err)
+
+	slowestRequest, err := consumer.SSlowestRequestID(nil)
+	helpers.PanicErr(err)
+
+	pendingRequests, err := consumer.PendingRequests(nil)
+	helpers.PanicErr(err)
+
+	fmt.Println("Total Requests: ", totalRequests.Uint64())
+	fmt.Println("Total Fulfilled: ", totalFulfilled.Uint64())
+	fmt.Println("Average Fulfillment Delay in Blocks: ", float64(avgBlocksInMil.Uint64())/1000000)
+	fmt.Println("Slowest Fulfillment Delay in Blocks: ", slowestBlocks.Uint64())
+	fmt.Println("Slowest Request ID: ", slowestRequest.Uint64())
+	fmt.Println("Fastest Fulfillment Delay in Blocks: ", fastestBlock.Uint64())
+	fmt.Println("Pending Requests: ", pendingRequests)
 }

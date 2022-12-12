@@ -441,6 +441,13 @@ func main() {
 		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
 		deployBHS(e)
+	case "nocancel-coordinator-deploy":
+		cmd := flag.NewFlagSet("nocancel-coordinator-deploy", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "link contract address")
+		bhsAddress := cmd.String("bhs-address", "", "bhs contract address")
+		linkEthAddress := cmd.String("link-eth-feed", "", "link eth feed address")
+		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "bhs-address", "link-eth-feed")
+		deployNoCancelCoordinator(e, *linkAddress, *bhsAddress, *linkEthAddress)
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
@@ -450,10 +457,10 @@ func main() {
 		deployCoordinator(e, *coordinatorDeployLinkAddress, *coordinatorDeployBHSAddress, *coordinatorDeployLinkEthFeedAddress)
 	case "coordinator-get-config":
 		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
-		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
-		helpers.ParseArgs(cmd, os.Args[2:], "address")
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
 
-		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), e.Ec)
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
 		printCoordinatorConfig(coordinator)

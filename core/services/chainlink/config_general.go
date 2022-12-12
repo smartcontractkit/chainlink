@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -23,6 +24,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet"
@@ -376,10 +378,6 @@ func (g *generalConfig) EthereumURL() string {
 	return ""
 }
 
-func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return *g.c.Keeper.UpkeepCheckGasPriceEnabled
-}
-
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
 	return *p.V1.Enabled || *p.V2.Enabled
@@ -614,6 +612,10 @@ func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
 	return g.c.JobPipeline.MaxRunDuration.Duration()
 }
 
+func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return *g.c.JobPipeline.MaxSuccessfulRuns
+}
+
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }
@@ -670,16 +672,14 @@ func (g *generalConfig) KeeperTurnLookBack() int64 {
 	return *g.c.Keeper.TurnLookBack
 }
 
-func (g *generalConfig) KeeperTurnFlagEnabled() bool {
-	return *g.c.Keeper.TurnFlagEnabled
-}
-
 func (g *generalConfig) KeyFile() string {
 	if g.TLSKeyPath() == "" {
 		return filepath.Join(g.TLSDir(), "server.key")
 	}
 	return g.TLSKeyPath()
 }
+
+func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
 
 func (g *generalConfig) LeaseLockDuration() time.Duration {
 	return g.c.Database.Lock.LeaseDuration.Duration()
@@ -974,6 +974,7 @@ func (g *generalConfig) SessionOptions() sessions.Options {
 		Secure:   g.SecureCookies(),
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
