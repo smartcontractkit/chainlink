@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/basic_upkeep_contract"
@@ -54,7 +54,7 @@ func deployKeeperRegistry(
 	t *testing.T,
 	version keeper.RegistryVersion,
 	auth *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *client.SimulatedBackendClient,
 	linkAddr, linkFeedAddr, gasFeedAddr common.Address,
 ) (common.Address, *keeper.RegistryWrapper) {
 	switch version {
@@ -76,6 +76,7 @@ func deployKeeperRegistry(
 		)
 		require.NoError(t, err)
 		backend.Commit()
+
 		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
 		require.NoError(t, err)
 		return regAddr, wrapper
@@ -147,7 +148,7 @@ func deployKeeperRegistry(
 	}
 }
 
-func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *client.SimulatedBackendClient) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	upkeepId, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
@@ -156,23 +157,25 @@ func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		eip1559         bool
 		registryVersion keeper.RegistryVersion
 	}{
 		// name should be a valid ORM name, only containing alphanumeric/underscore
-		{"legacy_mode_registry1_1", false, keeper.RegistryVersion_1_1},
-		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
-		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
-		{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
-		{"legacy_mode_registry1_3", false, keeper.RegistryVersion_1_3},
-		{"eip1559_mode_registry1_3", true, keeper.RegistryVersion_1_3},
+		{"legacy_registry1_1", false, keeper.RegistryVersion_1_1},
+		{"eip1559_registry1_1", true, keeper.RegistryVersion_1_1},
+		{"legacy_registry1_2", false, keeper.RegistryVersion_1_2},
+		{"eip1559_registry1_2", true, keeper.RegistryVersion_1_2},
+		{"legacy_registry1_3", false, keeper.RegistryVersion_1_3},
+		{"eip1559_registry1_3", true, keeper.RegistryVersion_1_3},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			g := gomega.NewWithT(t)
 
 			// setup node key
@@ -196,9 +199,10 @@ func TestKeeperEthIntegration(t *testing.T) {
 			}
 
 			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-			backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+			b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+			backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-			stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+			stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 			defer stopMining()
 
 			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
@@ -246,7 +250,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			scopedConfig := evmtest.NewChainScopedConfig(t, config)
 			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
 
-			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
+			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 			require.NoError(t, app.Start(testutils.Context(t)))
 
 			// create job
@@ -322,6 +326,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
+	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
@@ -346,9 +351,10 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		}
 
 		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-		backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-		stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+		stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 		defer stopMining()
 
 		linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
@@ -387,7 +393,8 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		backend.Commit()
 
 		// setup app
-		config, db := heavyweight.FullTestDBV2(t, "keeper_forwarder_eth_integration", func(c *chainlink.Config, s *chainlink.Secrets) {
+		config, db := heavyweight.FullTestDBV2(t, "keeper_forwarder_flow", func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.Feature.LogPoller = ptr(true)
 			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
 			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
@@ -402,11 +409,11 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
 
-		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
+		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
 		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config)
-		chainID := utils.Big(*backend.Blockchain().Config().ChainID)
+		chainID := utils.Big(*backend.ChainID())
 		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
 		require.NoError(t, err)
 
@@ -472,6 +479,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 }
 
 func TestMaxPerformDataSize(t *testing.T) {
+	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		maxPerformDataSize := 1000 // Will be set as config override
 		g := gomega.NewWithT(t)
@@ -497,9 +505,10 @@ func TestMaxPerformDataSize(t *testing.T) {
 		}
 
 		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-		backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-		stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+		stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 		defer stopMining()
 
 		linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
@@ -543,7 +552,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
 
-		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
+		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
 		// create job

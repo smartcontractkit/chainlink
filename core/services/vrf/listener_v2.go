@@ -96,7 +96,7 @@ func newListenerV2(
 ) *listenerV2 {
 	return &listenerV2{
 		cfg:                cfg,
-		l:                  l,
+		l:                  logger.Sugared(l),
 		ethClient:          ethClient,
 		chainID:            chainID,
 		logBroadcaster:     logBroadcaster,
@@ -147,7 +147,7 @@ type vrfPipelineResult struct {
 type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
-	l              logger.Logger
+	l              logger.SugaredLogger
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster

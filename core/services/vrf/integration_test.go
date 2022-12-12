@@ -32,12 +32,13 @@ import (
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		eip1559 bool
 	}{
-		{"legacy mode", false},
-		{"eip1559 mode", true},
+		{"legacy", false},
+		{"eip1559", true},
 	}
 
 	for _, tt := range tests {
@@ -120,6 +121,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 }
 
 func TestIntegration_VRF_WithBHS(t *testing.T) {
+	t.Parallel()
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_with_bhs", func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)

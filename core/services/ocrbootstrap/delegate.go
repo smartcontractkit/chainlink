@@ -20,7 +20,7 @@ type Delegate struct {
 	jobORM            job.ORM
 	peerWrapper       *ocrcommon.SingletonPeerWrapper
 	cfg               validate.Config
-	lggr              logger.Logger
+	lggr              logger.SugaredLogger
 	relayers          map[relay.Network]types.Relayer
 	isNewlyCreatedJob bool
 }
@@ -38,7 +38,7 @@ func NewDelegateBootstrap(
 		db:          db,
 		jobORM:      jobORM,
 		peerWrapper: peerWrapper,
-		lggr:        lggr,
+		lggr:        logger.Sugared(lggr),
 		cfg:         cfg,
 		relayers:    relayers,
 	}
