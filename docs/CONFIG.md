@@ -1117,7 +1117,6 @@ GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
-UpkeepCheckGasPriceEnabled = false # Default
 ```
 
 
@@ -1158,13 +1157,6 @@ MaxGracePeriod is the maximum number of blocks that a keeper will wait after per
 TurnLookBack = 1_000 # Default
 ```
 TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
-
-### UpkeepCheckGasPriceEnabled<a id='Keeper-UpkeepCheckGasPriceEnabled'></a>
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-UpkeepCheckGasPriceEnabled = false # Default
-```
-UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
 
 ## Keeper.Registry<a id='Keeper-Registry'></a>
 ```toml

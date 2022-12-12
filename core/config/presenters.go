@@ -70,7 +70,6 @@ type EnvPrinter struct {
 	KeeperRegistryMaxPerformDataSize           uint32          `json:"KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
-	KeeperCheckUpkeepGasPriceFeatureEnabled    bool            `json:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED"`
 	KeeperTurnLookBack                         int64           `json:"KEEPER_TURN_LOOK_BACK"`
 	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
 	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
@@ -183,18 +182,17 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			JobPipelineReaperThreshold:     cfg.JobPipelineReaperThreshold(),
 
 			// Keeper
-			KeeperDefaultTransactionQueueDepth:      cfg.KeeperDefaultTransactionQueueDepth(),
-			KeeperGasPriceBufferPercent:             cfg.KeeperGasPriceBufferPercent(),
-			KeeperGasTipCapBufferPercent:            cfg.KeeperGasTipCapBufferPercent(),
-			KeeperBaseFeeBufferPercent:              cfg.KeeperBaseFeeBufferPercent(),
-			KeeperMaximumGracePeriod:                cfg.KeeperMaximumGracePeriod(),
-			KeeperRegistryCheckGasOverhead:          cfg.KeeperRegistryCheckGasOverhead(),
-			KeeperRegistryPerformGasOverhead:        cfg.KeeperRegistryPerformGasOverhead(),
-			KeeperRegistryMaxPerformDataSize:        cfg.KeeperRegistryMaxPerformDataSize(),
-			KeeperRegistrySyncInterval:              cfg.KeeperRegistrySyncInterval(),
-			KeeperRegistrySyncUpkeepQueueSize:       cfg.KeeperRegistrySyncUpkeepQueueSize(),
-			KeeperCheckUpkeepGasPriceFeatureEnabled: cfg.KeeperCheckUpkeepGasPriceFeatureEnabled(),
-			KeeperTurnLookBack:                      cfg.KeeperTurnLookBack(),
+			KeeperDefaultTransactionQueueDepth: cfg.KeeperDefaultTransactionQueueDepth(),
+			KeeperGasPriceBufferPercent:        cfg.KeeperGasPriceBufferPercent(),
+			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
+			KeeperBaseFeeBufferPercent:         cfg.KeeperBaseFeeBufferPercent(),
+			KeeperMaximumGracePeriod:           cfg.KeeperMaximumGracePeriod(),
+			KeeperRegistryCheckGasOverhead:     cfg.KeeperRegistryCheckGasOverhead(),
+			KeeperRegistryPerformGasOverhead:   cfg.KeeperRegistryPerformGasOverhead(),
+			KeeperRegistryMaxPerformDataSize:   cfg.KeeperRegistryMaxPerformDataSize(),
+			KeeperRegistrySyncInterval:         cfg.KeeperRegistrySyncInterval(),
+			KeeperRegistrySyncUpkeepQueueSize:  cfg.KeeperRegistrySyncUpkeepQueueSize(),
+			KeeperTurnLookBack:                 cfg.KeeperTurnLookBack(),
 
 			LeaseLockDuration:        cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval: cfg.LeaseLockRefreshInterval(),
