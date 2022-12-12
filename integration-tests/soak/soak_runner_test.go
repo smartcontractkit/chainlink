@@ -72,6 +72,9 @@ func TestForwarderOCRSoak(t *testing.T) {
 	baseTOML := `[OCR]
 Enabled = true
 
+[Feature]
+LogPoller = true
+
 [P2P]
 [P2P.V1]
 Enabled = true
@@ -121,7 +124,7 @@ func soakTestHelper(
 	testEnvironment *environment.Environment,
 	activeEVMNetwork blockchain.EVMNetwork,
 ) {
-	testDirectory := "./integration-tests/soak/tests"
+	testDirectory := "./soak/tests"
 	log.Info().
 		Str("Name", t.Name()).
 		Str("Directory", testDirectory).

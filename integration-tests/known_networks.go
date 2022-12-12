@@ -26,7 +26,8 @@ var (
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 	// generalEVM is a customizable network through environment variables
-	generalEVM blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
+	// This is getting little use, and causes some confusion. Can re-enable if people want it.
+	// generalEVM blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
 
 	// SimulatedevmNonDev1 represents a simulated network which can be used to deploy a non-dev geth node
 	SimulatedEVMNonDev1 = blockchain.EVMNetwork{
@@ -159,10 +160,10 @@ var (
 	}
 
 	mappedNetworks = map[string]blockchain.EVMNetwork{
-		"SIMULATED":       SimulatedEVM,
-		"SIMULATED_1":     SimulatedEVMNonDev1,
-		"SIMULATED_2":     SimulatedEVMNonDev2,
-		"GENERAL":         generalEVM,
+		"SIMULATED":   SimulatedEVM,
+		"SIMULATED_1": SimulatedEVMNonDev1,
+		"SIMULATED_2": SimulatedEVMNonDev2,
+		// "GENERAL":         generalEVM, // See above
 		"GOERLI":          GoerliTestnet,
 		"SEPOLIA":         SepoliaTestnet,
 		"KLAYTN_BAOBAB":   KlaytnBaobab,

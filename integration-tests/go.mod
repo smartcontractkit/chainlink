@@ -13,8 +13,8 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.11.4
 	github.com/smartcontractkit/chainlink v1.9.0
-	github.com/smartcontractkit/chainlink-env v0.2.56
-	github.com/smartcontractkit/chainlink-testing-framework v1.8.5
+	github.com/smartcontractkit/chainlink-env v0.2.57-0.20221212155500-005bd9df3c7d
+	github.com/smartcontractkit/chainlink-testing-framework v1.8.6-0.20221212155826-33d00a552dff
 	github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8
 	github.com/smartcontractkit/ocr2keepers v0.4.8
 	github.com/stretchr/testify v1.8.1
@@ -23,10 +23,6 @@ require (
 	golang.org/x/sync v0.1.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
-
-replace github.com/smartcontractkit/chainlink-env => /Users/adamhamrick/Projects/chainlink-env
-
-replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -328,11 +324,11 @@ require (
 	golang.org/x/exp v0.0.0-20220608143224-64259d1afd70 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.2.0 // indirect
+	golang.org/x/net v0.4.0 // indirect
 	golang.org/x/oauth2 v0.1.0 // indirect
-	golang.org/x/sys v0.2.0 // indirect
-	golang.org/x/term v0.2.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/term v0.3.0 // indirect
+	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	golang.org/x/tools v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect

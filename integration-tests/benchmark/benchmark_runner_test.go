@@ -208,7 +208,7 @@ func benchmarkTestHelper(
 	remoteRunnerValues := map[string]interface{}{
 		"focus":                 testTag,
 		"env_namespace":         testEnvironment.Cfg.Namespace,
-		"test_dir":              "./integration-tests/benchmark/tests",
+		"test_dir":              "./benchmark/tests",
 		"test_log_level":        "debug",
 		"grafana_dashboard_url": getEnv("GRAFANA_DASHBOARD_URL", ""),
 		"TEST_INPUTS":           os.Getenv("TEST_INPUTS"),

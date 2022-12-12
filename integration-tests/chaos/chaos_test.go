@@ -67,21 +67,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func CleanupChaosTest(
-	t *testing.T,
-	testEnvironment *environment.Environment,
-	chainlinkNodes []*client.Chainlink,
-	chainClient blockchain.EVMClient,
-) {
-	if chainClient != nil {
-		chainClient.GasStats().PrintStats()
-	}
-	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-	require.NoError(t, err, "Error tearing down environment")
-}
-
 func TestOCRChaos(t *testing.T) {
-	tests := map[string]struct {
+	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
 		chaosFunc    chaos.ManifestFunc
@@ -137,15 +124,16 @@ func TestOCRChaos(t *testing.T) {
 		},
 	}
 
-	for name, test := range tests {
+	for name, tst := range testCases {
+		testCase := tst
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			testEnvironment := environment.New(&environment.Config{NamespacePrefix: fmt.Sprintf("chaos-ocr-%s", name)}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
-				AddHelm(test.networkChart).
-				AddHelm(test.clChart)
+				AddHelm(testCase.networkChart).
+				AddHelm(testCase.clChart)
 			err := testEnvironment.Run()
 			require.NoError(t, err)
 
@@ -164,7 +152,11 @@ func TestOCRChaos(t *testing.T) {
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 			t.Cleanup(func() {
-				CleanupChaosTest(t, testEnvironment, chainlinkNodes, chainClient)
+				if chainClient != nil {
+					chainClient.GasStats().PrintStats()
+				}
+				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+				require.NoError(t, err, "Error tearing down environment")
 			})
 
 			ms, err := ctfClient.ConnectMockServer(testEnvironment)
@@ -190,14 +182,13 @@ func TestOCRChaos(t *testing.T) {
 				for _, ocr := range ocrInstances {
 					err := ocr.RequestNewRound()
 					require.NoError(t, err, "Error requesting new round")
-					require.NoError(t, err)
 				}
 				round, err := ocrInstances[0].GetLatestRound(context.Background())
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				log.Info().Int64("RoundID", round.RoundId.Int64()).Send()
+				log.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
 				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
 					chaosApplied = true
-					_, err = testEnvironment.Chaos.Run(test.chaosFunc(testEnvironment.Cfg.Namespace, test.chaosProps))
+					_, err = testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))
 					require.NoError(t, err)
 				}
 				g.Expect(round.RoundId.Int64()).Should(gomega.BeNumerically(">=", chaosEndRound))

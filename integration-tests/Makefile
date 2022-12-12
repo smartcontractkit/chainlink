@@ -50,27 +50,51 @@ endif
 	helm repo add bitnami https://charts.bitnami.com/bitnami
 	helm repo update
 
-## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
-.PHONY: test_smoke
-test_smoke: ## Run all smoke tests
+.PHONY: install_gotestfmt
+install_gotestfmt:
 	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	set -euo pipefail
+
+## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
+
+# Smoke
+.PHONY: test_smoke_raw # Run smoke tests without any gotestfmt or default args
+test_smoke_raw:
+	go test $(args) ./smoke
+
+.PHONY: test_smoke
+test_smoke: install_gotestfmt ## Run all smoke tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 24h -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 24h -count=1 -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_smoke_simulated
-test_smoke_simulated: ## Run all smoke tests on simulated blockchain
-	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
-	set -euo pipefail
+test_smoke_simulated: install_gotestfmt ## Run all smoke tests on simulated blockchain
 	TEST_LOG_LEVEL="disabled" \
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	go test -timeout 1h -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 1h -count=1 -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_smoke_verbose
-test_smoke_verbose: ## Run all smoke tests with verbose logging
-	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
-	set -euo pipefail
-	go test -timeout 24h -v -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+test_smoke_verbose: install_gotestfmt ## Run all smoke tests with verbose logging
+	go test -timeout 24h -count=1 -v -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+# Chaos
+.PHONY: test_chaos_raw
+test_chaos_raw:
+	go test -count=1 $(args) ./chaos
+
+.PHONY: test_chaos
+test_chaos: install_gotestfmt ## Run all smoke tests
+	TEST_LOG_LEVEL="disabled" \
+	go test -timeout 24h -count=1 -json $(args) ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+.PHONY: test_chaos_verbose
+test_chaos_verbose: install_gotestfmt ## Run all smoke tests with verbose logging
+	go test -timeout 24h -count=1 -v -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+# Soak
+.PHONY: test_soak_ocr
+test_soak_ocr:
+	go test -v ./soak -count=1 -run TestOCRSoak
 
 .PHONY: test_smoke_product
 test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"

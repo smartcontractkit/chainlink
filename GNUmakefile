@@ -117,16 +117,16 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 
 .PHONY: test_smoke
 test_smoke: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior
-	ACK_GINKGO_DEPRECATIONS=2.5.0 ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	$(args) ./integration-tests/smoke
+	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+	set -euo pipefail
+	go test -json ./integration-tests/smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_smoke_simulated
 test_smoke_simulated: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
-	ACK_GINKGO_DEPRECATIONS=2.5.0 SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	$(args) ./integration-tests/smoke
+	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+	set -euo pipefail
+  SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
+	go test -json ./integration-tests/smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_soak_ocr
 test_soak_ocr: test_need_operator_assets ## Run the OCR soak test

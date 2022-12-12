@@ -1077,7 +1077,6 @@ func setupKeeperTest(
 		})
 	}
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
-	// setupMu.Lock()
 	testEnvironment := environment.New(
 		&environment.Config{NamespacePrefix: fmt.Sprintf("smoke-keeper-%s-%s", testName, networkName)},
 	).
@@ -1090,7 +1089,6 @@ func setupKeeperTest(
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
-	// setupMu.Unlock()
 
 	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
