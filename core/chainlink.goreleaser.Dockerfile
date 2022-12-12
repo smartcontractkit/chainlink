@@ -1,3 +1,5 @@
+# This will replace chainlink.Dockerfile once all builds are migrated to goreleaser
+
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
 

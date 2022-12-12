@@ -10,6 +10,8 @@ GORELEASER_CONFIG=${GORELEASER_CONFIG:-.goreleaser.yaml}
 IMAGE_PREFIX=${IMAGE_PREFIX:-"localhost:5001"}
 DOCKER_MANIFEST_EXTRA_ARGS=${DOCKER_MANIFEST_EXTRA_ARGS:-""}
 
+# publish snapshot docker images
+# must have label=org.opencontainers.image.revision=<full-shasum> set
 _publish_snapshot_images() {
   local full_sha=$(git rev-parse HEAD)
   local images=$(docker images --filter "label=org.opencontainers.image.revision=$full_sha" --format "{{.Repository}}:{{.Tag}}")
@@ -18,6 +20,8 @@ _publish_snapshot_images() {
   done
 }
 
+# publish snapshot docker manifest lists
+# must have label=org.opencontainers.image.revision=<full-shasum> set
 _publish_snapshot_manifests() {
   local docker_manifest_extra_args=$DOCKER_MANIFEST_EXTRA_ARGS
   local full_sha=$(git rev-parse HEAD)
@@ -44,6 +48,7 @@ _publish_snapshot_manifests() {
   done
 }
 
+# wrapper function to invoke goreleaser release
 goreleaser_release() {
   if [[ $ENABLE_COSIGN == "true" ]]; then
     echo "$COSIGN_PUBLIC_KEY" > cosign.pub

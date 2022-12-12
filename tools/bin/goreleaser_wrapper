@@ -1,9 +1,11 @@
 #!/bin/bash
 
+# get machine / kernel name
 _get_platform() {
   uname | tr '[:upper:]' '[:lower:]'
 }
 
+# get macos sdk directory
 _get_macos_sdk_dir() {
   if [[ -z "${MACOS_SDK_DIR-}" ]]; then
     platform=$(_get_platform)

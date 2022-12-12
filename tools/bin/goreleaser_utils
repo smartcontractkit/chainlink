@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+# get machine / kernel name
 _get_platform() {
   uname | tr '[:upper:]' '[:lower:]'
 }
 
+# get machine architecture name
 # See https://github.com/joschi/asdf-java/blob/aarch64-support/bin/functions#L33
 _get_arch() {
   arch="$(uname -m)"
@@ -17,6 +19,7 @@ _get_arch() {
   esac
 }
 
+# get lib wasmvm path
 _get_wasmvm_lib_path() {
   local -r platform="$1"
   local -r arch="$2"
@@ -38,6 +41,8 @@ _get_wasmvm_lib_path() {
   echo "$shared_lib_dir/${lib_name}.$lib_extension"
 }
 
+# global goreleaser before hook
+# moves native libraries to temp directories used by docker images / archives
 before_hook() {
   local -r lib_path=tmp
   local -r wasmvm_lib_path_linux_amd64=$(_get_wasmvm_lib_path "linux" "amd64")
@@ -54,6 +59,8 @@ before_hook() {
   cp -f "$wasmvm_lib_path_darwin_arm64" "$lib_path/darwin_arm64/libs"
 }
 
+# binary build post hook
+# moves native libraries to binary libs directory
 build_post_hook() {
   local -r dist_path=$1
   local -r lib_path=$dist_path/libs
