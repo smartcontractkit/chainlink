@@ -2,7 +2,6 @@
 pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "../interfaces/AuthorizedReceiverInterface.sol";
 
 /**
  * @notice Modified AuthorizedReciever abstract for use on the OCR2DROracle contract to limit usage
@@ -32,7 +31,7 @@ import "../interfaces/AuthorizedReceiverInterface.sol";
  * }
  * ```
  */
-abstract contract AuthorizedOriginReceiver is AuthorizedReceiverInterface {
+abstract contract AuthorizedOriginReceiver {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   event AuthorizedSendersChanged(address[] senders, address changedBy);
@@ -45,20 +44,44 @@ abstract contract AuthorizedOriginReceiver is AuthorizedReceiverInterface {
   address[] private s_authorizedSendersList;
 
   /**
-   * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
-   * @param senders The addresses of the authorized Chainlink node
+   * @notice Sets the permission to request for the given wallet(s).
+   * @param senders The addresses of the wallet addresses to grant access
    */
-  function setAuthorizedSenders(address[] calldata senders) external override validateAuthorizedSenderSetter {
+  function addAuthorizedSenders(address[] calldata senders) external validateAuthorizedSenderSetter {
     if (senders.length == 0) {
       revert EmptySendersList();
     }
-    for (uint256 i = 0; i < s_authorizedSendersList.length; i++) {
-      s_authorizedSenders.remove(s_authorizedSendersList[i]);
+    for (uint256 i = 0; i < senders.length; i++) {
+      bool success = s_authorizedSenders.add(senders[i]);
+      if (success) {
+        s_authorizedSendersList.push(senders[i]);
+      }
+    }
+    emit AuthorizedSendersChanged(senders, msg.sender);
+  }
+
+  /**
+   * @notice Remove the permission to request for the given wallet(s).
+   * @param senders The addresses of the wallet addresses to revoke access
+   */
+  function removeAuthorizedSenders(address[] calldata senders) external validateAuthorizedSenderSetter {
+    if (senders.length == 0) {
+      revert EmptySendersList();
     }
     for (uint256 i = 0; i < senders.length; i++) {
-      s_authorizedSenders.add(senders[i]);
+      bool success = s_authorizedSenders.remove(senders[i]);
+      if (success) {
+        // Remove from s_authorizedSendersList
+        for (uint256 j = 0; j < s_authorizedSendersList.length; j++) {
+          if (s_authorizedSendersList[j] == senders[i]) {
+            address last = s_authorizedSendersList[s_authorizedSendersList.length - 1];
+            // Copy last element and overwrite senders[i] to be deleted with it
+            s_authorizedSendersList[i] = last;
+            s_authorizedSendersList.pop();
+          }
+        }
+      }
     }
-    s_authorizedSendersList = senders;
     emit AuthorizedSendersChanged(senders, msg.sender);
   }
 
@@ -66,7 +89,7 @@ abstract contract AuthorizedOriginReceiver is AuthorizedReceiverInterface {
    * @notice Retrieve a list of authorized senders
    * @return array of addresses
    */
-  function getAuthorizedSenders() public view override returns (address[] memory) {
+  function getAuthorizedSenders() public view returns (address[] memory) {
     return s_authorizedSendersList;
   }
 
@@ -75,7 +98,7 @@ abstract contract AuthorizedOriginReceiver is AuthorizedReceiverInterface {
    * @param sender The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function isAuthorizedSender(address sender) public view override returns (bool) {
+  function isAuthorizedSender(address sender) public view returns (bool) {
     return s_authorizedSenders.contains(sender);
   }
 
