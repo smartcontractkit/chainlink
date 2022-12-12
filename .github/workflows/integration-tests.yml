@@ -97,7 +97,7 @@ jobs:
             os: ubuntu-latest
           - name: keeper
             nodes: 30
-            os: ubuntu-latest
+            os: ubuntu20.04-4cores-16GB
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu-latest
@@ -124,7 +124,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@66d228c3c64044670f2ee0c47492043da66c5c19 # v2.0.26
         with:
-          test_command_to_run: go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
