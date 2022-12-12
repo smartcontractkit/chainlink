@@ -33,6 +33,7 @@ func newApp(r remote, writer io.Writer) (*clcmd.Client, *cli.App) {
 	}
 	app := clcmd.NewApp(client)
 	fs := flag.NewFlagSet("blah", flag.ContinueOnError)
+	fs.String("remote-node-url", fmt.Sprintf("https://%s", r.host), "")
 	helpers.PanicErr(app.Before(cli.NewContext(nil, fs, nil)))
 	// overwrite renderer since it's set to stdout after Before() is called
 	client.Renderer = clcmd.RendererJSON{Writer: writer}
@@ -102,14 +103,14 @@ func main() {
 			allPeerIDs             []string
 		)
 
-		remoteNodeURL := remote.host
+		remoteNodeURL := fmt.Sprintf("https://%s", remote.host)
 		output := &bytes.Buffer{}
 		client, app := newApp(remote, output)
 
 		// login first to establish the session
 		fmt.Println("Logging in to:", remoteNodeURL)
 		loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
-		loginFs.String("file", "", "")
+		//loginFs.String("file", "", "")
 		loginFs.Bool("bypass-version-check", true, "")
 		loginCtx := cli.NewContext(app, loginFs, nil)
 		err := client.RemoteLogin(loginCtx)

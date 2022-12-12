@@ -1,6 +1,8 @@
 package main
 
-import "github.com/ethereum/go-ethereum/common"
+import (
+	"github.com/ethereum/go-ethereum/common"
+)
 
 type remote struct {
 	host     string
@@ -12,11 +14,11 @@ func (r remote) IsTerminal() bool {
 	return false
 }
 
-func (r remote) PasswordPrompt(string) string {
+func (r remote) PasswordPrompt(p string) string {
 	return r.password
 }
 
-func (r remote) Prompt(string) string {
+func (r remote) Prompt(p string) string {
 	return r.login
 }
 
