@@ -446,18 +446,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 	}
 
-	// TODO: Make feeds manager compatible with multiple chains
-	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	var feedsService feeds.Service
 	if cfg.FeatureFeedsManager() {
 		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
-		chain, err := chains.EVM.Default()
-		if err != nil {
-			globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
-			feedsService = &feeds.NullService{}
-		} else {
-			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chains.EVM, globalLogger, opts.Version)
-		}
+		feedsService = feeds.NewService(
+			feedsORM,
+			jobORM,
+			db,
+			jobSpawner,
+			keyStore,
+			cfg,
+			chains.EVM,
+			globalLogger,
+			opts.Version,
+		)
 	} else {
 		feedsService = &feeds.NullService{}
 	}
