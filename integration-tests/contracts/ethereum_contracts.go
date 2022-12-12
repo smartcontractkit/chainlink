@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	ethereum2 "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
