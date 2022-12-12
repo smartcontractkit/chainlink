@@ -321,7 +321,6 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	set.Bool("hard", true, "")
 	set.Bool("yes", true, "")
 	set.Parse([]string{address})
 	c = cli.NewContext(nil, set, nil)
@@ -414,7 +413,6 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	set.Bool("hard", true, "")
 	set.Bool("yes", true, "")
 	set.Parse([]string{address})
 	c = cli.NewContext(nil, set, nil)
