@@ -260,9 +260,9 @@ func TestClient_DeleteETHKey(t *testing.T) {
 
 	// Delete the key
 	set := flag.NewFlagSet("test", 0)
-	set.Bool("hard", true, "")
 	set.Bool("yes", true, "")
-	set.Parse([]string{key.Address.Hex()})
+	err = set.Parse([]string{key.Address.Hex()})
+	assert.NoError(t, err)
 	c := cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
