@@ -16,6 +16,7 @@ import (
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_eip3668_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -341,6 +342,12 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		if k.cfg.UpkeepAverageEligibilityCadence > 0 {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
+			)
+		} else if k.cfg.UpkeepEIP3668 {
+			fmt.Println("EIP-3668")
+			upkeepAddr, deployUpkeepTx, _, err = upkeep_eip3668_wrapper.DeployUpkeepEIP3668(k.buildTxOpts(ctx), k.client,
+				big.NewInt(k.cfg.UpkeepTestRange),
+				big.NewInt(k.cfg.UpkeepInterval),
 			)
 		} else {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
