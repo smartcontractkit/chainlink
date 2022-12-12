@@ -97,6 +97,10 @@ type EthBroadcaster struct {
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
 
+	// autoSyncNonce, if set, will cause EthBroadcaster to fast-forward the nonce
+	// when Start is called
+	autoSyncNonce bool
+
 	ethTxInsertListener pg.Subscription
 	eventBroadcaster    pg.EventBroadcaster
 
@@ -119,7 +123,7 @@ type EthBroadcaster struct {
 func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
-	logger logger.Logger, checkerFactory TransmitCheckerFactory) *EthBroadcaster {
+	logger logger.Logger, checkerFactory TransmitCheckerFactory, autoSyncNonce bool) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
@@ -141,6 +145,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 		triggers:         triggers,
 		chStop:           make(chan struct{}),
 		wg:               sync.WaitGroup{},
+		autoSyncNonce:    autoSyncNonce,
 	}
 }
 
@@ -151,6 +156,13 @@ func (eb *EthBroadcaster) Start(ctx context.Context) error {
 		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
 		if err != nil {
 			return errors.Wrap(err, "EthBroadcaster could not start")
+		}
+
+		if eb.autoSyncNonce {
+			syncer := NewNonceSyncer(eb.db, eb.logger, eb.config, eb.ethClient, eb.ChainKeyStore.keystore)
+			if err = syncer.SyncAll(ctx, eb.keyStates); err != nil {
+				return errors.Wrap(err, "Txm: failed to sync with on-chain nonce")
+			}
 		}
 
 		eb.wg.Add(len(eb.keyStates))
