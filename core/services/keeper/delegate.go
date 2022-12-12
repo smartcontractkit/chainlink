@@ -106,7 +106,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		Logger:                   svcLogger,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 		EffectiveKeeperAddress:   effectiveKeeperAddress,
-		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 	})
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,

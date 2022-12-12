@@ -56,3 +56,12 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 func MustExec(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) {
 	require.NoError(t, utils.JustError(db.Exec(stmt, args...)))
 }
+
+func MustSelect(t *testing.T, db *sqlx.DB, dest interface{}, stmt string, args ...interface{}) {
+	require.NoError(t, db.Select(dest, stmt, args...))
+}
+
+func MustCount(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) (cnt int) {
+	require.NoError(t, db.Get(&cnt, stmt, args...))
+	return
+}

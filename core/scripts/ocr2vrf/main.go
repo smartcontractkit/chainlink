@@ -180,7 +180,7 @@ func main() {
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
 		maxDurationReport := cmd.Duration("max-duration-report", 10*time.Second, "maximum duration of report method")
-		maxDurationAccept := cmd.Duration("max-duration-accept", 10*time.Millisecond, "maximum duration of shouldAcceptFinalizedReport method")
+		maxDurationAccept := cmd.Duration("max-duration-accept", 5*time.Second, "maximum duration of shouldAcceptFinalizedReport method")
 		maxDurationTransmit := cmd.Duration("max-duration-transmit", 1*time.Second, "maximum duration of shouldTransmitAcceptedReport method")
 
 		helpers.ParseArgs(cmd,
@@ -405,6 +405,19 @@ func main() {
 				big.NewInt(*batchSize),
 			)
 		}
+	case "deploy-load-test-consumer":
+		cmd := flag.NewFlagSet("deploy-load-test-consumer", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
+		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-period-blocks")
+
+		deployLoadTestVRFBeaconCoordinatorConsumer(e, *coordinatorAddress, false, big.NewInt(*beaconPeriodBlocks))
+	case "get-load-test-results":
+		cmd := flag.NewFlagSet("get-load-test-results", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "Load test contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+
+		printLoadtestResults(e, *consumerAddress)
 	case "verify-beacon-randomness":
 		cmd := flag.NewFlagSet("verify-randomness", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")

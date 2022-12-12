@@ -892,16 +892,17 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 // chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
-// 63 bytes is max and chainlink_test_ takes up 15
+// 63 bytes is max and chainlink_test_ takes up 15, plus 4 for a random hex suffix.
 func dbName(s string) string {
-	if len(s) <= 47 {
+	diff := len("chainlink_test_") + len("_FFF")
+	if len(s) <= diff {
 		return strings.ReplaceAll(strings.ToLower(s), "/", "")
 	}
-	return strings.ReplaceAll(strings.ToLower(s[len(s)-47:]), "/", "")
+	return strings.ReplaceAll(strings.ToLower(s[len(s)-diff:]), "/", "")
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
-	db, nodeAddr := setupFullDBWithKey(t, dbName(t.Name()))
+	db, nodeAddr := setupFullDBWithKey(t, "hibernation")
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	const (
@@ -1225,7 +1226,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 				Run(func(mock.Arguments) { close(chRoundState) }).
 				Maybe()
 
-			fm.Start(testutils.Context(t))
+			require.NoError(t, fm.Start(testutils.Context(t)))
 
 			if test.expectedToSubmit {
 				g.Eventually(chRoundState).Should(gomega.BeClosed())
@@ -1233,7 +1234,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 				g.Consistently(chRoundState).ShouldNot(gomega.BeClosed())
 			}
 
-			fm.Close()
+			require.NoError(t, fm.Close())
 		})
 	}
 }
@@ -1381,7 +1382,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 		Run(func(mock.Arguments) { close(chRoundState2) }).
 		Once()
 
-	fm.Start(testutils.Context(t))
+	require.NoError(t, fm.Start(testutils.Context(t)))
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
@@ -1397,7 +1398,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	g.Eventually(chRoundState2).Should(gomega.BeClosed())
 
 	time.Sleep(time.Duration(2*timeout) * time.Second)
-	fm.Close()
+	require.NoError(t, fm.Close())
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {

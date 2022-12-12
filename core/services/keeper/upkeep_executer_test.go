@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -67,7 +66,6 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 ) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Keeper.TurnLookBack = ptr[int64](0)
-		c.Keeper.TurnFlagEnabled = ptr(true)
 		if fn := overrideFn; fn != nil {
 			fn(c, s)
 		}
@@ -75,8 +73,7 @@ func setup(t *testing.T, estimator *gasmocks.Estimator, overrideFn func(c *chain
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	block := &types.Header{Number: big.NewInt(1)}
-	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
 	txm := txmmocks.NewTxManager(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})

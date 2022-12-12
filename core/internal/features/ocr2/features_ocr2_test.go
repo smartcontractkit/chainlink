@@ -188,6 +188,7 @@ func setupNodeOCR2(
 }
 
 func TestIntegration_OCR2(t *testing.T) {
+	t.Parallel()
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
@@ -306,7 +307,7 @@ fromBlock = %d
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer slowServers[i].Close()
+		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -320,12 +321,12 @@ fromBlock = %d
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer servers[i].Close()
+		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
-		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
-		})
+		}))
 
 		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -442,6 +443,7 @@ juelsPerFeeCoinSource = """
 }
 
 func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
+	t.Parallel()
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
@@ -583,10 +585,10 @@ chainID 			= 1337
 		}))
 		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
-		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
-		})
+		}))
 
 		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"

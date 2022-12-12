@@ -16,7 +16,7 @@ require (
 	github.com/smartcontractkit/chainlink v1.9.0
 	github.com/smartcontractkit/chainlink-env v0.2.52
 	github.com/smartcontractkit/chainlink-testing-framework v1.8.5
-	github.com/smartcontractkit/libocr v0.0.0-20221121171434-482da3ed36d8
+	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
 	github.com/smartcontractkit/ocr2keepers v0.4.8
 	github.com/stretchr/testify v1.8.1
 	github.com/umbracle/ethgo v0.1.3
@@ -24,9 +24,6 @@ require (
 	golang.org/x/sync v0.1.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
-
-// Make sure we're working with the latest chainlink libs
-replace github.com/smartcontractkit/chainlink => ../
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -51,7 +48,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/boj/redistore v0.0.0-20180917114910-cd5dcc76aeff // indirect
 	github.com/btcsuite/btcd v0.23.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.0 // indirect
 	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.5.37 // indirect
@@ -96,8 +92,8 @@ require (
 	github.com/gagliardetto/solana-go v1.4.1-0.20220428092759-5250b4abbb27 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/getsentry/sentry-go v0.15.0 // indirect
+	github.com/gin-contrib/sessions v0.0.5 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/gin-gonic/contrib v0.0.0-20201101042839-6a891bf89f19 // indirect
 	github.com/gin-gonic/gin v1.8.1 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-kit/kit v0.12.0 // indirect
@@ -118,7 +114,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
@@ -278,7 +273,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20221025223751-9b407cff57eb // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220930034704-572ac07611cb // indirect
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20221108213147-df72abedd302 // indirect
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20221206151523-7ae0ec615c0e // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
@@ -364,28 +359,33 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-// Fix go mod tidy issue for ambiguous imports from go-ethereum
-// See https://github.com/ugorji/go/issues/279
-replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
+replace (
+	// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
+	filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
 
-// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
-// See https://github.com/dgrijalva/jwt-go/issues/463
-// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
-// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
-replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
+	// updating CosmWasm to v1.0.0 which brings ARM support
+	github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
 
-// replicating the replace directive on cosmos SDK
-replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+	// Fix go mod tidy issue for ambiguous imports from go-ethereum
+	// See https://github.com/ugorji/go/issues/279
+	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
-// needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
-replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-rc.1
+	// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
+	// See https://github.com/dgrijalva/jwt-go/issues/463
+	// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
+	// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
+	github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
 
-// updating CosmWasm to v1.0.0 which brings ARM support
-replace github.com/CosmWasm/wasmvm => github.com/CosmWasm/wasmvm v1.0.0
+	// replicating the replace directive on cosmos SDK
+	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-// moved but still using old module name
-replace github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
+	// fixes deprecation warnings and keychain undefined bugs on macOS
+	// See https://github.com/99designs/keyring/issues/94
+	github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 
-// fixes deprecation warnings and keychain undefined bugs on macOS
-// See https://github.com/99designs/keyring/issues/94
-replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+	// Make sure we're working with the latest chainlink libs
+	github.com/smartcontractkit/chainlink => ../
+
+	// moved but still using old module name
+	github.com/terra-money/core => github.com/terra-money/classic-core v0.5.20
+)

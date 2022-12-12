@@ -20,6 +20,7 @@ func TestRunSaver(t *testing.T) {
 		pipelineRunner,
 		make(chan struct{}),
 		logger.TestLogger(t),
+		1000,
 	)
 	require.NoError(t, rs.Start(testutils.Context(t)))
 	for i := 0; i < 100; i++ {

@@ -122,7 +122,7 @@ chainID                            = %d
 const forwarderAdditionalEOACount = 4
 
 func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
-	lggr := cli.Logger.Named("ConfigureOCR2VRFNode")
+	lggr := logger.Sugared(cli.Logger.Named("ConfigureOCR2VRFNode"))
 	err := cli.Config.Validate()
 	if err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
@@ -156,7 +156,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	if err = ldb.Open(rootCtx); err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "opening db"))
 	}
-	defer lggr.ErrorIfClosing(ldb, "db")
+	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
 	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, lggr, ldb.DB())
 	if err != nil {
@@ -173,10 +173,13 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	}
 
 	// Start application.
-	app.Start(rootCtx)
+	err = app.Start(rootCtx)
+	if err != nil {
+		return nil, cli.errorOut(err)
+	}
 
 	// Close application.
-	defer app.Stop()
+	defer lggr.ErrorIfFn(app.Stop, "Failed to Stop application")
 
 	// Initialize transmitter settings.
 	var sendingKeys []string

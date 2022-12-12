@@ -76,8 +76,9 @@ func (l *DRListener) Start(context.Context) error {
 			},
 			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 		})
-		l.shutdownWaitGroup.Add(2)
+		l.shutdownWaitGroup.Add(3)
 		go l.processOracleEvents()
+		go l.timeoutRequests()
 		go func() {
 			<-l.chStop
 			unsubscribeLogs()
@@ -101,7 +102,7 @@ func (l *DRListener) Close() error {
 	})
 }
 
-// HandleLog() complies with log.Listener
+// HandleLog implements log.Listener
 func (l *DRListener) HandleLog(lb log.Broadcast) {
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
@@ -126,13 +127,18 @@ func (l *DRListener) JobID() int32 {
 }
 
 func (l *DRListener) processOracleEvents() {
+	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
 		case <-l.chStop:
-			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleEvents.Notify():
 			for {
+				select {
+				case <-l.chStop:
+					return
+				default:
+				}
 				lb, exists := l.mbOracleEvents.Retrieve()
 				if !exists {
 					break
@@ -140,15 +146,15 @@ func (l *DRListener) processOracleEvents() {
 				was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 				if err != nil {
 					l.logger.Errorw("Could not determine if log was already consumed", "error", err)
-					break
+					continue
 				} else if was {
-					break
+					continue
 				}
 
 				log := lb.DecodedLog()
 				if log == nil || reflect.ValueOf(log).IsNil() {
 					l.logger.Error("processOracleEvents: ignoring nil value")
-					break
+					continue
 				}
 
 				switch log := log.(type) {
@@ -276,7 +282,7 @@ func (l *DRListener) handleOracleResponse(response *ocr2dr_oracle.OCR2DROracleOr
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("Oracle response received", "requestId", fmt.Sprintf("%0x", response.RequestId))
 
-	if _, err := l.pluginORM.SetState(response.RequestId, CONFIRMED); err != nil {
+	if err := l.pluginORM.SetConfirmed(response.RequestId); err != nil {
 		l.logger.Errorf("Setting CONFIRMED state failed for request ID: %v", response.RequestId)
 	}
 }
@@ -289,4 +295,33 @@ func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
+}
+
+func (l *DRListener) timeoutRequests() {
+	defer l.shutdownWaitGroup.Done()
+	timeoutSec, freqSec, batchSize := l.pluginConfig.RequestTimeoutSec, l.pluginConfig.RequestTimeoutCheckFrequencySec, l.pluginConfig.RequestTimeoutBatchLookupSize
+	if timeoutSec == 0 || freqSec == 0 || batchSize == 0 {
+		l.logger.Warn("request timeout checker not configured - disabling it")
+		return
+	}
+	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
+			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize)
+			if err != nil {
+				l.logger.Errorw("error when calling FindExpiredResults", "err", err)
+				break
+			}
+			if len(ids) > 0 {
+				l.logger.Debugw("timed out requests", "ids", ids)
+			} else {
+				l.logger.Debug("no requests to time out")
+			}
+		}
+	}
 }
