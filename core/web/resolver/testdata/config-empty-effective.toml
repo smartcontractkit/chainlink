@@ -159,7 +159,6 @@ GasTipCapBufferPercent = 20
 BaseFeeBufferPercent = 20
 MaxGracePeriod = 100
 TurnLookBack = 1000
-UpkeepCheckGasPriceEnabled = false
 
 [Keeper.Registry]
 CheckGasOverhead = 200000
