@@ -76,8 +76,9 @@ func (l *DRListener) Start(context.Context) error {
 			},
 			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 		})
-		l.shutdownWaitGroup.Add(2)
+		l.shutdownWaitGroup.Add(3)
 		go l.processOracleEvents()
+		go l.timeoutRequests()
 		go func() {
 			<-l.chStop
 			unsubscribeLogs()
@@ -281,7 +282,7 @@ func (l *DRListener) handleOracleResponse(response *ocr2dr_oracle.OCR2DROracleOr
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("Oracle response received", "requestId", fmt.Sprintf("%0x", response.RequestId))
 
-	if _, err := l.pluginORM.SetState(response.RequestId, CONFIRMED); err != nil {
+	if err := l.pluginORM.SetConfirmed(response.RequestId); err != nil {
 		l.logger.Errorf("Setting CONFIRMED state failed for request ID: %v", response.RequestId)
 	}
 }
@@ -294,4 +295,33 @@ func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
+}
+
+func (l *DRListener) timeoutRequests() {
+	defer l.shutdownWaitGroup.Done()
+	timeoutSec, freqSec, batchSize := l.pluginConfig.RequestTimeoutSec, l.pluginConfig.RequestTimeoutCheckFrequencySec, l.pluginConfig.RequestTimeoutBatchLookupSize
+	if timeoutSec == 0 || freqSec == 0 || batchSize == 0 {
+		l.logger.Warn("request timeout checker not configured - disabling it")
+		return
+	}
+	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
+			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize)
+			if err != nil {
+				l.logger.Errorw("error when calling FindExpiredResults", "err", err)
+				break
+			}
+			if len(ids) > 0 {
+				l.logger.Debugw("timed out requests", "ids", ids)
+			} else {
+				l.logger.Debug("no requests to time out")
+			}
+		}
+	}
 }

@@ -321,6 +321,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
+			cfg.JobPipelineMaxSuccessfulRuns(),
 		)}, services...)
 	}
 

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,7 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
+
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -128,6 +130,7 @@ type BasicConfig interface {
 	InsecureFastScrypt() bool
 	JSONConsole() bool
 	JobPipelineMaxRunDuration() time.Duration
+	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineReaperInterval() time.Duration
 	JobPipelineReaperThreshold() time.Duration
 	JobPipelineResultWriteQueueDepth() uint64
@@ -901,6 +904,10 @@ func (c *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return getEnvWithFallback(c, envvar.JobPipelineResultWriteQueueDepth)
 }
 
+func (c *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return getEnvWithFallback(c, envvar.JobPipelineMaxSuccessfulRuns)
+}
+
 func (c *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return getEnvWithFallback(c, envvar.JobPipelineReaperInterval)
 }
@@ -1268,6 +1275,7 @@ func (c *generalConfig) SessionOptions() sessions.Options {
 		Secure:   c.SecureCookies(),
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 

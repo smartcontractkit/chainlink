@@ -77,7 +77,7 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 // Example:
 // "Post <application>/keys/vrf/import"
 func (vrfkc *VRFKeysController) Import(c *gin.Context) {
-	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
+	defer vrfkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -105,7 +105,7 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 // Example:
 // "Post <application>/keys/vrf/export/:keyID"
 func (vrfkc *VRFKeysController) Export(c *gin.Context) {
-	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+	defer vrfkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Export request body")
 
 	keyID := c.Param("keyID")
 	// New password to re-encrypt the export with

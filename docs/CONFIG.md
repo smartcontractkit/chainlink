@@ -646,6 +646,7 @@ ForceRedirect forces TLS redirect for unencrypted connections.
 [JobPipeline]
 ExternalInitiatorsEnabled = false # Default
 MaxRunDuration = '10m' # Default
+MaxSuccessfulRuns = 10000 # Default
 ReaperInterval = '1h' # Default
 ReaperThreshold = '24h' # Default
 ResultWriteQueueDepth = 100 # Default
@@ -663,6 +664,17 @@ ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `
 MaxRunDuration = '10m' # Default
 ```
 MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
+
+### MaxSuccessfulRuns<a id='JobPipeline-MaxSuccessfulRuns'></a>
+```toml
+MaxSuccessfulRuns = 10000 # Default
+```
+MaxSuccessfulRuns caps the number of completed successful runs per pipeline
+spec in the database. You can set it to zero as a performance optimisation;
+this will avoid saving any successful run.
+
+Note this is not a hard cap, it can drift slightly larger than this but not
+by more than 5% or so.
 
 ### ReaperInterval<a id='JobPipeline-ReaperInterval'></a>
 ```toml
