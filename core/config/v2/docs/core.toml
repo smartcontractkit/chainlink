@@ -419,9 +419,6 @@ BaseFeeBufferPercent = 20 # Default
 MaxGracePeriod = 100 # Default
 # TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
 TurnLookBack = 1_000 # Default
-# **ADVANCED**
-# UpkeepCheckGasPriceEnabled includes gas price in calls to `checkUpkeep()` when set to `true`.
-UpkeepCheckGasPriceEnabled = false # Default
 
 [Keeper.Registry]
 # **ADVANCED**
