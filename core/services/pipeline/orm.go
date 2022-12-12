@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -117,7 +118,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg ORMConfig) *orm {
 	return &orm{
 		utils.StartStopOnce{},
 		pg.NewQ(db, lggr, cfg),
-		lggr,
+		lggr.Named("PipelineORM"),
 		cfg.JobPipelineMaxSuccessfulRuns(),
 		sync.Map{},
 		sync.WaitGroup{},
@@ -128,6 +129,13 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg ORMConfig) *orm {
 
 func (o *orm) Start(_ context.Context) error {
 	return o.StartOnce("pipeline.ORM", func() error {
+		var msg string
+		if o.maxSuccessfulRuns == 0 {
+			msg = "Pipeline runs saving is disabled for all jobs: MaxSuccessfulRuns=0"
+		} else {
+			msg = fmt.Sprintf("Pipeline runs will be pruned above per-job limit of MaxSuccessfulRuns=%d", o.maxSuccessfulRuns)
+		}
+		o.lggr.Info(msg)
 		return nil
 	})
 }
@@ -603,9 +611,19 @@ func (o *orm) GetQ() pg.Q {
 }
 
 func (o *orm) loadCount(pipelineSpecID int32) *atomic.Uint64 {
-	actual, _ := o.pm.LoadOrStore(pipelineSpecID, new(atomic.Uint64))
+	// fast path; avoids allocation
+	actual, exists := o.pm.Load(pipelineSpecID)
+	if exists {
+		return actual.(*atomic.Uint64)
+	}
+	// "slow" path
+	actual, _ = o.pm.LoadOrStore(pipelineSpecID, new(atomic.Uint64))
 	return actual.(*atomic.Uint64)
 }
+
+// Runs will be pruned async on a sampled basis if maxSuccessfulRuns is set to
+// this value or higher
+const syncLimit = 1000
 
 // Prune attempts to keep the pipeline_runs table capped close to the
 // maxSuccessfulRuns length for each pipeline_spec_id.
@@ -620,7 +638,7 @@ func (o *orm) Prune(tx pg.Queryer, pipelineSpecID int32) {
 		o.lggr.Panic("expected a non-zero pipeline spec ID")
 	}
 	// For small maxSuccessfulRuns its fast enough to prune every time
-	if o.maxSuccessfulRuns < 1000 {
+	if o.maxSuccessfulRuns < syncLimit {
 		o.execPrune(tx, pipelineSpecID)
 		return
 	}
@@ -632,6 +650,7 @@ func (o *orm) Prune(tx pg.Queryer, pipelineSpecID int32) {
 		ok := o.IfStarted(func() {
 			o.wg.Add(1)
 			go func() {
+				o.lggr.Debugw("Pruning runs", "pipelineSpecID", pipelineSpecID, "count", val, "every", every, "maxSuccessfulRuns", o.maxSuccessfulRuns)
 				defer o.wg.Done()
 				// Must not use tx here since it's async and the transaction
 				// could be stale
@@ -672,5 +691,9 @@ LIMIT $3
 			o.lggr.Debugw("Pipeline spec no longer exists, removing prune count", "pipelineSpecID", pipelineSpecID)
 			o.pm.Delete(pipelineSpecID)
 		}
+	} else if o.maxSuccessfulRuns < syncLimit {
+		o.lggr.Tracew("Pruned runs", "rowsAffected", rowsAffected, "pipelineSpecID", pipelineSpecID)
+	} else {
+		o.lggr.Debugw("Pruned runs", "rowsAffected", rowsAffected, "pipelineSpecID", pipelineSpecID)
 	}
 }
