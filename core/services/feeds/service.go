@@ -43,6 +43,14 @@ var (
 		Name: "feeds_job_proposal_requests",
 		Help: "Metric to track job proposal requests",
 	})
+
+	promJobProposalCounts = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "feeds_job_proposal_count",
+		Help: "Number of job proposals for the node partitioned by status.",
+	}, []string{
+		// Job Proposal status
+		"status",
+	})
 )
 
 // Service represents a behavior of the feeds service
@@ -70,6 +78,7 @@ type Service interface {
 	GetJobProposal(id int64) (*JobProposal, error)
 	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 	ListJobProposals() ([]JobProposal, error)
+	CountJobProposalsByStatus() (*JobProposalCounts, error)
 
 	ApproveSpec(ctx context.Context, id int64, force bool) error
 	CancelSpec(ctx context.Context, id int64) error
@@ -477,12 +486,21 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	// Track the given job proposal request
 	promJobProposalRequest.Inc()
 
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
+	}
+
 	return id, nil
 }
 
 // GetJobProposal gets a job proposal by id.
 func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
 	return s.orm.GetJobProposal(id)
+}
+
+// CountJobProposalsByStatus returns the count of job proposals with a given status.
+func (s *service) CountJobProposalsByStatus() (*JobProposalCounts, error) {
+	return s.orm.CountJobProposalsByStatus()
 }
 
 // RejectSpec rejects a spec.
@@ -528,7 +546,9 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not reject job proposal")
 	}
 
-	return nil
+	err = s.observeJobProposalCounts()
+
+	return err
 }
 
 // IsJobManaged determines is a job is managed by the Feeds Manager.
@@ -638,7 +658,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "could not approve job proposal")
 	}
 
-	return nil
+	err = s.observeJobProposalCounts()
+
+	return err
 }
 
 // CancelSpec cancels a spec for a job proposal.
@@ -694,6 +716,8 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+
+	err = s.observeJobProposalCounts()
 
 	return err
 }
@@ -753,7 +777,9 @@ func (s *service) Start(ctx context.Context) error {
 		mgr := mgrs[0]
 		s.connectFeedManager(ctx, mgr, privkey)
 
-		return nil
+		err = s.observeJobProposalCounts()
+
+		return err
 	})
 }
 
@@ -799,6 +825,29 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 		return privkey, errors.New("CSA key does not exist")
 	}
 	return keys[0].Raw(), nil
+}
+
+// observeJobProposalCounts is a helper method that queries the repository for the count of
+// job proposals by status and then updates prometheus gauges.
+func (s *service) observeJobProposalCounts() error {
+	counts, err := s.CountJobProposalsByStatus()
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch counts of job proposals")
+	}
+
+	// Transform counts into prometheus metrics.
+	metrics := counts.toMetrics()
+
+	// Set the prometheus gauge metrics.
+	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
+		JobProposalStatusCancelled, JobProposalStatusRejected} {
+
+		status := status
+
+		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
+	}
+
+	return nil
 }
 
 // Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
@@ -1019,6 +1068,9 @@ func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) CountManagers() (int64, error) { return 0, nil }
+func (ns NullService) CountJobProposalsByStatus() (*JobProposalCounts, error) {
+	return nil, ErrFeedsManagerDisabled
+}
 func (ns NullService) CancelSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
