@@ -353,10 +353,6 @@ func TestResolver_Config(t *testing.T) {
         "value": "1"
       },
       {
-        "key": "KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED",
-        "value": "false"
-      },
-      {
         "key": "KEEPER_TURN_LOOK_BACK",
         "value": "0"
       },
