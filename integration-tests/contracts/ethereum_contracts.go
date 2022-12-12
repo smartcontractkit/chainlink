@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	ethereum2 "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -135,7 +136,7 @@ func (e *EthereumAPIConsumer) CreateRequestTo(
 // EthereumStaking
 type EthereumStaking struct {
 	client  blockchain.EVMClient
-	staking *ethereum.Staking
+	staking *ethereum2.Staking
 	address *common.Address
 }
 

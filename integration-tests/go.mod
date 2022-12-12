@@ -25,6 +25,9 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+// Make sure we're working with the latest chainlink libs
+replace github.com/smartcontractkit/chainlink => ../
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
@@ -386,7 +389,3 @@ replace github.com/terra-money/core => github.com/terra-money/classic-core v0.5.
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
-
-replace github.com/smartcontractkit/chainlink => ../
-
-replace github.com/smartcontractkit/chainlink-testing-framework v1.8.5 => /Users/gheorghestrimtu/Documents/chainlink/git/chainlink-testing-framework
