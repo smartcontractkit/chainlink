@@ -389,4 +389,4 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 
 replace github.com/smartcontractkit/chainlink => ../
 
-replace github.com/smartcontractkit/chainlink-testing-framework v1.8.4 => /Users/gheorghestrimtu/Documents/chainlink/git/chainlink-testing-framework
+replace github.com/smartcontractkit/chainlink-testing-framework v1.8.5 => /Users/gheorghestrimtu/Documents/chainlink/git/chainlink-testing-framework
