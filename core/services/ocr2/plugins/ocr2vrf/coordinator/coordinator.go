@@ -325,7 +325,7 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Trace(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
+	c.lggr.Debug(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
@@ -337,7 +337,7 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Trace(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
+	c.lggr.Debug(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
 		randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, randomWordsFulfilledLogs, outputsServedLogs))
 
 	// Get blockhashes that pertain to requested blocks.
@@ -357,7 +357,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Trace(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
+	c.lggr.Debug(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
 
 	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
@@ -368,7 +368,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Trace(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
+	c.lggr.Debug(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -377,7 +377,7 @@ func (c *coordinator) ReportBlocks(
 		delete(blocksRequested, f)
 	}
 
-	c.lggr.Trace(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
+	c.lggr.Debug(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
@@ -480,7 +480,7 @@ func (c *coordinator) getBlockhashesMapping(
 		return blockNumbers[a] < blockNumbers[b]
 	})
 
-	heads, err := c.lp.GetBlocks(ctx, blockNumbers, pg.WithParentCtx(ctx))
+	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "logpoller.GetBlocks")
 	}
@@ -578,6 +578,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					WeiPerUnitLink:    r.WeiPerUnitLink,
 				})
 				currentBatchGasLimit += int64(r.GasAllowance)
+				c.lggr.Debugw("Request is unfulfilled", "requestID", requestID)
 			}
 		}
 	}
@@ -615,6 +616,7 @@ func (c *coordinator) filterEligibleCallbacks(
 			// the cached callback is ignored, and the callback is added to the current observation.
 			inflightTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
 			if inflightTransmission {
+				c.lggr.Debugw("Request is in-flight", "requestID", r.RequestID)
 				continue
 			}
 
@@ -626,6 +628,7 @@ func (c *coordinator) filterEligibleCallbacks(
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
 			})
+			c.lggr.Debugw("Request is eligible", "requestID", r.RequestID)
 		}
 	}
 	return
@@ -661,6 +664,7 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 			// the cached block is ignored and the block is added to the current observation.
 			validTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
 			if validTransmission {
+				c.lggr.Debugw("Block is in-flight", "blockNumber", r.NextBeaconOutputHeight, "confDelay", r.ConfDelay)
 				continue
 			}
 
@@ -668,6 +672,7 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
 			})
+			c.lggr.Debugw("Block is eligible", "blockNumber", r.NextBeaconOutputHeight, "confDelay", r.ConfDelay)
 		}
 	}
 	return
@@ -813,12 +818,14 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	for _, b := range blocksRequested {
 		cacheKey := getBlockCacheKey(b.blockNumber, uint64(b.confDelay))
 		c.toBeTransmittedBlocks.CacheItem(b, cacheKey, now)
+		c.lggr.Debugw("Block is being transmitted", "blockNumber", b.blockNumber, "confDelay", b.confDelay)
 	}
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
 		cacheKey := getCallbackCacheKey(int64(cb.requestID))
 		c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
+		c.lggr.Debugw("Request is being transmitted", "requestID", cb.requestID)
 	}
 
 	c.emitReportWillBeTransmittedMetrics(len(blocksRequested), len(callbacksRequested))

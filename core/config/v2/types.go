@@ -829,7 +829,6 @@ type Keeper struct {
 	BaseFeeBufferPercent         *uint16
 	MaxGracePeriod               *int64
 	TurnLookBack                 *int64
-	UpkeepCheckGasPriceEnabled   *bool
 
 	Registry KeeperRegistry `toml:",omitempty"`
 }
@@ -852,9 +851,6 @@ func (k *Keeper) setFrom(f *Keeper) {
 	}
 	if v := f.TurnLookBack; v != nil {
 		k.TurnLookBack = v
-	}
-	if v := f.UpkeepCheckGasPriceEnabled; v != nil {
-		k.UpkeepCheckGasPriceEnabled = v
 	}
 
 	k.Registry.setFrom(&f.Registry)
