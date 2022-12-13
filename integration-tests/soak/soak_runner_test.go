@@ -39,6 +39,8 @@ func TestOCRSoak(t *testing.T) {
 		"soak-ocr-%s",
 		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
 	)
+
+	replicas := 6
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	baseTOML := `[OCR]
 Enabled = true
@@ -50,11 +52,12 @@ ListenIP = '0.0.0.0'
 ListenPort = 6690`
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworksConfig(baseTOML, activeEVMNetwork),
-			"replicas": 6,
+		AddHelm(mockserver.New(nil))
+	for i := 0; i < replicas; i++ {
+		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
+			"toml": client.AddNetworksConfig(baseTOML, activeEVMNetwork),
 		}))
+	}
 
 	soakTestHelper(t, testEnvironment, activeEVMNetwork)
 }
@@ -68,6 +71,7 @@ func TestForwarderOCRSoak(t *testing.T) {
 		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
 	)
 
+	replicas := 6
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	baseTOML := `[OCR]
 Enabled = true
@@ -84,11 +88,12 @@ ListenPort = 6690`
 ForwardersEnabled = true`
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
-			"replicas": 6,
+		AddHelm(mockserver.New(nil))
+	for i := 0; i < replicas; i++ {
+		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
+			"toml": client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
 		}))
+	}
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 
 	soakTestHelper(t, testEnvironment, activeEVMNetwork)
@@ -103,17 +108,19 @@ func TestKeeperSoak(t *testing.T) {
 		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
 	)
 
+	replicas := 6
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	baseTOML := `[Keeper]
 TurnLookBack = 0
 [Keeper.Registry]
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworksConfig(baseTOML, activeEVMNetwork),
-			"replicas": 6,
+	testEnvironment := environment.New(baseEnvironmentConfig)
+	for i := 0; i < replicas; i++ {
+		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
+			"toml": client.AddNetworksConfig(baseTOML, activeEVMNetwork),
 		}))
+	}
 
 	soakTestHelper(t, testEnvironment, activeEVMNetwork)
 }

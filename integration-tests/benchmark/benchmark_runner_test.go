@@ -139,13 +139,15 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		dbResources = soakDbResources
 	}
 
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
-			"replicas":  numberOfNodes,
-			"chainlink": chainlinkResources,
-			"db":        dbResources,
-		}))
+	testEnvironment := environment.New(baseEnvironmentConfig)
+	for i := 0; i < numberOfNodes; i++ {
+		testEnvironment.
+			AddHelm(chainlink.New(i, map[string]interface{}{
+				"toml":      client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, activeEVMNetwork),
+				"chainlink": chainlinkResources,
+				"db":        dbResources,
+			}))
+	}
 
 	networkTestName := strings.ReplaceAll(activeEVMNetwork.Name, " ", "")
 	testName := fmt.Sprintf("TestKeeperBenchmark%s%s", networkTestName, registryToTest)
