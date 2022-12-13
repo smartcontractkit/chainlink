@@ -45,7 +45,7 @@ type listenerV1 struct {
 	utils.StartStopOnce
 
 	cfg             Config
-	l               logger.Logger
+	l               logger.SugaredLogger
 	logBroadcaster  log.Broadcaster
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner
@@ -54,6 +54,7 @@ type listenerV1 struct {
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             txmgr.TxManager
 	gethks          GethKeyStore
+	mailMon         *utils.MailboxMonitor
 	reqLogs         *utils.Mailbox[log.Broadcast]
 	chStop          chan struct{}
 	waitOnStop      chan struct{}
@@ -137,6 +138,8 @@ func (lsn *listenerV1) Start(context.Context) error {
 		}
 		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
+
+		lsn.mailMon.Monitor(lsn.reqLogs, "VRFListener", "RequestLogs", fmt.Sprint(lsn.job.ID))
 		return nil
 	})
 }
@@ -458,7 +461,7 @@ func (lsn *listenerV1) Close() error {
 		close(lsn.chStop)
 		<-lsn.waitOnStop // Log listenerV1
 		<-lsn.waitOnStop // Head listenerV1
-		return nil
+		return lsn.reqLogs.Close()
 	})
 }
 

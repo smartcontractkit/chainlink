@@ -515,8 +515,18 @@ func (c *SimulatedBackendClient) BatchCallContextAll(ctx context.Context, b []rp
 
 // SuggestGasTipCap suggests a gas tip cap.
 func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
-	return nil, nil
+	return c.b.SuggestGasTipCap(ctx)
+}
+
+func (c *SimulatedBackendClient) Backend() *backends.SimulatedBackend {
+	return c.b
 }
 
 // NodeStates implements evmclient.Client
 func (c *SimulatedBackendClient) NodeStates() map[string]string { return nil }
+
+// Commit imports all the pending transactions as a single block and starts a
+// fresh new state.
+func (c *SimulatedBackendClient) Commit() common.Hash {
+	return c.b.Commit()
+}

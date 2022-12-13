@@ -25,7 +25,7 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
     s_randomWords = randomWords;
   }
 
-  function testCreateSubscriptionAndFund(uint96 amount) external {
+  function createSubscriptionAndFund(uint96 amount) external {
     if (s_subId == 0) {
       s_subId = COORDINATOR.createSubscription();
       COORDINATOR.addConsumer(s_subId, address(this));
@@ -47,7 +47,7 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
     }
   }
 
-  function testRequestRandomness(
+  function requestRandomness(
     bytes32 keyHash,
     uint64 subId,
     uint16 minReqConfs,

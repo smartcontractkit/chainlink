@@ -19,6 +19,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     address recipient,
     bytes memory message
   ) ConfirmedOwnerWithProposal(owner, recipient) {
+    require(link != address(0));
     getChainlinkToken = link;
     if (recipient != address(0)) {
       emit OwnershipTransferRequestedWithMessage(owner, recipient, message);

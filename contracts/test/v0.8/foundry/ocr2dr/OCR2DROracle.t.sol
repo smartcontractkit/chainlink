@@ -137,6 +137,6 @@ contract OCR2DROracle_sendRequest is OCR2DROracleSetup {
     bytes memory emptyData;
 
     vm.expectRevert(OCR2DROracle.EmptyRequestData.selector);
-    s_oracle.sendRequest(0, emptyData, 0);
+    s_oracle.sendRequest(0, emptyData, 0, 0);
   }
 }

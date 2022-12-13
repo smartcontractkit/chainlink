@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -66,6 +68,8 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	})).Maybe().Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
@@ -73,6 +77,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 		ORM:                      orm,
 		JRM:                      jpv2.Jrm,
 		LogBroadcaster:           lbMock,
+		MailMon:                  mailMon,
 		SyncInterval:             syncInterval,
 		MinIncomingConfirmations: 1,
 		Logger:                   logger.TestLogger(t),

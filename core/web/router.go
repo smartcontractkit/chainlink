@@ -20,7 +20,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
 	limits "github.com/gin-contrib/size"
-	"github.com/gin-gonic/contrib/sessions"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+
 	"github.com/gin-gonic/gin"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
@@ -46,7 +49,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	if err != nil {
 		return nil, err
 	}
-	sessionStore := sessions.NewCookieStore(secret)
+	sessionStore := cookie.NewStore(secret)
 	sessionStore.Options(config.SessionOptions())
 	cors := uiCorsHandler(config)
 	if prometheus != nil {
@@ -444,7 +447,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.SugaredLogger) {
 	// Serve static files
 	var assetsRouterHandlers []gin.HandlerFunc
 	if !devMode {
@@ -501,7 +504,7 @@ func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
 			}
 			return
 		}
-		defer lggr.ErrorIfClosing(file, "file")
+		defer lggr.ErrorIfFn(file.Close, "Error closing file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})

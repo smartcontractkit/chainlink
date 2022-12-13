@@ -36,7 +36,9 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
 	r := sessions.NewSessionReaper(db.DB, config, lggr)
-	defer r.Stop()
+	t.Cleanup(func() {
+		assert.NoError(t, r.Stop())
+	})
 
 	tests := []struct {
 		name     string

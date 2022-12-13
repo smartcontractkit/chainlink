@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 <!-- unreleased -->
-## [Unreleased]
+## [dev]
 
-...
+### Added
+
+- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
+- New config variable, `JobPipeline.MaxSuccessfulRuns` caps the total number of
+  saved completed runs per job. This is done in response to the `pipeline_runs`
+  table potentially becoming large, which can cause performance degradation.
+  The default is set to 10,000. You can set it to 0 to disable run saving
+  entirely.
+- Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
+
+### Updated
+
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+- Removed `Keeper.UpkeepCheckGasPriceEnabled` config (`KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` in old env var configuration) as this feature is deprecated now. The variable should be completely removed by NOPs.
 
 <!-- unreleasedstop -->
+
 ## 1.11.0 - 2022-12-12
 
 ### Added
@@ -23,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `bridge_cache_hits_total`
     - `bridge_cache_errors_total`
 - `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
+
 > ```toml
 > SyncThreshold = 5 # Default
 > ```

@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -419,6 +418,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			}
 		}
 	}
+	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
@@ -433,6 +433,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 			}
 			return ethClient
 		},
+		MailMon: mailMon,
 	})
 	if err != nil {
 		lggr.Fatal(err)
@@ -531,6 +532,7 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
+		MailMon:                  mailMon,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		Chains:                   chains,
@@ -848,13 +850,6 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 	var metaCount int
 	err = json.Unmarshal(*meta["count"], &metaCount)
 	return metaCount, err
-}
-
-// ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(dir string) (string, error) {
-	logFile := filepath.Join(dir, logger.LogsFile)
-	b, err := os.ReadFile(logFile)
-	return string(b), err
 }
 
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
