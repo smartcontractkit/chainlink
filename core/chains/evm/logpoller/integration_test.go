@@ -239,16 +239,23 @@ func Test_EventualConsistency(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 32, len(fLogs))
 
-	// logs shouldn't show up yet, because block 34 hasn't been finalized yet.
+	// logs shouldn't show up yet
 	logs, err := th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
 
 	th.Client.Commit()
-	th.Client.Commit() // after adding blocks 35 & 36, block 34 should become the last finalized block
+	th.Client.Commit()
 
-	currentBlock = th.LogPoller.PollAndSavePendingLogs(ctx, currentBlock)
-	assert.Equal(t, int64(37), currentBlock)
+	// Pretend backup poller hasn't run in 20 minutes
+	th.LogPoller.SetLastBackupPollerRun(time.Now().Add(-20 * time.Minute))
+	// Run ordinary poller + backup poller at least once
+	require.NoError(t, th.LogPoller.Restart(testutils.Context(t)))
+	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, th.LogPoller.Close())
+	currentBlock = th.LogPoller.GetCurrentBlock()
+
+	require.Equal(t, int64(37), currentBlock)
 
 	// logs still shouldn't show up, because we don't want to backfill the last finalized log
 	//  to help with reorg detection
@@ -256,10 +263,17 @@ func Test_EventualConsistency(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
 
-	th.Client.Commit() // after adding block 37, logs for block 34 should get re-requested
+	th.Client.Commit()
 
-	currentBlock = th.LogPoller.PollAndSavePendingLogs(ctx, currentBlock)
-	assert.Equal(t, int64(38), currentBlock)
+	// Pretend backup poller hasn't run in 20 minutes
+	th.LogPoller.SetLastBackupPollerRun(time.Now().Add(-20 * time.Minute))
+	// Run ordinary poller + backup poller at least once more
+	require.NoError(t, th.LogPoller.Restart(testutils.Context(t)))
+	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, th.LogPoller.Close())
+	currentBlock = th.LogPoller.GetCurrentBlock()
+
+	require.Equal(t, int64(38), currentBlock)
 
 	// all 3 logs in block 34 should show up now, thanks to backup logger
 	logs, err = th.LogPoller.Logs(30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)

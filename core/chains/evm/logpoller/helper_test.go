@@ -75,10 +75,33 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	}
 }
 
-func (lp *logPoller) PollAndSavePendingLogs(ctx context.Context, currentBlockNumber int64) int64 {
-	lp.pollAndSavePendingLogs(ctx, currentBlockNumber)
+// returns next unfinalized block number to be fetched and saved to db
+func (lp *logPoller) GetCurrentBlock() int64 {
 	lastProcessed, _ := lp.orm.SelectLatestBlock()
 	return lastProcessed.BlockNumber + 1
+}
+
+func (lp *logPoller) PollAndSavePendingLogs(ctx context.Context, currentBlockNumber int64) int64 {
+	lp.pollAndSavePendingLogs(ctx, currentBlockNumber)
+	return lp.GetCurrentBlock()
+}
+
+func (lp *logPoller) BackfillFinalizedBlocks(ctx context.Context, currentBlockNumber *int64, latestBlockNumber int64) (ok bool) {
+	return lp.backfillFinalizedBlocks(ctx, currentBlockNumber, latestBlockNumber)
+}
+
+// For testing scenario where backup poller hasn't run in a while
+func (lp *logPoller) SetLastBackupPollerRun(lastRun time.Time) {
+	lp.lastBackupPollerRun = lastRun
+}
+
+// Same as lp.Start(), but doesn't set lastBackupPollerRun to current time, so the
+// backup poller can be forced to run
+func (lp *logPoller) Restart(parentCtx context.Context) error {
+	//lp.StartStopOnce.Reset("logpoller")
+	lp.StartStopOnce = utils.StartStopOnce{}
+	lp.done = make(chan struct{})
+	return lp.start(parentCtx)
 }
 
 func (lp *logPoller) Filter() ethereum.FilterQuery {
