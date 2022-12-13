@@ -41,11 +41,10 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-var baseEnvironmentConfig = &environment.Config{
-	TTL: time.Hour * 720, // 30 days,
-}
-
 var (
+	baseEnvironmentConfig = &environment.Config{
+		TTL: time.Hour * 720, // 30 days,
+	}
 	performanceChainlinkResources = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
@@ -156,7 +155,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 // builds tests, launches environment, and triggers the benchmark test to run
 func benchmarkTestHelper(
 	t *testing.T,
-	testTag string,
+	testName string,
 	testEnvironment *environment.Environment,
 	activeEVMNetwork blockchain.EVMNetwork,
 	blockTime string,
@@ -164,12 +163,12 @@ func benchmarkTestHelper(
 ) {
 	testDirectory := "./soak/tests"
 	log.Info().
-		Str("Name", t.Name()).
+		Str("Test Name", testName).
 		Str("Directory", testDirectory).
 		Str("Namespace", testEnvironment.Cfg.Namespace).
 		Msg("Soak Test")
 	remoteRunnerValues := map[string]interface{}{
-		"test_name":             testTag,
+		"test_name":             testName,
 		"env_namespace":         testEnvironment.Cfg.Namespace,
 		"test_dir":              "./benchmark/tests",
 		"test_log_level":        "debug",
