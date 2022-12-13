@@ -95,7 +95,8 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
       gasPrice
     );
     uint96 requiredFee = getRequiredFee(data, billing);
-    return s_registry.estimateCost(data, billing, requiredFee);
+    uint96 registryFee = getRequiredFee(data, billing);
+    return s_registry.estimateCost(gasLimit, gasPrice, requiredFee, registryFee);
   }
 
   /**
