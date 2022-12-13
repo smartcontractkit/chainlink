@@ -143,6 +143,7 @@ type OffchainAggregator interface {
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
+	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
 type Oracle interface {
@@ -186,6 +187,7 @@ type JobByInstance struct {
 type MockETHLINKFeed interface {
 	Address() string
 	LatestRoundData() (*big.Int, error)
+	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
 type MockGasFeed interface {
@@ -242,6 +244,17 @@ type VRFConsumerV2 interface {
 	GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error)
 	GasAvailable() (*big.Int, error)
 	Fund(ethAmount *big.Float) error
+}
+
+type Staking interface {
+	Address() string
+	Fund(ethAmount *big.Float) error
+	AddOperators(operators []common.Address) error
+	RemoveOperators(operators []common.Address) error
+	SetFeedOperators(operators []common.Address) error
+	RaiseAlert() error
+	Start(amount *big.Int, initialRewardRate *big.Int) error
+	SetMerkleRoot(newMerkleRoot [32]byte) error
 }
 
 type RoundData struct {
