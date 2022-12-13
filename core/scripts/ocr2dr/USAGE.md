@@ -22,3 +22,5 @@ Preparing such a file is the only "manual" step that is required.
 2. Run the tool: `go run . .myremotes`
 
 The tool creates artefacts under `artefacts` sub-directory.
+
+TBD
