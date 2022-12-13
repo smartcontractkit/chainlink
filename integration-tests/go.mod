@@ -5,7 +5,6 @@ go 1.19
 require (
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/go-resty/resty/v2 v2.7.0
-	github.com/imdario/mergo v0.3.13
 	github.com/lib/pq v1.10.7
 	github.com/onsi/gomega v1.24.1
 	github.com/pkg/errors v0.9.1
@@ -142,6 +141,7 @@ require (
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
+	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-datastore v0.4.5 // indirect
