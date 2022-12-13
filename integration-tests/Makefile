@@ -77,6 +77,10 @@ test_smoke_simulated: install_gotestfmt ## Run all smoke tests on simulated bloc
 test_smoke_verbose: install_gotestfmt ## Run all smoke tests with verbose logging
 	go test -timeout 24h -count=1 -v -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
 
+.PHONY: test_smoke_product
+test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
+	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests
+
 # Chaos
 .PHONY: test_chaos_raw
 test_chaos_raw:
@@ -89,13 +93,28 @@ test_chaos: install_gotestfmt ## Run all smoke tests
 
 .PHONY: test_chaos_verbose
 test_chaos_verbose: install_gotestfmt ## Run all smoke tests with verbose logging
-	go test -timeout 24h -count=1 -v -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 24h -count=1 -v -json $(args) ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+# Performance
+.PHONY: test_perf
+test_perf: test_need_operator_assets ## Run core node performance tests.
+	TEST_LOG_LEVEL="disabled" \
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
+	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 # Soak
 .PHONY: test_soak_ocr
 test_soak_ocr:
-	go test -v ./soak -count=1 -run TestOCRSoak
+	go test -v -count=1 -run TestOCRSoak ./soak
 
-.PHONY: test_smoke_product
-test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
-	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests
+.PHONY: test_soak_forwarder_ocr
+test_soak_forwarder_ocr:
+	go test -v -count=1 -run TestForwarderOCRSoak ./soak
+
+.PHONY: test_soak_keeper
+test_soak_keeper: test_need_operator_assets
+	go test -v -count=1 -run TestKeeperSoak ./soak
+
+.PHONY: test_benchmark_automation
+test_benchmark_automation: test_need_operator_assets ## Run the automation benchmark tests
+	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
