@@ -318,7 +318,7 @@ func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
 	o.chainClient = inputs.BlockchainClient
 	require.GreaterOrEqual(t, inputs.NumberOfContracts, 1, "Expecting at least 1 OCR contract")
 	fund, _ := inputs.ChainlinkNodeFunding.Float64()
-	require.Greater(t, fund, 0, "Expecting non-zero chainlink node funding amount")
+	require.Greater(t, fund, 0.0, "Expecting non-zero chainlink node funding amount")
 	require.GreaterOrEqual(t, inputs.TestDuration, time.Minute*1, "Expected test duration to be more than a minute")
 	require.GreaterOrEqual(t, inputs.ExpectedRoundTime, time.Second, "Expected ExpectedRoundTime to be greater than 1 second")
 	require.GreaterOrEqual(t, inputs.RoundTimeout, inputs.ExpectedRoundTime, "Expected RoundTimeout to be greater than ExpectedRoundTime")

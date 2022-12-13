@@ -107,13 +107,25 @@ test_perf: test_need_operator_assets ## Run core node performance tests.
 test_soak_ocr:
 	go test -v -count=1 -run TestOCRSoak ./soak
 
+.PHONY: test_soak_ocr_simulated
+test_soak_ocr_simulated:
+	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestOCRSoak ./soak
+
 .PHONY: test_soak_forwarder_ocr
 test_soak_forwarder_ocr:
 	go test -v -count=1 -run TestForwarderOCRSoak ./soak
 
+.PHONY: test_soak_forwarder_ocr_simulated
+test_soak_forwarder_ocr_simulated:
+	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestForwarderOCRSoak ./soak
+
 .PHONY: test_soak_keeper
 test_soak_keeper: test_need_operator_assets
 	go test -v -count=1 -run TestKeeperSoak ./soak
+
+.PHONY: test_soak_keeper_simulated
+test_soak_keeper_simulated:
+	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestKeeperSoak ./soak
 
 .PHONY: test_benchmark_automation
 test_benchmark_automation: test_need_operator_assets ## Run the automation benchmark tests
