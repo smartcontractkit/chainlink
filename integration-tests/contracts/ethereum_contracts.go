@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	ethereum2 "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
@@ -130,6 +131,94 @@ func (e *EthereumAPIConsumer) CreateRequestTo(
 		return err
 	}
 	return e.client.ProcessTransaction(tx)
+}
+
+// EthereumStaking
+type EthereumStaking struct {
+	client  blockchain.EVMClient
+	staking *ethereum2.Staking
+	address *common.Address
+}
+
+func (f *EthereumStaking) Address() string {
+	return f.address.Hex()
+}
+
+// Fund sends specified currencies to the contract
+func (f *EthereumStaking) Fund(ethAmount *big.Float) error {
+	return f.client.Fund(f.address.Hex(), ethAmount)
+}
+
+func (f *EthereumStaking) AddOperators(operators []common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.staking.AddOperators(opts, operators)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStaking) RemoveOperators(operators []common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.staking.RemoveOperators(opts, operators)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStaking) SetFeedOperators(operators []common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.staking.SetFeedOperators(opts, operators)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStaking) RaiseAlert() error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.staking.RaiseAlert(opts)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStaking) Start(amount *big.Int, initialRewardRate *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.staking.Start(opts, amount, initialRewardRate)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStaking) SetMerkleRoot(newMerkleRoot [32]byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.staking.SetMerkleRoot(opts, newMerkleRoot)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
 }
 
 // EthereumFluxAggregator represents the basic flux aggregation contract
@@ -780,6 +869,17 @@ func (o *EthereumOffchainAggregator) GetLatestRound(ctx context.Context) (*Round
 	}, err
 }
 
+func (v *EthereumOffchainAggregator) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := v.ocr.LatestRoundData(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
 // GetRound retrieves an OCR round by the round ID
 func (o *EthereumOffchainAggregator) GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error) {
 	opts := &bind.CallOpts{
@@ -1008,6 +1108,17 @@ func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 		return nil, err
 	}
 	return data.Ans, nil
+}
+
+func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
 }
 
 // EthereumMockGASFeed represents mocked Gas feed contract
