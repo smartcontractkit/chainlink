@@ -4,6 +4,7 @@ package chaos_test
 import (
 	"context"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"math/big"
 	"strconv"
 	"time"
@@ -17,7 +18,6 @@ import (
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -34,14 +34,6 @@ LogPoller = true
 [OCR2]
 Enabled = true
 
-[Keeper]
-TurnFlagEnabled = true
-TurnLookBack = 0
-
-[Keeper.Registry]
-SyncInterval = '5m'
-PerformGasOverhead = 150_000
-
 [P2P]
 [P2P.V2]
 Enabled = true
@@ -52,7 +44,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		"toml":     client.AddNetworksConfig(baseTOML, activeEVMNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
-			"stateful": false,
+			"stateful": true,
 			"capacity": "10Gi",
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
@@ -280,6 +272,7 @@ var _ = Describe("Automation chaos test @chaos-automation", func() {
 
 		_, err = testEnvironment.Chaos.Run(chaosFunc(testEnvironment.Cfg.Namespace, chaosProps))
 
+		// Should be able to do perform upkeeps 5 times within 3m after introducing chaos
 		Eventually(func(g Gomega) {
 			// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
 			for i := 0; i < len(upkeepIDs); i++ {
@@ -290,36 +283,7 @@ var _ = Describe("Automation chaos test @chaos-automation", func() {
 					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 			}
-		}, "5m", "1s").Should(Succeed())
-
-		//// Cancel all the registered upkeeps via the registry
-		//for i := 0; i < len(upkeepIDs); i++ {
-		//	err := registry.CancelUpkeep(upkeepIDs[i])
-		//	Expect(err).ShouldNot(HaveOccurred(), "Could not cancel upkeep at index "+strconv.Itoa(i))
-		//}
-		//
-		//err = chainClient.WaitForEvents()
-		//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for upkeeps to be cancelled")
-		//
-		//var countersAfterCancellation = make([]*big.Int, len(upkeepIDs))
-		//
-		//for i := 0; i < len(upkeepIDs); i++ {
-		//	// Obtain the amount of times the upkeep has been executed so far
-		//	countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
-		//	Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-		//	log.Info().Msg("Cancelled upkeep at index " + strconv.Itoa(i) + " which performed " +
-		//		strconv.Itoa(int(countersAfterCancellation[i].Int64())) + " times")
-		//}
-		//
-		//Consistently(func(g Gomega) {
-		//	for i := 0; i < len(upkeepIDs); i++ {
-		//		// Expect the counter to remain constant (At most increase by 1 to account for stale performs) because the upkeep was cancelled
-		//		latestCounter, err := consumers[i].Counter(context.Background())
-		//		Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-		//		g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterCancellation[i].Int64()+1),
-		//			"Expected consumer counter to remain less than equal %d, but got %d", countersAfterCancellation[i].Int64()+1, latestCounter.Int64())
-		//	}
-		//}, "1m", "1s").Should(Succeed())
+		}, "3m", "1s").Should(Succeed())
 	},
 		testScenarios,
 	)
