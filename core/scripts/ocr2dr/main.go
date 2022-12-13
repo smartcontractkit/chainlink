@@ -202,7 +202,7 @@ func main() {
 		nodes = append(nodes, node)
 	}
 
-	processJobSpecs(config, nodes)
+	// processJobSpecs(config, nodes)
 
 	js, err := json.Marshal(nodes)
 	helpers.PanicErr(err)
