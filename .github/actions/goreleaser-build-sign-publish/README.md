@@ -107,3 +107,19 @@ Following inputs can be used as `step.with` keys
 | `cosign-public-key`          | String | `""`               | The public key to be used with cosign for verification                  |
 | `cosign-private-key`         | String | `""`               | The private key to be used with cosign to sign the image                |
 | `cosign-password-key`        | String | `""`               | The password to decrypt the cosign private key needed to sign the image |
+
+## testing
+
+* bring up local docker registry
+```sh
+docker run -d --restart=always -p "127.0.0.1:5001:5000" --name registry registry:2
+```
+* run snapshot release, publish to local docker registry
+```sh
+GORELEASER_EXEC="<goreleaser-wrapper" \
+GORELEASER_CONFIG=".goreleaser.yaml" \
+ENABLE_GORELEASER_SNAPSHOT=true \
+ENABLE_DOCKER_PUBLISH=true \
+DOCKER_MANIFEST_EXTRA_ARGS="--insecure" \
+./.github/actions/goreleaser-build-sign-publish/action_utils goreleaser_release
+```
