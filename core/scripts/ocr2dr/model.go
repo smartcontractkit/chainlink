@@ -42,5 +42,6 @@ type Node struct {
 
 type config struct {
 	ChainID            int64          `yaml:"chain-id"`
+	P2PPort            int64          `yaml:"p2p-port"`
 	DONContractAddress common.Address `yaml:"don-contract-address"`
 }

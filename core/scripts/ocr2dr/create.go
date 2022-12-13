@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/urfave/cli"
@@ -11,10 +12,13 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-func createBridges(client *clcmd.Client, app *cli.App) {
+func createBridge(client *clcmd.Client, app *cli.App) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
 	bridgeFile := filepath.Join(templatesDir, bridgeTemplate)
 	fileFs := flag.NewFlagSet("test", flag.ExitOnError)
-	fileFs.String("file", bridgeFile, "")
+	fileFs.Parse([]string{bridgeFile})
 	ctx := cli.NewContext(app, fileFs, nil)
 	err := client.CreateBridge(ctx)
 	helpers.PanicErr(err)

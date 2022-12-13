@@ -1,2 +1,3 @@
-chain-id: 5
-don-contract-address: "0xA74F1E1Bb6204B9397Dac33AE970E68F8aBC7651"
+chain-id: 80001
+p2p-port: 6690
+don-contract-address: "0x3F3f9F2a2d777336CaFE253a296064dCF85D330b"

@@ -200,9 +200,17 @@ func main() {
 			OCR2OnchainPubKeys:  allOCR2OnchainPubkeys,
 		}
 		nodes = append(nodes, node)
+
+		// TODO: uncomment to populate bridges (this would fail if ea_bridge exists)
+		/*
+			if !strings.Contains(remoteNodeURL, "boot") {
+				createBridge(client, app)
+			}
+		*/
 	}
 
-	// processJobSpecs(config, nodes)
+	// This creates toml files per node under artefacts folder
+	generateJobSpecs(config, nodes)
 
 	js, err := json.Marshal(nodes)
 	helpers.PanicErr(err)
