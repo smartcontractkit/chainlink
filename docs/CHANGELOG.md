@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   table potentially becoming large, which can cause performance degradation.
   The default is set to 10,000. You can set it to 0 to disable run saving
   entirely.
+- Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
 
 ### Updated
 
