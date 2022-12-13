@@ -41,7 +41,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu22.04-16cores-64GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
       - name: Checkout the repo
@@ -97,7 +97,7 @@ jobs:
             os: ubuntu-latest
           - name: keeper
             nodes: 30
-            os: ubuntu22.04-4cores-16GB
+            os: ubuntu20.04-4cores-16GB
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu-latest
@@ -197,7 +197,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu22.04-16cores-64GB
+    runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, get_projectserum_version]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
@@ -233,7 +233,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu20.04-8cores-32GB
     needs: [build-chainlink, solana-build-contracts, changes]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
