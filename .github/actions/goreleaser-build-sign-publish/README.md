@@ -1,6 +1,90 @@
 # goreleaser-build-sign-publish
+> goreleaser wrapper action
 
-## workflow
+## workflows
+
+### build publish
+
+```yaml
+name: goreleaser
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.aws-role-arn }}
+          role-duration-seconds: ${{ secrets.aws-role-dur-sec }}
+          aws-region: ${{ secrets.aws-region }}
+      - name: Cache macos sdk
+        id: sdk-cache
+        uses: actions/cache@v3
+        with:
+          path: MacOSX12.3.sdk
+          key: ${{ runner.OS }}-macos-sdk-cache-${{ hashFiles('**/SDKSettings.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-macos-sdk-cache-
+      - name: Get macos sdk
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -L https://github.com/joseluisq/macosx-sdks/releases/download/12.3/MacOSX12.3.sdk.tar.xz > MacOSX12.3.sdk.tar.xz
+          tar -xf MacOSX12.3.sdk.tar.xz
+      - name: Build, sign, and publish
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          enable-docker-publish: "true"
+          enable-goreleaser-snapshot: "false"
+          docker-registry: ${{ secrets.aws-ecr-registry }}
+          goreleaser-exec: goreleaser
+          goreleaser-config: .goreleaser.yaml
+          macos-sdk-dir: MacOSX12.3.sdk
+        env:
+          GITHUB_TOKEN: ${{ secrets.gh-token }}
+```
+
+### snapshot release
+
+```yaml
+      - name: Build, sign, and publish image
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          enable-docker-publish: "true"
+          enable-goreleaser-snapshot: "true"
+          docker-registry: ${{ secrets.aws-ecr-registry }}
+          goreleaser-exec: goreleaser
+          goreleaser-config: .goreleaser.yaml
+```
+
+### image sigining
+
+```yaml
+      - name: Build, sign, and publish
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          enable-docker-publish: "true"
+          enable-goreleaser-snapshot: "false"
+          enable-cosign: "true"
+          docker-registry: ${{ secrets.aws-ecr-registry }}
+          goreleaser-exec: goreleaser
+          goreleaser-config: .goreleaser.yaml
+          cosign-password: ${{ secrets.cosign-password }}
+          cosign-public-key: ${{ secrets.cosign-public-key }}
+          cosign-private-key: ${{ secrets.cosign-private-key }}
+          macos-sdk-dir: MacOSX12.3.sdk
+```
 
 ## customizing
 
