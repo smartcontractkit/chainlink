@@ -35,7 +35,8 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
 
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
-    uint96 balance; // Common link balance used for all consumer requests.
+    uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
+    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -84,9 +85,11 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     uint64 subscriptionId;
     address client;
     uint32 gasLimit;
+    uint256 gasPrice;
     address don;
     uint96 donFee;
     uint96 registryFee;
+    uint96 estimatedCost;
   }
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
@@ -247,20 +250,20 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
    * @inheritdoc OCR2DRRegistryInterface
    */
   function estimateCost(
-    bytes calldata data,
-    OCR2DRRegistryInterface.RequestBilling memory billing,
-    uint96 donRequiredFee
+    uint32 gasLimit,
+    uint256 gasPrice,
+    uint96 donFee,
+    uint96 registryFee
   ) public view override returns (uint96) {
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + billing.gasLimit;
+    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + gasLimit;
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * billing.gasPrice * executionGas) / uint256(weiPerUnitLink);
-    uint96 registryFee = getRequiredFee(data, billing);
-    uint256 fee = uint256(donRequiredFee) + uint256(registryFee);
+    uint256 paymentNoFee = (1e18 * gasPrice * executionGas) / uint256(weiPerUnitLink);
+    uint256 fee = uint256(donFee) + uint256(registryFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
@@ -296,8 +299,11 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
 
     // Check that subscription can afford the estimated cost
     uint96 oracleFee = OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing);
-    uint256 estimatedCost = estimateCost(data, billing, oracleFee);
-    if (s_subscriptions[billing.subscriptionId].balance < estimatedCost) {
+    uint96 registryFee = getRequiredFee(data, billing);
+    uint96 estimatedCost = estimateCost(billing.gasLimit, billing.gasPrice, oracleFee, registryFee);
+    uint96 effectiveBalance = s_subscriptions[billing.subscriptionId].balance -
+      s_subscriptions[billing.subscriptionId].blockedBalance;
+    if (effectiveBalance < estimatedCost) {
       revert InsufficientBalance();
     }
 
@@ -308,11 +314,14 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
       billing.subscriptionId,
       billing.client,
       billing.gasLimit,
+      billing.gasPrice,
       msg.sender,
       oracleFee,
-      getRequiredFee(data, billing)
+      registryFee,
+      estimatedCost
     );
     s_requestCommitments[requestId] = commitment;
+    s_subscriptions[billing.subscriptionId].blockedBalance += estimatedCost;
 
     emit BillingStart(requestId, commitment);
     s_consumers[billing.client][billing.subscriptionId] = nonce;
@@ -428,6 +437,8 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     s_withdrawableTokens[owner()] += commitment.registryFee;
     // Reimburse the transmitter for the execution gas cost + pay them their portion of the DON fee
     s_withdrawableTokens[transmitter] += bill.transmitterPayment;
+    // Remove blocked balance
+    s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
     // Include payment in the event for tracking costs.
     emit BillingEnd(
       commitment.subscriptionId,
@@ -566,7 +577,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
-    s_subscriptions[currentsubscriptionId] = Subscription({balance: 0});
+    s_subscriptions[currentsubscriptionId] = Subscription({balance: 0, blockedBalance: 0});
     s_subscriptionConfigs[currentsubscriptionId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
