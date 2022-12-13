@@ -56,7 +56,8 @@ interface OCR2DROracleInterface {
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    uint256 gasPrice
   ) external view returns (uint96);
 
   /**
@@ -70,6 +71,7 @@ interface OCR2DROracleInterface {
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    uint256 gasPrice
   ) external returns (bytes32);
 }

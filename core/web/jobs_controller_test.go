@@ -78,7 +78,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 				address = cltest.NewEIP55Address()
 			}
 
-			ta.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+			require.NoError(t, ta.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
 			body, _ := json.Marshal(web.CreateJobRequest{

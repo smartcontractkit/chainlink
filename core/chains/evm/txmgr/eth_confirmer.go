@@ -162,7 +162,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 		estimator,
 		resumeCallback,
 		keyStates,
-		utils.NewMailbox[*evmtypes.Head](1),
+		utils.NewSingleMailbox[*evmtypes.Head](),
 		ctx,
 		cancel,
 		sync.WaitGroup{},
