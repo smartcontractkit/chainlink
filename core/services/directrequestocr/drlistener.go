@@ -71,8 +71,10 @@ func (l *DRListener) Start(context.Context) error {
 			Contract: l.oracle.Address(),
 			ParseLog: l.oracle.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
-				ocr2dr_oracle.OCR2DROracleOracleRequest{}.Topic():  {},
-				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic(): {},
+				ocr2dr_oracle.OCR2DROracleOracleRequest{}.Topic():        {},
+				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic():       {},
+				ocr2dr_oracle.OCR2DROracleUserCallbackError{}.Topic():    {},
+				ocr2dr_oracle.OCR2DROracleUserCallbackRawError{}.Topic(): {},
 			},
 			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 		})
@@ -111,7 +113,7 @@ func (l *DRListener) HandleLog(lb log.Broadcast) {
 	}
 
 	switch log := log.(type) {
-	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse:
+	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse, *ocr2dr_oracle.OCR2DROracleUserCallbackError, *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
 		wasOverCapacity := l.mbOracleEvents.Deliver(lb)
 		if wasOverCapacity {
 			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
@@ -163,7 +165,13 @@ func (l *DRListener) processOracleEvents() {
 					go l.handleOracleRequest(log, lb)
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse(log, lb)
+					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
+				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
+					l.shutdownWaitGroup.Add(1)
+					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
+				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
+					l.shutdownWaitGroup.Add(1)
+					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}
@@ -278,13 +286,14 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	}
 }
 
-func (l *DRListener) handleOracleResponse(response *ocr2dr_oracle.OCR2DROracleOracleResponse, lb log.Broadcast) {
+func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("Oracle response received", "requestId", fmt.Sprintf("%0x", response.RequestId))
+	l.logger.Infow("Oracle response received", "type", responseType, "requestId", fmt.Sprintf("%0x", requestID))
 
-	if err := l.pluginORM.SetConfirmed(response.RequestId); err != nil {
-		l.logger.Errorf("Setting CONFIRMED state failed for request ID: %v", response.RequestId)
+	if err := l.pluginORM.SetConfirmed(requestID); err != nil {
+		l.logger.Errorf("Setting CONFIRMED state failed for request ID: %v", requestID)
 	}
+	l.markLogConsumed(lb)
 }
 
 func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
