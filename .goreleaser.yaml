@@ -6,7 +6,7 @@ env:
   - IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
   - IMAGE_LABEL_DESCRIPTION="node of the decentralized oracle network, bridging on and off-chain computation"
   - IMAGE_LABEL_LICENSES="MIT"
-  - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/stage-chainlink"
+  - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"
 
 before:
   hooks:
@@ -64,7 +64,7 @@ builds:
     env:
       - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target aarch64-macos $ZIG_FLAGS_DARWIN
-      - CCX=$ZIG_EXEC c++ -target x86_64-macos $ZIG_FLAGS_DARWIN
+      - CCX=$ZIG_EXEC c++ -target aarch64-macos $ZIG_FLAGS_DARWIN
     flags:
       - -trimpath
       - -buildmode=pie
@@ -120,7 +120,7 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-amd64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:{{ .Version }}-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-amd64"
   - id: linux-arm64
     dockerfile: core/chainlink.goreleaser.Dockerfile
@@ -143,15 +143,15 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-arm64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:{{ .Version }}-arm64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-arm64"
 
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop"
+  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:{{ .Version }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-arm64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:{{ .Version }}-arm64"
   - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-amd64"

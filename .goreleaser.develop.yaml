@@ -6,7 +6,7 @@ env:
   - IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
   - IMAGE_LABEL_DESCRIPTION="node of the decentralized oracle network, bridging on and off-chain computation"
   - IMAGE_LABEL_LICENSES="MIT"
-  - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/stage-chainlink"
+  - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"
 
 before:
   hooks:
@@ -69,7 +69,6 @@ dockers:
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
-      # - "--build-arg=CHAINLINK_USER=chainlink"
       - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
@@ -92,7 +91,6 @@ dockers:
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
-      # - "--build-arg=CHAINLINK_USER=chainlink"
       - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"

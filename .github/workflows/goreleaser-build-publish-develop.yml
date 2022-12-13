@@ -7,9 +7,7 @@ on:
 
 jobs:
   push-chainlink-develop:
-    # runs-on: ubuntu-20.04
     runs-on:
-      # labels: ubuntu20.04-8cores-32GB
       labels: ubuntu20.04-16cores-64GB
     environment: build-develop
     permissions:

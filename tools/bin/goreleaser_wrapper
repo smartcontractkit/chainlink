@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -x
 # get machine / kernel name
 _get_platform() {
   uname | tr '[:upper:]' '[:lower:]'

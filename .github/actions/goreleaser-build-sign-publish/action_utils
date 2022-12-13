@@ -66,6 +66,10 @@ goreleaser_release() {
   else
     $GORELEASER_EXEC release --rm-dist --config "$GORELEASER_CONFIG" "$@"
   fi
+  if [[ $ENABLE_COSIGN == "true" ]]; then
+    rm -rf cosign.pub
+    rm -rf cosign.key
+  fi
 }
 
 "$@"
