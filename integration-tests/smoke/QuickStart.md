@@ -1,7 +1,6 @@
 # Running Smoke Tests Locally
 
 pre-reqs
-* install ginkgo
 * install node.js (18 preferred)
 * k3d
 
