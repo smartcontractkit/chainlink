@@ -548,7 +548,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 		go func() {
 			defer wg.Done()
 			for dbname := range ch {
-				lggr.Infof("Dropping test database: %q", dbname)
+				lggr.Infof("Dropping old, dangling test database: %q", dbname)
 				gerr := utils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
 				errCh <- gerr
 			}

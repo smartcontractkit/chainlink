@@ -69,8 +69,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		defer s.Close()
 		err := s.Start(testutils.Context(t))
 		assert.NoError(t, err)
-		// getChainID() should return Error if ChainID = 0
-		// This should get converted into a warning from Start()
+		// If ChainID = 0, this should get converted into a warning from Start()
 		testutils.WaitForLogMessage(t, observedLogs, "ChainID verification skipped")
 	})
 }
