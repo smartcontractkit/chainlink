@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
@@ -53,7 +54,7 @@ func (c *ChainlinkProfileTestReporter) WriteReport(folderLocation string) error 
 }
 
 // SendNotification hasn't been implemented for this test
-func (c *ChainlinkProfileTestReporter) SendSlackNotification(slackClient *slack.Client) error {
+func (c *ChainlinkProfileTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
 	log.Warn().Msg("No Slack notification integration for Chainlink profile tests")
 	return nil
 }
