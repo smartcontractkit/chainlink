@@ -77,7 +77,7 @@ jobs:
     name: ETH Smoke Tests Matrix
     needs: [build-chainlink, changes]
     env:
-      SELECTED_NETWORKS: SIMULATED
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-eth

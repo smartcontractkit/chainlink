@@ -195,6 +195,7 @@ func CreateOCRJobs(
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, nodeContractPairID),
 			}
 
+			SetAdapterResponse(t, 5, ocrInstance, chainlinkNodes[nodeIndex], mockserver)
 			err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
 			require.NoError(t, err, "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
 
