@@ -1,47 +1,72 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @notice Modified AuthorizedReciever abstract for use on the OCR2DROracle contract to limit usage
  * @notice Uses tx.origin instead of msg.sender because the client contract sends messages to the Oracle contract
- * @dev NOTE: Use the following steps to use for deployments. Do not leave these changes in the repository code.
- * @dev To use:
- * 1. Make the Oracle contract ownable, to control who can set the authorized senders
- * ```
- * import "../../ConfirmedOwner.sol";
- * ...
- * contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, ConfirmedOwner {
- * ...
- * constructor() OCR2Base(true) ConfirmedOwner(msg.sender) {}
- * ```
- *
- * 2. Extend OCR2DROracle.sol with this contract
- * ```
- * import "./AuthorizedOriginReceiver.sol";
- *
- * contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, ConfirmedOwner, AuthorizedOriginReceiver {
- * ```
- *
- * 3. Override the virtual function _canSetAuthorizedSenders
- * ```
- *   function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
- *   return true;
- * }
- * ```
  */
+
 abstract contract AuthorizedOriginReceiver {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   event AuthorizedSendersChanged(address[] senders, address changedBy);
+  event AuthorizedSendersActive(address account);
+  event AuthorizedSendersDeactive(address account);
 
   error EmptySendersList();
   error UnauthorizedSender();
   error NotAllowedToSetSenders();
+  error AlreadySet();
 
+  bool private _active;
   EnumerableSet.AddressSet private s_authorizedSenders;
   address[] private s_authorizedSendersList;
+
+  /**
+   * @dev Initializes the contract in active state.
+   */
+  constructor() {
+    _active = true;
+  }
+
+  /**
+   * @dev Returns true if the contract is paused, and false otherwise.
+   */
+  function authorizedReceiverActive() public view virtual returns (bool) {
+    return _active;
+  }
+
+  /**
+   * @dev Triggers AuthorizedOriginReceiver usage to block unuthorized senders.
+   *
+   * Requirements:
+   *
+   * - The contract must not be deactive.
+   */
+  function activateAuthorizedReceiver() external validateAuthorizedSenderSetter {
+    if (authorizedReceiverActive()) {
+      revert AlreadySet();
+    }
+    _active = true;
+    emit AuthorizedSendersActive(msg.sender);
+  }
+
+  /**
+   * @dev Triggers AuthorizedOriginReceiver usage to allow all senders.
+   *
+   * Requirements:
+   *
+   * - The contract must be active.
+   */
+  function deactivateAuthorizedReceiver() external validateAuthorizedSenderSetter {
+    if (!authorizedReceiverActive()) {
+      revert AlreadySet();
+    }
+    _active = false;
+    emit AuthorizedSendersDeactive(msg.sender);
+  }
 
   /**
    * @notice Sets the permission to request for the given wallet(s).
@@ -99,6 +124,9 @@ abstract contract AuthorizedOriginReceiver {
    * @return The authorization status of the node
    */
   function isAuthorizedSender(address sender) public view returns (bool) {
+    if (!authorizedReceiverActive()) {
+      return true;
+    }
     return s_authorizedSenders.contains(sender);
   }
 
