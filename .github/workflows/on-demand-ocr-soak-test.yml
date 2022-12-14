@@ -54,6 +54,9 @@ jobs:
     environment: integration
     runs-on: ubuntu-latest
     env:
+      CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: ocr-on-demand
       SELECTED_NETWORKS: ${{ inputs.network }}
       EVM_KEYS: ${{ inputs.fundingPrivateKey }}
       EVM_URLS: ${{ inputs.wsURL }}
