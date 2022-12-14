@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
@@ -21,12 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	"github.com/onsi/gomega"
 )
 
 var (
@@ -54,12 +54,12 @@ var (
 )
 
 const (
-	// ChaosGroupMinority a group of faulty nodes, even if they fail OCR must work
-	ChaosGroupMinority = "chaosGroupMinority"
-	// ChaosGroupMajority a group of nodes that are working even if minority fails
-	ChaosGroupMajority = "chaosGroupMajority"
-	// ChaosGroupMajorityPlus a group of nodes that are majority + 1
-	ChaosGroupMajorityPlus = "chaosGroupMajority"
+	// ChaosGroupMinorityOCR a group of faulty nodes, even if they fail OCR must work
+	ChaosGroupMinorityOCR = "chaosGroupMinority"
+	// ChaosGroupMajorityOCR a group of nodes that are working even if minority fails
+	ChaosGroupMajorityOCR = "chaosGroupMajority"
+	// ChaosGroupMajorityOCRPlus a group of nodes that are majority + 1
+	ChaosGroupMajorityOCRPlus = "chaosGroupMajority"
 )
 
 func TestMain(m *testing.M) {
@@ -79,7 +79,7 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -88,7 +88,7 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
 				DurationStr:    "1m",
 			},
 		},
@@ -97,7 +97,7 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
 				DurationStr:    "1m",
 				ContainerNames: &[]*string{a.Str("chainlink-db")},
 			},
@@ -107,8 +107,8 @@ func TestOCRChaos(t *testing.T) {
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+				FromLabels:  &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
 				DurationStr: "1m",
 			},
 		},
@@ -118,13 +118,14 @@ func TestOCRChaos(t *testing.T) {
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityOCRPlus: a.Str("1")},
 				DurationStr: "1m",
 			},
 		},
 	}
 
-	for name, tst := range testCases {
+	for n, tst := range testCases {
+		name := n
 		testCase := tst
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -137,11 +138,11 @@ func TestOCRChaos(t *testing.T) {
 			err := testEnvironment.Run()
 			require.NoError(t, err)
 
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinorityOCR)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajorityOCR)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityOCRPlus)
 			require.NoError(t, err)
 
 			chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
