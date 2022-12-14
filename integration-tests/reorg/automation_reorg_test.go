@@ -32,14 +32,6 @@ LogPoller = true
 [OCR2]
 Enabled = true
 
-[Keeper]
-TurnFlagEnabled = true
-TurnLookBack = 0
-
-[Keeper.Registry]
-SyncInterval = '5m'
-PerformGasOverhead = 150_000
-
 [P2P]
 [P2P.V2]
 Enabled = true
@@ -77,6 +69,9 @@ HistoryDepth = 400`
 				"genesis": map[string]interface{}{
 					"networkId": "1337",
 				},
+				"miner": map[string]interface{}{
+					"replicas": "3",
+				},
 			},
 		},
 	}
@@ -104,7 +99,7 @@ const (
 
 var _ = Describe("Automation reorg test @reorg-automation", func() {
 	numberOfUpkeeps := 2
-	reorgBlocks := 50
+	reorgBlocks := 10
 	var (
 		testScenarios = []TableEntry{
 			Entry("Must survive 50 block reorg for 1m @reorg-automation-50-block",
@@ -137,13 +132,16 @@ var _ = Describe("Automation reorg test @reorg-automation", func() {
 				NamespacePrefix: "reorg-automation",
 				TTL:             time.Hour * 1}).
 			AddHelm(networkChart).
-			AddHelm(clChart).
 			AddChart(blockscout.New(&blockscout.Props{
 				Name:    "geth-blockscout",
 				WsURL:   activeEVMNetwork.URL,
 				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
+
+		// wait for bloclchain nodes to be online
+		time.Sleep(90 * time.Second)
+		err = testEnvironment.AddHelm(clChart).Run()
 
 		By("Connecting to launched resources")
 		chainClient, err = blockchain.NewEVMClient(activeEVMNetwork, testEnvironment)
@@ -160,9 +158,9 @@ var _ = Describe("Automation reorg test @reorg-automation", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-		Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+		//txCost, err := chainClient.EstimateCostForChainlinkOperations(10000)
+		//Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Deploy Registry and Registrar")
@@ -178,7 +176,7 @@ var _ = Describe("Automation reorg test @reorg-automation", func() {
 		By("Create OCR Automation Jobs")
 		actions.CreateOCRKeeperJobs(chainlinkNodes, registry.Address(), activeEVMNetwork.ChainID, 0)
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 60*time.Second)
 		err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 		Expect(chainClient.WaitForEvents()).ShouldNot(HaveOccurred(), "Waiting for config to be set")
@@ -206,9 +204,9 @@ var _ = Describe("Automation reorg test @reorg-automation", func() {
 					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 			}
-		}, "5m", "1s").Should(Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+		}, "10m", "1s").Should(Succeed()) // ~6m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
-		By("creating reorg for 50 blocks", func() {
+		By("creating reorg for 10 blocks", func() {
 			rc, err := NewReorgController(
 				&ReorgConfig{
 					FromPodLabel:            reorg.TXNodesAppLabel,
@@ -224,50 +222,21 @@ var _ = Describe("Automation reorg test @reorg-automation", func() {
 			rc.ReOrg(reorgBlocks)
 			rc.WaitReorgStarted()
 
+			Eventually(func(g Gomega) {
+				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+					expect := 10
+					g.Expect(counter.Int64()).Should(BeNumerically(">=", int64(expect)),
+						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				}
+			}, "5m", "1s").Should(Succeed())
+
 			err = rc.WaitDepthReached()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
-
-		Eventually(func(g Gomega) {
-			// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
-			for i := 0; i < len(upkeepIDs); i++ {
-				counter, err := consumers[i].Counter(context.Background())
-				g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-				expect := 10
-				g.Expect(counter.Int64()).Should(BeNumerically(">=", int64(expect)),
-					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
-			}
-		}, "15m", "1s").Should(Succeed())
-
-		//// Cancel all the registered upkeeps via the registry
-		//for i := 0; i < len(upkeepIDs); i++ {
-		//	err := registry.CancelUpkeep(upkeepIDs[i])
-		//	Expect(err).ShouldNot(HaveOccurred(), "Could not cancel upkeep at index "+strconv.Itoa(i))
-		//}
-		//
-		//err = chainClient.WaitForEvents()
-		//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for upkeeps to be cancelled")
-		//
-		//var countersAfterCancellation = make([]*big.Int, len(upkeepIDs))
-		//
-		//for i := 0; i < len(upkeepIDs); i++ {
-		//	// Obtain the amount of times the upkeep has been executed so far
-		//	countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
-		//	Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-		//	log.Info().Msg("Cancelled upkeep at index " + strconv.Itoa(i) + " which performed " +
-		//		strconv.Itoa(int(countersAfterCancellation[i].Int64())) + " times")
-		//}
-		//
-		//Consistently(func(g Gomega) {
-		//	for i := 0; i < len(upkeepIDs); i++ {
-		//		// Expect the counter to remain constant (At most increase by 1 to account for stale performs) because the upkeep was cancelled
-		//		latestCounter, err := consumers[i].Counter(context.Background())
-		//		Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-		//		g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterCancellation[i].Int64()+1),
-		//			"Expected consumer counter to remain less than equal %d, but got %d", countersAfterCancellation[i].Int64()+1, latestCounter.Int64())
-		//	}
-		//}, "1m", "1s").Should(Succeed())
 	},
 		testScenarios,
 	)
