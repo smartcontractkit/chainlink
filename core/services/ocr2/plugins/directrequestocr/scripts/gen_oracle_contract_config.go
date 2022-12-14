@@ -37,35 +37,35 @@ func addrArrayToPrettyString(addrs []string) string {
 func main() {
 	// NOTE: replace values below with actual keys fetched from DON members
 	offchainPubKeysHex := []string{
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01", // replace this
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01",
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01",
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01"}
+		"f19f36c376839c74c637efb04666db5735d2f83e5c78ecac5870f4518cfe1a1c", // replace this
+		"73e72ebb7a5fe651bdacb8b94100d426ca77ffb7be7b1b8680dcdfbf78fada56",
+		"ec3d11a5497cd58de6d8833721b6c2dbf571e488cac6b8707efbbd652b716431",
+		"7985152a2865e0b0f777dbe871c4409c014d3717c24c0c208cf2805cf7dfa870"}
 
 	configPublicKeys := []string{
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a", // replace this
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a",
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a",
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a"}
+		"9e19519f1372f99118cd794823e4bdbe108571eb9aaca4f2911a6cdf96759d0c", // replace this
+		"4abb228fc3a537c5f5130283f58e2f7aadc4b767baa261d7126abd53299c5c2e",
+		"263624fee591e6ca5075982e2bfcc6782d94331f4452fae937f73a8ae5125a57",
+		"1760d2d1f1fded9440f38bdd416d2eef9e791f675ac004c4d459f7fd327ea244"}
 
 	onchainPubKeys := []common.Address{
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"), // replace this (on-chain pub key)
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"),
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"),
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b")}
+		common.HexToAddress("12024999d75b69e7edc04383889ab2ffbdc409e9"), // replace this (on-chain pub key)
+		common.HexToAddress("a4ad9d5a6c6171ebbceb4eaa149d6ac0cd85b3ad"),
+		common.HexToAddress("219d033aeb68213fc98ff28d613a48d10c337b9b"),
+		common.HexToAddress("ad095d87f24a69d01f45681c1c6868c80fec5703")}
 
 	peerIDs := []string{
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h", // replace this
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
+		"12D3KooWM8MSbL9cD9JiUT5HfiBionGEuEnTBBL6MyT8BhR5XmQz", // replace this
+		"12D3KooW9rXtuvYx2RgXeBkAYMVAAcQ8LG5eFCi6msZCCuYt1FQa",
+		"12D3KooWKUDHb4C7iGFbwzuRtTqZnTpwoRwTM7hKz68gS28qvAV2",
+		"12D3KooWQymo2wcBMiWVVNaTMLNhozACrxt3wbMKDg6vjKzVz6Kp",
 	}
 
 	transmiterAddresses := []string{
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac", // replace this
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
+		"0xD3c1b2710332FDA16001433c6198AF7e55EeD627", // replace this
+		"0xf318D60885C95B3262fa70fbc6e912282Eb2925b",
+		"0x5d7589b2D20c4532F94eb30a713b571F0bc82477",
+		"0x12BeF77C49792935d46A42F6eA4C2a582Da627C2",
 	}
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}

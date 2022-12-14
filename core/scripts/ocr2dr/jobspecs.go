@@ -40,7 +40,8 @@ func generateJobSpecs(cfg *config, nodes []Node) {
 func replatePlaceholders(lines []string, cfg *config, boot *Node, node *Node) (output []string) {
 	chainIDStr := strconv.FormatInt(cfg.ChainID, 10)
 	contractHex := cfg.DONContractAddress.Hex()
-	bootstrapper := fmt.Sprintf("%s@%s:%d", boot.P2PPeerIDS[0], removeHttpsPrefix(boot.Host), cfg.P2PPort)
+	hostParts := strings.Split(removeHttpsPrefix(boot.Host), ".")
+	bootstrapper := fmt.Sprintf("%s@%s:%d", boot.P2PPeerIDS[0], hostParts[0], cfg.P2PPort)
 	for _, l := range lines {
 		l = strings.Replace(l, "{{chain_id}}", chainIDStr, 1)
 		l = strings.Replace(l, "{{oracle_contract_address}}", contractHex, 1)
