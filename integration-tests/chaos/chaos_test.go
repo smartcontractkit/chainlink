@@ -1,14 +1,19 @@
-package chaos_test
+package chaos
 
-//revive:disable:dot-imports
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"os"
+	"testing"
 
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -17,18 +22,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var (
 	defaultOCRSettings = map[string]interface{}{
-		"toml": client.AddNetworksConfig(`OCR.Enabled = true`, networks.SelectedNetwork),
+		"toml":     client.AddNetworksConfig(`OCR.Enabled = true`, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
@@ -45,151 +48,152 @@ var (
 			},
 		},
 	}
+	chaosStartRound int64 = 1
+	chaosEndRound   int64 = 4
+	chaosApplied          = false
 )
 
 const (
-	// ChaosGroupMinority a group of faulty nodes, even if they fail OCR must work
-	ChaosGroupMinority = "chaosGroupMinority"
-	// ChaosGroupMajority a group of nodes that are working even if minority fails
-	ChaosGroupMajority = "chaosGroupMajority"
-	// ChaosGroupMajorityPlus a group of nodes that are majority + 1
-	ChaosGroupMajorityPlus = "chaosGroupMajority"
+	// ChaosGroupMinorityOCR a group of faulty nodes, even if they fail OCR must work
+	ChaosGroupMinorityOCR = "chaosGroupMinority"
+	// ChaosGroupMajorityOCR a group of nodes that are working even if minority fails
+	ChaosGroupMajorityOCR = "chaosGroupMajority"
+	// ChaosGroupMajorityOCRPlus a group of nodes that are majority + 1
+	ChaosGroupMajorityOCRPlus = "chaosGroupMajority"
 )
 
-var _ = Describe("OCR chaos test @chaos-ocr", func() {
-	var (
-		testScenarios = []TableEntry{
-			Entry("Must survive minority removal for 1m @chaos-ocr-fail-minority",
-				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
-				chaos.NewFailPods,
-				&chaos.Props{
-					LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
-					DurationStr:    "1m",
-				},
-			),
-			Entry("Must recover from majority removal @chaos-ocr-fail-majority",
-				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
-				chaos.NewFailPods,
-				&chaos.Props{
-					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-					DurationStr:    "1m",
-				},
-			),
-			Entry("Must recover from majority DB failure @chaos-ocr-fail-majority-db",
-				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
-				chaos.NewFailPods,
-				&chaos.Props{
-					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-					DurationStr:    "1m",
-					ContainerNames: &[]*string{a.Str("chainlink-db")},
-				},
-			),
-			Entry("Must recover from majority network failure @chaos-ocr-fail-majority-network",
-				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
-				chaos.NewNetworkPartition,
-				&chaos.Props{
-					FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-					ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
-					DurationStr: "1m",
-				},
-			),
-			Entry("Must recover from blockchain node network failure @chaos-ocr-fail-blockchain-node",
-				ethereum.New(nil),
-				chainlink.New(0, defaultOCRSettings),
-				chaos.NewNetworkPartition,
-				&chaos.Props{
-					FromLabels:  &map[string]*string{"app": a.Str("geth")},
-					ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
-					DurationStr: "1m",
-				},
-			),
-		}
+func TestMain(m *testing.M) {
+	logging.Init()
+	os.Exit(m.Run())
+}
 
-		testEnvironment *environment.Environment
-		chainlinkNodes  []*client.Chainlink
-		chainClient     blockchain.EVMClient
+func TestOCRChaos(t *testing.T) {
+	testCases := map[string]struct {
+		networkChart environment.ConnectedChart
+		clChart      environment.ConnectedChart
+		chaosFunc    chaos.ManifestFunc
+		chaosProps   *chaos.Props
+	}{
+		"fail-minority": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
+				DurationStr:    "1m",
+			},
+		},
+		"fail-majority": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
+				DurationStr:    "1m",
+			},
+		},
+		"fail-majority-db": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
+				DurationStr:    "1m",
+				ContainerNames: &[]*string{a.Str("chainlink-db")},
+			},
+		},
+		"fail-majority-network": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
+		"fail-blockchain-node": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{"app": a.Str("geth")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityOCRPlus: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
+	}
 
-		chaosStartRound int64 = 1
-		chaosEndRound   int64 = 4
-		chaosApplied          = false
-	)
+	for n, tst := range testCases {
+		name := n
+		testCase := tst
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	AfterEach(func() {
-		err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
-	})
+			testEnvironment := environment.New(&environment.Config{NamespacePrefix: fmt.Sprintf("chaos-ocr-%s", name)}).
+				AddHelm(mockservercfg.New(nil)).
+				AddHelm(mockserver.New(nil)).
+				AddHelm(testCase.networkChart).
+				AddHelm(testCase.clChart)
+			err := testEnvironment.Run()
+			require.NoError(t, err)
 
-	DescribeTable("OCR chaos on different EVM networks", func(
-		networkChart environment.ConnectedChart,
-		clChart environment.ConnectedChart,
-		chaosFunc chaos.ManifestFunc,
-		chaosProps *chaos.Props,
-	) {
-		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "chaos-core"}).
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil)).
-			AddHelm(networkChart).
-			AddHelm(clChart)
-		err := testEnvironment.Run()
-		Expect(err).ShouldNot(HaveOccurred())
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinorityOCR)
+			require.NoError(t, err)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajorityOCR)
+			require.NoError(t, err)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityOCRPlus)
+			require.NoError(t, err)
 
-		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
-		Expect(err).ShouldNot(HaveOccurred())
-		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
-		Expect(err).ShouldNot(HaveOccurred())
-		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
-		Expect(err).ShouldNot(HaveOccurred())
+			chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
+			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+			cd, err := contracts.NewContractDeployer(chainClient)
+			require.NoError(t, err, "Deploying contracts shouldn't fail")
 
-		By("Connecting to launched resources")
-		chainClient, err = blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-		cd, err := contracts.NewContractDeployer(chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
+			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+			require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+			t.Cleanup(func() {
+				if chainClient != nil {
+					chainClient.GasStats().PrintStats()
+				}
+				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+				require.NoError(t, err, "Error tearing down environment")
+			})
 
-		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+			ms, err := ctfClient.ConnectMockServer(testEnvironment)
+			require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
-		ms, err := ctfClient.ConnectMockServer(testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
+			chainClient.ParallelTransactions(true)
+			require.NoError(t, err)
 
-		chainClient.ParallelTransactions(true)
-		Expect(err).ShouldNot(HaveOccurred())
+			lt, err := cd.DeployLinkTokenContract()
+			require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-		lt, err := cd.DeployLinkTokenContract()
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
+			require.NoError(t, err)
 
-		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
-		Expect(err).ShouldNot(HaveOccurred())
+			ocrInstances := actions.DeployOCRContracts(t, 1, lt, cd, chainlinkNodes, chainClient)
+			err = chainClient.WaitForEvents()
+			require.NoError(t, err)
+			actions.SetAllAdapterResponsesToTheSameValue(t, 5, ocrInstances, chainlinkNodes, ms)
+			actions.CreateOCRJobs(t, ocrInstances, chainlinkNodes, ms)
 
-		By("Deploying OCR contracts")
-		ocrInstances := actions.DeployOCRContracts(1, lt, cd, chainlinkNodes, chainClient)
-		err = chainClient.WaitForEvents()
-		Expect(err).ShouldNot(HaveOccurred())
-		By("Setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, ms))
-		By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, ms))
-
-		Eventually(func(g Gomega) {
-			for _, ocr := range ocrInstances {
-				err := ocr.RequestNewRound()
-				Expect(err).ShouldNot(HaveOccurred())
-			}
-			round, err := ocrInstances[0].GetLatestRound(context.Background())
-			g.Expect(err).ShouldNot(HaveOccurred())
-			log.Info().Int64("RoundID", round.RoundId.Int64()).Send()
-			if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
-				chaosApplied = true
-				_, err = testEnvironment.Chaos.Run(chaosFunc(testEnvironment.Cfg.Namespace, chaosProps))
-				Expect(err).ShouldNot(HaveOccurred())
-			}
-			g.Expect(round.RoundId.Int64()).Should(BeNumerically(">=", chaosEndRound))
-		}, "6m", "3s").Should(Succeed())
-	},
-		testScenarios,
-	)
-})
+			gom := gomega.NewGomegaWithT(t)
+			gom.Eventually(func(g gomega.Gomega) {
+				for _, ocr := range ocrInstances {
+					err := ocr.RequestNewRound()
+					require.NoError(t, err, "Error requesting new round")
+				}
+				round, err := ocrInstances[0].GetLatestRound(context.Background())
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				log.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
+				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
+					chaosApplied = true
+					_, err = testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))
+					require.NoError(t, err)
+				}
+				g.Expect(round.RoundId.Int64()).Should(gomega.BeNumerically(">=", chaosEndRound))
+			}, "6m", "3s").Should(gomega.Succeed())
+		})
+	}
+}

@@ -1,13 +1,13 @@
 package testsetups
 
-//revive:disable:dot-imports
 import (
 	"fmt"
 	"math/big"
+	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -55,29 +55,30 @@ func NewKeeperBlockTimeTest(inputs KeeperBlockTimeTestInputs) *KeeperBlockTimeTe
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBlockTimeTest) Setup(env *environment.Environment) {
+func (k *KeeperBlockTimeTest) Setup(t *testing.T, env *environment.Environment) {
 	startTime := time.Now()
-	k.ensureInputValues()
+	k.ensureInputValues(t)
 	k.env = env
 	inputs := k.Inputs
 	var err error
 
 	// Connect to networks and prepare for contract deployment
 	contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
-	Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
+	require.NoError(t, err, "Building a new contract deployer shouldn't fail")
 	k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
-	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 	k.chainClient.ParallelTransactions(true)
 
 	// Fund chainlink nodes
 	err = actions.FundChainlinkNodes(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding)
-	Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
+	require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
 	linkToken, err := contractDeployer.DeployLinkTokenContract()
-	Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 	err = k.chainClient.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
+	require.NoError(t, err, "Failed waiting for LINK Contract deployment")
 
 	k.keeperRegistry, _, k.keeperConsumerContracts, _ = actions.DeployPerformanceKeeperContracts(
+		t,
 		ethereum.RegistryVersion_1_1,
 		inputs.NumberOfContracts,
 		uint32(2500000), //upkeepGasLimit
@@ -92,13 +93,13 @@ func (k *KeeperBlockTimeTest) Setup(env *environment.Environment) {
 		inputs.PerformGasToBurn,
 	)
 	// Send keeper jobs to registry and chainlink nodes
-	actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistry, contracts.OCRConfig{})
+	actions.CreateKeeperJobs(t, k.chainlinkNodes, k.keeperRegistry, contracts.OCRConfig{})
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Block Time Test Setup")
 }
 
 // Run runs the keeper block time test
-func (k *KeeperBlockTimeTest) Run() {
+func (k *KeeperBlockTimeTest) Run(t *testing.T) {
 	startTime := time.Now()
 
 	for index, keeperConsumer := range k.keeperConsumerContracts {
@@ -117,11 +118,11 @@ func (k *KeeperBlockTimeTest) Run() {
 		}
 	}()
 	err := k.chainClient.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for keeper subscriptions")
+	require.NoError(t, err, "Error waiting for keeper subscriptions")
 
 	for _, chainlinkNode := range k.chainlinkNodes {
 		txData, err := chainlinkNode.MustReadTransactionAttempts()
-		Expect(err).ShouldNot(HaveOccurred(), "Error retrieving transaction data from chainlink node")
+		require.NoError(t, err, "Error retrieving transaction data from chainlink node")
 		k.TestReporter.AttemptedChainlinkTransactions = append(k.TestReporter.AttemptedChainlinkTransactions, txData)
 	}
 
@@ -129,27 +130,33 @@ func (k *KeeperBlockTimeTest) Run() {
 }
 
 // Networks returns the networks that the test is running on
-func (k *KeeperBlockTimeTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
-	return k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
+func (k *KeeperBlockTimeTest) TearDownVals(t *testing.T) (
+	*testing.T,
+	*environment.Environment,
+	[]*client.Chainlink,
+	reportModel.TestReporter,
+	blockchain.EVMClient) {
+	return t, k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present
-func (k *KeeperBlockTimeTest) ensureInputValues() {
+func (k *KeeperBlockTimeTest) ensureInputValues(t *testing.T) {
 	inputs := k.Inputs
-	Expect(inputs.BlockchainClient).ShouldNot(BeNil(), "Need a valid blockchain client to use for the test")
+	require.NotNil(t, inputs.BlockchainClient, "Expected a valid blockchain client")
 	k.chainClient = inputs.BlockchainClient
-	Expect(inputs.NumberOfContracts).Should(BeNumerically(">=", 1), "Expecting at least 1 keeper contracts")
+	require.GreaterOrEqual(t, inputs.NumberOfContracts, 1, "Expecting at least 1 keeper contract")
 	if inputs.Timeout == 0 {
-		Expect(inputs.BlockRange).Should(BeNumerically(">", 0), "If no `timeout` is provided, a `testBlockRange` is required")
+		require.Greater(t, inputs.BlockRange, 0, "If no `timeout` is provided, a `testBlockRange` is required")
 	} else if inputs.BlockRange <= 0 {
-		Expect(inputs.Timeout).Should(BeNumerically(">=", 1), "If no `testBlockRange` is provided a `timeout` is required")
+		require.GreaterOrEqual(t, inputs.Timeout, 1, "If no `testBlockRange` is provided a `timeout` is required")
 	}
-	Expect(inputs.KeeperRegistrySettings).ShouldNot(BeNil(), "You need to set KeeperRegistrySettings")
-	Expect(k.Inputs.ChainlinkNodeFunding).ShouldNot(BeNil(), "You need to set a funding amount for chainlink nodes")
+	require.NotNil(t, inputs.KeeperRegistrySettings, "You need to set KeeperRegistrySettings")
+	require.NotNil(t, k.Inputs.ChainlinkNodeFunding, "You need to set a funding amount for chainlink nodes")
 	clFunds, _ := k.Inputs.ChainlinkNodeFunding.Float64()
-	Expect(clFunds).Should(BeNumerically(">=", 0), "Expecting Chainlink node funding to be more than 0 ETH")
-	Expect(inputs.CheckGasToBurn).Should(BeNumerically(">", 0), "You need to set an expected amount of gas to burn on checkUpkeep()")
-	Expect(inputs.KeeperRegistrySettings.CheckGasLimit).Should(BeNumerically(">=", inputs.CheckGasToBurn),
-		"CheckGasLimit should be >= CheckGasToBurn")
-	Expect(inputs.PerformGasToBurn).Should(BeNumerically(">", 0), "You need to set an expected amount of gas to burn on performUpkeep()")
+	require.GreaterOrEqual(t, clFunds, 0, "Expecting Chainlink node funding to be more than 0 ETH")
+	require.Greater(t, inputs.CheckGasToBurn, "You need to set an expected amount of gas to burn on checkUpkeep()")
+	require.GreaterOrEqual(
+		t, inputs.KeeperRegistrySettings.CheckGasLimit, inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
+	)
+	require.Greater(t, inputs.PerformGasToBurn, 0, "You need to set an expected amount of gas to burn on performUpkeep()")
 }

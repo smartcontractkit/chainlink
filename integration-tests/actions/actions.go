@@ -7,11 +7,10 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
@@ -19,18 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
-
-// GinkgoSuite provides the default setup for running a Ginkgo test suite
-func GinkgoSuite() {
-	logging.Init()
-	gomega.RegisterFailHandler(ginkgo.Fail)
-}
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
 // Example: When deploying 1000 contracts, stop every ContractDeploymentInterval have been deployed to wait before continuing
@@ -231,6 +223,7 @@ func GetMockserverInitializerDataForOTPE(
 // TeardownSuite tears down networks/clients and environment and creates a logs folder for failed tests in the
 // specified path. Can also accept a testreporter (if one was used) to log further results
 func TeardownSuite(
+	t *testing.T,
 	env *environment.Environment,
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
@@ -242,7 +235,7 @@ func TeardownSuite(
 		keepEnvs = "NEVER"
 	}
 
-	if err := testreporters.WriteTeardownLogs(env, optionalTestReporter); err != nil {
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	for _, c := range clients {
@@ -269,7 +262,7 @@ func TeardownSuite(
 	case "ALWAYS":
 		return nil
 	case "ONFAIL":
-		if !ginkgo.CurrentSpecReport().Failed() {
+		if !t.Failed() {
 			return env.Shutdown()
 		}
 	case "NEVER":
@@ -284,13 +277,14 @@ func TeardownSuite(
 // TeardownRemoteSuite is used when running a test within a remote-test-runner, like for long-running performance and
 // soak tests
 func TeardownRemoteSuite(
+	t *testing.T,
 	env *environment.Environment,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
 	var err error
-	if err = testreporters.SendReport(env, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
 		log.Warn().Err(err).Msg("Error writing test report")
 	}
 	if err = returnFunds(chainlinkNodes, client); err != nil {
