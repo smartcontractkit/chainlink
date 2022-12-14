@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -325,7 +326,7 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Debug(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
+	c.lggr.Tracew("logsWithSigs", "logs", logs)
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
@@ -337,8 +338,13 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Debug(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , OutputsServed: %+v",
-		randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, randomWordsFulfilledLogs, outputsServedLogs))
+	c.lggr.Tracew(
+		"finished unmarshalLogs",
+		"RandomnessRequested", randomnessRequestedLogs,
+		"RandomnessFulfillmentRequested", randomnessFulfillmentRequestedLogs,
+		"RandomWordsFulfilled", randomWordsFulfilledLogs,
+		"OutputsServed", outputsServedLogs,
+	)
 
 	// Get blockhashes that pertain to requested blocks.
 	blockhashesMapping, err := c.getBlockhashesMappingFromRequests(ctx, randomnessRequestedLogs, randomnessFulfillmentRequestedLogs, currentHeight)
@@ -357,7 +363,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Debug(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
+	c.lggr.Tracew("filtered eligible randomness requests", "blocks", unfulfilled)
 
 	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
@@ -368,7 +374,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Debug(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
+	c.lggr.Tracew("filtered eligible callbacks and blocks", "callbacks", callbacksRequested, "blocks", maps.Keys(blocksRequested))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -377,7 +383,7 @@ func (c *coordinator) ReportBlocks(
 		delete(blocksRequested, f)
 	}
 
-	c.lggr.Debug(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
+	c.lggr.Tracew("got fulfilled blocks", "fulfilled", fulfilledBlocks)
 
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
@@ -394,14 +400,21 @@ func (c *coordinator) ReportBlocks(
 		}
 	}
 
-	c.lggr.Debug(fmt.Sprintf("got blocks: %+v", blocks))
+	c.lggr.Tracew("got elligible blocks", "blocks", blocks)
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight, currentBatchGasLimit)
 	c.emitReportBlocksMetrics(len(blocks), len(callbacks))
 
-	c.lggr.Debug(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
+	// Pull request IDs from elligible callbacks for logging. There should only be
+	// at most 100-200 elligible callbacks in a report.
+	var reqIDs []uint64
+	for _, c := range callbacks {
+		reqIDs = append(reqIDs, c.RequestID)
+	}
+	c.lggr.Debugw("reporting blocks and callbacks", "blocks", blocks, "callbacks", reqIDs)
+	c.lggr.Tracew("alreday fulfilled blocks and callbacks", "blocks", fulfilledBlocks, "callbacks", maps.Keys(fulfilledRequestIDs))
 
 	return
 }
