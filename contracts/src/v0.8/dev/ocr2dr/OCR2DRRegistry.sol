@@ -11,8 +11,15 @@ import "../../interfaces/ERC677ReceiverInterface.sol";
 import "../../ConfirmedOwner.sol";
 import "../AuthorizedReceiver.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
+import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
 
-contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677ReceiverInterface, AuthorizedReceiver {
+contract OCR2DRRegistry is
+  ConfirmedOwner,
+  Pausable,
+  OCR2DRRegistryInterface,
+  ERC677ReceiverInterface,
+  AuthorizedReceiver
+{
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
 
@@ -111,8 +118,6 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
   event RequestTimedOut(bytes32 indexed requestId);
 
   struct Config {
-    // Registry usage killswitch
-    bool active;
     // Maxiumum amount of gas that can be given to a request's client callback
     uint32 maxGasLimit;
     // Reentrancy protection.
@@ -203,6 +208,10 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     );
   }
 
+  function _pause() internal override onlyOwner {}
+
+  function _unpause() internal override onlyOwner {}
+
   function getTotalBalance() external view returns (uint256) {
     return s_totalBalance;
   }
@@ -288,7 +297,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     override
     validateAuthorizedSender
     nonReentrant
-    onlyActiveRegistry
+    whenNotPaused
     returns (bytes32)
   {
     // Input validation using the subscription storage.
@@ -400,7 +409,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     uint8 signerCount,
     uint256 reportValidationGas,
     uint256 initialGas
-  ) external override validateAuthorizedSender nonReentrant onlyActiveRegistry returns (bool success) {
+  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (bool success) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
       revert IncorrectRequestID();
@@ -508,7 +517,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function oracleWithdraw(address recipient, uint96 amount) external nonReentrant onlyActiveRegistry {
+  function oracleWithdraw(address recipient, uint96 amount) external nonReentrant whenNotPaused {
     if (amount == 0) {
       amount = s_withdrawableTokens[msg.sender];
     }
@@ -526,7 +535,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     address, /* sender */
     uint256 amount,
     bytes calldata data
-  ) external override nonReentrant onlyActiveRegistry {
+  ) external override nonReentrant whenNotPaused {
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
     }
@@ -585,7 +594,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
    * @dev    amount,
    * @dev    abi.encode(subscriptionId));
    */
-  function createSubscription() external nonReentrant onlyActiveRegistry returns (uint64) {
+  function createSubscription() external nonReentrant whenNotPaused returns (uint64) {
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
@@ -609,7 +618,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     external
     onlySubOwner(subscriptionId)
     nonReentrant
-    onlyActiveRegistry
+    whenNotPaused
   {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subscriptionId].requestedOwner != newOwner) {
@@ -624,7 +633,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
    * @dev will revert if original owner of subscriptionId has
    * not requested that msg.sender become the new owner.
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external nonReentrant onlyActiveRegistry {
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external nonReentrant whenNotPaused {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -646,7 +655,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     external
     onlySubOwner(subscriptionId)
     nonReentrant
-    onlyActiveRegistry
+    whenNotPaused
   {
     if (s_consumers[consumer][subscriptionId] == 0) {
       revert InvalidConsumer(subscriptionId, consumer);
@@ -677,7 +686,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     external
     onlySubOwner(subscriptionId)
     nonReentrant
-    onlyActiveRegistry
+    whenNotPaused
   {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subscriptionId].consumers.length == MAX_CONSUMERS) {
@@ -704,7 +713,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     external
     onlySubOwner(subscriptionId)
     nonReentrant
-    onlyActiveRegistry
+    whenNotPaused
   {
     if (pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();

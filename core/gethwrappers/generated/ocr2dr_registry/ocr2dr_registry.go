@@ -496,6 +496,28 @@ func (_OCR2DRRegistry *OCR2DRRegistryCallerSession) Owner() (common.Address, err
 	return _OCR2DRRegistry.Contract.Owner(&_OCR2DRRegistry.CallOpts)
 }
 
+func (_OCR2DRRegistry *OCR2DRRegistryCaller) Paused(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _OCR2DRRegistry.contract.Call(opts, &out, "paused")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistrySession) Paused() (bool, error) {
+	return _OCR2DRRegistry.Contract.Paused(&_OCR2DRRegistry.CallOpts)
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistryCallerSession) Paused() (bool, error) {
+	return _OCR2DRRegistry.Contract.Paused(&_OCR2DRRegistry.CallOpts)
+}
+
 func (_OCR2DRRegistry *OCR2DRRegistryCaller) PendingRequestExists(opts *bind.CallOpts, subscriptionId uint64) (bool, error) {
 	var out []interface{}
 	err := _OCR2DRRegistry.contract.Call(opts, &out, "pendingRequestExists", subscriptionId)
@@ -2628,6 +2650,123 @@ func (_OCR2DRRegistry *OCR2DRRegistryFilterer) ParseSubscriptionOwnerTransferred
 	return event, nil
 }
 
+type OCR2DRRegistryUnpausedIterator struct {
+	Event *OCR2DRRegistryUnpaused
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *OCR2DRRegistryUnpausedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OCR2DRRegistryUnpaused)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(OCR2DRRegistryUnpaused)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *OCR2DRRegistryUnpausedIterator) Error() error {
+	return it.fail
+}
+
+func (it *OCR2DRRegistryUnpausedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type OCR2DRRegistryUnpaused struct {
+	Account common.Address
+	Raw     types.Log
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistryFilterer) FilterUnpaused(opts *bind.FilterOpts) (*OCR2DRRegistryUnpausedIterator, error) {
+
+	logs, sub, err := _OCR2DRRegistry.contract.FilterLogs(opts, "Unpaused")
+	if err != nil {
+		return nil, err
+	}
+	return &OCR2DRRegistryUnpausedIterator{contract: _OCR2DRRegistry.contract, event: "Unpaused", logs: logs, sub: sub}, nil
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistryFilterer) WatchUnpaused(opts *bind.WatchOpts, sink chan<- *OCR2DRRegistryUnpaused) (event.Subscription, error) {
+
+	logs, sub, err := _OCR2DRRegistry.contract.WatchLogs(opts, "Unpaused")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(OCR2DRRegistryUnpaused)
+				if err := _OCR2DRRegistry.contract.UnpackLog(event, "Unpaused", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistryFilterer) ParseUnpaused(log types.Log) (*OCR2DRRegistryUnpaused, error) {
+	event := new(OCR2DRRegistryUnpaused)
+	if err := _OCR2DRRegistry.contract.UnpackLog(event, "Unpaused", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type GetConfig struct {
 	MaxGasLimit                uint32
 	StalenessSeconds           uint32
@@ -2673,6 +2812,8 @@ func (_OCR2DRRegistry *OCR2DRRegistry) ParseLog(log types.Log) (generated.Abigen
 		return _OCR2DRRegistry.ParseSubscriptionOwnerTransferRequested(log)
 	case _OCR2DRRegistry.abi.Events["SubscriptionOwnerTransferred"].ID:
 		return _OCR2DRRegistry.ParseSubscriptionOwnerTransferred(log)
+	case _OCR2DRRegistry.abi.Events["Unpaused"].ID:
+		return _OCR2DRRegistry.ParseUnpaused(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
@@ -2739,6 +2880,10 @@ func (OCR2DRRegistrySubscriptionOwnerTransferred) Topic() common.Hash {
 	return common.HexToHash("0x6f1dc65165ffffedfd8e507b4a0f1fcfdada045ed11f6c26ba27cedfe87802f0")
 }
 
+func (OCR2DRRegistryUnpaused) Topic() common.Hash {
+	return common.HexToHash("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa")
+}
+
 func (_OCR2DRRegistry *OCR2DRRegistry) Address() common.Address {
 	return _OCR2DRRegistry.address
 }
@@ -2773,6 +2918,8 @@ type OCR2DRRegistryInterface interface {
 	IsAuthorizedSender(opts *bind.CallOpts, sender common.Address) (bool, error)
 
 	Owner(opts *bind.CallOpts) (common.Address, error)
+
+	Paused(opts *bind.CallOpts) (bool, error)
 
 	PendingRequestExists(opts *bind.CallOpts, subscriptionId uint64) (bool, error)
 
@@ -2899,6 +3046,12 @@ type OCR2DRRegistryInterface interface {
 	WatchSubscriptionOwnerTransferred(opts *bind.WatchOpts, sink chan<- *OCR2DRRegistrySubscriptionOwnerTransferred, subscriptionId []uint64) (event.Subscription, error)
 
 	ParseSubscriptionOwnerTransferred(log types.Log) (*OCR2DRRegistrySubscriptionOwnerTransferred, error)
+
+	FilterUnpaused(opts *bind.FilterOpts) (*OCR2DRRegistryUnpausedIterator, error)
+
+	WatchUnpaused(opts *bind.WatchOpts, sink chan<- *OCR2DRRegistryUnpaused) (event.Subscription, error)
+
+	ParseUnpaused(log types.Log) (*OCR2DRRegistryUnpaused, error)
 
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 
