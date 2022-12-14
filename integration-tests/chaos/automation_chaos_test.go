@@ -1,31 +1,38 @@
 package chaos
 
-//revive:disable:dot-imports
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+)
 
-	"github.com/onsi/gomega"
+const (
+	// ChaosGroupMinorityAutomation a group of faulty nodes, even if they fail OCR must work
+	ChaosGroupMinorityAutomation = "chaosGroupMinority"
+	// ChaosGroupMajorityAutomation a group of nodes that are working even if minority fails
+	ChaosGroupMajorityAutomation = "chaosGroupMajority"
+	// ChaosGroupMajorityAutomationPlus a group of nodes that are majority + 1
+	ChaosGroupMajorityAutomationPlus = "chaosGroupMajority"
 )
 
 var (
@@ -116,7 +123,7 @@ func TestAutomationChaosFailMinorityNodes(t *testing.T) {
 		chainlink.New(0, defaultAutomationSettings),
 		chaos.NewFailPods,
 		&chaos.Props{
-			LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+			LabelsSelector: &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
 			DurationStr:    "1m",
 		})
 }
@@ -130,7 +137,7 @@ func TestAutomationChaosFailMajorityNodes(t *testing.T) {
 		chainlink.New(0, defaultAutomationSettings),
 		chaos.NewFailPods,
 		&chaos.Props{
-			LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+			LabelsSelector: &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
 			DurationStr:    "1m",
 		})
 }
@@ -144,7 +151,7 @@ func TestAutomationChaosFailMajorityDB(t *testing.T) {
 		chainlink.New(0, defaultAutomationSettings),
 		chaos.NewFailPods,
 		&chaos.Props{
-			LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+			LabelsSelector: &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
 			DurationStr:    "1m",
 			ContainerNames: &[]*string{a.Str("chainlink-db")},
 		})
@@ -159,8 +166,8 @@ func TestAutomationChaosFailMajorityNetwork(t *testing.T) {
 		chainlink.New(0, defaultAutomationSettings),
 		chaos.NewNetworkPartition,
 		&chaos.Props{
-			FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-			ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+			FromLabels:  &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
+			ToLabels:    &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
 			DurationStr: "1m",
 		})
 }
@@ -175,7 +182,7 @@ func TestAutomationChaosFailBlockchainNode(t *testing.T) {
 		chaos.NewNetworkPartition,
 		&chaos.Props{
 			FromLabels:  &map[string]*string{"app": a.Str("geth")},
-			ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+			ToLabels:    &map[string]*string{ChaosGroupMajorityAutomationPlus: a.Str("1")},
 			DurationStr: "1m",
 		})
 }
@@ -193,21 +200,23 @@ func setupAutomationChaosTest(
 	testEnvironment := environment.
 		New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("chaos-automation-%s", testName),
-			TTL:             time.Hour * 1}).
+			TTL:             time.Hour * 1,
+		}).
 		AddHelm(networkChart).
 		AddHelm(clChart).
 		AddChart(blockscout.New(&blockscout.Props{
 			Name:    "geth-blockscout",
 			WsURL:   activeEVMNetwork.URL,
-			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+			HttpURL: activeEVMNetwork.HTTPURLs[0],
+		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
 
-	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
+	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinorityAutomation)
 	require.NoError(t, err)
-	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
+	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajorityAutomation)
 	require.NoError(t, err)
-	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
+	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityAutomationPlus)
 	require.NoError(t, err)
 
 	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
