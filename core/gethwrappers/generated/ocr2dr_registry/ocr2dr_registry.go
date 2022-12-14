@@ -648,6 +648,18 @@ func (_OCR2DRRegistry *OCR2DRRegistryTransactorSession) OwnerCancelSubscription(
 	return _OCR2DRRegistry.Contract.OwnerCancelSubscription(&_OCR2DRRegistry.TransactOpts, subscriptionId)
 }
 
+func (_OCR2DRRegistry *OCR2DRRegistryTransactor) Pause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _OCR2DRRegistry.contract.Transact(opts, "pause")
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistrySession) Pause() (*types.Transaction, error) {
+	return _OCR2DRRegistry.Contract.Pause(&_OCR2DRRegistry.TransactOpts)
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistryTransactorSession) Pause() (*types.Transaction, error) {
+	return _OCR2DRRegistry.Contract.Pause(&_OCR2DRRegistry.TransactOpts)
+}
+
 func (_OCR2DRRegistry *OCR2DRRegistryTransactor) RecoverFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
 	return _OCR2DRRegistry.contract.Transact(opts, "recoverFunds", to)
 }
@@ -742,6 +754,18 @@ func (_OCR2DRRegistry *OCR2DRRegistrySession) TransferOwnership(to common.Addres
 
 func (_OCR2DRRegistry *OCR2DRRegistryTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
 	return _OCR2DRRegistry.Contract.TransferOwnership(&_OCR2DRRegistry.TransactOpts, to)
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistryTransactor) Unpause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _OCR2DRRegistry.contract.Transact(opts, "unpause")
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistrySession) Unpause() (*types.Transaction, error) {
+	return _OCR2DRRegistry.Contract.Unpause(&_OCR2DRRegistry.TransactOpts)
+}
+
+func (_OCR2DRRegistry *OCR2DRRegistryTransactorSession) Unpause() (*types.Transaction, error) {
+	return _OCR2DRRegistry.Contract.Unpause(&_OCR2DRRegistry.TransactOpts)
 }
 
 type OCR2DRRegistryAuthorizedSendersChangedIterator struct {
@@ -2941,6 +2965,8 @@ type OCR2DRRegistryInterface interface {
 
 	OwnerCancelSubscription(opts *bind.TransactOpts, subscriptionId uint64) (*types.Transaction, error)
 
+	Pause(opts *bind.TransactOpts) (*types.Transaction, error)
+
 	RecoverFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
 	RemoveConsumer(opts *bind.TransactOpts, subscriptionId uint64, consumer common.Address) (*types.Transaction, error)
@@ -2956,6 +2982,8 @@ type OCR2DRRegistryInterface interface {
 	TimeoutRequests(opts *bind.TransactOpts, requestIdsToTimeout [][32]byte) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+
+	Unpause(opts *bind.TransactOpts) (*types.Transaction, error)
 
 	FilterAuthorizedSendersChanged(opts *bind.FilterOpts) (*OCR2DRRegistryAuthorizedSendersChangedIterator, error)
 

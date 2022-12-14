@@ -208,9 +208,13 @@ contract OCR2DRRegistry is
     );
   }
 
-  function _pause() internal override onlyOwner {}
+  function pause() external onlyOwner {
+    _pause();
+  }
 
-  function _unpause() internal override onlyOwner {}
+  function unpause() external onlyOwner {
+    _unpause();
+  }
 
   function getTotalBalance() external view returns (uint256) {
     return s_totalBalance;
