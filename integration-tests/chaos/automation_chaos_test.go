@@ -1,12 +1,14 @@
-package chaos_test
+package chaos
 
 //revive:disable:dot-imports
 import (
 	"context"
+	"fmt"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
 	"math/big"
-	"strconv"
+	"testing"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -23,8 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 var (
@@ -101,190 +102,192 @@ type KeeperConsumerContracts int32
 const (
 	BasicCounter KeeperConsumerContracts = iota
 
-	defaultUpkeepGasLimit             = uint32(2500000)
-	defaultLinkFunds                  = int64(9e18)
-	defaultUpkeepsToDeploy            = 10
-	numUpkeepsAllowedForStragglingTxs = 6
-	expectedData                      = "abcdef"
+	defaultUpkeepGasLimit = uint32(2500000)
+	defaultLinkFunds      = int64(9e18)
+	numberOfUpkeeps       = 2
 )
 
-var _ = Describe("Automation chaos test @chaos-automation", func() {
-	numberOfUpkeeps := 2
-	var (
-		testScenarios = []TableEntry{
-			Entry("Must survive minority removal for 1m @chaos-automation-fail-minority",
-				eth.New(defaultEthereumSettings),
-				chainlink.New(0, defaultAutomationSettings),
-				chaos.NewFailPods,
-				&chaos.Props{
-					LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
-					DurationStr:    "1m",
-				},
-			),
-			Entry("Must recover from majority removal @chaos-automation-fail-majority",
-				eth.New(defaultEthereumSettings),
-				chainlink.New(0, defaultAutomationSettings),
-				chaos.NewFailPods,
-				&chaos.Props{
-					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-					DurationStr:    "1m",
-				},
-			),
-			Entry("Must recover from majority DB failure @chaos-automation-fail-majority-db",
-				eth.New(defaultEthereumSettings),
-				chainlink.New(0, defaultAutomationSettings),
-				chaos.NewFailPods,
-				&chaos.Props{
-					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-					DurationStr:    "1m",
-					ContainerNames: &[]*string{a.Str("chainlink-db")},
-				},
-			),
-			Entry("Must recover from majority network failure @chaos-automation-fail-majority-network",
-				eth.New(defaultEthereumSettings),
-				chainlink.New(0, defaultAutomationSettings),
-				chaos.NewNetworkPartition,
-				&chaos.Props{
-					FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-					ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
-					DurationStr: "1m",
-				},
-			),
-			Entry("Must recover from blockchain node network failure @chaos-automation-fail-blockchain-node",
-				eth.New(defaultEthereumSettings),
-				chainlink.New(0, defaultAutomationSettings),
-				chaos.NewNetworkPartition,
-				&chaos.Props{
-					FromLabels:  &map[string]*string{"app": a.Str("geth")},
-					ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
-					DurationStr: "1m",
-				},
-			),
-		}
+func TestAutomationChaosFailMinorityNodes(t *testing.T) {
+	t.Parallel()
+	setupAutomationChaosTest(
+		t,
+		"fail-minority-nodes",
+		eth.New(defaultEthereumSettings),
+		chainlink.New(0, defaultAutomationSettings),
+		chaos.NewFailPods,
+		&chaos.Props{
+			LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+			DurationStr:    "1m",
+		})
+}
 
-		testEnvironment *environment.Environment
-		chainlinkNodes  []*client.Chainlink
-		chainClient     blockchain.EVMClient
-		registry        contracts.KeeperRegistry
-		registrar       contracts.KeeperRegistrar
-		consumers       []contracts.KeeperConsumer
-		upkeepIDs       []*big.Int
+func TestAutomationChaosFailMajorityNodes(t *testing.T) {
+	t.Parallel()
+	setupAutomationChaosTest(
+		t,
+		"fail-majority-nodes",
+		eth.New(defaultEthereumSettings),
+		chainlink.New(0, defaultAutomationSettings),
+		chaos.NewFailPods,
+		&chaos.Props{
+			LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+			DurationStr:    "1m",
+		})
+}
 
-		//chaosStartRound int64 = 1
-		//chaosEndRound   int64 = 4
-		//chaosApplied          = false
-	)
+func TestAutomationChaosFailMajorityDB(t *testing.T) {
+	t.Parallel()
+	setupAutomationChaosTest(
+		t,
+		"fail-majority-db",
+		eth.New(defaultEthereumSettings),
+		chainlink.New(0, defaultAutomationSettings),
+		chaos.NewFailPods,
+		&chaos.Props{
+			LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+			DurationStr:    "1m",
+			ContainerNames: &[]*string{a.Str("chainlink-db")},
+		})
+}
 
-	AfterEach(func() {
-		err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+func TestAutomationChaosFailMajorityNetwork(t *testing.T) {
+	t.Parallel()
+	setupAutomationChaosTest(
+		t,
+		"fail-majority-network",
+		eth.New(defaultEthereumSettings),
+		chainlink.New(0, defaultAutomationSettings),
+		chaos.NewNetworkPartition,
+		&chaos.Props{
+			FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
+			ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+			DurationStr: "1m",
+		})
+}
+
+func TestAutomationChaosFailBlockchainNode(t *testing.T) {
+	t.Parallel()
+	setupAutomationChaosTest(
+		t,
+		"fail-blockchain-node",
+		eth.New(defaultEthereumSettings),
+		chainlink.New(0, defaultAutomationSettings),
+		chaos.NewNetworkPartition,
+		&chaos.Props{
+			FromLabels:  &map[string]*string{"app": a.Str("geth")},
+			ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+			DurationStr: "1m",
+		})
+}
+
+func setupAutomationChaosTest(
+	t *testing.T,
+	testName string,
+	networkChart environment.ConnectedChart,
+	clChart environment.ConnectedChart,
+	chaosFunc chaos.ManifestFunc,
+	chaosProps *chaos.Props,
+) {
+	network := networks.SelectedNetwork
+
+	testEnvironment := environment.
+		New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("chaos-automation-%s", testName),
+			TTL:             time.Hour * 1}).
+		AddHelm(networkChart).
+		AddHelm(clChart).
+		AddChart(blockscout.New(&blockscout.Props{
+			Name:    "geth-blockscout",
+			WsURL:   activeEVMNetwork.URL,
+			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error setting up test environment")
+
+	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
+	require.NoError(t, err)
+	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
+	require.NoError(t, err)
+	err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
+	require.NoError(t, err)
+
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	require.NoError(t, err, "Error connecting to blockchain")
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	require.NoError(t, err, "Error building contract deployer")
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
+	chainClient.ParallelTransactions(true)
+
+	// Register cleanup for any test
+	t.Cleanup(func() {
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		require.NoError(t, err, "Error tearing down environment")
 	})
 
-	DescribeTable("Automation chaos on different EVM networks", func(
-		networkChart environment.ConnectedChart,
-		clChart environment.ConnectedChart,
-		chaosFunc chaos.ManifestFunc,
-		chaosProps *chaos.Props,
-	) {
-		By("Deploying the environment")
-		testEnvironment = environment.
-			New(&environment.Config{
-				NamespacePrefix: "chaos-automation",
-				TTL:             time.Hour * 1}).
-			AddHelm(networkChart).
-			AddHelm(clChart).
-			AddChart(blockscout.New(&blockscout.Props{
-				Name:    "geth-blockscout",
-				WsURL:   activeEVMNetwork.URL,
-				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
-		err := testEnvironment.Run()
-		Expect(err).ShouldNot(HaveOccurred())
+	txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
+	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
+	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+	require.NoError(t, err, "Error funding Chainlink nodes")
 
-		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
-		Expect(err).ShouldNot(HaveOccurred())
-		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
-		Expect(err).ShouldNot(HaveOccurred())
-		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
-		Expect(err).ShouldNot(HaveOccurred())
+	linkToken, err := contractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Error deploying LINK token")
 
-		By("Connecting to launched resources")
-		chainClient, err = blockchain.NewEVMClient(activeEVMNetwork, testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-		contractDeployer, err := contracts.NewContractDeployer(chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-
-		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-
-		chainClient.ParallelTransactions(true)
-
-		linkToken, err := contractDeployer.DeployLinkTokenContract()
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-
-		By("Funding Chainlink nodes")
-		txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-		Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
-		Expect(err).ShouldNot(HaveOccurred())
-
-		By("Deploy Registry and Registrar")
-		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
-			ethereum.RegistryVersion_2_0,
-			defaultOCRRegistryConfig,
-			numberOfUpkeeps,
-			linkToken,
-			contractDeployer,
-			chainClient,
-		)
-
-		By("Create OCR Automation Jobs")
-		actions.CreateOCRKeeperJobs(chainlinkNodes, registry.Address(), activeEVMNetwork.ChainID, 0)
-		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := actions.BuildAutoOCR2ConfigVars(nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
-		err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
-		Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
-		Expect(chainClient.WaitForEvents()).ShouldNot(HaveOccurred(), "Waiting for config to be set")
-
-		By("Deploy Consumers")
-		consumers, upkeepIDs = actions.DeployConsumers(
-			registry,
-			registrar,
-			linkToken,
-			contractDeployer,
-			chainClient,
-			numberOfUpkeeps,
-			big.NewInt(defaultLinkFunds),
-			defaultUpkeepGasLimit,
-		)
-
-		By("watches all the registered upkeeps perform and then cancels them from the registry")
-		Eventually(func(g Gomega) {
-			// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
-			for i := 0; i < len(upkeepIDs); i++ {
-				counter, err := consumers[i].Counter(context.Background())
-				g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-				expect := 5
-				g.Expect(counter.Int64()).Should(BeNumerically(">=", int64(expect)),
-					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
-			}
-		}, "5m", "1s").Should(Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
-
-		_, err = testEnvironment.Chaos.Run(chaosFunc(testEnvironment.Cfg.Namespace, chaosProps))
-
-		// Should be able to do perform upkeeps 5 times within 3m after introducing chaos
-		Eventually(func(g Gomega) {
-			// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
-			for i := 0; i < len(upkeepIDs); i++ {
-				counter, err := consumers[i].Counter(context.Background())
-				g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-				expect := 10
-				g.Expect(counter.Int64()).Should(BeNumerically(">=", int64(expect)),
-					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
-			}
-		}, "3m", "1s").Should(Succeed())
-	},
-		testScenarios,
+	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
+		t,
+		ethereum.RegistryVersion_2_0,
+		defaultOCRRegistryConfig,
+		numberOfUpkeeps,
+		linkToken,
+		contractDeployer,
+		chainClient,
 	)
-})
+
+	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+	nodesWithoutBootstrap := chainlinkNodes[1:]
+	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+	err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
+	require.NoError(t, err, "Registry config should be be set successfully")
+	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
+
+	consumers, upkeepIDs := actions.DeployConsumers(
+		t,
+		registry,
+		registrar,
+		linkToken,
+		contractDeployer,
+		chainClient,
+		numberOfUpkeeps,
+		big.NewInt(defaultLinkFunds),
+		defaultUpkeepGasLimit,
+	)
+
+	log.Info().Msg("Waiting for all upkeeps to be performed")
+
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+		for i := 0; i < len(upkeepIDs); i++ {
+			counter, err := consumers[i].Counter(context.Background())
+			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+			expect := 5
+			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+		}
+	}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+
+	_, err = testEnvironment.Chaos.Run(chaosFunc(testEnvironment.Cfg.Namespace, chaosProps))
+
+	gom.Eventually(func(g gomega.Gomega) {
+		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+		for i := 0; i < len(upkeepIDs); i++ {
+			counter, err := consumers[i].Counter(context.Background())
+			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+			expect := 10
+			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+		}
+	}, "3m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+
+}
