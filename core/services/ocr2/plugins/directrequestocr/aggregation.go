@@ -10,7 +10,7 @@ import (
 )
 
 func CanAggregate(N int, F int, observations []*ProcessedRequest) bool {
-	return N > 0 && F >= 0 && len(observations) > 0 && len(observations) <= N && len(observations) >= N-F
+	return N > 0 && F >= 0 && len(observations) > 0 && len(observations) <= N && len(observations) >= 2*F+1
 }
 
 func Aggregate(aggMethod config.AggregationMethod, observations []*ProcessedRequest) (*ProcessedRequest, error) {
