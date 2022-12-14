@@ -61,7 +61,7 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, header
 		h.Logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, nil, err
 	}
-	defer h.Logger.ErrorIfClosing(r.Body, "SendRequest response body")
+	defer logger.Sugared(h.Logger).ErrorIfFn(r.Body.Close, "Error closing SendRequest response body")
 
 	statusCode = r.StatusCode
 	elapsed := time.Since(start)

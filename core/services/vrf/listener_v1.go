@@ -45,7 +45,7 @@ type listenerV1 struct {
 	utils.StartStopOnce
 
 	cfg             Config
-	l               logger.Logger
+	l               logger.SugaredLogger
 	logBroadcaster  log.Broadcaster
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner

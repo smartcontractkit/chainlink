@@ -632,6 +632,22 @@ describe('OCR2DRRegistry', () => {
           .sendSimpleRequestWithJavaScript(`return 'hello world'`, subId),
       ).to.emit(registry, 'BillingStart')
     })
+
+    it('fails multiple requests if the subscription does not have the funds for the estimated cost', async () => {
+      client
+        .connect(consumer)
+        .sendSimpleRequestWithJavaScript(`return 'hello world'`, subId, {
+          gasPrice: 1000000008,
+        })
+
+      await expect(
+        client
+          .connect(subOwner)
+          .sendSimpleRequestWithJavaScript(`return 'hello world'`, subId, {
+            gasPrice: 1000000008,
+          }),
+      ).to.be.revertedWith(`InsufficientBalance()`)
+    })
   })
 
   describe('#fulfillAndBill', () => {
@@ -653,7 +669,7 @@ describe('OCR2DRRegistry', () => {
         .connect(subOwner)
         .transferAndCall(
           registry.address,
-          BigNumber.from('54666805176129187'),
+          BigNumber.from('1000000000000000000'),
           ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
         )
       await registry.connect(subOwner).addConsumer(subId, client.address)
@@ -695,7 +711,7 @@ describe('OCR2DRRegistry', () => {
       await expect(
         oracle
           .connect(roles.oracleNode)
-          .callReport(report, { gasLimit: 10_000_000 }),
+          .callReport(report, { gasLimit: 500_000 }),
       ).to.emit(registry, 'BillingEnd')
     })
 
@@ -714,7 +730,7 @@ describe('OCR2DRRegistry', () => {
       await expect(
         oracle
           .connect(roles.oracleNode)
-          .callReport(report, { gasLimit: 10_000_000 }),
+          .callReport(report, { gasLimit: 500_000 }),
       )
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)

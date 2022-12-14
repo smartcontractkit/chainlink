@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -377,10 +378,6 @@ func (g *generalConfig) EthereumURL() string {
 	return ""
 }
 
-func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return *g.c.Keeper.UpkeepCheckGasPriceEnabled
-}
-
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
 	return *p.V1.Enabled || *p.V2.Enabled
@@ -613,6 +610,10 @@ func (g *generalConfig) JSONConsole() bool {
 
 func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
 	return g.c.JobPipeline.MaxRunDuration.Duration()
+}
+
+func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return *g.c.JobPipeline.MaxSuccessfulRuns
 }
 
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
@@ -973,6 +974,7 @@ func (g *generalConfig) SessionOptions() sessions.Options {
 		Secure:   g.SecureCookies(),
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 

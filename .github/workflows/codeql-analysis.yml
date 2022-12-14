@@ -38,17 +38,17 @@ jobs:
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@678fc3afe258fb2e0cdc165ccf77b85719de7b3c # v2.1.33
+        uses: github/codeql-action/init@a669cc5936cc5e1b6a362ec1ff9e410dc570d190 # v2.1.36
         with:
           languages: ${{ matrix.language }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@678fc3afe258fb2e0cdc165ccf77b85719de7b3c # v2.1.33
+        uses: github/codeql-action/analyze@a669cc5936cc5e1b6a362ec1ff9e410dc570d190 # v2.1.36
 
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

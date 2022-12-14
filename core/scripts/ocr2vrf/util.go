@@ -472,6 +472,7 @@ func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e help
 func configureEnvironmentVariables(useForwarder bool) {
 	helpers.PanicErr(os.Setenv("ETH_USE_FORWARDERS", fmt.Sprintf("%t", useForwarder)))
 	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
+	helpers.PanicErr(os.Setenv("FEATURE_LOG_POLLER", "true"))
 	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
 	helpers.PanicErr(os.Setenv("P2P_NETWORKING_STACK", "V2"))
 	helpers.PanicErr(os.Setenv("P2PV2_LISTEN_ADDRESSES", "127.0.0.1:8000"))

@@ -9,11 +9,11 @@ jobs:
       - name: Check out Code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Run actionlint
-        uses: reviewdog/action-actionlint@7556c222a14ff4583c0f772caeb7f65bb3816dc1 # v1.34.0
+        uses: reviewdog/action-actionlint@4decc2a20473dcd14c8c3dc8a27da19d95bb9f59 # v1.34.2
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

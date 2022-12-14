@@ -353,7 +353,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
-			return 2, highestHead.Load(), utils.NewBigI(0)
+			return 2, highestHead.Load(), nil
 		}
 
 		dial(t, n)
@@ -415,7 +415,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
-			return 2, highestHead.Load(), utils.NewBigI(0)
+			return 2, highestHead.Load(), nil
 		}
 
 		dial(t, n)
@@ -474,7 +474,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
-			return 1, highestHead.Load(), utils.NewBigI(0)
+			return 1, highestHead.Load(), nil
 		}
 
 		dial(t, n)
@@ -631,7 +631,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			s, n, td := n.StateAndLatest()
+			return s == NodeStateAlive && n != -1 && td != nil
 		})
 	})
 
@@ -660,7 +661,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
-			return 2, stall + int64(cfg.SyncThreshold), utils.NewBigI(0)
+			return 2, stall + int64(cfg.SyncThreshold), nil
 		}
 
 		start(t, n)
@@ -688,7 +689,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			s, n, td := n.StateAndLatest()
+			return s == NodeStateAlive && n != -1 && td != nil
 		})
 	})
 

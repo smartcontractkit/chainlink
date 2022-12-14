@@ -75,7 +75,7 @@ type FluxMonitor struct {
 	logBroadcaster    log.Broadcaster
 	chainID           *big.Int
 
-	logger logger.Logger
+	logger logger.SugaredLogger
 
 	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
@@ -125,7 +125,7 @@ func NewFluxMonitor(
 		flags:             flags,
 		logBroadcaster:    logBroadcaster,
 		fluxAggregator:    fluxAggregator,
-		logger:            fmLogger,
+		logger:            logger.Sugared(fmLogger),
 		chainID:           chainID,
 		backlog: utils.NewBoundedPriorityQueue[log.Broadcast](map[uint]int{
 			// We want reconnecting nodes to be able to submit to a round
@@ -194,7 +194,7 @@ func NewFromJobSpec(
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress(), ethClient)
-	lggr.ErrorIf(err,
+	logger.Sugared(lggr).ErrorIf(err,
 		fmt.Sprintf(
 			"Error creating Flags contract instance, check address: %s",
 			cfg.FlagsContractAddress(),

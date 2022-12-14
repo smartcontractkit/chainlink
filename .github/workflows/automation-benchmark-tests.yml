@@ -82,9 +82,8 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1533bff48f8a642089705dcc2dbebb0934ff7d9d # v2.0.26
         with:
-          test_command_to_run: make test_benchmark_automation
+          test_command_to_run: cd integration-tests && go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
-          test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
@@ -96,7 +95,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@e3e99d747983c6496cfb3b3e24d290bc474f9a57
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

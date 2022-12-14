@@ -57,7 +57,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 			MaxQueryLengthBytes:       10_000,
 			MaxObservationLengthBytes: 10_000,
 			MaxReportLengthBytes:      10_000,
-			MaxRequestBatchSize:       5,
+			MaxRequestBatchSize:       4,
 			DefaultAggregationMethod:  drconfig.AggregationMethod_AGGREGATION_MODE,
 			UniqueReports:             true,
 		},
@@ -104,7 +104,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 }
 
 func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
-	var maxGasLimit = uint32(1_000_000)
+	var maxGasLimit = uint32(450_000)
 	var stalenessSeconds = uint32(86_400)
 	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2*2_100 - 15_000 + 7_315)
 	var weiPerUnitLink = big.NewInt(5000000000000000)
