@@ -79,7 +79,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain); err != nil {
+	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain, lggr); err != nil {
 		return nil, nil, nil, nil, err
 	}
 

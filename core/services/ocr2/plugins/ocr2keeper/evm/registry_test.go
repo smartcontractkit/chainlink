@@ -8,12 +8,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
@@ -41,12 +44,18 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: big.NewInt(id)}
 			}
 
+			mht := new(htmocks.HeadTracker)
+
 			rg := &EvmRegistry{
-				HeadWatcher: HeadWatcher{
-					latest: test.LatestHead,
+				HeadProvider: HeadProvider{
+					ht: mht,
 				},
 				active: actives,
 			}
+
+			mht.On("LatestChain").Return(&evmtypes.Head{
+				Number: test.LatestHead,
+			})
 
 			keys, err := rg.GetActiveUpkeepKeys(context.Background(), types.BlockKey("0"))
 

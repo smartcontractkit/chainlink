@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -36,9 +36,14 @@ var (
 	ErrABINotParsable              = fmt.Errorf("error parsing abi")
 	ActiveUpkeepIDBatchSize  int64 = 1000
 	separator                      = "|"
+	reInitializationDelay          = 3 * time.Minute
 )
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain) (*EvmRegistry, error) {
+type LatestBlockGetter interface {
+	LatestBlock() int64
+}
+
+func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
 	abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -50,10 +55,11 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain) (*EvmRegis
 	}
 
 	r := &EvmRegistry{
-		HeadWatcher: HeadWatcher{
-			client:  client.Client(),
-			chReady: make(chan struct{}, 1),
+		HeadProvider: HeadProvider{
+			ht: client.HeadTracker(),
+			hb: client.HeadBroadcaster(),
 		},
+		lggr:     lggr,
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),
@@ -61,7 +67,6 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain) (*EvmRegis
 		abi:      abi,
 		packer:   &evmRegistryPackerV2_0{abi: abi},
 		headFunc: func(types.BlockKey) {},
-		active:   make(map[int64]activeUpkeep),
 		chLog:    make(chan logpoller.Log, 1000),
 	}
 
@@ -88,32 +93,36 @@ var upkeepActiveEvents = []common.Hash{
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
 }
 
-type activeUpkeep struct {
-	ID *big.Int
-}
-
 type checkResult struct {
 	ur  []types.UpkeepResult
 	err error
 }
 
+type activeUpkeep struct {
+	ID              *big.Int
+	PerformGasLimit uint32
+	CheckData       []byte
+}
+
 type EvmRegistry struct {
-	HeadWatcher
+	HeadProvider
 	sync          utils.StartStopOnce
-	mu            sync.RWMutex
+	lggr          logger.Logger
 	poller        logpoller.LogPoller
-	filterID      int
-	lastPollBlock int64
 	addr          common.Address
 	client        client.Client
 	registry      *keeper_registry_wrapper2_0.KeeperRegistry
 	abi           abi.ABI
+	packer        *evmRegistryPackerV2_0
+	chLog         chan logpoller.Log
+	reInit        *time.Timer
+	mu            sync.RWMutex
+	filterID      int
+	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
 	active        map[int64]activeUpkeep
-	packer        *evmRegistryPackerV2_0
 	headFunc      func(types.BlockKey)
-	chLog         chan logpoller.Log
 	runState      int
 	runError      error
 }
@@ -125,12 +134,15 @@ func (r *EvmRegistry) GetActiveUpkeepKeys(context.Context, types.BlockKey) ([]ty
 		return nil, fmt.Errorf("%w: service probably not yet started", ErrHeadNotAvailable)
 	}
 
+	r.mu.RLock()
 	keys := make([]types.UpkeepKey, len(r.active))
 	var i int
 	for _, value := range r.active {
 		keys[i] = blockAndIdToKey(big.NewInt(r.LatestBlock()), value.ID)
 		i++
 	}
+	r.mu.RUnlock()
+
 	return keys, nil
 }
 
@@ -162,46 +174,69 @@ func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdenti
 
 func (r *EvmRegistry) Start(ctx context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
-		ctx, cancel := context.WithCancel(ctx)
-		r.ctx = ctx
-		r.cancel = cancel
-		if err := r.initialize(); err != nil {
-			return err
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.ctx, r.cancel = context.WithCancel(context.Background())
+		r.reInit = time.NewTimer(reInitializationDelay)
+
+		// initialize the upkeep keys; if the reInit timer returns, do it again
+		{
+			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
+				err := f()
+				if err != nil {
+					lggr.Errorf("failed to initialize upkeeps", err)
+				}
+
+				for {
+					select {
+					case <-tmr.C:
+						err = f()
+						if err != nil {
+							lggr.Errorf("failed to re-initialize upkeeps", err)
+						}
+						tmr.Reset(reInitializationDelay)
+					case <-cx.Done():
+						return
+					}
+				}
+			}(r.ctx, r.reInit, r.lggr, r.initialize)
 		}
 
 		// start polling logs on an interval
 		{
-			go func(ctx context.Context, f func() error) {
+			go func(cx context.Context, lggr logger.Logger, f func() error) {
 				ticker := time.NewTicker(time.Second)
 
 				for {
 					select {
 					case <-ticker.C:
-						_ = f()
-					case <-ctx.Done():
+						err := f()
+						if err != nil {
+							lggr.Errorf("failed to poll logs for upkeeps", err)
+						}
+					case <-cx.Done():
 						ticker.Stop()
 						return
 					}
 				}
-			}(r.ctx, r.pollLogs)
-		}
-
-		if err := r.Watch(ctx); err != nil {
-			return err
+			}(r.ctx, r.lggr, r.pollLogs)
 		}
 
 		// run process to process logs from log channel
 		{
-			go func(ctx context.Context, ch chan logpoller.Log, f func(logpoller.Log) error) {
+			go func(cx context.Context, ch chan logpoller.Log, lggr logger.Logger, f func(logpoller.Log) error) {
 				for {
 					select {
-					case log := <-ch:
-						_ = f(log)
-					case <-ctx.Done():
+					case l := <-ch:
+						err := f(l)
+						if err != nil {
+							lggr.Errorf("failed to process log for upkeep", err)
+						}
+					case <-cx.Done():
 						return
 					}
 				}
-			}(r.ctx, r.chLog, r.processUpkeepStateLog)
+			}(r.ctx, r.chLog, r.lggr, r.processUpkeepStateLog)
 		}
 
 		r.runState = 1
@@ -211,6 +246,8 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 
 func (r *EvmRegistry) Close() error {
 	return r.sync.StopOnce("AutomationRegistry", func() error {
+		r.mu.Lock()
+		defer r.mu.Unlock()
 		r.cancel()
 		r.runState = 0
 		r.runError = nil
@@ -222,6 +259,9 @@ func (r *EvmRegistry) Close() error {
 }
 
 func (r *EvmRegistry) Ready() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	if r.runState == 1 {
 		return nil
 	}
@@ -229,6 +269,9 @@ func (r *EvmRegistry) Ready() error {
 }
 
 func (r *EvmRegistry) Healthy() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	if r.runState > 1 {
 		return fmt.Errorf("failed run state: %w", r.runError)
 	}
@@ -236,20 +279,39 @@ func (r *EvmRegistry) Healthy() error {
 }
 
 func (r *EvmRegistry) initialize() error {
-	startupCtx, cancel := context.WithTimeout(r.ctx, 10*time.Second)
+	startupCtx, cancel := context.WithTimeout(r.ctx, 30*time.Second)
 	defer cancel()
+
+	idMap := make(map[int64]activeUpkeep)
 
 	// get active upkeep ids from contract
 	ids, err := r.getLatestIDsFromContract(startupCtx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get ids from contract: %s", err)
 	}
 
-	for _, id := range ids {
-		r.active[id.Int64()] = activeUpkeep{
-			ID: id,
+	var offset int
+	for offset < len(ids) {
+		batch := 100
+		if len(ids)-offset < batch {
+			batch = len(ids) - offset
 		}
+
+		actives, err := r.getUpkeepConfigs(startupCtx, ids[offset:offset+batch])
+		if err != nil {
+			return fmt.Errorf("failed to get configs for id batch (length '%d'): %s", batch, err)
+		}
+
+		for _, active := range actives {
+			idMap[active.ID.Int64()] = active
+		}
+
+		offset += batch
 	}
+
+	r.mu.Lock()
+	r.active = idMap
+	r.mu.Unlock()
 
 	return nil
 }
@@ -306,13 +368,16 @@ func (r *EvmRegistry) registerEvents(addr common.Address) error {
 		Addresses: []common.Address{addr},
 	})
 	if err != nil {
+		r.mu.Lock()
 		r.filterID = filterID
+		r.mu.Unlock()
 	}
 	return err
 }
 
-func (r *EvmRegistry) processUpkeepStateLog(log logpoller.Log) error {
-	rawLog := log.ToGethLog()
+func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
+
+	rawLog := l.ToGethLog()
 	abilog, err := r.registry.ParseLog(rawLog)
 	if err != nil {
 		return err
@@ -333,49 +398,65 @@ func (r *EvmRegistry) processUpkeepStateLog(log logpoller.Log) error {
 		r.addToActive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryFundsAdded:
 		r.addToActive(l.Id)
-		// case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepCheckDataUpdated:
-		// case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
+	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepCheckDataUpdated:
+		r.addToActive(l.Id)
+	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
+		r.addToActive(l.Id)
 	}
 
 	return nil
 }
 
 func (r *EvmRegistry) removeFromActive(id *big.Int) {
-	if _, ok := r.active[id.Int64()]; ok {
-		delete(r.active, id.Int64())
-	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.active, id.Int64())
 }
 
 func (r *EvmRegistry) addToActive(id *big.Int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if _, ok := r.active[id.Int64()]; !ok {
-		r.active[id.Int64()] = activeUpkeep{
-			ID: id,
+		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
+		if err != nil {
+			return
 		}
+
+		if len(actives) != 1 {
+			return
+		}
+
+		r.active[id.Int64()] = actives[0]
 	}
 }
 
 func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
 	opts := bind.CallOpts{
-		Context: ctx,
+		Context:     ctx,
+		BlockNumber: nil,
 	}
 
-	if block == nil || block.Int64() == 0 {
-		if r.LatestBlock() == 0 {
-			// fetch the current block number so batched GetActiveUpkeepKeys calls can be performed on the same block
-			bl, err := r.poller.LatestBlock()
-			if err != nil {
-				return nil, fmt.Errorf("%w: %s: EVM failed to fetch block header", err, ErrRegistryCallFailure)
-			}
-
-			block = new(big.Int).SetInt64(bl)
+	// integration tests don't support pending state because the simulated
+	// backend doesn't support it yet. the following commented code shoule be
+	// used when pending state support is added.
+	/*
+		if block == nil || block.Int64() == 0 {
+			opts.Pending = true
+		} else if block.Int64() == r.LatestBlock() {
+			opts.Pending = true
 		} else {
-			block = new(big.Int).SetInt64(r.LatestBlock())
+			opts.BlockNumber = new(big.Int).Add(block, big.NewInt(1))
 		}
-		opts.Pending = true
-	} else if block.Int64() == r.LatestBlock() {
-		opts.Pending = true
+	*/
+
+	if block == nil || block.Int64() == 0 {
+		if r.LatestBlock() != 0 {
+			opts.BlockNumber = big.NewInt(r.LatestBlock())
+		}
 	} else {
-		opts.BlockNumber = new(big.Int).Add(block, big.NewInt(1))
+		opts.BlockNumber = block
 	}
 
 	return &opts, nil
@@ -389,13 +470,22 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 
 	state, err := r.registry.KeeperRegistryCaller.GetState(opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get contract state at block number %d", opts.BlockNumber.Int64())
+		n := "latest"
+		if opts.BlockNumber != nil {
+			n = fmt.Sprintf("%d", opts.BlockNumber.Int64())
+		}
+
+		return nil, fmt.Errorf("%w: failed to get contract state at block number '%s'", err, n)
 	}
 
-	ids := make([]*big.Int, 0)
+	ids := make([]*big.Int, 0, int(state.State.NumUpkeeps.Int64()))
 	for int64(len(ids)) < state.State.NumUpkeeps.Int64() {
 		startIndex := int64(len(ids))
 		maxCount := state.State.NumUpkeeps.Int64() - startIndex
+
+		if maxCount == 0 {
+			break
+		}
 
 		if maxCount > ActiveUpkeepIDBatchSize {
 			maxCount = ActiveUpkeepIDBatchSize
@@ -403,17 +493,10 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 
 		batchIDs, err := r.registry.KeeperRegistryCaller.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %d to %d (both inclusive)", startIndex, startIndex+maxCount-1)
+			return nil, fmt.Errorf("%w: failed to get active upkeep IDs from index %d to %d (both inclusive)", err, startIndex, startIndex+maxCount-1)
 		}
 
-		if len(batchIDs) == 0 {
-			break
-		}
-
-		buffer := make([]*big.Int, len(ids), len(ids)+len(batchIDs))
-		copy(ids, buffer)
-
-		ids = append(buffer, batchIDs...)
+		ids = append(ids, batchIDs...)
 	}
 
 	return ids, nil
@@ -434,6 +517,18 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 			err: err,
 		}
 		return
+	}
+
+	for i, res := range upkeepResults {
+		_, id, err := blockAndIdFromKey(res.Key)
+		if err != nil {
+			continue
+		}
+
+		up, ok := r.active[id.Int64()]
+		if ok {
+			upkeepResults[i].ExecuteGas = up.PerformGasLimit
+		}
 	}
 
 	chResult <- checkResult{
@@ -583,6 +678,71 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	}
 
 	return checkResults, nil
+}
+
+func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
+	if len(ids) == 0 {
+		return []activeUpkeep{}, nil
+	}
+
+	var (
+		uReqs    = make([]rpc.BatchElem, len(ids))
+		uResults = make([]*string, len(ids))
+	)
+
+	for i, id := range ids {
+		opts, err := r.buildCallOpts(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get call opts: %s", err)
+		}
+
+		payload, err := r.abi.Pack("getUpkeep", id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
+		}
+
+		var result string
+		uReqs[i] = rpc.BatchElem{
+			Method: "eth_call",
+			Args: []interface{}{
+				map[string]interface{}{
+					"to":   r.addr.Hex(),
+					"data": hexutil.Bytes(payload),
+				},
+				hexutil.EncodeBig(opts.BlockNumber),
+			},
+			Result: &result,
+		}
+
+		uResults[i] = &result
+	}
+
+	if err := r.client.BatchCallContext(ctx, uReqs); err != nil {
+		return nil, fmt.Errorf("rpc error: %s", err)
+	}
+
+	var (
+		err     error
+		results = make([]activeUpkeep, len(ids))
+	)
+
+	for i, req := range uReqs {
+		if req.Error != nil {
+			if strings.Contains(req.Error.Error(), "reverted") {
+				// NOTE: would we want to publish the fact that it is inactive?
+				continue
+			}
+			// some other error
+			multierr.AppendInto(&err, req.Error)
+		} else {
+			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to unpack result: %s", err)
+			}
+		}
+	}
+
+	return results, err
 }
 
 func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
