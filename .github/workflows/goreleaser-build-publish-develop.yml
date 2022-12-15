@@ -6,7 +6,7 @@ on:
       - develop
 
 jobs:
-  push-chainlink-develop-alt:
+  push-chainlink-develop-goreleaser:
     runs-on:
       labels: ubuntu20.04-16cores-64GB
     environment: build-develop
@@ -37,5 +37,5 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: push-chainlink-develop-alt
+          this-job-name: push-chainlink-develop-goreleaser
         continue-on-error: true
