@@ -81,8 +81,8 @@ func (lp *logPoller) GetCurrentBlock() int64 {
 	return lastProcessed.BlockNumber + 1
 }
 
-func (lp *logPoller) PollAndSavePendingLogs(ctx context.Context, currentBlockNumber int64) int64 {
-	lp.pollAndSavePendingLogs(ctx, currentBlockNumber)
+func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
+	lp.pollAndSaveLogs(ctx, currentBlockNumber)
 	return lp.GetCurrentBlock()
 }
 

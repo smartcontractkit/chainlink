@@ -219,7 +219,7 @@ func Test_EventualConsistency(t *testing.T) {
 	body.Transactions = types.Transactions{} // number of tx's must match # of logs for GetLogs() to succeed
 	rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
 
-	currentBlock := th.LogPoller.PollAndSavePendingLogs(ctx, 1)
+	currentBlock := th.LogPoller.PollAndSaveLogs(ctx, 1)
 	assert.Equal(t, int64(35), currentBlock)
 
 	// simluate logs becoming available

@@ -114,7 +114,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			ec.Commit()
 		}
 		currentBlock := int64(1)
-		currentBlock = lp.PollAndSavePendingLogs(testutils.Context(t), currentBlock)
+		currentBlock = lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
 		matchesGeth := func() bool {
 			// Check every block is identical
 			latest, err := ec.BlockByNumber(testutils.Context(t), nil)
@@ -163,14 +163,14 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				require.NoError(t, err)
 				t.Logf("New latest (%v, %x), latest parent %x)\n", latest.NumberU64(), latest.Hash(), latest.ParentHash())
 			}
-			currentBlock = lp.PollAndSavePendingLogs(testutils.Context(t), currentBlock)
+			currentBlock = lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
 		}
 		return matchesGeth()
 	}, gen.SliceOfN(numChainInserts, gen.UInt64Range(1, uint64(finalityDepth-1))))) // Max reorg depth is finality depth - 1
 	p.TestingRun(t)
 }
 
-func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
+func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 
 	// Set up a log poller listening for log emitter logs.
@@ -187,7 +187,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
 	// DB: empty
-	newStart := th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), 1)
+	newStart := th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
 	assert.Equal(t, int64(2), newStart)
 
 	// We expect to have saved block 1.
@@ -204,7 +204,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 	assertHaveCanonical(t, 1, 1, th.Client, th.ORM)
 
 	// Polling again should be a noop, since we are at the latest.
-	newStart = th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(2), newStart)
 	latest, err := th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 	th.Client.Commit()
 
 	// Polling should get us the L1 log.
-	newStart = th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(3), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 	// Create 3 (we need a new block for us to do any polling and detect the reorg).
 	th.Client.Commit()
 
-	newStart = th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(4), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -274,7 +274,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 	th.Client.Commit()
 	// Create 4
 	th.Client.Commit()
-	newStart = th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(5), newStart)
 	latest, err = th.ORM.SelectLatestBlock()
 	require.NoError(t, err)
@@ -308,7 +308,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 	// Create 5
 	th.Client.Commit()
 
-	newStart = th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(7), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
@@ -335,7 +335,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
-	newStart = th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(11), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
@@ -361,7 +361,7 @@ func TestLogPoller_PollAndSavePendingLogs(t *testing.T) {
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
-	newStart = th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), newStart)
+	newStart = th.LogPoller.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(18), newStart)
 	lgs, err = th.ORM.SelectLogsByBlockRange(11, 17)
 	require.NoError(t, err)
@@ -527,8 +527,8 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, int(rpcBlocks2[0].BlockNumber))
 	assert.Equal(t, 3, int(rpcBlocks2[1].BlockNumber))
 
-	// after calling PollAndSavePendingLogs, block 2 & 3 are persisted in DB
-	th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), 1)
+	// after calling PollAndSaveLogs, block 2 & 3 are persisted in DB
+	th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
 	block, err := th.ORM.SelectBlockByNumber(2)
 	require.NoError(t, err)
 	assert.Equal(t, 2, int(block.BlockNumber))
@@ -601,7 +601,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 	assert.Equal(t, requested, fromBlock)
 
 	// Do a poll, then we should have up to block 11 (blocks 0 & 1 are contract deployments, 2-10 logs).
-	nextBlock := th.LogPoller.PollAndSavePendingLogs(testutils.Context(t), 1)
+	nextBlock := th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
 	require.Equal(t, int64(12), nextBlock)
 
 	// Commit a few more so chain is ahead.

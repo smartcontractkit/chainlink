@@ -298,7 +298,7 @@ func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (i
 
 func (lp *logPoller) run() {
 	defer close(lp.done)
-	logPollPendingTick := time.After(0)
+	logPollTick := time.After(0)
 	logPollFinalizedTick := time.After(100 * time.Millisecond)
 
 	blockPruneTick := time.After(0)
@@ -313,7 +313,7 @@ func (lp *logPoller) run() {
 			if err == nil {
 				// Serially process replay requests.
 				lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
-				lp.pollAndSavePendingLogs(replayReq.ctx, fromBlock)
+				lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 			}
@@ -326,8 +326,8 @@ func (lp *logPoller) run() {
 				continue
 			case lp.replayComplete <- err:
 			}
-		case <-logPollPendingTick:
-			logPollPendingTick = time.After(utils.WithJitter(lp.pollPeriod))
+		case <-logPollTick:
+			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
 			// Always start from the latest block in the db.
 			var start int64
 			lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
@@ -357,14 +357,14 @@ func (lp *logPoller) run() {
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
-			lp.pollAndSavePendingLogs(lp.ctx, start)
+			lp.pollAndSaveLogs(lp.ctx, start)
 		case <-logPollFinalizedTick:
 			// always run backup poller if it's been at least 10 mins since last run
 			const backupPollerMaxTimeDelay = time.Duration(10 * time.Minute)
 			// always run backup poller if we're behind by 1000 blocks or more
 			const backupPollerMaxBlockDelay = 100
 
-			logPollPendingTick = time.After(utils.WithJitter(10 * lp.pollPeriod))
+			logPollTick = time.After(utils.WithJitter(10 * lp.pollPeriod))
 
 			latestBlock, err := lp.ec.HeadByNumber(lp.ctx, nil)
 			if err != nil {
@@ -557,7 +557,7 @@ func (lp *logPoller) backfillFinalizedBlocks(ctx context.Context, currentBlockNu
 // pollAndSaveLogs On startup/crash current is the first block after the last processed block.
 // currentBlockNumber is the block from where new logs are to be polled & saved. Under normal
 // conditions this would be equal to lastProcessed.BlockNumber + 1.
-func (lp *logPoller) pollAndSavePendingLogs(ctx context.Context, currentBlockNumber int64) {
+func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
 	lp.lggr.Debugw("Polling for logs", "currentBlockNumber", currentBlockNumber)
 	latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
