@@ -36,7 +36,7 @@ func NewGenerateOCR2ConfigCommand() *generateOCR2Config {
 }
 
 func (g *generateOCR2Config) Name() string {
-	return "generate-ocr2-config"
+	return "generate-ocr2config"
 }
 
 func (g *generateOCR2Config) Run(args []string) {

@@ -17,6 +17,7 @@ func main() {
 	commands := []command{
 		src.NewGenerateOCR2ConfigCommand(),
 		src.NewGenerateJobSpecsCommand(),
+		src.NewDeployJobSpecsCommand(),
 	}
 
 	commandsList := func(commands []command) string {

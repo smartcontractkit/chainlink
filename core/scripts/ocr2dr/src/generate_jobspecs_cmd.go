@@ -19,7 +19,7 @@ func NewGenerateJobSpecsCommand() *generateJobSpecs {
 }
 
 func (g *generateJobSpecs) Name() string {
-	return "generate-job-specs"
+	return "generate-jobspecs"
 }
 
 func (g *generateJobSpecs) Run(args []string) {
@@ -41,7 +41,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	lines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
 
-	bootHost := nodes[0].url.Hostname()
+	bootHost := nodes[0].url.Host
 	lines = replatePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, bootstrapNode, bootstrapNode)
 	outputPath := filepath.Join(artefactsDir, bootHost+".toml")
 	err = writeLines(lines, outputPath)
@@ -52,7 +52,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	helpers.PanicErr(err)
 	for i := 1; i < len(nodes); i++ {
 		oracleLines := replatePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, bootstrapNode, nca[i])
-		outputPath := filepath.Join(artefactsDir, nodes[i].url.Hostname()+".toml")
+		outputPath := filepath.Join(artefactsDir, nodes[i].url.Host+".toml")
 		err = writeLines(oracleLines, outputPath)
 		helpers.PanicErr(err)
 		fmt.Println("Saved oracle node jobspec:", outputPath)
