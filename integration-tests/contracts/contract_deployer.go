@@ -18,6 +18,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
+	ethereum2 "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -64,6 +66,7 @@ type ContractDeployer interface {
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployUpkeepResetter() (UpkeepResetter, error)
+	DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -229,6 +232,23 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 		client:         e.client,
 		fluxAggregator: instance.(*ethereum.FluxAggregator),
 		address:        address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error) {
+	stakingAddress, _, instance, err := e.client.DeployContract("Staking", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum2.DeployStaking(auth, backend, params)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumStaking{
+		client:  e.client,
+		staking: instance.(*ethereum2.Staking),
+		address: stakingAddress,
 	}, nil
 }
 
