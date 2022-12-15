@@ -352,7 +352,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues(t *testing.T) {
 	require.GreaterOrEqual(t, clFunds, 0.0, "Expecting Chainlink node funding to be more than 0 ETH")
 	require.Greater(t, inputs.CheckGasToBurn, int64(0), "You need to set an expected amount of gas to burn on checkUpkeep()")
 	require.GreaterOrEqual(
-		t, inputs.KeeperRegistrySettings.CheckGasLimit, inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
+		t, int64(inputs.KeeperRegistrySettings.CheckGasLimit), inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
 	)
 	require.Greater(t, inputs.PerformGasToBurn, int64(0), "You need to set an expected amount of gas to burn on performUpkeep()")
 	require.NotNil(t, inputs.UpkeepSLA, "Expected UpkeepSLA to be set")
