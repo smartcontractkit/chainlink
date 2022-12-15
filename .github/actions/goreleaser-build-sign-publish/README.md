@@ -1,4 +1,5 @@
 # goreleaser-build-sign-publish
+
 > goreleaser wrapper action
 
 ## workflows
@@ -20,6 +21,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      MACOS_SDK_VERSION: 12.3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -33,15 +36,15 @@ jobs:
         id: sdk-cache
         uses: actions/cache@v3
         with:
-          path: MacOSX12.3.sdk
-          key: ${{ runner.OS }}-macos-sdk-cache-${{ hashFiles('**/SDKSettings.json') }}
+          path: ${{ format('MacOSX{0}.sdk', env.MAC_SDK_VERSION) }}
+          key: ${{ runner.OS }}-${{ env.MAC_SDK_VERSION }}-macos-sdk-cache-${{ hashFiles('**/SDKSettings.json') }}
           restore-keys: |
-            ${{ runner.OS }}-macos-sdk-cache-
+            ${{ runner.OS }}-${{ env.MAC_SDK_VERSION }}-macos-sdk-cache-
       - name: Get macos sdk
         if: steps.sdk-cache.outputs.cache-hit != 'true'
         run: |
-          curl -L https://github.com/joseluisq/macosx-sdks/releases/download/12.3/MacOSX12.3.sdk.tar.xz > MacOSX12.3.sdk.tar.xz
-          tar -xf MacOSX12.3.sdk.tar.xz
+          curl -L https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION}/MacOSX${MACOS_SDK_VERSION}.sdk.tar.xz > MacOSX${MACOS_SDK_VERSION}.sdk.tar.xz
+          tar -xf MacOSX${MACOS_SDK_VERSION}.sdk.tar.xz
       - name: Build, sign, and publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
@@ -50,7 +53,7 @@ jobs:
           docker-registry: ${{ secrets.aws-ecr-registry }}
           goreleaser-exec: goreleaser
           goreleaser-config: .goreleaser.yaml
-          macos-sdk-dir: MacOSX12.3.sdk
+          macos-sdk-dir: ${{ format('MacOSX{0}.sdk', env.MAC_SDK_VERSION) }}
         env:
           GITHUB_TOKEN: ${{ secrets.gh-token }}
 ```
@@ -58,32 +61,32 @@ jobs:
 ### snapshot release
 
 ```yaml
-      - name: Build, sign, and publish image
-        uses: ./.github/actions/goreleaser-build-sign-publish
-        with:
-          enable-docker-publish: "true"
-          enable-goreleaser-snapshot: "true"
-          docker-registry: ${{ secrets.aws-ecr-registry }}
-          goreleaser-exec: goreleaser
-          goreleaser-config: .goreleaser.yaml
+- name: Build, sign, and publish image
+  uses: ./.github/actions/goreleaser-build-sign-publish
+  with:
+    enable-docker-publish: "true"
+    enable-goreleaser-snapshot: "true"
+    docker-registry: ${{ secrets.aws-ecr-registry }}
+    goreleaser-exec: goreleaser
+    goreleaser-config: .goreleaser.yaml
 ```
 
-### image sigining
+### image signing
 
 ```yaml
-      - name: Build, sign, and publish
-        uses: ./.github/actions/goreleaser-build-sign-publish
-        with:
-          enable-docker-publish: "true"
-          enable-goreleaser-snapshot: "false"
-          enable-cosign: "true"
-          docker-registry: ${{ secrets.aws-ecr-registry }}
-          goreleaser-exec: goreleaser
-          goreleaser-config: .goreleaser.yaml
-          cosign-password: ${{ secrets.cosign-password }}
-          cosign-public-key: ${{ secrets.cosign-public-key }}
-          cosign-private-key: ${{ secrets.cosign-private-key }}
-          macos-sdk-dir: MacOSX12.3.sdk
+- name: Build, sign, and publish
+  uses: ./.github/actions/goreleaser-build-sign-publish
+  with:
+    enable-docker-publish: "true"
+    enable-goreleaser-snapshot: "false"
+    enable-cosign: "true"
+    docker-registry: ${{ secrets.aws-ecr-registry }}
+    goreleaser-exec: goreleaser
+    goreleaser-config: .goreleaser.yaml
+    cosign-password: ${{ secrets.cosign-password }}
+    cosign-public-key: ${{ secrets.cosign-public-key }}
+    cosign-private-key: ${{ secrets.cosign-private-key }}
+    macos-sdk-dir: MacOSX12.3.sdk
 ```
 
 ## customizing
@@ -110,11 +113,14 @@ Following inputs can be used as `step.with` keys
 
 ## testing
 
-* bring up local docker registry
+- bring up local docker registry
+
 ```sh
 docker run -d --restart=always -p "127.0.0.1:5001:5000" --name registry registry:2
 ```
-* run snapshot release, publish to local docker registry
+
+- run snapshot release, publish to local docker registry
+
 ```sh
 GORELEASER_EXEC="<goreleaser-wrapper" \
 GORELEASER_CONFIG=".goreleaser.yaml" \

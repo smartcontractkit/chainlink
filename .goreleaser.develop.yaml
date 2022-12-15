@@ -18,6 +18,10 @@ before:
 builds:
   - binary: chainlink
     id: linux-arm64
+    goos:
+      - linux
+    goarch:
+      - arm64
     main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
@@ -32,12 +36,12 @@ builds:
       - -s -w -r=$ORIGIN/libs
       - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+  - binary: chainlink
+    id: linux-amd64
     goos:
       - linux
     goarch:
-      - arm64
-  - binary: chainlink
-    id: linux-amd64
+      - amd64
     main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
@@ -52,10 +56,6 @@ builds:
       - -s -w -r=$ORIGIN/libs
       - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
-    goos:
-      - linux
-    goarch:
-      - amd64
 
 # See https://goreleaser.com/customization/docker/
 dockers:
@@ -79,8 +79,6 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-root-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-amd64"
   - id: root-linux-arm64
@@ -103,8 +101,6 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-root-arm64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-root-arm64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-arm64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-arm64"
   - id: linux-amd64
@@ -128,8 +124,6 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-amd64"
   - id: linux-arm64
@@ -153,29 +147,11 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-arm64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-arm64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-arm64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-arm64"
 
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-root"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-root-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-root"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-root-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:develop-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}:sha-{{ .ShortCommit }}-arm64"
   - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-amd64"

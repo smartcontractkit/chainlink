@@ -18,6 +18,10 @@ before:
 builds:
   - binary: chainlink
     id: linux-arm64
+    goos:
+      - linux
+    goarch:
+      - arm64
     main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
@@ -32,12 +36,12 @@ builds:
       - -s -w -r=$ORIGIN/libs
       - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+  - binary: chainlink
+    id: linux-amd64
     goos:
       - linux
     goarch:
-      - arm64
-  - binary: chainlink
-    id: linux-amd64
+      - amd64
     main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
@@ -52,12 +56,12 @@ builds:
       - -s -w -r=$ORIGIN/libs
       - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
-    goos:
-      - linux
-    goarch:
-      - amd64
   - binary: chainlink
     id: darwin-arm64
+    goos:
+      - darwin
+    goarch:
+      - arm64
     main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
@@ -72,12 +76,12 @@ builds:
       - -s -w -r=@executable/libs
       - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+  - binary: chainlink
+    id: darwin-amd64
     goos:
       - darwin
     goarch:
-      - arm64
-  - binary: chainlink
-    id: darwin-amd64
+      - amd64
     main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
@@ -92,10 +96,6 @@ builds:
       - -s -w -r=@executable/libs
       - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
-    goos:
-      - darwin
-    goarch:
-      - amd64
 
 # See https://goreleaser.com/customization/docker/
 dockers:
