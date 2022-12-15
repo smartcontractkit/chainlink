@@ -77,7 +77,8 @@ describe('OCR2DRClientTestHelper', () => {
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address)
     oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
-    oracle.setRegistry(registry.address)
+    await oracle.setRegistry(registry.address)
+    await oracle.deactivateAuthorizedReceiver()
     client = await concreteOCR2DRClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
