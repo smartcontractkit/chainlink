@@ -259,7 +259,7 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPric
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
-				b.logger.Criticalw("Gas bumping is being prevented due to a detected connectivity issue; this requires immediate action to fix", "err", err)
+				b.logger.Criticalw("Tx gas bumping halted since price exceeds current block prices by significant margin; tx broadcast will be attempted but your node, RPC, or the chain might be experiencing connectivity issues; please investigate and fix ASAP", "err", err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "legacy").Inc()
 			}
 			return nil, 0, err
