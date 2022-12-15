@@ -27,7 +27,7 @@ func Aggregate(aggMethod config.AggregationMethod, observations []*ProcessedRequ
 	}
 	for _, obs := range observations {
 		if !bytes.Equal(obs.RequestID, reqId) {
-			return nil, fmt.Errorf("inconsistent request IDs in aggregated observations %v vs %v", obs.RequestID, reqId)
+			return nil, fmt.Errorf("inconsistent request IDs in aggregated observations %v vs %v", formatRequestId(obs.RequestID), formatRequestId(reqId))
 		}
 		if obs.GetError() != nil && len(obs.GetError()) > 0 {
 			errored = append(errored, obs)

@@ -47,9 +47,8 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
-	activeEVMNetwork          = networks.SelectedNetwork
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(baseTOML, activeEVMNetwork),
+		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
@@ -68,9 +67,9 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 
 	defaultEthereumSettings = &eth.Props{
-		NetworkName: activeEVMNetwork.Name,
-		Simulated:   activeEVMNetwork.Simulated,
-		WsURLs:      activeEVMNetwork.URLs,
+		NetworkName: networks.SelectedNetwork.Name,
+		Simulated:   networks.SelectedNetwork.Simulated,
+		WsURLs:      networks.SelectedNetwork.URLs,
 		Values: map[string]interface{}{
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
@@ -116,7 +115,7 @@ const (
 
 func TestAutomationChaosFailMinorityNodes(t *testing.T) {
 	t.Parallel()
-	setupAutomationChaosTest(
+	runAutomationChaosTest(
 		t,
 		"fail-minority-nodes",
 		eth.New(defaultEthereumSettings),
@@ -130,7 +129,7 @@ func TestAutomationChaosFailMinorityNodes(t *testing.T) {
 
 func TestAutomationChaosFailMajorityNodes(t *testing.T) {
 	t.Parallel()
-	setupAutomationChaosTest(
+	runAutomationChaosTest(
 		t,
 		"fail-majority-nodes",
 		eth.New(defaultEthereumSettings),
@@ -144,7 +143,7 @@ func TestAutomationChaosFailMajorityNodes(t *testing.T) {
 
 func TestAutomationChaosFailMajorityDB(t *testing.T) {
 	t.Parallel()
-	setupAutomationChaosTest(
+	runAutomationChaosTest(
 		t,
 		"fail-majority-db",
 		eth.New(defaultEthereumSettings),
@@ -159,7 +158,7 @@ func TestAutomationChaosFailMajorityDB(t *testing.T) {
 
 func TestAutomationChaosFailMajorityNetwork(t *testing.T) {
 	t.Parallel()
-	setupAutomationChaosTest(
+	runAutomationChaosTest(
 		t,
 		"fail-majority-network",
 		eth.New(defaultEthereumSettings),
@@ -174,7 +173,7 @@ func TestAutomationChaosFailMajorityNetwork(t *testing.T) {
 
 func TestAutomationChaosFailBlockchainNode(t *testing.T) {
 	t.Parallel()
-	setupAutomationChaosTest(
+	runAutomationChaosTest(
 		t,
 		"fail-blockchain-node",
 		eth.New(defaultEthereumSettings),
@@ -187,7 +186,7 @@ func TestAutomationChaosFailBlockchainNode(t *testing.T) {
 		})
 }
 
-func setupAutomationChaosTest(
+func runAutomationChaosTest(
 	t *testing.T,
 	testName string,
 	networkChart environment.ConnectedChart,
@@ -206,8 +205,8 @@ func setupAutomationChaosTest(
 		AddHelm(clChart).
 		AddChart(blockscout.New(&blockscout.Props{
 			Name:    "geth-blockscout",
-			WsURL:   activeEVMNetwork.URL,
-			HttpURL: activeEVMNetwork.HTTPURLs[0],
+			WsURL:   network.URL,
+			HttpURL: network.HTTPURLs[0],
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
