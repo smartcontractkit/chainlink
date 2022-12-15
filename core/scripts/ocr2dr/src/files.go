@@ -1,4 +1,4 @@
-package main
+package src
 
 import (
 	"bufio"
@@ -10,10 +10,9 @@ const (
 	configFile            = "config.yaml"
 	templatesDir          = "templates"
 	artefactsDir          = "artefacts"
-	clusterFile           = "cluster.json"
+	ocr2ConfigJson        = "OCR2Config.json"
 	bootstrapSpecTemplate = "bootstrap.toml"
 	oracleSpecTemplate    = "oracle.toml"
-	bridgeTemplate        = "ea_bridge.json"
 )
 
 func writeLines(lines []string, path string) error {
