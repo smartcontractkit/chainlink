@@ -27,7 +27,7 @@ ocr2dr: ../../contracts/solc/v0.8.6/OCR2DR.abi ../../contracts/solc/v0.8.6/OCR2D
 ocr2dr_client: ../../contracts/solc/v0.8.6/OCR2DRClient.abi ../../contracts/solc/v0.8.6/OCR2DRClient.bin b3c501193c74aaa45007b40ecc0bcfd672dbe74b802a808368a61b38a9084a90
 ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 752ef01fe0edfdcd8bf75b30e1e5c86dfcec6b27edb57164ef8b32e347f32840
 ocr2dr_oracle: ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin 428920c8aaf3cca0f7b90ab5bae728f4ce53ca40f3fa36e43da94d48f7c31f4b
-ocr2dr_registry: ../../contracts/solc/v0.8.6/OCR2DRRegistry.abi ../../contracts/solc/v0.8.6/OCR2DRRegistry.bin 29fd342fb35e2a5da300b50a80ca9a23ac1b9ee4507599ed8dca2a7b658feeb4
+ocr2dr_registry: ../../contracts/solc/v0.8.6/OCR2DRRegistry.abi ../../contracts/solc/v0.8.6/OCR2DRRegistry.bin ba97be4d2f9b29e9d50b9bcae8ddb6f3291ca9db566809cadf86530200f13e9a
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin e78e7231bbaceabe20a266ea596ff14e8c12bf7ec6c69e1e8fe984556d2b7df9
 operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 97dcb51158733881bfbe414d0318a57c3bba7b32bdc7aa5961db2f0ea5e993cb
