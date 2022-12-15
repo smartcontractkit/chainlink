@@ -1,3 +1,4 @@
 .remotes*
 cookie
-artefacts
+artefacts/*.toml
+artefacts/*.json
