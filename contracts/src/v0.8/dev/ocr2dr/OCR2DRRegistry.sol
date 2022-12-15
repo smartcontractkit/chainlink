@@ -108,6 +108,7 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
     uint96 totalCost,
     bool success
   );
+  event RequestTimedOut(bytes32 indexed requestId);
 
   struct Config {
     uint32 maxGasLimit;
@@ -738,27 +739,25 @@ contract OCR2DRRegistry is ConfirmedOwner, OCR2DRRegistryInterface, ERC677Receiv
 
   /**
    * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
-   * @param subscriptionId - ID of the subscription
+   * @param requestIdsToTimeout - A list of request IDs to time out
    */
 
-  function timeoutRequests(uint64 subscriptionId) external onlySubOwner(subscriptionId) {
-    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
-    address[] memory authorizedSendersList = getAuthorizedSenders();
-    for (uint256 i = 0; i < consumers.length; i++) {
-      for (uint256 j = 0; j < authorizedSendersList.length; j++) {
-        bytes32 requestId = computeRequestId(
-          authorizedSendersList[j],
-          consumers[i],
-          subscriptionId,
-          s_consumers[consumers[i]][subscriptionId]
-        );
-        Commitment memory commitment = s_requestCommitments[requestId];
-        if (commitment.timestamp + s_config.requestTimeoutSeconds > block.timestamp) {
-          // Decrement blocked balance
-          s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
-          // Delete commitment
-          delete s_requestCommitments[requestId];
-        }
+  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external {
+    for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
+      bytes32 requestId = requestIdsToTimeout[i];
+      Commitment memory commitment = s_requestCommitments[requestId];
+
+      // Check that the message sender is the subscription owner
+      if (msg.sender != s_subscriptionConfigs[commitment.subscriptionId].owner) {
+        revert MustBeSubOwner(s_subscriptionConfigs[commitment.subscriptionId].owner);
+      }
+
+      if (commitment.timestamp + s_config.requestTimeoutSeconds > block.timestamp) {
+        // Decrement blocked balance
+        s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
+        // Delete commitment
+        delete s_requestCommitments[requestId];
+        emit RequestTimedOut(requestId);
       }
     }
   }
