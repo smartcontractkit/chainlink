@@ -38,6 +38,7 @@ type RegistryConfig = {
   gasAfterPaymentCalculation: number
   weiPerUnitLink: BigNumber
   gasOverhead: number
+  requestTimeoutSeconds: number
 }
 const config: RegistryConfig = {
   maxGasLimit: 1_000_000,
@@ -46,6 +47,7 @@ const config: RegistryConfig = {
     21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
   weiPerUnitLink: BigNumber.from('5000000000000000'),
   gasOverhead: 100_000,
+  requestTimeoutSeconds: 300,
 }
 
 before(async () => {
@@ -105,7 +107,8 @@ describe('OCR2DRRegistry', () => {
       .deploy(oracle.address)
 
     // Setup contracts
-    oracle.setRegistry(registry.address)
+    await oracle.setRegistry(registry.address)
+    await oracle.deactivateAuthorizedReceiver()
 
     // Setup accounts
     await linkToken.transfer(
@@ -138,6 +141,7 @@ describe('OCR2DRRegistry', () => {
             config.gasAfterPaymentCalculation,
             config.weiPerUnitLink,
             config.gasOverhead,
+            config.requestTimeoutSeconds,
           ),
       ).to.be.revertedWith('Only callable by owner')
     })
@@ -152,6 +156,7 @@ describe('OCR2DRRegistry', () => {
             config.gasAfterPaymentCalculation,
             config.weiPerUnitLink,
             config.gasOverhead,
+            config.requestTimeoutSeconds,
           ),
       ).not.to.be.reverted
     })
@@ -165,6 +170,7 @@ describe('OCR2DRRegistry', () => {
           config.gasAfterPaymentCalculation,
           config.weiPerUnitLink,
           config.gasOverhead,
+          config.requestTimeoutSeconds,
         )
 
       const [
@@ -461,6 +467,7 @@ describe('OCR2DRRegistry', () => {
           config.gasAfterPaymentCalculation,
           config.weiPerUnitLink,
           config.gasOverhead,
+          config.requestTimeoutSeconds,
         )
 
         await linkToken
@@ -571,6 +578,7 @@ describe('OCR2DRRegistry', () => {
         config.gasAfterPaymentCalculation,
         config.weiPerUnitLink,
         config.gasOverhead,
+        config.requestTimeoutSeconds,
       )
 
       subId = await createSubscription(subOwner, [consumerAddress])
@@ -663,6 +671,7 @@ describe('OCR2DRRegistry', () => {
         config.gasAfterPaymentCalculation,
         config.weiPerUnitLink,
         config.gasOverhead,
+        config.requestTimeoutSeconds,
       )
 
       await linkToken
