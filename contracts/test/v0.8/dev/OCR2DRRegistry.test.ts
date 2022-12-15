@@ -107,7 +107,8 @@ describe('OCR2DRRegistry', () => {
       .deploy(oracle.address)
 
     // Setup contracts
-    oracle.setRegistry(registry.address)
+    await oracle.setRegistry(registry.address)
+    await oracle.deactivateAuthorizedReceiver()
 
     // Setup accounts
     await linkToken.transfer(

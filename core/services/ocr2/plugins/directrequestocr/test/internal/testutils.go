@@ -101,6 +101,8 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 		offchainConfig,
 	)
 	require.NoError(t, err)
+	_, err = oracleContract.DeactivateAuthorizedReceiver(owner)
+	require.NoError(t, err)
 }
 
 func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
