@@ -56,12 +56,16 @@ func newRequestWithResult(result []byte) drocr_serv.Request {
 	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.RESULT_READY, Result: result}
 }
 
-func newRequestTransmitted() drocr_serv.Request {
-	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.TRANSMITTED}
+func newRequestFinalized() drocr_serv.Request {
+	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.FINALIZED}
 }
 
 func newRequestTimedOut() drocr_serv.Request {
 	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.TIMED_OUT}
+}
+
+func newRequestConfirmed() drocr_serv.Request {
+	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.CONFIRMED}
 }
 
 func buildObservation(t *testing.T, requestId []byte, compResult []byte, compError []byte, observer uint8) types.AttributedObservation {
@@ -187,6 +191,47 @@ func getReportBytes(t *testing.T, codec *directrequestocr.ReportCodec, reqs ...d
 	return reportBytes
 }
 
+func TestDRReporting_ShouldAcceptFinalizedReport(t *testing.T) {
+	t.Parallel()
+	plugin, orm := preparePlugin(t, 10)
+	codec, err := directrequestocr.NewReportCodec()
+	require.NoError(t, err)
+
+	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
+	req2 := newRequestWithResult([]byte("abc"))
+	req3 := newRequestFinalized()
+	req4 := newRequestTimedOut()
+
+	orm.On("FindById", req1.RequestID).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", req2.RequestID).Return(&req2, nil)
+	orm.On("SetFinalized", req2.RequestID, mock.Anything, mock.Anything).Return(nil)
+	orm.On("FindById", req3.RequestID).Return(&req3, nil)
+	orm.On("SetFinalized", req3.RequestID, mock.Anything, mock.Anything).Return(errors.New("same state"))
+	orm.On("FindById", req4.RequestID).Return(&req4, nil)
+	orm.On("SetFinalized", req4.RequestID, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
+
+	// Attempting to transmit 2 requests, out of which:
+	//   - one was already accepted for transmission earlier
+	//   - one has timed out
+	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
+	require.NoError(t, err)
+	require.False(t, should)
+
+	// Attempting to transmit 2 requests, out of which:
+	//   - one is ready
+	//   - one was already accepted for transmission earlier
+	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
+	require.NoError(t, err)
+	require.True(t, should)
+
+	// Attempting to transmit 2 requests, out of which:
+	//   - one doesn't exist
+	//   - one has timed out
+	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
+	require.NoError(t, err)
+	require.True(t, should)
+}
+
 func TestDRReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
 	plugin, orm := preparePlugin(t, 10)
@@ -195,35 +240,34 @@ func TestDRReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
 	req2 := newRequestWithResult([]byte("abc"))
-	req3 := newRequestTransmitted()
+	req3 := newRequestFinalized()
 	req4 := newRequestTimedOut()
+	req5 := newRequestConfirmed()
 
 	orm.On("FindById", req1.RequestID).Return(nil, errors.New("nonexistent ID"))
 	orm.On("FindById", req2.RequestID).Return(&req2, nil)
-	orm.On("SetTransmitted", req2.RequestID, mock.Anything, mock.Anything).Return(nil)
 	orm.On("FindById", req3.RequestID).Return(&req3, nil)
-	orm.On("SetTransmitted", req3.RequestID, mock.Anything, mock.Anything).Return(errors.New("same state"))
 	orm.On("FindById", req4.RequestID).Return(&req4, nil)
-	orm.On("SetTransmitted", req4.RequestID, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
+	orm.On("FindById", req5.RequestID).Return(&req5, nil)
 
 	// Attempting to transmit 2 requests, out of which:
-	//   - one was already transmitted
+	//   - one was already confirmed on chain
 	//   - one has timed out
-	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
+	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req5, req4))
 	require.NoError(t, err)
 	require.False(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one is ready
-	//   - one was already transmitted
+	//   - one in finalized
 	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
 	require.NoError(t, err)
 	require.True(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one doesn't exist
-	//   - one has timed out
-	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
+	//   - one is ready
+	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req2))
 	require.NoError(t, err)
 	require.True(t, should)
 }
