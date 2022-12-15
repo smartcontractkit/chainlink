@@ -46,5 +46,6 @@ Bootstrap node must come first in the nodes list file.
 5. Future enhancements
 
 * Add `deploy-bridges` command.
-
+* For NOPs: make commands to run against a single node with terminal authorization.
+* For NOPs: make sure we can inject their node config from a file.
 
