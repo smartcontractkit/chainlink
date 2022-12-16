@@ -53,7 +53,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("SetPassword", session.User, "new").Return(nil)
 				f.Mocks.sessionsORM.On("ClearNonCurrentSessions", session.SessionID).Return(nil)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
@@ -79,7 +79,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 
 				session.User.HashedPassword = "random-string"
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
@@ -108,7 +108,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("ClearNonCurrentSessions", session.SessionID).Return(
 					clearSessionsError{},
 				)
@@ -139,7 +139,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("ClearNonCurrentSessions", session.SessionID).Return(nil)
 				f.Mocks.sessionsORM.On("SetPassword", session.User, "new").Return(failedPasswordUpdateError{})
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)

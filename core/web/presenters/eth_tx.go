@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -40,7 +41,7 @@ func NewEthTxResource(tx txmgr.EthTx) EthTxResource {
 	return EthTxResource{
 		Data:       hexutil.Bytes(tx.EncodedPayload),
 		From:       &tx.FromAddress,
-		GasLimit:   strconv.FormatUint(tx.GasLimit, 10),
+		GasLimit:   strconv.FormatUint(uint64(tx.GasLimit), 10),
 		State:      string(tx.State),
 		To:         &tx.ToAddress,
 		Value:      tx.Value.String(),
@@ -53,7 +54,7 @@ func NewEthTxResourceFromAttempt(txa txmgr.EthTxAttempt) EthTxResource {
 
 	r := NewEthTxResource(tx)
 	r.JAID = NewJAID(txa.Hash.Hex())
-	r.GasPrice = txa.GasPrice.String()
+	r.GasPrice = txa.GasPrice.ToInt().String()
 	r.Hash = txa.Hash
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
 	r.EVMChainID = txa.EthTx.EVMChainID

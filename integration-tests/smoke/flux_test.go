@@ -1,195 +1,184 @@
 package smoke
 
-//revive:disable:dot-imports
 import (
 	"context"
 	"fmt"
 	"math/big"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
-	"github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/helmenv/environment"
-	"github.com/smartcontractkit/helmenv/tools"
+	"github.com/stretchr/testify/require"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+
+	"github.com/rs/zerolog/log"
+	uuid "github.com/satori/go.uuid"
 )
 
-var _ = Describe("Flux monitor suite @flux", func() {
-	var (
-		err              error
-		nets             *blockchain.Networks
-		defaultNetwork   blockchain.EVMClient
-		cd               contracts.ContractDeployer
-		lt               contracts.LinkToken
-		fluxInstance     contracts.FluxAggregator
-		chainlinkNodes   []client.Chainlink
-		mockserver       *client.MockserverClient
-		nodeAddresses    []common.Address
-		adapterPath      string
-		adapterUUID      string
-		fluxRoundTimeout = 2 * time.Minute
-		env              *environment.Environment
-	)
-	BeforeEach(func() {
-		By("Deploying the environment", func() {
-			env, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(
-					environment.ChainlinkReplicas(3, config.ChainlinkVals()),
-					"chainlink-flux-core-ci",
-					config.GethNetworks()...,
-				),
-				tools.ChartsRoot,
-			)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
-			err = env.ConnectAll()
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to all nodes shouldn't fail")
-		})
+func TestFluxBasic(t *testing.T) {
+	t.Parallel()
+	testEnvironment, testNetwork := setupFluxTest(t)
 
-		By("Connecting to launched resources", func() {
-			networkRegistry := blockchain.NewDefaultNetworkRegistry()
-			nets, err = networkRegistry.GetNetworks(env)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			defaultNetwork = nets.Default
-
-			cd, err = contracts.NewContractDeployer(defaultNetwork)
-			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-			chainlinkNodes, err = client.ConnectChainlinkNodes(env)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			nodeAddresses, err = actions.ChainlinkNodeAddresses(chainlinkNodes)
-			Expect(err).ShouldNot(HaveOccurred(), "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-			mockserver, err = client.ConnectMockServer(env)
-			Expect(err).ShouldNot(HaveOccurred(), "Creating mock server client shouldn't fail")
-
-			defaultNetwork.ParallelTransactions(true)
-		})
-
-		By("Setting initial adapter value", func() {
-			adapterUUID = uuid.NewV4().String()
-			adapterPath = fmt.Sprintf("/variable-%s", adapterUUID)
-			err = mockserver.SetValuePath(adapterPath, 1e5)
-			Expect(err).ShouldNot(HaveOccurred(), "Setting mockserver value path shouldn't fail")
-		})
-
-		By("Deploying and funding contract", func() {
-			lt, err = cd.DeployLinkTokenContract()
-			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-			fluxInstance, err = cd.DeployFluxAggregatorContract(lt.Address(), contracts.DefaultFluxAggregatorOptions())
-			Expect(err).ShouldNot(HaveOccurred(), "Deploying Flux Aggregator Contract shouldn't fail")
-			err = defaultNetwork.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for deployment of flux aggregator contract")
-
-			err = lt.Transfer(fluxInstance.Address(), big.NewInt(1e18))
-			Expect(err).ShouldNot(HaveOccurred(), "Funding Flux Aggregator Contract shouldn't fail")
-			err = defaultNetwork.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for funding of flux aggregator contract")
-
-			err = fluxInstance.UpdateAvailableFunds()
-			Expect(err).ShouldNot(HaveOccurred(), "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
-		})
-
-		By("Funding Chainlink nodes", func() {
-			err = actions.FundChainlinkNodes(chainlinkNodes, defaultNetwork, big.NewFloat(1))
-			Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
-		})
-
-		By("Setting oracle options", func() {
-			err = fluxInstance.SetOracles(
-				contracts.FluxAggregatorSetOraclesOptions{
-					AddList:            nodeAddresses,
-					RemoveList:         []common.Address{},
-					AdminList:          nodeAddresses,
-					MinSubmissions:     3,
-					MaxSubmissions:     3,
-					RestartDelayRounds: 0,
-				})
-			Expect(err).ShouldNot(HaveOccurred(), "Setting oracle options in the Flux Aggregator contract shouldn't fail")
-			err = defaultNetwork.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
-			oracles, err := fluxInstance.GetOracles(context.Background())
-			Expect(err).ShouldNot(HaveOccurred(), "Getting oracle details from the Flux aggregator contract shouldn't fail")
-			log.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
-		})
-
-		By("Creating flux jobs", func() {
-			adapterFullURL := fmt.Sprintf("%s%s", mockserver.Config.ClusterURL, adapterPath)
-			bta := client.BridgeTypeAttributes{
-				Name: fmt.Sprintf("variable-%s", adapterUUID),
-				URL:  adapterFullURL,
-			}
-			for i, n := range chainlinkNodes {
-				err = n.CreateBridge(&bta)
-				Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
-
-				fluxSpec := &client.FluxMonitorJobSpec{
-					Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
-					ContractAddress:   fluxInstance.Address(),
-					Threshold:         0,
-					AbsoluteThreshold: 0,
-					PollTimerPeriod:   15 * time.Second, // min 15s
-					IdleTimerDisabled: true,
-					ObservationSource: client.ObservationSourceSpecBridge(bta),
-				}
-				_, err = n.CreateJob(fluxSpec)
-				Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
-			}
-		})
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	require.NoError(t, err, "Deploying contracts shouldn't fail")
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	nodeAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes)
+	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
+	require.NoError(t, err, "Creating mock server client shouldn't fail")
+	// Register cleanup
+	t.Cleanup(func() {
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		require.NoError(t, err, "Error tearing down environment")
 	})
 
-	Describe("with Flux job", func() {
-		It("performs two rounds and has withdrawable payments for oracles", func() {
-			// initial value set is performed before jobs creation
-			fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
-			defaultNetwork.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-			err = defaultNetwork.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
-			data, err := fluxInstance.GetContractData(context.Background())
-			Expect(err).ShouldNot(HaveOccurred(), "Getting contract data from flux aggregator contract shouldn't fail")
-			log.Info().Interface("Data", data).Msg("Round data")
-			Expect(data.LatestRoundData.Answer.Int64()).Should(Equal(int64(1e5)), "Expected latest round answer to be %d, but found %d", int64(1e5), data.LatestRoundData.Answer.Int64())
-			Expect(data.LatestRoundData.RoundId.Int64()).Should(Equal(int64(1)), "Expected latest round id to be %d, but found %d", int64(1), data.LatestRoundData.RoundId.Int64())
-			Expect(data.LatestRoundData.AnsweredInRound.Int64()).Should(Equal(int64(1)), "Expected latest round's answered in round to be %d, but found %d", int64(1), data.LatestRoundData.AnsweredInRound.Int64())
-			Expect(data.AvailableFunds.Int64()).Should(Equal(int64(999999999999999997)), "Expected available funds to be %d, but found %d", int64(999999999999999997), data.AvailableFunds.Int64())
-			Expect(data.AllocatedFunds.Int64()).Should(Equal(int64(3)), "Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
+	chainClient.ParallelTransactions(true)
 
-			fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
-			defaultNetwork.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-			err = mockserver.SetValuePath(adapterPath, 1e10)
-			Expect(err).ShouldNot(HaveOccurred(), "Setting value path in mock server shouldn't fail")
-			err = defaultNetwork.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
-			data, err = fluxInstance.GetContractData(context.Background())
-			Expect(err).ShouldNot(HaveOccurred(), "Getting contract data from flux aggregator contract shouldn't fail")
-			Expect(data.LatestRoundData.Answer.Int64()).Should(Equal(int64(1e10)), "Expected latest round answer to be %d, but found %d", int64(1e10), data.LatestRoundData.Answer.Int64())
-			Expect(data.LatestRoundData.RoundId.Int64()).Should(Equal(int64(2)), "Expected latest round id to be %d, but found %d", int64(2), data.LatestRoundData.RoundId.Int64())
-			Expect(data.LatestRoundData.AnsweredInRound.Int64()).Should(Equal(int64(2)), "Expected latest round's answered in round to be %d, but found %d", int64(2), data.LatestRoundData.AnsweredInRound.Int64())
-			Expect(data.AvailableFunds.Int64()).Should(Equal(int64(999999999999999994)), "Expected available funds to be %d, but found %d", int64(999999999999999994), data.AvailableFunds.Int64())
-			Expect(data.AllocatedFunds.Int64()).Should(Equal(int64(6)), "Expected allocated funds to be %d, but found %d", int64(6), data.AllocatedFunds.Int64())
-			log.Info().Interface("data", data).Msg("Round data")
+	adapterUUID := uuid.NewV4().String()
+	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
+	err = mockServer.SetValuePath(adapterPath, 1e5)
+	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-			for _, oracleAddr := range nodeAddresses {
-				payment, _ := fluxInstance.WithdrawablePayment(context.Background(), oracleAddr)
-				Expect(payment.Int64()).Should(Equal(int64(2)), "Expected flux aggregator contract's withdrawable payment to be %d, but found %d", int64(2), payment.Int64())
-			}
-		})
-	})
+	linkToken, err := contractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	fluxInstance, err := contractDeployer.DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
+	require.NoError(t, err, "Deploying Flux Aggregator Contract shouldn't fail")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Failed waiting for deployment of flux aggregator contract")
 
-	AfterEach(func() {
-		By("Printing gas stats", func() {
-			defaultNetwork.GasStats().PrintStats()
+	err = linkToken.Transfer(fluxInstance.Address(), big.NewInt(1e18))
+	require.NoError(t, err, "Funding Flux Aggregator Contract shouldn't fail")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Failed waiting for funding of flux aggregator contract")
+
+	err = fluxInstance.UpdateAvailableFunds()
+	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
+
+	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.02))
+	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
+
+	err = fluxInstance.SetOracles(
+		contracts.FluxAggregatorSetOraclesOptions{
+			AddList:            nodeAddresses,
+			RemoveList:         []common.Address{},
+			AdminList:          nodeAddresses,
+			MinSubmissions:     3,
+			MaxSubmissions:     3,
+			RestartDelayRounds: 0,
 		})
-		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(env, nets, utils.ProjectRoot, chainlinkNodes, nil)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
+	oracles, err := fluxInstance.GetOracles(context.Background())
+	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
+	log.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
+
+	adapterFullURL := fmt.Sprintf("%s%s", mockServer.Config.ClusterURL, adapterPath)
+	bta := client.BridgeTypeAttributes{
+		Name: fmt.Sprintf("variable-%s", adapterUUID),
+		URL:  adapterFullURL,
+	}
+	for i, n := range chainlinkNodes {
+		err = n.MustCreateBridge(&bta)
+		require.NoError(t, err, "Creating bridge shouldn't fail for node %d", i+1)
+
+		fluxSpec := &client.FluxMonitorJobSpec{
+			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
+			ContractAddress:   fluxInstance.Address(),
+			Threshold:         0,
+			AbsoluteThreshold: 0,
+			PollTimerPeriod:   15 * time.Second, // min 15s
+			IdleTimerDisabled: true,
+			ObservationSource: client.ObservationSourceSpecBridge(bta),
+		}
+		_, err = n.MustCreateJob(fluxSpec)
+		require.NoError(t, err, "Creating flux job shouldn't fail for node %d", i+1)
+	}
+
+	// initial value set is performed before jobs creation
+	fluxRoundTimeout := 2 * time.Minute
+	fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
+	chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
+	data, err := fluxInstance.GetContractData(context.Background())
+	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
+	log.Info().Interface("Data", data).Msg("Round data")
+	require.Equal(t, int64(1e5), data.LatestRoundData.Answer.Int64(),
+		"Expected latest round answer to be %d, but found %d", int64(1e5), data.LatestRoundData.Answer.Int64())
+	require.Equal(t, int64(1), data.LatestRoundData.RoundId.Int64(),
+		"Expected latest round id to be %d, but found %d", int64(1), data.LatestRoundData.RoundId.Int64())
+	require.Equal(t, int64(1), data.LatestRoundData.AnsweredInRound.Int64(),
+		"Expected latest round's answered in round to be %d, but found %d", int64(1), data.LatestRoundData.AnsweredInRound.Int64())
+	require.Equal(t, int64(999999999999999997), data.AvailableFunds.Int64(),
+		"Expected available funds to be %d, but found %d", int64(999999999999999997), data.AvailableFunds.Int64())
+	require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
+		"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
+
+	fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
+	chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+	err = mockServer.SetValuePath(adapterPath, 1e10)
+	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
+	data, err = fluxInstance.GetContractData(context.Background())
+	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
+	require.Equal(t, int64(1e10), data.LatestRoundData.Answer.Int64(),
+		"Expected latest round answer to be %d, but found %d", int64(1e10), data.LatestRoundData.Answer.Int64())
+	require.Equal(t, int64(2), data.LatestRoundData.RoundId.Int64(),
+		"Expected latest round id to be %d, but found %d", int64(2), data.LatestRoundData.RoundId.Int64())
+	require.Equal(t, int64(999999999999999994), data.AvailableFunds.Int64(),
+		"Expected available funds to be %d, but found %d", int64(999999999999999994), data.AvailableFunds.Int64())
+	require.Equal(t, int64(6), data.AllocatedFunds.Int64(),
+		"Expected allocated funds to be %d, but found %d", int64(6), data.AllocatedFunds.Int64())
+	log.Info().Interface("data", data).Msg("Round data")
+
+	for _, oracleAddr := range nodeAddresses {
+		payment, _ := fluxInstance.WithdrawablePayment(context.Background(), oracleAddr)
+		require.Equal(t, int64(2), payment.Int64(),
+			"Expected flux aggregator contract's withdrawable payment to be %d, but found %d", int64(2), payment.Int64())
+	}
+}
+
+func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+	testNetwork = networks.SelectedNetwork
+	evmConf := ethereum.New(nil)
+	if !testNetwork.Simulated {
+		evmConf = ethereum.New(&ethereum.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
 		})
-	})
-})
+	}
+	baseTOML := `[OCR]
+Enabled = true`
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConf).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
+			"replicas": 3,
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment, testNetwork
+}

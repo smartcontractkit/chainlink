@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
 
 type PipelineParamUnmarshaler interface {
 	UnmarshalPipelineParam(val interface{}) error
@@ -168,16 +168,34 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case uint64:
 		*u = Uint64Param(v)
 	case int:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int8:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int16:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int32:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int64:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case float64: // when decoding from db: JSON numbers are floats
+		if v < 0 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case string:
 		n, err := strconv.ParseUint(v, 10, 64)
@@ -186,7 +204,7 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 		}
 		*u = Uint64Param(n)
 	default:
-		return errors.Wrapf(ErrBadInput, "expected unsiend integer, got %T", val)
+		return errors.Wrapf(ErrBadInput, "expected unsigned integer, got %T", val)
 	}
 	return nil
 }
@@ -218,16 +236,34 @@ func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case uint64:
 		n = v
 	case int:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int8:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int16:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int32:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int64:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case float64: // when decoding from db: JSON numbers are floats
+		if v < 0 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case string:
 		if strings.TrimSpace(v) == "" {
@@ -414,10 +450,14 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		return a.UnmarshalPipelineParam([]byte(v))
 	case []byte:
-		if utils.HasHexPrefix(string(v)) && len(v) == 42 {
-			*a = AddressParam(common.HexToAddress(string(v)))
-			return nil
-		} else if len(v) == 20 {
+		switch len(v) {
+		case 42:
+			bs, err := utils.TryParseHex(string(v))
+			if err == nil {
+				*a = AddressParam(common.BytesToAddress(bs))
+				return nil
+			}
+		case 20:
 			copy((*a)[:], v)
 			return nil
 		}
@@ -725,7 +765,14 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 	case int64:
 		n = big.NewInt(int64(v))
 	case float64: // when decoding from db: JSON numbers are floats
-		n = big.NewInt(0).SetUint64(uint64(v))
+		if v < math.MinInt64 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to u/int64", v)
+		}
+		if v < 0 {
+			n = big.NewInt(int64(v))
+		} else {
+			n = big.NewInt(0).SetUint64(uint64(v))
+		}
 	case string:
 		if strings.TrimSpace(v) == "" {
 			*p = MaybeBigIntParam{n: nil}
@@ -736,6 +783,16 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 		if !ok {
 			return errors.Wrapf(ErrBadInput, "unable to convert %s to big.Int", v)
 		}
+	case decimal.Decimal:
+		if !v.IsInteger() {
+			return errors.Wrapf(ErrBadInput, "cannot convert non-integer %v to big.Int", v)
+		}
+		n = v.BigInt()
+	case *decimal.Decimal:
+		if !v.IsInteger() {
+			return errors.Wrapf(ErrBadInput, "cannot convert non-integer %v to big.Int", v)
+		}
+		n = v.BigInt()
 	case *big.Int:
 		n = v
 	case nil:

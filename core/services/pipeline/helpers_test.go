@@ -5,8 +5,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/sqlx"
-
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 )
 
@@ -30,11 +29,17 @@ const (
     `
 )
 
-func (t *BridgeTask) HelperSetDependencies(config Config, db *sqlx.DB, id uuid.UUID, httpClient *http.Client) {
+func (t *BridgeTask) HelperSetDependencies(
+	config Config,
+	orm bridges.ORM,
+	specId int32,
+	id uuid.UUID,
+	httpClient *http.Client) {
 	t.config = config
-	t.queryer = db
+	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
+	t.specId = specId
 }
 
 func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) {
@@ -43,12 +48,21 @@ func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, un
 	t.unrestrictedHTTPClient = unrestrictedHTTPClient
 }
 
-func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
+func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config, specGasLimit *uint32, jobType string) {
 	t.chainSet = cc
 	t.config = config
+	t.specGasLimit = specGasLimit
+	t.jobType = jobType
 }
 
-func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore) {
+func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore, specGasLimit *uint32, jobType string) {
 	t.chainSet = cc
 	t.keyStore = keyStore
+	t.specGasLimit = specGasLimit
+	t.jobType = jobType
+}
+
+func (t *ETHGetBlockTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
+	t.chainSet = cc
+	t.config = config
 }

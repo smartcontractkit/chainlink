@@ -41,7 +41,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/solana", nil)
@@ -96,10 +96,10 @@ func setupSolanaKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, key
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.Solana().Add(cltest.DefaultSolanaKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.Solana().Add(cltest.DefaultSolanaKey))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return client, app.GetKeyStore()
 }

@@ -1,0 +1,21 @@
+# This example demonstrates some of the features:
+
+# FieldName is a string with a default value. Every field **must** be documented with a comment that begins with the field name.
+FieldName = 'foo' # Default
+
+# This is a loose comment.
+# Comments can span multiple lines.
+
+# TableName holds settings that do something...
+# #### Details
+#
+# We can include a long description here:
+#  1. some
+#  2. list
+#  3. items
+[TableName]
+# Bar doesn't have a default value, so an example **must** be included.
+Bar = 10 # Example
+# **ADVANCED**
+# TrickyField should only be used by advanced users, so it includes the special line `**ADVANCED**` to include a common warning tag.
+TrickyField = true # Default

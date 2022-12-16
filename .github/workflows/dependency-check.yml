@@ -5,7 +5,7 @@
 
 name: Dependency Vulnerability Check
 
-on: 
+on:
   push:
     paths:
       - '**/go.mod'
@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: ^1.18
+          go-version-file: 'go.mod'
         id: go
 
       - name: Write Go Modules list
@@ -29,5 +29,13 @@ jobs:
       - name: Check vulnerabilities
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
-          nancyVersion: "v1.0.22"
-
+          nancyVersion: "v1.0.39"
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Go
+        continue-on-error: true

@@ -43,7 +43,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/p2p", nil)
@@ -62,7 +62,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PeerID().String(), resource.PeerID)
 
 	var peerID p2pkey.PeerID
-	peerID.UnmarshalText([]byte(resource.PeerID))
+	require.NoError(t, peerID.UnmarshalText([]byte(resource.PeerID)))
 	_, err = keyStore.P2P().Get(peerID)
 	require.NoError(t, err)
 }
@@ -112,10 +112,10 @@ func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keysto
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return client, app.GetKeyStore()
 }

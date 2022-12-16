@@ -215,7 +215,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("RegisterManager", feeds.RegisterManagerParams{
+				f.Mocks.feedsSvc.On("RegisterManager", mock.Anything, feeds.RegisterManagerParams{
 					Name:      name,
 					URI:       uri,
 					PublicKey: *pubKey,
@@ -251,7 +251,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.
-					On("RegisterManager", mock.IsType(feeds.RegisterManagerParams{})).
+					On("RegisterManager", mock.Anything, mock.IsType(feeds.RegisterManagerParams{})).
 					Return(int64(0), feeds.ErrSingleFeedsManager)
 			},
 			query:     mutation,
@@ -269,7 +269,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("RegisterManager", mock.IsType(feeds.RegisterManagerParams{})).Return(mgrID, nil)
+				f.Mocks.feedsSvc.On("RegisterManager", mock.Anything, mock.IsType(feeds.RegisterManagerParams{})).Return(mgrID, nil)
 				f.Mocks.feedsSvc.On("GetManager", mgrID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,

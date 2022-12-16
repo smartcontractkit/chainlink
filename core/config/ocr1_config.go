@@ -14,14 +14,9 @@ import (
 // OCR1Config is a subset of global config relevant to OCR v1.
 type OCR1Config interface {
 	// OCR1 config, can override in jobs, only ethereum.
-	GlobalOCRContractConfirmations() (uint16, bool)
-	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
-	GlobalOCRDatabaseTimeout() (time.Duration, bool)
-	GlobalOCRObservationGracePeriod() (time.Duration, bool)
 	OCRBlockchainTimeout() time.Duration
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
-	OCRMonitoringEndpoint() string
 	OCRKeyBundleID() (string, error)
 	OCRObservationTimeout() time.Duration
 	OCRSimulateTransactions() bool
@@ -63,16 +58,12 @@ func (c *generalConfig) OCRBlockchainTimeout() time.Duration {
 	return c.getDuration("OCRBlockchainTimeout")
 }
 
-func (c *generalConfig) OCRMonitoringEndpoint() string {
-	return c.viper.GetString(envvar.Name("OCRMonitoringEndpoint"))
-}
-
 func (c *generalConfig) OCRKeyBundleID() (string, error) {
 	kbStr := c.viper.GetString(envvar.Name("OCRKeyBundleID"))
 	if kbStr != "" {
 		_, err := models.Sha256HashFromHex(kbStr)
 		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
+			return "", errors.Wrapf(ErrEnvInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
 		}
 	}
 	return kbStr, nil
@@ -105,9 +96,9 @@ func (c *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 	if taStr != "" {
 		ta, err := ethkey.NewEIP55Address(taStr)
 		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
+			return "", errors.Wrapf(ErrEnvInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
 		}
 		return ta, nil
 	}
-	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS env var is not set")
+	return "", errors.Wrap(ErrEnvUnset, "OCR_TRANSMITTER_ADDRESS env var is not set")
 }

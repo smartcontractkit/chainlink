@@ -29,7 +29,7 @@ func NewNodes(nodes []types.Node) []*NodeResolver {
 
 // ID resolves the node's unique identifier.
 func (r *NodeResolver) ID() graphql.ID {
-	return int32GQLID(r.node.ID)
+	return graphql.ID(r.node.Name)
 }
 
 // Name resolves the node's name field.

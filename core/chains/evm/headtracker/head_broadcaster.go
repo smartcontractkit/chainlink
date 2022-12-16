@@ -28,9 +28,9 @@ func (set callbackSet) values() []httypes.HeadTrackable {
 // NewHeadBroadcaster creates a new HeadBroadcaster
 func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 	return &headBroadcaster{
-		logger:        lggr.Named(logger.HeadBroadcaster),
+		logger:        lggr.Named("HeadBroadcaster"),
 		callbacks:     make(callbackSet),
-		mailbox:       utils.NewMailbox[*evmtypes.Head](1),
+		mailbox:       utils.NewSingleMailbox[*evmtypes.Head](),
 		mutex:         &sync.Mutex{},
 		chClose:       make(chan struct{}),
 		wgDone:        sync.WaitGroup{},

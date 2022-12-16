@@ -120,6 +120,7 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 type OffChainReportingSpec struct {
 	ContractAddress                           ethkey.EIP55Address  `json:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray       `json:"p2pBootstrapPeers"`
+	P2PV2Bootstrappers                        pq.StringArray       `json:"p2pv2Bootstrappers"`
 	IsBootstrapPeer                           bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash   `json:"keyBundleID"`
 	TransmitterAddress                        *ethkey.EIP55Address `json:"transmitterAddress"`
@@ -150,6 +151,7 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 	return &OffChainReportingSpec{
 		ContractAddress:                           spec.ContractAddress,
 		P2PBootstrapPeers:                         spec.P2PBootstrapPeers,
+		P2PV2Bootstrappers:                        spec.P2PV2Bootstrappers,
 		IsBootstrapPeer:                           spec.IsBootstrapPeer,
 		EncryptedOCRKeyBundleID:                   spec.EncryptedOCRKeyBundleID,
 		TransmitterAddress:                        spec.TransmitterAddress,
@@ -180,7 +182,7 @@ type OffChainReporting2Spec struct {
 	ContractID                        string                 `json:"contractID"`
 	Relay                             relay.Network          `json:"relay"`
 	RelayConfig                       map[string]interface{} `json:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray         `json:"p2pBootstrapPeers"`
+	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
 	TransmitterID                     null.String            `json:"transmitterID"`
 	ObservationTimeout                models.Interval        `json:"observationTimeout"`
@@ -198,7 +200,7 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		ContractID:                        spec.ContractID,
 		Relay:                             spec.Relay,
 		RelayConfig:                       spec.RelayConfig,
-		P2PBootstrapPeers:                 spec.P2PBootstrapPeers,
+		P2PV2Bootstrappers:                spec.P2PV2Bootstrappers,
 		OCRKeyBundleID:                    spec.OCRKeyBundleID,
 		TransmitterID:                     spec.TransmitterID,
 		BlockchainTimeout:                 spec.BlockchainTimeout,
@@ -291,6 +293,7 @@ type VRFSpec struct {
 	RequestTimeout                models.Duration       `json:"requestTimeout"`
 	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
 	BackoffMaxDelay               models.Duration       `json:"backoffMaxDelay"`
+	GasLanePrice                  *assets.Wei           `json:"gasLanePrice"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
@@ -309,6 +312,7 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		RequestTimeout:           models.MustMakeDuration(spec.RequestTimeout),
 		BackoffInitialDelay:      models.MustMakeDuration(spec.BackoffInitialDelay),
 		BackoffMaxDelay:          models.MustMakeDuration(spec.BackoffMaxDelay),
+		GasLanePrice:             spec.GasLanePrice,
 	}
 }
 
@@ -394,6 +398,8 @@ type JobResource struct {
 	Name                   string                  `json:"name"`
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
+	GasLimit               clnull.Uint32           `json:"gasLimit"`
+	ForwardingAllowed      bool                    `json:"forwardingAllowed"`
 	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
 	ExternalJobID          uuid.UUID               `json:"externalJobID"`
 	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
@@ -413,13 +419,15 @@ type JobResource struct {
 // NewJobResource initializes a new JSONAPI job resource
 func NewJobResource(j job.Job) *JobResource {
 	resource := &JobResource{
-		JAID:            NewJAIDInt32(j.ID),
-		Name:            j.Name.ValueOrZero(),
-		Type:            JobSpecType(j.Type),
-		SchemaVersion:   j.SchemaVersion,
-		MaxTaskDuration: j.MaxTaskDuration,
-		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
-		ExternalJobID:   j.ExternalJobID,
+		JAID:              NewJAIDInt32(j.ID),
+		Name:              j.Name.ValueOrZero(),
+		Type:              JobSpecType(j.Type),
+		SchemaVersion:     j.SchemaVersion,
+		GasLimit:          j.GasLimit,
+		ForwardingAllowed: j.ForwardingAllowed,
+		MaxTaskDuration:   j.MaxTaskDuration,
+		PipelineSpec:      NewPipelineSpec(j.PipelineSpec),
+		ExternalJobID:     j.ExternalJobID,
 	}
 
 	switch j.Type {

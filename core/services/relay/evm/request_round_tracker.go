@@ -30,7 +30,7 @@ type RequestRoundTracker struct {
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer
 	logBroadcaster   log.Broadcaster
 	jobID            int32
-	lggr             logger.Logger
+	lggr             logger.SugaredLogger
 	odb              RequestRoundDB
 	q                pg.Q
 	blockTranslator  ocrcommon.BlockTranslator
@@ -43,10 +43,6 @@ type RequestRoundTracker struct {
 	// LatestRoundRequested
 	latestRoundRequested ocr2aggregator.OCR2AggregatorRoundRequested
 	lrrMu                sync.RWMutex
-
-	// LatestBlockHeight
-	latestBlockHeight   int64
-	latestBlockHeightMu sync.RWMutex
 }
 
 // NewRequestRoundTracker makes a new RequestRoundTracker
@@ -63,18 +59,17 @@ func NewRequestRoundTracker(
 ) (o *RequestRoundTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &RequestRoundTracker{
-		ethClient:         ethClient,
-		contract:          contract,
-		contractFilterer:  contractFilterer,
-		logBroadcaster:    logBroadcaster,
-		jobID:             jobID,
-		lggr:              lggr,
-		odb:               odb,
-		q:                 pg.NewQ(db, lggr, chain),
-		blockTranslator:   ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
-		ctx:               ctx,
-		ctxCancel:         cancel,
-		latestBlockHeight: -1,
+		ethClient:        ethClient,
+		contract:         contract,
+		contractFilterer: contractFilterer,
+		logBroadcaster:   logBroadcaster,
+		jobID:            jobID,
+		lggr:             logger.Sugared(lggr),
+		odb:              odb,
+		q:                pg.NewQ(db, lggr, chain),
+		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
+		ctx:              ctx,
+		ctxCancel:        cancel,
 	}
 }
 

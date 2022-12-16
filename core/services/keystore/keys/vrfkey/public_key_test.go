@@ -26,7 +26,7 @@ func TestValueScanIdentityPointSet(t *testing.T) {
 		assert.True(t, p.Equal(np), "Point should give the point we constructed pk from")
 		value, err := pk.Value()
 		require.NoError(t, err, "failed to serialize public key for database")
-		nPk.Scan(value)
+		require.NoError(t, nPk.Scan(value))
 		assert.Equal(t, pk, nPk,
 			"roundtripping public key through db Value/Scan gave different key!")
 		nnPk.Set(pk)

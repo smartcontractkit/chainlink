@@ -1,24 +1,26 @@
 package webhook_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bridges.ORM {
+func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) bridges.ORM {
 	return bridges.NewORM(db, logger.TestLogger(t), cfg)
 }
 
@@ -32,8 +34,7 @@ func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	borm := newBridgeORM(t, db, cfg)
+	borm := newBridgeORM(t, db, pgtest.NewQConfig(true))
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -52,13 +53,13 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db.DB, nil, nil)
 
-		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), nil, jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(testutils.Context(t), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), nil, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), nil, uuid.NewV4())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})
@@ -66,13 +67,13 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db.DB, &sessions.User{}, nil)
 
-		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(context.Background(), nil, jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(testutils.Context(t), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(context.Background(), nil, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), nil, uuid.NewV4())
 		require.NoError(t, err)
 		assert.True(t, can)
 	})
@@ -80,19 +81,19 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db.DB, nil, &eiFoo)
 
-		can, err := a.CanRun(context.Background(), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(context.Background(), eiDisabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
+		can, err = a.CanRun(testutils.Context(t), eiDisabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), eiEnabledCfg{}, jobWithBarEI.ExternalJobID)
+		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), eiEnabledCfg{}, jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), eiEnabledCfg{}, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, uuid.NewV4())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})

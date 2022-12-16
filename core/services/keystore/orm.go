@@ -2,6 +2,7 @@ package keystore
 
 import (
 	"database/sql"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
@@ -11,11 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 )
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ksORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ksORM {
 	namedLogger := lggr.Named("KeystoreORM")
 	return ksORM{
 		q:    pg.NewQ(db, namedLogger, cfg),
@@ -62,16 +64,33 @@ func (orm ksORM) getEncryptedKeyRing() (kr encryptedKeyRing, err error) {
 	return kr, nil
 }
 
-func (orm ksORM) loadKeyStates() (keyStates, error) {
+func (orm ksORM) loadKeyStates() (*keyStates, error) {
 	ks := newKeyStates()
-	var ethkeystates []ethkey.State
-	if err := orm.q.Select(&ethkeystates, `SELECT * FROM eth_key_states`); err != nil {
-		return ks, errors.Wrap(err, "error loading eth_key_states from DB")
+	var ethkeystates []*ethkey.State
+	if err := orm.q.Select(&ethkeystates, `SELECT id, address, evm_chain_id, next_nonce, disabled, created_at, updated_at FROM evm_key_states`); err != nil {
+		return ks, errors.Wrap(err, "error loading evm_key_states from DB")
 	}
-	for i := 0; i < len(ethkeystates); i++ {
-		ks.Eth[ethkeystates[i].KeyID()] = &ethkeystates[i]
+	for _, state := range ethkeystates {
+		ks.add(state)
 	}
 	return ks, nil
+}
+
+// getNextNonce returns evm_key_states.next_nonce for the given address
+func (orm ksORM) getNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
+	q := orm.q.WithOpts(qopts...)
+	err = q.Get(&nonce, "SELECT next_nonce FROM evm_key_states WHERE address = $1 AND evm_chain_id = $2 AND disabled = false", address, chainID.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, errors.Wrapf(sql.ErrNoRows, "key with address %s is not enabled for chain %s", address.Hex(), chainID.String())
+	}
+	return nonce, errors.Wrap(err, "failed to load next nonce")
+}
+
+// incrementNextNonce increments evm_key_states.next_nonce by 1
+func (orm ksORM) incrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) (incrementedNonce int64, err error) {
+	q := orm.q.WithOpts(qopts...)
+	err = q.Get(&incrementedNonce, "UPDATE evm_key_states SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = $1 AND next_nonce = $2 AND evm_chain_id = $3 AND disabled = false RETURNING next_nonce", address, currentNonce, chainID.String())
+	return incrementedNonce, errors.Wrap(err, "IncrementNextNonce failed to update keys")
 }
 
 // ~~~~~~~~~~~~~~~~~~~~ LEGACY FUNCTIONS FOR V1 MIGRATION ~~~~~~~~~~~~~~~~~~~~

@@ -1,0 +1,45 @@
+{
+  "SolanaChains": [
+    {
+      "ID": "mainnet",
+      "Enabled": true,
+      "CFG": {
+        "BalancePollPeriod": "8s",
+        "ConfirmPollPeriod": "5m9s",
+        "OCR2CachePollPeriod": "1h7m",
+        "OCR2CacheTTL": "42m10s",
+        "TxTimeout": "1s",
+        "TxRetryTimeout": "1m",
+        "TxConfirmTimeout": "1h",
+        "SkipPreflight": true,
+        "Commitment": "foobar",
+        "MaxRetries": 7
+      }
+    },
+    {
+      "ID": "testnet",
+      "Enabled": false,
+      "CFG": {
+        "SkipPreflight": false
+      }
+    }
+  ],
+  "SolanaNodes": {
+    "mainnet": [
+      {
+        "Name": "mainnet",
+        "SolanaURL": "http://foo.bar"
+      },
+      {
+        "Name": "mainnet-2",
+        "SolanaURL": "http://fake.url"
+      }
+    ],
+    "testnet": [
+      {
+        "Name": "testnet",
+        "SolanaURL": "http://test.sol"
+      }
+    ]
+  }
+}

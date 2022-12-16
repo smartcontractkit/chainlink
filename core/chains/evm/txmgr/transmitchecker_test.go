@@ -11,16 +11,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 )
@@ -79,9 +84,9 @@ func TestFactory(t *testing.T) {
 }
 
 func TestTransmitCheckers(t *testing.T) {
-	client := cltest.NewEthClientMockWithDefaultChain(t)
+	client := evmtest.NewEthClientMockWithDefaultChain(t)
 	log := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	t.Run("no checker", func(t *testing.T) {
 		checker := txmgr.NoChecker
@@ -115,7 +120,6 @@ func TestTransmitCheckers(t *testing.T) {
 				}), "latest").Return(nil).Once()
 
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
-			client.AssertExpectations(t)
 		})
 
 		t.Run("revert", func(t *testing.T) {
@@ -133,7 +137,6 @@ func TestTransmitCheckers(t *testing.T) {
 			err := checker.Check(ctx, log, tx, attempt)
 			expErrMsg := "transaction reverted during simulation: json-rpc error { Code = 42, Message = 'oh no, it reverted', Data = 'KqYi' }"
 			require.EqualError(t, err, expErrMsg)
-			client.AssertExpectations(t)
 		})
 
 		t.Run("non revert error", func(t *testing.T) {
@@ -146,7 +149,6 @@ func TestTransmitCheckers(t *testing.T) {
 			// Non-revert errors are logged but should not prevent transmission, and do not need
 			// to be passed to the caller
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
-			client.AssertExpectations(t)
 		})
 	})
 
@@ -154,12 +156,18 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID [32]byte) (txmgr.EthTx, txmgr.EthTxAttempt) {
+		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EthTx, txmgr.EthTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
+			txHash := common.Hash{}
 			meta := txmgr.EthTxMeta{
-				RequestID: &h,
-				MaxLink:   &testDefaultMaxLink, // 1 LINK
-				SubID:     &testDefaultSubID,
+				RequestID:     &h,
+				MaxLink:       &testDefaultMaxLink, // 1 LINK
+				SubID:         &testDefaultSubID,
+				RequestTxHash: &txHash,
+			}
+
+			if nilTxHash {
+				meta.RequestTxHash = nil
 			}
 
 			b, err := json.Marshal(meta)
@@ -188,36 +196,70 @@ func TestTransmitCheckers(t *testing.T) {
 		r2 := [32]byte{2}
 		r3 := [32]byte{3}
 
-		checker := txmgr.VRFV1Checker{Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
-			if reqID == r1 {
-				// Request 1 is already fulfilled
-				return v1.Callbacks{
-					SeedAndBlockNum: [32]byte{},
-				}, nil
-			} else if reqID == r2 {
-				// Request 2 errors
-				return v1.Callbacks{}, errors.New("error getting commitment")
-			} else {
-				return v1.Callbacks{
-					SeedAndBlockNum: [32]byte{1},
-				}, nil
-			}
-		}}
+		checker := txmgr.VRFV1Checker{
+			Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
+				if opts.BlockNumber.Cmp(big.NewInt(6)) != 0 {
+					// Ensure correct logic is applied to get callbacks.
+					return v1.Callbacks{}, errors.New("error getting callback")
+				}
+				if reqID == r1 {
+					// Request 1 is already fulfilled
+					return v1.Callbacks{
+						SeedAndBlockNum: [32]byte{},
+					}, nil
+				} else if reqID == r2 {
+					// Request 2 errors
+					return v1.Callbacks{}, errors.New("error getting commitment")
+				} else {
+					return v1.Callbacks{
+						SeedAndBlockNum: [32]byte{1},
+					}, nil
+				}
+			},
+			Client: client,
+		}
+
+		mockBatch := client.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 && b[0].Method == "eth_getBlockByNumber" && b[1].Method == "eth_getTransactionReceipt"
+		})).Return(nil).Run(func(args mock.Arguments) {
+			batch := args.Get(1).([]rpc.BatchElem)
+
+			// Return block 10 for eth_getBlockByNumber
+			mostRecentHead := batch[0].Result.(*evmtypes.Head)
+			mostRecentHead.Number = 10
+
+			// Return block 6 for eth_getTransactionReceipt
+			requestTransactionReceipt := batch[1].Result.(*types.Receipt)
+			requestTransactionReceipt.BlockNumber = big.NewInt(6)
+		})
 
 		t.Run("already fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, r1)
+			tx, attempt := newTx(t, r1, false)
 			err := checker.Check(ctx, log, tx, attempt)
 			require.Error(t, err, "request already fulfilled")
 		})
 
+		t.Run("nil RequestTxHash", func(t *testing.T) {
+			tx, attempt := newTx(t, r1, true)
+			err := checker.Check(ctx, log, tx, attempt)
+			require.NoError(t, err)
+		})
+
 		t.Run("not fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, r3)
+			tx, attempt := newTx(t, r3, false)
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
 		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
-			tx, attempt := newTx(t, r2)
+			tx, attempt := newTx(t, r2, false)
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("failure fetching tx receipt and block head", func(t *testing.T) {
+			tx, attempt := newTx(t, r1, false)
+			mockBatch.Return(errors.New("could not fetch"))
+			err := checker.Check(ctx, log, tx, attempt)
+			require.NoError(t, err)
 		})
 	})
 
@@ -268,9 +310,9 @@ func TestTransmitCheckers(t *testing.T) {
 					return [32]byte{1}, nil
 				}
 			},
-			HeaderByNumber: func(ctx context.Context, n *big.Int) (*types.Header, error) {
-				return &types.Header{
-					Number: big.NewInt(1),
+			HeadByNumber: func(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
+				return &evmtypes.Head{
+					Number: 1,
 				}, nil
 			},
 			RequestBlockNumber: big.NewInt(1),
@@ -293,7 +335,7 @@ func TestTransmitCheckers(t *testing.T) {
 		})
 
 		t.Run("can't get header", func(t *testing.T) {
-			checker.HeaderByNumber = func(ctx context.Context, n *big.Int) (*types.Header, error) {
+			checker.HeadByNumber = func(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 				return nil, errors.New("can't get head")
 			}
 			tx, attempt := newTx(t, big.NewInt(3))
@@ -301,9 +343,9 @@ func TestTransmitCheckers(t *testing.T) {
 		})
 
 		t.Run("nil request block number", func(t *testing.T) {
-			checker.HeaderByNumber = func(ctx context.Context, n *big.Int) (*types.Header, error) {
-				return &types.Header{
-					Number: big.NewInt(1),
+			checker.HeadByNumber = func(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
+				return &evmtypes.Head{
+					Number: 1,
 				}, nil
 			}
 			checker.RequestBlockNumber = nil

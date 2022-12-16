@@ -42,7 +42,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 	assert.Equal(t, "", val)
 	require.False(t, ok)
 
-	got, err = s.GetWebauthnSession(key)
+	_, err = s.GetWebauthnSession(key)
 	assert.ErrorContains(t, err, "assertion not in challenge store")
 
 	user := mustRandomUser(t)
@@ -72,8 +72,8 @@ func TestWebAuthnSessionStore(t *testing.T) {
 }
 
 func mustRandomUser(t testing.TB) User {
-	email := fmt.Sprintf("user-%v@chainlink.test", testutils.NewRandomInt64())
-	r, err := NewUser(email, testutils.Password)
+	email := fmt.Sprintf("user-%v@chainlink.test", testutils.NewRandomPositiveInt64())
+	r, err := NewUser(email, testutils.Password, UserRoleAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}

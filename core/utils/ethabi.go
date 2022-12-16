@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,21 +27,31 @@ const (
 	FormatBool = "bool"
 )
 
-// GenericEncode eth encodes values based on the provided types
-func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
-	if len(values) != len(types) {
-		return nil, errors.New("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
+// ABIEncode is the equivalent of abi.encode.
+// See a full set of examples https://github.com/ethereum/go-ethereum/blob/420b78659bef661a83c5c442121b13f13288c09f/accounts/abi/packing_test.go#L31
+func ABIEncode(abiStr string, values ...interface{}) ([]byte, error) {
+	// Create a dummy method with arguments
+	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, abiStr)
+	inAbi, err := abi.JSON(strings.NewReader(inDef))
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	res, err := inAbi.Pack("method", values...)
+	if err != nil {
+		return nil, err
+	}
+	return res[4:], nil
+}
+
+// ABIEncode is the equivalent of abi.decode.
+// See a full set of examples https://github.com/ethereum/go-ethereum/blob/420b78659bef661a83c5c442121b13f13288c09f/accounts/abi/packing_test.go#L31
+func ABIDecode(abiStr string, data []byte) ([]interface{}, error) {
+	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, abiStr)
+	inAbi, err := abi.JSON(strings.NewReader(inDef))
+	if err != nil {
+		return nil, err
+	}
+	return inAbi.Unpack("method", data)
 }
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array

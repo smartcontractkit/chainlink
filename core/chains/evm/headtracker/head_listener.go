@@ -2,7 +2,6 @@ package headtracker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -45,7 +44,7 @@ func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Conf
 	return &headListener{
 		config:    config,
 		ethClient: ethClient,
-		logger:    lggr.Named(logger.HeadListener),
+		logger:    lggr.Named("HeadListener"),
 		chStop:    chStop,
 	}
 }
@@ -65,7 +64,7 @@ func (hl *headListener) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, 
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			hl.logger.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			hl.logger.Errorw("Error in new head subscription, unsubscribed", "err", err)
 			continue
 		} else {
 			break
@@ -82,8 +81,13 @@ func (hl *headListener) Connected() bool {
 }
 
 func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler) error {
+	var noHeadsAlarmC <-chan time.Time
+	var noHeadsAlarmT *time.Ticker
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
-	t := time.NewTicker(noHeadsAlarmDuration)
+	if noHeadsAlarmDuration > 0 {
+		noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
+		noHeadsAlarmC = noHeadsAlarmT.C
+	}
 
 	for {
 		select {
@@ -91,9 +95,12 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			return nil
 
 		case blockHeader, open := <-hl.chHeaders:
-			// We've received a head, reset the no heads alarm
-			t.Stop()
-			t = time.NewTicker(noHeadsAlarmDuration)
+			if noHeadsAlarmT != nil {
+				// We've received a head, reset the no heads alarm
+				noHeadsAlarmT.Stop()
+				noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
+				noHeadsAlarmC = noHeadsAlarmT.C
+			}
 			hl.receivingHeads.Store(true)
 			if !open {
 				return errors.New("head listener: chHeaders prematurely closed")
@@ -121,9 +128,9 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			}
 			return err
 
-		case <-t.C:
+		case <-noHeadsAlarmC:
 			// We haven't received a head on the channel for a long time, log a warning
-			hl.logger.Warn(fmt.Sprintf("have not received a head for %v", noHeadsAlarmDuration))
+			hl.logger.Warnf("have not received a head for %v", noHeadsAlarmDuration)
 			hl.receivingHeads.Store(false)
 		}
 	}
@@ -147,7 +154,7 @@ func (hl *headListener) subscribe(ctx context.Context) bool {
 			err := hl.subscribeToHead(ctx)
 			if err != nil {
 				promEthConnectionErrors.WithLabelValues(hl.ethClient.ChainID().String()).Inc()
-				hl.logger.Warnw(fmt.Sprintf("Failed to subscribe to heads on chain %s", chainID), "err", err)
+				hl.logger.Warnw("Failed to subscribe to heads on chain", "chainID", chainID, "err", err)
 			} else {
 				hl.logger.Debugf("Subscribed to heads on chain %s", chainID)
 				return true

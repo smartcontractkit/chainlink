@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Checker --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Checker --output ./mocks/ --case=underscore
 type (
 	// Checker provides a service which can be probed for system health.
 	Checker interface {

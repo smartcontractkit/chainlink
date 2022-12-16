@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -21,11 +21,12 @@ import (
 type batchFulfillment struct {
 	proofs        []batch_vrf_coordinator_v2.VRFTypesProof
 	commitments   []batch_vrf_coordinator_v2.VRFTypesRequestCommitment
-	totalGasLimit uint64
+	totalGasLimit uint32
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	lbs           []log.Broadcast
 	maxLinks      []interface{}
+	txHashes      []common.Hash
 }
 
 func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
@@ -49,6 +50,9 @@ func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
 		maxLinks: []interface{}{
 			result.maxLink,
 		},
+		txHashes: []common.Hash{
+			result.req.req.Raw.TxHash,
+		},
 	}
 }
 
@@ -57,11 +61,11 @@ func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
 // batchGasLimit easy via the addRun method.
 type batchFulfillments struct {
 	fulfillments  []*batchFulfillment
-	batchGasLimit uint64
+	batchGasLimit uint32
 	currIndex     int
 }
 
-func newBatchFulfillments(batchGasLimit uint64) *batchFulfillments {
+func newBatchFulfillments(batchGasLimit uint32) *batchFulfillments {
 	return &batchFulfillments{
 		fulfillments:  []*batchFulfillment{},
 		batchGasLimit: batchGasLimit,
@@ -89,6 +93,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult) {
 			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestId)
 			currBatch.lbs = append(currBatch.lbs, result.req.lb)
 			currBatch.maxLinks = append(currBatch.maxLinks, result.maxLink)
+			currBatch.txHashes = append(currBatch.txHashes, result.req.req.Raw.TxHash)
 		}
 	}
 }
@@ -98,7 +103,7 @@ func (lsn *listenerV2) processBatch(
 	subID uint64,
 	fromAddress common.Address,
 	startBalanceNoReserveLink *big.Int,
-	maxCallbackGasLimit uint64,
+	maxCallbackGasLimit uint32,
 	batch *batchFulfillment,
 ) (processedRequestIDs []string) {
 	start := time.Now()
@@ -139,6 +144,8 @@ func (lsn *listenerV2) processBatch(
 		}
 
 		maxLinkStr := bigmath.Accumulate(batch.maxLinks).String()
+		txHashes := []common.Hash{}
+		copy(txHashes, batch.txHashes)
 		reqIDHashes := []common.Hash{}
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
@@ -150,9 +157,10 @@ func (lsn *listenerV2) processBatch(
 			GasLimit:       totalGasLimitBumped,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 			Meta: &txmgr.EthTxMeta{
-				RequestIDs: reqIDHashes,
-				MaxLink:    &maxLinkStr,
-				SubID:      &subID,
+				RequestIDs:      reqIDHashes,
+				MaxLink:         &maxLinkStr,
+				SubID:           &subID,
+				RequestTxHashes: txHashes,
 			},
 		}, pg.WithQueryer(tx))
 
@@ -211,10 +219,10 @@ func (lsn *listenerV2) getUnconsumed(l logger.Logger, reqs []pendingRequest) (un
 
 func batchFulfillmentGasEstimate(
 	batchSize uint64,
-	maxCallbackGasLimit uint64,
+	maxCallbackGasLimit uint32,
 	gasMultiplier float64,
-) uint64 {
-	return uint64(
-		gasMultiplier * float64((maxCallbackGasLimit+400_000)+batchSize*BatchFulfillmentIterationGasCost),
+) uint32 {
+	return uint32(
+		gasMultiplier * float64((uint64(maxCallbackGasLimit)+400_000)+batchSize*BatchFulfillmentIterationGasCost),
 	)
 }

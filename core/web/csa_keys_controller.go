@@ -2,11 +2,12 @@ package web
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -43,14 +44,20 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ctrl.App.GetAuditLogger().Audit(audit.CSAKeyCreated, map[string]interface{}{
+		"CSAPublicKey": key.PublicKey,
+		"CSVersion":    key.Version,
+	})
+
 	jsonAPIResponse(c, presenters.NewCSAKeyResource(key), "csaKeys")
 }
 
 // Import imports a CSA key
 func (ctrl *CSAKeysController) Import(c *gin.Context) {
-	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
+	defer ctrl.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -62,12 +69,17 @@ func (ctrl *CSAKeysController) Import(c *gin.Context) {
 		return
 	}
 
+	ctrl.App.GetAuditLogger().Audit(audit.CSAKeyImported, map[string]interface{}{
+		"CSAPublicKey": key.PublicKey,
+		"CSVersion":    key.Version,
+	})
+
 	jsonAPIResponse(c, presenters.NewCSAKeyResource(key), "csaKey")
 }
 
 // Export exports a key
 func (ctrl *CSAKeysController) Export(c *gin.Context) {
-	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+	defer ctrl.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Export request body")
 
 	keyID := c.Param("ID")
 	newPassword := c.Query("newpassword")
@@ -77,5 +89,7 @@ func (ctrl *CSAKeysController) Export(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ctrl.App.GetAuditLogger().Audit(audit.CSAKeyExported, map[string]interface{}{"keyID": keyID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

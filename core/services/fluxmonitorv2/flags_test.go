@@ -32,7 +32,7 @@ func TestFlags_IsLowered(t *testing.T) {
 			t.Parallel()
 
 			var (
-				flagsContract = new(mocks.Flags)
+				flagsContract = mocks.NewFlags(t)
 				address       = testutils.NewAddress()
 			)
 
@@ -50,8 +50,6 @@ func TestFlags_IsLowered(t *testing.T) {
 			result, err := flags.IsLowered(address)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, result)
-
-			flagsContract.AssertExpectations(t)
 		})
 	}
 }

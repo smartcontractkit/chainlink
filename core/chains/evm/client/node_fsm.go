@@ -5,6 +5,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -94,11 +96,17 @@ func init() {
 
 // FSM methods
 
-// State allows reading the current state of the node
+// State allows reading the current state of the node.
 func (n *node) State() NodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state
+}
+
+func (n *node) StateAndLatest() (NodeState, int64, *utils.Big) {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.state, n.stateLatestBlockNumber, n.stateLatestTotalDifficulty
 }
 
 // setState is only used by internal state management methods.
@@ -166,12 +174,12 @@ func (n *node) transitionToInSync(fn func()) {
 }
 
 // declareOutOfSync puts a node into OutOfSync state, disconnecting all current
-// clients and making it unavailable for use
-func (n *node) declareOutOfSync(latestReceivedBlockNumber int64) {
+// clients and making it unavailable for use until back in-sync.
+func (n *node) declareOutOfSync(isOutOfSync func(num int64, td *utils.Big) bool) {
 	n.transitionToOutOfSync(func() {
 		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
-		go n.outOfSyncLoop(latestReceivedBlockNumber)
+		go n.outOfSyncLoop(isOutOfSync)
 	})
 }
 
@@ -233,7 +241,7 @@ func (n *node) transitionToInvalidChainID(fn func()) {
 		return
 	}
 	switch n.state {
-	case NodeStateDialed:
+	case NodeStateDialed, NodeStateOutOfSync:
 		n.disconnectAll()
 		n.state = NodeStateInvalidChainID
 	default:

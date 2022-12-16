@@ -138,13 +138,16 @@ type ConfigPoller struct {
 	addr               common.Address
 }
 
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) *ConfigPoller {
-	destChainPoller.MergeFilter([]common.Hash{ConfigSet}, addr)
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
+	_, err := destChainPoller.RegisterFilter(logpoller.Filter{EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
+	if err != nil {
+		return nil, err
+	}
 	return &ConfigPoller{
 		lggr:               lggr,
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
-	}
+	}, nil
 }
 
 func (lp *ConfigPoller) Notify() <-chan struct{} {
@@ -152,7 +155,7 @@ func (lp *ConfigPoller) Notify() <-chan struct{} {
 }
 
 func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 0, pg.WithParentCtx(ctx))
+	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {

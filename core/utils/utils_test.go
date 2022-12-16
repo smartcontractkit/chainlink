@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -193,81 +195,6 @@ func TestClient_ParseEthereumAddress(t *testing.T) {
 	assert.Error(t, notHexErr)
 	_, tooLongErr := parse("0x0123456789abcdef0123456789abcdef0123456789abcdef")
 	assert.Error(t, tooLongErr)
-}
-
-func TestMaxUint32(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		expectation uint32
-		vals        []uint32
-	}{
-		{"single", 9, []uint32{9}},
-		{"positives", 5, []uint32{3, 4, 5}},
-		{"equal", 3, []uint32{3, 3, 3}},
-	}
-
-	for _, test := range tests {
-		test := test
-
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			actual := utils.MaxUint32(test.vals[0], test.vals[1:len(test.vals)]...)
-			assert.Equal(t, test.expectation, actual)
-		})
-	}
-}
-
-func TestMaxInt(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		expectation int
-		vals        []int
-	}{
-		{"negatives", -1, []int{-1, -2, -9}},
-		{"positives", 5, []int{3, 4, 5}},
-		{"both", 5, []int{-1, -2, -9, 3, 4, 5}},
-	}
-
-	for _, test := range tests {
-		test := test
-
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			actual := utils.MaxInt(test.vals[0], test.vals[1:len(test.vals)]...)
-			assert.Equal(t, test.expectation, actual)
-		})
-	}
-}
-
-func TestMinUint(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		expectation uint
-		vals        []uint
-	}{
-		{"single", 9, []uint{9}},
-		{"positives", 3, []uint{3, 4, 5}},
-		{"equal", 3, []uint{3, 3, 3}},
-	}
-
-	for _, test := range tests {
-		test := test
-
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			actual := utils.MinUint(test.vals[0], test.vals[1:len(test.vals)]...)
-			assert.Equal(t, test.expectation, actual)
-		})
-	}
 }
 
 func TestWaitGroupChan(t *testing.T) {
@@ -457,24 +384,23 @@ func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
 	ready := make(chan bool)
 
 	go func() {
-		once.StartOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StartOnce("slow service", func() (err error) {
 			ch <- 1
 			ready <- true
 			<-time.After(time.Millisecond * 500) // wait for StopOnce to happen
 			ch <- 2
 
 			return nil
-		})
-
+		}))
 	}()
 
 	go func() {
 		<-ready // try stopping halfway through startup
-		once.StopOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StopOnce("slow service", func() (err error) {
 			ch <- 3
 
 			return nil
-		})
+		}))
 	}()
 
 	require.Equal(t, 1, <-ch)
@@ -494,12 +420,12 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 
 	go func() {
 		ch <- 1
-		once.StartOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StartOnce("slow service", func() (err error) {
 			ready <- true
 			<-next // continue after the other StartOnce call fails
 
 			return nil
-		})
+		}))
 		<-next
 		ch <- 2
 
@@ -507,9 +433,9 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 
 	go func() {
 		<-ready // try starting halfway through startup
-		once.StartOnce("slow service", func() (err error) {
+		assert.Error(t, once.StartOnce("slow service", func() (err error) {
 			return nil
-		})
+		}))
 		next <- true
 		ch <- 3
 		next <- true
@@ -837,6 +763,59 @@ func TestStartStopOnce(t *testing.T) {
 	assert.Equal(t, int32(2), callsCount.Load())
 }
 
+func TestStartStopOnce_StartErrors(t *testing.T) {
+	var s utils.StartStopOnce
+
+	err := s.StartOnce("foo", func() error { return errors.New("foo") })
+	assert.Error(t, err)
+
+	var callsCount atomic.Int32
+	incCount := func() {
+		callsCount.Inc()
+	}
+
+	assert.False(t, s.IfStarted(incCount))
+	assert.Equal(t, int32(0), callsCount.Load())
+
+	err = s.StartOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo has already been started once")
+	err = s.StopOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo cannot be stopped from this state; state=StartFailed")
+
+	assert.Equal(t, utils.StartStopOnce_StartFailed, s.LoadState())
+}
+
+func TestStartStopOnce_StopErrors(t *testing.T) {
+	var s utils.StartStopOnce
+
+	err := s.StartOnce("foo", func() error { return nil })
+	require.NoError(t, err)
+
+	var callsCount atomic.Int32
+	incCount := func() {
+		callsCount.Inc()
+	}
+
+	err = s.StopOnce("foo", func() error { return errors.New("explodey mcsplode") })
+	assert.Error(t, err)
+
+	assert.False(t, s.IfStarted(incCount))
+	assert.Equal(t, int32(0), callsCount.Load())
+	assert.True(t, s.IfNotStopped(incCount))
+	assert.Equal(t, int32(1), callsCount.Load())
+
+	err = s.StartOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo has already been started once")
+	err = s.StopOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo cannot be stopped from this state; state=StopFailed")
+
+	assert.Equal(t, utils.StartStopOnce_StopFailed, s.LoadState())
+}
+
 func TestStartStopOnce_Ready_Healthy(t *testing.T) {
 	t.Parallel()
 
@@ -969,4 +948,38 @@ func TestCronTicker(t *testing.T) {
 	c := counter.Load()
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, c, counter.Load())
+}
+
+func TestTryParseHex(t *testing.T) {
+	t.Parallel()
+
+	t.Run("0x prefix missing", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := utils.TryParseHex("abcd")
+		assert.Error(t, err)
+	})
+
+	t.Run("wrong hex characters", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := utils.TryParseHex("0xabcdzzz")
+		assert.Error(t, err)
+	})
+
+	t.Run("valid hex string", func(t *testing.T) {
+		t.Parallel()
+
+		b, err := utils.TryParseHex("0x1234")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{0x12, 0x34}, b)
+	})
+
+	t.Run("prepend odd length with zero", func(t *testing.T) {
+		t.Parallel()
+
+		b, err := utils.TryParseHex("0x123")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{0x1, 0x23}, b)
+	})
 }

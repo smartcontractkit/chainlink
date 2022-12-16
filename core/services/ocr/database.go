@@ -11,18 +11,19 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type db struct {
 	q            pg.Q
 	oracleSpecID int32
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 }
 
 var (
@@ -31,13 +32,13 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.LogConfig) *db {
+func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConfig) *db {
 	namedLogger := lggr.Named("OCR.DB")
 
 	return &db{
 		q:            pg.NewQ(sqlxDB, namedLogger, cfg),
 		oracleSpecID: oracleSpecID,
-		lggr:         lggr,
+		lggr:         logger.Sugared(lggr),
 	}
 }
 
@@ -223,7 +224,7 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
-	defer d.lggr.ErrorIfClosing(rows, "ocr_pending_transmissions rows")
+	defer d.lggr.ErrorIfFn(rows.Close, "Error closing ocr_pending_transmissions rows")
 
 	m := make(map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission)
 

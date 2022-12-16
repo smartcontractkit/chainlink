@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -114,7 +115,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewQConfig(true)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
 	// Create a duplicate
@@ -133,7 +134,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	app := cltest.NewApplication(b)
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
@@ -148,7 +149,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	bt, err := setupBridgeControllerIndex(t, app.BridgeORM())
 	assert.NoError(t, err)
@@ -189,9 +190,11 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[1].Confirmations, resources[0].Confirmations, "should have the same Confirmations")
 }
 
+// cannot randomize bridge names here since they are ordered by name on the API
+// leading in random order for assertion...
 func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.BridgeType, error) {
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("indexbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -201,7 +204,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 	}
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges2"),
+		Name:          bridges.MustParseBridgeName("indexbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
@@ -214,7 +217,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -242,16 +245,18 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
+	bridgeName := testutils.RandomizeName("BRidgea")
 	bt := &bridges.BridgeType{
-		Name: bridges.MustParseBridgeName("BRidgea"),
+		Name: bridges.MustParseBridgeName(bridgeName),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
 	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
-	ud := bytes.NewBuffer([]byte(`{"name": "BRidgea","url":"http://yourbridge"}`))
-	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
+	body := fmt.Sprintf(`{"name": "%s","url":"http://yourbridge"}`, bridgeName)
+	ud := bytes.NewBuffer([]byte(body))
+	resp, cleanup := client.Patch("/v2/bridge_types/"+bridgeName, ud)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -266,10 +271,10 @@ func TestBridgeController_Show(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -296,7 +301,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -312,7 +317,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -328,7 +333,7 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",

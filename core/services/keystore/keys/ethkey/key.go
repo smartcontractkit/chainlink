@@ -6,6 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 )
 
+// NOTE: This model refers to the OLD key and is only used for migrations
+//
 // Key holds the private key metadata for a given address that is used to unlock
 // said key when given a password.
 //

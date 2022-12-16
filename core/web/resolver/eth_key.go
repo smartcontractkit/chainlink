@@ -48,8 +48,8 @@ func (r *ETHKeyResolver) Address() string {
 	return r.key.addr.Hex()
 }
 
-func (r *ETHKeyResolver) IsFunding() bool {
-	return r.key.state.IsFunding
+func (r *ETHKeyResolver) IsDisabled() bool {
+	return r.key.state.Disabled
 }
 
 // ETHBalance returns the ETH balance available
@@ -74,14 +74,14 @@ func (r *ETHKeyResolver) ETHBalance(ctx context.Context) *string {
 	return nil
 }
 
-func (r *ETHKeyResolver) LINKBalance() *string {
+func (r *ETHKeyResolver) LINKBalance(ctx context.Context) *string {
 	if r.key.chain == nil {
 		return nil
 	}
 
 	client := r.key.chain.Client()
 	addr := common.HexToAddress(r.key.chain.Config().LinkContractAddress())
-	balance, err := client.GetLINKBalance(addr, r.key.state.Address.Address())
+	balance, err := client.GetLINKBalance(ctx, addr, r.key.state.Address.Address())
 	if err != nil {
 		return nil
 	}
@@ -102,7 +102,7 @@ func (r *ETHKeyResolver) MaxGasPriceWei() *string {
 	gasPrice := r.key.chain.Config().KeySpecificMaxGasPriceWei(r.key.addr.Address())
 
 	if gasPrice != nil {
-		val := gasPrice.String()
+		val := gasPrice.ToInt().String()
 		return &val
 	}
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
@@ -36,15 +37,15 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 	paginatedResponse(c, "forwarder", size, page, resources, count, err)
 }
 
-// CreateEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
-type CreateEVMForwarderRequest struct {
+// TrackEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
+type TrackEVMForwarderRequest struct {
 	EVMChainID *utils.Big     `json:"chainID"`
 	Address    common.Address `json:"address"`
 }
 
-// Create adds a new EVM forwarder.
-func (cc *EVMForwardersController) Create(c *gin.Context) {
-	request := &CreateEVMForwarderRequest{}
+// Track adds a new EVM forwarder.
+func (cc *EVMForwardersController) Track(c *gin.Context) {
+	request := &TrackEVMForwarderRequest{}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -58,6 +59,11 @@ func (cc *EVMForwardersController) Create(c *gin.Context) {
 		return
 	}
 
+	cc.App.GetAuditLogger().Audit(audit.ForwarderCreated, map[string]interface{}{
+		"forwarderID":         fwd.ID,
+		"forwarderAddress":    fwd.Address,
+		"forwarderEVMChainID": fwd.EVMChainID,
+	})
 	jsonAPIResponseWithStatus(c, presenters.NewEVMForwarderResource(fwd), "forwarder", http.StatusCreated)
 }
 
@@ -77,5 +83,6 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return
 	}
 
+	cc.App.GetAuditLogger().Audit(audit.ForwarderDeleted, map[string]interface{}{"id": id})
 	jsonAPIResponseWithStatus(c, nil, "forwarder", http.StatusNoContent)
 }

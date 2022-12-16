@@ -7,11 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	v2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	v2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
@@ -46,7 +48,10 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V1 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
-		return &VRFV1Checker{coord.Callbacks}, nil
+		return &VRFV1Checker{
+			Callbacks: coord.Callbacks,
+			Client:    c.Client,
+		}, nil
 	case TransmitCheckerTypeVRFV2:
 		if spec.VRFCoordinatorAddress == nil {
 			return nil, errors.Errorf("malformed checker, expected non-nil VRFCoordinatorAddress, got: %v", spec)
@@ -61,7 +66,7 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 		}
 		return &VRFV2Checker{
 			GetCommitment:      coord.GetCommitment,
-			HeaderByNumber:     c.Client.HeaderByNumber,
+			HeadByNumber:       c.Client.HeadByNumber,
 			RequestBlockNumber: spec.VRFRequestBlockNumber,
 		}, nil
 	case "":
@@ -113,7 +118,7 @@ func (s *SimulateChecker) Check(
 	// always run simulation on "latest" block
 	err := s.Client.CallContext(ctx, &b, "eth_call", callArg, evmclient.ToBlockNumArg(nil))
 	if err != nil {
-		if jErr := evmclient.ExtractRPCError(err); jErr != nil {
+		if jErr := evmclient.ExtractRPCErrorOrNil(err); jErr != nil {
 			l.Criticalw("Transaction reverted during simulation",
 				"ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
 			return errors.Errorf("transaction reverted during simulation: %s", jErr.String())
@@ -134,6 +139,8 @@ type VRFV1Checker struct {
 	// Callbacks checks whether a VRF V1 request has already been fulfilled on the VRFCoordinator
 	// Solidity contract
 	Callbacks func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error)
+
+	Client evmclient.Client
 }
 
 // Check satisfies the TransmitChecker interface.
@@ -168,9 +175,47 @@ func (v *VRFV1Checker) Check(
 		return nil
 	}
 
+	if meta.RequestTxHash == nil {
+		l.Errorw("Request tx hash is nil. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxID", tx.ID,
+			"meta", tx.Meta)
+		return nil
+	}
+
+	// Construct and execute batch call to retrieve most the recent block number and the
+	// block number of the request transaction.
+	mostRecentHead := &types.Head{}
+	requestTransactionReceipt := &gethtypes.Receipt{}
+	batch := []rpc.BatchElem{{
+		Method: "eth_getBlockByNumber",
+		Args:   []interface{}{nil},
+		Result: mostRecentHead,
+	}, {
+		Method: "eth_getTransactionReceipt",
+		Args:   []interface{}{*meta.RequestTxHash},
+		Result: requestTransactionReceipt,
+	}}
+	err = v.Client.BatchCallContext(ctx, batch)
+	if err != nil {
+		l.Errorw("Failed to fetch latest header and transaction receipt. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxID", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
+	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not found"
+	// errors.
+	latest := new(big.Int).Sub(big.NewInt(mostRecentHead.Number), big.NewInt(5))
+	blockNumber := bigmath.Max(latest, requestTransactionReceipt.BlockNumber)
 	var reqID [32]byte
 	copy(reqID[:], meta.RequestID.Bytes())
-	callback, err := v.Callbacks(&bind.CallOpts{Context: ctx}, reqID)
+	callback, err := v.Callbacks(&bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: blockNumber,
+	}, reqID)
 	if err != nil {
 		l.Errorw("Unable to check if already fulfilled. Attempting to transmit anyway.",
 			"err", err,
@@ -200,9 +245,9 @@ type VRFV2Checker struct {
 	// Solidity contract.
 	GetCommitment func(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
 
-	// HeaderByNumber fetches the header given the number. If nil is provided,
+	// HeadByNumber fetches the head given the number. If nil is provided,
 	// the latest header is fetched.
-	HeaderByNumber func(ctx context.Context, n *big.Int) (*gethtypes.Header, error)
+	HeadByNumber func(ctx context.Context, n *big.Int) (*types.Head, error)
 
 	// RequestBlockNumber is the block number of the VRFV2 request.
 	RequestBlockNumber *big.Int
@@ -232,7 +277,7 @@ func (v *VRFV2Checker) Check(
 		return nil
 	}
 
-	h, err := v.HeaderByNumber(ctx, nil)
+	h, err := v.HeadByNumber(ctx, nil)
 	if err != nil {
 		l.Errorw("Failed to fetch latest header. Attempting to transmit anyway.",
 			"err", err,
@@ -256,7 +301,7 @@ func (v *VRFV2Checker) Check(
 
 	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not found"
 	// errors.
-	latest := new(big.Int).Sub(h.Number, big.NewInt(5))
+	latest := new(big.Int).Sub(big.NewInt(h.Number), big.NewInt(5))
 	blockNumber := bigmath.Max(latest, v.RequestBlockNumber)
 	callback, err := v.GetCommitment(&bind.CallOpts{
 		Context:     ctx,

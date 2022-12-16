@@ -71,8 +71,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 	dependencies := make(map[int]uint, len(p.Tasks))
 
 	for id, task := range p.Tasks {
-		len := len(task.Inputs())
-		dependencies[id] = uint(len)
+		dependencies[id] = uint(len(task.Inputs()))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

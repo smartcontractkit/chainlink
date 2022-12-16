@@ -7,10 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"go.dedis.ch/kyber/v3"
+
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bm "github.com/smartcontractkit/chainlink/core/utils/big_math"
-	"go.dedis.ch/kyber/v3"
 )
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()

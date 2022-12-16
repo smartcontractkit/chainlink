@@ -151,7 +151,7 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
 	return r.spec.MinIncomingConfirmationsEnv
 }
 
-// MinContractPaymentLinkJuels resolves the spec's evm chain id.
+// MinContractPaymentLinkJuels resolves the spec's min contract payment link.
 func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
 }
@@ -467,6 +467,17 @@ func (r *OCRSpecResolver) P2PBootstrapPeers() *[]string {
 	return &peers
 }
 
+// P2PV2Bootstrappers resolves the OCR1 spec's p2pv2 bootstrappers
+func (r *OCRSpecResolver) P2PV2Bootstrappers() *[]string {
+	if len(r.spec.P2PV2Bootstrappers) == 0 {
+		return nil
+	}
+
+	peers := []string(r.spec.P2PV2Bootstrappers)
+
+	return &peers
+}
+
 // TransmitterAddress resolves the spec's transmitter address
 func (r *OCRSpecResolver) TransmitterAddress() *string {
 	if r.spec.TransmitterAddress == nil {
@@ -492,7 +503,7 @@ func (r *OCR2SpecResolver) BlockchainTimeout() *string {
 	return &timeout
 }
 
-// ContractAddress resolves the spec's contract address.
+// ContractID resolves the spec's contract address.
 func (r *OCR2SpecResolver) ContractID() string {
 	return r.spec.ContractID
 }
@@ -543,13 +554,13 @@ func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
 	return &r.spec.MonitoringEndpoint.String
 }
 
-// P2PBootstrapPeers resolves the spec's p2p bootstrap peers
-func (r *OCR2SpecResolver) P2PBootstrapPeers() *[]string {
-	if len(r.spec.P2PBootstrapPeers) == 0 {
+// P2PV2Bootstrappers resolves the OCR2 spec's p2pv2 bootstrappers
+func (r *OCR2SpecResolver) P2PV2Bootstrappers() *[]string {
+	if len(r.spec.P2PV2Bootstrappers) == 0 {
 		return nil
 	}
 
-	peers := []string(r.spec.P2PBootstrapPeers)
+	peers := []string(r.spec.P2PV2Bootstrappers)
 
 	return &peers
 }
@@ -685,6 +696,15 @@ func (r *VRFSpecResolver) BackoffInitialDelay() string {
 // BackoffMaxDelay resolves the spec's backoff max delay.
 func (r *VRFSpecResolver) BackoffMaxDelay() string {
 	return r.spec.BackoffMaxDelay.String()
+}
+
+// GasLanePrice resolves the spec's gas lane price.
+func (r *VRFSpecResolver) GasLanePrice() *string {
+	if r.spec.GasLanePrice == nil {
+		return nil
+	}
+	gasLanePriceGWei := r.spec.GasLanePrice.String()
+	return &gasLanePriceGWei
 }
 
 type WebhookSpecResolver struct {

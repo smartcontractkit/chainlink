@@ -8,6 +8,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
@@ -110,7 +111,7 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "local testing job"
 contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
-p2pBootstrapPeers = []
+p2pv2Bootstrappers = []
 relay = "solana"
 pluginType = "median"
 transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
@@ -125,12 +126,13 @@ ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 chainID = "Chainlink-99"`
+
 	OCR2TerraSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
 contractID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 isBootstrapPeer = false
-p2pBootstrapPeers = []
+p2pv2Bootstrappers = []
 relay = "terra"
 transmitterID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 observationSource = """
@@ -143,6 +145,24 @@ chainID = "Chainlink-99"`
 	OCR2TerraNodeSpecMinimal = OCR2TerraSpecMinimal + `
 nodeName = "some-test-node"`
 
+	OCR2EVMSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+relay = "evm"
+contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pv2Bootstrappers = []
+transmitterID = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
+pluginType         = "median"
+observationSource = """
+	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+	ds_parse    [type=jsonparse path="data.price" separator="."];
+	ds_multiply [type=multiply times=100];
+	ds -> ds_parse -> ds_multiply;
+"""
+[relayConfig]
+chainID = 0
+[pluginConfig]
+`
 	WebhookSpecNoBody = `
 type            = "webhook"
 schemaVersion   = 1
@@ -182,12 +202,11 @@ chainID			= 1337
 )
 
 type KeeperSpecParams struct {
-	Name                     string
-	ContractAddress          string
-	FromAddress              string
-	EvmChainID               int
-	MinIncomingConfirmations int
-	ObservationSource        string
+	Name              string
+	ContractAddress   string
+	FromAddress       string
+	EvmChainID        int
+	ObservationSource string
 }
 
 type KeeperSpec struct {
@@ -202,19 +221,18 @@ func (os KeeperSpec) Toml() string {
 func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
-schemaVersion   		 	= 3
+schemaVersion   		 	= 1
 name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
 evmChainID      		 	= %d
-minIncomingConfirmations	= %d
 externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
 observationSource = """%s"""
 `
 	escapedObvSource := strings.ReplaceAll(params.ObservationSource, `\`, `\\`)
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations, escapedObvSource),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, escapedObvSource),
 	}
 }
 
@@ -235,6 +253,7 @@ type VRFSpecParams struct {
 	ChunkSize                     int
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
+	GasLanePrice                  *assets.Wei
 }
 
 type VRFSpec struct {
@@ -270,6 +289,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	confirmations := 6
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
+	}
+	gasLanePrice := assets.GWei(100)
+	if params.GasLanePrice != nil {
+		gasLanePrice = params.GasLanePrice
 	}
 	requestTimeout := 24 * time.Hour
 	if params.RequestTimeout != 0 {
@@ -348,6 +371,7 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
+gasLanePrice = "%s"
 observationSource = """
 %s
 """
@@ -356,7 +380,7 @@ observationSource = """
 		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), observationSource)
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {
@@ -442,6 +466,7 @@ externalJobID      =  "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
+p2pv2Bootstrappers = []
 isBootstrapPeer    = false
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 monitoringEndpoint = "chain.link:4321"

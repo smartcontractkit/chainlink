@@ -4,10 +4,11 @@ import { assert, expect } from 'chai'
 import hre, { ethers, network } from 'hardhat'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import cbor from 'cbor'
+import { LinkToken } from '../../typechain'
 
 /**
  * Convert string to hex bytes
- * @param data string to onvert to hex bytes
+ * @param data string to convert to hex bytes
  */
 export function stringToBytes(data: string): string {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data))
@@ -279,6 +280,15 @@ export async function assertBalance(
   msg?: string,
 ) {
   expect(await ethers.provider.getBalance(address)).equal(balance, msg)
+}
+
+export async function assertLinkTokenBalance(
+  lt: LinkToken,
+  address: string,
+  balance: BigNumberish,
+  msg?: string,
+) {
+  expect(await lt.balanceOf(address)).equal(balance, msg)
 }
 
 export async function setTimestamp(timestamp: number) {

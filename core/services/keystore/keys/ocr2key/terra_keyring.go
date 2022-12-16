@@ -5,13 +5,13 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/pkg/errors"
-
 	"github.com/hdevalence/ed25519consensus"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/crypto/blake2s"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ ocrtypes.OnchainKeyring = &terraKeyring{}
@@ -81,11 +81,11 @@ func (tk *terraKeyring) MaxSignatureLength() int {
 	return ed25519.PublicKeySize + ed25519.SignatureSize // 32 + 64
 }
 
-func (tk *terraKeyring) marshal() ([]byte, error) {
+func (tk *terraKeyring) Marshal() ([]byte, error) {
 	return tk.privKey.Seed(), nil
 }
 
-func (tk *terraKeyring) unmarshal(in []byte) error {
+func (tk *terraKeyring) Unmarshal(in []byte) error {
 	if len(in) != ed25519.SeedSize {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
 	}

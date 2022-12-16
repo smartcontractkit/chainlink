@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -46,7 +46,7 @@ var (
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
 )
 
-//go:generate mockery --name OCRContractTrackerDB --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name OCRContractTrackerDB --output ./mocks/ --case=underscore
 type (
 	// OCRContractTracker complies with ContractConfigTracker interface and
 	// handles log events related to the contract more generally
@@ -64,6 +64,7 @@ type (
 		q                pg.Q
 		blockTranslator  ocrcommon.BlockTranslator
 		cfg              ocrcommon.Config
+		mailMon          *utils.MailboxMonitor
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -79,7 +80,7 @@ type (
 		lrrMu                sync.RWMutex
 
 		// ContractConfig
-		configsMB utils.Mailbox[ocrtypes.ContractConfig]
+		configsMB *utils.Mailbox[ocrtypes.ContractConfig]
 		chConfigs chan ocrtypes.ContractConfig
 
 		// LatestBlockHeight
@@ -106,32 +107,28 @@ func NewOCRContractTracker(
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
+	mailMon *utils.MailboxMonitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")
 	return &OCRContractTracker{
-		utils.StartStopOnce{},
-		ethClient,
-		contract,
-		contractFilterer,
-		contractCaller,
-		logBroadcaster,
-		jobID,
-		logger,
-		ocrDB,
-		pg.NewQ(db, logger, cfg),
-		ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
-		cfg,
-		headBroadcaster,
-		nil,
-		make(chan struct{}),
-		sync.WaitGroup{},
-		nil,
-		offchainaggregator.OffchainAggregatorRoundRequested{},
-		sync.RWMutex{},
-		*utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
-		make(chan ocrtypes.ContractConfig),
-		-1,
-		sync.RWMutex{},
+		ethClient:            ethClient,
+		contract:             contract,
+		contractFilterer:     contractFilterer,
+		contractCaller:       contractCaller,
+		logBroadcaster:       logBroadcaster,
+		jobID:                jobID,
+		logger:               logger,
+		ocrDB:                ocrDB,
+		q:                    pg.NewQ(db, logger, cfg),
+		blockTranslator:      ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
+		cfg:                  cfg,
+		mailMon:              mailMon,
+		headBroadcaster:      headBroadcaster,
+		chStop:               make(chan struct{}),
+		latestRoundRequested: offchainaggregator.OffchainAggregatorRoundRequested{},
+		configsMB:            utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
+		chConfigs:            make(chan ocrtypes.ContractConfig),
+		latestBlockHeight:    -1,
 	}
 }
 
@@ -162,6 +159,9 @@ func (t *OCRContractTracker) Start(context.Context) error {
 
 		t.wg.Add(1)
 		go t.processLogs()
+
+		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", fmt.Sprint(t.jobID))
+
 		return nil
 	})
 }
@@ -174,7 +174,7 @@ func (t *OCRContractTracker) Close() error {
 		t.unsubscribeHeads()
 		t.unsubscribeLogs()
 		close(t.chConfigs)
-		return nil
+		return t.configsMB.Close()
 	})
 }
 
@@ -386,11 +386,14 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
-	// We skip confirmation checking anyway on Optimism so there's no need to
-	// care about the block height; we have no way of getting the L1 block
-	// height anyway
-	if t.cfg.ChainType() == config.ChainOptimism {
+	switch t.cfg.ChainType() {
+	case config.ChainMetis, config.ChainOptimism:
+		// We skip confirmation checking anyway on these L2s so there's no need to
+		// care about the block height; we have no way of getting the L1 block
+		// height anyway
 		return 0, nil
+	case "", config.ChainArbitrum, config.ChainXDai:
+		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()
 	if latestBlockHeight >= 0 {

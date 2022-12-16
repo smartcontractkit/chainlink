@@ -1,0 +1,36 @@
+name: 'Push develop to private ECR'
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  push-chainlink-develop:
+    runs-on: ubuntu-20.04
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+
+      - name: Build, sign and publish chainlink image
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: true
+          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          ecr-hostname: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
+          ecr-image-name: chainlink
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: push-chainlink-develop
+        continue-on-error: true

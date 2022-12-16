@@ -13,8 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
+	config2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
@@ -222,18 +223,14 @@ func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, erro
 	return NewFeaturesPayloadResolver(r.App.GetConfig()), nil
 }
 
-// Node retrieves a node by ID
+// Node retrieves a node by ID (Name)
 func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*NodePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	id, err := stringutils.ToInt32(string(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	node, err := r.App.GetChains().EVM.GetNode(ctx, id)
+	name := string(args.ID)
+	node, err := r.App.EVMORM().NodeNamed(name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewNodePayloadResolver(nil, err), nil
@@ -385,13 +382,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 	ks := r.App.GetKeyStore().Eth()
 
-	var keys []ethkey.KeyV2
-	var err error
-	if r.App.GetConfig().Dev() {
-		keys, err = ks.GetAll()
-	} else {
-		keys, err = ks.SendingKeys(nil)
-	}
+	keys, err := ks.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
 	}
@@ -412,7 +403,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		chain, err := r.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
-				addr:  k.Address,
+				addr:  k.EIP55Address,
 				state: state,
 			})
 
@@ -423,14 +414,14 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		}
 
 		ethKeys = append(ethKeys, ETHKey{
-			addr:  k.Address,
+			addr:  k.EIP55Address,
 			state: state,
 			chain: chain,
 		})
 	}
-	// Put funding keys to the end
+	// Put disabled keys to the end
 	sort.SliceStable(ethKeys, func(i, j int) bool {
-		return !states[i].IsFunding && states[j].IsFunding
+		return !states[i].Disabled && states[j].Disabled
 	})
 	return NewETHKeysPayload(ethKeys), nil
 }
@@ -442,9 +433,31 @@ func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
 	}
 
 	cfg := r.App.GetConfig()
-	printer := config.NewConfigPrinter(cfg)
+	if _, ok := cfg.(chainlink.ConfigV2); ok {
+		return nil, config2.ErrUnsupported
+	}
 
+	printer := config.NewConfigPrinter(cfg)
 	return NewConfigPayload(printer.EnvPrinter), nil
+}
+
+// ConfigV2 retrieves the Chainlink node's configuration (V2 mode)
+func (r *Resolver) ConfigV2(ctx context.Context) (*ConfigV2PayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	cfg := r.App.GetConfig()
+	if v2, ok := cfg.(chainlink.ConfigV2); ok {
+		return NewConfigV2Payload(v2.ConfigTOML()), nil
+	}
+	// Legacy config mode
+	userToml, err := r.App.ConfigDump(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to dump application V2 config")
+	}
+
+	return NewConfigV2Payload(userToml, "N/A"), nil
 }
 
 func (r *Resolver) EthTransaction(ctx context.Context, args struct {

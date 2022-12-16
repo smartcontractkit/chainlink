@@ -1,100 +1,54 @@
 package cltest
 
 import (
-	"crypto/ecdsa"
-	"math/big"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	coreconfig "github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint64) *backends.SimulatedBackend {
-	backend := backends.NewSimulatedBackend(alloc, gasLimit)
+func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32) *backends.SimulatedBackend {
+	backend := backends.NewSimulatedBackend(alloc, uint64(gasLimit))
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {
-		logger.TestLogger(t).ErrorIfClosing(backend, "simulated backend")
+		logger.TestLogger(t).ErrorIfFn(backend.Close, "Error closing simulated backend")
 	})
 	return backend
 }
 
-const SimulatedBackendEVMChainID int64 = 1337
-
-// newIdentity returns a go-ethereum abstraction of an ethereum account for
-// interacting with contract golang wrappers
-func NewSimulatedBackendIdentity(t *testing.T) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	return MustNewSimulatedBackendKeyedTransactor(t, key)
-}
-
-func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
+// NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain is like NewApplicationWithConfigAndKeyOnSimulatedBlockchain
+// but cfg should be v2, and configtest.NewGeneralConfigSimulated used to include the simulated chain (testutils.SimulatedChainID).
+func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
-	cfg *configtest.TestGeneralConfig,
+	cfg coreconfig.GeneralConfig,
 	backend *backends.SimulatedBackend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
-	chainId := backend.Blockchain().Config().ChainID
-	cfg.Overrides.DefaultChainID = chainId
-
-	// Only set P2PEnabled override to false if it wasn't set by calling test
-	if !cfg.Overrides.P2PEnabled.Valid {
-		cfg.Overrides.P2PEnabled = null.BoolFrom(false)
+	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
+		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
-
-	client := evmclient.NewSimulatedBackendClient(t, backend, chainId)
+	defID := cfg.DefaultChainID()
+	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
+	chainID := utils.NewBig(testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
-	zero := models.MustMakeDuration(0 * time.Millisecond)
-	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
-	simulatedBackendChain := evmtypes.DBChain{
-		ID: *utils.NewBigI(SimulatedBackendEVMChainID),
-		Cfg: &evmtypes.ChainCfg{
-			GasEstimatorMode:               null.StringFrom("FixedPrice"),
-			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:      &zero,
-			EvmFinalityDepth:               null.IntFrom(15),
-			EthTxReaperThreshold:           &reaperThreshold,
-			MinIncomingConfirmations:       null.IntFrom(1),
-			MinimumContractPayment:         assets.NewLinkFromJuels(100),
-		},
-		Enabled: true,
-	}
-
-	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, simulatedBackendChain)
+	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
 
 	//  app.Stop() will call client.Close on the simulated backend
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
-}
-
-func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
-	t.Helper()
-	return MustNewKeyedTransactor(t, key, SimulatedBackendEVMChainID)
-}
-
-func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
-	t.Helper()
-	transactor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
-	require.NoError(t, err)
-	return transactor
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds

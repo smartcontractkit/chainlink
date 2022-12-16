@@ -39,7 +39,7 @@ var (
 	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) error
@@ -69,6 +69,13 @@ type ORM interface {
 
 	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
+
+	FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error)
+	AssertBridgesExist(p pipeline.Pipeline) error
+}
+
+type ORMConfig interface {
+	DatabaseDefaultQueryTimeout() time.Duration
 }
 
 type orm struct {
@@ -76,7 +83,8 @@ type orm struct {
 	chainSet    evm.ChainSet
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
-	lggr        logger.Logger
+	lggr        logger.SugaredLogger
+	cfg         pg.QConfig
 	bridgeORM   bridges.ORM
 }
 
@@ -86,25 +94,27 @@ func NewORM(
 	db *sqlx.DB,
 	chainSet evm.ChainSet,
 	pipelineORM pipeline.ORM,
+	bridgeORM bridges.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
 	lggr logger.Logger,
-	cfg pg.LogConfig,
+	cfg pg.QConfig,
 ) *orm {
-	namedLogger := lggr.Named("JobORM")
+	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
 		q:           pg.NewQ(db, namedLogger, cfg),
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
-		bridgeORM:   bridges.NewORM(db, lggr, cfg),
+		bridgeORM:   bridgeORM,
 		lggr:        namedLogger,
+		cfg:         cfg,
 	}
 }
 func (o *orm) Close() error {
 	return nil
 }
 
-func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
+func (o *orm) AssertBridgesExist(p pipeline.Pipeline) error {
 	var bridgeNames = make(map[bridges.BridgeName]struct{})
 	var uniqueBridges []bridges.BridgeName
 	for _, task := range p.Tasks {
@@ -137,7 +147,7 @@ func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
-	if err := o.assertBridgesExist(p); err != nil {
+	if err := o.AssertBridgesExist(p); err != nil {
 		return err
 	}
 
@@ -184,33 +194,33 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			if jb.OCROracleSpec.EVMChainID == nil {
+				// If unspecified, assume we're creating a job intended to run on default chain id
+				newChain, err := o.chainSet.Default()
+				if err != nil {
+					return err
+				}
+				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
+			}
+			newChainID := jb.OCROracleSpec.EVMChainID
+
 			existingSpec := new(OCROracleSpec)
 			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL) LIMIT 1;`,
-				jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID,
+				jb.OCROracleSpec.ContractAddress, newChainID,
 			)
+
 			if !errors.Is(err, sql.ErrNoRows) {
 				if err != nil {
 					return errors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
 				}
 
-				matchErr := errors.Errorf("a job with contract address %s already exists for chain ID %d", jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID.ToInt())
-				if existingSpec.EVMChainID == nil {
-					chain, err2 := o.chainSet.Default()
-					if err2 != nil {
-						return errors.Wrap(err2, "failed to validate OffchainreportingOracleSpec on creation")
-					}
-					if jb.OCROracleSpec.EVMChainID.Equal((*utils.Big)(chain.ID())) {
-						return matchErr
-					}
-				} else {
-					return matchErr
-				}
+				return errors.Errorf("a job with contract address %s already exists for chain ID %s", jb.OCROracleSpec.ContractAddress, newChainID)
 			}
 
-			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
+			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, p2pv2_bootstrappers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
 					observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id,
 					created_at, updated_at, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout)
-			VALUES (:contract_address, :p2p_bootstrap_peers, :is_bootstrap_peer, :encrypted_ocr_key_bundle_id, :transmitter_address,
+			VALUES (:contract_address, :p2p_bootstrap_peers, :p2pv2_bootstrappers, :is_bootstrap_peer, :encrypted_ocr_key_bundle_id, :transmitter_address,
 					:observation_timeout, :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id,
 					NOW(), NOW(), :database_timeout, :observation_grace_period, :contract_transmitter_transmit_timeout)
 			RETURNING id;`
@@ -221,12 +231,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.OCROracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
+
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
+
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
 				case relay.EVM:
@@ -244,10 +256,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				case relay.StarkNet:
+					_, err := o.keyStore.StarkNet().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+					}
 				}
 			}
-			switch jb.OCR2OracleSpec.PluginType {
-			case Median:
+
+			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
@@ -257,15 +274,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if err != nil {
 					return err
 				}
-				if err2 := o.assertBridgesExist(*feePipeline); err2 != nil {
+				if err2 := o.AssertBridgesExist(*feePipeline); err2 != nil {
 					return err2
 				}
 			}
 
-			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
+			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2p_bootstrap_peers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
@@ -295,16 +312,16 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case VRF:
 			var specID int32
 			sql := `INSERT INTO vrf_specs (
-				coordinator_address, public_key, min_incoming_confirmations, 
-				evm_chain_id, from_addresses, poll_period, requested_confs_delay, 
-				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled, 
-				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay,
+				coordinator_address, public_key, min_incoming_confirmations,
+				evm_chain_id, from_addresses, poll_period, requested_confs_delay,
+				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled,
+				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay, gas_lane_price,
 				created_at, updated_at)
 			VALUES (
-				:coordinator_address, :public_key, :min_incoming_confirmations, 
-				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, 
+				:coordinator_address, :public_key, :min_incoming_confirmations,
+				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay,
 				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
-				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay,
+				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay, :gas_lane_price,
 				NOW(), NOW())
 			RETURNING id;`
 
@@ -353,10 +370,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case Bootstrap:
 			var specID int32
 			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
-					blockchain_timeout, contract_config_tracker_poll_interval, 
+					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint, 
-					:blockchain_timeout, :contract_config_tracker_poll_interval, 
+			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint,
+					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BootstrapSpec); err != nil {
@@ -373,6 +390,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		}
 
 		jb.PipelineSpecID = pipelineSpecID
+
 		err = o.InsertJob(jb, pg.WithQueryer(tx))
 		jobID = jb.ID
 		return errors.Wrap(err, "failed to insert job")
@@ -394,11 +412,22 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, created_at)
+	var query string
+
+	// if job has id, emplace otherwise insert with a new id.
+	if job.ID == 0 {
+		query = `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, NOW())
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
+	} else {
+		query = `INSERT INTO jobs (id, pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+	VALUES (:id, :pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+			:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+	RETURNING *;`
+	}
 	return q.GetNamed(query, job, job)
 }
 
@@ -582,15 +611,6 @@ type DRSpecConfig interface {
 }
 
 func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
-	// Take the largest of the global vs specific.
-	// Note that the v2 vrf requests specify their own confirmation requirements.
-	// We wait for max(minIncomingConfirmations, request required confs) to be safe.
-	minIncomingConfirmations := cfg.MinIncomingConfirmations()
-	if vrfs.MinIncomingConfirmations <= minIncomingConfirmations {
-		vrfs.ConfirmationsEnv = true
-		vrfs.MinIncomingConfirmations = minIncomingConfirmations
-	}
-
 	if vrfs.PollPeriod == 0 {
 		vrfs.PollPeriodEnv = true
 		vrfs.PollPeriod = 5 * time.Second
@@ -600,7 +620,7 @@ func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
 }
 
 func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequestSpec {
-	// Same as for VRF, take the largest of the global vs specific.
+	// Take the largest of the global vs specific.
 	minIncomingConfirmations := cfg.MinIncomingConfirmations()
 	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < minIncomingConfirmations {
 		drs.MinIncomingConfirmationsEnv = true
@@ -665,7 +685,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := cfg.OCRTransmitterAddress()
-		if !errors.Is(errors.Cause(err), config.ErrUnset) {
+		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
 			if err != nil {
 				return nil, err
 			}
@@ -691,7 +711,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
-	ctx, cancel := pg.DefaultQueryCtx()
+	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DatabaseDefaultQueryTimeout())
 	defer cancel()
 	return o.FindJob(ctx, id)
 }
@@ -843,42 +863,125 @@ func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error
 	return runs, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
+func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer) (ids []int64, err error) {
+	lggr := logger.Sugared(o.lggr)
+
+	var res sql.NullInt64
+	if err = tx.Get(&res, "SELECT MAX(id) FROM pipeline_runs"); err != nil {
+		err = errors.Wrap(err, "error while loading runs")
+		return
+	} else if !res.Valid {
+		// MAX() will return NULL if there are no rows in table.  This is not an error
+		return
+	}
+	maxID := res.Int64
+
+	var filter string
+	if jobID != nil {
+		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d AND ", *jobID)
+	} else {
+		filter = "WHERE "
+	}
+
+	stmt := fmt.Sprintf(`SELECT p.id FROM pipeline_runs AS p %s p.id >= $3 AND p.id <= $4
+			ORDER BY p.id DESC OFFSET $1 LIMIT $2`, filter)
+
+	// Only search the most recent n pipeline runs (whether deleted or not), starting with n = 1000 and
+	//  doubling only if we still need more.  Without this, large tables can result in the UI
+	//  becoming unusably slow, continuously flashing, or timing out.  The ORDER BY in
+	//  this query requires a sort of all runs matching jobID, so we restrict it to the
+	//  range minID <-> maxID.
+
+	for n := int64(1000); maxID > 0 && len(ids) < limit; n *= 2 {
+		minID := maxID - n
+		if err = tx.Select(&ids, stmt, offset, limit-len(ids), minID, maxID); err != nil {
+			err = errors.Wrap(err, "error loading runs")
+			return
+		}
+		if offset > 0 {
+			if len(ids) > 0 {
+				// If we're already receiving rows back, then we no longer need an offset
+				offset = 0
+			} else {
+				var skipped int
+				// If no rows were returned, we need to know whether there were any ids skipped
+				//  in this batch due to the offset, and reduce it for the next batch
+				err = tx.Select(&skipped,
+					fmt.Sprintf(
+						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $2 AND p.id <= $3`, filter,
+					),
+				)
+				if err != nil {
+					err = errors.Wrap(err, "error loading from pipeline_runs")
+					return
+				}
+				offset -= skipped
+				if offset < 0 { // sanity assertion, if this ever happened it would probably mean db corruption or pg bug
+					lggr.AssumptionViolationw("offset < 0 while reading pipeline_runs")
+					err = errors.Wrap(err, "internal db error while reading pipeline_runs")
+					return
+				}
+				lggr.Debugw("loadPipelineRunIDs empty batch", "minId", minID, "maxID", maxID, "n", n, "len(ids)", len(ids), "limit", limit, "offset", offset, "skipped", skipped)
+
+			}
+		}
+		maxID = minID - 1
+	}
+	return
+}
+
+func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) (result []byte, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := fmt.Sprintf("SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1 AND dot_id = '%s';", taskName)
+
+		var taskRuns []pipeline.TaskRun
+		if errB := tx.Select(&taskRuns, stmt, runID); errB != nil {
+			return errB
+		}
+		if len(taskRuns) == 0 {
+			return fmt.Errorf("can't find task run with id: %v, taskName: %v", runID, taskName)
+		}
+		if len(taskRuns) > 1 {
+			o.lggr.Errorf("found multiple task runs with id: %v, taskName: %v. Using the first one.", runID, taskName)
+		}
+		taskRun := taskRuns[0]
+		resBytes, errB := taskRun.Output.MarshalJSON()
+		if errB != nil {
+			return errB
+		}
+		result = resBytes
+		return nil
+	})
+	return result, errors.Wrap(err, "failed")
+}
+
 // FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.
 func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []int64, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `
-SELECT pipeline_runs.id
-FROM pipeline_runs
-WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS WHERE jobs.id = $1)
-ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC
-OFFSET $2
-LIMIT $3
-`
-		if err = tx.Select(&ids, stmt, jobID, offset, limit); err != nil {
-			return errors.Wrap(err, "error loading runs")
-		}
-
+		ids, err = o.loadPipelineRunIDs(&jobID, offset, limit, tx)
 		return err
 	})
-
 	return ids, errors.Wrap(err, "PipelineRunsByJobIDs failed")
+}
+
+func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.Run, err error) {
+	stmt := `
+		SELECT pipeline_runs.*
+		FROM pipeline_runs
+		WHERE id = ANY($1)
+	`
+	if err = tx.Select(&runs, stmt, ids); err != nil {
+		err = errors.Wrap(err, "error loading runs")
+		return
+	}
+
+	return o.loadPipelineRunsRelations(runs, tx)
 }
 
 // FindPipelineRunsByIDs returns pipeline runs with the ids.
 func (o *orm) FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `
-SELECT pipeline_runs.*
-FROM pipeline_runs
-WHERE id = ANY($1)
-`
-
-		if err = tx.Select(&runs, stmt, ids); err != nil {
-			return errors.Wrap(err, "error loading runs")
-		}
-
-		runs, err = o.loadPipelineRunsRelations(runs, tx)
-
+		runs, err = o.loadPipelineRunsByID(ids, tx)
 		return err
 	})
 
@@ -913,11 +1016,7 @@ WHERE id = $1
 // CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
 func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `
-SELECT COUNT(*)
-FROM pipeline_runs
-WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS WHERE jobs.id = $1)
-`
+		stmt := "SELECT COUNT(*) FROM pipeline_runs JOIN jobs USING (pipeline_spec_id) WHERE jobs.id = $1"
 		if err = tx.Get(&count, stmt, jobID); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
@@ -958,27 +1057,19 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
 // If jobID is nil, returns all pipeline runs
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
+	var filter string
+	if jobID != nil {
+		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d", *jobID)
+	}
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		var args []interface{}
-		var filter string
-		if jobID != nil {
-			filter = "JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = $1" // TODO:  add support for more than 1 jobID?
-			args = append(args, *jobID)
-		}
 		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
-		if err = tx.QueryRowx(sql, args...).Scan(&count); err != nil {
+		if err = tx.QueryRowx(sql).Scan(&count); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
 
-		sql = fmt.Sprintf(`SELECT pipeline_runs.* FROM pipeline_runs %s
-		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC
-		OFFSET $%d LIMIT $%d;`, filter, len(args)+1, len(args)+2)
-
-		if err = tx.Select(&runs, sql, append(args, offset, size)...); err != nil {
-			return errors.Wrap(err, "error loading runs")
-		}
-
-		runs, err = o.loadPipelineRunsRelations(runs, tx)
+		var ids []int64
+		ids, err = o.loadPipelineRunIDs(jobID, offset, size, tx)
+		runs, err = o.loadPipelineRunsByID(ids, tx)
 
 		return err
 	})

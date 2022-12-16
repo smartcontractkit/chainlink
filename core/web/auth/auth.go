@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
@@ -39,7 +39,8 @@ const (
 type Authenticator interface {
 	AuthorizedUserWithSession(sessionID string) (clsessions.User, error)
 	FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error)
-	FindUser() (clsessions.User, error)
+	FindUser(email string) (clsessions.User, error)
+	FindUserByAPIToken(apiToken string) (clsessions.User, error)
 }
 
 // authMethod defines a method which can be used to authenticate a request. This
@@ -78,12 +79,12 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		Secret:    c.GetHeader(APISecret),
 	}
 
-	user, err := authr.FindUser()
+	// We need to first load the user row so we can compare tokens using the stored salt
+	user, err := authr.FindUserByAPIToken(token.AccessKey)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return auth.ErrorAuthFailed
 		}
-
 		return err
 	}
 
@@ -129,6 +130,11 @@ func AuthenticateExternalInitiator(c *gin.Context, store Authenticator) error {
 	}
 
 	c.Set(SessionExternalInitiatorKey, ei)
+
+	// External initiator endpoints (wrapped with AuthenticateExternalInitiator) inherently assume the role
+	// of 'run' (required to trigger job runs)
+	c.Set(SessionExternalInitiatorKey, ei)
+	c.Set(SessionUserKey, &clsessions.User{Role: clsessions.UserRoleRun})
 
 	return nil
 }
@@ -178,4 +184,60 @@ func GetAuthenticatedExternalInitiator(c *gin.Context) (*bridges.ExternalInitiat
 	}
 
 	return obj.(*bridges.ExternalInitiator), ok
+}
+
+// RequiresRunRole extracts the user object from the context, and asserts the the user's role is at least
+// 'run'
+func RequiresRunRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("not a valid session"))
+			return
+		}
+		if user.Role == clsessions.UserRoleView {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("Unauthorized"))
+			return
+		}
+		handler(c)
+	}
+}
+
+// RequiresEditRole extracts the user object from the context, and asserts the the user's role is at least
+// 'edit'
+func RequiresEditRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("not a valid session"))
+			return
+		}
+		if user.Role == clsessions.UserRoleView || user.Role == clsessions.UserRoleRun {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("Unauthorized"))
+			return
+		}
+		handler(c)
+	}
+}
+
+// RequiresAdminRole extracts the user object from the context, and asserts the the user's role is 'admin'
+func RequiresAdminRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("not a valid session"))
+			return
+		}
+		if user.Role != clsessions.UserRoleAdmin {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("Unauthorized"))
+			return
+		}
+		handler(c)
+	}
 }

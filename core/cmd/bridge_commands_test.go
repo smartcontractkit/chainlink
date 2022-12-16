@@ -6,13 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 func TestBridgePresenter_RenderTable(t *testing.T) {
@@ -62,11 +64,11 @@ func TestBridgePresenter_RenderTable(t *testing.T) {
 func TestClient_IndexBridges(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("cliindexbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -74,7 +76,7 @@ func TestClient_IndexBridges(t *testing.T) {
 	require.NoError(t, err)
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges2"),
+		Name:          bridges.MustParseBridgeName("cliindexbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -98,11 +100,11 @@ func TestClient_IndexBridges(t *testing.T) {
 func TestClient_ShowBridge(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -123,7 +125,7 @@ func TestClient_ShowBridge(t *testing.T) {
 func TestClient_CreateBridge(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -157,11 +159,11 @@ func TestClient_CreateBridge(t *testing.T) {
 func TestClient_RemoveBridge(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplicationV2(t, nil)
 	client, r := app.NewClientAndRenderer()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("removebridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}

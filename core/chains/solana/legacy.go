@@ -5,15 +5,17 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
-	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	"github.com/smartcontractkit/sqlx"
 
+	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type SetupConfig interface {
 	SolanaNodes() string
-	LogSQL() bool
+	pg.QConfig
 }
 
 // SetupNodes is a hack/shim method to allow node operators to specify multiple nodes via ENV.

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -419,11 +420,11 @@ func TestDuration_MarshalJSON_UnmarshalJSON(t *testing.T) {
 func TestDuration_MakeDurationFromString(t *testing.T) {
 	t.Parallel()
 
-	d, err := models.MakeDurationFromString("1s")
+	d, err := models.ParseDuration("1s")
 	require.NoError(t, err)
 	require.Equal(t, 1*time.Second, d.Duration())
 
-	_, err = models.MakeDurationFromString("xyz")
+	_, err = models.ParseDuration("xyz")
 	require.Error(t, err)
 }
 

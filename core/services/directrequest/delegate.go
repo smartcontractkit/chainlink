@@ -13,8 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -29,6 +30,7 @@ type (
 		pipelineORM    pipeline.ORM
 		chHeads        chan *evmtypes.Head
 		chainSet       evm.ChainSet
+		mailMon        *utils.MailboxMonitor
 	}
 
 	Config interface {
@@ -44,6 +46,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
 	chainSet evm.ChainSet,
+	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
 		logger.Named("DirectRequest"),
@@ -51,6 +54,7 @@ func NewDelegate(
 		pipelineORM,
 		make(chan *evmtypes.Head, 1),
 		chainSet,
+		mailMon,
 	}
 }
 
@@ -58,8 +62,9 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
@@ -92,6 +97,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
 		pipelineORM:              d.pipelineORM,
+		mailMon:                  d.mailMon,
 		job:                      jb,
 		mbOracleRequests:         utils.NewHighCapacityMailbox[log.Broadcast](),
 		mbOracleCancelRequests:   utils.NewHighCapacityMailbox[log.Broadcast](),
@@ -118,6 +124,7 @@ type listener struct {
 	oracle                   operator_wrapper.OperatorInterface
 	pipelineRunner           pipeline.Runner
 	pipelineORM              pipeline.ORM
+	mailMon                  *utils.MailboxMonitor
 	job                      job.Job
 	runs                     sync.Map
 	shutdownWaitGroup        sync.WaitGroup
@@ -152,6 +159,9 @@ func (l *listener) Start(context.Context) error {
 			l.shutdownWaitGroup.Done()
 		}()
 
+		l.mailMon.Monitor(l.mbOracleRequests, "DirectRequest", "Requests", fmt.Sprint(l.job.PipelineSpec.JobID))
+		l.mailMon.Monitor(l.mbOracleCancelRequests, "DirectRequest", "Cancel", fmt.Sprint(l.job.PipelineSpec.JobID))
+
 		return nil
 	})
 }
@@ -169,7 +179,7 @@ func (l *listener) Close() error {
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
 
-		return nil
+		return services.MultiClose{l.mbOracleRequests, l.mbOracleCancelRequests}.Close()
 	})
 }
 
@@ -222,6 +232,11 @@ func (l *listener) processCancelOracleRequests() {
 
 func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 	for {
+		select {
+		case <-l.chStop:
+			return
+		default:
+		}
 		lb, exists := mailbox.Retrieve()
 		if !exists {
 			return
@@ -229,22 +244,22 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
 			l.logger.Errorw("Could not determine if log was already consumed", "error", err)
-			return
+			continue
 		} else if was {
-			return
+			continue
 		}
 
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
 			l.logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
 			l.markLogConsumed(lb)
-			return
+			continue
 		}
 
 		log := lb.DecodedLog()
 		if log == nil || reflect.ValueOf(log).IsNil() {
 			l.logger.Error("HandleLog: ignoring nil value")
-			return
+			continue
 		}
 
 		switch log := log.(type) {

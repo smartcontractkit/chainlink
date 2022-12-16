@@ -15,7 +15,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -23,9 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
-//go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
-//go:generate mockery --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
+//go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
@@ -102,6 +100,7 @@ type (
 		registrations *registrations
 		logPool       *logPool
 
+		mailMon *utils.MailboxMonitor
 		// Use the same channel for subs/unsubs so ordering is preserved
 		// (unsubscribe must happen after subscribe)
 		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
@@ -165,19 +164,21 @@ const (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *utils.MailboxMonitor) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("LogBroadcaster")
+	id := ethClient.ChainID()
 	return &broadcaster{
 		orm:                    orm,
 		config:                 config,
 		logger:                 lggr,
-		evmChainID:             *ethClient.ChainID(),
+		evmChainID:             *id,
 		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
-		registrations:          newRegistrations(lggr, *ethClient.ChainID()),
-		logPool:                newLogPool(),
-		changeSubscriberStatus: utils.NewMailbox[changeSubscriberStatus](100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
-		newHeads:               utils.NewMailbox[*evmtypes.Head](1),
+		registrations:          newRegistrations(lggr, *id),
+		logPool:                newLogPool(lggr),
+		mailMon:                mailMon,
+		changeSubscriberStatus: utils.NewHighCapacityMailbox[changeSubscriberStatus](),
+		newHeads:               utils.NewSingleMailbox[*evmtypes.Head](),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,
@@ -189,6 +190,7 @@ func (b *broadcaster) Start(context.Context) error {
 	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
 		go b.awaitInitialSubscribers()
+		b.mailMon.Monitor(b.changeSubscriberStatus, "LogBroadcaster", "ChangeSubscriber", b.evmChainID.String())
 		return nil
 	})
 }
@@ -209,7 +211,7 @@ func (b *broadcaster) Close() error {
 	return b.StopOnce("LogBroadcaster", func() error {
 		close(b.chStop)
 		b.wgDone.Wait()
-		return nil
+		return b.changeSubscriberStatus.Close()
 	})
 }
 
@@ -496,7 +498,7 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 
 func (b *broadcaster) invalidatePool() int64 {
 	if min := b.logPool.heap.FindMin(); min != nil {
-		b.logPool = newLogPool()
+		b.logPool = newLogPool(b.logger)
 		// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
 		blockNum := int64(min.(Uint64))
 		b.backfillBlockNumber.SetValid(blockNum)
@@ -510,9 +512,11 @@ func (b *broadcaster) onNewLog(log types.Log) {
 
 	if log.Removed {
 		// Remove the whole block that contained this log.
+		b.logger.Debugw("Found reverted log", "log", log)
 		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
+		b.logger.Debugw("Found unregistered address", "address", log.Address)
 		return
 	}
 	if b.logPool.addLog(log) {
@@ -722,6 +726,18 @@ func (b *broadcaster) Resume() {
 // test only
 func (b *broadcaster) LogsFromBlock(bh common.Hash) int {
 	return b.logPool.testOnly_getNumLogsForBlock(bh)
+}
+
+func topicsToHex(topics [][]Topic) [][]common.Hash {
+	var topicsInHex [][]common.Hash
+	for i := range topics {
+		var hexes []common.Hash
+		for j := range topics[i] {
+			hexes = append(hexes, common.Hash(topics[i][j]))
+		}
+		topicsInHex = append(topicsInHex, hexes)
+	}
+	return topicsInHex
 }
 
 var _ BroadcasterInTest = &NullBroadcaster{}

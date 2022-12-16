@@ -1,14 +1,17 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -27,22 +30,23 @@ func NewWebAuthnController(app chainlink.Application) WebAuthnController {
 }
 
 func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
-	orm := c.App.SessionORM()
-	user, err := orm.FindUser()
-	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+	user, ok := auth.GetAuthenticatedUser(ctx)
+	if !ok {
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
 
+	orm := c.App.SessionORM()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
+		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Unable to register key"))
 		return
 	}
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	options, err := c.inProgressRegistrationsStore.BeginWebAuthnRegistration(user, uwas, webAuthnConfig)
+	options, err := c.inProgressRegistrationsStore.BeginWebAuthnRegistration(*user, uwas, webAuthnConfig)
 	if err != nil {
 		c.App.GetLogger().Errorf("error in BeginWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
@@ -55,24 +59,24 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 }
 
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
-	orm := c.App.SessionORM()
-	user, err := orm.FindUser()
-	if err != nil {
-		c.App.GetLogger().Errorf("error finding user: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+	user, ok := auth.GetAuthenticatedUser(ctx)
+	if !ok {
+		logger.Sugared(c.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Unable to register key"))
 		return
 	}
 
+	orm := c.App.SessionORM()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
-		c.App.GetLogger().Errorf("error in GetUserWebAuthn: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
+		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Unable to register key"))
 		return
 	}
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	credential, err := c.inProgressRegistrationsStore.FinishWebAuthnRegistration(user, uwas, ctx.Request, webAuthnConfig)
+	credential, err := c.inProgressRegistrationsStore.FinishWebAuthnRegistration(*user, uwas, ctx.Request, webAuthnConfig)
 	if err != nil {
 		c.App.GetLogger().Errorf("error in FinishWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
@@ -84,6 +88,15 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
+
+	// Forward registered credentials for audit logs
+	credj, err := json.Marshal(credential)
+	if err != nil {
+		c.App.GetLogger().Errorf("error in Marshal credentials: %s", err)
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
+		return
+	}
+	c.App.GetAuditLogger().Audit(audit.Auth2FAEnrolled, map[string]interface{}{"email": user.Email, "credential": string(credj)})
 
 	ctx.String(http.StatusOK, "{}")
 }

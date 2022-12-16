@@ -35,11 +35,6 @@ func (c *generalConfig) P2PV2AnnounceAddresses() []string {
 	return c.P2PV2ListenAddresses()
 }
 
-// P2PV2AnnounceAddressesRaw returns the raw value passed in
-func (c *generalConfig) P2PV2AnnounceAddressesRaw() []string {
-	return c.viper.GetStringSlice(envvar.Name("P2PV2AnnounceAddresses"))
-}
-
 // P2PV2Bootstrappers returns the default bootstrapper peers for libocr's v2
 // networking stack
 func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrcommontypes.BootstrapperLocator) {

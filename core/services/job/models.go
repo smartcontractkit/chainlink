@@ -28,16 +28,16 @@ import (
 )
 
 const (
-	Cron               Type = "cron"
-	DirectRequest      Type = "directrequest"
-	FluxMonitor        Type = "fluxmonitor"
-	OffchainReporting  Type = "offchainreporting"
-	OffchainReporting2 Type = "offchainreporting2"
-	Keeper             Type = "keeper"
-	VRF                Type = "vrf"
-	BlockhashStore     Type = "blockhashstore"
-	Webhook            Type = "webhook"
-	Bootstrap          Type = "bootstrap"
+	Cron               Type = (Type)(pipeline.CronJobType)
+	DirectRequest      Type = (Type)(pipeline.DirectRequestJobType)
+	FluxMonitor        Type = (Type)(pipeline.FluxMonitorJobType)
+	OffchainReporting  Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2 Type = (Type)(pipeline.OffchainReporting2JobType)
+	Keeper             Type = (Type)(pipeline.KeeperJobType)
+	VRF                Type = (Type)(pipeline.VRFJobType)
+	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
+	Webhook            Type = (Type)(pipeline.WebhookJobType)
+	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -66,7 +66,7 @@ var (
 		FluxMonitor:        true,
 		OffchainReporting:  false, // bootstrap jobs do not require it
 		OffchainReporting2: false, // bootstrap jobs do not require it
-		Keeper:             true,
+		Keeper:             false, // observationSource is injected in the upkeep executor
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
@@ -90,7 +90,7 @@ var (
 		FluxMonitor:        1,
 		OffchainReporting:  1,
 		OffchainReporting2: 1,
-		Keeper:             3,
+		Keeper:             1,
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
@@ -126,6 +126,8 @@ type Job struct {
 	JobSpecErrors        []SpecError
 	Type                 Type
 	SchemaVersion        uint32
+	GasLimit             clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed    bool          `toml:"forwardingAllowed"`
 	Name                 null.String
 	MaxTaskDuration      models.Interval
 	Pipeline             pipeline.Pipeline `toml:"observationSource"`
@@ -140,14 +142,14 @@ func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
 	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
 }
 
-// The external job ID (UUID) can be encoded into a log topic (32 bytes)
+// ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
 func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
 	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
-// The external job ID (UUID) can also be encoded into a log topic (32 bytes)
+// ExternalIDEncodeBytesToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the 16 bytes underlying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
@@ -206,6 +208,7 @@ type OCROracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	P2PV2Bootstrappers                        pq.StringArray      `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv                bool
@@ -276,6 +279,17 @@ type OCR2PluginType string
 const (
 	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
+
+	DKG OCR2PluginType = "dkg"
+
+	OCR2VRF OCR2PluginType = "ocr2vrf"
+
+	// Keeper was rebranded to automation. For now the plugin type required in job spec points
+	// to the new name (automation) but in code we refer it to keepers
+	// TODO: sc-55296 to rename ocr2keeper to ocr2automation in code
+	OCR2Keeper OCR2PluginType = "ocr2automation"
+
+	OCR2DirectRequest OCR2PluginType = "directrequest"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -285,7 +299,7 @@ type OCR2OracleSpec struct {
 	ContractID                        string          `toml:"contractID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
+	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	TransmitterID                     null.String     `toml:"transmitterID"`
@@ -429,6 +443,13 @@ type VRFSpec struct {
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
+	// GasLanePrice specifies the gas lane price for this VRF job.
+	// If the specified keys in FromAddresses do not have the provided gas price the job
+	// will not start.
+	//
+	// Optional, for v2 jobs only.
+	GasLanePrice *assets.Wei `toml:"gasLanePrice" db:"gas_lane_price"`
+
 	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults
 	// to 20 if not provided.
 	ChunkSize uint32 `toml:"chunkSize"`
@@ -513,5 +534,6 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 		ContractConfigConfirmations:       s.ContractConfigConfirmations,
 		CreatedAt:                         s.CreatedAt,
 		UpdatedAt:                         s.UpdatedAt,
+		P2PV2Bootstrappers:                pq.StringArray{},
 	}
 }

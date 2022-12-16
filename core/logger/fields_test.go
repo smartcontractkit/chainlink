@@ -3,8 +3,9 @@ package logger_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func TestFields_Merge(t *testing.T) {

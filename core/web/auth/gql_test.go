@@ -1,16 +1,18 @@
 package auth_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -20,11 +22,11 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
 	sessionORM := &mocks.ORM{}
-	sessionStore := sessions.NewCookieStore([]byte("secret"))
+	sessionStore := cookie.NewStore([]byte("secret"))
 
 	r := gin.Default()
 	r.Use(sessions.Sessions(auth.SessionName, sessionStore))
-	r.Use(auth.AuthenticateGQL(sessionORM))
+	r.Use(auth.AuthenticateGQL(sessionORM, logger.TestLogger(t)))
 
 	r.GET("/", func(c *gin.Context) {
 		session, ok := auth.GetGQLAuthenticatedSession(c)
@@ -43,12 +45,12 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
 	sessionORM := &mocks.ORM{}
-	sessionStore := sessions.NewCookieStore([]byte(cltest.SessionSecret))
+	sessionStore := cookie.NewStore([]byte(cltest.SessionSecret))
 	sessionID := "sessionID"
 
 	r := gin.Default()
 	r.Use(sessions.Sessions(auth.SessionName, sessionStore))
-	r.Use(auth.AuthenticateGQL(sessionORM))
+	r.Use(auth.AuthenticateGQL(sessionORM, logger.TestLogger(t)))
 
 	r.GET("/", func(c *gin.Context) {
 		session, ok := auth.GetGQLAuthenticatedSession(c.Request.Context())
@@ -58,7 +60,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 		c.String(http.StatusOK, "")
 	})
 
-	sessionORM.On("AuthorizedUserWithSession", sessionID).Return(clsessions.User{}, nil)
+	sessionORM.On("AuthorizedUserWithSession", sessionID).Return(clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}, nil)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
@@ -71,8 +73,8 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 func Test_GetAndSetGQLAuthenticatedSession(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-	user := clsessions.User{}
+	ctx := testutils.Context(t)
+	user := clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}
 
 	ctx = auth.SetGQLAuthenticatedSession(ctx, user, "sessionID")
 

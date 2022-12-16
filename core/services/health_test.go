@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services"
 )
@@ -50,10 +51,10 @@ func TestCheck(t *testing.T) {
 	} {
 		c := services.NewChecker()
 		for i, check := range test.checks {
-			c.Register(fmt.Sprint(i), check)
+			require.NoError(t, c.Register(fmt.Sprint(i), check))
 		}
 
-		c.Start()
+		require.NoError(t, c.Start())
 
 		healthy, results := c.IsHealthy()
 

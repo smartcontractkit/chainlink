@@ -12,20 +12,26 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_TerraChainsController_Create(t *testing.T) {
 	t.Parallel()
 
@@ -81,17 +87,14 @@ func Test_TerraChainsController_Show(t *testing.T) {
 			inputId: validId,
 			name:    "success",
 			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
-				newChainConfig := db.ChainCfg{
-					FallbackGasPriceULuna: null.StringFrom("9.999"),
-					GasLimitMultiplier:    null.FloatFrom(1.55555),
-				}
-
 				chain := db.Chain{
 					ID:      validId,
 					Enabled: true,
-					Cfg:     newChainConfig,
+					Cfg: db.ChainCfg{
+						FallbackGasPriceULuna: null.StringFrom("9.999"),
+						GasLimitMultiplier:    null.FloatFrom(1.55555),
+					},
 				}
-				terratest.MustInsertChain(t, app.GetSqlxDB(), &chain)
 
 				return &chain
 			},
@@ -113,7 +116,11 @@ func Test_TerraChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupTerraChainsControllerTest(t)
+			controller := setupTerraChainsControllerTestV2(t, &terra.TerraConfig{ChainID: ptr(validId), Enabled: ptr(true),
+				Chain: tercfg.Chain{
+					FallbackGasPriceULuna: ptr(decimal.RequireFromString("9.999")),
+					GasLimitMultiplier:    ptr(decimal.RequireFromString("1.55555")),
+				}})
 
 			wantedResult := tc.want(t, controller.app)
 			resp, cleanup := controller.client.Get(
@@ -138,31 +145,21 @@ func Test_TerraChainsController_Show(t *testing.T) {
 func Test_TerraChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	controller := setupTerraChainsControllerTest(t)
-
-	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
-		{
-			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
-			Config: &db.ChainCfg{
-				FallbackGasPriceULuna: null.StringFrom("9.999"),
-			},
-		},
-		{
-			ID: fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999)),
-			Config: &db.ChainCfg{
-				GasLimitMultiplier: null.FloatFrom(1.55555),
-			},
+	chainA := &terra.TerraConfig{
+		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
+		Enabled: ptr(true),
+		Chain: tercfg.Chain{
+			FallbackGasPriceULuna: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
-
-	for _, newChain := range newChains {
-		ch := newChain
-		terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &db.Chain{
-			ID:      ch.ID,
-			Enabled: true,
-			Cfg:     *ch.Config,
-		})
+	chainB := &terra.TerraConfig{
+		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
+		Enabled: ptr(true),
+		Chain: tercfg.Chain{
+			GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
+		},
 	}
+	controller := setupTerraChainsControllerTestV2(t, chainA, chainB)
 
 	badResp, cleanup := controller.client.Get("/v2/chains/terra?size=asd")
 	t.Cleanup(cleanup)
@@ -176,20 +173,20 @@ func Test_TerraChainsController_Index(t *testing.T) {
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	require.NoError(t, err)
-	require.Equal(t, len(newChains), metaCount)
+	require.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
 
-	chains := []presenters.TerraChainResource{}
+	var chains []presenters.TerraChainResource
 	err = web.ParsePaginatedResponse(body, &chains, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[0].ID, chains[0].ID)
-	assert.Equal(t, newChains[0].Config.FallbackGasPriceULuna, chains[0].Config.FallbackGasPriceULuna)
-	assert.Equal(t, newChains[0].Config.GasLimitMultiplier, chains[0].Config.GasLimitMultiplier)
+	assert.Equal(t, *chainA.ChainID, chains[0].ID)
+	assert.Equal(t, chainA.Chain.FallbackGasPriceULuna.String(), chains[0].Config.FallbackGasPriceULuna.String)
+	assert.Equal(t, chainA.Chain.GasLimitMultiplier.InexactFloat64(), chains[0].Config.GasLimitMultiplier.Float64)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
@@ -202,11 +199,12 @@ func Test_TerraChainsController_Index(t *testing.T) {
 	assert.NotEmpty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[1].ID, chains[0].ID)
-	assert.Equal(t, newChains[1].Config.FallbackGasPriceULuna, chains[0].Config.FallbackGasPriceULuna)
-	assert.Equal(t, newChains[1].Config.GasLimitMultiplier, chains[0].Config.GasLimitMultiplier)
+	assert.Equal(t, *chainB.ChainID, chains[0].ID)
+	assert.Equal(t, chainB.Chain.FallbackGasPriceULuna.String(), chains[0].Config.FallbackGasPriceULuna.String)
+	assert.Equal(t, chainB.Chain.GasLimitMultiplier.InexactFloat64(), chains[0].Config.GasLimitMultiplier.Float64)
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_TerraChainsController_Update(t *testing.T) {
 	t.Parallel()
 
@@ -290,6 +288,7 @@ func Test_TerraChainsController_Update(t *testing.T) {
 	}
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func Test_TerraChainsController_Delete(t *testing.T) {
 	t.Parallel()
 
@@ -345,6 +344,7 @@ type TestTerraChainsController struct {
 	client cltest.HTTPClientCleaner
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func setupTerraChainsControllerTest(t *testing.T) *TestTerraChainsController {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.TerraEnabled = null.BoolFrom(true)
@@ -353,7 +353,26 @@ func setupTerraChainsControllerTest(t *testing.T) *TestTerraChainsController {
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+
+	return &TestTerraChainsController{
+		app:    app,
+		client: client,
+	}
+}
+
+func setupTerraChainsControllerTestV2(t *testing.T, cfgs ...*terra.TerraConfig) *TestTerraChainsController {
+	for i := range cfgs {
+		cfgs[i].SetDefaults()
+	}
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Terra = cfgs
+		c.EVM = nil
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestTerraChainsController{
 		app:    app,

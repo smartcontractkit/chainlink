@@ -1,90 +1,153 @@
 name: CI Core
 
-on: push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
+  split-packages:
+    name: Split Go Tests
+    runs-on: ubuntu-latest
+    outputs:
+      splits: ${{ steps.split.outputs.splits }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Generate splits
+        id: split
+        uses: ./.github/actions/split-tests
+        with:
+          config: ./ci.json
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Split Go Tests
+        continue-on-error: true
+
   core:
+    needs: [split-packages]
     strategy:
       fail-fast: false
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests"]
-    name: Core Tests
+        split: ${{ fromJson(needs.split-packages.outputs.splits) }}
+    name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: chainlink_test
-          POSTGRES_HOST_AUTH_METHOD: trust
-        # Set health checks to wait until postgres has started
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup node
+        uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
         with:
-          go-version: ^1.18
-      - name: Go Cache
-        uses: actions/cache@v2
-        with:
-          # * Module download cache
-          # * Build cache (Linux)
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: go-mod-${{ matrix.cmd }}-${{ hashFiles('go.sum') }}
-          restore-keys: |
-            go-mod-${{ matrix.cmd }}-
-            go-mod-
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - name: Install terrad
-        run: ./tools/ci/install_terrad
-      - name: Install solana cli
-        run: ./tools/ci/install_solana
+      - name: Build binary
+        run: go build -o chainlink.test ./core
       - name: Setup DB
-        run: go run ./core local db preparetest
+        run: ./chainlink.test local db preparetest
+      - name: Increase Race Timeout
+        if: github.event.schedule != ''
+        run: |
+          echo "TIMEOUT=10m" >> $GITHUB_ENV
+          echo "COUNT=50" >> $GITHUB_ENV
       - name: Run tests
-        run: ./tools/bin/${{ matrix.cmd }}
-      - name: Store logs artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v2.3.0
+        run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
+      - name: Store logs artifacts
+        if: always()
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
-          name: ${{ matrix.cmd }}_logs
+          name: ${{ matrix.cmd }}_${{ matrix.split.idx }}_logs
           path: |
             ./output.txt
             ./race.*
+            ./coverage.txt
       - name: Print postgres logs
         if: always()
-        uses: docker://docker:latest
+        run: docker compose logs postgres
+        working-directory: ./.github/actions/setup-postgres
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
         with:
-          args: logs ${{ job.services.postgres.id }}
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
+        continue-on-error: true
+
+  # Satisfy required check for core tests
+  # while still allowing for adjustable splitting
+  core-complete:
+    needs: [core]
+    name: Core Tests (${{ matrix.cmd }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cmd: ["go_core_tests", "go_core_race_tests"]
+    steps:
+      - run: echo "${{ matrix.cmd }} have finished"
+
+  scan:
+    name: SonarQube Scan
+    needs: [core-complete]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
+      - name: Set SonarQube Report Paths
+        id: sonarqube_report_paths
+        shell: bash
+        run: |
+          echo "sonarqube_tests_report_paths=$(find go_core_tests_*_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          echo "sonarqube_coverage_report_paths=$(find go_core_tests_*_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@7295e71c9583053f5bf40e9d4068a0c974603ec8 # v1.1.0
+        with:
+          args: >
+            -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
+            -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: sonarqube-scan
+        continue-on-error: true

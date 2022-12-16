@@ -4,16 +4,27 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "sql_query_timeout_percent",
+	Help:    "SQL query time as a pecentage of timeout.",
+	Buckets: []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
+})
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //
@@ -34,22 +45,18 @@ import (
 //
 // A sample ORM method looks like this:
 //
-// 	func (o *orm) GetFoo(id int64, qopts ...pg.QOpt) (Foo, error) {
-// 		q := pg.NewQ(q, qopts...)
-// 		return q.Exec(...)
-// 	}
+//	func (o *orm) GetFoo(id int64, qopts ...pg.QOpt) (Foo, error) {
+//		q := pg.NewQ(q, qopts...)
+//		return q.Exec(...)
+//	}
 //
 // Now you can call it like so:
 //
-// 	orm.GetFoo(1) // will automatically have default query timeout context set
-// 	orm.GetFoo(1, pg.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
-// 	orm.GetFoo(1, pg.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
-// 	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
+//	orm.GetFoo(1) // will automatically have default query timeout context set
+//	orm.GetFoo(1, pg.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
+//	orm.GetFoo(1, pg.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
+//	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
 type QOpt func(*Q)
-
-type LogConfig interface {
-	LogSQL() bool
-}
 
 // WithQueryer sets the queryer
 func WithQueryer(queryer Queryer) func(q *Q) {
@@ -68,23 +75,31 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
+// If the parent has a timeout, just use that instead of DefaultTimeout
+func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
+	return func(q *Q) {
+		q.ParentCtx = ctx
+		deadline, ok := q.ParentCtx.Deadline()
+		if ok {
+			q.QueryTimeout = time.Until(deadline)
+		}
+	}
+}
+
 // WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
 // Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
 func WithLongQueryTimeout() func(q *Q) {
 	return func(q *Q) {
-		q.QueryTimeout = LongQueryTimeout
-	}
-}
-
-// MergeCtx allows callers to combine a ctx with a previously set parent context
-// Responsibility for cancelling the passed context lies with caller
-func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
-	return func(q *Q) {
-		q.ParentCtx = fn(q.ParentCtx)
+		q.QueryTimeout = longQueryTimeout
 	}
 }
 
 var _ Queryer = Q{}
+
+type QConfig interface {
+	LogSQL() bool
+	DatabaseDefaultQueryTimeout() time.Duration
+}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
@@ -104,11 +119,11 @@ type Q struct {
 	ParentCtx    context.Context
 	db           *sqlx.DB
 	logger       logger.Logger
-	config       LogConfig
+	config       QConfig
 	QueryTimeout time.Duration
 }
 
-func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
+func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)
 	}
@@ -138,18 +153,15 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
-	if q.QueryTimeout > 0 {
-		ctx := q.ParentCtx
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		return context.WithTimeout(ctx, q.QueryTimeout)
+	ctx := q.ParentCtx
+	if ctx == nil {
+		ctx = context.Background()
 	}
-
-	if q.ParentCtx == nil {
-		return DefaultQueryCtx()
+	timeout := q.QueryTimeout
+	if q.QueryTimeout <= 0 {
+		timeout = q.config.DatabaseDefaultQueryTimeout()
 	}
-	return DefaultQueryCtxWithParent(q.ParentCtx)
+	return context.WithTimeout(ctx, timeout)
 }
 
 func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
@@ -160,12 +172,12 @@ func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
 
 // CAUTION: A subtle problem lurks here, because the following code is buggy:
 //
-//     ctx, cancel := context.WithCancel(context.Background())
-//     rows, err := db.QueryContext(ctx, "SELECT foo")
-//     cancel() // canceling here "poisons" the scan below
-//     for rows.Next() {
-//       rows.Scan(...)
-//     }
+//	ctx, cancel := context.WithCancel(context.Background())
+//	rows, err := db.QueryContext(ctx, "SELECT foo")
+//	cancel() // canceling here "poisons" the scan below
+//	for rows.Next() {
+//	  rows.Scan(...)
+//	}
 //
 // We must cancel the context only after we have completely finished using the
 // returned rows or result from the query/exec
@@ -260,10 +272,29 @@ func sprintQ(query string, args []interface{}) string {
 	}
 	var pairs []string
 	for i, arg := range args {
-		pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		// We print by type so one can directly take the logged query string and execute it manually in pg.
+		// Annoyingly it seems as though the logger itself will add an extra \, so you still have to remove that.
+		switch v := arg.(type) {
+		case []byte:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v))
+		case common.Address:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case common.Hash:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case pq.ByteaArray:
+			var s strings.Builder
+			fmt.Fprintf(&s, "('\\x%x'", v[0])
+			for j := 1; j < len(v); j++ {
+				fmt.Fprintf(&s, ",'\\x%x'", v[j])
+			}
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s.String()))
+		default:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		}
 	}
 	replacer := strings.NewReplacer(pairs...)
-	return replacer.Replace(query)
+	queryWithVals := replacer.Replace(query)
+	return strings.ReplaceAll(strings.ReplaceAll(queryWithVals, "\n", " "), "\t", " ")
 }
 
 // queryLogger extends Q with logging helpers for a particular query w/ args.
@@ -297,6 +328,8 @@ func (q *queryLogger) withLogError(err error) error {
 	return err
 }
 
+// postSqlLog logs about context cancellation and timing after a query returns.
+// Queries which use their full timeout log critical level. More than 50% log error, and 10% warn.
 func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	elapsed := time.Since(begin)
 	if ctx.Err() != nil {
@@ -307,8 +340,19 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	if timeout <= 0 {
 		timeout = DefaultQueryTimeout
 	}
-	slowThreshold := timeout / 10
-	if slowThreshold > 0 && elapsed > slowThreshold {
-		q.logger.Warnw("SLOW SQL QUERY", "ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "sql", q)
+
+	pct := float64(elapsed) / float64(timeout)
+	pct *= 100
+
+	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
+
+	if elapsed >= timeout {
+		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
+	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
+		q.logger.Errorw("SLOW SQL QUERY", kvs...)
+	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {
+		q.logger.Warnw("SLOW SQL QUERY", kvs...)
 	}
+
+	promSQLQueryTime.Observe(pct)
 }

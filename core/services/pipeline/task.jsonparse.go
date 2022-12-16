@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"math/big"
@@ -12,15 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     float64
-//     string
-//     bool
-//     map[string]interface{}
-//     []interface{}
-//     nil
 //
+//	float64
+//	string
+//	bool
+//	map[string]interface{}
+//	[]interface{}
+//	nil
 type JSONParseTask struct {
 	BaseTask  `mapstructure:",squash"`
 	Path      string `json:"path"`
@@ -37,7 +37,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
@@ -60,7 +60,9 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var decoded interface{}
-	err = json.Unmarshal(data, &decoded)
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	err = d.Decode(&decoded)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
@@ -106,5 +108,11 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 			return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 		}
 	}
+
+	decoded, err = reinterpetJsonNumbers(decoded)
+	if err != nil {
+		return Result{Error: multierr.Combine(ErrBadInput, err)}, runInfo
+	}
+
 	return Result{Value: decoded}, runInfo
 }

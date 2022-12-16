@@ -26,7 +26,6 @@ type NodesORM[I ID, N Node] interface {
 	CreateNode(N, ...pg.QOpt) (N, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []I, qopts ...pg.QOpt) (nodes []N, err error)
-	Node(int32, ...pg.QOpt) (N, error)
 	NodeNamed(string, ...pg.QOpt) (N, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
 	NodesForChain(chainID I, offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
@@ -45,6 +44,7 @@ type ORM[I ID, C Config, N Node] interface {
 	// All existing nodes are dropped, and any missing chains are automatically created.
 	// Then all nodes are inserted, and conflicts are ignored.
 	SetupNodes(nodes []N, chainIDs []I) error
+	EnsureChains([]I, ...pg.QOpt) error
 }
 
 type orm[I ID, C Config, N Node] struct {
@@ -54,6 +54,7 @@ type orm[I ID, C Config, N Node] struct {
 
 // NewORM returns an ORM backed by q, for the tables <prefix>_chains and <prefix>_nodes with column <prefix>_chain_id.
 // Additional Node fields should be included in nodeCols.
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) ORM[I, C, N] {
 	return orm[I, C, N]{
 		newChainsORM[I, C](q, prefix),
@@ -61,6 +62,7 @@ func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) O
 	}
 }
 
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
 func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 	return o.chainsORM.q.Transaction(func(q pg.Queryer) error {
 		tx := pg.WithQueryer(q)
@@ -68,7 +70,7 @@ func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 			return err
 		}
 
-		if err := o.ensureChains(ids, tx); err != nil {
+		if err := o.EnsureChains(ids, tx); err != nil {
 			return err
 		}
 
@@ -79,7 +81,8 @@ func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 // DBChain is a generic DB chain for an ID and Config.
 //
 // A DBChain type alias can be used for convenience:
-// 	type DBChain = chains.DBChain[string, pkg.ChainCfg]
+//
+//	type DBChain = chains.DBChain[string, pkg.ChainCfg]
 type DBChain[I ID, C Config] struct {
 	ID        I
 	Cfg       C
@@ -124,7 +127,7 @@ func (o *chainsORM[I, C]) CreateChain(id I, config C, qopts ...pg.QOpt) (chain D
 	return
 }
 
-func (o *chainsORM[I, C]) ensureChains(ids []I, qopts ...pg.QOpt) (err error) {
+func (o *chainsORM[I, C]) EnsureChains(ids []I, qopts ...pg.QOpt) (err error) {
 	named := make([]struct{ ID I }, len(ids))
 	for i, id := range ids {
 		named[i].ID = id
@@ -285,13 +288,6 @@ func (o *nodesORM[I, N]) truncateNodes(qopts ...pg.QOpt) error {
 		return errors.Wrapf(err, "failed to truncate %s_nodes table", o.prefix)
 	}
 	return nil
-}
-
-func (o *nodesORM[I, N]) Node(id int32, qopts ...pg.QOpt) (node N, err error) {
-	q := o.q.WithOpts(qopts...)
-	err = q.Get(&node, fmt.Sprintf("SELECT * FROM %s_nodes WHERE id = $1;", o.prefix), id)
-
-	return
 }
 
 func (o *nodesORM[I, N]) NodeNamed(name string, qopts ...pg.QOpt) (node N, err error) {

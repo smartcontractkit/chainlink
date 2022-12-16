@@ -1,11 +1,12 @@
 package web
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -37,6 +38,14 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+		"type":         "p2p",
+		"id":           key.ID(),
+		"p2pPublicKey": key.PublicKeyHex(),
+		"p2pPeerID":    key.PeerID(),
+		"p2pType":      key.Type(),
+	})
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
 
@@ -60,6 +69,12 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+		"type": "p2p",
+		"id":   keyID,
+	})
+
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
 
@@ -67,9 +82,9 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/import"
 func (p2pkc *P2PKeysController) Import(c *gin.Context) {
-	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import ")
+	defer p2pkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
-	bytes, err := ioutil.ReadAll(c.Request.Body)
+	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -81,6 +96,14 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 		return
 	}
 
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]interface{}{
+		"type":         "p2p",
+		"id":           key.ID(),
+		"p2pPublicKey": key.PublicKeyHex(),
+		"p2pPeerID":    key.PeerID(),
+		"p2pType":      key.Type(),
+	})
+
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
 
@@ -88,7 +111,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/export"
 func (p2pkc *P2PKeysController) Export(c *gin.Context) {
-	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+	defer p2pkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Export request body")
 
 	keyID, err := p2pkey.MakePeerID(c.Param("ID"))
 	if err != nil {
@@ -102,6 +125,11 @@ func (p2pkc *P2PKeysController) Export(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
+		"type": "p2p",
+		"id":   keyID,
+	})
 
 	c.Data(http.StatusOK, MediaType, bytes)
 }

@@ -2,10 +2,13 @@
 set -o pipefail
 set +e
 
+SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
+OUTPUT_FILE="./output.txt"
+
 echo "Failed tests and panics: ---------------------"
 echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-go test -ldflags "$GO_LDFLAGS" -tags integration -v -p 3 -parallel 4 -coverprofile=coverage.txt -covermode=atomic ./... | tee ./output.txt | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
+go test -ldflags "$GO_LDFLAGS" -tags integration -p 3 -coverprofile=coverage.txt -covermode=atomic $1 | tee $OUTPUT_FILE | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
 EXITCODE=${PIPESTATUS[0]}
 echo ""
 echo "----------------------------------------------"
@@ -17,8 +20,16 @@ echo ""
 echo "Potentially related:"
 echo ""
 
-grep --after-context=2 --group-separator=$'---' "panic: " output.txt
-grep --group-separator=$'---' "driver: bad connection" output.txt
+grep --after-context=2 --group-separator=$'---' "panic: " $OUTPUT_FILE
+grep --group-separator=$'---' "driver: bad connection" $OUTPUT_FILE
+
+# Assert no known sensitive strings present in test logger output
+printf "\n----------------------------------------------\n\n"
+echo "Beginning check of output logs for sensitive strings"
+$SCRIPT_PATH/scrub_logs $OUTPUT_FILE
+if [[ $? != 0 ]]; then
+  exit 1
+fi
 
 echo "Exit code: $EXITCODE"
 if [[ $EXITCODE != 0 ]]; then

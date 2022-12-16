@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -e
+
+# Path to output.txt file produced from `go test ... | tee $OUTPUT_FILE`
+OUTPUT_FILE=${1:-output.txt}
+if [ ! -f "$OUTPUT_FILE" ]; then
+    printf "scrub_logs script error: No output file found at '$OUTPUT_FILE'"
+    exit 1
+fi
+
+# Scan for sensitive strings in the -v verbose go test output logs
+# with constants from `core/internal/cltest/cltest.go`
+declare -a arr=(
+    # General secret const strings and environment config
+    "2d25e62eaf9143e993acaf48691564b2"                                              # APIKey of the fixture API user
+    "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"              # APISecret of the fixture API user
+    "1eCP%2fw0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW%2bpdzE4Fafy%2fXO5LoJ2uwHi"        # URL Encoded
+    "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"              # Tooling secret
+    "T.tLHkcmwePT%2fp%2c%5dsYuntjwHKAsrhm%234eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"      # URL Encoded
+    "16charlengthp4SsW0rD1!@#_"                 # Test user password
+    "16charlengthp4SsW0rD1%21%40%23_"           # URL Encoded
+    "wss://"                                    # Possible credentials
+    "psql://"                                   # Possible DB connection string
+    "psql%3a%2f%2f"                             # URL Encoded
+    "postgresql://"                             # Possible DB connection string
+    "postgresql%3a%2f%2f"                       # URL Encoded
+
+    # Functionality for key exports (JSON) are in the wallet v3 format, encrypted with the cltest.Password value.
+    # The actual value of the secret of these test seeds are 0x1. Secret keys are not as easily accessible and .String() methods are hardcoded to omit them
+    # but additionally check the following representations of that secret for %#v logs of that struct
+    "nat{0x1}"          # Logged key struct could leak secret value, ex. &secp256k1.secp256k1Scalar{neg:false, abs:big.nat{0x1}}
+    "nat%7B0x1%7D"      # URL Encoded
+    "nat{0x2}"
+    "nat%7B0x2%7D"
+    "134287936"                                                                                       # Int representation of internal Ed25519PrivateKey
+                                                                                                      # secret used by keys with KeyBigIntSeed seed (1)
+    "CAESQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzswVB9wd3XKVlRwpCIjwla25BE0bc9aW5t8GXWg71Pw="    # Base64 representation of internal Ed25519PrivateKey
+                                                                                                      # secret used by keys with KeyBigIntSeed seed (1)
+    "CAESQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzswVB9wd3XKVlRwpCIjwla25BE0bc9aW5t8GXWg71Pw%3D"  # URL Encoded
+    "AQ=="
+    "AQ%3D%3D"
+    "Ag%3D%3D"
+)
+
+# For each potential secret above, check for presence of string and encoded version in log files
+MATCHED_LINES=()
+for substr in "${arr[@]}"; do
+   MATCHES="$(grep -i "$substr" $OUTPUT_FILE || true)"
+   if [ -n "$MATCHES" ]; then
+      MATCHED_LINES+=("$MATCHES")
+   fi
+done
+
+# No matches found in logs, return success
+if [ ${#MATCHED_LINES[@]} -eq 0 ]; then
+    echo "No matches in test log output against known set of sensitive strings"
+    exit 0
+fi
+
+# Instances of secret strings were matched, exit the test script with an error
+printf "\n"
+printf "Sensitive string(s) found in test output logs:\n----------------------------------------------\n"
+printf "%s\n" "${MATCHED_LINES[@]}"
+printf "\n\n"
+printf "❌ The above sensitive string(s) were found in the test harness logs output file - this means that secrets could be leaked/logged to external services when running in production.\n"
+exit 1

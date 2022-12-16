@@ -45,6 +45,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.Webhook
 }
 
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) AfterJobCreated(jb job.Job) {
 	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
 	if err != nil {
@@ -67,13 +68,6 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
-	// TODO: we need to fill these out manually, find a better fix
-	if spec.PipelineSpec == nil {
-		spec.PipelineSpec = &pipeline.Spec{}
-	}
-	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
-	spec.PipelineSpec.JobID = spec.ID
-
 	service := &pseudoService{
 		spec:             spec,
 		webhookJobRunner: d.webhookJobRunner,

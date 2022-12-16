@@ -5,6 +5,7 @@ contractAddress    = "0x934F3b67915BFbc98d5204122e0BE0ea69F91268"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
+p2pv2BootstrapPeers = []
 isBootstrapPeer = false
 monitoringEndpoint = "test:101"
 # Below graph will succeed to run through the pipeline

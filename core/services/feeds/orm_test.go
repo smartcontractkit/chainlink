@@ -9,7 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -20,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -41,8 +44,7 @@ func setupORM(t *testing.T) *TestORM {
 	var (
 		db   = pgtest.NewSqlxDB(t)
 		lggr = logger.TestLogger(t)
-		cfg  = cltest.NewTestGeneralConfig(t)
-		orm  = feeds.NewORM(db, lggr, cfg)
+		orm  = feeds.NewORM(db, lggr, pgtest.NewQConfig(true))
 	)
 
 	return &TestORM{ORM: orm, db: db}
@@ -541,6 +543,33 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
+func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	uuid := uuid.NewV4()
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid,
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	_, err := orm.CreateJobProposal(jp)
+	require.NoError(t, err)
+
+	counts, err := orm.CountJobProposalsByStatus()
+	require.NoError(t, err)
+
+	wantPending := int64(1)
+	var wantApproved, wantRejected, wantCancelled int64
+	assert.Equal(t, wantPending, counts.Pending)
+	assert.Equal(t, wantApproved, counts.Approved)
+	assert.Equal(t, wantRejected, counts.Rejected)
+	assert.Equal(t, wantCancelled, counts.Cancelled)
+}
+
 func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	t.Parallel()
 
@@ -1008,16 +1037,17 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	t.Helper()
 
 	var (
-		config      = cltest.NewTestGeneralConfig(t)
+		config      = configtest.NewGeneralConfig(t, nil)
 		keyStore    = cltest.NewKeyStore(t, db, config)
 		lggr        = logger.TestLogger(t)
 		pipelineORM = pipeline.NewORM(db, lggr, config)
+		bridgeORM   = bridges.NewORM(db, lggr, config)
 		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-		orm         = job.NewORM(db, cc, pipelineORM, keyStore, lggr, config)
+		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	)
 
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	defer orm.Close()
 

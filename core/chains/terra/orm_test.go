@@ -8,20 +8,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := terra.NewORM(db, logger.TestLogger(t), pgtest.NewPGCfg(true))
+	orm := terra.NewORM(db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
 	return db, orm
 }
@@ -53,7 +54,7 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	gotNode, err = orm.Node(gotNode.ID)
+	gotNode, err = orm.NodeNamed(gotNode.Name)
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 

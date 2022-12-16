@@ -1,7 +1,6 @@
 package job_test
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -14,11 +13,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+
 	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -62,16 +67,17 @@ func TestRunner(t *testing.T) {
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	btORM := bridges.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t), c, c)
-	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	runner := pipeline.NewRunner(pipelineORM, btORM, config, cc, nil, nil, logger.TestLogger(t), c, c)
+	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config)
 
-	runner.Start(testutils.Context(t))
-	defer runner.Close()
+	require.NoError(t, runner.Start(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -104,7 +110,7 @@ func TestRunner(t *testing.T) {
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), logger.TestLogger(t), true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
 		require.Len(t, results.Values, 2)
@@ -301,7 +307,7 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.FatalErrors, 1)
@@ -346,7 +352,7 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -390,7 +396,7 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -452,6 +458,7 @@ ds1 -> ds1_parse;
 			cc,
 			logger.TestLogger(t),
 			config,
+			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -491,6 +498,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -514,6 +522,7 @@ ds1 -> ds1_parse;
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
 		tAddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
+		config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{}
 		config.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
 		config.Overrides.OCRTransmitterAddress = &tAddress
 		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
@@ -544,6 +553,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -579,6 +589,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -608,6 +619,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -626,6 +638,7 @@ ds1 -> ds1_parse;
 
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{}
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
@@ -640,6 +653,7 @@ ds1 -> ds1_parse;
 			cc,
 			lggr,
 			config,
+			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
@@ -675,7 +689,7 @@ ds1 -> ds1_parse;
 
 		// TODO: This breaks the txdb connection, failing subsequent tests. Resolve in the future
 		// Noop once the job is gone.
-		// jobORM.RecordError(context.Background(), jb.ID, "test")
+		// jobORM.RecordError(testutils.Context(t), jb.ID, "test")
 		// err = db.Find(&se).Error
 		// require.NoError(t, err)
 		// require.Len(t, se, 0)
@@ -698,7 +712,7 @@ ds1 -> ds1_parse;
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 		assert.Nil(t, results.Values[0])
 
@@ -707,7 +721,7 @@ ds1 -> ds1_parse;
 		jb.Name = null.NewString("a job 2", true)
 		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.FatalErrors[0])
@@ -719,7 +733,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 		assert.NotNil(t, results.FatalErrors[0])
 	})
@@ -737,7 +751,7 @@ ds1 -> ds1_parse;
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.FatalErrors[0])
@@ -748,7 +762,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Create another run, it should fail
-		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.Error(t, err)
 	})
 }
@@ -758,9 +772,11 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		t := true
+		c.JobPipeline.ExternalInitiatorsEnabled = &t
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 
@@ -893,7 +909,8 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
+		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
+		jobORM := NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, bridgesORM, app.KeyStore, cfg)
 
 		// Trigger v2/resume
 		select {
@@ -905,7 +922,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient()
+			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 			body := strings.NewReader(`{"value": {"data":{"result":"123.45"}}}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()
@@ -935,9 +952,11 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		t := true
+		c.JobPipeline.ExternalInitiatorsEnabled = &t
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 
@@ -1068,7 +1087,8 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
+		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
+		jobORM := NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, bridgesORM, app.KeyStore, cfg)
 
 		// Trigger v2/resume
 		select {
@@ -1080,7 +1100,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient()
+			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 			body := strings.NewReader(`{"error": "something exploded in EA"}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()

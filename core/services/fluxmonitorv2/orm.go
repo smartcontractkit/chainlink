@@ -6,17 +6,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type transmitter interface {
 	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
 }
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 // ORM defines an interface for database commands related to Flux Monitor v2
 type ORM interface {
@@ -24,7 +25,7 @@ type ORM interface {
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...pg.QOpt) error
-	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, qopts ...pg.QOpt) error
+	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint32, qopts ...pg.QOpt) error
 	CountFluxMonitorRoundStats() (count int, err error)
 }
 
@@ -37,7 +38,7 @@ type orm struct {
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
@@ -115,7 +116,7 @@ func (o *orm) CreateEthTransaction(
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,
-	gasLimit uint64,
+	gasLimit uint32,
 	qopts ...pg.QOpt,
 ) (err error) {
 	_, err = o.txm.CreateEthTransaction(txmgr.NewTx{

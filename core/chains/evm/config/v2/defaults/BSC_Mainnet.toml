@@ -1,0 +1,37 @@
+# BSC uses Clique consensus with ~3s block times
+# Clique offers finality within (N/2)+1 blocks where N is number of signers
+# There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
+ChainID = '56'
+# Keeping this >> 11 because it's not expensive and gives us a safety margin
+FinalityDepth = 50
+LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
+LogPollInterval = '3s'
+MinIncomingConfirmations = 3
+NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 2
+Transactions.ResendAfterThreshold = '1m'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+PriceDefault = '5 gwei'
+PriceMin = '1 gwei'
+BumpMin = '5 gwei'
+# 15s delay since feeds update every minute in volatile situations
+BumpThreshold = 5
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[HeadTracker]
+HistoryDepth = 100
+SamplingInterval = '1s'
+
+[OCR]
+DatabaseTimeout = '2s'
+ContractTransmitterTransmitTimeout = '2s'
+ObservationGracePeriod = '500ms'
+
+[NodePool]
+SyncThreshold = 10

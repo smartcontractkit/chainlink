@@ -13,24 +13,29 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 )
 
-//nolint
+// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
+// nolint
 var (
 	AdvisoryLockID                    = NewInt64("AdvisoryLockID")
 	AuthenticatedRateLimitPeriod      = NewDuration("AuthenticatedRateLimitPeriod")
 	AutoPprofPollInterval             = NewDuration("AutoPprofPollInterval")
 	AutoPprofGatherDuration           = NewDuration("AutoPprofGatherDuration")
 	AutoPprofGatherTraceDuration      = NewDuration("AutoPprofGatherTraceDuration")
+	DatabaseURL                       = New("DatabaseURL", parse.DatabaseURL)
 	BlockBackfillDepth                = NewUint64("BlockBackfillDepth")
 	HTTPServerWriteTimeout            = NewDuration("HTTPServerWriteTimeout")
 	JobPipelineMaxRunDuration         = NewDuration("JobPipelineMaxRunDuration")
-	JobPipelineResultWriteQueueDepth  = NewUint64("JobPipelineResultWriteQueueDepth")
+	JobPipelineMaxSuccessfulRuns      = NewUint64("JobPipelineMaxSuccessfulRuns")
 	JobPipelineReaperInterval         = NewDuration("JobPipelineReaperInterval")
 	JobPipelineReaperThreshold        = NewDuration("JobPipelineReaperThreshold")
-	KeeperRegistryCheckGasOverhead    = NewUint64("KeeperRegistryCheckGasOverhead")
-	KeeperRegistryPerformGasOverhead  = NewUint64("KeeperRegistryPerformGasOverhead")
+	JobPipelineResultWriteQueueDepth  = NewUint64("JobPipelineResultWriteQueueDepth")
+	KeeperRegistryCheckGasOverhead    = NewUint32("KeeperRegistryCheckGasOverhead")
+	KeeperRegistryPerformGasOverhead  = NewUint32("KeeperRegistryPerformGasOverhead")
+	KeeperRegistryMaxPerformDataSize  = NewUint32("KeeperRegistryMaxPerformDataSize")
 	KeeperRegistrySyncInterval        = NewDuration("KeeperRegistrySyncInterval")
 	KeeperRegistrySyncUpkeepQueueSize = NewUint32("KeeperRegistrySyncUpkeepQueueSize")
 	LogLevel                          = New[zapcore.Level]("LogLevel", parse.LogLevel)
+	LogSQL                            = NewBool("LogSQL")
 	RootDir                           = New[string]("RootDir", parse.HomeDir)
 	JSONConsole                       = NewBool("JSONConsole")
 	LogFileMaxSize                    = New("LogFileMaxSize", parse.FileSize)
@@ -67,6 +72,21 @@ func (e *EnvVar[T]) Parse() (v T, invalid string) {
 	return
 }
 
+// ParsePtr attempts to parse the value from the environment, returning nil if the env var was empty or invalid.
+func (e *EnvVar[T]) ParsePtr() *T {
+	if os.Getenv(e.envVarName) == "" {
+		return nil
+	}
+	v, invalid, err := e.ParseFrom(os.Getenv)
+	if err != nil {
+		log.Fatal(e.envVarName, err)
+	}
+	if invalid != "" {
+		return nil
+	}
+	return &v
+}
+
 // ParseFrom attempts to parse the value returned from calling get with the env var name, falling back to the default
 // value when empty or invalid.
 func (e *EnvVar[T]) ParseFrom(get func(string) string) (v T, invalid string, err error) {
@@ -82,6 +102,7 @@ func (e *EnvVar[T]) ParseFrom(get func(string) string) (v T, invalid string, err
 			df = t
 		}
 		invalid = fmt.Sprintf(`Invalid value provided for %s, "%s" - falling back to default "%s": %v`, e.name, str, df, err)
+		err = nil
 	}
 
 	if !e.hasDefault {
