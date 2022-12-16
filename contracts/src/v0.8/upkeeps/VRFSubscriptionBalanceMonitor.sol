@@ -86,10 +86,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
       if (subscriptionIds[idx] == 0) {
         revert InvalidWatchList();
       }
-      if (topUpAmountsJuels[idx] == 0) {
-        revert InvalidWatchList();
-      }
-      if (topUpAmountJuels[idx] <= minBalanceJuels[idx]) {
+      if (topUpAmountsJuels[idx] <= minBalancesJuels[idx]) {
         revert InvalidWatchList();
       }
       s_targets[subscriptionIds[idx]] = Target({
@@ -158,6 +155,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
         );
         if (success) {
           s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
+          contractBalance -= target.topUpAmountJuels;
           emit TopUpSucceeded(needsFunding[idx]);
         } else {
           emit TopUpFailed(needsFunding[idx]);
