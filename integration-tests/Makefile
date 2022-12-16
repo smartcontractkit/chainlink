@@ -120,7 +120,7 @@ test_soak_forwarder_ocr_simulated:
 	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestForwarderOCRSoak ./soak
 
 .PHONY: test_soak_keeper
-test_soak_keeper: test_need_operator_assets
+test_soak_keeper: 
 	go test -v -count=1 -run TestKeeperSoak ./soak
 
 .PHONY: test_soak_keeper_simulated
