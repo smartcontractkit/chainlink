@@ -127,6 +127,29 @@ func (_m *ORM) FindEthTxAttempt(hash common.Hash) (*txmgr.EthTxAttempt, error) {
 	return r0, r1
 }
 
+// FindEthTxAttemptConfirmedByEthTxIDs provides a mock function with given fields: ids
+func (_m *ORM) FindEthTxAttemptConfirmedByEthTxIDs(ids []int64) ([]txmgr.EthTxAttempt, error) {
+	ret := _m.Called(ids)
+
+	var r0 []txmgr.EthTxAttempt
+	if rf, ok := ret.Get(0).(func([]int64) []txmgr.EthTxAttempt); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgr.EthTxAttempt)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindEthTxAttemptsByEthTxIDs provides a mock function with given fields: ids
 func (_m *ORM) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]txmgr.EthTxAttempt, error) {
 	ret := _m.Called(ids)
