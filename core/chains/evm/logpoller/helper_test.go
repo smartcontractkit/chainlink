@@ -86,10 +86,6 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	return lp.GetCurrentBlock()
 }
 
-func (lp *logPoller) BackfillFinalizedBlocks(ctx context.Context, currentBlockNumber int64, latestBlockNumber int64) (int64, error) {
-	return lp.backfillFinalizedBlocks(ctx, currentBlockNumber, latestBlockNumber)
-}
-
 // Similar to lp.Start(), but works after it's already been run once
 func (lp *logPoller) Restart(parentCtx context.Context) error {
 	lp.StartStopOnce = utils.StartStopOnce{}
