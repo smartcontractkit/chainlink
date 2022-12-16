@@ -15,10 +15,14 @@ install-git-hooks: ## Install git hooks.
 	git config core.hooksPath .githooks
 
 .PHONY: install-chainlink-autoinstall
-install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlink.
+install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
 .PHONY: operator-ui-autoinstall
 operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
+.PHONY: pnpmdep
+pnpmdep: ## Install solidity contract dependencies through pnpm
+	(cd contracts && pnpm i)
+	
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
@@ -122,6 +126,16 @@ golangci-lint: ## Run golangci-lint for all issues.
 .PHONY: snapshot
 snapshot:
 	cd ./contracts && forge snapshot --match-test _gas
+
+GORELEASER_CONFIG ?= .goreleaser.yaml
+
+.PHONY: goreleaser-dev-build
+goreleaser-dev-build: ## Run goreleaser snapshot build
+	./tools/bin/goreleaser_wrapper build --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
+.PHONY: goreleaser-dev-release
+goreleaser-dev-release: ## run goreleaser snapshot release
+	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
 
 help:
 	@echo ""

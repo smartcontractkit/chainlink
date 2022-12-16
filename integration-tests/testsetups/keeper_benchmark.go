@@ -342,19 +342,19 @@ func (k *KeeperBenchmarkTest) ensureInputValues(t *testing.T) {
 	k.chainClient = inputs.BlockchainClient
 	require.GreaterOrEqual(t, inputs.NumberOfContracts, 1, "Expecting at least 1 keeper contracts")
 	if inputs.Timeout == 0 {
-		require.Greater(t, inputs.BlockRange, time.Second*0, "If no `timeout` is provided, a `testBlockRange` is required")
+		require.Greater(t, inputs.BlockRange, int64(0), "If no `timeout` is provided, a `testBlockRange` is required")
 	} else if inputs.BlockRange <= 0 {
 		require.GreaterOrEqual(t, inputs.Timeout, time.Second, "If no `testBlockRange` is provided a `timeout` is required")
 	}
 	require.NotNil(t, inputs.KeeperRegistrySettings, "You need to set KeeperRegistrySettings")
 	require.NotNil(t, k.Inputs.ChainlinkNodeFunding, "You need to set a funding amount for chainlink nodes")
 	clFunds, _ := k.Inputs.ChainlinkNodeFunding.Float64()
-	require.GreaterOrEqual(t, clFunds, 0, "Expecting Chainlink node funding to be more than 0 ETH")
-	require.Greater(t, inputs.CheckGasToBurn, 0, "You need to set an expected amount of gas to burn on checkUpkeep()")
+	require.GreaterOrEqual(t, clFunds, 0.0, "Expecting Chainlink node funding to be more than 0 ETH")
+	require.Greater(t, inputs.CheckGasToBurn, int64(0), "You need to set an expected amount of gas to burn on checkUpkeep()")
 	require.GreaterOrEqual(
-		t, inputs.KeeperRegistrySettings.CheckGasLimit, inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
+		t, int64(inputs.KeeperRegistrySettings.CheckGasLimit), inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
 	)
-	require.Greater(t, inputs.PerformGasToBurn, 0, "You need to set an expected amount of gas to burn on performUpkeep()")
+	require.Greater(t, inputs.PerformGasToBurn, int64(0), "You need to set an expected amount of gas to burn on performUpkeep()")
 	require.NotNil(t, inputs.UpkeepSLA, "Expected UpkeepSLA to be set")
 	require.NotNil(t, inputs.FirstEligibleBuffer, "You need to set FirstEligibleBuffer")
 	require.NotNil(t, inputs.RegistryVersions[0], "You need to set RegistryVersion")
