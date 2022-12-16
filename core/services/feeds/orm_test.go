@@ -543,6 +543,33 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
+func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	uuid := uuid.NewV4()
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid,
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	_, err := orm.CreateJobProposal(jp)
+	require.NoError(t, err)
+
+	counts, err := orm.CountJobProposalsByStatus()
+	require.NoError(t, err)
+
+	wantPending := int64(1)
+	var wantApproved, wantRejected, wantCancelled int64
+	assert.Equal(t, wantPending, counts.Pending)
+	assert.Equal(t, wantApproved, counts.Approved)
+	assert.Equal(t, wantRejected, counts.Rejected)
+	assert.Equal(t, wantCancelled, counts.Cancelled)
+}
+
 func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	t.Parallel()
 

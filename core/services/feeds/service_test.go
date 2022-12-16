@@ -492,6 +492,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
 				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: id,
@@ -509,6 +510,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", jp.ID, args.Version).Return(false, nil)
 				svc.orm.On("UpsertJobProposal", &jp, mock.Anything).Return(id, nil)
 				svc.orm.On("CreateSpec", spec, mock.Anything).Return(int64(100), nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: id,
@@ -802,6 +804,7 @@ func Test_Service_CancelSpec(t *testing.T) {
 						Version: int64(spec.Version),
 					},
 				).Return(&proto.CancelledJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			specID: spec.ID,
 		},
@@ -1080,6 +1083,7 @@ answer1 [type=median index=0];
 						Version: int64(spec.Version),
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			id:    spec.ID,
 			force: false,
@@ -1117,6 +1121,7 @@ answer1 [type=median index=0];
 						Version: int64(spec.Version),
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			id:    cancelledSpec.ID,
 			force: false,
@@ -1194,6 +1199,7 @@ answer1 [type=median index=0];
 						Version: int64(spec.Version),
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			id:    spec.ID,
 			force: true,
@@ -1420,6 +1426,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 						Version: int64(spec.Version),
 					},
 				).Return(&proto.RejectedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 		},
 		{
@@ -1620,6 +1627,7 @@ func Test_Service_StartStop(t *testing.T) {
 	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 	svc.connMgr.On("Close")
+	svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 
 	err = svc.Start(testutils.Context(t))
 	require.NoError(t, err)

@@ -15,10 +15,14 @@ install-git-hooks: ## Install git hooks.
 	git config core.hooksPath .githooks
 
 .PHONY: install-chainlink-autoinstall
-install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlink.
+install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
 .PHONY: operator-ui-autoinstall
 operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
+.PHONY: pnpmdep
+pnpmdep: ## Install solidity contract dependencies through pnpm
+	(cd contracts && pnpm i)
+	
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
@@ -107,52 +111,9 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
 
-.PHONY: test_install_ginkgo
-test_install_ginkgo: ## Install ginkgo executable to run tests
-	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
-
 .PHONY: test_need_operator_assets
 test_need_operator_assets: ## Add blank file in web assets if operator ui has not been built
 	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
-
-.PHONY: test_smoke
-test_smoke: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior
-	ACK_GINKGO_DEPRECATIONS=2.5.0 ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	$(args) ./integration-tests/smoke
-
-.PHONY: test_smoke_simulated
-test_smoke_simulated: test_need_operator_assets ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
-	ACK_GINKGO_DEPRECATIONS=2.5.0 SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	$(args) ./integration-tests/smoke
-
-.PHONY: test_soak_ocr
-test_soak_ocr: test_need_operator_assets ## Run the OCR soak test
-	cd ./integration-tests && go test -v -run ^TestOCRSoak$$ ./soak -count=1 && cd ..
-
-.PHONY: test_soak_forwarder_ocr
-test_soak_forwarder_ocr: test_need_operator_assets ## Run the Forwarder OCR soak test
-	cd ./integration-tests && go test -v -run ^TestForwarderOCRSoak$$ ./soak -count=1 && cd ..
-
-.PHONY: test_soak_keeper
-test_soak_keeper: test_need_operator_assets ## Run the OCR soak test
-	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
-
-.PHONY: test_benchmark_automation
-test_benchmark_automation: test_need_operator_assets ## Run the OCR soak test
-	cd ./integration-tests && go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1 && cd ..
-
-.PHONY: test_perf
-test_perf: test_need_operator_assets ## Run core node performance tests.
-	ACK_GINKGO_DEPRECATIONS=2.5.0 ginkgo -v -r --junit-report=tests-perf-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	$(args) ./integration-tests/performance
-
-.PHONY: test_chaos
-test_chaos: test_need_operator_assets ## Run core node chaos tests.
-	ginkgo -r --focus @chaos --nodes 5 ./integration-tests/chaos
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
@@ -165,6 +126,16 @@ golangci-lint: ## Run golangci-lint for all issues.
 .PHONY: snapshot
 snapshot:
 	cd ./contracts && forge snapshot --match-test _gas
+
+GORELEASER_CONFIG ?= .goreleaser.yaml
+
+.PHONY: goreleaser-dev-build
+goreleaser-dev-build: ## Run goreleaser snapshot build
+	./tools/bin/goreleaser_wrapper build --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
+.PHONY: goreleaser-dev-release
+goreleaser-dev-release: ## run goreleaser snapshot release
+	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
 
 help:
 	@echo ""

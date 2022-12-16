@@ -1,9 +1,11 @@
 package performance
 
-//revive:disable:dot-imports
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"strings"
+	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -13,120 +15,98 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
+
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OCR Feed @ocr", func() {
-	var (
-		err               error
-		testEnvironment   *environment.Environment
-		chainClient       blockchain.EVMClient
-		contractDeployer  contracts.ContractDeployer
-		linkTokenContract contracts.LinkToken
-		chainlinkNodes    []*client.Chainlink
-		mockServer        *ctfClient.MockserverClient
-		ocrInstances      []contracts.OffchainAggregator
-		profileTest       *testsetups.ChainlinkProfileTest
-	)
+func TestOCRBasic(t *testing.T) {
+	t.Parallel()
+	testEnvironment, testNetwork := setupOCRTest(t)
 
-	BeforeEach(func() {
-		By("Deploying the environment", func() {
-			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-ocr"}).
-				AddHelm(mockservercfg.New(nil)).
-				AddHelm(mockserver.New(nil)).
-				AddHelm(ethereum.New(nil)).
-				AddHelm(chainlink.New(0, map[string]interface{}{
-					"replicas": "6",
-					"env": map[string]interface{}{
-						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
-					},
-				}))
-			err = testEnvironment.Run()
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	require.NoError(t, err, "Deploying contracts shouldn't fail")
 
-		By("Connecting to launched resources", func() {
-			// Load Networks
-			var err error
-			chainClient, err = blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			contractDeployer, err = contracts.NewContractDeployer(chainClient)
-			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
+	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
-			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
-			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
+	chainClient.ParallelTransactions(true)
 
-			chainClient.ParallelTransactions(true)
-			Expect(err).ShouldNot(HaveOccurred())
+	linkTokenContract, err := contractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-			linkTokenContract, err = contractDeployer.DeployLinkTokenContract()
-			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-		})
+	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
+	require.NoError(t, err, "Error funding Chainlink nodes")
 
-		By("Funding Chainlink nodes", func() {
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+	ocrInstances := actions.DeployOCRContracts(t, 1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for events")
 
-		By("Deploying OCR contracts", func() {
-			ocrInstances = actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+	profileFunction := func(chainlinkNode *client.Chainlink) {
+		actions.SetAllAdapterResponsesToTheSameValue(t, 5, ocrInstances, chainlinkNodes, mockServer)
+		actions.CreateOCRJobs(t, ocrInstances, chainlinkNodes, mockServer)
+		actions.StartNewRound(t, 1, ocrInstances, chainClient)
 
-		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode *client.Chainlink) {
-				defer GinkgoRecover()
-				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
-					// Not the last node, hence not all nodes started profiling yet.
-					return
-				}
-				By("Setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer))
-				By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockServer))
-				By("Starting new round", actions.StartNewRound(1, ocrInstances, chainClient))
-				answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
-				Expect(err).ShouldNot(HaveOccurred(), "Getting latest answer from OCR contract shouldn't fail")
-				Expect(answer.Int64()).Should(Equal(int64(5)), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
+		answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
+		require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+		require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-				By("setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, mockServer))
-				By("starting new round", actions.StartNewRound(2, ocrInstances, chainClient))
+		actions.SetAllAdapterResponsesToTheSameValue(t, 10, ocrInstances, chainlinkNodes, mockServer)
+		actions.StartNewRound(t, 2, ocrInstances, chainClient)
 
-				answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(answer.Int64()).Should(Equal(int64(10)), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
-			}
-
-			profileTest = testsetups.NewChainlinkProfileTest(testsetups.ChainlinkProfileTestInputs{
-				ProfileFunction: profileFunction,
-				ProfileDuration: time.Minute,
-				ChainlinkNodes:  chainlinkNodes,
-			})
-			profileTest.Setup(testEnvironment)
-		})
+		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
+		require.NoError(t, err, "Error getting latest OCR answer")
+		require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+	}
+	profileTest := testsetups.NewChainlinkProfileTest(testsetups.ChainlinkProfileTestInputs{
+		ProfileFunction: profileFunction,
+		ProfileDuration: time.Minute,
+		ChainlinkNodes:  chainlinkNodes,
 	})
-
-	Describe("With a single OCR contract", func() {
-		It("performs two rounds", func() {
-			profileTest.Run()
-		})
+	t.Cleanup(func() {
+		CleanupPerformanceTest(t, testEnvironment, chainlinkNodes, profileTest.TestReporter, chainClient)
 	})
+	profileTest.Setup(testEnvironment)
+	profileTest.Run()
+}
 
-	AfterEach(func() {
-		By("Printing gas stats", func() {
-			chainClient.GasStats().PrintStats()
+func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+	testNetwork = networks.SelectedNetwork
+	evmConfig := ethereum.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
 		})
-		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
-		})
-	})
-})
+	}
+	baseTOML := `[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V1]
+Enabled = true
+ListenIP = '0.0.0.0'
+ListenPort = 6690`
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
+			"replicas": 6,
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment, testNetwork
+}
