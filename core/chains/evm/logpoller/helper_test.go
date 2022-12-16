@@ -86,22 +86,15 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	return lp.GetCurrentBlock()
 }
 
-func (lp *logPoller) BackfillFinalizedBlocks(ctx context.Context, currentBlockNumber *int64, latestBlockNumber int64) (ok bool) {
+func (lp *logPoller) BackfillFinalizedBlocks(ctx context.Context, currentBlockNumber int64, latestBlockNumber int64) (int64, error) {
 	return lp.backfillFinalizedBlocks(ctx, currentBlockNumber, latestBlockNumber)
 }
 
-// For testing scenario where backup poller hasn't run in a while
-func (lp *logPoller) SetLastBackupPollerRun(lastRun time.Time) {
-	lp.lastBackupPollerRun = lastRun
-}
-
-// Same as lp.Start(), but doesn't set lastBackupPollerRun to current time, so the
-// backup poller can be forced to run
+// Similar to lp.Start(), but works after it's already been run once
 func (lp *logPoller) Restart(parentCtx context.Context) error {
-	//lp.StartStopOnce.Reset("logpoller")
 	lp.StartStopOnce = utils.StartStopOnce{}
 	lp.done = make(chan struct{})
-	return lp.start(parentCtx)
+	return lp.Start(parentCtx)
 }
 
 func (lp *logPoller) Filter() ethereum.FilterQuery {

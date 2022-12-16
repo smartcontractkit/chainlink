@@ -158,7 +158,7 @@ func TestLogPoller_Integration(t *testing.T) {
 // Simulate a badly behaving rpc server, where unfinalized blocks can return different logs
 // for the same block hash.  We should be able to handle this without missing any logs, as
 // long as the logs returned for finalized blocks are consistent.
-func Test_EventualConsistency(t *testing.T) {
+func Test_BackupLogPoller(t *testing.T) {
 	th := logpoller.SetupTH(t, 2, 3, 2)
 	// later, we will need at least 32 blocks filled with logs for cache invalidation
 	for i := int64(0); i < 32; i++ {
@@ -247,8 +247,6 @@ func Test_EventualConsistency(t *testing.T) {
 	th.Client.Commit()
 	th.Client.Commit()
 
-	// Pretend backup poller hasn't run in 20 minutes
-	th.LogPoller.SetLastBackupPollerRun(time.Now().Add(-20 * time.Minute))
 	// Run ordinary poller + backup poller at least once
 	require.NoError(t, th.LogPoller.Restart(testutils.Context(t)))
 	time.Sleep(500 * time.Millisecond)
@@ -265,8 +263,6 @@ func Test_EventualConsistency(t *testing.T) {
 
 	th.Client.Commit()
 
-	// Pretend backup poller hasn't run in 20 minutes
-	th.LogPoller.SetLastBackupPollerRun(time.Now().Add(-20 * time.Minute))
 	// Run ordinary poller + backup poller at least once more
 	require.NoError(t, th.LogPoller.Restart(testutils.Context(t)))
 	time.Sleep(500 * time.Millisecond)

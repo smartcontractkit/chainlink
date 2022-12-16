@@ -73,13 +73,12 @@ type logPoller struct {
 	backfillBatchSize int64         // batch size to use when backfilling finalized logs
 	rpcBatchSize      int64         // batch size to use for fallback RPC calls made in GetBlocks
 
-	filterMu            sync.RWMutex
-	currentFilterID     int
-	filters             map[int]Filter
-	filterDirty         bool
-	cachedAddresses     []common.Address
-	cachedEventSigs     []common.Hash
-	lastBackupPollerRun time.Time
+	filterMu        sync.RWMutex
+	currentFilterID int
+	filters         map[int]Filter
+	filterDirty     bool
+	cachedAddresses []common.Address
+	cachedEventSigs []common.Hash
 
 	replayStart    chan ReplayRequest
 	replayComplete chan error
@@ -258,11 +257,6 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 		// we need to keep 1 finalized block.
 		return errors.Errorf("keepBlocksDepth %d must be greater than finality %d + 1", lp.keepBlocksDepth, lp.finalityDepth)
 	}
-	lp.lastBackupPollerRun = time.Now()
-	return lp.start(parentCtx)
-}
-
-func (lp *logPoller) start(parentCtx context.Context) error {
 	return lp.StartOnce("LogPoller", func() error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
@@ -299,10 +293,11 @@ func (lp *logPoller) getReplayFromBlock(ctx context.Context, requested int64) (i
 func (lp *logPoller) run() {
 	defer close(lp.done)
 	logPollTick := time.After(0)
-	logPollFinalizedTick := time.After(100 * time.Millisecond)
+	// trigger first backup poller run shortly after first log poller run
+	backupLogPollTick := time.After(100 * time.Millisecond)
 
 	blockPruneTick := time.After(0)
-	var firstUnfinalizedBlockNumber *int64
+	var firstUnfinalizedBlockNumber int64
 
 	for {
 		select {
@@ -358,13 +353,11 @@ func (lp *logPoller) run() {
 				start = lastProcessed.BlockNumber + 1
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
-		case <-logPollFinalizedTick:
-			// always run backup poller if it's been at least 10 mins since last run
-			const backupPollerMaxTimeDelay = time.Duration(10 * time.Minute)
-			// always run backup poller if we're behind by 1000 blocks or more
-			const backupPollerMaxBlockDelay = 100
+		case <-backupLogPollTick:
+			// If pollPeriod is set to 1 block time, backup log poller will run once every 100 blocks
+			const backupPollerBlockDelay = 100
 
-			logPollTick = time.After(utils.WithJitter(10 * lp.pollPeriod))
+			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 
 			latestBlock, err := lp.ec.HeadByNumber(lp.ctx, nil)
 			if err != nil {
@@ -372,17 +365,18 @@ func (lp *logPoller) run() {
 				continue
 			}
 			latestBlockNumber := latestBlock.Number
-			if firstUnfinalizedBlockNumber == nil {
-				firstUnfinalizedBlockNumber = new(int64)
-				if latestBlockNumber > backupPollerMaxBlockDelay {
-					*firstUnfinalizedBlockNumber = latestBlockNumber - backupPollerMaxBlockDelay
+			if firstUnfinalizedBlockNumber == 0 {
+				// If this is our first run, start 100 blocks behind the latest (or block 0
+				//  if the whole blockchain is shorter than 100 blocks)
+				if latestBlockNumber > backupPollerBlockDelay {
+					firstUnfinalizedBlockNumber = latestBlockNumber - backupPollerBlockDelay
 				}
 			}
 
-			if time.Now().After(lp.lastBackupPollerRun.Add(backupPollerMaxTimeDelay)) ||
-				*firstUnfinalizedBlockNumber < latestBlockNumber-backupPollerMaxBlockDelay {
-				lp.lggr.Debugw("Polling for finalized logs", "firstUnfinalizedBlockNumber", firstUnfinalizedBlockNumber)
-				lp.backfillFinalizedBlocks(lp.ctx, firstUnfinalizedBlockNumber, latestBlockNumber)
+			lp.lggr.Debugw("Running backup poller", "firstUnfinalizedBlockNumber", firstUnfinalizedBlockNumber)
+			firstUnfinalizedBlockNumber, err = lp.backfillFinalizedBlocks(lp.ctx, firstUnfinalizedBlockNumber, latestBlockNumber)
+			if err != nil {
+				lp.lggr.Warnw("Backup poller failed", "err", err)
 			}
 		case <-blockPruneTick:
 			blockPruneTick = time.After(lp.pollPeriod * 1000)
@@ -539,19 +533,18 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 // E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
 // Although 5 is finalized, we still need to save it to the db for reorg detection if 6 is a reorg.
 // start = currentBlockNumber = 3, end = latestBlockNumber - finality - 1 = 7-2-1 = 4 (inclusive range).
-func (lp *logPoller) backfillFinalizedBlocks(ctx context.Context, currentBlockNumber *int64, latestBlockNumber int64) (ok bool) {
+func (lp *logPoller) backfillFinalizedBlocks(ctx context.Context, currentBlockNumber int64, latestBlockNumber int64) (int64, error) {
 	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
-	if lastSafeBackfillBlock >= *currentBlockNumber {
-		lp.lggr.Infow("Backfilling logs", "start", *currentBlockNumber, "end", lastSafeBackfillBlock)
-		if err := lp.backfill(ctx, *currentBlockNumber, lastSafeBackfillBlock); err != nil {
+	if lastSafeBackfillBlock >= currentBlockNumber {
+		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", lastSafeBackfillBlock)
+		if err := lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
-			lp.lggr.Errorw("Unable to backfill, retrying", "err", err)
-			return false
+			return 0, err
 		}
-		*currentBlockNumber = lastSafeBackfillBlock + 1
+		return lastSafeBackfillBlock + 1, nil
 	}
-	return true
+	return currentBlockNumber, nil
 }
 
 // pollAndSaveLogs On startup/crash current is the first block after the last processed block.
@@ -587,7 +580,9 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 	currentBlockNumber = currentBlock.Number
 
-	if !lp.backfillFinalizedBlocks(ctx, &currentBlockNumber, latestBlockNumber) {
+	currentBlockNumber, err = lp.backfillFinalizedBlocks(ctx, currentBlockNumber, latestBlockNumber)
+	if err != nil {
+		lp.lggr.Warnw("Unable to backfill finalized logs, retrying later", "err", err)
 		return
 	}
 	if currentBlockNumber > currentBlock.Number {
