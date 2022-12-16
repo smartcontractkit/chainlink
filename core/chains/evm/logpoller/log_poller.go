@@ -356,7 +356,7 @@ func (lp *logPoller) run() {
 		case <-backupLogPollTick:
 			// If pollPeriod is set to 1 block time, backup log poller will run once every 100 blocks
 			const backupPollerBlockDelay = 100
-			
+
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 
 			if lp.backupPollerNextBlock == 0 {
@@ -586,7 +586,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
 	if lastSafeBackfillBlock >= currentBlockNumber {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", lastSafeBackfillBlock)
-		if err := lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
+		if err = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
 			lp.lggr.Warnw("Unable to backfill finalized logs, retrying later", "err", err)
