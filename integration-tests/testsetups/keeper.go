@@ -146,17 +146,17 @@ func (k *KeeperBlockTimeTest) ensureInputValues(t *testing.T) {
 	k.chainClient = inputs.BlockchainClient
 	require.GreaterOrEqual(t, inputs.NumberOfContracts, 1, "Expecting at least 1 keeper contract")
 	if inputs.Timeout == 0 {
-		require.Greater(t, inputs.BlockRange, 0, "If no `timeout` is provided, a `testBlockRange` is required")
+		require.Greater(t, inputs.BlockRange, int64(0), "If no `timeout` is provided, a `testBlockRange` is required")
 	} else if inputs.BlockRange <= 0 {
-		require.GreaterOrEqual(t, inputs.Timeout, 1, "If no `testBlockRange` is provided a `timeout` is required")
+		require.GreaterOrEqual(t, inputs.Timeout, time.Second, "If no `testBlockRange` is provided a `timeout` is required")
 	}
 	require.NotNil(t, inputs.KeeperRegistrySettings, "You need to set KeeperRegistrySettings")
 	require.NotNil(t, k.Inputs.ChainlinkNodeFunding, "You need to set a funding amount for chainlink nodes")
 	clFunds, _ := k.Inputs.ChainlinkNodeFunding.Float64()
-	require.GreaterOrEqual(t, clFunds, 0, "Expecting Chainlink node funding to be more than 0 ETH")
-	require.Greater(t, inputs.CheckGasToBurn, "You need to set an expected amount of gas to burn on checkUpkeep()")
+	require.GreaterOrEqual(t, clFunds, 0.0, "Expecting Chainlink node funding to be more than 0 ETH")
+	require.Greater(t, inputs.CheckGasToBurn, int64(0), "You need to set an expected amount of gas to burn on checkUpkeep()")
 	require.GreaterOrEqual(
-		t, inputs.KeeperRegistrySettings.CheckGasLimit, inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
+		t, int64(inputs.KeeperRegistrySettings.CheckGasLimit), inputs.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
 	)
-	require.Greater(t, inputs.PerformGasToBurn, 0, "You need to set an expected amount of gas to burn on performUpkeep()")
+	require.Greater(t, inputs.PerformGasToBurn, int64(0), "You need to set an expected amount of gas to burn on performUpkeep()")
 }

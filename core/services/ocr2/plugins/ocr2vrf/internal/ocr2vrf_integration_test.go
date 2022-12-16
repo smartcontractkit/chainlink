@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -299,10 +300,16 @@ func setupNodeOCR2(
 }
 
 func TestIntegration_OCR2VRF_ForwarderFlow(t *testing.T) {
+	if os.Getenv("CI") == "" && os.Getenv("VRF_LOCAL_TESTING") == "" {
+		t.Skip("Skipping test locally.")
+	}
 	runOCR2VRFTest(t, true)
 }
 
 func TestIntegration_OCR2VRF(t *testing.T) {
+	if os.Getenv("CI") == "" && os.Getenv("VRF_LOCAL_TESTING") == "" {
+		t.Skip("Skipping test locally.")
+	}
 	runOCR2VRFTest(t, false)
 }
 
