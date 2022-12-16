@@ -73,7 +73,8 @@ describe('OCR2DROracle', () => {
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address)
     oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
-    oracle.setRegistry(registry.address)
+    await oracle.setRegistry(registry.address)
+    await oracle.deactivateAuthorizedReceiver()
     client = await clientTestHelperFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
@@ -85,6 +86,7 @@ describe('OCR2DROracle', () => {
       21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
       ethers.BigNumber.from('5000000000000000'),
       500_000,
+      300,
     )
 
     const createSubTx = await registry

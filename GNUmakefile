@@ -127,6 +127,16 @@ golangci-lint: ## Run golangci-lint for all issues.
 snapshot:
 	cd ./contracts && forge snapshot --match-test _gas
 
+GORELEASER_CONFIG ?= .goreleaser.yaml
+
+.PHONY: goreleaser-dev-build
+goreleaser-dev-build: ## Run goreleaser snapshot build
+	./tools/bin/goreleaser_wrapper build --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
+.PHONY: goreleaser-dev-release
+goreleaser-dev-release: ## run goreleaser snapshot release
+	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
