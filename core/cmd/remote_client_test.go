@@ -446,6 +446,16 @@ func TestClient_ChangePassword(t *testing.T) {
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		UpdatePasswordRequest: web.UpdatePasswordRequest{
 			OldPassword: testutils.Password,
+			NewPassword: "12345",
+		},
+	}
+	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "Expected password complexity")
+
+	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
+		UpdatePasswordRequest: web.UpdatePasswordRequest{
+			OldPassword: testutils.Password,
 			NewPassword: testutils.Password + "foo",
 		},
 	}
@@ -702,7 +712,7 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 
 	require.NoError(t, client.RemoteLogin(c))
 	err := client.TriggerPipelineRun(c)
-	assert.Contains(t, err.Error(), "parseResponse error: Error; job ID 1")
+	assert.Contains(t, err.Error(), "findJob failed: failed to load job")
 }
 
 func TestClient_AutoLogin(t *testing.T) {
