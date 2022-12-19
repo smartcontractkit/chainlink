@@ -151,6 +151,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   /**
    * @notice Called by the Chainlink node to fulfill requests
    * @dev Given params must hash back to the commitment stored from `oracleRequest`.
+   * Emits OracleResponse event.
    * Will call the callback address' callback function without bubbling up error
    * checking in a `require` so that the node can get paid.
    * @param requestId The fulfillment request ID that must match the requester's
@@ -189,6 +190,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   /**
    * @notice Called by the Chainlink node to fulfill requests with multi-word support
    * @dev Given params must hash back to the commitment stored from `oracleRequest`.
+   * Emits OracleResponse event.
    * Will call the callback address' callback function without bubbling up error
    * checking in a `require` so that the node can get paid.
    * @param requestId The fulfillment request ID that must match the requester's
@@ -244,6 +246,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * intended for Authorized Forwarders but could possibly be extended to work
    * with future contracts.
    * @dev Must be the pending owner on the contract
+   * Emits OwnableContractAccepted event.
    * @param ownable list of addresses of Ownable contracts to accept
    */
   function acceptOwnableContracts(address[] calldata ownable) public validateAuthorizedSenderSetter {
@@ -256,6 +259,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
 
   /**
    * @notice Sets the fulfillment permission for
+   * Emits TargetsUpdatedAuthorizedSenders event.
    * @param targets The addresses to set permissions on
    * @param senders The addresses that are allowed to send updates
    */
