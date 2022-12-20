@@ -26,6 +26,7 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
   /**
    * @notice Allows an owner to begin transferring ownership to a new address,
    * pending.
+   * Emit OwnershipTransferRequested event.
    */
   function transferOwnership(address to) public override onlyOwner {
     _transferOwnership(to);
@@ -33,6 +34,7 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
 
   /**
    * @notice Allows an ownership transfer to be completed by the recipient.
+   * Emit OwnershipTransferred event.
    */
   function acceptOwnership() external override {
     require(msg.sender == s_pendingOwner, "Must be proposed owner");
