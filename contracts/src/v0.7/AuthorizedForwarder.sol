@@ -56,6 +56,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
 
   /**
    * @notice Transfer ownership with instructions for recipient
+   * Emit OwnershipTransferRequestedWithMessage event
    * @param to address proposed recipient of ownership
    * @param message instructions for recipient upon accepting ownership
    */
