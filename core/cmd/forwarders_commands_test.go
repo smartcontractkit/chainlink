@@ -74,10 +74,11 @@ func TestClient_TrackEVMForwarder(t *testing.T) {
 
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
-	set.Bool("bypass-version-check", true, "")
-	set.String("address", "0x5431F5F973781809D18643b87B44921b11355d81", "")
-	set.Int("evmChainID", int(id.Int64()), "")
+	cltest.CopyFlagSetFromAction(client.TrackForwarder, set, "")
+
+	require.NoError(t, set.Set("address", "0x5431F5F973781809D18643b87B44921b11355d81"))
+	require.NoError(t, set.Set("evmChainID", id.String()))
+
 	err := client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
 	require.Len(t, r.Renders, 1)
@@ -92,7 +93,10 @@ func TestClient_TrackEVMForwarder(t *testing.T) {
 
 	// Delete fwdr
 	set = flag.NewFlagSet("test", 0)
-	set.Parse([]string{createOutput.ID})
+	cltest.CopyFlagSetFromAction(client.DeleteForwarder, set, "")
+
+	require.NoError(t, set.Parse([]string{createOutput.ID}))
+
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteForwarder(c))
 
@@ -115,10 +119,11 @@ func TestClient_TrackEVMForwarder_BadAddress(t *testing.T) {
 
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
-	set.Bool("bypass-version-check", true, "")
-	set.String("address", "0xWrongFormatAddress", "")
-	set.Int("evmChainID", int(id.Int64()), "")
+	cltest.CopyFlagSetFromAction(client.TrackForwarder, set, "")
+
+	require.NoError(t, set.Set("address", "0xWrongFormatAddress"))
+	require.NoError(t, set.Set("evmChainID", id.String()))
+
 	err := client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.Contains(t, err.Error(), "could not decode address: invalid hex string")
 }
@@ -133,6 +138,8 @@ func TestClient_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
 
 	// Delete fwdr without id
 	set := flag.NewFlagSet("test", 0)
+	cltest.CopyFlagSetFromAction(client.DeleteForwarder, set, "")
+
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, "must pass the forwarder id to be archived", client.DeleteForwarder(c).Error())
 }

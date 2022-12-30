@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -51,8 +52,11 @@ func TestClient_CreateSolanaChain(t *testing.T) {
 
 	solanaChainID := solanatest.RandomChainID()
 	set := flag.NewFlagSet("cli", 0)
-	set.String("id", solanaChainID, "")
-	set.Parse([]string{`{}`})
+	cltest.CopyFlagSetFromAction(cmd.SolanaChainClient(client).CreateChain, set, "Solana")
+
+	require.NoError(t, set.Set("id", solanaChainID))
+	require.NoError(t, set.Parse([]string{`{}`}))
+
 	c := cli.NewContext(nil, set, nil)
 
 	err = cmd.SolanaChainClient(client).CreateChain(c)
@@ -86,7 +90,10 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.Parse([]string{solanaChainID})
+	cltest.CopyFlagSetFromAction(cmd.SolanaChainClient(client).RemoveChain, set, "")
+
+	require.NoError(t, set.Parse([]string{solanaChainID}))
+
 	c := cli.NewContext(nil, set, nil)
 
 	err = cmd.SolanaChainClient(client).RemoveChain(c)
@@ -127,10 +134,11 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.String("id", solanaChainID, "param")
-	set.Parse([]string{
-		"TxTimeout=1h",
-	})
+	cltest.CopyFlagSetFromAction(cmd.SolanaChainClient(client).ConfigureChain, set, "Solana")
+
+	require.NoError(t, set.Set("id", solanaChainID))
+	require.NoError(t, set.Parse([]string{"TxTimeout=1h"}))
+
 	c := cli.NewContext(nil, set, nil)
 
 	err = cmd.SolanaChainClient(client).ConfigureChain(c)

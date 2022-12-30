@@ -95,7 +95,10 @@ func TestClient_SolanaKeys(t *testing.T) {
 		require.NoError(t, err)
 		requireSolanaKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		set.Bool("yes", true, "")
+		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).DeleteKey, set, "solana")
+
+		require.NoError(tt, set.Set("yes", "true"))
+
 		strID := key.ID()
 		set.Parse([]string{strID})
 		c := cli.NewContext(nil, set, nil)
@@ -118,9 +121,12 @@ func TestClient_SolanaKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test Solana export", 0)
-		set.Parse([]string{"0"})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
+
+		require.NoError(tt, set.Parse([]string{"0"}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewSolanaKeysClient(client).ExportKey(c)
 		require.Error(t, err, "Error exporting")
@@ -128,9 +134,12 @@ func TestClient_SolanaKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test Solana export", 0)
-		set.Parse([]string{fmt.Sprint(key.ID())})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
+
+		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c = cli.NewContext(nil, set, nil)
 
 		require.NoError(t, cmd.NewSolanaKeysClient(client).ExportKey(c))
@@ -140,8 +149,10 @@ func TestClient_SolanaKeys(t *testing.T) {
 		requireSolanaKeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test Solana import", 0)
-		set.Parse([]string{keyName})
-		set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).ImportKey, set, "solana")
+
+		require.NoError(tt, set.Parse([]string{keyName}))
+		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(t, cmd.NewSolanaKeysClient(client).ImportKey(c))
 

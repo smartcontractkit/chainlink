@@ -97,8 +97,10 @@ func TestClient_OCR2Keys(t *testing.T) {
 		client, r := app.NewClientAndRenderer()
 
 		set := flag.NewFlagSet("test", 0)
-		set.Parse([]string{"evm"})
-		set.Bool("yes", true, "")
+		cltest.CopyFlagSetFromAction(client.CreateOCR2KeyBundle, set, "")
+
+		require.NoError(tt, set.Parse([]string{"evm"}))
+
 		c := cli.NewContext(nil, set, nil)
 		require.NoError(t, client.CreateOCR2KeyBundle(c))
 		keys, err := app.GetKeyStore().OCR2().GetAll()
@@ -117,8 +119,11 @@ func TestClient_OCR2Keys(t *testing.T) {
 		require.NoError(t, err)
 		requireOCR2KeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		set.Parse([]string{key.ID()})
-		set.Bool("yes", true, "")
+		cltest.CopyFlagSetFromAction(client.DeleteOCR2KeyBundle, set, "")
+
+		require.NoError(tt, set.Parse([]string{key.ID()}))
+		require.NoError(tt, set.Set("yes", "true"))
+
 		c := cli.NewContext(nil, set, nil)
 		require.NoError(t, client.DeleteOCR2KeyBundle(c))
 		requireOCR2KeyCount(t, app, 0)
@@ -142,9 +147,12 @@ func TestClient_OCR2Keys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test OCR2 export", 0)
-		set.Parse([]string{"0"})
-		set.String("newpassword", "../internal/fixtures/new_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(client.ExportOCR2Key, set, "")
+
+		require.NoError(tt, set.Parse([]string{"0"}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/new_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c := cli.NewContext(nil, set, nil)
 		err = client.ExportOCR2Key(c)
 		require.Error(t, err, "Error exporting")
@@ -152,9 +160,12 @@ func TestClient_OCR2Keys(t *testing.T) {
 
 		// Export
 		set = flag.NewFlagSet("test OCR2 export", 0)
-		set.Parse([]string{key.ID()})
-		set.String("newpassword", "../internal/fixtures/new_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(client.ExportOCR2Key, set, "")
+
+		require.NoError(tt, set.Parse([]string{key.ID()}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/new_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c = cli.NewContext(nil, set, nil)
 
 		require.NoError(t, client.ExportOCR2Key(c))
@@ -164,8 +175,11 @@ func TestClient_OCR2Keys(t *testing.T) {
 		requireOCR2KeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test OCR2 import", 0)
-		set.Parse([]string{keyName})
-		set.String("oldpassword", "../internal/fixtures/new_password.txt", "")
+		cltest.CopyFlagSetFromAction(client.ImportOCR2Key, set, "")
+
+		require.NoError(tt, set.Parse([]string{keyName}))
+		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/new_password.txt"))
+
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(t, client.ImportOCR2Key(c))
 

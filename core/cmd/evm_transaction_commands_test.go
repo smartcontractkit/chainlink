@@ -30,7 +30,10 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	// page 1
 	set := flag.NewFlagSet("test transactions", 0)
-	set.Int("page", 1, "doc")
+	cltest.CopyFlagSetFromAction(client.IndexTransactions, set, "")
+
+	require.NoError(t, set.Set("page", "1"))
+
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
@@ -41,7 +44,10 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test txattempts", 0)
-	set.Int("page", 2, "doc")
+	cltest.CopyFlagSetFromAction(client.IndexTransactions, set, "")
+
+	require.NoError(t, set.Set("page", "2"))
+
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
@@ -64,7 +70,10 @@ func TestClient_ShowTransaction(t *testing.T) {
 	attempt := tx.EthTxAttempts[0]
 
 	set := flag.NewFlagSet("test get tx", 0)
-	set.Parse([]string{attempt.Hash.Hex()})
+	cltest.CopyFlagSetFromAction(client.ShowTransaction, set, "")
+
+	require.NoError(t, set.Parse([]string{attempt.Hash.Hex()}))
+
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ShowTransaction(c))
 
@@ -84,7 +93,10 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)
-	set.Int("page", 1, "doc")
+	cltest.CopyFlagSetFromAction(client.IndexTxAttempts, set, "")
+
+	require.NoError(t, set.Set("page", "1"))
+
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
 	require.NoError(t, client.IndexTxAttempts(c))
@@ -95,7 +107,10 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)
-	set.Int("page", 2, "doc")
+	cltest.CopyFlagSetFromAction(client.IndexTxAttempts, set, "")
+
+	require.NoError(t, set.Set("page", "2"))
+
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
@@ -129,9 +144,11 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 	db := app.GetSqlxDB()
 
 	set := flag.NewFlagSet("sendether", 0)
+	cltest.CopyFlagSetFromAction(client.SendEther, set, "")
+
 	amount := "100.5"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
-	set.Parse([]string{amount, fromAddress.Hex(), to})
+	require.NoError(t, set.Parse([]string{amount, fromAddress.Hex(), to}))
 
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)
@@ -175,7 +192,9 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 	db := app.GetSqlxDB()
 
 	set := flag.NewFlagSet("sendether", 0)
-	set.Bool("wei", false, "")
+	cltest.CopyFlagSetFromAction(client.SendEther, set, "")
+
+	require.NoError(t, set.Set("wei", "false"))
 
 	amount := "1000000000000000000"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"

@@ -87,6 +87,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
 
 	app := startNewApplicationV2(t, nil)
+
 	client, _ := app.NewClientAndRenderer()
 	_, err := app.GetKeyStore().CSA().Create()
 	require.NoError(t, err)
@@ -97,9 +98,12 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 
 	// Export test invalid id
 	set := flag.NewFlagSet("test CSA export", 0)
-	set.Parse([]string{"0"})
-	set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-	set.String("output", keyName, "")
+	cltest.CopyFlagSetFromAction(client.ExportCSAKey, set, "")
+
+	require.NoError(t, set.Parse([]string{"0"}))
+	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("output", keyName))
+
 	c := cli.NewContext(nil, set, nil)
 	err = client.ExportCSAKey(c)
 	require.Error(t, err, "Error exporting")
@@ -107,9 +111,12 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 
 	// Export test
 	set = flag.NewFlagSet("test CSA export", 0)
-	set.Parse([]string{fmt.Sprint(key.ID())})
-	set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-	set.String("output", keyName, "")
+	cltest.CopyFlagSetFromAction(client.ExportCSAKey, set, "")
+
+	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
+	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("output", keyName))
+
 	c = cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.ExportCSAKey(c))
@@ -118,9 +125,13 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 	require.NoError(t, utils.JustError(app.GetKeyStore().CSA().Delete(key.ID())))
 	requireCSAKeyCount(t, app, 0)
 
+	//Import test
 	set = flag.NewFlagSet("test CSA import", 0)
-	set.Parse([]string{keyName})
-	set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+	cltest.CopyFlagSetFromAction(client.ImportCSAKey, set, "")
+
+	require.NoError(t, set.Parse([]string{keyName}))
+	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportCSAKey(c))
 

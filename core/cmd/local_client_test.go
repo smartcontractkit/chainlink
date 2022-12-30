@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -257,7 +258,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			set.String("password", test.pwdfile, "")
+			cltest.CopyFlagSetFromAction(client.RunNode, set, "")
+
+			require.NoError(t, set.Set("password", test.pwdfile))
+
 			c := cli.NewContext(nil, set, nil)
 
 			run := func() error {
@@ -342,8 +346,10 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			set.String("api", test.apiFile, "")
-			set.Bool("bypass-version-check", true, "")
+			cltest.CopyFlagSetFromAction(client.RunNode, set, "")
+
+			require.NoError(t, set.Set("api", test.apiFile))
+
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
@@ -403,20 +409,6 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-	beginningNonce := uint(7)
-	endingNonce := uint(10)
-	gasPrice := big.NewInt(100000000000)
-	gasLimit := uint64(3000000)
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("debug", true, "")
-	set.Uint("beginningNonce", beginningNonce, "")
-	set.Uint("endingNonce", endingNonce, "")
-	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
-	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", fromAddress.Hex(), "")
-	set.String("password", "../internal/fixtures/correct_password.txt", "")
-	c := cli.NewContext(nil, set, nil)
-
 	borm := cltest.NewTxmORM(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
@@ -438,6 +430,22 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 		Runner:                 cltest.EmptyRunner{},
 		Logger:                 lggr,
 	}
+
+	beginningNonce := uint(7)
+	endingNonce := uint(10)
+	gasPrice := big.NewInt(100000000000)
+	gasLimit := uint64(3000000)
+	set := flag.NewFlagSet("test", 0)
+	cltest.CopyFlagSetFromAction(client.RebroadcastTransactions, set, "")
+
+	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
+	require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))
+	require.NoError(t, set.Set("gasPriceWei", gasPrice.String()))
+	require.NoError(t, set.Set("gasLimit", strconv.FormatUint(gasLimit, 10)))
+	require.NoError(t, set.Set("address", fromAddress.Hex()))
+	require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
+
+	c := cli.NewContext(nil, set, nil)
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
@@ -476,16 +484,6 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-			set := flag.NewFlagSet("test", 0)
-			set.Bool("debug", true, "")
-			set.Uint("beginningNonce", beginningNonce, "")
-			set.Uint("endingNonce", endingNonce, "")
-			set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
-			set.Uint64("gasLimit", gasLimit, "")
-			set.String("address", fromAddress.Hex(), "")
-			set.String("password", "../internal/fixtures/correct_password.txt", "")
-			c := cli.NewContext(nil, set, nil)
-
 			borm := cltest.NewTxmORM(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
@@ -507,6 +505,17 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 				Logger:                 lggr,
 			}
+
+			set := flag.NewFlagSet("test", 0)
+			cltest.CopyFlagSetFromAction(client.RebroadcastTransactions, set, "")
+
+			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
+			require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))
+			require.NoError(t, set.Set("gasPriceWei", gasPrice.String()))
+			require.NoError(t, set.Set("gasLimit", strconv.FormatUint(gasLimit, 10)))
+			require.NoError(t, set.Set("address", fromAddress.Hex()))
+			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
+			c := cli.NewContext(nil, set, nil)
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i

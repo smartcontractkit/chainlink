@@ -84,21 +84,27 @@ func TestClient_CreateEVMNode(t *testing.T) {
 
 	// successful primary
 	set := flag.NewFlagSet("cli", 0)
-	set.String("name", "Example", "")
-	set.String("type", "primary", "")
-	set.String("ws-url", "ws://TestClient_CreateEVMNode1.invalid", "")
-	set.String("http-url", "http://TestClient_CreateEVMNode2.invalid", "")
-	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
+	cltest.CopyFlagSetFromAction(cmd.NewEVMNodeClient(client).CreateNode, set, "")
+
+	require.NoError(t, set.Set("name", "Example"))
+	require.NoError(t, set.Set("type", "primary"))
+	require.NoError(t, set.Set("ws-url", "ws://TestClient_CreateEVMNode1.invalid"))
+	require.NoError(t, set.Set("http-url", "http://TestClient_CreateEVMNode2.invalid"))
+	require.NoError(t, set.Set("chain-id", chain.ID.ToInt().String()))
+
 	c := cli.NewContext(nil, set, nil)
 	err = cmd.NewEVMNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	// successful send-only
 	set = flag.NewFlagSet("cli", 0)
-	set.String("name", "Send only", "")
-	set.String("type", "sendonly", "")
-	set.String("http-url", "http://TestClient_CreateEVMNode3.invalid", "")
-	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
+	cltest.CopyFlagSetFromAction(cmd.NewEVMNodeClient(client).CreateNode, set, "")
+
+	require.NoError(t, set.Set("name", "Send only"))
+	require.NoError(t, set.Set("type", "sendonly"))
+	require.NoError(t, set.Set("http-url", "http://TestClient_CreateEVMNode3.invalid"))
+	require.NoError(t, set.Set("chain-id", chain.ID.ToInt().String()))
+
 	c = cli.NewContext(nil, set, nil)
 	err = cmd.NewEVMNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
@@ -149,7 +155,10 @@ func TestClient_RemoveEVMNode(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
+	cltest.CopyFlagSetFromAction(cmd.NewEVMNodeClient(client).RemoveNode, set, "")
+
+	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)}))
+
 	c := cli.NewContext(nil, set, nil)
 
 	err = cmd.NewEVMNodeClient(client).RemoveNode(c)

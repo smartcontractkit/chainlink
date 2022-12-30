@@ -94,7 +94,10 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 		assert.NoError(tt, err)
 		requireDKGEncryptKeyCount(tt, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		set.Bool("yes", true, "")
+		cltest.CopyFlagSetFromAction(cmd.NewDKGEncryptKeysClient(client).DeleteKey, set, "")
+
+		require.NoError(tt, set.Set("yes", "true"))
+
 		strID := key.ID()
 		set.Parse([]string{strID})
 		c := cli.NewContext(nil, set, nil)
@@ -118,9 +121,12 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test DKGEncrypt export", 0)
-		set.Parse([]string{"0"})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewDKGEncryptKeysClient(client).ExportKey, set, "")
+
+		require.NoError(tt, set.Parse([]string{"0"}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewDKGEncryptKeysClient(client).ExportKey(c)
 		require.Error(tt, err, "Error exporting")
@@ -128,9 +134,12 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test DKGEncrypt export", 0)
-		set.Parse([]string{fmt.Sprint(key.ID())})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewDKGEncryptKeysClient(client).ExportKey, set, "")
+
+		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c = cli.NewContext(nil, set, nil)
 
 		require.NoError(tt, cmd.NewDKGEncryptKeysClient(client).ExportKey(c))
@@ -139,9 +148,13 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 		require.NoError(tt, utils.JustError(app.GetKeyStore().DKGEncrypt().Delete(key.ID())))
 		requireDKGEncryptKeyCount(tt, app, 0)
 
+		//Import test
 		set = flag.NewFlagSet("test DKGEncrypt import", 0)
-		set.Parse([]string{keyName})
-		set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+		cltest.CopyFlagSetFromAction(cmd.NewDKGEncryptKeysClient(client).ImportKey, set, "")
+
+		require.NoError(tt, set.Parse([]string{keyName}))
+		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(tt, cmd.NewDKGEncryptKeysClient(client).ImportKey(c))
 

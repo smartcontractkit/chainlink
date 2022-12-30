@@ -105,9 +105,12 @@ func TestClientVRF_CRUD(t *testing.T) {
 
 	// Now do a hard delete and ensure its completely removes the key
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{k2.Compressed})
-	set.Bool("hard", true, "")
-	set.Bool("yes", true, "")
+	cltest.CopyFlagSetFromAction(client.DeleteVRFKey, set, "")
+
+	require.NoError(t, set.Parse([]string{k2.Compressed}))
+	require.NoError(t, set.Set("hard", "true"))
+	require.NoError(t, set.Set("yes", "true"))
+
 	c := cli.NewContext(nil, set, nil)
 	err := client.DeleteVRFKey(c)
 	require.NoError(t, err)
@@ -138,9 +141,12 @@ func TestVRF_ImportExport(t *testing.T) {
 	// Export it, encrypted with cltest.Password instead
 	keyName := "vrfkey1"
 	set := flag.NewFlagSet("test VRF export", 0)
-	set.Parse([]string{k1.Compressed}) // Arguments
-	set.String("newpassword", "../internal/fixtures/correct_password.txt", "")
-	set.String("output", keyName, "")
+	cltest.CopyFlagSetFromAction(client.ExportVRFKey, set, "")
+
+	require.NoError(t, set.Parse([]string{k1.Compressed})) // Arguments
+	require.NoError(t, set.Set("newpassword", "../internal/fixtures/correct_password.txt"))
+	require.NoError(t, set.Set("output", keyName))
+
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ExportVRFKey(c))
 	// File exists
@@ -151,16 +157,22 @@ func TestVRF_ImportExport(t *testing.T) {
 
 	// Should error if we try to import a duplicate key
 	importSet := flag.NewFlagSet("test VRF import", 0)
-	importSet.Parse([]string{keyName})
-	importSet.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
+	cltest.CopyFlagSetFromAction(client.ImportVRFKey, importSet, "")
+
+	require.NoError(t, importSet.Parse([]string{keyName}))
+	require.NoError(t, importSet.Set("oldpassword", "../internal/fixtures/correct_password.txt"))
+
 	importCli := cli.NewContext(nil, importSet, nil)
 	require.Error(t, client.ImportVRFKey(importCli))
 
 	// Lets delete the key and import it
 	set = flag.NewFlagSet("test", 0)
-	set.Parse([]string{k1.Compressed})
-	set.Bool("hard", true, "")
-	set.Bool("yes", true, "")
+	cltest.CopyFlagSetFromAction(client.DeleteVRFKey, set, "")
+
+	require.NoError(t, set.Parse([]string{k1.Compressed}))
+	require.NoError(t, set.Set("hard", "true"))
+	require.NoError(t, set.Set("yes", "true"))
+
 	require.NoError(t, client.DeleteVRFKey(cli.NewContext(nil, set, nil)))
 	// Should succeed
 	require.NoError(t, client.ImportVRFKey(importCli))

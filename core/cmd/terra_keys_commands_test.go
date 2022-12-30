@@ -95,9 +95,12 @@ func TestClient_TerraKeys(t *testing.T) {
 		require.NoError(t, err)
 		requireTerraKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		set.Bool("yes", true, "")
+		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).DeleteKey, set, "terra")
+
 		strID := key.ID()
-		set.Parse([]string{strID})
+		require.NoError(tt, set.Set("yes", "true"))
+		require.NoError(tt, set.Parse([]string{strID}))
+
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewTerraKeysClient(client).DeleteKey(c)
 		require.NoError(t, err)
@@ -118,9 +121,12 @@ func TestClient_TerraKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test Terra export", 0)
-		set.Parse([]string{"0"})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).ExportKey, set, "terra")
+
+		require.NoError(tt, set.Parse([]string{"0"}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c := cli.NewContext(nil, set, nil)
 		tclient := cmd.NewTerraKeysClient(client)
 		err = tclient.ExportKey(c)
@@ -129,9 +135,12 @@ func TestClient_TerraKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test Terra export", 0)
-		set.Parse([]string{fmt.Sprint(key.ID())})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).ExportKey, set, "terra")
+
+		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c = cli.NewContext(nil, set, nil)
 
 		require.NoError(t, tclient.ExportKey(c))
@@ -141,8 +150,11 @@ func TestClient_TerraKeys(t *testing.T) {
 		requireTerraKeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test Terra import", 0)
-		set.Parse([]string{keyName})
-		set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).ImportKey, set, "terra")
+
+		require.NoError(tt, set.Parse([]string{keyName}))
+		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(t, tclient.ImportKey(c))
 

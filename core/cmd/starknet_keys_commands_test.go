@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -99,7 +100,10 @@ func TestClient_StarkNetKeys(t *testing.T) {
 		require.NoError(t, err)
 		requireStarkNetKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		set.Bool("yes", true, "")
+		cltest.CopyFlagSetFromAction(cmd.NewStarkNetKeysClient(client).DeleteKey, set, "starknet")
+
+		require.NoError(tt, set.Set("yes", "true"))
+
 		strID := key.ID()
 		set.Parse([]string{strID})
 		c := cli.NewContext(nil, set, nil)
@@ -122,9 +126,12 @@ func TestClient_StarkNetKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test StarkNet export", 0)
-		set.Parse([]string{"0"})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
+
+		require.NoError(tt, set.Parse([]string{"0"}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewStarkNetKeysClient(client).ExportKey(c)
 		require.Error(t, err, "Error exporting")
@@ -132,9 +139,12 @@ func TestClient_StarkNetKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test StarkNet export", 0)
-		set.Parse([]string{fmt.Sprint(key.ID())})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		cltest.CopyFlagSetFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
+
+		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
+		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c = cli.NewContext(nil, set, nil)
 
 		require.NoError(t, cmd.NewStarkNetKeysClient(client).ExportKey(c))
@@ -144,8 +154,11 @@ func TestClient_StarkNetKeys(t *testing.T) {
 		requireStarkNetKeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test StarkNet import", 0)
-		set.Parse([]string{keyName})
-		set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+		cltest.CopyFlagSetFromAction(cmd.NewStarkNetKeysClient(client).ImportKey, set, "starknet")
+
+		require.NoError(tt, set.Parse([]string{keyName}))
+		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(t, cmd.NewStarkNetKeysClient(client).ImportKey(c))
 

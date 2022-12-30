@@ -73,8 +73,11 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendsolcoins", 0)
-			set.String("id", chainID, "")
-			set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()})
+			cltest.CopyFlagSetFromAction(cmd.NewSolanaNodeClient(client).RemoveNode, set, "solana")
+
+			require.NoError(t, set.Set("id", chainID))
+			require.NoError(t, set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()}))
+
 			c := cli.NewContext(cliapp, set, nil)
 			err = client.SolanaSendSol(c)
 			if tt.expErr == "" {

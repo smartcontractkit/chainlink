@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -94,19 +95,23 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	_ = mustInsertTerraChain(t, ter, chainIDB)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.String("name", "first", "")
-	set.String("tendermint-url", "http://tender.mint.test/columbus-5", "")
-	set.String("fcd-url", "http://fcd.test/columbus-5", "")
-	set.String("chain-id", chainIDA, "")
+	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
+
+	require.NoError(t, set.Set("name", "first"))
+	require.NoError(t, set.Set("tendermint-url", "http://tender.mint.test/columbus-5"))
+	require.NoError(t, set.Set("chain-id", chainIDA))
+
 	c := cli.NewContext(nil, set, nil)
 	err = cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	set = flag.NewFlagSet("cli", 0)
-	set.String("name", "second", "")
-	set.String("tendermint-url", "http://tender.mint.test/bombay-12", "")
-	set.String("fcd-url", "http://fcd.test/bombay-12", "")
-	set.String("chain-id", chainIDB, "")
+	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
+
+	require.NoError(t, set.Set("name", "second"))
+	require.NoError(t, set.Set("tendermint-url", "http://tender.mint.test/bombay-12"))
+	require.NoError(t, set.Set("chain-id", chainIDB))
+
 	c = cli.NewContext(nil, set, nil)
 	err = cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
@@ -155,7 +160,10 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
+	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).RemoveNode, set, "terra")
+
+	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)}))
+
 	c := cli.NewContext(nil, set, nil)
 
 	err = cmd.NewTerraNodeClient(client).RemoveNode(c)

@@ -291,7 +291,10 @@ func TestClient_ListFindJobs(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
+	cltest.CopyFlagSetFromAction(client.CreateJob, fs, "")
+
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"}))
+
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 	require.Len(t, r.Renders, 1)
@@ -314,7 +317,10 @@ func TestClient_ShowJob(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
+	cltest.CopyFlagSetFromAction(client.CreateJob, fs, "")
+
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"}))
+
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 	require.Len(t, r.Renders, 1)
@@ -350,7 +356,10 @@ func TestClient_CreateJobV2(t *testing.T) {
 	requireJobsCount(t, app.JobORM(), 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"})
+	cltest.CopyFlagSetFromAction(client.CreateJob, fs, "")
+
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"}))
+
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
@@ -376,7 +385,10 @@ func TestClient_DeleteJob(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
+	cltest.CopyFlagSetFromAction(client.CreateJob, fs, "")
+
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"}))
+
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 	require.NotEmpty(t, r.Renders)
@@ -392,11 +404,15 @@ func TestClient_DeleteJob(t *testing.T) {
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
+	cltest.CopyFlagSetFromAction(client.DeleteJob, set, "")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, "must pass the job id to be archived", client.DeleteJob(c).Error())
 
 	set = flag.NewFlagSet("test", 0)
-	set.Parse([]string{output.ID})
+	cltest.CopyFlagSetFromAction(client.DeleteJob, set, "")
+
+	require.NoError(t, set.Parse([]string{output.ID}))
+
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteJob(c))
 

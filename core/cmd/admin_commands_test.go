@@ -35,10 +35,11 @@ func TestClient_CreateUser(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
-			set.String("email", "", "")
-			set.String("role", "", "")
+			cltest.CopyFlagSetFromAction(client.CreateUser, set, "")
+
 			require.NoError(t, set.Set("email", test.email))
 			require.NoError(t, set.Set("role", test.role))
+
 			c := cli.NewContext(nil, set, nil)
 			if test.err != "" {
 				assert.ErrorContains(t, client.CreateUser(c), test.err)
@@ -71,8 +72,8 @@ func TestClient_ChangeRole(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
-			set.String("email", "", "")
-			set.String("newrole", "", "")
+			cltest.CopyFlagSetFromAction(client.ChangeRole, set, "")
+
 			require.NoError(t, set.Set("email", test.email))
 			require.NoError(t, set.Set("newrole", test.role))
 			c := cli.NewContext(nil, set, nil)

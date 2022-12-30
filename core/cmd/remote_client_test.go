@@ -168,7 +168,10 @@ func TestClient_ReplayBlocks(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("flagset", 0)
-	set.Int64("block-number", 42, "")
+	cltest.CopyFlagSetFromAction(client.ReplayFromBlock, set, "")
+
+	require.NoError(t, set.Set("block-number", "42"))
+
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ReplayFromBlock(c))
 }
@@ -192,6 +195,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			client, _ := app.NewClientAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
+			cltest.CopyFlagSetFromAction(client.CreateExternalInitiator, set, "")
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
 
@@ -230,6 +234,8 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
 
 			set := flag.NewFlagSet("create", 0)
+			cltest.CopyFlagSetFromAction(client.CreateExternalInitiator, set, "")
+
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
 
@@ -257,7 +263,10 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{exi.Name})
+	cltest.CopyFlagSetFromAction(client.DeleteExternalInitiator, set, "")
+
+	require.NoError(t, set.Parse([]string{exi.Name}))
+
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.DeleteExternalInitiator(c))
 	assert.Empty(t, r.Renders)
@@ -270,7 +279,10 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{"bogus-ID"})
+	cltest.CopyFlagSetFromAction(client.DeleteExternalInitiator, set, "")
+
+	require.NoError(t, set.Parse([]string{"bogus-ID"}))
+
 	c := cli.NewContext(nil, set, nil)
 	assert.Error(t, client.DeleteExternalInitiator(c))
 	assert.Empty(t, r.Renders)
@@ -298,9 +310,11 @@ func TestClient_RemoteLogin(t *testing.T) {
 			client := app.NewAuthenticatingClient(prompter)
 
 			set := flag.NewFlagSet("test", 0)
-			set.String("file", test.file, "")
-			set.Bool("bypass-version-check", true, "")
-			set.String("admin-credentials-file", "", "")
+			cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+			require.NoError(t, set.Set("file", test.file))
+			require.NoError(t, set.Set("bypass-version-check", "true"))
+
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.RemoteLogin(c)
@@ -333,7 +347,10 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 
 	// Fails without bypass
 	set := flag.NewFlagSet("test", 0)
-	set.Bool("bypass-version-check", false, "")
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Set("bypass-version-check", "false"))
+
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	assert.Error(t, err)
@@ -341,6 +358,7 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 
 	// Defaults to false
 	set = flag.NewFlagSet("test", 0)
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.RemoteLogin(c)
 	assert.Error(t, err)
@@ -434,8 +452,11 @@ func TestClient_ChangePassword(t *testing.T) {
 	otherClient := app.NewAuthenticatingClient(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
-	set.Bool("bypass-version-check", true, "")
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
+	require.NoError(t, set.Set("bypass-version-check", "true"))
+
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
@@ -468,8 +489,11 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	client := app.NewAuthenticatingClient(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
-	set.Bool("bypass-version-check", true, "")
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
+	require.NoError(t, set.Set("bypass-version-check", "true"))
+
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
@@ -491,8 +515,11 @@ func TestClient_Profile(t *testing.T) {
 	client := app.NewAuthenticatingClient(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
-	set.Bool("bypass-version-check", true, "")
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
+	require.NoError(t, set.Set("bypass-version-check", "true"))
+
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
@@ -522,7 +549,9 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 
 	t.Run("without specifying chain id setting value", func(t *testing.T) {
 		set := flag.NewFlagSet("setgasprice", 0)
-		set.Parse([]string{"8616460799"})
+		cltest.CopyFlagSetFromAction(client.SetEvmGasPriceDefault, set, "")
+
+		require.NoError(t, set.Parse([]string{"8616460799"}))
 
 		c := cli.NewContext(nil, set, nil)
 
@@ -534,9 +563,10 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 
 		client, _ = app.NewClientAndRenderer()
 		set = flag.NewFlagSet("setgasprice", 0)
-		set.String("amount", "", "")
-		set.Bool("gwei", true, "")
-		set.Parse([]string{"-gwei", "861.6460799"})
+		cltest.CopyFlagSetFromAction(client.SetEvmGasPriceDefault, set, "")
+
+		require.NoError(t, set.Set("gwei", "true"))
+		require.NoError(t, set.Parse([]string{"-gwei", "861.6460799"}))
 
 		c = cli.NewContext(nil, set, nil)
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
@@ -545,8 +575,10 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 
 	t.Run("specifying wrong chain id", func(t *testing.T) {
 		set := flag.NewFlagSet("setgasprice", 0)
-		set.String("evmChainID", "", "")
-		set.Parse([]string{"-evmChainID", "985435435435", "8616460799"})
+		cltest.CopyFlagSetFromAction(client.SetEvmGasPriceDefault, set, "")
+
+		require.NoError(t, set.Set("evmChainID", "985435435435"))
+		require.NoError(t, set.Parse([]string{"8616460799"}))
 
 		c := cli.NewContext(nil, set, nil)
 
@@ -562,8 +594,10 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 
 	t.Run("specifying correct chain id", func(t *testing.T) {
 		set := flag.NewFlagSet("setgasprice", 0)
-		set.String("evmChainID", "", "")
-		set.Parse([]string{"-evmChainID", "0", "12345678900"})
+		cltest.CopyFlagSetFromAction(client.SetEvmGasPriceDefault, set, "")
+
+		require.NoError(t, set.Set("evmChainID", ""))
+		require.NoError(t, set.Parse([]string{"-evmChainID", "0", "12345678900"}))
 
 		c := cli.NewContext(nil, set, nil)
 
@@ -667,8 +701,11 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	set.Bool("bypass-version-check", true, "")
-	set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)})
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Set("bypass-version-check", "true"))
+	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)}))
+
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
@@ -682,7 +719,10 @@ func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Bool("bypass-version-check", true, "")
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Set("bypass-version-check", "true"))
+
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
@@ -696,8 +736,11 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{"1"})
-	set.Bool("bypass-version-check", true, "")
+	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+
+	require.NoError(t, set.Parse([]string{"1"}))
+	require.NoError(t, set.Set("bypass-version-check", "true"))
+
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
@@ -722,6 +765,8 @@ func TestClient_AutoLogin(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
+	cltest.CopyFlagSetFromAction(client.ListJobs, fs, "")
+
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
@@ -748,6 +793,7 @@ func TestClient_AutoLogin_AuthFails(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
+	cltest.CopyFlagSetFromAction(client.ListJobs, fs, "")
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.Error(t, err)
 }
@@ -776,7 +822,10 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	logLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
-	set.String("level", logLevel, "")
+	cltest.CopyFlagSetFromAction(client.SetLogLevel, set, "")
+
+	require.NoError(t, set.Set("level", logLevel))
+
 	c := cli.NewContext(nil, set, nil)
 
 	err := client.SetLogLevel(c)
@@ -785,7 +834,9 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	sqlEnabled := true
 	set = flag.NewFlagSet("logsql", 0)
-	set.Bool("enable", sqlEnabled, "")
+	cltest.CopyFlagSetFromAction(client.SetLogSQL, set, "")
+
+	require.NoError(t, set.Set("enable", strconv.FormatBool(sqlEnabled)))
 	c = cli.NewContext(nil, set, nil)
 
 	err = client.SetLogSQL(c)
@@ -794,7 +845,9 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	sqlEnabled = false
 	set = flag.NewFlagSet("logsql", 0)
-	set.Bool("disable", true, "")
+	cltest.CopyFlagSetFromAction(client.SetLogSQL, set, "")
+
+	require.NoError(t, set.Set("disable", "true"))
 	c = cli.NewContext(nil, set, nil)
 
 	err = client.SetLogSQL(c)

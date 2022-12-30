@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
 func TestClient_TerraInit(t *testing.T) {
@@ -23,9 +24,11 @@ func TestClient_TerraInit(t *testing.T) {
 		TendermintURL: "http://tender.mint.test/columbus-5",
 	}
 	set := flag.NewFlagSet("cli", 0)
-	set.String("name", newNode.Name, "")
-	set.String("tendermint-url", newNode.TendermintURL, "")
-	set.String("chain-id", newNode.TerraChainID, "")
+	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
+
+	require.NoError(t, set.Set("name", newNode.Name))
+	require.NoError(t, set.Set("tendermint-url", newNode.TendermintURL))
+	require.NoError(t, set.Set("chain-id", newNode.TerraChainID))
 
 	// Try to add node
 	c := cli.NewContext(nil, set, nil)
@@ -34,8 +37,11 @@ func TestClient_TerraInit(t *testing.T) {
 
 	// Chain first
 	setCh := flag.NewFlagSet("cli", 0)
-	setCh.String("id", newNode.TerraChainID, "")
-	setCh.Parse([]string{`{}`})
+	cltest.CopyFlagSetFromAction(cmd.TerraChainClient(client).CreateChain, setCh, "terra")
+
+	require.NoError(t, setCh.Set("id", newNode.TerraChainID))
+	require.NoError(t, setCh.Parse([]string{`{}`}))
+
 	cCh := cli.NewContext(nil, setCh, nil)
 	err = cmd.TerraChainClient(client).CreateChain(cCh)
 	require.NoError(t, err)
