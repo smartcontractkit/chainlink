@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra/denom"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
