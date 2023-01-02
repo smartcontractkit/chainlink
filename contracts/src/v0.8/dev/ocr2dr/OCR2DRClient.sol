@@ -76,7 +76,8 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   function fulfillRequest(
     bytes32 requestId,
     bytes memory response,
-    bytes memory err
+    // The error is always a string, so the error bytes should be interperated as a string in the client contract to make it clear to users
+    string memory err
   ) internal virtual;
 
   /**
@@ -85,7 +86,8 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   function handleOracleFulfillment(
     bytes32 requestId,
     bytes memory response,
-    bytes memory err
+    // The error is always a string, so the error bytes should be interperated as a string in the client contract to make it clear to users
+    string memory err
   ) external override recordChainlinkFulfillment(requestId) {
     fulfillRequest(requestId, response, err);
   }

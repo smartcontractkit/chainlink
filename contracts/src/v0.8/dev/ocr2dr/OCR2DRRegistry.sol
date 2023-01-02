@@ -44,6 +44,7 @@ contract OCR2DRRegistry is
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
     uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
+    uint32 pendingRequestCount; // pendingRequestCount used to prevent a subscription with pending requests from being deleted
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -51,19 +52,21 @@ contract OCR2DRRegistry is
     address requestedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
     // We do this for 2 reasons:
-    // 1. To be able to clean up all keys from s_consumers when canceling a subscription.
+    // 1. To be able to clean up s_isAuthorizedConsumer when canceling a subscription.
     // 2. To be able to return the list of all consumers in getSubscription.
-    // Note that we need the s_consumers map to be able to directly check if a
-    // consumer is valid without reading all the consumers from storage.
     address[] consumers;
   }
-  // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subscriptionId */ /* nonce */
-    private s_consumers;
+
+  // Use a contract-wide nonce instead of a different nonce per consumer for simplicity
+  // as their is no obvious benefit to keeping a separate nonce per consumer
+  uint256 private s_nonce;
   mapping(uint64 => SubscriptionConfig) /* subscriptionId */ /* subscriptionConfig */
     private s_subscriptionConfigs;
   mapping(uint64 => Subscription) /* subscriptionId */ /* subscription */
     private s_subscriptions;
+  // Maintain a mapping of authorized consumers for a particular subscription
+  mapping(uint64 => mapping(address => bool)) /* subscriptionId */ /* consumer */ /* isAuthorized */
+    private s_isAuthorizedConsumer;
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
   uint64 private s_currentsubscriptionId;
@@ -88,17 +91,18 @@ contract OCR2DRRegistry is
 
   mapping(address => uint96) /* oracle */ /* LINK balance */
     private s_withdrawableTokens;
+  // The DON address is not used as there is only 1 DON per registry
   struct Commitment {
     uint64 subscriptionId;
     address client;
     uint32 gasLimit;
     uint256 gasPrice;
-    address don;
     uint96 donFee;
     uint96 registryFee;
     uint96 estimatedCost;
     uint256 timestamp;
   }
+  // Only the Commitment hash should be stored on-chain for gas efficiency, however this is not essential for PoC.
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
   event BillingStart(bytes32 requestId, Commitment commitment);
@@ -308,11 +312,10 @@ contract OCR2DRRegistry is
     if (s_subscriptionConfigs[billing.subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    // It's important to ensure that the consumer is in fact who they say they
-    // are, otherwise they could use someone else's subscription balance.
-    // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[billing.client][billing.subscriptionId];
-    if (currentNonce == 0) {
+
+    // Use a single nonce for the entire registry contract instead of different nonce per subscription.
+    // To validate that a consumer is authorized to use a subscription, check the s_isAuthorizedConsumer mapping.
+    if (!s_isAuthorizedConsumer[billing.subscriptionId][billing.client]) {
       revert InvalidConsumer(billing.subscriptionId, billing.client);
     }
     // No lower bound on the requested gas limit. A user could request 0
@@ -331,35 +334,26 @@ contract OCR2DRRegistry is
       revert InsufficientBalance();
     }
 
-    uint64 nonce = currentNonce + 1;
-    bytes32 requestId = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce);
+    s_nonce++;
+    // Simplify requestId calculation
+    bytes32 requestId = keccak256(abi.encode(address(this), s_nonce));
 
     Commitment memory commitment = Commitment(
       billing.subscriptionId,
       billing.client,
       billing.gasLimit,
       billing.gasPrice,
-      msg.sender,
       oracleFee,
       registryFee,
       estimatedCost,
       block.timestamp
     );
     s_requestCommitments[requestId] = commitment;
+    s_subscriptions[billing.subscriptionId].pendingRequestCount++;
     s_subscriptions[billing.subscriptionId].blockedBalance += estimatedCost;
 
     emit BillingStart(requestId, commitment);
-    s_consumers[billing.client][billing.subscriptionId] = nonce;
     return requestId;
-  }
-
-  function computeRequestId(
-    address don,
-    address client,
-    uint64 subscriptionId,
-    uint64 nonce
-  ) private pure returns (bytes32) {
-    return keccak256(abi.encode(don, client, subscriptionId, nonce));
   }
 
   /**
@@ -415,10 +409,11 @@ contract OCR2DRRegistry is
     uint256 initialGas
   ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (bool success) {
     Commitment memory commitment = s_requestCommitments[requestId];
-    if (commitment.don == address(0)) {
+    if (commitment.client == address(0)) {
       revert IncorrectRequestID();
     }
     delete s_requestCommitments[requestId];
+    s_subscriptions[commitment.subscriptionId].pendingRequestCount--;
 
     bytes memory callback = abi.encodeWithSelector(
       OCR2DRClientInterface.handleOracleFulfillment.selector,
@@ -453,6 +448,9 @@ contract OCR2DRRegistry is
     }
     s_subscriptions[commitment.subscriptionId].balance -= bill.totalCost;
     // Pay out signers their portion of the DON fee
+    // Paying all signers will significantly increase gas usage, especially as DON size increases.
+    // All existing implementations of OCR only pay the transmitter and assume the role of transmitter is equally shared amoung all DON members.
+    // Do we have sufficent justification to depart from this existing approach and incur the additional gas cost?
     for (uint256 i = 0; i < signerCount; i++) {
       if (signers[i] != transmitter) {
         s_withdrawableTokens[signers[i]] += bill.signerPayment;
@@ -485,6 +483,7 @@ contract OCR2DRRegistry is
     uint256 reportValidationGas,
     uint256 weiPerUnitGas
   ) private view returns (ItemizedBill memory) {
+    // This should be re-worked for gas efficency. Additionally, signerPayment should be removed as only the transmitter is paid since all nodes have equal opportunity to be transmitters.
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
     if (weiPerUnitLink <= 0) {
@@ -504,6 +503,7 @@ contract OCR2DRRegistry is
     return ItemizedBill(signerPayment, transmitterPayment, totalCost);
   }
 
+  // For chains other than mainnet, instead of ETH we must get the native token vs LINK price
   function getFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
@@ -602,7 +602,11 @@ contract OCR2DRRegistry is
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
-    s_subscriptions[currentsubscriptionId] = Subscription({balance: 0, blockedBalance: 0});
+    s_subscriptions[currentsubscriptionId] = Subscription({
+      balance: 0,
+      blockedBalance: 0,
+      pendingRequestCount: 0
+    });
     s_subscriptionConfigs[currentsubscriptionId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
@@ -654,17 +658,19 @@ contract OCR2DRRegistry is
    * @notice Remove a consumer from a OCR2DR subscription.
    * @param subscriptionId - ID of the subscription
    * @param consumer - Consumer to remove from the subscription
+   * @return success - returns true if removal was successful, else returns false
    */
   function removeConsumer(uint64 subscriptionId, address consumer)
     external
     onlySubOwner(subscriptionId)
     nonReentrant
     whenNotPaused
+    returns (bool)
   {
-    if (s_consumers[consumer][subscriptionId] == 0) {
+    // Note bounded by MAX_CONSUMERS
+    if (!s_isAuthorizedConsumer[subscriptionId][consumer]) {
       revert InvalidConsumer(subscriptionId, consumer);
     }
-    // Note bounded by MAX_CONSUMERS
     address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
     for (uint256 i = 0; i < consumers.length; i++) {
@@ -674,11 +680,12 @@ contract OCR2DRRegistry is
         s_subscriptionConfigs[subscriptionId].consumers[i] = last;
         // Storage remove last element
         s_subscriptionConfigs[subscriptionId].consumers.pop();
-        break;
+        delete s_isAuthorizedConsumer[subscriptionId][consumer];
+        emit SubscriptionConsumerRemoved(subscriptionId, consumer);
+        return true;
       }
     }
-    delete s_consumers[consumer][subscriptionId];
-    emit SubscriptionConsumerRemoved(subscriptionId, consumer);
+    return false;
   }
 
   /**
@@ -696,15 +703,8 @@ contract OCR2DRRegistry is
     if (s_subscriptionConfigs[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
-    if (s_consumers[consumer][subscriptionId] != 0) {
-      // Idempotence - do nothing if already added.
-      // Ensures uniqueness in s_subscriptions[subscriptionId].consumers.
-      return;
-    }
-    // Initialize the nonce to 1, indicating the consumer is allocated.
-    s_consumers[consumer][subscriptionId] = 1;
     s_subscriptionConfigs[subscriptionId].consumers.push(consumer);
-
+    s_isAuthorizedConsumer[subscriptionId][consumer] = true;
     emit SubscriptionConsumerAdded(subscriptionId, consumer);
   }
 
@@ -719,19 +719,22 @@ contract OCR2DRRegistry is
     nonReentrant
     whenNotPaused
   {
-    if (pendingRequestExists(subscriptionId)) {
+    // We cannot use the previous logic for checking for pending requests as it relies upon iterating through the AuthorizedSenders array.
+    // Instead, keep an active count of pending requests and confirm that it is not greater than zero.
+    if (uint256(s_subscriptions[subscriptionId].pendingRequestCount) > 0) {
       revert PendingRequestExists();
     }
+
     cancelSubscriptionHelper(subscriptionId, to);
   }
 
   function cancelSubscriptionHelper(uint64 subscriptionId, address to) private nonReentrant {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subscriptionId];
+    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
     uint96 balance = s_subscriptions[subscriptionId].balance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
-    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      delete s_consumers[subConfig.consumers[i]][subscriptionId];
+    for (uint256 i = 0; i < consumers.length; i++) {
+      delete s_isAuthorizedConsumer[subscriptionId][consumers[i]];
     }
     delete s_subscriptionConfigs[subscriptionId];
     delete s_subscriptions[subscriptionId];
@@ -742,32 +745,38 @@ contract OCR2DRRegistry is
     emit SubscriptionCanceled(subscriptionId, to, balance);
   }
 
-  /**
-   * @notice Check to see if there exists a request commitment for all consumers for a given sub.
-   * @param subscriptionId - ID of the subscription
-   * @return true if there exists at least one unfulfilled request for the subscription, false
-   * otherwise.
-   * @dev Looping is bounded to MAX_CONSUMERS*(number of DONs).
-   * @dev Used to disable subscription canceling while outstanding request are present.
-   */
+  function getPendingRequestCount(uint64 subscriptionId) external view returns (uint32) {
+    return s_subscriptions[subscriptionId].pendingRequestCount;
+  }
 
-  function pendingRequestExists(uint64 subscriptionId) public view returns (bool) {
-    address[] memory consumers = s_subscriptionConfigs[subscriptionId].consumers;
-    address[] memory authorizedSendersList = getAuthorizedSenders();
-    for (uint256 i = 0; i < consumers.length; i++) {
-      for (uint256 j = 0; j < authorizedSendersList.length; j++) {
-        bytes32 requestId = computeRequestId(
-          authorizedSendersList[j],
-          consumers[i],
-          subscriptionId,
-          s_consumers[consumers[i]][subscriptionId]
-        );
-        if (s_requestCommitments[requestId].don == address(0)) {
-          return true;
-        }
+  /**
+   * @notice Search for all expired requestIds for a given subscriptionId.
+   * Start & end nonce should be specified in case the nonce search space
+   * becomes too large & exceeds the virtual gas limit for view functions
+   * @param subscriptionId SubscriptionId to search
+   * @param startNonce Nonce to start search 
+   * @param endNonce Nonce to end search
+   * @return timedOutRequestIds requestIds which must be passed to the timeoutRequests() function
+   */
+  function getRequestsToTimeOut(uint64 subscriptionId, uint256 startNonce, uint256 endNonce)
+    external
+    view
+    returns (bytes32[] memory)
+  {
+    bytes32[] memory timedOutRequestIds = new bytes32[](s_subscriptions[subscriptionId].pendingRequestCount);
+    uint256 i = 0;
+    for (; startNonce < endNonce; startNonce++) {
+      bytes32 requestId = computeRequestId(subscriptionId, startNonce);
+      if (
+        s_requestCommitments[requestId].timestamp != 0 // Check that the request actually exists
+        && block.timestamp > // Check if the timeout has been exceeded
+        (uint256(s_requestCommitments[requestId].timestamp) + s_config.requestTimeoutSeconds)
+      ) {
+        timedOutRequestIds[i] = requestId;
+        i++;
       }
     }
-    return false;
+    return timedOutRequestIds;
   }
 
   /**
@@ -781,7 +790,12 @@ contract OCR2DRRegistry is
       Commitment memory commitment = s_requestCommitments[requestId];
 
       // Check that the message sender is the subscription owner
-      if (msg.sender != s_subscriptionConfigs[commitment.subscriptionId].owner) {
+      // Do we want to only allow the subscription owner to time out a request?
+      // Should the oracle admin also be able to timeout requests so that the owner doesn't have to do it manually if there is an outage?
+      if (
+        msg.sender != s_subscriptionConfigs[commitment.subscriptionId].owner
+        || msg.sender != s_owner
+      ) {
         revert MustBeSubOwner(s_subscriptionConfigs[commitment.subscriptionId].owner);
       }
 
@@ -790,6 +804,7 @@ contract OCR2DRRegistry is
         s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
         // Delete commitment
         delete s_requestCommitments[requestId];
+        s_subscriptions[commitment.subscriptionId].pendingRequestCount--;
         emit RequestTimedOut(requestId);
       }
     }

@@ -108,6 +108,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
     bytes calldata data,
     uint32 gasLimit,
     uint256 gasPrice
+  // Is it necessary to use gas to check if the registry is set?  If it isn't set, the tx will fail anway.
   ) external override registryIsSet returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
@@ -148,6 +149,8 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
       revert ReportInvalid();
     }
 
+    // Instead of a variable cost for users based on how many fulfillments are batched together, can we instead set a reasonable constant value to account for the gas used for validation?
+    // This might make it easier for users to accurately estimate request fulfillment costs (and removes the gas cost for this calculation).
     uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
 
     for (uint256 i = 0; i < requestIds.length; i++) {

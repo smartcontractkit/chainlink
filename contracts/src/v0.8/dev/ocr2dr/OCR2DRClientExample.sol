@@ -13,7 +13,8 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
 
   bytes32 public lastRequestId;
   bytes public lastResponse;
-  bytes public lastError;
+  // The error should be a string, not bytes
+  string public lastError;
 
   error UnexpectedRequestID(bytes32 requestId);
 
@@ -49,7 +50,8 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
   function fulfillRequest(
     bytes32 requestId,
     bytes memory response,
-    bytes memory err
+     // The error should be a string, not bytes
+    string memory err
   ) internal override {
     if (lastRequestId != requestId) {
       revert UnexpectedRequestID(requestId);
