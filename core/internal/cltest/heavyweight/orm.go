@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"os"
 	"path"
@@ -103,6 +104,7 @@ func prepareFullTestDBV2(t *testing.T, name string, empty bool, loadFixtures boo
 	})
 
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
+	name = fmt.Sprintf("%s_%x", name, rand.Intn(0xFFF)) // to avoid name collisions
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name, empty)
 	require.NoError(t, err)
 	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg)
@@ -141,8 +143,8 @@ func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string, empty bool) (s
 	}
 
 	dbname := fmt.Sprintf("%s_%s", parsed.Path[1:], postfix)
-	if len(dbname) > 62 {
-		return "", fmt.Errorf("dbname %v too long, max is 63 bytes. Try a shorter postfix", dbname)
+	if l := len(dbname); l > 63 {
+		return "", fmt.Errorf("dbname %v too long (%d), max is 63 bytes. Try a shorter postfix", dbname, l)
 	}
 	// Cannot drop test database if we are connected to it, so we must connect
 	// to a different one. 'postgres' should be present on all postgres installations

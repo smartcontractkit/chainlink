@@ -509,7 +509,7 @@ func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
-		return nil
+		return cli.errorOut(errors.New("invalid configuration"))
 	}
 	fmt.Println("Valid configuration.")
 	return nil

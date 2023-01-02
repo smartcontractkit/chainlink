@@ -28,6 +28,7 @@ func TestCanAggregate(t *testing.T) {
 
 	require.True(t, directrequestocr.CanAggregate(4, 1, obs[:4]))
 	require.True(t, directrequestocr.CanAggregate(4, 1, obs[:3]))
+	require.True(t, directrequestocr.CanAggregate(6, 1, obs[:3]))
 
 	require.False(t, directrequestocr.CanAggregate(4, 1, obs[:5]))
 	require.False(t, directrequestocr.CanAggregate(4, 1, obs[:2]))

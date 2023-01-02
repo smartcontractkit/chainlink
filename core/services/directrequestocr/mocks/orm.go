@@ -140,6 +140,27 @@ func (_m *ORM) SetError(requestID directrequestocr.RequestID, runID int64, error
 	return r0
 }
 
+// SetFinalized provides a mock function with given fields: requestID, reportedResult, reportedError, qopts
+func (_m *ORM) SetFinalized(requestID directrequestocr.RequestID, reportedResult []byte, reportedError []byte, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, requestID, reportedResult, reportedError)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, []byte, []byte, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, reportedResult, reportedError, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SetResult provides a mock function with given fields: requestID, runID, computationResult, readyAt, qopts
 func (_m *ORM) SetResult(requestID directrequestocr.RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -154,27 +175,6 @@ func (_m *ORM) SetResult(requestID directrequestocr.RequestID, runID int64, comp
 	var r0 error
 	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, int64, []byte, time.Time, ...pg.QOpt) error); ok {
 		r0 = rf(requestID, runID, computationResult, readyAt, qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// SetTransmitted provides a mock function with given fields: requestID, transmittedResult, transmittedError, qopts
-func (_m *ORM) SetTransmitted(requestID directrequestocr.RequestID, transmittedResult []byte, transmittedError []byte, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, requestID, transmittedResult, transmittedError)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, []byte, []byte, ...pg.QOpt) error); ok {
-		r0 = rf(requestID, transmittedResult, transmittedError, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

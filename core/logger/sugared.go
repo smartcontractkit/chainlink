@@ -3,11 +3,16 @@ package logger
 // SugaredLogger extends the base Logger interface with syntactic sugar, similar to zap.SugaredLogger.
 type SugaredLogger interface {
 	Logger
+	// AssumptionViolation variants log at error level with the message prefix "AssumptionViolation: ".
 	AssumptionViolation(args ...interface{})
 	AssumptionViolationf(format string, vals ...interface{})
 	AssumptionViolationw(msg string, keyvals ...interface{})
-	ErrorIf(error, string)
-	ErrorIfFn(func() error, string)
+	// ErrorIf logs the error if present.
+	ErrorIf(err error, msg string)
+	// ErrorIfFn calls fn() and logs any returned error along with msg.
+	// Unlike ErrorIf, this can be deffered inline, since the function call is delayed.
+	//  defer l.ErrorIfFn(db.Close, "Error closing db")
+	ErrorIfFn(fn func() error, msg string)
 }
 
 // Sugared returns a new SugaredLogger wrapping the given Logger.

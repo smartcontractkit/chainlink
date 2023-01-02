@@ -38,7 +38,7 @@ type (
 		ctx           context.Context
 		ctxCancel     context.CancelFunc
 		chDone        chan struct{}
-		lggr          logger.Logger
+		lggr          logger.SugaredLogger
 	}
 )
 
@@ -58,7 +58,7 @@ func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey
 		ctx,
 		cancel,
 		make(chan struct{}),
-		namedLogger,
+		logger.Sugared(namedLogger),
 	}, nil
 }
 
@@ -123,7 +123,7 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
-	defer p.lggr.ErrorIfClosing(rows, "p2p_peers rows")
+	defer p.lggr.ErrorIfFn(rows.Close, "Error closing p2p_peers rows")
 
 	peers = make([]P2PPeer, 0)
 
