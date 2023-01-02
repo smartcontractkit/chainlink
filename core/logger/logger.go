@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/fatih/color"
 	"go.uber.org/zap"
@@ -15,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// LogsFile describes the logs file name
-const LogsFile = "chainlink_debug.log"
+// logsFile describes the logs file name
+const logsFile = "chainlink_debug.log"
 
 func init() {
 	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
@@ -256,6 +257,10 @@ func (c Config) DebugLogsToDisk() bool {
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
 	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
+}
+
+func (c Config) LogsFile() string {
+	return filepath.Join(c.Dir, logsFile)
 }
 
 // InitColor explicitly sets the global color.NoColor option.

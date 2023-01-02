@@ -127,11 +127,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
 
-	lggr := d.lggr.Named("OCR").With(
+	lggr := logger.Sugared(d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
 		"jobName", jb.Name.ValueOrZero(),
 		"jobID", jb.ID,
-	)
+	))
 
 	if spec.Relay == relay.EVM {
 		chainIDInterface, ok := spec.RelayConfig["chainID"]
@@ -237,7 +237,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin)
+		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg)
 	case job.DKG:
 		chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
 		if !ok {
@@ -451,6 +451,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
+			d.cfg.JobPipelineMaxSuccessfulRuns(),
 		)
 
 		// NOTE: we return from here with the services because the OCR2VRF oracles are defined
@@ -508,6 +509,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
+			d.cfg.JobPipelineMaxSuccessfulRuns(),
 		)
 
 		return []job.ServiceCtx{
@@ -593,7 +595,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		runResults,
 		d.pipelineRunner,
 		make(chan struct{}),
-		lggr)
+		lggr,
+		d.cfg.JobPipelineMaxSuccessfulRuns(),
+	)
 
 	oracleCtx := job.NewServiceAdapter(oracle)
 	return append([]job.ServiceCtx{runResultSaver, ocr2Provider, oracleCtx}, pluginServices...), nil

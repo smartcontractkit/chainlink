@@ -17,6 +17,7 @@ type Config interface {
 	config.OCR2Config
 	pg.QConfig
 	Dev() bool
+	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 }
 

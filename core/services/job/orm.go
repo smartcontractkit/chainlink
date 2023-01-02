@@ -83,7 +83,7 @@ type orm struct {
 	chainSet    evm.ChainSet
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
-	lggr        logger.Logger
+	lggr        logger.SugaredLogger
 	cfg         pg.QConfig
 	bridgeORM   bridges.ORM
 }
@@ -99,7 +99,7 @@ func NewORM(
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) *orm {
-	namedLogger := lggr.Named("JobORM")
+	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
 		q:           pg.NewQ(db, namedLogger, cfg),
 		chainSet:    chainSet,

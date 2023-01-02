@@ -37,7 +37,7 @@
 /core/web @jkongie
 
 # CLI
-/core/cmd @jkongie
+/core/cmd @jkongie @jmank88 @samsondav
 
 # UI
 /operator-ui/ @DeividasK @jkongie

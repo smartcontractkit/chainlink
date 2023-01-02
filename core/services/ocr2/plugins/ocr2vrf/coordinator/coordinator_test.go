@@ -1,6 +1,7 @@
 package coordinator
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -865,7 +866,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On("LatestBlock", mock.Anything).
 			Return(latestHeadNumber, nil)
 
-		lp.On("GetBlocks", mock.Anything, requestedBlocks, mock.Anything).
+		lp.On("GetBlocksRange", mock.Anything, requestedBlocks, mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
 		lp.On(
 			"LogsWithSigs",
@@ -983,6 +984,16 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, int64(3), rfr.ConfDelay.Int64())
 	assert.Equal(t, int64(1), rfr.RequestID.Int64())
 
+	configDigest := common.BigToHash(big.NewInt(10))
+	lg = newNewTransmissionLog(t, beaconAddress, configDigest)
+	ntIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
+	require.NoError(t, err)
+	nt, ok := ntIface.(*vrf_beacon.VRFBeaconNewTransmission)
+	require.True(t, ok)
+	assert.True(t, bytes.Equal(nt.ConfigDigest[:], configDigest[:]))
+	assert.Equal(t, 0, nt.JuelsPerFeeCoin.Cmp(big.NewInt(1_000)))
+	assert.Equal(t, 0, nt.EpochAndRound.Cmp(big.NewInt(1)))
+
 	lg = newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1}, coordinatorAddress)
 	rwfIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
 	require.NoError(t, err)
@@ -1005,14 +1016,15 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 			ProofG1Y:          proofG1Y,
 		},
 	}, coordinatorAddress)
-	ntIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
+
+	osIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
 	require.NoError(t, err)
-	nt, ok := ntIface.(*vrf_coordinator.VRFCoordinatorOutputsServed)
+	os, ok := osIface.(*vrf_coordinator.VRFCoordinatorOutputsServed)
 	require.True(t, ok)
-	assert.Equal(t, uint64(1500), nt.OutputsServed[0].Height)
-	assert.Equal(t, uint64(1505), nt.OutputsServed[1].Height)
-	assert.Equal(t, int64(3), nt.OutputsServed[0].ConfirmationDelay.Int64())
-	assert.Equal(t, int64(4), nt.OutputsServed[1].ConfirmationDelay.Int64())
+	assert.Equal(t, uint64(1500), os.OutputsServed[0].Height)
+	assert.Equal(t, uint64(1505), os.OutputsServed[1].Height)
+	assert.Equal(t, int64(3), os.OutputsServed[0].ConfirmationDelay.Int64())
+	assert.Equal(t, int64(4), os.OutputsServed[1].ConfirmationDelay.Int64())
 }
 
 func TestCoordinator_ReportIsOnchain(t *testing.T) {
@@ -1022,31 +1034,72 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 	t.Run("report is on-chain", func(t *testing.T) {
 		tp := newTopics()
 		beaconAddress := newAddress(t)
+		coordinatorAddress := newAddress(t)
+		lggr := logger.TestLogger(t)
+
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		assert.NoError(t, err)
 
 		epoch := uint32(20)
 		round := uint8(3)
 		epochAndRound := toEpochAndRoundUint40(epoch, round)
 		enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
 		lp := lp_mocks.NewLogPoller(t)
+		configDigest := common.BigToHash(big.NewInt(1337))
+		log := newNewTransmissionLog(t, beaconAddress, configDigest)
+		log.BlockNumber = 195
 		lp.On("IndexedLogs", tp.newTransmissionTopic, beaconAddress, 2, []common.Hash{
 			enrTopic,
-		}, 1, mock.Anything).Return([]logpoller.Log{
-			{
-				BlockNumber: 195,
-			},
-		}, nil)
+		}, 1, mock.Anything).Return([]logpoller.Log{log}, nil)
 
 		c := &coordinator{
 			lp:            lp,
+			onchainRouter: onchainRouter,
 			lggr:          logger.TestLogger(t),
 			beaconAddress: beaconAddress,
 			topics:        tp,
 			evmClient:     evmClient,
 		}
 
-		present, err := c.ReportIsOnchain(testutils.Context(t), epoch, round)
+		present, err := c.ReportIsOnchain(testutils.Context(t), epoch, round, configDigest)
 		assert.NoError(t, err)
 		assert.True(t, present)
+	})
+
+	t.Run("report is on-chain for old config digest", func(t *testing.T) {
+		tp := newTopics()
+		beaconAddress := newAddress(t)
+		coordinatorAddress := newAddress(t)
+		lggr := logger.TestLogger(t)
+
+		onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
+		assert.NoError(t, err)
+
+		epoch := uint32(20)
+		round := uint8(3)
+		epochAndRound := toEpochAndRoundUint40(epoch, round)
+		enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
+		lp := lp_mocks.NewLogPoller(t)
+		oldConfigDigest := common.BigToHash(big.NewInt(1337))
+		newConfigDigest := common.BigToHash(big.NewInt(8888))
+		log := newNewTransmissionLog(t, beaconAddress, oldConfigDigest)
+		log.BlockNumber = 195
+		lp.On("IndexedLogs", tp.newTransmissionTopic, beaconAddress, 2, []common.Hash{
+			enrTopic,
+		}, 1, mock.Anything).Return([]logpoller.Log{log}, nil)
+
+		c := &coordinator{
+			lp:            lp,
+			onchainRouter: onchainRouter,
+			lggr:          logger.TestLogger(t),
+			beaconAddress: beaconAddress,
+			topics:        tp,
+			evmClient:     evmClient,
+		}
+
+		present, err := c.ReportIsOnchain(testutils.Context(t), epoch, round, newConfigDigest)
+		assert.NoError(t, err)
+		assert.False(t, present)
 	})
 
 	t.Run("report is not on-chain", func(t *testing.T) {
@@ -1070,7 +1123,8 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 			evmClient:     evmClient,
 		}
 
-		present, err := c.ReportIsOnchain(testutils.Context(t), epoch, round)
+		configDigest := common.BigToHash(big.NewInt(0))
+		present, err := c.ReportIsOnchain(testutils.Context(t), epoch, round, configDigest)
 		assert.NoError(t, err)
 		assert.False(t, present)
 	})
@@ -1394,14 +1448,12 @@ func newOutputsServedLog(
 	outputsServed []vrf_coordinator.VRFBeaconTypesOutputServed,
 	beaconAddress common.Address,
 ) logpoller.Log {
-	//event NewTransmission(
-	//  uint32 indexed aggregatorRoundId,
-	//  uint40 indexed epochAndRound,
-	//  address transmitter,
-	//  uint192 juelsPerFeeCoin,
-	//  bytes32 configDigest,
-	//  OutputServed[] outputsServed
-	//);
+	// event OutputsServed(
+	//     uint64 recentBlockHeight,
+	//     address transmitter,
+	//     uint192 juelsPerFeeCoin,
+	//     OutputServed[] outputsServed
+	// );
 	e := vrf_coordinator.VRFCoordinatorOutputsServed{
 		RecentBlockHeight: 0,
 		// AggregatorRoundId: 1,
@@ -1431,6 +1483,72 @@ func newOutputsServedLog(
 	}
 }
 
+func newNewTransmissionLog(
+	t *testing.T,
+	beaconAddress common.Address,
+	configDigest [32]byte,
+) logpoller.Log {
+	// event NewTransmission(
+	//     uint32 indexed aggregatorRoundId,
+	//     uint40 indexed epochAndRound,
+	//     address transmitter,
+	//     uint192 juelsPerFeeCoin,
+	//     bytes32 configDigest
+	// );
+	e := vrf_beacon.VRFBeaconNewTransmission{
+		AggregatorRoundId: 1,
+		JuelsPerFeeCoin:   big.NewInt(1_000),
+		EpochAndRound:     big.NewInt(1),
+		ConfigDigest:      configDigest,
+		Transmitter:       newAddress(t),
+	}
+	var unindexed abi.Arguments
+	for _, a := range vrfBeaconABI.Events[newTransmissionEvent].Inputs {
+		if !a.Indexed {
+			unindexed = append(unindexed, a)
+		}
+	}
+	nonIndexedData, err := unindexed.Pack(
+		e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest)
+	require.NoError(t, err)
+
+	// aggregatorRoundId is indexed
+	aggregatorRoundIDType, err := abi.NewType("uint32", "", nil)
+	require.NoError(t, err)
+	indexedArgs := abi.Arguments{
+		{
+			Name: "aggregatorRoundId",
+			Type: aggregatorRoundIDType,
+		},
+	}
+	aggregatorPacked, err := indexedArgs.Pack(e.AggregatorRoundId)
+	require.NoError(t, err)
+
+	// epochAndRound is indexed
+	epochAndRoundType, err := abi.NewType("uint40", "", nil)
+	require.NoError(t, err)
+	indexedArgs = abi.Arguments{
+		{
+			Name: "epochAndRound",
+			Type: epochAndRoundType,
+		},
+	}
+	epochAndRoundPacked, err := indexedArgs.Pack(e.EpochAndRound)
+	require.NoError(t, err)
+
+	topic0 := vrfBeaconABI.Events[newTransmissionEvent].ID
+	return logpoller.Log{
+		Address: beaconAddress,
+		Data:    nonIndexedData,
+		Topics: [][]byte{
+			topic0.Bytes(),
+			aggregatorPacked,
+			epochAndRoundPacked,
+		},
+		EventSig: topic0,
+	}
+}
+
 func newAddress(t *testing.T) common.Address {
 	b := make([]byte, 20)
 	_, err := rand.Read(b)
@@ -1455,7 +1573,7 @@ func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64
 		})
 	}
 
-	lp.On("GetBlocks", mock.Anything, requestedBlocks, mock.Anything).
+	lp.On("GetBlocksRange", mock.Anything, requestedBlocks, mock.Anything).
 		Return(logPollerBlocks, nil)
 
 	return lp

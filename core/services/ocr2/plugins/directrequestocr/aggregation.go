@@ -10,7 +10,7 @@ import (
 )
 
 func CanAggregate(N int, F int, observations []*ProcessedRequest) bool {
-	return N > 0 && F >= 0 && len(observations) > 0 && len(observations) <= N && len(observations) >= N-F
+	return N > 0 && F >= 0 && len(observations) > 0 && len(observations) <= N && len(observations) >= 2*F+1
 }
 
 func Aggregate(aggMethod config.AggregationMethod, observations []*ProcessedRequest) (*ProcessedRequest, error) {
@@ -27,7 +27,7 @@ func Aggregate(aggMethod config.AggregationMethod, observations []*ProcessedRequ
 	}
 	for _, obs := range observations {
 		if !bytes.Equal(obs.RequestID, reqId) {
-			return nil, fmt.Errorf("inconsistent request IDs in aggregated observations %v vs %v", obs.RequestID, reqId)
+			return nil, fmt.Errorf("inconsistent request IDs in aggregated observations %v vs %v", formatRequestId(obs.RequestID), formatRequestId(reqId))
 		}
 		if obs.GetError() != nil && len(obs.GetError()) > 0 {
 			errored = append(errored, obs)
