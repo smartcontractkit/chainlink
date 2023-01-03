@@ -788,7 +788,7 @@ contract VRFCoordinatorV2 is
     }
     if (s_consumers[consumer][subId] != 0) {
       // Idempotence - do nothing if already added.
-      // Ensures uniqueness in s_subscriptions[subId].consumers.
+      // Ensures uniqueness in s_subscriptionConfigs[subId].consumers.
       return;
     }
     // Initialize the nonce to 1, indicating the consumer is allocated.
