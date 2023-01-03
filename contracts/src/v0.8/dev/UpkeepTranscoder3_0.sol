@@ -54,17 +54,13 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
 
       address[] memory admins = new address[](ids.length);
       UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
+      UpkeepV1 memory upkeep;
       for (uint256 idx = 0; idx < ids.length; idx++) {
-        UpkeepV1 memory upkeep = upkeeps[idx];
-        uint32 maxValidBlock;
-        if (upkeep.maxValidBlocknumber >= UINT32_MAX) {
-          maxValidBlock = UINT32_MAX;
-        } else {
-          maxValidBlock = uint32(upkeep.maxValidBlocknumber);
-        }
+        upkeep = upkeeps[idx];
+        require(upkeep.maxValidBlocknumber >= UINT32_MAX, "cannot transcode cancelled upkeeps");
         newUpkeeps[idx] = UpkeepV3({
           executeGas: upkeep.executeGas,
-          maxValidBlocknumber: maxValidBlock,
+          maxValidBlocknumber: UINT32_MAX,
           paused: false,
           target: upkeep.target,
           amountSpent: upkeep.amountSpent,
@@ -88,11 +84,13 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
 
       address[] memory admins = new address[](ids.length);
       UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
+      UpkeepV2 memory upkeep;
       for (uint256 idx = 0; idx < ids.length; idx++) {
-        UpkeepV2 memory upkeep = upkeeps[idx];
+        upkeep = upkeeps[idx];
+        require(upkeep.maxValidBlocknumber == UINT32_MAX, "cannot transcode cancelled upkeeps");
         newUpkeeps[idx] = UpkeepV3({
           executeGas: upkeep.executeGas,
-          maxValidBlocknumber: upkeep.maxValidBlocknumber,
+          maxValidBlocknumber: UINT32_MAX,
           paused: upkeep.paused,
           target: upkeep.target,
           amountSpent: upkeep.amountSpent,

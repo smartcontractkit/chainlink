@@ -119,6 +119,169 @@ before(async () => {
   ]
 })
 
+async function deployRegistries() {
+  const mock = await upkeepMockFactory.deploy()
+  const executeGas = BigNumber.from('100000')
+  const paymentPremiumPPB = BigNumber.from('250000000')
+  const flatFeeMicroLink = BigNumber.from(0)
+  const blockCountPerTurn = BigNumber.from(3)
+  const randomBytes = '0x1234abcd'
+  const stalenessSeconds = BigNumber.from(43820)
+  const gasCeilingMultiplier = BigNumber.from(1)
+  const checkGasLimit = BigNumber.from(20000000)
+  const fallbackGasPrice = BigNumber.from(200)
+  const fallbackLinkPrice = BigNumber.from(200000000)
+  const maxPerformGas = BigNumber.from(5000000)
+  const minUpkeepSpend = BigNumber.from(0)
+  const maxCheckDataSize = BigNumber.from(1000)
+  const maxPerformDataSize = BigNumber.from(1000)
+  const paymentModel = BigNumber.from(0)
+  const linkEth = BigNumber.from(300000000)
+  const gasWei = BigNumber.from(100)
+  // @ts-ignore bug in autogen file
+  const keeperRegistryFactory = await ethers.getContractFactory(
+    'KeeperRegistry1_2',
+  )
+  const linkToken = await linkTokenFactory.connect(owner).deploy()
+  const gasPriceFeed = await mockV3AggregatorFactory
+    .connect(owner)
+    .deploy(0, gasWei)
+  const linkEthFeed = await mockV3AggregatorFactory
+    .connect(owner)
+    .deploy(9, linkEth)
+  transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
+  const registry12 = await keeperRegistryFactory
+    .connect(owner)
+    .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      blockCountPerTurn,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxPerformGas,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder: transcoder.address,
+      registrar: ethers.constants.AddressZero,
+    })
+  const tx = await registry12
+    .connect(owner)
+    .registerUpkeep(
+      mock.address,
+      executeGas,
+      await admin0.getAddress(),
+      randomBytes,
+    )
+  const id = await getUpkeepID(tx)
+
+  // @ts-ignore bug in autogen file
+  keeperRegistryFactory20 = await ethers.getContractFactory('KeeperRegistry2_0')
+  // @ts-ignore bug in autogen file
+  keeperRegistryLogicFactory = await ethers.getContractFactory(
+    'KeeperRegistryLogic2_0',
+  )
+
+  const config = {
+    paymentPremiumPPB,
+    flatFeeMicroLink,
+    checkGasLimit,
+    stalenessSeconds,
+    gasCeilingMultiplier,
+    minUpkeepSpend,
+    maxCheckDataSize,
+    maxPerformDataSize,
+    maxPerformGas,
+    fallbackGasPrice,
+    fallbackLinkPrice,
+    transcoder: transcoder.address,
+    registrar: ethers.constants.AddressZero,
+  }
+
+  const registryLogic = await keeperRegistryLogicFactory
+    .connect(owner)
+    .deploy(
+      paymentModel,
+      linkToken.address,
+      linkEthFeed.address,
+      gasPriceFeed.address,
+    )
+
+  const registry20 = await keeperRegistryFactory20
+    .connect(owner)
+    .deploy(registryLogic.address)
+
+  // deploys a registry, setups of initial configuration, registers an upkeep
+  const keeper1 = personas.Carol
+  const keeper2 = personas.Eddy
+  const keeper3 = personas.Nancy
+  const keeper4 = personas.Norbert
+  const keeper5 = personas.Nick
+  const payee1 = personas.Nelly
+  const payee2 = personas.Norbert
+  const payee3 = personas.Nick
+  const payee4 = personas.Eddy
+  const payee5 = personas.Carol
+  // signers
+  const signer1 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000001',
+  )
+  const signer2 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000002',
+  )
+  const signer3 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000003',
+  )
+  const signer4 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000004',
+  )
+  const signer5 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000005',
+  )
+
+  const keeperAddresses = [
+    await keeper1.getAddress(),
+    await keeper2.getAddress(),
+    await keeper3.getAddress(),
+    await keeper4.getAddress(),
+    await keeper5.getAddress(),
+  ]
+  const payees = [
+    await payee1.getAddress(),
+    await payee2.getAddress(),
+    await payee3.getAddress(),
+    await payee4.getAddress(),
+    await payee5.getAddress(),
+  ]
+  const signers = [signer1, signer2, signer3, signer4, signer5]
+
+  const signerAddresses = []
+  for (const signer of signers) {
+    signerAddresses.push(await signer.getAddress())
+  }
+
+  const f = 1
+  const offchainVersion = 1
+  const offchainBytes = '0x'
+
+  await registry20
+    .connect(owner)
+    .setConfig(
+      signerAddresses,
+      keeperAddresses,
+      f,
+      encodeConfig(config),
+      offchainVersion,
+      offchainBytes,
+    )
+  await registry20.connect(owner).setPayees(payees)
+  await linkToken.connect(owner).approve(registry12.address, toWei('1000'))
+  await registry12.connect(owner).addFunds(id, toWei('1000'))
+
+  return [id, randomBytes, registry12, registry20]
+}
+
 describe.only('UpkeepTranscoder3_0', () => {
   beforeEach(async () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
@@ -201,7 +364,7 @@ describe.only('UpkeepTranscoder3_0', () => {
           ],
         ]
 
-        let data = await transcoder.transcodeUpkeeps(
+        const data = await transcoder.transcodeUpkeeps(
           UpkeepFormatV1,
           UpkeepFormatV3,
           encodeUpkeepV1(idx, upkeepsV1, ['0xabcd', '0xffff']),
@@ -236,7 +399,7 @@ describe.only('UpkeepTranscoder3_0', () => {
           ],
         ]
 
-        let data = await transcoder.transcodeUpkeeps(
+        const data = await transcoder.transcodeUpkeeps(
           UpkeepFormatV2,
           UpkeepFormatV3,
           encodeUpkeepV2(idx, upkeepsV2, ['0xabcd', '0xffff']),
@@ -248,173 +411,8 @@ describe.only('UpkeepTranscoder3_0', () => {
       })
 
       it('migrates upkeeps from one registry to another', async () => {
-        let mock = await upkeepMockFactory.deploy()
-        let executeGas = BigNumber.from('100000')
-        let paymentPremiumPPB = BigNumber.from('250000000')
-        let flatFeeMicroLink = BigNumber.from(0)
-        let blockCountPerTurn = BigNumber.from(3)
-        let randomBytes = '0x1234abcd'
-        let stalenessSeconds = BigNumber.from(43820)
-        let gasCeilingMultiplier = BigNumber.from(1)
-        let checkGasLimit = BigNumber.from(20000000)
-        let fallbackGasPrice = BigNumber.from(200)
-        let fallbackLinkPrice = BigNumber.from(200000000)
-        let maxPerformGas = BigNumber.from(5000000)
-        let minUpkeepSpend = BigNumber.from(0)
-        let maxCheckDataSize = BigNumber.from(1000)
-        let maxPerformDataSize = BigNumber.from(1000)
-        let paymentModel = BigNumber.from(0)
-        let linkEth = BigNumber.from(300000000)
-        let gasWei = BigNumber.from(100)
-        // @ts-ignore bug in autogen file
-        let keeperRegistryFactory = await ethers.getContractFactory(
-          'KeeperRegistry1_2',
-        )
-        let linkToken = await linkTokenFactory.connect(owner).deploy()
-        let gasPriceFeed = await mockV3AggregatorFactory
-          .connect(owner)
-          .deploy(0, gasWei)
-        let linkEthFeed = await mockV3AggregatorFactory
-          .connect(owner)
-          .deploy(9, linkEth)
-        transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
-        let registry12 = await keeperRegistryFactory
-          .connect(owner)
-          .deploy(
-            linkToken.address,
-            linkEthFeed.address,
-            gasPriceFeed.address,
-            {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
-              blockCountPerTurn,
-              checkGasLimit,
-              stalenessSeconds,
-              gasCeilingMultiplier,
-              minUpkeepSpend,
-              maxPerformGas,
-              fallbackGasPrice,
-              fallbackLinkPrice,
-              transcoder: transcoder.address,
-              registrar: ethers.constants.AddressZero,
-            },
-          )
-        const tx = await registry12
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            executeGas,
-            await admin0.getAddress(),
-            randomBytes,
-          )
-        const id = await getUpkeepID(tx)
-
-        // @ts-ignore bug in autogen file
-        keeperRegistryFactory20 = await ethers.getContractFactory(
-          'KeeperRegistry2_0',
-        )
-        // @ts-ignore bug in autogen file
-        keeperRegistryLogicFactory = await ethers.getContractFactory(
-          'KeeperRegistryLogic2_0',
-        )
-
-        const config = {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier,
-          minUpkeepSpend,
-          maxCheckDataSize,
-          maxPerformDataSize,
-          maxPerformGas,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-          transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
-        }
-
-        let registryLogic = await keeperRegistryLogicFactory
-          .connect(owner)
-          .deploy(
-            paymentModel,
-            linkToken.address,
-            linkEthFeed.address,
-            gasPriceFeed.address,
-          )
-
-        let registry20 = await keeperRegistryFactory20
-          .connect(owner)
-          .deploy(registryLogic.address)
-
-        // deploys a registry, setups of initial configuration, registers an upkeep
-        let keeper1 = personas.Carol
-        let keeper2 = personas.Eddy
-        let keeper3 = personas.Nancy
-        let keeper4 = personas.Norbert
-        let keeper5 = personas.Nick
-        let payee1 = personas.Nelly
-        let payee2 = personas.Norbert
-        let payee3 = personas.Nick
-        let payee4 = personas.Eddy
-        let payee5 = personas.Carol
-        // signers
-        let signer1 = new ethers.Wallet(
-          '0x7777777000000000000000000000000000000000000000000000000000000001',
-        )
-        let signer2 = new ethers.Wallet(
-          '0x7777777000000000000000000000000000000000000000000000000000000002',
-        )
-        let signer3 = new ethers.Wallet(
-          '0x7777777000000000000000000000000000000000000000000000000000000003',
-        )
-        let signer4 = new ethers.Wallet(
-          '0x7777777000000000000000000000000000000000000000000000000000000004',
-        )
-        let signer5 = new ethers.Wallet(
-          '0x7777777000000000000000000000000000000000000000000000000000000005',
-        )
-
-        let keeperAddresses = [
-          await keeper1.getAddress(),
-          await keeper2.getAddress(),
-          await keeper3.getAddress(),
-          await keeper4.getAddress(),
-          await keeper5.getAddress(),
-        ]
-        let payees = [
-          await payee1.getAddress(),
-          await payee2.getAddress(),
-          await payee3.getAddress(),
-          await payee4.getAddress(),
-          await payee5.getAddress(),
-        ]
-        let signers = [signer1, signer2, signer3, signer4, signer5]
-
-        let signerAddresses = []
-        for (let signer of signers) {
-          signerAddresses.push(await signer.getAddress())
-        }
-
-        let f = 1
-        let offchainVersion = 1
-        let offchainBytes = '0x'
-
-        await registry20
-          .connect(owner)
-          .setConfig(
-            signerAddresses,
-            keeperAddresses,
-            f,
-            encodeConfig(config),
-            offchainVersion,
-            offchainBytes,
-          )
-        await registry20.connect(owner).setPayees(payees)
-        await linkToken
-          .connect(owner)
-          .approve(registry12.address, toWei('1000'))
-        await registry12.connect(owner).addFunds(id, toWei('1000'))
+        const [id, randomBytes, registry12, registry20] =
+          await deployRegistries()
 
         // set outgoing permission to registry 2_0 and incoming permission for registry 1_2
         await registry12.setPeerRegistryMigrationPermission(
