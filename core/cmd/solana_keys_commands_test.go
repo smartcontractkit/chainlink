@@ -95,7 +95,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		require.NoError(t, err)
 		requireSolanaKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).DeleteKey, set, "solana")
+		cltest.FlagSetApplyFromAction(cmd.NewSolanaKeysClient(client).DeleteKey, set, "solana")
 
 		require.NoError(tt, set.Set("yes", "true"))
 
@@ -121,7 +121,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test Solana export", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
+		cltest.FlagSetApplyFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
 		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
@@ -134,7 +134,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test Solana export", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
+		cltest.FlagSetApplyFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
 		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
@@ -149,7 +149,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		requireSolanaKeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test Solana import", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewSolanaKeysClient(client).ImportKey, set, "solana")
+		cltest.FlagSetApplyFromAction(cmd.NewSolanaKeysClient(client).ImportKey, set, "solana")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
 		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))

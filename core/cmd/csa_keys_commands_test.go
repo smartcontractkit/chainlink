@@ -98,7 +98,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 
 	// Export test invalid id
 	set := flag.NewFlagSet("test CSA export", 0)
-	cltest.CopyFlagSetFromAction(client.ExportCSAKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ExportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"0"}))
 	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
@@ -111,7 +111,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 
 	// Export test
 	set = flag.NewFlagSet("test CSA export", 0)
-	cltest.CopyFlagSetFromAction(client.ExportCSAKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ExportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
 	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
@@ -127,7 +127,7 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 
 	//Import test
 	set = flag.NewFlagSet("test CSA import", 0)
-	cltest.CopyFlagSetFromAction(client.ImportCSAKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ImportCSAKey, set, "")
 
 	require.NoError(t, set.Parse([]string{keyName}))
 	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))

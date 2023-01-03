@@ -95,7 +95,7 @@ func TestClient_CreateSolanaNode(t *testing.T) {
 	_ = mustInsertSolanaChain(t, sol, chainIDB)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewSolanaNodeClient(client).CreateNode, set, "solana")
+	cltest.FlagSetApplyFromAction(cmd.NewSolanaNodeClient(client).CreateNode, set, "solana")
 
 	require.NoError(t, set.Set("name", "first"))
 	require.NoError(t, set.Set("url", "http://tender.mint.test/columbus-5"))
@@ -106,7 +106,7 @@ func TestClient_CreateSolanaNode(t *testing.T) {
 	require.NoError(t, err)
 
 	set = flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewSolanaNodeClient(client).CreateNode, set, "solana")
+	cltest.FlagSetApplyFromAction(cmd.NewSolanaNodeClient(client).CreateNode, set, "solana")
 
 	require.NoError(t, set.Set("name", "second"))
 	require.NoError(t, set.Set("url", "http://tender.mint.test/bombay-12"))
@@ -159,7 +159,7 @@ func TestClient_RemoveSolanaNode(t *testing.T) {
 	require.Len(t, nodes, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewSolanaNodeClient(client).RemoveNode, set, "solana")
+	cltest.FlagSetApplyFromAction(cmd.NewSolanaNodeClient(client).RemoveNode, set, "solana")
 
 	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)}))
 	c := cli.NewContext(nil, set, nil)

@@ -185,7 +185,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 
 	// create a key on the default chain
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.CreateETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.CreateETHKey, set, "")
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.CreateETHKey(c))
 
@@ -193,7 +193,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	id := big.NewInt(0)
 
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.CreateETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.CreateETHKey, set, "")
 
 	require.NoError(t, set.Set("evmChainID", ""))
 
@@ -232,7 +232,7 @@ func TestClient_UpdateETHKey(t *testing.T) {
 
 	// Update the key
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.UpdateETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.UpdateETHKey, set, "")
 
 	require.NoError(t, set.Set("maxGasPriceGWei", "0"))
 	require.NoError(t, set.Set("maxGasPriceGWei", "12345"))
@@ -267,7 +267,7 @@ func TestClient_DeleteETHKey(t *testing.T) {
 
 	// Delete the key
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.DeleteETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
 
 	require.NoError(t, set.Set("hard", "true"))
 	require.NoError(t, set.Set("yes", "true"))
@@ -300,7 +300,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	ethKeyStore := app.GetKeyStore().Eth()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -324,7 +324,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.ExportETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyfilepath))
@@ -336,7 +336,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.DeleteETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
 
 	require.NoError(t, set.Set("hard", "true"))
 	require.NoError(t, set.Set("yes", "true"))
@@ -352,7 +352,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.ImportETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
 
 	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Parse([]string{keyfilepath}))
@@ -364,7 +364,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	r.Renders = nil
 
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.ListETHKeys, set, "")
+	cltest.FlagSetApplyFromAction(client.ListETHKeys, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
@@ -375,7 +375,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	// Export test invalid id
 	keyName := keyNameForTest(t)
 	set = flag.NewFlagSet("test Eth export invalid id", 0)
-	cltest.CopyFlagSetFromAction(client.ExportETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"999"}))
 	require.NoError(t, set.Set("newpassword", "../internal/fixtures/apicredentials"))
@@ -407,7 +407,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.RemoteLogin, set, "")
+	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -431,7 +431,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.ExportETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyfilepath))
@@ -443,7 +443,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.DeleteETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
 
 	require.NoError(t, set.Set("hard", "true"))
 	require.NoError(t, set.Set("yes", "true"))
@@ -457,7 +457,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.ImportETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
 
 	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Parse([]string{keyfilepath}))
@@ -469,7 +469,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	r.Renders = nil
 
 	set = flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.ListETHKeys, set, "")
+	cltest.FlagSetApplyFromAction(client.ListETHKeys, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
@@ -480,7 +480,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	// Export test invalid id
 	keyName := keyNameForTest(t)
 	set = flag.NewFlagSet("test Eth export invalid id", 0)
-	cltest.CopyFlagSetFromAction(client.ExportETHKey, set, "")
+	cltest.FlagSetApplyFromAction(client.ExportETHKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"999"}))
 	require.NoError(t, set.Set("newpassword", "../internal/fixtures/apicredentials"))
@@ -511,7 +511,7 @@ func TestClient_UpdateChainEVMKey(t *testing.T) {
 
 	newFlagSet := func() *flag.FlagSet {
 		fs := testutils.NewTestFlagSet()
-		cltest.CopyFlagSetFromAction(client.UpdateChainEVMKey, fs, "")
+		cltest.FlagSetApplyFromAction(client.UpdateChainEVMKey, fs, "")
 		return fs
 	}
 

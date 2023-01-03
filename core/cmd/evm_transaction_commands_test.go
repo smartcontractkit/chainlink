@@ -30,7 +30,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	// page 1
 	set := flag.NewFlagSet("test transactions", 0)
-	cltest.CopyFlagSetFromAction(client.IndexTransactions, set, "")
+	cltest.FlagSetApplyFromAction(client.IndexTransactions, set, "")
 
 	require.NoError(t, set.Set("page", "1"))
 
@@ -44,7 +44,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test txattempts", 0)
-	cltest.CopyFlagSetFromAction(client.IndexTransactions, set, "")
+	cltest.FlagSetApplyFromAction(client.IndexTransactions, set, "")
 
 	require.NoError(t, set.Set("page", "2"))
 
@@ -70,7 +70,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	attempt := tx.EthTxAttempts[0]
 
 	set := flag.NewFlagSet("test get tx", 0)
-	cltest.CopyFlagSetFromAction(client.ShowTransaction, set, "")
+	cltest.FlagSetApplyFromAction(client.ShowTransaction, set, "")
 
 	require.NoError(t, set.Parse([]string{attempt.Hash.Hex()}))
 
@@ -93,7 +93,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)
-	cltest.CopyFlagSetFromAction(client.IndexTxAttempts, set, "")
+	cltest.FlagSetApplyFromAction(client.IndexTxAttempts, set, "")
 
 	require.NoError(t, set.Set("page", "1"))
 
@@ -107,7 +107,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)
-	cltest.CopyFlagSetFromAction(client.IndexTxAttempts, set, "")
+	cltest.FlagSetApplyFromAction(client.IndexTxAttempts, set, "")
 
 	require.NoError(t, set.Set("page", "2"))
 
@@ -144,7 +144,7 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 	db := app.GetSqlxDB()
 
 	set := flag.NewFlagSet("sendether", 0)
-	cltest.CopyFlagSetFromAction(client.SendEther, set, "")
+	cltest.FlagSetApplyFromAction(client.SendEther, set, "")
 
 	amount := "100.5"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
@@ -192,7 +192,7 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 	db := app.GetSqlxDB()
 
 	set := flag.NewFlagSet("sendether", 0)
-	cltest.CopyFlagSetFromAction(client.SendEther, set, "")
+	cltest.FlagSetApplyFromAction(client.SendEther, set, "")
 
 	require.NoError(t, set.Set("wei", "false"))
 

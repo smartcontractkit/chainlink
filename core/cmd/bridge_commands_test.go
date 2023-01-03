@@ -111,7 +111,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.ShowBridge, set, "")
+	cltest.FlagSetApplyFromAction(client.ShowBridge, set, "")
 
 	require.NoError(t, set.Parse([]string{bt.Name.String()}))
 
@@ -148,7 +148,7 @@ func TestClient_CreateBridge(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("bridge", 0)
-			cltest.CopyFlagSetFromAction(client.CreateBridge, set, "")
+			cltest.FlagSetApplyFromAction(client.CreateBridge, set, "")
 
 			require.NoError(t, set.Parse([]string{test.param}))
 
@@ -177,7 +177,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.RemoveBridge, set, "")
+	cltest.FlagSetApplyFromAction(client.RemoveBridge, set, "")
 
 	require.NoError(t, set.Parse([]string{bt.Name.String()}))
 

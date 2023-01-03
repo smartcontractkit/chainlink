@@ -95,7 +95,7 @@ func TestClient_TerraKeys(t *testing.T) {
 		require.NoError(t, err)
 		requireTerraKeyCount(t, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).DeleteKey, set, "terra")
+		cltest.FlagSetApplyFromAction(cmd.NewTerraKeysClient(client).DeleteKey, set, "terra")
 
 		strID := key.ID()
 		require.NoError(tt, set.Set("yes", "true"))
@@ -121,7 +121,7 @@ func TestClient_TerraKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test Terra export", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).ExportKey, set, "terra")
+		cltest.FlagSetApplyFromAction(cmd.NewTerraKeysClient(client).ExportKey, set, "terra")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
 		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
@@ -135,7 +135,7 @@ func TestClient_TerraKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test Terra export", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).ExportKey, set, "terra")
+		cltest.FlagSetApplyFromAction(cmd.NewTerraKeysClient(client).ExportKey, set, "terra")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
 		require.NoError(tt, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
@@ -150,7 +150,7 @@ func TestClient_TerraKeys(t *testing.T) {
 		requireTerraKeyCount(t, app, 0)
 
 		set = flag.NewFlagSet("test Terra import", 0)
-		cltest.CopyFlagSetFromAction(cmd.NewTerraKeysClient(client).ImportKey, set, "terra")
+		cltest.FlagSetApplyFromAction(cmd.NewTerraKeysClient(client).ImportKey, set, "terra")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
 		require.NoError(tt, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))

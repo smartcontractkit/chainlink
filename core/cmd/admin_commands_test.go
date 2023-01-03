@@ -35,7 +35,7 @@ func TestClient_CreateUser(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
-			cltest.CopyFlagSetFromAction(client.CreateUser, set, "")
+			cltest.FlagSetApplyFromAction(client.CreateUser, set, "")
 
 			require.NoError(t, set.Set("email", test.email))
 			require.NoError(t, set.Set("role", test.role))
@@ -72,7 +72,7 @@ func TestClient_ChangeRole(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
-			cltest.CopyFlagSetFromAction(client.ChangeRole, set, "")
+			cltest.FlagSetApplyFromAction(client.ChangeRole, set, "")
 
 			require.NoError(t, set.Set("email", test.email))
 			require.NoError(t, set.Set("newrole", test.role))

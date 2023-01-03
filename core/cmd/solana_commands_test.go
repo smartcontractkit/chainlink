@@ -25,7 +25,7 @@ func TestClient_SolanaInit(t *testing.T) {
 		SolanaURL:     "https://solana.example",
 	}
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewSolanaNodeClient(client).CreateNode, set, "solana")
+	cltest.FlagSetApplyFromAction(cmd.NewSolanaNodeClient(client).CreateNode, set, "solana")
 
 	require.NoError(t, set.Set("name", newNode.Name))
 	require.NoError(t, set.Set("url", newNode.SolanaURL))
@@ -38,7 +38,7 @@ func TestClient_SolanaInit(t *testing.T) {
 
 	// Chain first
 	setCh := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.SolanaChainClient(client).CreateChain, setCh, "Solana")
+	cltest.FlagSetApplyFromAction(cmd.SolanaChainClient(client).CreateChain, setCh, "Solana")
 
 	require.NoError(t, setCh.Set("id", newNode.SolanaChainID))
 	require.NoError(t, setCh.Parse([]string{`{}`}))

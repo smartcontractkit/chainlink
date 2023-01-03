@@ -258,7 +258,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.CopyFlagSetFromAction(client.RunNode, set, "")
+			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("password", test.pwdfile))
 
@@ -346,7 +346,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.CopyFlagSetFromAction(client.RunNode, set, "")
+			cltest.FlagSetApplyFromAction(client.RunNode, set, "")
 
 			require.NoError(t, set.Set("api", test.apiFile))
 
@@ -436,7 +436,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	gasPrice := big.NewInt(100000000000)
 	gasLimit := uint64(3000000)
 	set := flag.NewFlagSet("test", 0)
-	cltest.CopyFlagSetFromAction(client.RebroadcastTransactions, set, "")
+	cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
 	require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))
@@ -507,7 +507,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.CopyFlagSetFromAction(client.RebroadcastTransactions, set, "")
+			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
 			require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))

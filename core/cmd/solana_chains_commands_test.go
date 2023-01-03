@@ -52,7 +52,7 @@ func TestClient_CreateSolanaChain(t *testing.T) {
 
 	solanaChainID := solanatest.RandomChainID()
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.SolanaChainClient(client).CreateChain, set, "Solana")
+	cltest.FlagSetApplyFromAction(cmd.SolanaChainClient(client).CreateChain, set, "Solana")
 
 	require.NoError(t, set.Set("id", solanaChainID))
 	require.NoError(t, set.Parse([]string{`{}`}))
@@ -90,7 +90,7 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.SolanaChainClient(client).RemoveChain, set, "")
+	cltest.FlagSetApplyFromAction(cmd.SolanaChainClient(client).RemoveChain, set, "")
 
 	require.NoError(t, set.Parse([]string{solanaChainID}))
 
@@ -134,7 +134,7 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.SolanaChainClient(client).ConfigureChain, set, "Solana")
+	cltest.FlagSetApplyFromAction(cmd.SolanaChainClient(client).ConfigureChain, set, "Solana")
 
 	require.NoError(t, set.Set("id", solanaChainID))
 	require.NoError(t, set.Parse([]string{"TxTimeout=1h"}))

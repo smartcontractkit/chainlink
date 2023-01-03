@@ -1688,16 +1688,17 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 	require.NoError(t, err)
 }
 
-// CopyFlagSetFromAction takes the given flagSet and applies the actions flag to it.
+// FlagSetApplyFromAction applies the flags from action to the flagSet.
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
-func CopyFlagSetFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
+func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
 	cliApp := cmd.Client{}
 	app := cmd.NewApp(&cliApp)
 
 	foundName := parentCommand == ""
+	actionFunctionName := getFunctionName(action)
 
 	for _, command := range app.Commands {
-		flags := recursiveFindFlagsWithName(action, command, parentCommand, foundName)
+		flags := recursiveFindFlagsWithName(actionFunctionName, command, parentCommand, foundName)
 
 		if flags != nil {
 			for _, flag := range flags {
@@ -1708,10 +1709,10 @@ func CopyFlagSetFromAction(action interface{}, flagSet *flag.FlagSet, parentComm
 
 }
 
-func recursiveFindFlagsWithName(action interface{}, command cli.Command, parent string, foundName bool) []cli.Flag {
+func recursiveFindFlagsWithName(actionFunctionName string, command cli.Command, parent string, foundName bool) []cli.Flag {
 
 	if command.Action != nil {
-		if getFunctionName(action) == getFunctionName(command.Action) && foundName {
+		if actionFunctionName == getFunctionName(command.Action) && foundName {
 			return command.Flags
 		}
 	}
@@ -1721,7 +1722,7 @@ func recursiveFindFlagsWithName(action interface{}, command cli.Command, parent 
 			foundName = strings.ToLower(subcommand.Name) == strings.ToLower(parent)
 		}
 
-		found := recursiveFindFlagsWithName(action, subcommand, parent, foundName)
+		found := recursiveFindFlagsWithName(actionFunctionName, subcommand, parent, foundName)
 		if found != nil {
 			return found
 		}

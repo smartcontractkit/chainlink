@@ -84,7 +84,7 @@ func TestClient_CreateEVMNode(t *testing.T) {
 
 	// successful primary
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewEVMNodeClient(client).CreateNode, set, "")
+	cltest.FlagSetApplyFromAction(cmd.NewEVMNodeClient(client).CreateNode, set, "")
 
 	require.NoError(t, set.Set("name", "Example"))
 	require.NoError(t, set.Set("type", "primary"))
@@ -98,7 +98,7 @@ func TestClient_CreateEVMNode(t *testing.T) {
 
 	// successful send-only
 	set = flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewEVMNodeClient(client).CreateNode, set, "")
+	cltest.FlagSetApplyFromAction(cmd.NewEVMNodeClient(client).CreateNode, set, "")
 
 	require.NoError(t, set.Set("name", "Send only"))
 	require.NoError(t, set.Set("type", "sendonly"))
@@ -155,7 +155,7 @@ func TestClient_RemoveEVMNode(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewEVMNodeClient(client).RemoveNode, set, "")
+	cltest.FlagSetApplyFromAction(cmd.NewEVMNodeClient(client).RemoveNode, set, "")
 
 	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)}))
 

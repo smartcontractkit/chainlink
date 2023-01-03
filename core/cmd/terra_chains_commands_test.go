@@ -53,7 +53,7 @@ func TestClient_CreateTerraChain(t *testing.T) {
 
 	terraChainID := terratest.RandomChainID()
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.TerraChainClient(client).CreateChain, set, "terra")
+	cltest.FlagSetApplyFromAction(cmd.TerraChainClient(client).CreateChain, set, "terra")
 
 	require.NoError(t, set.Set("id", terraChainID))
 	require.NoError(t, set.Parse([]string{`{}`}))
@@ -91,7 +91,7 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.TerraChainClient(client).RemoveChain, set, "terra")
+	cltest.FlagSetApplyFromAction(cmd.TerraChainClient(client).RemoveChain, set, "terra")
 
 	require.NoError(t, set.Parse([]string{terraChainID}))
 	c := cli.NewContext(nil, set, nil)
@@ -133,7 +133,7 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.TerraChainClient(client).ConfigureChain, set, "terra")
+	cltest.FlagSetApplyFromAction(cmd.TerraChainClient(client).ConfigureChain, set, "terra")
 
 	require.NoError(t, set.Set("id", terraChainID))
 	require.NoError(t, set.Parse([]string{

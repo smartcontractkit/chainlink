@@ -24,7 +24,7 @@ func TestClient_TerraInit(t *testing.T) {
 		TendermintURL: "http://tender.mint.test/columbus-5",
 	}
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
+	cltest.FlagSetApplyFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
 
 	require.NoError(t, set.Set("name", newNode.Name))
 	require.NoError(t, set.Set("tendermint-url", newNode.TendermintURL))
@@ -37,7 +37,7 @@ func TestClient_TerraInit(t *testing.T) {
 
 	// Chain first
 	setCh := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.TerraChainClient(client).CreateChain, setCh, "terra")
+	cltest.FlagSetApplyFromAction(cmd.TerraChainClient(client).CreateChain, setCh, "terra")
 
 	require.NoError(t, setCh.Set("id", newNode.TerraChainID))
 	require.NoError(t, setCh.Parse([]string{`{}`}))

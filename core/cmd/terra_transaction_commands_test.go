@@ -86,7 +86,7 @@ func TestClient_SendTerraCoins(t *testing.T) {
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendterracoins", 0)
-			cltest.CopyFlagSetFromAction(client.TerraSendLuna, set, "terra")
+			cltest.FlagSetApplyFromAction(client.TerraSendLuna, set, "terra")
 
 			require.NoError(t, set.Set("id", chainID))
 			require.NoError(t, set.Parse([]string{tt.amount, from.Address.String(), to.Address.String()}))

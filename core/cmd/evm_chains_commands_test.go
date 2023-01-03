@@ -60,7 +60,7 @@ func TestClient_CreateEVMChain(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.EVMChainClient(client).CreateChain, set, "")
+	cltest.FlagSetApplyFromAction(cmd.EVMChainClient(client).CreateChain, set, "")
 
 	id := newRandChainID()
 	require.NoError(t, set.Set("id", id.ToInt().String()))
@@ -104,7 +104,7 @@ func TestClient_RemoveEVMChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.EVMChainClient(client).RemoveChain, set, "")
+	cltest.FlagSetApplyFromAction(cmd.EVMChainClient(client).RemoveChain, set, "")
 
 	require.NoError(t, set.Parse([]string{id.String()}))
 
@@ -149,7 +149,7 @@ func TestClient_ConfigureEVMChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.EVMChainClient(client).ConfigureChain, set, "")
+	cltest.FlagSetApplyFromAction(cmd.EVMChainClient(client).ConfigureChain, set, "")
 
 	require.NoError(t, set.Set("id", id.ToInt().String()))
 	require.NoError(t, set.Parse([]string{"BlockHistoryEstimatorBlockDelay=9", "EvmGasBumpPercent=null"}))

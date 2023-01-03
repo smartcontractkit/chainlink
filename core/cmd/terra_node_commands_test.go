@@ -95,7 +95,7 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	_ = mustInsertTerraChain(t, ter, chainIDB)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
+	cltest.FlagSetApplyFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
 
 	require.NoError(t, set.Set("name", "first"))
 	require.NoError(t, set.Set("tendermint-url", "http://tender.mint.test/columbus-5"))
@@ -106,7 +106,7 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	require.NoError(t, err)
 
 	set = flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
+	cltest.FlagSetApplyFromAction(cmd.NewTerraNodeClient(client).CreateNode, set, "terra")
 
 	require.NoError(t, set.Set("name", "second"))
 	require.NoError(t, set.Set("tendermint-url", "http://tender.mint.test/bombay-12"))
@@ -160,7 +160,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	cltest.CopyFlagSetFromAction(cmd.NewTerraNodeClient(client).RemoveNode, set, "terra")
+	cltest.FlagSetApplyFromAction(cmd.NewTerraNodeClient(client).RemoveNode, set, "terra")
 
 	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)}))
 
