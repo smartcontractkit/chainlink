@@ -592,6 +592,50 @@ func (_m *VRFCoordinatorInterface) ForgetConsumerSubscriptionID(opts *bind.Trans
 	return r0, r1
 }
 
+// GetBeaconRequest provides a mock function with given fields: opts, requestId
+func (_m *VRFCoordinatorInterface) GetBeaconRequest(opts *bind.CallOpts, requestId *big.Int) (vrf_coordinator.VRFBeaconTypesBeaconRequest, error) {
+	ret := _m.Called(opts, requestId)
+
+	var r0 vrf_coordinator.VRFBeaconTypesBeaconRequest
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) vrf_coordinator.VRFBeaconTypesBeaconRequest); ok {
+		r0 = rf(opts, requestId)
+	} else {
+		r0 = ret.Get(0).(vrf_coordinator.VRFBeaconTypesBeaconRequest)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
+		r1 = rf(opts, requestId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetCallbackMemo provides a mock function with given fields: opts, requestId
+func (_m *VRFCoordinatorInterface) GetCallbackMemo(opts *bind.CallOpts, requestId *big.Int) ([32]byte, error) {
+	ret := _m.Called(opts, requestId)
+
+	var r0 [32]byte
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) [32]byte); ok {
+		r0 = rf(opts, requestId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([32]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
+		r1 = rf(opts, requestId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetConfirmationDelays provides a mock function with given fields: opts
 func (_m *VRFCoordinatorInterface) GetConfirmationDelays(opts *bind.CallOpts) ([8]*big.Int, error) {
 	ret := _m.Called(opts)

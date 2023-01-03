@@ -25,9 +25,9 @@ multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../..
 nocancel_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.bin 6672e34b4b10526b338d1876790c396fd619bd2103e5cbff580687264b3e78ca
 ocr2dr: ../../contracts/solc/v0.8.6/OCR2DR.abi ../../contracts/solc/v0.8.6/OCR2DR.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
 ocr2dr_client: ../../contracts/solc/v0.8.6/OCR2DRClient.abi ../../contracts/solc/v0.8.6/OCR2DRClient.bin b3c501193c74aaa45007b40ecc0bcfd672dbe74b802a808368a61b38a9084a90
-ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 175a377331e782d1957aed6c98576cd5087db99b50823556473a16c70731d15a
-ocr2dr_oracle: ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin 7d56cfb8a50065e3a4031fb7d172a28da69561735f71575617f6707af2f1c42e
-ocr2dr_registry: ../../contracts/solc/v0.8.6/OCR2DRRegistry.abi ../../contracts/solc/v0.8.6/OCR2DRRegistry.bin e1ade37bd4d355f7790acd45ee3055a90f9b6705a529913dba4eee3ed590df5f
+ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 752ef01fe0edfdcd8bf75b30e1e5c86dfcec6b27edb57164ef8b32e347f32840
+ocr2dr_oracle: ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin 47d222aadc1f187a0f139305a392c913d0599ddc01ef3ec09c788532e01c9104
+ocr2dr_registry: ../../contracts/solc/v0.8.6/OCR2DRRegistry.abi ../../contracts/solc/v0.8.6/OCR2DRRegistry.bin ba97be4d2f9b29e9d50b9bcae8ddb6f3291ca9db566809cadf86530200f13e9a
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin e78e7231bbaceabe20a266ea596ff14e8c12bf7ec6c69e1e8fe984556d2b7df9
 operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 97dcb51158733881bfbe414d0318a57c3bba7b32bdc7aa5961db2f0ea5e993cb

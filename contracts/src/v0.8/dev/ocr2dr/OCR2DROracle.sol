@@ -3,12 +3,13 @@ pragma solidity ^0.8.6;
 
 import "../interfaces/OCR2DROracleInterface.sol";
 import "../ocr2/OCR2Base.sol";
+import "./AuthorizedOriginReceiver.sol";
 
 /**
  * @title OCR2DR oracle contract
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
+contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiver {
   event OracleRequest(bytes32 indexed requestId, uint64 subscriptionId, bytes data);
   event OracleResponse(bytes32 indexed requestId);
   event UserCallbackError(bytes32 indexed requestId, string reason);
@@ -95,7 +96,8 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
       gasPrice
     );
     uint96 requiredFee = getRequiredFee(data, billing);
-    return s_registry.estimateCost(data, billing, requiredFee);
+    uint96 registryFee = getRequiredFee(data, billing);
+    return s_registry.estimateCost(gasLimit, gasPrice, requiredFee, registryFee);
   }
 
   /**
@@ -180,5 +182,9 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
       revert EmptyBillingRegistry();
     }
     _;
+  }
+
+  function _canSetAuthorizedSenders() internal view override returns (bool) {
+    return msg.sender == owner();
   }
 }
