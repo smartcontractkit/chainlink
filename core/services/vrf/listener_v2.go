@@ -990,6 +990,29 @@ func (lsn *listenerV2) simulateFulfillment(
 	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars, lg)
 	if err != nil {
 		res.err = errors.Wrap(err, "executing run")
+
+		// For an errored pipeline run, wait until the finality depth of the chain to be cleared,
+		// then check if the failing request is being called by an invalid sender. If this is the case,
+		// drop the request.
+		latestHead := lsn.getLatestHead()
+		if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
+			code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender, big.NewInt(int64(latestHead)))
+			if err != nil {
+				lsn.l.Warnw("Failed to fetch contract code")
+				return res
+			}
+			if len(code) == 0 {
+				lsn.l.Infow(
+					"Dropping request that was made by an invalid consumer.",
+					"consumerAddress", req.req.Sender,
+					"reqID", req.req.RequestId,
+					"blockNumber", req.req.Raw.BlockNumber,
+					"blockHash", req.req.Raw.BlockHash,
+				)
+				lsn.markLogAsConsumed(req.lb)
+			}
+		}
+
 		return res
 	}
 	// The call task will fail if there are insufficient funds
