@@ -1,8 +1,3 @@
-##
-# NOTE: any changes to the event triggers or the paths here should be reflected in:
-#       golangci-lint-paths-ignore.yml
-##
-
 name: golangci-lint
 
 on:
@@ -11,35 +6,46 @@ on:
       - staging
       - trying
       - rollup
-    paths:
-      - '**.go'
-      - '**/go.mod'
-      - '**/go.sum'
-      - '.golangci.yml'
   pull_request:
-    paths:
-      - '**.go'
-      - '**/go.mod'
-      - '**/go.sum'
-      - '.golangci.yml'
   schedule:
     - cron: '0 0 * * *'
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+        id: changes
+        with:
+          filters: |
+            src:
+            - '**.go'
+            - '**/go.mod'
+            - '**/go.sum'
+            - '.golangci.yml'
   golangci:
     name: lint
     runs-on: ubuntu-latest
+    needs: [changes]
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v3
+        if: github.event.schedule != '' || needs.changes.outputs.src == 'true'
         with:
           go-version-file: 'go.mod'
       - name: golangci-lint
+        # any scheduled run or push/pulls with relevant changed paths, but skip PRs from release branches
+        if: |
+          github.event.schedule != '' ||
+          (needs.changes.outputs.src == 'true' && (github.event_name == 'push' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/')))
         uses: golangci/golangci-lint-action@v3
-        # any scheduled run or push, but skip PRs from release branches
-        if: github.event.schedule != '' || github.event_name == 'push' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/'))
         with:
           version: v1.50.1
           only-new-issues: ${{github.event.schedule == ''}} # show only new issues, unless it's a scheduled run
