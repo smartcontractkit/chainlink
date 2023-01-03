@@ -22,6 +22,20 @@ type ORM struct {
 	mock.Mock
 }
 
+// Close provides a mock function with given fields:
+func (_m *ORM) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CreateRun provides a mock function with given fields: run, qopts
 func (_m *ORM) CreateRun(run *pipeline.Run, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -171,6 +185,20 @@ func (_m *ORM) GetUnfinishedRuns(_a0 context.Context, _a1 time.Time, _a2 func(pi
 	return r0
 }
 
+// Healthy provides a mock function with given fields:
+func (_m *ORM) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // InsertFinishedRun provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
 func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -227,6 +255,34 @@ func (_m *ORM) InsertRun(run *pipeline.Run, qopts ...pg.QOpt) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...pg.QOpt) error); ok {
 		r0 = rf(run, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Ready provides a mock function with given fields:
+func (_m *ORM) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Start provides a mock function with given fields: _a0
+func (_m *ORM) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}

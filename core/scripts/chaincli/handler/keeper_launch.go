@@ -40,7 +40,7 @@ type startedNodeData struct {
 // 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
 func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs bool) {
 	lggr, closeLggr := logger.NewLogger()
-	defer closeLggr()
+	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	var extraEvars []string
 	if k.cfg.OCR2Keepers {

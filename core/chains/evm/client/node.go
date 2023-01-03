@@ -87,8 +87,8 @@ type Node interface {
 
 	// State returns NodeState
 	State() NodeState
-	// StateAndLatestBlockNumber returns NodeState and the latest received block number
-	StateAndLatestBlockNumber() (NodeState, int64)
+	// StateAndLatest returns NodeState with the latest received block number & total difficulty.
+	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *utils.Big)
 	// Name is a unique identifier for this node.
 	Name() string
 	ChainID() *big.Int
@@ -137,11 +137,11 @@ type node struct {
 	ws   rawclient
 	http *rawclient
 
+	stateMu sync.RWMutex // protects state* fields
 	state   NodeState
-	stateMu sync.RWMutex
-
-	// Each node is tracking the last received head number
-	latestReceivedBlockNumber int64
+	// Each node is tracking the last received head number and total difficulty
+	stateLatestBlockNumber     int64
+	stateLatestTotalDifficulty *utils.Big
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
@@ -158,12 +158,11 @@ type node struct {
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
-	// nLiveNodes is a passed in function that allows this node to
-	// query a parent object to see how many live nodes there are in total.
-	// This is done so we can prevent the last alive node in a pool from being
-	// moved to out-of-sync state. It is better to have one out-of-sync node
-	// than no nodes at all.
-	nLiveNodes func() int
+	// nLiveNodes is a passed in function that allows this node to:
+	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
+	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
+	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
+	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
 }
 
 // NodeConfig allows configuration of the node
@@ -172,6 +171,7 @@ type NodeConfig interface {
 	NodePollFailureThreshold() uint32
 	NodePollInterval() time.Duration
 	NodeSelectionMode() string
+	NodeSyncThreshold() uint32
 }
 
 // NewNode returns a new *node as Node
@@ -195,7 +195,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
 	n.rpcLog = lggr.Named("RPC")
-	n.latestReceivedBlockNumber = -1
+	n.stateLatestBlockNumber = -1
 	return n
 }
 

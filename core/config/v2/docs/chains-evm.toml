@@ -300,8 +300,16 @@ PollFailureThreshold = 5 # Default
 #
 # Set to zero to disable poll checking.
 PollInterval = '10s' # Default
-# SelectionMode controls node selection strategy: HighestHead or RoundRobin.
+# SelectionMode controls node selection strategy:
+# - HighestHead: use the node with the highest head number
+# - RoundRobin: rotate through nodes, per-request
+# - TotalDifficulty: use the node with the greatest total difficulty
 SelectionMode = 'HighestHead' # Default
+# SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+# Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+#
+# Set to 0 to disable this check.
+SyncThreshold = 5 # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

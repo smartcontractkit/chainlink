@@ -162,7 +162,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 		estimator,
 		resumeCallback,
 		keyStates,
-		utils.NewMailbox[*evmtypes.Head](1),
+		utils.NewSingleMailbox[*evmtypes.Head](),
 		ctx,
 		cancel,
 		sync.WaitGroup{},
@@ -600,7 +600,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		// This is only recording forwarded tx that were mined and have a status.
-		// Counters are prune to being in-accurate due to re-orgs.
+		// Counters are prone to being inaccurate due to re-orgs.
 		if ec.config.EvmUseForwarders() {
 			meta, err := attempt.EthTx.GetMeta()
 			if err == nil && meta != nil && meta.FwdrDestAddress != nil {
@@ -1322,8 +1322,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 	}
 
 	if sendError.IsInsufficientEth() {
-		lggr.Errorw(fmt.Sprintf("EthTxAttempt %v (hash 0x%x) was rejected due to insufficient eth. "+
-			"The eth node returned %s. "+
+		lggr.Criticalw(fmt.Sprintf("Tx 0x%x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
 		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -51,7 +53,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 			Disabled:       isDisabled,
 			CreatedAt:      createdAt,
 			UpdatedAt:      updatedAt,
-			MaxGasPriceWei: *maxGasPriceWei,
+			MaxGasPriceWei: maxGasPriceWei,
 		},
 	}
 
@@ -87,7 +89,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(13), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -102,6 +104,61 @@ func TestClient_ListETHKeys(t *testing.T) {
 	require.Equal(t, 1, len(r.Renders))
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
+	assert.Equal(t, "0.000000000000000042", balances[0].EthBalance.String())
+	assert.Equal(t, "13", balances[0].LinkBalance.String())
+}
+
+func TestClient_ListETHKeys_Error(t *testing.T) {
+	t.Parallel()
+
+	ethClient := newEthMock(t)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	},
+		withKey(),
+		withMocks(ethClient),
+	)
+	client, r := app.NewClientAndRenderer()
+
+	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Equal(t, 1, len(r.Renders))
+	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
+	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
+	assert.Nil(t, balances[0].EthBalance)
+	assert.Nil(t, balances[0].LinkBalance)
+}
+
+func TestClient_ListETHKeys_Disabled(t *testing.T) {
+	t.Parallel()
+
+	ethClient := newEthMock(t)
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(false)
+	},
+		withKey(),
+		withMocks(ethClient),
+	)
+	client, r := app.NewClientAndRenderer()
+	keys, err := app.KeyStore.Eth().GetAll()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(keys))
+	k := keys[0]
+
+	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Equal(t, 1, len(r.Renders))
+	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
+	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
+	assert.Nil(t, balances[0].EthBalance)
+	assert.Nil(t, balances[0].LinkBalance)
+	assert.Nil(t, balances[0].MaxGasPriceWei)
+	assert.Equal(t, []string{
+		k.Address.String(), "0", "0", "<nil>", "0", "false",
+		balances[0].UpdatedAt.String(), balances[0].CreatedAt.String(), "<nil>",
+	}, balances[0].ToRow())
 }
 
 func TestClient_CreateETHKey(t *testing.T) {
@@ -203,9 +260,9 @@ func TestClient_DeleteETHKey(t *testing.T) {
 
 	// Delete the key
 	set := flag.NewFlagSet("test", 0)
-	set.Bool("hard", true, "")
 	set.Bool("yes", true, "")
-	set.Parse([]string{key.Address.Hex()})
+	err = set.Parse([]string{key.Address.Hex()})
+	assert.NoError(t, err)
 	c := cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
@@ -264,7 +321,6 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	set.Bool("hard", true, "")
 	set.Bool("yes", true, "")
 	set.Parse([]string{address})
 	c = cli.NewContext(nil, set, nil)
@@ -357,7 +413,6 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Delete the key
 	set = flag.NewFlagSet("test", 0)
-	set.Bool("hard", true, "")
 	set.Bool("yes", true, "")
 	set.Parse([]string{address})
 	c = cli.NewContext(nil, set, nil)

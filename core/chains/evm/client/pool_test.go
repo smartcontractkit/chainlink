@@ -206,9 +206,18 @@ type chainIDResps struct {
 }
 
 func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
-	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (string, string) {
+	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
+		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
-		return "", ""
+		return
 	})
 
 	wsURL, err := url.Parse(ws)
@@ -319,5 +328,5 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 
 	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID)
 
-	p.BatchCallContextAll(ctx, b)
+	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }

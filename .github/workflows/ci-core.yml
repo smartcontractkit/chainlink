@@ -16,14 +16,6 @@ jobs:
     outputs:
       splits: ${{ steps.split.outputs.splits }}
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Split Go Tests
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup Go
@@ -37,6 +29,15 @@ jobs:
         uses: ./.github/actions/split-tests
         with:
           config: ./ci.json
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Split Go Tests
+        continue-on-error: true
 
   core:
     needs: [split-packages]
@@ -52,14 +53,6 @@ jobs:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Setup node
@@ -89,18 +82,28 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
       - name: Run tests
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
-      - name: Store logs artifacts on failure
-        if: failure()
+      - name: Store logs artifacts
+        if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: ${{ matrix.cmd }}_${{ matrix.split.idx }}_logs
           path: |
             ./output.txt
             ./race.*
+            ./coverage.txt
       - name: Print postgres logs
         if: always()
         run: docker compose logs postgres
         working-directory: ./.github/actions/setup-postgres
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
+        continue-on-error: true
 
   # Satisfy required check for core tests
   # while still allowing for adjustable splitting
@@ -114,3 +117,37 @@ jobs:
         cmd: ["go_core_tests", "go_core_race_tests"]
     steps:
       - run: echo "${{ matrix.cmd }} have finished"
+
+  scan:
+    name: SonarQube Scan
+    needs: [core-complete]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
+      - name: Set SonarQube Report Paths
+        id: sonarqube_report_paths
+        shell: bash
+        run: |
+          echo "sonarqube_tests_report_paths=$(find go_core_tests_*_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          echo "sonarqube_coverage_report_paths=$(find go_core_tests_*_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@a6ba0aafc293e03de5437af7edbc97f7d3ebc91a # v1.2.0
+        with:
+          args: >
+            -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
+            -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: sonarqube-scan
+        continue-on-error: true

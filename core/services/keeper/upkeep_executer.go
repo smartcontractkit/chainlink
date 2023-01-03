@@ -80,7 +80,7 @@ func NewUpkeepExecuter(
 		headBroadcaster:        headBroadcaster,
 		gasEstimator:           gasEstimator,
 		job:                    job,
-		mailbox:                utils.NewMailbox[*evmtypes.Head](1),
+		mailbox:                utils.NewSingleMailbox[*evmtypes.Head](),
 		config:                 config,
 		orm:                    orm,
 		pr:                     pr,
@@ -151,31 +151,19 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 
 	var activeUpkeeps []UpkeepRegistration
-	if ex.config.KeeperTurnFlagEnabled() {
-		turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
-		if err2 != nil {
-			ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
-			return
-		}
-		activeUpkeeps, err2 = ex.orm.NewEligibleUpkeepsForRegistry(
-			ex.job.KeeperSpec.ContractAddress,
-			head.Number,
-			ex.config.KeeperMaximumGracePeriod(),
-			turnBinary)
-		if err2 != nil {
-			ex.logger.Error(errors.Wrap(err2, "unable to load active registrations"))
-			return
-		}
-	} else {
-		activeUpkeeps, err = ex.orm.EligibleUpkeepsForRegistry(
-			ex.job.KeeperSpec.ContractAddress,
-			head.Number,
-			ex.config.KeeperMaximumGracePeriod(),
-		)
-		if err != nil {
-			ex.logger.Error(errors.Wrap(err, "unable to load active registrations"))
-			return
-		}
+	turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
+	if err2 != nil {
+		ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
+		return
+	}
+	activeUpkeeps, err2 = ex.orm.EligibleUpkeepsForRegistry(
+		ex.job.KeeperSpec.ContractAddress,
+		head.Number,
+		ex.config.KeeperMaximumGracePeriod(),
+		turnBinary)
+	if err2 != nil {
+		ex.logger.Error(errors.Wrap(err2, "unable to load active registrations"))
+		return
 	}
 
 	if head.Number%10 == 0 {
@@ -219,25 +207,6 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	}
 
 	var gasPrice, gasTipCap, gasFeeCap *assets.Wei
-	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
-		price, fee, err := ex.estimateGasPrice(ctxService, upkeep)
-		if err != nil {
-			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
-			return
-		}
-		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
-
-		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
-		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
-		// Note: gasPrice will be nil if EvmEIP1559DynamicFees is enabled.
-		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
-			baseFee := head.BaseFeePerGas.AddPercentage(ex.config.KeeperBaseFeeBufferPercent())
-			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
-				gasPrice = baseFee
-			}
-		}
-	}
-
 	// effectiveKeeperAddress is always fromAddress when forwarding is not enabled.
 	// when forwarding is enabled, effectiveKeeperAddress is on-chain forwarder.
 	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, ex.effectiveKeeperAddress, upkeep, ex.orm.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
@@ -266,39 +235,13 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	}
 }
 
-func (ex *UpkeepExecuter) estimateGasPrice(ctx context.Context, upkeep UpkeepRegistration) (gasPrice *assets.Wei, fee gas.DynamicFee, err error) {
-	var performTxData []byte
-	performTxData, err = Registry1_1ABI.Pack(
-		"performUpkeep", // performUpkeep is same across registry ABI versions
-		upkeep.UpkeepID.ToInt(),
-		common.Hex2Bytes("1234"), // placeholder
-	)
-	if err != nil {
-		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
-	}
-
-	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
-	if ex.config.EvmEIP1559DynamicFees() {
-		fee, _, err = ex.gasEstimator.GetDynamicFee(ctx, upkeep.ExecuteGas, keySpecificGasPriceWei)
-		fee.TipCap = fee.TipCap.AddPercentage(ex.config.KeeperGasTipCapBufferPercent())
-	} else {
-		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(ctx, performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
-		gasPrice = gasPrice.AddPercentage(ex.config.KeeperGasPriceBufferPercent())
-	}
-	if err != nil {
-		return nil, fee, errors.Wrap(err, "unable to estimate gas")
-	}
-
-	return gasPrice, fee, nil
-}
-
 func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
-	block, err := ex.ethClient.HeaderByNumber(context.Background(), big.NewInt(turnBlock))
+	block, err := ex.ethClient.HeadByNumber(context.Background(), big.NewInt(turnBlock))
 	if err != nil {
 		return "", err
 	}
-	hashAtHeight := block.Hash()
+	hashAtHeight := block.Hash
 	binaryString := fmt.Sprintf("%b", hashAtHeight.Big())
 	return binaryString, nil
 }

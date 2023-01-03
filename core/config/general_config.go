@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,7 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
+
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -55,7 +57,6 @@ type FeatureFlags interface {
 	AutoPprofEnabled() bool
 	EVMEnabled() bool
 	EVMRPCEnabled() bool
-	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	TerraEnabled() bool
@@ -129,6 +130,7 @@ type BasicConfig interface {
 	InsecureFastScrypt() bool
 	JSONConsole() bool
 	JobPipelineMaxRunDuration() time.Duration
+	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineReaperInterval() time.Duration
 	JobPipelineReaperThreshold() time.Duration
 	JobPipelineResultWriteQueueDepth() uint64
@@ -143,7 +145,6 @@ type BasicConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperTurnLookBack() int64
-	KeeperTurnFlagEnabled() bool
 	KeyFile() string
 	KeystorePassword() string
 	LeaseLockDuration() time.Duration
@@ -155,6 +156,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
+	MercuryCredentials(url string) (username, password string, err error)
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
@@ -268,6 +270,7 @@ type GlobalConfig interface {
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
 	GlobalNodeSelectionMode() (string, bool)
+	GlobalNodeSyncThreshold() (uint32, bool)
 }
 
 type GeneralConfig interface {
@@ -901,6 +904,10 @@ func (c *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return getEnvWithFallback(c, envvar.JobPipelineResultWriteQueueDepth)
 }
 
+func (c *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return getEnvWithFallback(c, envvar.JobPipelineMaxSuccessfulRuns)
+}
+
 func (c *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return getEnvWithFallback(c, envvar.JobPipelineReaperInterval)
 }
@@ -969,19 +976,9 @@ func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return getEnvWithFallback(c, envvar.KeeperRegistrySyncUpkeepQueueSize)
 }
 
-// KeeperCheckUpkeepGasPriceFeatureEnabled enables keepers to include a gas price when running checkUpkeep
-func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return getEnvWithFallback(c, envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled"))
-}
-
 // KeeperTurnLookBack represents the number of blocks in the past to loo back when getting block for turn
 func (c *generalConfig) KeeperTurnLookBack() int64 {
 	return c.viper.GetInt64(envvar.Name("KeeperTurnLookBack"))
-}
-
-// KeeperTurnFlagEnabled enables new turn taking algo for keepers
-func (c *generalConfig) KeeperTurnFlagEnabled() bool {
-	return getEnvWithFallback(c, envvar.NewBool("KeeperTurnFlagEnabled"))
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format
@@ -1131,6 +1128,10 @@ func (c *generalConfig) LogUnixTimestamps() bool {
 	return getEnvWithFallback(c, envvar.LogUnixTS)
 }
 
+func (c *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
+	return "", "", errors.New("legacy config does not support Mercury credentials; use V2 TOML config to enable this feature")
+}
+
 // Port represents the port Chainlink should listen on for client requests.
 func (c *generalConfig) Port() uint16 {
 	return getEnvWithFallback(c, envvar.NewUint16("Port"))
@@ -1274,6 +1275,7 @@ func (c *generalConfig) SessionOptions() sessions.Options {
 		Secure:   c.SecureCookies(),
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
@@ -1497,6 +1499,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 
 func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
 	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
+func (c *generalConfig) GlobalNodeSyncThreshold() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("NodeSyncThreshold"), parse.Uint32)
 }
 
 func (c *generalConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {

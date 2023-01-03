@@ -17,6 +17,7 @@ import (
 
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -79,8 +80,8 @@ func mockRegistry1_3(
 		Config:  config,
 		Keepers: keeperList,
 	}
-	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).
-		Return(&types.Header{Number: big.NewInt(10)}, nil)
+	ethMock.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
+		Return(&evmtypes.Head{Number: 10}, nil)
 	if getStateTime > 0 {
 		registryMock.MockResponse("getState", getState).Times(getStateTime)
 	}
@@ -212,7 +213,7 @@ func Test_RegistrySynchronizer1_3_FullSync(t *testing.T) {
 		[]*big.Int{big.NewInt(69), big.NewInt(420), big.NewInt(2022)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_3,
-		1, // 1 new upkeep to sync
+		3, // sync all 3 upkeeps
 		2,
 		1)
 	synchronizer.ExportedFullSync()

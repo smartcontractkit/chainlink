@@ -52,11 +52,12 @@ import (
 )
 
 type ocr2Node struct {
-	app         *cltest.TestApplication
-	peerID      string
-	transmitter common.Address
-	keybundle   ocr2key.KeyBundle
-	config      config.GeneralConfig
+	app                  *cltest.TestApplication
+	peerID               string
+	transmitter          common.Address
+	effectiveTransmitter common.Address
+	keybundle            ocr2key.KeyBundle
+	config               config.GeneralConfig
 }
 
 func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *ocr2aggregator.OCR2Aggregator) {
@@ -137,6 +138,7 @@ func setupNodeOCR2(
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address
+	effectiveTransmitter := sendingKeys[0].Address
 
 	// Fund the transmitter address with some ETH
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
@@ -173,18 +175,20 @@ func setupNodeOCR2(
 		_, err = forwarderORM.CreateForwarder(faddr, chainID)
 		require.NoError(t, err)
 
-		transmitter = faddr
+		effectiveTransmitter = faddr
 	}
 	return &ocr2Node{
-		app:         app,
-		peerID:      p2pKey.PeerID().Raw(),
-		transmitter: transmitter,
-		keybundle:   kb,
-		config:      config,
+		app:                  app,
+		peerID:               p2pKey.PeerID().Raw(),
+		transmitter:          transmitter,
+		effectiveTransmitter: effectiveTransmitter,
+		keybundle:            kb,
+		config:               config,
 	}
 }
 
 func TestIntegration_OCR2(t *testing.T) {
+	t.Parallel()
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
@@ -303,7 +307,7 @@ fromBlock = %d
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer slowServers[i].Close()
+		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -317,12 +321,12 @@ fromBlock = %d
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
-		defer servers[i].Close()
+		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
-		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
-		})
+		}))
 
 		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -439,6 +443,7 @@ juelsPerFeeCoinSource = """
 }
 
 func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
+	t.Parallel()
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
@@ -460,15 +465,18 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})
 
+		// Effective transmitter should be a forwarder not an EOA.
+		require.NotEqual(t, node.effectiveTransmitter, node.transmitter)
+
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
-		forwarderContracts = append(forwarderContracts, node.transmitter)
+		forwarderContracts = append(forwarderContracts, node.effectiveTransmitter)
 		transmitters = append(transmitters, node.transmitter)
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  node.keybundle.PublicKey(),
-				TransmitAccount:   ocrtypes2.Account(node.transmitter.String()),
+				TransmitAccount:   ocrtypes2.Account(node.effectiveTransmitter.String()),
 				OffchainPublicKey: node.keybundle.OffchainPublicKey(),
 				PeerID:            node.peerID,
 			},
@@ -577,10 +585,10 @@ chainID 			= 1337
 		}))
 		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
-		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
-		})
+		}))
 
 		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"

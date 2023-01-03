@@ -2,12 +2,14 @@ package vrf
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -27,12 +29,13 @@ import (
 )
 
 type Delegate struct {
-	q    pg.Q
-	pr   pipeline.Runner
-	porm pipeline.ORM
-	ks   keystore.Master
-	cc   evm.ChainSet
-	lggr logger.Logger
+	q       pg.Q
+	pr      pipeline.Runner
+	porm    pipeline.ORM
+	ks      keystore.Master
+	cc      evm.ChainSet
+	lggr    logger.Logger
+	mailMon *utils.MailboxMonitor
 }
 
 //go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
@@ -56,14 +59,16 @@ func NewDelegate(
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg pg.QConfig) *Delegate {
+	cfg pg.QConfig,
+	mailMon *utils.MailboxMonitor) *Delegate {
 	return &Delegate{
-		q:    pg.NewQ(db, lggr, cfg),
-		ks:   ks,
-		pr:   pr,
-		porm: porm,
-		cc:   chainSet,
-		lggr: lggr,
+		q:       pg.NewQ(db, lggr, cfg),
+		ks:      ks,
+		pr:      pr,
+		porm:    porm,
+		cc:      chainSet,
+		lggr:    lggr,
+		mailMon: mailMon,
 	}
 }
 
@@ -117,13 +122,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+				return nil, err
+			}
+
 			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "LINKETHFEED")
 			}
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
 
 			return []job.ServiceCtx{newListenerV2(
@@ -140,6 +149,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.pr,
 				d.ks.Eth(),
 				jb,
+				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
 				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
@@ -149,7 +159,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&listenerV1{
 				cfg:             chain.Config(),
-				l:               lV1,
+				l:               logger.Sugared(lV1),
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
 				q:               d.q,
@@ -158,6 +168,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				pipelineRunner:  d.pr,
 				gethks:          d.ks.Eth(),
 				job:             jb,
+				mailMon:         d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
 				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
@@ -172,6 +183,24 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	return nil, errors.New("invalid job spec expected a vrf task")
+}
+
+// CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
+// matches what is set for the  provided from addresses.
+// If they don't match, this is a configuration error. An error is returned with all the keys that do
+// not match the provided gas lane price.
+func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
+	if jb.VRFSpec.GasLanePrice != nil {
+		for _, a := range jb.VRFSpec.FromAddresses {
+			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
+				err = multierr.Append(err,
+					fmt.Errorf(
+						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
+						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
+			}
+		}
+	}
+	return
 }
 
 func GetStartingResponseCountsV1(q pg.Q, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {

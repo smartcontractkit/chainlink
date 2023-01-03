@@ -20,7 +20,7 @@ type ETHKeyResource struct {
 	Disabled       bool         `json:"disabled"`
 	CreatedAt      time.Time    `json:"createdAt"`
 	UpdatedAt      time.Time    `json:"updatedAt"`
-	MaxGasPriceWei utils.Big    `json:"maxGasPriceWei"`
+	MaxGasPriceWei *utils.Big   `json:"maxGasPriceWei"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -33,12 +33,12 @@ func (r ETHKeyResource) GetName() string {
 
 // NewETHKeyOption defines a functional option which allows customisation of the
 // EthKeyResource
-type NewETHKeyOption func(*ETHKeyResource) error
+type NewETHKeyOption func(*ETHKeyResource)
 
 // NewETHKeyResource constructs a new ETHKeyResource from a Key.
 //
 // Use the functional options to inject the ETH and LINK balances
-func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) (*ETHKeyResource, error) {
+func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) *ETHKeyResource {
 	r := &ETHKeyResource{
 		JAID:        NewJAID(k.Address.Hex()),
 		EVMChainID:  state.EVMChainID,
@@ -52,36 +52,26 @@ func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOpti
 	}
 
 	for _, opt := range opts {
-		err := opt(r)
-
-		if err != nil {
-			return nil, err
-		}
+		opt(r)
 	}
 
-	return r, nil
+	return r
 }
 
 func SetETHKeyEthBalance(ethBalance *assets.Eth) NewETHKeyOption {
-	return func(r *ETHKeyResource) error {
+	return func(r *ETHKeyResource) {
 		r.EthBalance = ethBalance
-
-		return nil
 	}
 }
 
 func SetETHKeyLinkBalance(linkBalance *assets.Link) NewETHKeyOption {
-	return func(r *ETHKeyResource) error {
+	return func(r *ETHKeyResource) {
 		r.LinkBalance = linkBalance
-
-		return nil
 	}
 }
 
-func SetETHKeyMaxGasPriceWei(maxGasPriceWei utils.Big) NewETHKeyOption {
-	return func(r *ETHKeyResource) error {
+func SetETHKeyMaxGasPriceWei(maxGasPriceWei *utils.Big) NewETHKeyOption {
+	return func(r *ETHKeyResource) {
 		r.MaxGasPriceWei = maxGasPriceWei
-
-		return nil
 	}
 }

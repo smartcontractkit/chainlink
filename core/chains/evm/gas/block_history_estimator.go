@@ -70,7 +70,9 @@ var (
 	)
 )
 
-var ErrConnectivity = errors.New("connectivity issue: transactions are not being mined")
+const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current block prices by significant margin; tx will continue to be rebroadcasted but your node, RPC, or the chain might be experiencing connectivity issues; please investigate and fix ASAP"
+
+var ErrConnectivity = errors.New("transaction propagation issue: transactions are not being mined")
 
 var _ Estimator = &BlockHistoryEstimator{}
 
@@ -114,7 +116,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
 		size:      int64(mathutil.Max(cfg.BlockHistoryEstimatorBlockHistorySize(), cfg.BlockHistoryEstimatorCheckInclusionBlocks())),
-		mb:        utils.NewMailbox[*evmtypes.Head](1),
+		mb:        utils.NewSingleMailbox[*evmtypes.Head](),
 		wg:        new(sync.WaitGroup),
 		ctx:       ctx,
 		ctxCancel: cancel,
@@ -259,7 +261,7 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPric
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
-				b.logger.Criticalw("Gas bumping is being prevented due to a detected connectivity issue; this requires immediate action to fix", "err", err)
+				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "legacy").Inc()
 			}
 			return nil, 0, err
@@ -433,7 +435,7 @@ func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee Dy
 	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
-				b.logger.Criticalw("Gas bumping is being prevented due to a detected connectivity issue; this requires immediate action to fix", "err", err)
+				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "eip1559").Inc()
 			}
 			return bumped, 0, err

@@ -26,7 +26,7 @@ import (
 
 	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
-	sessions "github.com/gin-gonic/contrib/sessions"
+	sessions "github.com/gin-contrib/sessions"
 
 	time "time"
 
@@ -2120,6 +2120,27 @@ func (_m *GeneralConfig) GlobalNodeSelectionMode() (string, bool) {
 	return r0, r1
 }
 
+// GlobalNodeSyncThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodeSyncThreshold() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCR2AutomationGasLimit provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCR2AutomationGasLimit() (uint32, bool) {
 	ret := _m.Called()
@@ -2302,6 +2323,20 @@ func (_m *GeneralConfig) JobPipelineMaxRunDuration() time.Duration {
 	return r0
 }
 
+// JobPipelineMaxSuccessfulRuns provides a mock function with given fields:
+func (_m *GeneralConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // JobPipelineReaperInterval provides a mock function with given fields:
 func (_m *GeneralConfig) JobPipelineReaperInterval() time.Duration {
 	ret := _m.Called()
@@ -2353,20 +2388,6 @@ func (_m *GeneralConfig) KeeperBaseFeeBufferPercent() uint16 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperCheckUpkeepGasPriceFeatureEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2493,20 +2514,6 @@ func (_m *GeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperTurnFlagEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperTurnFlagEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2683,6 +2690,34 @@ func (_m *GeneralConfig) LogUnixTimestamps() bool {
 	}
 
 	return r0
+}
+
+// MercuryCredentials provides a mock function with given fields: _a0
+func (_m *GeneralConfig) MercuryCredentials(_a0 string) (string, string, error) {
+	ret := _m.Called(_a0)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(string) string); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 string
+	if rf, ok := ret.Get(1).(func(string) string); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(string) error); ok {
+		r2 = rf(_a0)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // MigrateDatabase provides a mock function with given fields:

@@ -22,6 +22,20 @@ type ORM struct {
 	mock.Mock
 }
 
+// AssertBridgesExist provides a mock function with given fields: p
+func (_m *ORM) AssertBridgesExist(p pipeline.Pipeline) error {
+	ret := _m.Called(p)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(pipeline.Pipeline) error); ok {
+		r0 = rf(p)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *ORM) Close() error {
 	ret := _m.Called()

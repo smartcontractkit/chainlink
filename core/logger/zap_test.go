@@ -3,7 +3,6 @@ package logger
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -81,7 +80,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr.Debug("trying to write to disk when the disk logs should not be created")
 
-		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		logFile := zapCfg.local.LogsFile()
 		_, err = os.ReadFile(logFile)
 
 		require.Error(t, err)
@@ -112,7 +111,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr.Debug("trying to write to disk when the disk logs should not be created - generic error")
 
-		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		logFile := zapCfg.local.LogsFile()
 		_, err = os.ReadFile(logFile)
 
 		require.Error(t, err)
@@ -149,7 +148,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		lggr.Debug("writing to disk on test again")
 		lggr.Warn("writing to disk on test again")
 
-		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		logFile := zapCfg.local.LogsFile()
 		b, err := os.ReadFile(logFile)
 		assert.NoError(t, err)
 
@@ -199,7 +198,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr.Debug("test again")
 
-		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		logFile := zapCfg.local.LogsFile()
 		b, err := os.ReadFile(logFile)
 		assert.NoError(t, err)
 
@@ -271,12 +270,12 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	pollChan <- time.Now()
 	<-zapCfg.testDiskLogLvlChan
 
-	logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+	logFile := zapCfg.local.LogsFile()
 	b, err := os.ReadFile(logFile)
 	assert.NoError(t, err)
 
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:269")
+	require.Contains(t, lines[0], "logger/zap_test.go:268")
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./OCR2DROracle.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 
@@ -26,11 +25,13 @@ contract OCR2DROracleFactory is TypeAndVersionInterface {
   }
 
   /**
-   * @notice creates a new Oracle contract with the msg.sender as owner
+   * @notice creates a new Oracle contract with the msg.sender as the proposed owner
+   * @notice msg.sender will still need to call oracle.acceptOwnership()
    * @return address Address of a newly deployed oracle
    */
   function deployNewOracle() external returns (address) {
     OCR2DROracle oracle = new OCR2DROracle();
+    oracle.transferOwnership(msg.sender);
     s_created.add(address(oracle));
     emit OracleCreated(address(oracle), msg.sender, msg.sender);
     return address(oracle);

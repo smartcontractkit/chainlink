@@ -86,9 +86,9 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	}
 	if cll.immutable {
 		var ms services.MultiStart
-		for id, c := range cll.Chains() {
+		for _, c := range cll.Chains() {
 			if err := ms.Start(ctx, c); err != nil {
-				return errors.Wrapf(err, "failed to start chain %q", id)
+				return errors.Wrapf(err, "failed to start chain %s", c.ID().String())
 			}
 			cll.startedChains = append(cll.startedChains, c)
 		}
@@ -406,6 +406,7 @@ type ChainSetOpts struct {
 	KeyStore         keystore.Eth
 	EventBroadcaster pg.EventBroadcaster
 	ORM              types.ORM
+	MailMon          *utils.MailboxMonitor
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client

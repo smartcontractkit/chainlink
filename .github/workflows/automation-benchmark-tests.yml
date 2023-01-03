@@ -1,0 +1,104 @@
+name: Automation Benchmark Test
+on:
+  workflow_dispatch:
+    inputs:
+      chainlinkVersion:
+        description: Chainlink image version to use
+        required: true
+        type: string
+        default: 1.10.0
+      chainlinkImage:
+        description: Chainlink image repo to use
+        required: true
+        type: string
+        default: public.ecr.aws/chainlink/chainlink
+      network:
+        description: Network to run tests on
+        required: true
+        type: choice
+        options:
+          - SIMULATED
+          - GOERLI
+          - ARBITRUM_GOERLI
+          - OPTIMISM_GOERLI
+          - MUMBAI
+      TestInputs:
+        description: TestInputs
+        required: false
+        type: string
+      wsURL:
+        description: WS URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      httpURL:
+        description: HTTP URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      slackMemberID:
+        description: Notifies test results (Not your @)
+        required: true
+        default: U02Q14G80TY
+        type: string
+      fundingPrivateKey:
+        description: Private funding key (Skip for Simulated)
+        required: false
+        type: string
+jobs:
+  automation_benchmark:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: ${{ inputs.network }} Automation Benchmark Test
+    runs-on: ubuntu-latest
+    env:
+      SELECTED_NETWORKS: ${{ inputs.network }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: C03KJ5S7KEK
+      TEST_INPUTS: ${{ inputs.TestInputs }}
+      TEST_TRIGGERED_BY: automation-benchmark
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+    steps:
+      - name: Add mask
+        run: |
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+          echo ::add-mask::$SLACK_USER
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        with:
+          test_command_to_run: cd integration-tests && go test -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ inputs.chainlinkImage }}
+          cl_image_tag: ${{ inputs.chainlinkVersion }}
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          should_cleanup: false
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ${{ inputs.network }} Automation Benchmark Test
+        continue-on-error: true

@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -44,17 +49,16 @@ type dkgSetConfigArgs struct {
 
 type vrfBeaconSetConfigArgs struct {
 	commonSetConfigArgs
-	confDelays string
+	confDelays        string
+	coordinatorConfig ocr2vrftypes.CoordinatorConfig
 }
 
 func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
-
 	case "dkg-deploy":
 		deployDKG(e)
-
 	case "coordinator-deploy":
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
@@ -62,7 +66,6 @@ func main() {
 		linkEthFeed := cmd.String("link-eth-feed", "", "link/eth feed address")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address", "link-eth-feed")
 		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed)
-
 	case "beacon-deploy":
 		cmd := flag.NewFlagSet("beacon-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator contract address")
@@ -71,7 +74,6 @@ func main() {
 		keyID := cmd.String("key-id", "", "key ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-deploy", "coordinator-address", "link-address", "dkg-address", "key-id")
 		deployVRFBeacon(e, *coordinatorAddress, *linkAddress, *dkgAddress, *keyID)
-
 	case "dkg-add-client":
 		cmd := flag.NewFlagSet("dkg-add-client", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
@@ -79,7 +81,6 @@ func main() {
 		clientAddress := cmd.String("client-address", "", "client address")
 		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "key-id", "client-address")
 		addClientToDKG(e, *dkgAddress, *keyID, *clientAddress)
-
 	case "dkg-remove-client":
 		cmd := flag.NewFlagSet("dkg-add-client", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
@@ -87,7 +88,6 @@ func main() {
 		clientAddress := cmd.String("client-address", "", "client address")
 		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "key-id", "client-address")
 		removeClientFromDKG(e, *dkgAddress, *keyID, *clientAddress)
-
 	case "dkg-set-config":
 		cmd := flag.NewFlagSet("dkg-set-config", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
@@ -153,7 +153,6 @@ func main() {
 		}
 
 		setDKGConfig(e, *dkgAddress, commands)
-
 	case "beacon-set-config":
 		cmd := flag.NewFlagSet("beacon-set-config", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
@@ -171,11 +170,17 @@ func main() {
 		deltaRound := cmd.Duration("delta-round", 10*time.Second, "duration of delta round")
 		deltaGrace := cmd.Duration("delta-grace", 20*time.Second, "duration of delta grace")
 		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta stage")
+		cacheEvictionWindowSeconds := cmd.Int64("cache-eviction-window", 60, "cache eviction window, in seconds")
+		batchGasLimit := cmd.Int64("batch-gas-limit", 5_000_000, "batch gas limit")
+		coordinatorOverhead := cmd.Int64("coordinator-overhead", 50_000, "coordinator overhead")
+		callbackOverhead := cmd.Int64("callback-overhead", 50_000, "callback overhead")
+		blockGasOverhead := cmd.Int64("block-gas-overhead", 50_000, "block gas overhead")
+		lookbackBlocks := cmd.Int64("lookback-blocks", 1_000, "lookback blocks")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
 		maxDurationReport := cmd.Duration("max-duration-report", 10*time.Second, "maximum duration of report method")
-		maxDurationAccept := cmd.Duration("max-duration-accept", 10*time.Millisecond, "maximum duration of shouldAcceptFinalizedReport method")
+		maxDurationAccept := cmd.Duration("max-duration-accept", 5*time.Second, "maximum duration of shouldAcceptFinalizedReport method")
 		maxDurationTransmit := cmd.Duration("max-duration-transmit", 1*time.Second, "maximum duration of shouldTransmitAcceptedReport method")
 
 		helpers.ParseArgs(cmd,
@@ -210,17 +215,23 @@ func main() {
 				maxDurationTransmit:    *maxDurationTransmit,
 			},
 			confDelays: *confDelays,
+			coordinatorConfig: ocr2vrftypes.CoordinatorConfig{
+				CacheEvictionWindowSeconds: *cacheEvictionWindowSeconds,
+				BatchGasLimit:              *batchGasLimit,
+				CoordinatorOverhead:        *coordinatorOverhead,
+				CallbackOverhead:           *callbackOverhead,
+				BlockGasOverhead:           *blockGasOverhead,
+				LookbackBlocks:             *lookbackBlocks,
+			},
 		}
 
 		setVRFBeaconConfig(e, *beaconAddress, commands)
-
 	case "coordinator-set-producer":
 		cmd := flag.NewFlagSet("coordinator-set-producer", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-address")
 		setProducer(e, *coordinatorAddress, *beaconAddress)
-
 	case "coordinator-request-randomness":
 		cmd := flag.NewFlagSet("coordinator-request-randomness", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
@@ -229,14 +240,12 @@ func main() {
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id")
 		requestRandomness(e, *coordinatorAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
-
 	case "coordinator-redeem-randomness":
 		cmd := flag.NewFlagSet("coordinator-redeem-randomness", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		requestID := cmd.Int64("request-id", 0, "request ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-id")
 		redeemRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
-
 	case "beacon-info":
 		cmd := flag.NewFlagSet("beacon-info", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
@@ -248,13 +257,11 @@ func main() {
 		keyHash, err := beacon.SProvingKeyHash(nil)
 		helpers.PanicErr(err)
 		fmt.Println("beacon proving key hash:", hexutil.Encode(keyHash[:]))
-
 	case "coordinator-create-sub":
 		cmd := flag.NewFlagSet("coordinator-create-sub", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
 		createSubscription(e, *coordinatorAddress)
-
 	case "coordinator-add-consumer":
 		cmd := flag.NewFlagSet("coordinator-add-consumer", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
@@ -262,7 +269,6 @@ func main() {
 		subId := cmd.Int64("sub-id", 1, "subscription ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "consumer-address")
 		addConsumer(e, *coordinatorAddress, *consumerAddress, big.NewInt(*subId))
-
 	case "coordinator-get-sub":
 		cmd := flag.NewFlagSet("coordinator-get-sub", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
@@ -274,16 +280,36 @@ func main() {
 		fmt.Println("consumers:", sub.Consumers)
 		fmt.Println("owner:", sub.Owner)
 		fmt.Println("request count:", sub.ReqCount)
+	case "link-balance":
+		cmd := flag.NewFlagSet("link-balance", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "link address")
+		helpers.ParseArgs(cmd, os.Args[2:], "link-address")
 
+		l, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		bal, err := l.BalanceOf(nil, e.Owner.From)
+		helpers.PanicErr(err)
+		fmt.Println("link balance of", e.Owner.From, "is", assets.NewWei(bal).String())
+	case "get-balances":
+		cmd := flag.NewFlagSet("get-balances", flag.ExitOnError)
+		addresses := cmd.String("addresses", "", "comma-separated list of addresses")
+		helpers.ParseArgs(cmd, os.Args[2:], "addresses")
+
+		for _, account := range strings.Split(*addresses, ",") {
+			bal, err := e.Ec.BalanceAt(context.Background(), common.HexToAddress(account), nil)
+			helpers.PanicErr(err)
+
+			fmt.Println("ETH balance of", account, "is", assets.NewWei(bal).String())
+		}
 	case "coordinator-fund-sub":
 		cmd := flag.NewFlagSet("coordinator-fund-sub", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		linkAddress := cmd.String("link-address", "", "link-address")
-		fundingAmount := cmd.Int64("funding-amount", 5e18, "funding amount in juels") // 5 LINK
+		fundingAmount := cmd.String("funding-amount", "5e18", "funding amount in juels. can use scientific notation, e.g 10e18 for 10 LINK") // 5 LINK
 		subId := cmd.Uint64("sub-id", 1, "subscription ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
-		eoaFundSubscription(e, *coordinatorAddress, *linkAddress, big.NewInt(*fundingAmount), *subId)
-
+		eoaFundSubscription(e, *coordinatorAddress, *linkAddress, decimal.RequireFromString(*fundingAmount).BigInt(), *subId)
 	case "beacon-set-payees":
 		cmd := flag.NewFlagSet("beacon-set-payees", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
@@ -291,7 +317,6 @@ func main() {
 		payees := cmd.String("payees", "", "comma-separated list of payees")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address", "transmitters", "payees")
 		setPayees(e, *beaconAddress, helpers.ParseAddressSlice(*transmitters), helpers.ParseAddressSlice(*payees))
-
 	case "consumer-deploy":
 		cmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator address")
@@ -299,7 +324,6 @@ func main() {
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-period-blocks")
 		deployVRFBeaconCoordinatorConsumer(e, *coordinatorAddress, *shouldFail, big.NewInt(*beaconPeriodBlocks))
-
 	case "consumer-request-randomness":
 		cmd := flag.NewFlagSet("consumer-request-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
@@ -308,7 +332,6 @@ func main() {
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "sub-id")
 		requestRandomnessFromConsumer(e, *consumerAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
-
 	case "consumer-redeem-randomness":
 		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
@@ -316,14 +339,13 @@ func main() {
 		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
 		redeemRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID), *numWords)
-
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
 		subID := cmd.Uint64("sub-id", 0, "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
-		callbackGasLimit := cmd.Uint("cb-gas-limit", 50_000, "callback gas limit")
+		callbackGasLimit := cmd.Uint("cb-gas-limit", 100_000, "callback gas limit")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 		requestRandomnessCallback(
 			e,
@@ -341,7 +363,6 @@ func main() {
 		numWords := cmd.Int("num-words", 1, "number of words to fetch")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 		readRandomness(e, *consumerAddress, decimal.RequireFromString(*requestID).BigInt(), *numWords)
-
 	case "consumer-request-callback-batch":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
@@ -384,7 +405,19 @@ func main() {
 				big.NewInt(*batchSize),
 			)
 		}
+	case "deploy-load-test-consumer":
+		cmd := flag.NewFlagSet("deploy-load-test-consumer", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
+		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-period-blocks")
 
+		deployLoadTestVRFBeaconCoordinatorConsumer(e, *coordinatorAddress, false, big.NewInt(*beaconPeriodBlocks))
+	case "get-load-test-results":
+		cmd := flag.NewFlagSet("get-load-test-results", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "Load test contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+
+		printLoadtestResults(e, *consumerAddress)
 	case "verify-beacon-randomness":
 		cmd := flag.NewFlagSet("verify-randomness", flag.ExitOnError)
 		dkgAddress := cmd.String("dkg-address", "", "DKG contract address")
@@ -396,11 +429,14 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "coordinator-address", "beacon-address", "height", "conf-delay")
 
 		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *coordinatorAddress, *height, *confDelay, *searchWindow)
-
 	case "dkg-setup":
 		setupDKGNodes(e)
 	case "ocr2vrf-setup":
 		setupOCR2VRFNodes(e)
+	case "ocr2vrf-setup-infra-forwarder":
+		setupOCR2VRFNodesForInfraWithForwarder(e)
+	case "ocr2vrf-fund-nodes":
+		fundOCR2VRFNodes(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

@@ -100,11 +100,11 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
-		config:                 config,
+		config:                 cfg,
 		chainSet:               chainSet,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
@@ -253,6 +253,9 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
+		case TaskTypeETHGetBlock:
+			task.(*ETHGetBlockTask).chainSet = r.chainSet
+			task.(*ETHGetBlockTask).config = r.config
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:

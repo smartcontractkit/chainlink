@@ -13,6 +13,7 @@ import (
 
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -56,8 +57,8 @@ func mockRegistry1_1(
 ) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 
-	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).
-		Return(&types.Header{Number: big.NewInt(10)}, nil)
+	ethMock.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
+		Return(&evmtypes.Head{Number: 10}, nil)
 	registryMock.MockResponse("getConfig", config).Once()
 	registryMock.MockResponse("getKeeperList", keeperList).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", cancelledUpkeeps).Once()
@@ -190,7 +191,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		canceledUpkeeps,
 		big.NewInt(5),
 		upkeepConfig1_1,
-		1) // only one new upkeep to sync (#4)
+		2) // sync all 2 upkeeps (#2, #4)
 	synchronizer.ExportedFullSync()
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)

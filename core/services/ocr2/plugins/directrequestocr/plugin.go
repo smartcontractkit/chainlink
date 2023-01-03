@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,23 +17,24 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type DROracle struct {
 	jb             job.Job
 	pipelineRunner pipeline.Runner
 	jobORM         job.ORM
-	ocr2Provider   types.Plugin
 	pluginConfig   config.PluginConfig
 	pluginORM      directrequestocr.ORM
 	chain          evm.Chain
 	lggr           logger.Logger
 	ocrLogger      commontypes.Logger
+	mailMon        *utils.MailboxMonitor
 }
 
 var _ plugins.OraclePlugin = &DROracle{}
 
-func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, ocr2Provider types.Plugin, pluginORM directrequestocr.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger) (*DROracle, error) {
+func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, pluginORM directrequestocr.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger, mailMon *utils.MailboxMonitor) (*DROracle, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
@@ -49,12 +49,12 @@ func NewDROracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, ocr
 		jb:             jb,
 		pipelineRunner: pipelineRunner,
 		jobORM:         jobORM,
-		ocr2Provider:   ocr2Provider,
 		pluginConfig:   pluginConfig,
 		pluginORM:      pluginORM,
 		chain:          chain,
 		lggr:           lggr,
 		ocrLogger:      ocrLogger,
+		mailMon:        mailMon,
 	}, nil
 }
 
@@ -79,7 +79,7 @@ func (o *DROracle) GetServices() ([]job.ServiceCtx, error) {
 			"jobID", o.jb.PipelineSpec.JobID,
 			"externalJobID", o.jb.ExternalJobID,
 		)
-	logListener := directrequestocr.NewDRListener(oracle, o.jb, o.pipelineRunner, o.jobORM, o.pluginORM, o.pluginConfig, o.chain.LogBroadcaster(), svcLogger)
+	logListener := directrequestocr.NewDRListener(oracle, o.jb, o.pipelineRunner, o.jobORM, o.pluginORM, o.pluginConfig, o.chain.LogBroadcaster(), svcLogger, o.mailMon)
 	var services []job.ServiceCtx
 	services = append(services, logListener)
 	return services, nil

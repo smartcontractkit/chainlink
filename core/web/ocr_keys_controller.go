@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -69,7 +70,7 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 // Example:
 // "Post <application>/keys/ocr/import"
 func (ocrkc *OCRKeysController) Import(c *gin.Context) {
-	defer ocrkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
+	defer ocrkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -96,7 +97,7 @@ func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 // Example:
 // "Post <application>/keys/ocr/export"
 func (ocrkc *OCRKeysController) Export(c *gin.Context) {
-	defer ocrkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export response body")
+	defer ocrkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Export response body")
 
 	stringID := c.Param("ID")
 	newPassword := c.Query("newpassword")
