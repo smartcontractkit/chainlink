@@ -113,6 +113,7 @@ contract OCR2DROracle_sendRequest is OCR2DROracleSetup {
     // s_linketh = new MockV3Aggregator(0, 5021530000000000);
     s_registry = new OCR2DRRegistry(makeAddr("Link Token"), makeAddr("Link Eth"));
     s_oracle.setRegistry(address(s_registry));
+    s_oracle.deactivateAuthorizedReceiver();
   }
 
   event OracleRequest(bytes32 requestId, bytes data);
