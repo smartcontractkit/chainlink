@@ -34,9 +34,12 @@ const target0 = '0xffffffffffffffffffffffffffffffffffffffff'
 const target1 = '0xfffffffffffffffffffffffffffffffffffffffe'
 const lastKeeper0 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddd'
 const lastKeeper1 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddc'
-const UpkeepFormatV1 = 0
-const UpkeepFormatV2 = 1
-const UpkeepFormatV3 = 2
+enum UpkeepFormat {
+  V1,
+  V2,
+  V3,
+  V4,
+}
 const idx = [123, 124]
 
 async function getUpkeepID(tx: any) {
@@ -299,14 +302,22 @@ describe.only('UpkeepTranscoder3_0', () => {
 
     it('reverts if the from type is not an enum value', async () => {
       await evmRevert(
-        transcoder.transcodeUpkeeps(3, 2, encodedData),
+        transcoder.transcodeUpkeeps(
+          UpkeepFormat.V4,
+          UpkeepFormat.V3,
+          encodedData,
+        ),
         'function was called with incorrect parameters',
       )
     })
 
     it('reverts if the to version is not 2', async () => {
       await evmRevert(
-        transcoder.transcodeUpkeeps(1, 3, encodedData),
+        transcoder.transcodeUpkeeps(
+          UpkeepFormat.V2,
+          UpkeepFormat.V4,
+          encodedData,
+        ),
         'function was called with incorrect parameters',
       )
     })
@@ -314,22 +325,22 @@ describe.only('UpkeepTranscoder3_0', () => {
     context('when from and to versions equal', () => {
       it('returns the data that was passed in', async () => {
         let response = await transcoder.transcodeUpkeeps(
-          UpkeepFormatV1,
-          UpkeepFormatV1,
+          UpkeepFormat.V1,
+          UpkeepFormat.V1,
           encodedData,
         )
         assert.equal(encodedData, response)
 
         response = await transcoder.transcodeUpkeeps(
-          UpkeepFormatV2,
-          UpkeepFormatV2,
+          UpkeepFormat.V2,
+          UpkeepFormat.V2,
           encodedData,
         )
         assert.equal(encodedData, response)
 
         response = await transcoder.transcodeUpkeeps(
-          UpkeepFormatV3,
-          UpkeepFormatV3,
+          UpkeepFormat.V3,
+          UpkeepFormat.V3,
           encodedData,
         )
         assert.equal(encodedData, response)
@@ -365,8 +376,8 @@ describe.only('UpkeepTranscoder3_0', () => {
         ]
 
         const data = await transcoder.transcodeUpkeeps(
-          UpkeepFormatV1,
-          UpkeepFormatV3,
+          UpkeepFormat.V1,
+          UpkeepFormat.V3,
           encodeUpkeepV1(idx, upkeepsV1, ['0xabcd', '0xffff']),
         )
         assert.equal(
@@ -400,8 +411,8 @@ describe.only('UpkeepTranscoder3_0', () => {
         ]
 
         const data = await transcoder.transcodeUpkeeps(
-          UpkeepFormatV2,
-          UpkeepFormatV3,
+          UpkeepFormat.V2,
+          UpkeepFormat.V3,
           encodeUpkeepV2(idx, upkeepsV2, ['0xabcd', '0xffff']),
         )
         assert.equal(
