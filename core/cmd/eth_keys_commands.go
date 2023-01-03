@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -47,6 +48,17 @@ func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
 }
 
 type EthKeyPresenters []EthKeyPresenter
+
+// Has returns a boolean indicating whether a key with the specified address exists or not.
+func (ps EthKeyPresenters) Has(KeyAddress string) bool {
+	for _, p := range ps {
+		if p.Address == KeyAddress {
+			return true
+		}
+	}
+
+	return false
+}
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
@@ -144,6 +156,18 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the address of the key to be deleted"))
 	}
 	address := c.Args().Get(0)
+
+	//Check if key exists
+	keys, err := cli.getAllKeys()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	if !keys.Has(address) {
+		return cli.errorOut(errors.Errorf("Key to delete not found. Check if the key to delete is correct."))
+	}
+
+	//Delete key
 	deleteUrl := url.URL{
 		Path: "/v2/keys/evm/" + address,
 	}
@@ -330,4 +354,27 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	}
 
 	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")
+}
+
+// getAllKeys returns a EthKeyPresenters with all keys
+func (cli *Client) getAllKeys() (EthKeyPresenters, error) {
+	var keyPresenters EthKeyPresenters
+
+	resp, err := cli.HTTP.Get("/v2/keys/evm")
+	if err != nil {
+		return keyPresenters, cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var links jsonapi.Links
+
+	if err := cli.deserializeAPIResponse(resp, &keyPresenters, &links); err != nil {
+		return keyPresenters, cli.errorOut(err)
+	}
+
+	return keyPresenters, nil
 }
