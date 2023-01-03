@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+...
+
+## 0.6.0 - Unreleased
+
 ### Added
 
 - Added a Solidity style guide.
