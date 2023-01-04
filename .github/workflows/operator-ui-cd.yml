@@ -29,6 +29,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
           role-duration-seconds: ${{ secrets.aws-role-duration-seconds }}
+          role-session-name: operator-ui-cd.update-version
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Get Github Token
