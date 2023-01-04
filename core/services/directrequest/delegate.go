@@ -343,6 +343,9 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"databaseID":    l.job.ID,
 			"externalJobID": l.job.ExternalJobID,
 			"name":          l.job.Name.ValueOrZero(),
+			"pipelineSpec": &pipeline.Spec{
+				ForwardingAllowed: l.job.ForwardingAllowed,
+			},
 		},
 		"jobRun": map[string]interface{}{
 			"meta":                  meta,

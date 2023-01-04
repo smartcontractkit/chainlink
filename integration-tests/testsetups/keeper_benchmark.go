@@ -342,7 +342,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues(t *testing.T) {
 	k.chainClient = inputs.BlockchainClient
 	require.GreaterOrEqual(t, inputs.NumberOfContracts, 1, "Expecting at least 1 keeper contracts")
 	if inputs.Timeout == 0 {
-		require.Greater(t, inputs.BlockRange, time.Second*0, "If no `timeout` is provided, a `testBlockRange` is required")
+		require.Greater(t, inputs.BlockRange, int64(0), "If no `timeout` is provided, a `testBlockRange` is required")
 	} else if inputs.BlockRange <= 0 {
 		require.GreaterOrEqual(t, inputs.Timeout, time.Second, "If no `testBlockRange` is provided a `timeout` is required")
 	}
