@@ -27,7 +27,7 @@ jobs:
       - name: Assume role capable of dispatching action
         uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_PR_TOKEN_ISSUER_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
           role-duration-seconds: ${{ secrets.aws-role-duration-seconds }}
           aws-region: ${{ secrets.AWS_REGION }}
 
