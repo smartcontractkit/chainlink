@@ -1,6 +1,6 @@
 type = "offchainreporting2"
 schemaVersion = 1
-name = "OCR2DR"
+name = "OCR2DR {{timestamp}}"
 forwardingAllowed = false
 maxTaskDuration = "30s"
 contractID = "{{oracle_contract_address}}"

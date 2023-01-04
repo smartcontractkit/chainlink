@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -62,12 +63,14 @@ func (g *generateJobSpecs) Run(args []string) {
 func replacePlaceholders(lines []string, chainID, p2pPort int64, contractAddress, bootHost string, boot *nodeConfig, node *nodeConfig) (output []string) {
 	chainIDStr := strconv.FormatInt(chainID, 10)
 	bootstrapper := fmt.Sprintf("%s@%s:%d", boot.p2pPeerID, bootHost, p2pPort)
+	ts := time.Now().UTC().Format("2006-01-02T15:04")
 	for _, l := range lines {
 		l = strings.Replace(l, "{{chain_id}}", chainIDStr, 1)
 		l = strings.Replace(l, "{{oracle_contract_address}}", contractAddress, 1)
 		l = strings.Replace(l, "{{node_eth_address}}", node.ethAddress, 1)
 		l = strings.Replace(l, "{{ocr2_key_bundle_id}}", node.ocr2BundleID, 1)
 		l = strings.Replace(l, "{{p2p_bootstrapper}}", bootstrapper, 1)
+		l = strings.Replace(l, "{{timestamp}}", ts, 1)
 		output = append(output, l)
 	}
 	return
