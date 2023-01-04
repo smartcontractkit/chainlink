@@ -93,7 +93,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 		l := plugintypes.PerformLog{
 			Key:           pluginutils.BlockAndIdToKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
 			TransmitBlock: plugintypes.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
-			Confirmations: p.Confirmations,
+			Confirmations: end - p.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
@@ -120,7 +120,6 @@ func (c *LogProvider) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
 			r := performed{
 				Log:                           log,
 				KeeperRegistryUpkeepPerformed: *l,
-				Confirmations:                 0,
 			}
 
 			results = append(results, r)
@@ -133,5 +132,4 @@ func (c *LogProvider) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
 type performed struct {
 	logpoller.Log
 	registry.KeeperRegistryUpkeepPerformed
-	Confirmations int64
 }
