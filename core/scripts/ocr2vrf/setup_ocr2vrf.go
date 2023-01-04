@@ -42,7 +42,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	confDelays := fs.String("conf-delays", "1,2,3,4,5,6,7,8", "8 confirmation delays")
 	weiPerUnitLink := fs.String("wei-per-unit-link", "6e16", "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
-	subscriptionBalanceString := fs.String("subscription-balance", "1e19", "amount to fund subscription")
+	subscriptionBalanceString := fs.String("subscription-balance", "1e17", "amount to fund subscription")
 
 	apiFile := fs.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := fs.String("password", "../../../tools/secrets/password.txt", "password file")
@@ -50,6 +50,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	databaseSuffixes := fs.String("database-suffixes", "sslmode=disable", "database parameters to be added")
 	nodeCount := fs.Int("node-count", 6, "number of nodes")
 	fundingAmount := fs.Int64("funding-amount", 1e17, "amount to fund nodes") // .1 ETH
+	resetDatabase := fs.Bool("reset-database", true, "boolean to reset database")
 
 	helpers.ParseArgs(fs, os.Args[2:])
 
@@ -173,7 +174,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 			flagSet.String("forwarder-address", forwarderAddressesStrings[i-1], "transaction forwarder address")
 		}
 
-		flagSet.Bool("dangerWillRobinson", true, "for resetting databases")
+		flagSet.Bool("dangerWillRobinson", *resetDatabase, "for resetting databases")
 		flagSet.Bool("isBootstrapper", i == 0, "is first node")
 		bootstrapperPeerID := ""
 		if len(peerIDs) != 0 {
@@ -181,7 +182,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		}
 		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
-		payload := setupNode(e, flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder)
+		payload := setupNode(e, flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder, *resetDatabase)
 
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)
 		offChainPublicKeys = append(offChainPublicKeys, payload.OffChainPublicKey)
@@ -521,7 +522,7 @@ func printStandardCommands(
 	fmt.Println()
 }
 
-func setupNode(e helpers.Environment, flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool) *cmd.SetupOCR2VRFNodePayload {
+func setupNode(e helpers.Environment, flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool, resetDB bool) *cmd.SetupOCR2VRFNodePayload {
 	client := newSetupClient()
 	app := cmd.NewApp(client)
 	ctx := cli.NewContext(app, flagSet, nil)
@@ -534,8 +535,10 @@ func setupNode(e helpers.Environment, flagSet *flag.FlagSet, nodeIdx int, databa
 	err := app.Before(ctx)
 	helpers.PanicErr(err)
 
-	resetDatabase(client, ctx, nodeIdx, databasePrefix, databaseSuffixes)
-	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0))
+	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0), nodeIdx, databasePrefix, databaseSuffixes)
+	if resetDB {
+		resetDatabase(client, ctx)
+	}
 
 	return setupOCR2VRFNodeFromClient(client, ctx, e)
 }
