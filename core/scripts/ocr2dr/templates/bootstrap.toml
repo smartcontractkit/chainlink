@@ -2,7 +2,6 @@ type = "bootstrap"
 schemaVersion = 1
 name = "OCR2DR bootstrap"
 forwardingAllowed = false
-id = "4"
 contractID = "{{oracle_contract_address}}"
 relay = "evm"
 

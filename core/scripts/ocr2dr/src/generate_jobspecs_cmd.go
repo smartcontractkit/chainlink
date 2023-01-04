@@ -42,7 +42,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	helpers.PanicErr(err)
 
 	bootHost := nodes[0].url.Host
-	lines = replatePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, bootstrapNode, bootstrapNode)
+	lines = replacePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, bootstrapNode, bootstrapNode)
 	outputPath := filepath.Join(artefactsDir, bootHost+".toml")
 	err = writeLines(lines, outputPath)
 	helpers.PanicErr(err)
@@ -51,7 +51,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	lines, err = readLines(filepath.Join(templatesDir, oracleSpecTemplate))
 	helpers.PanicErr(err)
 	for i := 1; i < len(nodes); i++ {
-		oracleLines := replatePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, bootstrapNode, nca[i])
+		oracleLines := replacePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, bootstrapNode, nca[i])
 		outputPath := filepath.Join(artefactsDir, nodes[i].url.Host+".toml")
 		err = writeLines(oracleLines, outputPath)
 		helpers.PanicErr(err)
@@ -59,7 +59,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	}
 }
 
-func replatePlaceholders(lines []string, chainID, p2pPort int64, contractAddress, bootHost string, boot *nodeConfig, node *nodeConfig) (output []string) {
+func replacePlaceholders(lines []string, chainID, p2pPort int64, contractAddress, bootHost string, boot *nodeConfig, node *nodeConfig) (output []string) {
 	chainIDStr := strconv.FormatInt(chainID, 10)
 	bootstrapper := fmt.Sprintf("%s@%s:%d", boot.p2pPeerID, bootHost, p2pPort)
 	for _, l := range lines {
