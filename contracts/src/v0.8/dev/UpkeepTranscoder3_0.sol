@@ -43,61 +43,59 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
 
     // this transcoder only handles upkeep V1/V2 to V3, all other formats are invalid.
     if (fromVersion == UpkeepFormat.V1 && toVersion == UpkeepFormat.V3) {
-      (uint256[] memory ids, UpkeepV1[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
+      (uint256[] memory ids, UpkeepV1[] memory upkeepsV1, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV1[], bytes[])
       );
 
-      if (ids.length != upkeeps.length || ids.length != checkDatas.length) {
+      if (ids.length != upkeepsV1.length || ids.length != checkDatas.length) {
         revert InvalidTranscoding();
       }
 
       address[] memory admins = new address[](ids.length);
       UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
-      UpkeepV1 memory upkeep;
+      UpkeepV1 memory upkeepV1;
       for (uint256 idx = 0; idx < ids.length; idx++) {
-        upkeep = upkeeps[idx];
-        require(upkeep.maxValidBlocknumber >= UINT32_MAX, "cannot transcode cancelled upkeeps");
+        upkeepV1 = upkeepsV1[idx];
         newUpkeeps[idx] = UpkeepV3({
-          executeGas: upkeep.executeGas,
-          maxValidBlocknumber: UINT32_MAX,
-          paused: false,
-          target: upkeep.target,
-          amountSpent: upkeep.amountSpent,
-          balance: upkeep.balance,
+          executeGas: upkeepV1.executeGas,
+          maxValidBlocknumber: UINT32_MAX, // maxValidBlocknumber is uint64 in V1, hence a new default value is provided
+          paused: false, // migrated upkeeps are not paused by default
+          target: upkeepV1.target,
+          amountSpent: upkeepV1.amountSpent,
+          balance: upkeepV1.balance,
           lastPerformBlockNumber: 0
         });
-        admins[idx] = upkeep.admin;
+        admins[idx] = upkeepV1.admin;
       }
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }
 
     if (fromVersion == UpkeepFormat.V2 && toVersion == UpkeepFormat.V3) {
-      (uint256[] memory ids, UpkeepV2[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
+      (uint256[] memory ids, UpkeepV2[] memory upkeepsV2, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV2[], bytes[])
       );
 
-      if (ids.length != upkeeps.length || ids.length != checkDatas.length) {
+      if (ids.length != upkeepsV2.length || ids.length != checkDatas.length) {
         revert InvalidTranscoding();
       }
 
       address[] memory admins = new address[](ids.length);
       UpkeepV3[] memory newUpkeeps = new UpkeepV3[](ids.length);
-      UpkeepV2 memory upkeep;
+      UpkeepV2 memory upkeepV2;
       for (uint256 idx = 0; idx < ids.length; idx++) {
-        upkeep = upkeeps[idx];
-        require(upkeep.maxValidBlocknumber == UINT32_MAX, "cannot transcode cancelled upkeeps");
+        upkeepV2 = upkeepsV2[idx];
         newUpkeeps[idx] = UpkeepV3({
-          executeGas: upkeep.executeGas,
-          maxValidBlocknumber: UINT32_MAX,
-          paused: upkeep.paused,
-          target: upkeep.target,
-          amountSpent: upkeep.amountSpent,
-          balance: upkeep.balance,
+          executeGas: upkeepV2.executeGas,
+          maxValidBlocknumber: upkeepV2.maxValidBlocknumber,
+          paused: upkeepV2.paused,
+          target: upkeepV2.target,
+          amountSpent: upkeepV2.amountSpent,
+          balance: upkeepV2.balance,
           lastPerformBlockNumber: 0
         });
-        admins[idx] = upkeep.admin;
+        admins[idx] = upkeepV2.admin;
       }
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }

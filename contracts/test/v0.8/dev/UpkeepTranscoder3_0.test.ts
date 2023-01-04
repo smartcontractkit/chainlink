@@ -9,8 +9,11 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/fac
 import { evmRevert } from '../../test-helpers/matchers'
 import { BigNumber, Signer } from 'ethers'
 import { getUsers, Personas } from '../../test-helpers/setup'
-import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
+import { KeeperRegistryLogic20__factory as KeeperRegistryLogic20Factory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
+import { KeeperRegistry13__factory as KeeperRegistry13Factory } from '../../../typechain/factories/KeeperRegistry13__factory'
+import { KeeperRegistryLogic13__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic13__factory'
 import { toWei } from '../../test-helpers/helpers'
+import { LinkToken } from '../../../typechain'
 
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepTranscoderFactory: UpkeepTranscoderFactory
@@ -18,7 +21,9 @@ let transcoder: UpkeepTranscoder
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory20: KeeperRegistry20Factory
-let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
+let keeperRegistryFactory13: KeeperRegistry13Factory
+let keeperRegistryLogicFactory20: KeeperRegistryLogic20Factory
+let keeperRegistryLogicFactory13: KeeperRegistryLogicFactory
 let personas: Personas
 let owner: Signer
 let upkeepsV1: any[]
@@ -27,8 +32,25 @@ let upkeepsV3: any[]
 let admins: string[]
 let admin0: Signer
 let admin1: Signer
+const executeGas = BigNumber.from('100000')
+const paymentPremiumPPB = BigNumber.from('250000000')
+const flatFeeMicroLink = BigNumber.from(0)
+const blockCountPerTurn = BigNumber.from(3)
+const randomBytes = '0x1234abcd'
+const stalenessSeconds = BigNumber.from(43820)
+const gasCeilingMultiplier = BigNumber.from(1)
+const checkGasLimit = BigNumber.from(20000000)
+const fallbackGasPrice = BigNumber.from(200)
+const fallbackLinkPrice = BigNumber.from(200000000)
+const maxPerformGas = BigNumber.from(5000000)
+const minUpkeepSpend = BigNumber.from(0)
+const maxCheckDataSize = BigNumber.from(1000)
+const maxPerformDataSize = BigNumber.from(1000)
+const paymentModel = BigNumber.from(0)
+const linkEth = BigNumber.from(300000000)
+const gasWei = BigNumber.from(100)
+const registryGasOverhead = BigNumber.from('80000')
 const balance = 50000000000000
-const executeGas = 200000
 const amountSpent = 200000000000000
 const target0 = '0xffffffffffffffffffffffffffffffffffffffff'
 const target1 = '0xfffffffffffffffffffffffffffffffffffffffe'
@@ -122,38 +144,29 @@ before(async () => {
   ]
 })
 
-async function deployRegistries() {
+async function deployLinkToken() {
+  return await linkTokenFactory.connect(owner).deploy()
+}
+
+async function deployFeeds() {
+  return [
+    await mockV3AggregatorFactory.connect(owner).deploy(0, gasWei),
+    await mockV3AggregatorFactory.connect(owner).deploy(9, linkEth),
+  ]
+}
+
+async function deployLegacyRegistry12(
+  linkToken: LinkToken,
+  gasPriceFeed: any,
+  linkEthFeed: any,
+) {
   const mock = await upkeepMockFactory.deploy()
-  const executeGas = BigNumber.from('100000')
-  const paymentPremiumPPB = BigNumber.from('250000000')
-  const flatFeeMicroLink = BigNumber.from(0)
-  const blockCountPerTurn = BigNumber.from(3)
-  const randomBytes = '0x1234abcd'
-  const stalenessSeconds = BigNumber.from(43820)
-  const gasCeilingMultiplier = BigNumber.from(1)
-  const checkGasLimit = BigNumber.from(20000000)
-  const fallbackGasPrice = BigNumber.from(200)
-  const fallbackLinkPrice = BigNumber.from(200000000)
-  const maxPerformGas = BigNumber.from(5000000)
-  const minUpkeepSpend = BigNumber.from(0)
-  const maxCheckDataSize = BigNumber.from(1000)
-  const maxPerformDataSize = BigNumber.from(1000)
-  const paymentModel = BigNumber.from(0)
-  const linkEth = BigNumber.from(300000000)
-  const gasWei = BigNumber.from(100)
   // @ts-ignore bug in autogen file
   const keeperRegistryFactory = await ethers.getContractFactory(
     'KeeperRegistry1_2',
   )
-  const linkToken = await linkTokenFactory.connect(owner).deploy()
-  const gasPriceFeed = await mockV3AggregatorFactory
-    .connect(owner)
-    .deploy(0, gasWei)
-  const linkEthFeed = await mockV3AggregatorFactory
-    .connect(owner)
-    .deploy(9, linkEth)
   transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
-  const registry12 = await keeperRegistryFactory
+  const legacyRegistry = await keeperRegistryFactory
     .connect(owner)
     .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
       paymentPremiumPPB,
@@ -169,7 +182,60 @@ async function deployRegistries() {
       transcoder: transcoder.address,
       registrar: ethers.constants.AddressZero,
     })
-  const tx = await registry12
+  const tx = await legacyRegistry
+    .connect(owner)
+    .registerUpkeep(
+      mock.address,
+      executeGas,
+      await admin0.getAddress(),
+      randomBytes,
+    )
+  const id = await getUpkeepID(tx)
+  return [id, legacyRegistry]
+}
+
+async function deployLegacyRegistry13(
+  linkToken: LinkToken,
+  gasPriceFeed: any,
+  linkEthFeed: any,
+) {
+  const mock = await upkeepMockFactory.deploy()
+  // @ts-ignore bug in autogen file
+  keeperRegistryFactory13 = await ethers.getContractFactory('KeeperRegistry1_3')
+  // @ts-ignore bug in autogen file
+  keeperRegistryLogicFactory13 = await ethers.getContractFactory(
+    'KeeperRegistryLogic1_3',
+  )
+
+  const registryLogic13 = await keeperRegistryLogicFactory13
+    .connect(owner)
+    .deploy(
+      0,
+      registryGasOverhead,
+      linkToken.address,
+      linkEthFeed.address,
+      gasPriceFeed.address,
+    )
+
+  const config = {
+    paymentPremiumPPB,
+    flatFeeMicroLink,
+    blockCountPerTurn,
+    checkGasLimit,
+    stalenessSeconds,
+    gasCeilingMultiplier,
+    minUpkeepSpend,
+    maxPerformGas,
+    fallbackGasPrice,
+    fallbackLinkPrice,
+    transcoder: transcoder.address,
+    registrar: ethers.constants.AddressZero,
+  }
+  const registry13 = await keeperRegistryFactory13
+    .connect(owner)
+    .deploy(registryLogic13.address, config)
+
+  const tx = await registry13
     .connect(owner)
     .registerUpkeep(
       mock.address,
@@ -179,10 +245,18 @@ async function deployRegistries() {
     )
   const id = await getUpkeepID(tx)
 
+  return [id, registry13]
+}
+
+async function deployRegistry20(
+  linkToken: LinkToken,
+  gasPriceFeed: any,
+  linkEthFeed: any,
+) {
   // @ts-ignore bug in autogen file
   keeperRegistryFactory20 = await ethers.getContractFactory('KeeperRegistry2_0')
   // @ts-ignore bug in autogen file
-  keeperRegistryLogicFactory = await ethers.getContractFactory(
+  keeperRegistryLogicFactory20 = await ethers.getContractFactory(
     'KeeperRegistryLogic2_0',
   )
 
@@ -202,7 +276,7 @@ async function deployRegistries() {
     registrar: ethers.constants.AddressZero,
   }
 
-  const registryLogic = await keeperRegistryLogicFactory
+  const registryLogic = await keeperRegistryLogicFactory20
     .connect(owner)
     .deploy(
       paymentModel,
@@ -279,13 +353,10 @@ async function deployRegistries() {
       offchainBytes,
     )
   await registry20.connect(owner).setPayees(payees)
-  await linkToken.connect(owner).approve(registry12.address, toWei('1000'))
-  await registry12.connect(owner).addFunds(id, toWei('1000'))
-
-  return [id, randomBytes, registry12, registry20]
+  return registry20
 }
 
-describe('UpkeepTranscoder3_0', () => {
+describe.only('UpkeepTranscoder3_0', () => {
   beforeEach(async () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
   })
@@ -421,36 +492,113 @@ describe('UpkeepTranscoder3_0', () => {
         )
       })
 
-      it('migrates upkeeps from one registry to another', async () => {
-        const [id, randomBytes, registry12, registry20] =
-          await deployRegistries()
+      it('migrates upkeeps from 1.2 registry to 2.0', async () => {
+        const linkToken = await deployLinkToken()
+        const [gasPriceFeed, linkEthFeed] = await deployFeeds()
+        const [id, legacyRegistry] = await deployLegacyRegistry12(
+          linkToken,
+          gasPriceFeed,
+          linkEthFeed,
+        )
+        const registry20 = await deployRegistry20(
+          linkToken,
+          gasPriceFeed,
+          linkEthFeed,
+        )
+
+        await linkToken
+          .connect(owner)
+          .approve(legacyRegistry.address, toWei('1000'))
+        await legacyRegistry.connect(owner).addFunds(id, toWei('1000'))
 
         // set outgoing permission to registry 2_0 and incoming permission for registry 1_2
-        await registry12.setPeerRegistryMigrationPermission(
+        await legacyRegistry.setPeerRegistryMigrationPermission(
           registry20.address,
           1,
         )
         await registry20.setPeerRegistryMigrationPermission(
-          registry12.address,
+          legacyRegistry.address,
           2,
         )
 
-        expect((await registry12.getUpkeep(id)).balance).to.equal(toWei('1000'))
-        expect((await registry12.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry12.getState()).state.numUpkeeps).to.equal(1)
+        expect((await legacyRegistry.getUpkeep(id)).balance).to.equal(
+          toWei('1000'),
+        )
+        expect((await legacyRegistry.getUpkeep(id)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await legacyRegistry.getState()).state.numUpkeeps).to.equal(1)
 
-        await registry12
+        await legacyRegistry
           .connect(admin0)
           .migrateUpkeeps([id], registry20.address)
 
-        expect((await registry12.getState()).state.numUpkeeps).to.equal(0)
+        expect((await legacyRegistry.getState()).state.numUpkeeps).to.equal(0)
         expect((await registry20.getState()).state.numUpkeeps).to.equal(1)
-        expect((await registry12.getUpkeep(id)).balance).to.equal(0)
-        expect((await registry12.getUpkeep(id)).checkData).to.equal('0x')
+        expect((await legacyRegistry.getUpkeep(id)).balance).to.equal(0)
+        expect((await legacyRegistry.getUpkeep(id)).checkData).to.equal('0x')
         expect((await registry20.getUpkeep(id)).balance).to.equal(toWei('1000'))
         expect(
           (await registry20.getState()).state.expectedLinkBalance,
         ).to.equal(toWei('1000'))
+        expect(await linkToken.balanceOf(registry20.address)).to.equal(
+          toWei('1000'),
+        )
+        expect((await registry20.getUpkeep(id)).checkData).to.equal(randomBytes)
+      })
+
+      it('migrates upkeeps from 1.3 registry to 2.0', async () => {
+        const linkToken = await deployLinkToken()
+        const [gasPriceFeed, linkEthFeed] = await deployFeeds()
+        const [id, legacyRegistry] = await deployLegacyRegistry13(
+          linkToken,
+          gasPriceFeed,
+          linkEthFeed,
+        )
+        const registry20 = await deployRegistry20(
+          linkToken,
+          gasPriceFeed,
+          linkEthFeed,
+        )
+
+        await linkToken
+          .connect(owner)
+          .approve(legacyRegistry.address, toWei('1000'))
+        await legacyRegistry.connect(owner).addFunds(id, toWei('1000'))
+
+        // set outgoing permission to registry 2_0 and incoming permission for registry 1_3
+        await legacyRegistry.setPeerRegistryMigrationPermission(
+          registry20.address,
+          1,
+        )
+        await registry20.setPeerRegistryMigrationPermission(
+          legacyRegistry.address,
+          2,
+        )
+
+        expect((await legacyRegistry.getUpkeep(id)).balance).to.equal(
+          toWei('1000'),
+        )
+        expect((await legacyRegistry.getUpkeep(id)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await legacyRegistry.getState()).state.numUpkeeps).to.equal(1)
+
+        await legacyRegistry
+          .connect(admin0)
+          .migrateUpkeeps([id], registry20.address)
+
+        expect((await legacyRegistry.getState()).state.numUpkeeps).to.equal(0)
+        expect((await registry20.getState()).state.numUpkeeps).to.equal(1)
+        expect((await legacyRegistry.getUpkeep(id)).balance).to.equal(0)
+        expect((await legacyRegistry.getUpkeep(id)).checkData).to.equal('0x')
+        expect((await registry20.getUpkeep(id)).balance).to.equal(toWei('1000'))
+        expect(
+          (await registry20.getState()).state.expectedLinkBalance,
+        ).to.equal(toWei('1000'))
+        expect(await linkToken.balanceOf(registry20.address)).to.equal(
+          toWei('1000'),
+        )
         expect((await registry20.getUpkeep(id)).checkData).to.equal(randomBytes)
       })
     })
