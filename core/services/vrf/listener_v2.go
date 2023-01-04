@@ -998,7 +998,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
 			code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender, big.NewInt(int64(latestHead)))
 			if err != nil {
-				lsn.l.Warnw("Failed to fetch contract code")
+				lsn.l.Warnw("Failed to fetch contract code", "err", err)
 				return res
 			}
 			if len(code) == 0 {
