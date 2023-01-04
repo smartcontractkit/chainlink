@@ -7,8 +7,8 @@ on:
       - trying
       - rollup
   pull_request:
-    branches:
-      - '!release/**'
+    branches-ignore:
+      - 'release/**'
   schedule:
     - cron: '0 0 * * *'
 
