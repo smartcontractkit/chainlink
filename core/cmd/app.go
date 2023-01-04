@@ -486,15 +486,11 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:  "delete",
-							Usage: format(`Delete the ETH key by address`),
+							Usage: format(`Delete the ETH key by address (irreversible!)`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
 									Name:  "yes, y",
 									Usage: "skip the confirmation prompt",
-								},
-								cli.BoolFlag{
-									Name:  "hard",
-									Usage: "hard-delete the key instead of archiving (irreversible!)",
 								},
 							},
 							Action: client.DeleteETHKey,

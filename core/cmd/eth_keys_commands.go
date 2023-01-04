@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -137,32 +139,19 @@ func (cli *Client) UpdateETHKey(c *cli.Context) (err error) {
 	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key updated.\n\n🔑 Updated key")
 }
 
-// DeleteETHKey deletes an Ethereum key,
+// DeleteETHKey hard deletes an Ethereum key,
 // address of key must be passed
 func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the address of the key to be deleted"))
 	}
 	address := c.Args().Get(0)
-	deleteUrl := url.URL{
-		Path: "/v2/keys/evm/" + address,
-	}
-	query := deleteUrl.Query()
 
-	if c.Bool("hard") && !confirmAction(c) {
+	if !confirmAction(c) {
 		return nil
 	}
 
-	var confirmationMsg string
-	if c.Bool("hard") {
-		query.Set("hard", "true")
-		confirmationMsg = fmt.Sprintf("Deleted ETH key: %s", address)
-	} else {
-		confirmationMsg = fmt.Sprintf("Archived ETH key: %s", address)
-	}
-
-	deleteUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Delete(deleteUrl.String())
+	resp, err := cli.HTTP.Delete("/v2/keys/evm/" + address)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -173,9 +162,18 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return cli.errorOut(errors.Errorf("Delete ETH key failed: %s", resp.Body))
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return cli.errorOut(errors.Wrap(err, "Failed to read request response"))
+		}
+		var result *models.JSONAPIErrors
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			return cli.errorOut(errors.Wrapf(err, "Unable to unmarshal json from body '%s'", string(body)))
+		}
+		return cli.errorOut(errors.Errorf("Delete ETH key failed: %s", result.Error()))
 	}
-	fmt.Println(confirmationMsg)
+	fmt.Println(fmt.Sprintf("Deleted ETH key: %s", address))
 	return nil
 }
 
