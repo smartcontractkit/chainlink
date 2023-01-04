@@ -1695,10 +1695,10 @@ func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCom
 	app := cmd.NewApp(&cliApp)
 
 	foundName := parentCommand == ""
-	actionFunctionName := getFunctionName(action)
+	actionFuncName := getFunctionName(action)
 
 	for _, command := range app.Commands {
-		flags := recursiveFindFlagsWithName(actionFunctionName, command, parentCommand, foundName)
+		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
 
 		if flags != nil {
 			for _, flag := range flags {
@@ -1709,10 +1709,10 @@ func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCom
 
 }
 
-func recursiveFindFlagsWithName(actionFunctionName string, command cli.Command, parent string, foundName bool) []cli.Flag {
+func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, parent string, foundName bool) []cli.Flag {
 
 	if command.Action != nil {
-		if actionFunctionName == getFunctionName(command.Action) && foundName {
+		if actionFuncName == getFunctionName(command.Action) && foundName {
 			return command.Flags
 		}
 	}
@@ -1722,7 +1722,7 @@ func recursiveFindFlagsWithName(actionFunctionName string, command cli.Command, 
 			foundName = strings.ToLower(subcommand.Name) == strings.ToLower(parent)
 		}
 
-		found := recursiveFindFlagsWithName(actionFunctionName, subcommand, parent, foundName)
+		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)
 		if found != nil {
 			return found
 		}

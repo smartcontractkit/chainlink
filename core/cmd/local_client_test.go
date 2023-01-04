@@ -431,17 +431,15 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 		Logger:                 lggr,
 	}
 
-	beginningNonce := uint(7)
-	endingNonce := uint(10)
-	gasPrice := big.NewInt(100000000000)
-	gasLimit := uint64(3000000)
+	beginningNonce := uint64(7)
+	endingNonce := uint64(10)
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
-	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
-	require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))
-	require.NoError(t, set.Set("gasPriceWei", gasPrice.String()))
-	require.NoError(t, set.Set("gasLimit", strconv.FormatUint(gasLimit, 10)))
+	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
+	require.NoError(t, set.Set("endingNonce", strconv.FormatUint(endingNonce, 10)))
+	require.NoError(t, set.Set("gasPriceWei", "100000000000"))
+	require.NoError(t, set.Set("gasLimit", "3000000"))
 	require.NoError(t, set.Set("address", fromAddress.Hex()))
 	require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 
@@ -450,7 +448,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return uint(tx.Nonce()) == n
+			return tx.Nonce() == n
 		})).Once().Return(nil)
 	}
 
