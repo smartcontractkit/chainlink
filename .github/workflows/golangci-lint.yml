@@ -44,7 +44,7 @@ jobs:
         # any scheduled run or push/pulls with relevant changed paths, but skip PRs from release branches
         if: |
           github.event.schedule != '' ||
-          (needs.changes.outputs.src == 'true' && (github.event_name == 'push' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/')))
+          (needs.changes.outputs.src == 'true' && (github.event_name == 'push' || github.event_name == 'pull_request' )
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.50.1
