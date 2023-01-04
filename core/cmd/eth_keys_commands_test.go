@@ -269,7 +269,6 @@ func TestClient_DeleteETHKey(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
 
-	require.NoError(t, set.Set("hard", "true"))
 	require.NoError(t, set.Set("yes", "true"))
 	require.NoError(t, set.Parse([]string{key.Address.Hex()}))
 
@@ -338,7 +337,6 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	set = flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
 
-	require.NoError(t, set.Set("hard", "true"))
 	require.NoError(t, set.Set("yes", "true"))
 	require.NoError(t, set.Parse([]string{address}))
 
@@ -352,11 +350,8 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
-
-	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
-	require.NoError(t, set.Parse([]string{keyfilepath}))
-
+	set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+	set.Parse([]string{keyfilepath})
 	c = cli.NewContext(nil, set, nil)
 	err = client.ImportETHKey(c)
 	require.NoError(t, err)
@@ -445,7 +440,6 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	set = flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.DeleteETHKey, set, "")
 
-	require.NoError(t, set.Set("hard", "true"))
 	require.NoError(t, set.Set("yes", "true"))
 	require.NoError(t, set.Parse([]string{address}))
 
