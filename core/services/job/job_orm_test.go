@@ -765,12 +765,12 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by address", func(t *testing.T) {
-		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress)
+		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress, job.OCROracleSpec.EVMChainID)
 		require.NoError(t, err)
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err = orm.FindJobIDByAddress("not-existing")
+		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
 		require.Error(t, err)
 		require.ErrorIs(t, err, sql.ErrNoRows)
 	})
