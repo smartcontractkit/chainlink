@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,14 +27,13 @@ import (
 )
 
 var linkEthFeedResponse = big.NewInt(1e18)
-		onlyStartRunner bool
-		if !onlyStartRunner {
-		}
 
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	testEnvironment, testNetwork := setupVRFv2Test(t)
-		_, onlyStartRunner = os.LookupEnv(config.EnvVarJobImage)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err)
@@ -155,7 +152,6 @@ func TestVRFv2Basic(t *testing.T) {
 		}
 	}, timeout, "1s").Should(gomega.Succeed())
 }
-		}
 
 func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
@@ -169,11 +165,7 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 	}
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-	if success && len(insideK8sTmp) > 0 {
-		insideK8s, _ = strconv.ParseBool(insideK8sTmp)
-	}
-	log.Debug().Bool("Inside K8s", insideK8s).Msg("Is this running inside k8s")
-		InsideK8s:       insideK8s,
+		TestName:        t.Name(),
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
@@ -181,5 +173,11 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		t.Cleanup(func() {
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
+			require.NoError(t, err, "Error tearing down environment")
+		})
+	}
 	return testEnvironment, testNetwork
 }

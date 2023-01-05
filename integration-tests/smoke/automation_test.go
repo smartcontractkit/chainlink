@@ -97,9 +97,12 @@ func TestMain(m *testing.M) {
 
 func TestAutomatedBasic(t *testing.T) {
 	t.Parallel()
-	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "basic-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumers, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -160,9 +163,12 @@ func TestAutomatedBasic(t *testing.T) {
 
 func TestAutomatedAddFunds(t *testing.T) {
 	t.Parallel()
-	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "add-funds", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumers, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -208,9 +214,12 @@ func TestAutomatedAddFunds(t *testing.T) {
 
 func TestAutomatedPauseUnPause(t *testing.T) {
 	t.Parallel()
-	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "pause-unpause", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumers, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -288,9 +297,12 @@ func TestAutomatedPauseUnPause(t *testing.T) {
 
 func TestAutomatedRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "register-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumers, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -357,9 +369,12 @@ func TestAutomatedRegisterUpkeep(t *testing.T) {
 
 func TestAutomatedPauseRegistry(t *testing.T) {
 	t.Parallel()
-	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "pause-registry", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumers, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -412,9 +427,12 @@ func TestAutomatedPauseRegistry(t *testing.T) {
 
 func TestAutomatedKeeperNodesDown(t *testing.T) {
 	t.Parallel()
-	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "keeper-nodes-down", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumers, upkeepIDs := actions.DeployConsumers(
 		t,
@@ -495,9 +513,12 @@ func TestAutomatedKeeperNodesDown(t *testing.T) {
 
 func TestAutomatedPerformSimulation(t *testing.T) {
 	t.Parallel()
-	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "perform-simulation", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumersPerformance, _ := actions.DeployPerformanceConsumers(
 		t,
@@ -546,9 +567,12 @@ func TestAutomatedPerformSimulation(t *testing.T) {
 
 func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "gas-limit", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
 		t,
@@ -643,9 +667,12 @@ func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 
 func TestUpdateCheckData(t *testing.T) {
 	t.Parallel()
-	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
 		t, "update-check-data", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
+	if onlyStartRunner {
+		return
+	}
 
 	performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
 		t,
@@ -707,12 +734,13 @@ func setupAutomationTest(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 ) (
-	blockchain.EVMClient,
-	[]*client.Chainlink,
-	contracts.ContractDeployer,
-	contracts.LinkToken,
-	contracts.KeeperRegistry,
-	contracts.KeeperRegistrar,
+	chainClient blockchain.EVMClient,
+	chainlinkNodes []*client.Chainlink,
+	contractDeployer contracts.ContractDeployer,
+	linkToken contracts.LinkToken,
+	registry contracts.KeeperRegistry,
+	registrar contracts.KeeperRegistrar,
+	onlyStartRunner bool,
 ) {
 	network := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
@@ -726,6 +754,7 @@ func setupAutomationTest(
 
 	testEnvironment := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-automation-%s-%s", testName, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+		TestName:        t.Name(),
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -735,46 +764,49 @@ func setupAutomationTest(
 			"toml":     client.AddNetworksConfig(automationBaseTOML, network),
 		}))
 	err := testEnvironment.Run()
+
 	require.NoError(t, err, "Error setting up test environment")
 
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
-	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err, "Error building contract deployer")
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Error connecting to Chainlink nodes")
-	chainClient.ParallelTransactions(true)
+	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
+	if !onlyStartRunner {
+		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
+		require.NoError(t, err, "Error connecting to blockchain")
+		contractDeployer, err = contracts.NewContractDeployer(chainClient)
+		require.NoError(t, err, "Error building contract deployer")
+		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
+		require.NoError(t, err, "Error connecting to Chainlink nodes")
+		chainClient.ParallelTransactions(true)
 
-	// Register cleanup for any test
+		txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
+		require.NoError(t, err, "Error estimating cost for Chainlink Operations")
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+		require.NoError(t, err, "Error funding Chainlink nodes")
+
+		linkToken, err = contractDeployer.DeployLinkTokenContract()
+		require.NoError(t, err, "Error deploying LINK token")
+
+		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
+			t,
+			registryVersion,
+			registryConfig,
+			defaultAmountOfUpkeeps,
+			linkToken,
+			contractDeployer,
+			chainClient,
+		)
+
+		actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+		nodesWithoutBootstrap := chainlinkNodes[1:]
+		ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
+		err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
+		require.NoError(t, err, "Registry config should be be set successfully")
+		require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
+		// Register cleanup for any test
+	}
 	t.Cleanup(func() {
 		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
-	txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
-	require.NoError(t, err, "Error funding Chainlink nodes")
-
-	linkToken, err := contractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Error deploying LINK token")
-
-	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
-		t,
-		registryVersion,
-		registryConfig,
-		defaultAmountOfUpkeeps,
-		linkToken,
-		contractDeployer,
-		chainClient,
-	)
-
-	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
-	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
-	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
-	require.NoError(t, err, "Registry config should be be set successfully")
-	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
-
-	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar
+	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner
 }

@@ -27,6 +27,9 @@ import (
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	testEnvironment, testNetwork := setupVRFTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting client shouldn't fail")
@@ -135,6 +138,7 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 	}
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		TestName:        t.Name(),
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
@@ -142,5 +146,11 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		t.Cleanup(func() {
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
+			require.NoError(t, err, "Error tearing down environment")
+		})
+	}
 	return testEnvironment, testNetwork
 }

@@ -258,19 +258,24 @@ func TeardownSuite(
 		}
 	}
 
-	switch strings.ToUpper(keepEnvs) {
-	case "ALWAYS":
-		return nil
-	case "ONFAIL":
-		if !t.Failed() {
+	// only do the shutdown logic if this is set to true to prevent race conditions in
+	// remote running of tests.
+	if !env.Cfg.IsRemoteTest {
+		switch strings.ToUpper(keepEnvs) {
+		case "ALWAYS":
+			return nil
+		case "ONFAIL":
+			if !t.Failed() {
+				return env.Shutdown()
+			}
+		case "NEVER":
 			return env.Shutdown()
+		default:
+			log.Warn().Str("Invalid Keep Value", keepEnvs).
+				Msg("Invalid 'keep_environments' value, see the KEEP_ENVIRONMENTS env var")
 		}
-	case "NEVER":
-		return env.Shutdown()
-	default:
-		log.Warn().Str("Invalid Keep Value", keepEnvs).
-			Msg("Invalid 'keep_environments' value, see the KEEP_ENVIRONMENTS env var")
 	}
+
 	return nil
 }
 

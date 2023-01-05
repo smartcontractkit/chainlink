@@ -29,6 +29,9 @@ import (
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
 	testEnvironment, testNetwork := setupRunLogTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
@@ -120,6 +123,7 @@ func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, te
 	}
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		TestName:        t.Name(),
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -129,5 +133,11 @@ func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, te
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		t.Cleanup(func() {
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
+			require.NoError(t, err, "Error tearing down environment")
+		})
+	}
 	return testEnvironment, testNetwork
 }

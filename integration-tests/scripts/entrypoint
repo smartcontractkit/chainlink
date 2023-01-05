@@ -7,32 +7,12 @@ set -ex
 # get this scripts directory
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
-cd "$SCRIPT_DIR"/../../ || exit 1
+cd "$SCRIPT_DIR"/../ || exit 1
 
 # Arguments needed
-# ARGS=${ARGS:=}  any extra args to send to ginkgo
-# SUITE=${SUITE:=./integration-tests/smoke} # the suite of tests you want to run
-# SELECTED_NETWORKS the networks you wish to run against
-# CHAINLINK_IMAGE chainlink image repository to use
-# CHAINLINK_VERSION version of the image to run, ex: develop
-# CHAINLINK_ENV_USER the user to put in the k8s metadata label
-# TEST_LOG_LEVEL the level of logs you wish to have output
-
-# ginkgo -vv -r --junit-report=tests-smoke-report.xml \
-# 	--keep-going --trace --randomize-all --randomize-suites \
-# 	${ARGS} \
-# 	${FOLDER}
-
-# find the suite name
-OIFS=$IFS
-IFS='/'
-tosplit="$SUITE"
-last=""
-for x in $tosplit
-do
-    last="$x"
-done
-IFS=$OIFS
+# ARGS=${ARGS:=} any extra args to send to ginkgo
+# SUITE=${SUITE:=} the suite of tests you want to run
+# TEST_NAME=${TEST_NAME:=} The specific test to run
 
 # run the tests
-ginkgo --keep-going --trace --randomize-all ${ARGS} "${SUITE}"/"${last}".test
+./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$

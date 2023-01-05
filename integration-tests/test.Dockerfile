@@ -1,16 +1,10 @@
 ARG BASE_IMAGE
-FROM $BASE_IMAGE
+ARG IMAGE_VERSION=latest
+FROM ${BASE_IMAGE}:${IMAGE_VERSION}
 
-# suites example: ./integration-tests/smoke ./integration-tests/soak
-ARG SUITES
-ARG GINKGO_VERSION=2.5.1
+ARG SUITES=chaos migration performance reorg smoke soak
 
 COPY . testdir/
 WORKDIR /go/testdir
-
-RUN set -ex \
-    && go install github.com/onsi/ginkgo/v2/ginkgo@v$GINKGO_VERSION \
-    && ginkgo build $SUITES \
-    && ls ./integration-tests/smoke
-
+RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
 ENTRYPOINT ["/go/testdir/integration-tests/scripts/entrypoint"]
