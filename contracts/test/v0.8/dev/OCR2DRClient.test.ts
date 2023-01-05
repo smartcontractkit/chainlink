@@ -27,7 +27,7 @@ async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const data = receipt.logs?.[1].data
   console.log({ data })
   return ethers.utils.defaultAbiCoder.decode(
-    ['bytes32', 'address', 'address', 'address', 'uint64', 'bytes'],
+    ['bytes32', 'address', 'address', 'uint64', 'address', 'bytes'],
     data ?? '',
   )
 }
