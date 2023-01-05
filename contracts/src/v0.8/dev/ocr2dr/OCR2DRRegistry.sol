@@ -12,7 +12,6 @@ import "../../ConfirmedOwner.sol";
 import "../AuthorizedReceiver.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
-import "./AuthorizedOriginReceiver.sol";
 
 contract OCR2DRRegistry is
   ConfirmedOwner,
@@ -23,7 +22,7 @@ contract OCR2DRRegistry is
 {
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
-  AuthorizedOriginReceiver private immutable ORACLE;
+  AuthorizedReceiver private immutable ORACLE;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -37,7 +36,6 @@ contract OCR2DRRegistry is
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
-  error UnauthorizedSender();
   error PendingRequestExists();
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
@@ -153,7 +151,7 @@ contract OCR2DRRegistry is
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    ORACLE = AuthorizedOriginReceiver(oracle);
+    ORACLE = AuthorizedReceiver(oracle);
   }
 
   /**
@@ -635,6 +633,7 @@ contract OCR2DRRegistry is
   function getSubscriptionOwner(uint64 subscriptionId)
     external
     view
+    override
     returns (address owner)
   {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
@@ -834,6 +833,7 @@ contract OCR2DRRegistry is
     if (!ORACLE.isAuthorizedSender(msg.sender)) {
       revert UnauthorizedSender();
     }
+    _;
   }
 
   modifier onlySubOwner(uint64 subscriptionId) {
