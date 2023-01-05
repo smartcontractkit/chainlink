@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -9,6 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
+
+type roundRobinKeystore interface {
+	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
+}
 
 type txManager interface {
 	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
@@ -22,15 +27,31 @@ type Transmitter interface {
 type transmitter struct {
 	txm                         txManager
 	fromAddresses               []common.Address
-	nextFromAddressIndex        int
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    txmgr.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
+	chainID                     *big.Int
+	keystore                    roundRobinKeystore
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(txm txManager, fromAddresses []common.Address, gasLimit uint32, effectiveTransmitterAddress common.Address, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
+func NewTransmitter(
+	txm txManager,
+	fromAddresses []common.Address,
+	gasLimit uint32,
+	effectiveTransmitterAddress common.Address,
+	strategy txmgr.TxStrategy,
+	checker txmgr.TransmitCheckerSpec,
+	chainID *big.Int,
+	keystore roundRobinKeystore,
+) (Transmitter, error) {
+
+	// Ensure that a keystore is provided.
+	if keystore == nil {
+		return nil, errors.New("nil keystore provided to transmitter")
+	}
+
 	return &transmitter{
 		txm:                         txm,
 		fromAddresses:               fromAddresses,
@@ -38,12 +59,20 @@ func NewTransmitter(txm txManager, fromAddresses []common.Address, gasLimit uint
 		effectiveTransmitterAddress: effectiveTransmitterAddress,
 		strategy:                    strategy,
 		checker:                     checker,
-	}
+		chainID:                     chainID,
+		keystore:                    keystore,
+	}, nil
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
-	_, err := t.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:      t.FromAddressForTransaction(),
+
+	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
+	if err != nil {
+		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
+	}
+
+	_, err = t.txm.CreateEthTransaction(txmgr.NewTx{
+		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
 		GasLimit:         t.gasLimit,
@@ -51,26 +80,11 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		Strategy:         t.strategy,
 		Checker:          t.checker,
 	}, pg.WithParentCtx(ctx))
-	return errors.Wrap(err, "Skipped OCR transmission")
+	return errors.Wrap(err, "skipped OCR transmission")
 }
 
 func (t *transmitter) FromAddress() common.Address {
 	return t.effectiveTransmitterAddress
-}
-
-func (t *transmitter) FromAddressForTransaction() common.Address {
-	// Use Round-Robin to select the next fromAddress.
-	nextFromAddress := t.fromAddresses[t.nextFromAddressIndex]
-
-	// Only apply round-robin logic for multiple sending keys.
-	if len(t.fromAddresses) > 1 {
-		t.nextFromAddressIndex++
-		if t.nextFromAddressIndex >= len(t.fromAddresses) {
-			t.nextFromAddressIndex = 0
-		}
-	}
-
-	return nextFromAddress
 }
 
 func (t *transmitter) forwarderAddress() common.Address {

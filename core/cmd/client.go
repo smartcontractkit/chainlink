@@ -467,7 +467,7 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	return errors.Wrap(err, "failed to run TLS server")
+	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTSPort=0 in your config)")
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
@@ -609,13 +609,13 @@ type ClientOpts struct {
 type SessionCookieAuthenticator struct {
 	config ClientOpts
 	store  CookieStore
-	lggr   logger.Logger
+	lggr   logger.SugaredLogger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
 func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr logger.Logger) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store, lggr: lggr}
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: logger.Sugared(lggr)}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -642,7 +642,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer t.lggr.ErrorIfClosing(resp.Body, "Authenticate response body")
+	defer t.lggr.ErrorIfFn(resp.Body.Close, "Error closing Authenticate response body")
 
 	_, err = parseResponse(resp)
 	if err != nil {

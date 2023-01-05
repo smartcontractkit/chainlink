@@ -33,13 +33,11 @@ type RegistrySynchronizerOptions struct {
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
 	EffectiveKeeperAddress   common.Address
-	newTurnEnabled           bool
 }
 
 type RegistrySynchronizer struct {
 	utils.StartStopOnce
 	chStop                   chan struct{}
-	newTurnEnabled           bool
 	registryWrapper          RegistryWrapper
 	interval                 time.Duration
 	job                      job.Job
@@ -70,7 +68,6 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		effectiveKeeperAddress:   opts.EffectiveKeeperAddress,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
-		newTurnEnabled:           opts.newTurnEnabled,
 		mailMon:                  opts.MailMon,
 	}
 }
@@ -83,15 +80,6 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 
 		var upkeepPerformedFilter [][]log.Topic
 		upkeepPerformedFilter = nil
-		if !rs.newTurnEnabled {
-			upkeepPerformedFilter = [][]log.Topic{
-				{},
-				{},
-				{
-					log.Topic(rs.effectiveKeeperAddress.Hash()),
-				},
-			}
-		}
 
 		logListenerOpts, err := rs.registryWrapper.GetLogListenerOpts(rs.minIncomingConfirmations, upkeepPerformedFilter)
 		if err != nil {

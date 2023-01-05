@@ -163,13 +163,13 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    dump         LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration
-	//    list         LEGACY CONFIG (ENV) ONLY - Show the node's environment variables
-	//    show         V2 CONFIG (TOML) ONLY - Show the application configuration
-	//    setgasprice  Set the default gas price to use for outgoing transactions
+	//    dump         Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]
+	//    list         Show the node's environment variables [Not supported with TOML]
+	//    show         Show the application configuration [Only supported with TOML]
+	//    setgasprice  Set the default gas price to use for outgoing transactions [Not supported with TOML]
 	//    loglevel     Set log level
 	//    logsql       Enable/disable sql statement logging
-	//    validate     Validate provided TOML config file
+	//    validate     Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -234,7 +234,7 @@ func ExampleRun_keys_eth() {
 	//    create  Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
 	//    update  Update the existing key's parameters
 	//    list    List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata
-	//    delete  Delete the ETH key by address
+	//    delete  Delete the ETH key by address (irreversible!)
 	//    import  Import an ETH key from a JSON file
 	//    export  Exports an ETH key to a JSON file
 	//    chain   Update an EVM key for the given chain

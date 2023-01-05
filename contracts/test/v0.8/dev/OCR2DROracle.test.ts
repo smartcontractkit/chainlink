@@ -73,7 +73,8 @@ describe('OCR2DROracle', () => {
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address)
     oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
-    oracle.setRegistry(registry.address)
+    await oracle.setRegistry(registry.address)
+    await oracle.deactivateAuthorizedReceiver()
     client = await clientTestHelperFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
@@ -85,6 +86,7 @@ describe('OCR2DROracle', () => {
       21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
       ethers.BigNumber.from('5000000000000000'),
       500_000,
+      300,
     )
 
     const createSubTx = await registry
@@ -135,7 +137,7 @@ describe('OCR2DROracle', () => {
   describe('Sending requests', () => {
     it('#sendRequest emits OracleRequest event', async () => {
       const data = stringToHex('some data')
-      await expect(oracle.sendRequest(subscriptionId, data, 0))
+      await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
         .withArgs(anyValue, subscriptionId, data)
     })
@@ -143,7 +145,7 @@ describe('OCR2DROracle', () => {
     it('#sendRequest reverts for empty data', async () => {
       const data = stringToHex('')
       await expect(
-        oracle.sendRequest(subscriptionId, data, 0),
+        oracle.sendRequest(subscriptionId, data, 0, 0),
       ).to.be.revertedWith('EmptyRequestData')
     })
 
@@ -152,6 +154,7 @@ describe('OCR2DROracle', () => {
       const requestId = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
+        0,
         0,
       )
       expect(requestId).not.to.be.empty
@@ -163,13 +166,15 @@ describe('OCR2DROracle', () => {
         subscriptionId,
         data,
         0,
+        0,
       )
-      await expect(oracle.sendRequest(subscriptionId, data, 0))
+      await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
         .withArgs(anyValue, subscriptionId, data)
       const requestId2 = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
+        0,
         0,
       )
       expect(requestId1).not.to.be.equal(requestId2)

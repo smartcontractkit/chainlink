@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
@@ -73,8 +74,11 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendsolcoins", 0)
-			set.String("id", chainID, "")
-			set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()})
+			cltest.FlagSetApplyFromAction(client.SolanaSendSol, set, "solana")
+
+			require.NoError(t, set.Set("id", chainID))
+			require.NoError(t, set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()}))
+
 			c := cli.NewContext(cliapp, set, nil)
 			err = client.SolanaSendSol(c)
 			if tt.expErr == "" {

@@ -30,7 +30,7 @@ type RequestRoundTracker struct {
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer
 	logBroadcaster   log.Broadcaster
 	jobID            int32
-	lggr             logger.Logger
+	lggr             logger.SugaredLogger
 	odb              RequestRoundDB
 	q                pg.Q
 	blockTranslator  ocrcommon.BlockTranslator
@@ -64,7 +64,7 @@ func NewRequestRoundTracker(
 		contractFilterer: contractFilterer,
 		logBroadcaster:   logBroadcaster,
 		jobID:            jobID,
-		lggr:             lggr,
+		lggr:             logger.Sugared(lggr),
 		odb:              odb,
 		q:                pg.NewQ(db, lggr, chain),
 		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),

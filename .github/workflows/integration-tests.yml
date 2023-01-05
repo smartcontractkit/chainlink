@@ -17,14 +17,6 @@ jobs:
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Check Paths That Require Tests To Run
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
@@ -36,6 +28,15 @@ jobs:
               - '**/*go.sum'
               - '**/*go.mod'
               - '.github/workflows/integration-tests.yml'
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Check Paths That Require Tests To Run
+        continue-on-error: true
     outputs:
       src: ${{ steps.changes.outputs.src }}
 
@@ -79,14 +80,7 @@ jobs:
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Build Test Image
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
@@ -104,6 +98,12 @@ jobs:
             GINKGO_VERSION=${{ steps.tool-versions.outputs.ginkgo_version }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
 
   eth-smoke-tests-matrix:
     environment: integration
@@ -115,7 +115,7 @@ jobs:
     name: ETH Smoke Tests Matrix
     needs: [changes, build-test-image] #[build-chainlink, changes, build-test-image]
     env:
-      SELECTED_NETWORKS: SIMULATED
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-eth
@@ -151,19 +151,11 @@ jobs:
           # - name: vrf
           #   nodes: 1
           #   os: ubuntu-latest
-          - name: v2vrf
+          - name: vrfv2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
     runs-on: ${{ matrix.product.os }}
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }})
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
@@ -179,14 +171,14 @@ jobs:
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
           CHAINLINK_VERSION: latest.0f1d5b5b819b3944fdfe9c865628ff2a1d0605ca #latest.${{ github.sha }}
         with:
-          test_command_to_run: make test_smoke_simulated args="-nodes=${{ matrix.product.nodes }} --focus @${{ matrix.product.name }}"
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
-          test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -198,7 +190,6 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@cb4a8f51d77cbf77ea6a765bd1f437ffc7a18730 # v2.0.28
         with:
           test_download_vendor_packages_command: make gomod
-          test_download_ginkgo_command: make test_install_ginkgo
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -211,6 +202,14 @@ jobs:
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
   
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ETH Smoke Tests Matrix (${{ matrix.product.name }}, ${{ matrix.product.nodes }}, ${{ matrix.product.os }})
+        continue-on-error: true
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
     if: ${{ always() }}
@@ -272,6 +271,15 @@ jobs:
   #       uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
   #       with:
   #         ref: ${{ env.solana_sha }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Build Artifacts
+        continue-on-error: true
 
   # solana-smoke-tests:
   #   environment: integration
@@ -322,5 +330,13 @@ jobs:
   #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@cb4a8f51d77cbf77ea6a765bd1f437ffc7a18730 # v2.0.28
   #       with:
   #         triggered_by: ${{ env.TEST_TRIGGERED_BY }}
-
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Smoke Tests
+        continue-on-error: true
   ### End Solana Section

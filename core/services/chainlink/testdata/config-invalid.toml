@@ -22,7 +22,6 @@ BlockHistorySize = 0
 
 [[EVM.Nodes]]
 Name = 'foo'
-SendOnly = true
 
 [[EVM.Nodes]]
 Name = 'foo'

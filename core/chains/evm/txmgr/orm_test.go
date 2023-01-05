@@ -172,3 +172,54 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, r.BlockHash, etx.EthTxAttempts[0].EthReceipts[0].BlockHash)
 	})
 }
+
+func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	orm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+
+	tx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 0, 1, from) // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 1, 2, from) // tx2
+
+	// add 2nd attempt to tx2
+	blockNum := int64(3)
+	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
+	attempt.State = txmgr.EthTxAttemptBroadcast
+	attempt.GasPrice = assets.NewWeiI(3)
+	attempt.BroadcastBeforeBlockNum = &blockNum
+	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
+
+	// add receipt for the second attempt
+	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
+	require.NoError(t, orm.InsertEthReceipt(&r))
+
+	// tx 3 has no attempts
+	tx3 := cltest.NewEthTx(t, from)
+	tx3.State = txmgr.EthTxUnstarted
+	tx3.FromAddress = from
+	require.NoError(t, orm.InsertEthTx(&tx3))
+
+	cltest.MustInsertUnconfirmedEthTx(t, orm, 3, from)                           // tx4
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, orm, 4, from) // tx5
+
+	var count int
+	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	require.NoError(t, err)
+	require.Equal(t, 5, count)
+
+	err = db.Get(&count, `SELECT count(*) FROM eth_tx_attempts`)
+	require.NoError(t, err)
+	require.Equal(t, 4, count)
+
+	confirmedAttempts, err := orm.FindEthTxAttemptConfirmedByEthTxIDs([]int64{tx1.ID, tx2.ID}) // should omit tx3
+	require.NoError(t, err)
+	assert.Equal(t, 4, count, "only eth txs with attempts are counted")
+	require.Len(t, confirmedAttempts, 1)
+	assert.Equal(t, confirmedAttempts[0].ID, attempt.ID)
+	require.Len(t, confirmedAttempts[0].EthReceipts, 1, "should have only one EthRecipts for a confirmed transaction")
+	assert.Equal(t, confirmedAttempts[0].EthReceipts[0].BlockHash, r.BlockHash)
+	assert.Equal(t, confirmedAttempts[0].Hash, attempt.Hash, "confirmed Recieipt Hash should match the attempt hash")
+}

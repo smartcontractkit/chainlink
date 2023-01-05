@@ -25,11 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_client_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_registry"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -57,7 +57,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 			MaxQueryLengthBytes:       10_000,
 			MaxObservationLengthBytes: 10_000,
 			MaxReportLengthBytes:      10_000,
-			MaxRequestBatchSize:       5,
+			MaxRequestBatchSize:       4,
 			DefaultAggregationMethod:  drconfig.AggregationMethod_AGGREGATION_MODE,
 			UniqueReports:             true,
 		},
@@ -101,14 +101,17 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 		offchainConfig,
 	)
 	require.NoError(t, err)
+	_, err = oracleContract.DeactivateAuthorizedReceiver(owner)
+	require.NoError(t, err)
 }
 
 func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
-	var maxGasLimit =  uint32(1_000_000)
-	var stalenessSeconds =  uint32(86_400)
-	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315)
-	var weiPerUnitLink =  big.NewInt(5000000000000000)
-	var gasOverhead =  uint32(500_000)
+	var maxGasLimit = uint32(450_000)
+	var stalenessSeconds = uint32(86_400)
+	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2*2_100 - 15_000 + 7_315)
+	var weiPerUnitLink = big.NewInt(5000000000000000)
+	var gasOverhead = uint32(500_000)
+	var requestTimeoutSeconds = uint32(300)
 
 	_, err := registryContract.SetConfig(
 		owner,
@@ -117,6 +120,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 		gasAfterPaymentCalculation,
 		weiPerUnitLink,
 		gasOverhead,
+		requestTimeoutSeconds,
 	)
 	require.NoError(t, err)
 
@@ -142,9 +146,10 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
 	require.NoError(t, err)
-	
+
 	amount := big.NewInt(0).Mul(big.NewInt(int64(numContracts)), big.NewInt(2e18)) // 2 LINK per client
-	linkToken.TransferAndCall(owner, registryContractAddress, amount, data)
+	_, err = linkToken.TransferAndCall(owner, registryContractAddress, amount, data)
+	require.NoError(t, err)
 
 	time.Sleep(1000 * time.Millisecond)
 
@@ -180,7 +185,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 0, big.NewInt(5021530000000000))
 	require.NoError(t, err)
 
-	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr,linkEthFeedAddr )
+	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr)
 	require.NoError(t, err)
 
 	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
@@ -319,10 +324,10 @@ func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress 
 func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress common.Address, keyBundleID string, transmitter common.Address, bridgeURL string) job.Job {
 	u, err := url.Parse(bridgeURL)
 	require.NoError(t, err)
-	app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
-		Name: bridges.BridgeName("ea_bridge"),
+	require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
-	})
+	}))
 	job, err := validate.ValidatedOracleSpecToml(app.Config, fmt.Sprintf(`
 		type               = "offchainreporting2"
 		name               = "dr-ocr-node"

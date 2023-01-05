@@ -3,12 +3,13 @@ pragma solidity ^0.8.6;
 
 import "../interfaces/OCR2DROracleInterface.sol";
 import "../ocr2/OCR2Base.sol";
+import "./AuthorizedOriginReceiver.sol";
 
 /**
  * @title OCR2DR oracle contract
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
+contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiver {
   event OracleRequest(bytes32 indexed requestId, uint64 subscriptionId, bytes data);
   event OracleResponse(bytes32 indexed requestId);
   event UserCallbackError(bytes32 indexed requestId, string reason);
@@ -85,15 +86,18 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    uint256 gasPrice
   ) external view override registryIsSet returns (uint96) {
     OCR2DRRegistryInterface.RequestBilling memory billing = OCR2DRRegistryInterface.RequestBilling(
       subscriptionId,
       msg.sender,
-      gasLimit
+      gasLimit,
+      gasPrice
     );
     uint96 requiredFee = getRequiredFee(data, billing);
-    return s_registry.estimateCost(data, billing, requiredFee);
+    uint96 registryFee = getRequiredFee(data, billing);
+    return s_registry.estimateCost(gasLimit, gasPrice, requiredFee, registryFee);
   }
 
   /**
@@ -102,14 +106,15 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
-  ) external override registryIsSet returns (bytes32) {
+    uint32 gasLimit,
+    uint256 gasPrice
+  ) external override registryIsSet validateAuthorizedSender returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
     bytes32 requestId = s_registry.startBilling(
       data,
-      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit)
+      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
     );
     emit OracleRequest(requestId, subscriptionId, data);
     return requestId;
@@ -177,5 +182,9 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base {
       revert EmptyBillingRegistry();
     }
     _;
+  }
+
+  function _canSetAuthorizedSenders() internal view override returns (bool) {
+    return msg.sender == owner();
   }
 }

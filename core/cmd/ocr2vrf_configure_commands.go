@@ -84,7 +84,7 @@ SigningPublicKey     = "%s"
 const OCR2VRFTemplate = `
 type                 = "offchainreporting2"
 schemaVersion        = 1
-name                 = "ocr2"
+name                 = "ocr2vrf-chainID-%d"
 maxTaskDuration      = "30s"
 contractID           = "%s"
 ocrKeyBundleID       = "%s"
@@ -110,7 +110,7 @@ linkEthFeedAddress     = "%s"
 const BootstrapTemplate = `
 type                               = "bootstrap"
 schemaVersion                      = 1
-name                               = ""
+name                               = "bootstrap-chainID-%d"
 id                                 = "1"
 contractID                         = "%s"
 relay                              = "evm"
@@ -122,7 +122,7 @@ chainID                            = %d
 const forwarderAdditionalEOACount = 4
 
 func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
-	lggr := cli.Logger.Named("ConfigureOCR2VRFNode")
+	lggr := logger.Sugared(cli.Logger.Named("ConfigureOCR2VRFNode"))
 	err := cli.Config.Validate()
 	if err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
@@ -156,7 +156,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	if err = ldb.Open(rootCtx); err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "opening db"))
 	}
-	defer lggr.ErrorIfClosing(ldb, "db")
+	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
 	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, lggr, ldb.DB())
 	if err != nil {
@@ -173,16 +173,22 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	}
 
 	// Start application.
-	app.Start(rootCtx)
+	err = app.Start(rootCtx)
+	if err != nil {
+		return nil, cli.errorOut(err)
+	}
 
 	// Close application.
-	defer app.Stop()
+	defer lggr.ErrorIfFn(app.Stop, "Failed to Stop application")
 
 	// Initialize transmitter settings.
 	var sendingKeys []string
 	var sendingKeysAddresses []common.Address
 	useForwarder := c.Bool("use-forwarder")
-	ethKeys, _ := app.GetKeyStore().Eth().GetAll()
+	ethKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(big.NewInt(chainID))
+	if err != nil {
+		return nil, cli.errorOut(err)
+	}
 	transmitterID := ethKeys[0].Address.String()
 
 	// Populate sendingKeys with current ETH keys.
@@ -355,6 +361,7 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 
 func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.Application) error {
 	sp := fmt.Sprintf(BootstrapTemplate,
+		c.Int64("chainID"),
 		c.String("contractID"),
 		c.Int64("chainID"),
 	)
@@ -418,6 +425,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
 	sp := fmt.Sprintf(OCR2VRFTemplate,
+		args.chainID,
 		args.vrfBeaconAddress,
 		args.ocrKeyBundleID,
 		args.transmitterID,

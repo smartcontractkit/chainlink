@@ -350,7 +350,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 		EthTxID: ethTxIDs[1],
 	}
 
-	txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
+	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
 		attempt1, attempt2,
 	}, nil)
 	app.On("TxmORM").Return(txmORM)
@@ -423,4 +423,41 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 		assert.Nil(t, found[0].Data)
 		assert.ErrorIs(t, found[0].Error, sql.ErrNoRows)
 	})
+}
+
+func TestLoader_loadByEthTransactionID(t *testing.T) {
+	t.Parallel()
+
+	txmORM := txmgrMocks.NewORM(t)
+	app := coremocks.NewApplication(t)
+	ctx := InjectDataloader(testutils.Context(t), app)
+
+	ethTxID := int64(3)
+	ethTxHash := utils.NewHash()
+
+	receipt := txmgr.EthReceipt{
+		ID:     int64(1),
+		TxHash: ethTxHash,
+	}
+
+	attempt1 := txmgr.EthTxAttempt{
+		ID:          int64(1),
+		EthTxID:     ethTxID,
+		Hash:        ethTxHash,
+		EthReceipts: []txmgr.EthReceipt{receipt},
+	}
+
+	txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EthTxAttempt{
+		attempt1,
+	}, nil)
+
+	app.On("TxmORM").Return(txmORM)
+
+	batcher := ethTransactionAttemptBatcher{app}
+
+	keys := dataloader.NewKeysFromStrings([]string{"3"})
+	found := batcher.loadByEthTransactionIDs(ctx, keys)
+
+	require.Len(t, found, 1)
+	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[0].Data)
 }

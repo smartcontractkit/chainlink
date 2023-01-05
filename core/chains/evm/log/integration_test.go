@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -1474,9 +1475,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch3 := make(chan types.Log)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	mailMon := utils.NewMailboxMonitor(t.Name())
-	mailMon.Start(testutils.Context(t))
-	t.Cleanup(func() { assert.NoError(t, mailMon.Close()) })
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil, mailMon)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)

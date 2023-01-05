@@ -36,7 +36,7 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
     req.initializeRequestForInlineJavaScript(source);
     if (secrets.length > 0) req.addInlineSecrets(secrets);
     if (args.length > 0) req.addArgs(args);
-    lastRequestId = sendRequest(req, subscriptionId, 50_000);
+    lastRequestId = sendRequest(req, subscriptionId, 40_000, tx.gasprice);
   }
 
   /**
