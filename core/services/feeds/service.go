@@ -610,18 +610,21 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	}
 
 	var address ethkey.EIP55Address
+	var evmChainID *utils.Big
 	switch j.Type {
 	case job.OffchainReporting:
 		address = j.OCROracleSpec.ContractAddress
+		evmChainID = j.OCROracleSpec.EVMChainID
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
+		evmChainID = j.FluxMonitorSpec.EVMChainID
 	default:
 		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 	}
 
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
+		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, evmChainID, pg.WithQueryer(tx))
 		if txerr == nil {
 			if force {
 				if txerr = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); txerr != nil {
