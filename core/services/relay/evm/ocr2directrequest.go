@@ -23,7 +23,7 @@ func (p *drProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func NewOCR2DRProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth) (relaytypes.Plugin, error) {
+func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth) (relaytypes.Plugin, error) {
 	configWatcher, err := newConfigProvider(lggr, chainSet, rargs)
 	if err != nil {
 		return nil, err

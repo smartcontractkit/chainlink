@@ -12,6 +12,11 @@ cron_upkeep_wrapper: ../../contracts/solc/v0.8.6/CronUpkeep.abi - b1257293e0016a
 derived_price_feed_wrapper: ../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../contracts/solc/v0.8.6/DerivedPriceFeed.bin c8542e6c850c2d0fffb79a7f7213dc927ec64e6ddd54e1224cb2fb4a13aabdd0
 flags_wrapper: ../../contracts/solc/v0.6/Flags.abi ../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../contracts/solc/v0.6/FluxAggregator.abi ../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
+functions: ../../contracts/solc/v0.8.6/Functions.abi ../../contracts/solc/v0.8.6/Functions.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
+functions_client: ../../contracts/solc/v0.8.6/FunctionsClient.abi ../../contracts/solc/v0.8.6/FunctionsClient.bin f7e67040aa0b21e18915acd9f7caa97c7d05f40869596841a2580701b81d11e3
+functions_client_example: ../../contracts/solc/v0.8.6/FunctionsClientExample.abi ../../contracts/solc/v0.8.6/FunctionsClientExample.bin 87e73fb547771c54bdea431e7bfc225ced42544a586f80746944bab792cd11ea
+functions_don: ../../contracts/solc/v0.8.6/FunctionsDON.abi ../../contracts/solc/v0.8.6/FunctionsDON.bin 85a51ff53372a5cac09ee12d660050f1577c285ae5d51aacd7c2f8b1319a0047
+functions_registry: ../../contracts/solc/v0.8.6/FunctionsBillingRegistry.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistry.bin 882d2166df0a7adf83d3a7c01d278a853cdf5957ece9bfb69b6e7ed894e1f3db
 gas_wrapper: ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.abi ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.bin 4a5dcdac486d18fcd58e3488c15c1710ae76b977556a3f3191bd269a4bc75723
 keeper_registry_logic1_3: ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.bin e1bee66ce7cd0085469f923c46f0eddb58fd45dec207def1bb383b37e413a6ca
 keeper_registry_logic2_0: ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.bin d090ab9fcb92e390599fd8dd2bca3ea7518c86cbb795e9b725723337e1e3cf06
@@ -23,11 +28,6 @@ keepers_vrf_consumer: ../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../c
 log_emitter: ../../contracts/solc/v0.8.6/LogEmitter.abi ../../contracts/solc/v0.8.6/LogEmitter.bin 375488d19b6ee1c180d42048be10abea9146e2a58347fd180358850d435cb854
 multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 nocancel_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.bin 6672e34b4b10526b338d1876790c396fd619bd2103e5cbff580687264b3e78ca
-ocr2dr: ../../contracts/solc/v0.8.6/OCR2DR.abi ../../contracts/solc/v0.8.6/OCR2DR.bin 3801bef7cad71068072098dabeab8d3f3f95d36fa8644ff8c617ccdc0b09ede0
-ocr2dr_client: ../../contracts/solc/v0.8.6/OCR2DRClient.abi ../../contracts/solc/v0.8.6/OCR2DRClient.bin b3c501193c74aaa45007b40ecc0bcfd672dbe74b802a808368a61b38a9084a90
-ocr2dr_client_example: ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin 752ef01fe0edfdcd8bf75b30e1e5c86dfcec6b27edb57164ef8b32e347f32840
-ocr2dr_oracle: ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin 3d3cf86812fb39c30f5137fab4ef31438e44b5a6f967deeec4ec9c77833f1456
-ocr2dr_registry: ../../contracts/solc/v0.8.6/OCR2DRRegistry.abi ../../contracts/solc/v0.8.6/OCR2DRRegistry.bin ba97be4d2f9b29e9d50b9bcae8ddb6f3291ca9db566809cadf86530200f13e9a
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin e78e7231bbaceabe20a266ea596ff14e8c12bf7ec6c69e1e8fe984556d2b7df9
 operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 97dcb51158733881bfbe414d0318a57c3bba7b32bdc7aa5961db2f0ea5e993cb

@@ -1,4 +1,4 @@
-name: On Demand OCR Soak Test
+name: Chainlink Functions Soak Test
 on:
   workflow_dispatch:
     inputs:
@@ -56,7 +56,7 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_TRIGGERED_BY: ocr-on-demand
+      TEST_TRIGGERED_BY: chainlink-functions
       SELECTED_NETWORKS: ${{ inputs.network }}
       EVM_KEYS: ${{ inputs.fundingPrivateKey }}
       EVM_URLS: ${{ inputs.wsURL }}

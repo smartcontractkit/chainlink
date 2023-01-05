@@ -24,11 +24,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	drocr_service "github.com/smartcontractkit/chainlink/core/services/directrequestocr"
+	functions_service "github.com/smartcontractkit/chainlink/core/services/functions"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
@@ -521,7 +521,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}
-		drProvider, err2 := evmrelay.NewOCR2DRProvider(
+		drProvider, err2 := evmrelay.NewFunctionsProvider(
 			d.chainSet,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
@@ -534,7 +534,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			},
-			lggr.Named("OCR2DRRelayer"),
+			lggr.Named("FunctionsRelayer"),
 			d.ethKs,
 		)
 		if err2 != nil {
@@ -551,8 +551,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		pluginORM := drocr_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
-		pluginOracle, _ = directrequestocr.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
+		pluginORM := functions_service.NewORM(d.db, lggr, d.cfg, common.HexToAddress(spec.ContractID))
+		pluginOracle, _ = functions.NewDROracle(jb, d.pipelineRunner, d.jobORM, pluginORM, chain, lggr, ocrLogger, d.mailMon)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
