@@ -90,7 +90,6 @@ type logPoller struct {
 
 type ReplayRequest struct {
 	fromBlock int64
-	ctx       context.Context
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -221,7 +220,7 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 }
 
 // Replay signals that the poller should resume from a new block.
-// Blocks until the replay is complete.
+// We do not wait for the replay to complete, as it may take long than HTTP_SERVER_WRITE_TIMEOUT
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
@@ -233,16 +232,8 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 	// Block until replay notification accepted or cancelled.
 	select {
-	case lp.replayStart <- ReplayRequest{fromBlock, ctx}:
-	case <-lp.ctx.Done():
-		return ErrReplayAbortedOnShutdown
-	case <-ctx.Done():
-		return ErrReplayAbortedByClient
-	}
-	// Block until replay complete or cancelled.
-	select {
-	case err := <-lp.replayComplete:
-		return err
+	case lp.replayStart <- ReplayRequest{fromBlock}:
+		return nil
 	case <-lp.ctx.Done():
 		return ErrReplayAbortedOnShutdown
 	case <-ctx.Done():
@@ -302,22 +293,13 @@ func (lp *logPoller) run() {
 		case <-lp.ctx.Done():
 			return
 		case replayReq := <-lp.replayStart:
-			fromBlock, err := lp.getReplayFromBlock(replayReq.ctx, replayReq.fromBlock)
+			fromBlock, err := lp.getReplayFromBlock(lp.ctx, replayReq.fromBlock)
 			if err == nil {
 				// Serially process replay requests.
 				lp.lggr.Warnw("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
-				lp.pollAndSaveLogs(replayReq.ctx, fromBlock)
+				lp.pollAndSaveLogs(lp.ctx, fromBlock)
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
-			}
-			select {
-			case <-lp.ctx.Done():
-				// We're shutting down, lets return.
-				return
-			case <-replayReq.ctx.Done():
-				// Client gave up, lets continue.
-				continue
-			case lp.replayComplete <- err:
 			}
 		case <-logPollTick:
 			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
