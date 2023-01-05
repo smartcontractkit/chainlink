@@ -610,7 +610,7 @@ contract OCR2DRRegistry is
     external
     nonReentrant
     whenNotPaused
-    onlyWhitelistedUser
+    onlyAuthorizedUsers
     returns (uint64)
   {
     s_currentsubscriptionId++;
@@ -671,7 +671,7 @@ contract OCR2DRRegistry is
     external
     nonReentrant
     whenNotPaused
-    onlyWhitelistedUser
+    onlyAuthorizedUsers
   {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
@@ -830,7 +830,7 @@ contract OCR2DRRegistry is
     }
   }
 
-  modifier onlyWhitelistedUser() {
+  modifier onlyAuthorizedUsers() {
     if (!ORACLE.isAuthorizedSender(msg.sender)) {
       revert UnauthorizedSender();
     }
