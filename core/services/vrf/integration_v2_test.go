@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	evmlogger "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -801,7 +802,18 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 
 func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 	t.Parallel()
+	testEoa(t, false)
+}
+
+func TestVRFV2Integration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
+	t.Parallel()
+	testEoa(t, true)
+}
+
+func testEoa(t *testing.T, batchingEnabled bool) {
 	gasLimit := int64(2_500_000)
+
+	finalityDepth := uint32(50)
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -813,7 +825,7 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].FinalityDepth = ptr[uint32](1)
+		c.EVM[0].FinalityDepth = ptr(finalityDepth)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -855,11 +867,11 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
 		uni,
-		false,
+		batchingEnabled,
 		gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
-	// Make the first randomness request.
+	// Make a randomness request with the EOA. This request is impossible to fulfill.
 	numWords := uint32(1)
 	minRequestConfirmations := uint16(2)
 	_, err = uni.rootContract.RequestRandomWords(consumer, keyHash, subID+1, minRequestConfirmations, uint32(200_000), numWords)
@@ -874,6 +886,44 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 		t.Log("runs", len(runs))
 		return len(runs) == 0
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+
+	// Create query to fetch the application's log broadcasts.
+	var broadcastsBeforeFinality []evmlogger.LogBroadcast
+	var broadcastsAfterFinality []evmlogger.LogBroadcast
+	query := `SELECT block_hash, consumed, log_index, job_id FROM log_broadcasts`
+	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
+
+	// Execute the query.
+	err = q.Select(&broadcastsBeforeFinality, query)
+	require.NoError(t, err)
+
+	// Ensure there is only one log broadcast (our EOA request), and that
+	// it hasn't been marked as consumed yet.
+	require.Equal(t, 1, len(broadcastsBeforeFinality))
+	require.Equal(t, false, broadcastsBeforeFinality[0].Consumed)
+
+	// Create new blocks until the finality depth has elapsed.
+	for i := 0; i < int(finalityDepth); i++ {
+		uni.backend.Commit()
+	}
+
+	// Ensure the request is still not fulfilled.
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 0
+	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+
+	// Execute the query for log broadcasts again after finality depth has elapsed.
+	err = q.Select(&broadcastsAfterFinality, query)
+	require.NoError(t, err)
+
+	// Ensure that there is still only one log broadcast (our EOA request), but that
+	// it has been marked as "consumed," such that it won't be retried.
+	require.Equal(t, 1, len(broadcastsAfterFinality))
+	require.Equal(t, true, broadcastsAfterFinality[0].Consumed)
 
 	t.Log("Done!")
 }

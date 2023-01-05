@@ -616,6 +616,17 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 					ll.Criticalw("Pipeline error", "err", p.err)
 				} else {
 					ll.Errorw("Pipeline error", "err", p.err)
+					// Ensure consumer is valid, otherwise drop the request.
+					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
+						lsn.l.Infow(
+							"Dropping request that was made by an invalid consumer.",
+							"consumerAddress", p.req.req.Sender,
+							"reqID", p.req.req.RequestId,
+							"blockNumber", p.req.req.Raw.BlockNumber,
+							"blockHash", p.req.req.Raw.BlockHash,
+						)
+						lsn.markLogAsConsumed(p.req.lb)
+					}
 				}
 				continue
 			}
@@ -654,6 +665,25 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	}
 
 	return processed
+}
+
+// For an errored pipeline run, wait until the finality depth of the chain to have elapsed,
+// then check if the failing request is being called by an invalid sender. Return false if this is the case,
+// otherwise true.
+func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Context, req pendingRequest) bool {
+	latestHead := lsn.getLatestHead()
+	if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
+		code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender, big.NewInt(int64(latestHead)))
+		if err != nil {
+			lsn.l.Warnw("Failed to fetch contract code", "err", err)
+			return true // error fetching code, give the benefit of doubt to the consumer
+		}
+		if len(code) == 0 {
+			return false // invalid consumer
+		}
+	}
+
+	return true // valid consumer, or finality depth has not elapsed
 }
 
 func (lsn *listenerV2) processRequestsPerSub(
@@ -758,26 +788,16 @@ func (lsn *listenerV2) processRequestsPerSub(
 				} else {
 					ll.Errorw("Pipeline error", "err", p.err)
 
-					// For an errored pipeline run, wait until the finality depth of the chain to be cleared,
-					// then check if the failing request is being called by an invalid sender. If this is the case,
-					// drop the request.
-					latestHead := lsn.getLatestHead()
-					if latestHead-p.req.req.Raw.BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
-						code, err := lsn.ethClient.CodeAt(ctx, p.req.req.Sender, big.NewInt(int64(latestHead)))
-						if err != nil {
-							lsn.l.Warnw("Failed to fetch contract code", "err", err)
-							continue
-						}
-						if len(code) == 0 {
-							lsn.l.Infow(
-								"Dropping request that was made by an invalid consumer.",
-								"consumerAddress", p.req.req.Sender,
-								"reqID", p.req.req.RequestId,
-								"blockNumber", p.req.req.Raw.BlockNumber,
-								"blockHash", p.req.req.Raw.BlockHash,
-							)
-							lsn.markLogAsConsumed(p.req.lb)
-						}
+					// Ensure consumer is valid, otherwise drop the request.
+					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
+						lsn.l.Infow(
+							"Dropping request that was made by an invalid consumer.",
+							"consumerAddress", p.req.req.Sender,
+							"reqID", p.req.req.RequestId,
+							"blockNumber", p.req.req.Raw.BlockNumber,
+							"blockHash", p.req.req.Raw.BlockHash,
+						)
+						lsn.markLogAsConsumed(p.req.lb)
 					}
 				}
 				continue
