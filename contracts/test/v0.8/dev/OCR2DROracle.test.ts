@@ -69,10 +69,10 @@ describe('OCR2DROracle', () => {
       0,
       ethers.BigNumber.from(5021530000000000),
     )
+    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
     registry = await ocr2drRegistryFactory
       .connect(roles.defaultAccount)
-      .deploy(linkToken.address, mockLinkEth.address)
-    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
+      .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     await oracle.setRegistry(registry.address)
     await oracle.deactivateAuthorizedReceiver()
     client = await clientTestHelperFactory
@@ -139,7 +139,14 @@ describe('OCR2DROracle', () => {
       const data = stringToHex('some data')
       await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, subscriptionId, data)
+        .withArgs(
+          anyValue,
+          await roles.defaultAccount.getAddress(),
+          await roles.defaultAccount.getAddress(),
+          subscriptionId,
+          await roles.defaultAccount.getAddress(),
+          data,
+        )
     })
 
     it('#sendRequest reverts for empty data', async () => {
@@ -170,7 +177,14 @@ describe('OCR2DROracle', () => {
       )
       await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, subscriptionId, data)
+        .withArgs(
+          anyValue,
+          await roles.defaultAccount.getAddress(),
+          await roles.defaultAccount.getAddress(),
+          subscriptionId,
+          await roles.defaultAccount.getAddress(),
+          data,
+        )
       const requestId2 = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
