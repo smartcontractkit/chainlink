@@ -13,6 +13,8 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
   // The subscriptionOwner is required for secrets ownership validation
   event OracleRequest(
     bytes32 indexed requestId,
+    address requestingContract,
+    address requestInitiator,
     uint64 subscriptionId,
     address subscriptionOwner,
     bytes data
@@ -125,6 +127,8 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
     emit OracleRequest(
       requestId,
       subscriptionId,
+      msg.sender,
+      tx.origin,
       s_registry.getSubscriptionOwner(subscriptionId),
       data
     );

@@ -12,6 +12,7 @@ import "../../ConfirmedOwner.sol";
 import "../AuthorizedReceiver.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
+import "./AuthorizedOriginReceiver.sol";
 
 contract OCR2DRRegistry is
   ConfirmedOwner,
@@ -22,6 +23,7 @@ contract OCR2DRRegistry is
 {
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
+  AuthorizedOriginReceiver private immutable ORACLE;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -35,6 +37,7 @@ contract OCR2DRRegistry is
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
+  error UnauthorizedSender();
   error PendingRequestExists();
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
@@ -143,9 +146,14 @@ contract OCR2DRRegistry is
     uint32 gasOverhead
   );
 
-  constructor(address link, address linkEthFeed) ConfirmedOwner(msg.sender) {
+  constructor(
+    address link,
+    address linkEthFeed,
+    address oracle
+  ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
+    ORACLE = AuthorizedOriginReceiver(oracle);
   }
 
   /**
@@ -598,7 +606,13 @@ contract OCR2DRRegistry is
    * @dev    amount,
    * @dev    abi.encode(subscriptionId));
    */
-  function createSubscription() external nonReentrant whenNotPaused returns (uint64) {
+  function createSubscription()
+    external
+    nonReentrant
+    whenNotPaused
+    onlyWhitelistedUser
+    returns (uint64)
+  {
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
@@ -653,7 +667,12 @@ contract OCR2DRRegistry is
    * @dev will revert if original owner of subscriptionId has
    * not requested that msg.sender become the new owner.
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external nonReentrant whenNotPaused {
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId)
+    external
+    nonReentrant
+    whenNotPaused
+    onlyWhitelistedUser
+  {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -808,6 +827,12 @@ contract OCR2DRRegistry is
         delete s_requestCommitments[requestId];
         emit RequestTimedOut(requestId);
       }
+    }
+  }
+
+  modifier onlyWhitelistedUser() {
+    if (!ORACLE.isAuthorizedSender(msg.sender)) {
+      revert UnauthorizedSender();
     }
   }
 
