@@ -185,10 +185,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 0, big.NewInt(5021530000000000))
 	require.NoError(t, err)
 
-	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr)
+	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
 	require.NoError(t, err)
 
-	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
+	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr, ocrContractAddress)
 	require.NoError(t, err)
 
 	_, err = ocrContract.SetRegistry(owner, registryAddress)
