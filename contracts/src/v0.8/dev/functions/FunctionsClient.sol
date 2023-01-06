@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./OCR2DR.sol";
-import "../interfaces/OCR2DRClientInterface.sol";
-import "../interfaces/OCR2DROracleInterface.sol";
+import "./Functions.sol";
+import "../interfaces/FunctionsClientInterface.sol";
+import "../interfaces/FunctionsOracleInterface.sol";
 
 /**
- * @title The OCR2DR client contract
- * @notice Contract writers can inherit this contract in order to create on-demand OCR requests
+ * @title The Chainlink Functions client contract
+ * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
-abstract contract OCR2DRClient is OCR2DRClientInterface {
-  OCR2DROracleInterface private s_oracle;
+abstract contract FunctionsClient is FunctionsClientInterface {
+  FunctionsOracleInterface private s_oracle;
   mapping(bytes32 => address) private s_pendingRequests;
 
   event RequestSent(bytes32 indexed id);
@@ -25,7 +25,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
-   * @inheritdoc OCR2DRClientInterface
+   * @inheritdoc FunctionsClientInterface
    */
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_oracle.getDONPublicKey();
@@ -33,34 +33,34 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
-   * @param req The initialized OCR2DR.Request
+   * @param req The initialized Functions.Request
    * @param subscriptionId The subscription ID
    * @param gasLimit gas limit for the fulfillment callback
    * @return billedCost Cost in Juels (1e18) of LINK
    */
   function estimateCost(
-    OCR2DR.Request memory req,
+    Functions.Request memory req,
     uint64 subscriptionId,
     uint32 gasLimit,
     uint256 gasPrice
   ) public view returns (uint96) {
-    return s_oracle.estimateCost(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit, gasPrice);
+    return s_oracle.estimateCost(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
   }
 
   /**
-   * @notice Sends OCR2DR request to the stored oracle address
-   * @param req The initialized OCR2DR.Request
+   * @notice Sends a Chainlink Functions request to the stored oracle address
+   * @param req The initialized Functions.Request
    * @param subscriptionId The subscription ID
    * @param gasLimit gas limit for the fulfillment callback
    * @return requestId The generated request ID
    */
   function sendRequest(
-    OCR2DR.Request memory req,
+    Functions.Request memory req,
     uint64 subscriptionId,
     uint32 gasLimit,
     uint256 gasPrice
   ) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, OCR2DR.encodeCBOR(req), gasLimit, gasPrice);
+    bytes32 requestId = s_oracle.sendRequest(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
     s_pendingRequests[requestId] = s_oracle.getRegistry();
     emit RequestSent(requestId);
     return requestId;
@@ -80,7 +80,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   ) internal virtual;
 
   /**
-   * @inheritdoc OCR2DRClientInterface
+   * @inheritdoc FunctionsClientInterface
    */
   function handleOracleFulfillment(
     bytes32 requestId,
@@ -91,11 +91,11 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
-   * @notice Sets the stored oracle address
-   * @param oracleAddress The address of OCR2DR oracle contract
+   * @notice Sets the stored Oracle address
+   * @param oracle The address of Functions Oracle contract
    */
-  function setOracle(address oracleAddress) internal {
-    s_oracle = OCR2DROracleInterface(oracleAddress);
+  function setOracle(address oracle) internal {
+    s_oracle = FunctionsOracleInterface(oracle);
   }
 
   /**
@@ -117,7 +117,7 @@ abstract contract OCR2DRClient is OCR2DRClientInterface {
   }
 
   /**
-   * @dev Reverts if the sender is not the oracle of the request.
+   * @dev Reverts if the sender is not the oracle that serviced the request.
    * Emits RequestFulfilled event.
    * @param requestId The request ID for fulfillment
    */

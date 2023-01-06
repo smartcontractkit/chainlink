@@ -3,9 +3,9 @@ pragma solidity ^0.8.6;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/OCR2DRRegistryInterface.sol";
-import "../interfaces/OCR2DROracleInterface.sol";
-import "../interfaces/OCR2DRClientInterface.sol";
+import "../interfaces/FunctionsBillingRegistryInterface.sol";
+import "../interfaces/FunctionsOracleInterface.sol";
+import "../interfaces/FunctionsClientInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 import "../interfaces/AuthorizedOriginReceiverInterface.sol";
@@ -14,10 +14,10 @@ import "../AuthorizedReceiver.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
 
-contract OCR2DRRegistry is
+contract FunctionsBillingRegistry is
   ConfirmedOwner,
   Pausable,
-  OCR2DRRegistryInterface,
+  FunctionsBillingRegistryInterface,
   ERC677ReceiverInterface,
   AuthorizedReceiver
 {
@@ -88,7 +88,7 @@ contract OCR2DRRegistry is
   error PaymentTooLarge();
   error Reentrant();
 
-  mapping(address => uint96) /* oracle */ /* LINK balance */
+  mapping(address => uint96) /* oracle node */ /* LINK balance */
     private s_withdrawableTokens;
   struct Commitment {
     uint64 subscriptionId;
@@ -156,7 +156,7 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @notice Sets the configuration of the OCR2DR registry
+   * @notice Sets the configuration of the Chainlink Functions billing registry
    * @param maxGasLimit global max for request gas limit
    * @param stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
@@ -188,7 +188,7 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @notice Gets the configuration of the OCR2DR registry
+   * @notice Gets the configuration of the Chainlink Functions billing registry
    * @return maxGasLimit global max for request gas limit
    * @return stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
    * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
@@ -259,25 +259,25 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function getRequestConfig() external view override returns (uint32, address[] memory) {
     return (s_config.maxGasLimit, getAuthorizedSenders());
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function getRequiredFee(
     bytes calldata, /* data */
-    OCR2DRRegistryInterface.RequestBilling memory /* billing */
+    FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
     return 0;
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function estimateCost(
     uint32 gasLimit,
@@ -301,7 +301,7 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function startBilling(bytes calldata data, RequestBilling calldata billing)
     external
@@ -329,7 +329,7 @@ contract OCR2DRRegistry is
     }
 
     // Check that subscription can afford the estimated cost
-    uint96 oracleFee = OCR2DROracleInterface(msg.sender).getRequiredFee(data, billing);
+    uint96 oracleFee = FunctionsOracleInterface(msg.sender).getRequiredFee(data, billing);
     uint96 registryFee = getRequiredFee(data, billing);
     uint96 estimatedCost = estimateCost(billing.gasLimit, billing.gasPrice, oracleFee, registryFee);
     uint96 effectiveBalance = s_subscriptions[billing.subscriptionId].balance -
@@ -409,7 +409,7 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @inheritdoc OCR2DRRegistryInterface
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function fulfillAndBill(
     bytes32 requestId,
@@ -428,7 +428,7 @@ contract OCR2DRRegistry is
     delete s_requestCommitments[requestId];
 
     bytes memory callback = abi.encodeWithSelector(
-      OCR2DRClientInterface.handleOracleFulfillment.selector,
+      FunctionsClientInterface.handleOracleFulfillment.selector,
       requestId,
       response,
       err
@@ -445,7 +445,7 @@ contract OCR2DRRegistry is
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-    // decrement the subscription balance and increment the oracles withdrawable balance.
+    // decrement the subscription balance and increment the oracle's withdrawable balance.
     ItemizedBill memory bill = calculatePaymentAmount(
       initialGas,
       s_config.gasAfterPaymentCalculation,
@@ -605,13 +605,7 @@ contract OCR2DRRegistry is
    * @dev    amount,
    * @dev    abi.encode(subscriptionId));
    */
-  function createSubscription()
-    external
-    nonReentrant
-    whenNotPaused
-    onlyAuthorizedUsers
-    returns (uint64)
-  {
+  function createSubscription() external nonReentrant whenNotPaused onlyAuthorizedUsers returns (uint64) {
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
@@ -631,12 +625,7 @@ contract OCR2DRRegistry is
    * @param subscriptionId - ID of the subscription
    * @return owner - owner of the subscription.
    */
-  function getSubscriptionOwner(uint64 subscriptionId)
-    external
-    view
-    override
-    returns (address owner)
-  {
+  function getSubscriptionOwner(uint64 subscriptionId) external view override returns (address owner) {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -686,7 +675,7 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @notice Remove a consumer from a OCR2DR subscription.
+   * @notice Remove a consumer from a Chainlink Functions subscription.
    * @param subscriptionId - ID of the subscription
    * @param consumer - Consumer to remove from the subscription
    */
@@ -717,7 +706,7 @@ contract OCR2DRRegistry is
   }
 
   /**
-   * @notice Add a consumer to a OCR2DR subscription.
+   * @notice Add a consumer to a Chainlink Functions subscription.
    * @param subscriptionId - ID of the subscription
    * @param consumer - New consumer which can use the subscription
    */
@@ -829,15 +818,12 @@ contract OCR2DRRegistry is
       }
     }
   }
-  
+
   /**
-   * @dev The allow list is kept on the DON contract. This modifier checks if a user is authorized from there.
+   * @dev The allow list is kept on the Oracle contract. This modifier checks if a user is authorized from there.
    */
   modifier onlyAuthorizedUsers() {
-    if (
-      ORACLE_WITH_ALLOWLIST.authorizedReceiverActive() &&
-      !ORACLE_WITH_ALLOWLIST.isAuthorizedSender(msg.sender)
-    ) {
+    if (ORACLE_WITH_ALLOWLIST.authorizedReceiverActive() && !ORACLE_WITH_ALLOWLIST.isAuthorizedSender(msg.sender)) {
       revert UnauthorizedSender();
     }
     _;
