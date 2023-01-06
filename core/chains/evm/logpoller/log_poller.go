@@ -354,6 +354,13 @@ func (lp *logPoller) run() {
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
 		case <-backupLogPollTick:
+			// Backup log poller:  this serves as an emergency backup to protect against eventual-consistency behavior
+			// of an rpc node (seen occasionally on optimism, but possibly could happen on other chains?).  If the first
+			// time we request a block, no logs or incomplete logs come back, this ensures that every log is eventually
+			// re-requested after it is finalized.  This doesn't add much overhead, because we can request all of them
+			// in one shot, since we don't need to worry about re-orgs after finality depth, and it runs 100x less
+			// frequently than the primary log poller.
+
 			// If pollPeriod is set to 1 block time, backup log poller will run once every 100 blocks
 			const backupPollerBlockDelay = 100
 
