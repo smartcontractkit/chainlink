@@ -159,11 +159,11 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
     bytes[] memory results;
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
-    if (requestIds.length != results.length && requestIds.length != errors.length) {
+    if (requestIds.length == 0 || requestIds.length != results.length || requestIds.length != errors.length) {
       revert ReportInvalid();
     }
 
-    uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
+    uint256 reportValidationGasShare = (initialGas - gasleft()) / requestIds.length;
 
     for (uint256 i = 0; i < requestIds.length; i++) {
       try
