@@ -187,10 +187,20 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 				commontypes.LogFields{"err": err, "observer": ob.Observer})
 			continue
 		}
+		seenReqIds := make(map[string]struct{})
 		for _, processedReq := range observationProto.ProcessedRequests {
 			id := formatRequestId(processedReq.RequestID)
+			if _, seen := seenReqIds[id]; seen {
+				r.logger.Error("directRequestReporting Report phase observation contains duplicate IDs!",
+					commontypes.LogFields{"requestID": id, "observer": ob.Observer})
+				continue
+			}
 			if val, ok := reqIdToObservationList[id]; ok {
 				reqIdToObservationList[id] = append(val, processedReq)
+				seenReqIds[id] = struct{}{}
+			} else {
+				r.logger.Error("directRequestReporting Report phase observation contains ID that's not the query!",
+					commontypes.LogFields{"requestID": id, "observer": ob.Observer})
 			}
 		}
 	}

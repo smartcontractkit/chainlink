@@ -1077,6 +1077,7 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 Enabled = false # Default
 ```
 Enabled enables P2P V2.
+Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
 
 ### AnnounceAddresses<a id='P2P-V2-AnnounceAddresses'></a>
 ```toml
