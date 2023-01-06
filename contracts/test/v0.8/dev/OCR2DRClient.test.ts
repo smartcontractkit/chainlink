@@ -24,7 +24,6 @@ function getEventArg(events: any, eventName: string, argIndex: number) {
 async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const receipt = await tx.wait()
   const data = receipt.logs?.[1].data
-  console.log({ data })
   return ethers.utils.defaultAbiCoder.decode(
     ['address', 'address', 'uint64', 'address', 'bytes'],
     data ?? '',
@@ -103,8 +102,6 @@ describe('OCR2DRClientTestHelper', () => {
     const receipt = await createSubTx.wait()
     subscriptionId = receipt.events[0].args['subscriptionId'].toNumber()
 
-    console.log({ subscriptionId })
-
     await registry
       .connect(roles.defaultAccount)
       .addConsumer(subscriptionId, client.address)
@@ -155,13 +152,7 @@ describe('OCR2DRClientTestHelper', () => {
       )
       const args = await parseOracleRequestEventArgs(tx)
       assert.equal(5, args.length)
-      console.log('here')
-      console.log(args)
-      console.log(typeof args[5])
-      console.log('here???')
       const decoded = await decodeDietCBOR(args[4])
-      console.log('####################### got to here2')
-      console.log({ decoded })
       assert.deepEqual(decoded, {
         language: 0,
         codeLocation: 0,
