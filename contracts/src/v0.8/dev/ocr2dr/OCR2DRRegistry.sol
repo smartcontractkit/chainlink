@@ -8,6 +8,7 @@ import "../interfaces/OCR2DROracleInterface.sol";
 import "../interfaces/OCR2DRClientInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../interfaces/AuthorizedOriginReceiverInterface.sol";
 import "../../ConfirmedOwner.sol";
 import "../AuthorizedReceiver.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
@@ -22,7 +23,7 @@ contract OCR2DRRegistry is
 {
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
-  AuthorizedReceiver private immutable ORACLE_WITH_ALLOWLIST;
+  AuthorizedOriginReceiverInterface private immutable ORACLE_WITH_ALLOWLIST;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -151,7 +152,7 @@ contract OCR2DRRegistry is
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    ORACLE_WITH_ALLOWLIST = AuthorizedReceiver(oracle);
+    ORACLE_WITH_ALLOWLIST = AuthorizedOriginReceiverInterface(oracle);
   }
 
   /**
@@ -833,7 +834,10 @@ contract OCR2DRRegistry is
    * @dev The allow list is kept on the DON contract. This modifier checks if a user is authorized from there.
    */
   modifier onlyAuthorizedUsers() {
-    if (!ORACLE_WITH_ALLOWLIST.isAuthorizedSender(msg.sender)) {
+    if (
+      ORACLE_WITH_ALLOWLIST.authorizedReceiverActive() &&
+      !ORACLE_WITH_ALLOWLIST.isAuthorizedSender(msg.sender)
+    ) {
       revert UnauthorizedSender();
     }
     _;
