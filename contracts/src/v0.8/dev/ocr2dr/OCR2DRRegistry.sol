@@ -22,7 +22,7 @@ contract OCR2DRRegistry is
 {
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
-  AuthorizedReceiver private immutable ORACLE;
+  AuthorizedReceiver private immutable ORACLE_WITH_ALLOWLIST;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -151,7 +151,7 @@ contract OCR2DRRegistry is
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    ORACLE = AuthorizedReceiver(oracle);
+    ORACLE_WITH_ALLOWLIST = AuthorizedReceiver(oracle);
   }
 
   /**
@@ -832,7 +832,7 @@ contract OCR2DRRegistry is
    * @dev The allow list is kept on the DON contract. This modifier checks if a user is authorized from there.
    */
   modifier onlyAuthorizedUsers() {
-    if (!ORACLE.isAuthorizedSender(msg.sender)) {
+    if (!ORACLE_WITH_ALLOWLIST.isAuthorizedSender(msg.sender)) {
       revert UnauthorizedSender();
     }
     _;
