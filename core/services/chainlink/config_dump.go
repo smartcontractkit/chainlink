@@ -692,8 +692,8 @@ func (c *Config) loadLegacyCoreEnv() error {
 		NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
 		PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 	}
-	if (ns == v1 || ns == v1v2) && c.P2P.V1 != (config.P2PV1{}) {
-		c.P2P.V1.Enabled = ptr(true)
+	if ns == v2 {
+		c.P2P.V1.Enabled = ptr(false)
 	}
 
 	c.P2P.V2 = config.P2PV2{
