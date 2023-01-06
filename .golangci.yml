@@ -1,5 +1,5 @@
 run:
-  timeout: 15m1s
+  timeout: 15m0s
 linters:
   enable:
     - exhaustive
