@@ -632,6 +632,23 @@ contract OCR2DRRegistry is
   }
 
   /**
+   * @notice Gets subscription owner.
+   * @param subscriptionId - ID of the subscription
+   * @return owner - owner of the subscription.
+   */
+  function getSubscriptionOwner(uint64 subscriptionId)
+    external
+    view
+    override
+    returns (address owner)
+  {
+    if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
+      revert InvalidSubscription();
+    }
+    return s_subscriptionConfigs[subscriptionId].owner;
+  }
+
+  /**
    * @notice Request subscription owner transfer.
    * @param subscriptionId - ID of the subscription
    * @dev will revert if original owner of subscriptionId has

@@ -24,7 +24,10 @@ function getEventArg(events: any, eventName: string, argIndex: number) {
 async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
   const receipt = await tx.wait()
   const data = receipt.logs?.[1].data
-  return ethers.utils.defaultAbiCoder.decode(['bytes32', 'bytes'], data ?? '')
+  return ethers.utils.defaultAbiCoder.decode(
+    ['address', 'address', 'uint64', 'address', 'bytes'],
+    data ?? '',
+  )
 }
 
 before(async () => {
@@ -131,7 +134,14 @@ describe('OCR2DRClientTestHelper', () => {
         .to.emit(client, 'RequestSent')
         .withArgs(anyValue)
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, subscriptionId, anyValue)
+        .withArgs(
+          anyValue,
+          client.address,
+          await roles.defaultAccount.getAddress(),
+          subscriptionId,
+          await roles.defaultAccount.getAddress(),
+          anyValue,
+        )
     })
 
     it('encodes user request to CBOR', async () => {
@@ -141,9 +151,9 @@ describe('OCR2DRClientTestHelper', () => {
         subscriptionId,
       )
       const args = await parseOracleRequestEventArgs(tx)
-      assert.equal(2, args.length)
+      assert.equal(5, args.length)
 
-      const decoded = await decodeDietCBOR(args[1])
+      const decoded = await decodeDietCBOR(args[4])
       assert.deepEqual(decoded, {
         language: 0,
         codeLocation: 0,

@@ -10,7 +10,13 @@ import "./AuthorizedOriginReceiver.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiver {
-  event OracleRequest(bytes32 indexed requestId, uint64 subscriptionId, bytes data);
+  event OracleRequest(
+    bytes32 indexed requestId,
+    address requestingContract,
+    address requestInitiator,
+    uint64 subscriptionId,
+    address subscriptionOwner,
+    bytes data);
   event OracleResponse(bytes32 indexed requestId);
   event UserCallbackError(bytes32 indexed requestId, string reason);
   event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
@@ -116,7 +122,14 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
       data,
       OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
     );
-    emit OracleRequest(requestId, subscriptionId, data);
+    emit OracleRequest(
+      requestId,
+      msg.sender,
+      tx.origin,
+      subscriptionId,
+      s_registry.getSubscriptionOwner(subscriptionId),
+      data
+    );
     return requestId;
   }
 

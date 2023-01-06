@@ -83,4 +83,11 @@ interface OCR2DRRegistryInterface {
     uint256 reportValidationGas,
     uint256 initialGas
   ) external returns (bool success);
+
+   /**
+   * @notice Gets subscription owner.
+   * @param subscriptionId - ID of the subscription
+   * @return owner - owner of the subscription.
+   */
+  function getSubscriptionOwner(uint64 subscriptionId) external view returns (address owner);
 }

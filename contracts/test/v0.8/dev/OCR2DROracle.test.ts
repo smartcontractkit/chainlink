@@ -139,7 +139,14 @@ describe('OCR2DROracle', () => {
       const data = stringToHex('some data')
       await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, subscriptionId, data)
+        .withArgs(
+          anyValue,
+          await roles.defaultAccount.getAddress(),
+          await roles.defaultAccount.getAddress(),
+          subscriptionId,
+          await roles.defaultAccount.getAddress(),
+          data,
+        )
     })
 
     it('#sendRequest reverts for empty data', async () => {
@@ -170,7 +177,14 @@ describe('OCR2DROracle', () => {
       )
       await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, subscriptionId, data)
+        .withArgs(
+          anyValue,
+          await roles.defaultAccount.getAddress(),
+          await roles.defaultAccount.getAddress(),
+          subscriptionId,
+          await roles.defaultAccount.getAddress(),
+          data,
+        )
       const requestId2 = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
