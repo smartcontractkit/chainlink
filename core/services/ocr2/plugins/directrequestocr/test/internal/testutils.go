@@ -340,7 +340,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		contractConfigTrackerPollInterval = "1s"
 		pluginType         = "directrequest"
 		observationSource  = """
-			decode_log         [type="ethabidecodelog" abi="  event OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
+			decode_log         [type="ethabidecodelog" abi="event OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
 			decode_cbor        [type="cborparse" data="$(decode_log.data)"]
 			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}" timeout="20s"]
 			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
