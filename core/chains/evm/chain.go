@@ -205,6 +205,10 @@ func (c *chain) Start(ctx context.Context) error {
 		if err := c.client.Dial(ctx); err != nil {
 			return errors.Wrap(err, "failed to dial ethclient")
 		}
+		// Services should be able to handle a non-functional eth client and
+		// not block start in this case, instead retrying in a background loop
+		// until it becomes available.
+		//
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
 		var ms services.MultiStart
