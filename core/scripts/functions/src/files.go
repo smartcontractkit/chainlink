@@ -10,7 +10,7 @@ const (
 	configFile            = "config.yaml"
 	templatesDir          = "templates"
 	artefactsDir          = "artefacts"
-	ocr2ConfigJson        = "OCR2DROracleConfig.json"
+	ocr2ConfigJson        = "FunctionsOCR2Config.json"
 	bootstrapSpecTemplate = "bootstrap.toml"
 	oracleSpecTemplate    = "oracle.toml"
 )
