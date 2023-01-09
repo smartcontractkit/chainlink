@@ -593,20 +593,23 @@ func TestGetReplayFromBlock(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		th.Client.Commit()
 	}
+
 	// Nothing in the DB yet, should use whatever we specify.
 	requested := int64(5)
 	fromBlock, err := th.LogPoller.getReplayFromBlock(testutils.Context(t), requested)
 	require.NoError(t, err)
 	assert.Equal(t, requested, fromBlock)
 
-	// Do a poll, then we should have up to block 10.
-	th.LogPoller.pollAndSaveLogs(testutils.Context(t), 1)
+	// Do a poll, then we should have up to block 11 (blocks 0 & 1 are contract deployments, 2-10 logs).
+	nextBlock := th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
+	require.Equal(t, int64(12), nextBlock)
+
 	// Commit a few more so chain is ahead.
 	for i := 0; i < 3; i++ {
 		th.Client.Commit()
 	}
 	// Should take min(latest, requested), in this case latest.
-	requested = int64(12)
+	requested = int64(15)
 	fromBlock, err = th.LogPoller.getReplayFromBlock(testutils.Context(t), requested)
 	require.NoError(t, err)
 	latest, err := th.LogPoller.LatestBlock()
