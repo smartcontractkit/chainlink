@@ -160,5 +160,5 @@ func (g *generateOCR2Config) Run(args []string) {
 	err = os.WriteFile(filepath, js, 0600)
 	helpers.PanicErr(err)
 
-	fmt.Println("OCR2 config has been saved to:", filepath)
+	fmt.Println("Functions OCR2 config has been saved to:", filepath)
 }
