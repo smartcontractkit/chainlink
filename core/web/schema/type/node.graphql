@@ -7,6 +7,7 @@ type Node {
     createdAt: Time!
     updatedAt: Time!
     state: String!
+    sendOnly: Boolean!
 }
 
 union NodePayload = Node | NotFoundError
