@@ -1,32 +1,32 @@
 pragma solidity ^0.8.0;
 
 import {BaseTest} from "../BaseTest.t.sol";
-import {OCR2DROracle} from "../../../../src/v0.8/dev/ocr2dr/OCR2DROracle.sol";
-import {OCR2DRRegistry} from "../../../../src/v0.8/dev/ocr2dr/OCR2DRRegistry.sol";
+import {FunctionsOracle} from "../../../../src/v0.8/dev/functions/FunctionsOracle.sol";
+import {FunctionsBillingRegistry} from "../../../../src/v0.8/dev/functions/FunctionsBillingRegistry.sol";
 
 // import {LinkToken} from "../../../../src/v0.4/LinkToken.sol";
 // import {MockV3Aggregator} from "../../../../src/v0.7/tests/MockV3Aggregator.sol";
 
-contract OCR2DROracleSetup is BaseTest {
+contract FunctionsOracleSetup is BaseTest {
   bytes constant DATA = abi.encode("bytes");
   address registryAddress = makeAddr("Registry");
 
-  OCR2DROracle s_oracle;
+  FunctionsOracle s_oracle;
 
   function setUp() public virtual override {
     BaseTest.setUp();
 
-    s_oracle = new OCR2DROracle();
+    s_oracle = new FunctionsOracle();
   }
 }
 
-contract OCR2DROracle_typeAndVersion is OCR2DROracleSetup {
+contract FunctionsOracle_typeAndVersion is FunctionsOracleSetup {
   function testTypeAndVersionSuccess() public {
-    assertEq(s_oracle.typeAndVersion(), "OCR2DROracle 0.0.0");
+    assertEq(s_oracle.typeAndVersion(), "FunctionsOracle 0.0.0");
   }
 }
 
-contract OCR2DROracle_setDONPublicKey is OCR2DROracleSetup {
+contract FunctionsOracle_setDONPublicKey is FunctionsOracleSetup {
   function testSetDONPublicKey_gas() public {
     s_oracle.setDONPublicKey(DATA);
   }
@@ -51,7 +51,7 @@ contract OCR2DROracle_setDONPublicKey is OCR2DROracleSetup {
   function testEmptyPublicKeyReverts() public {
     bytes memory donPublicKey;
 
-    vm.expectRevert(OCR2DROracle.EmptyPublicKey.selector);
+    vm.expectRevert(FunctionsOracle.EmptyPublicKey.selector);
     s_oracle.setDONPublicKey(donPublicKey);
   }
 
@@ -64,7 +64,7 @@ contract OCR2DROracle_setDONPublicKey is OCR2DROracleSetup {
   }
 }
 
-contract OCR2DROracle_setRegistry is OCR2DROracleSetup {
+contract FunctionsOracle_setRegistry is FunctionsOracleSetup {
   function testSetRegistry_gas() public {
     s_oracle.setRegistry(registryAddress);
   }
@@ -87,7 +87,7 @@ contract OCR2DROracle_setRegistry is OCR2DROracleSetup {
   function testEmptyPublicKeyReverts() public {
     address registryAddress;
 
-    vm.expectRevert(OCR2DROracle.EmptyBillingRegistry.selector);
+    vm.expectRevert(FunctionsOracle.EmptyBillingRegistry.selector);
     s_oracle.setRegistry(registryAddress);
   }
 
@@ -100,18 +100,18 @@ contract OCR2DROracle_setRegistry is OCR2DROracleSetup {
   }
 }
 
-contract OCR2DROracle_sendRequest is OCR2DROracleSetup {
-  OCR2DRRegistry s_registry;
+contract FunctionsOracle_sendRequest is FunctionsOracleSetup {
+  FunctionsBillingRegistry s_registry;
 
   //   LinkToken s_link;
   //   MockV3Aggregator s_linketh;
 
   function setUp() public virtual override {
-    OCR2DROracleSetup.setUp();
+    FunctionsOracleSetup.setUp();
 
     // s_link = new LinkToken();
     // s_linketh = new MockV3Aggregator(0, 5021530000000000);
-    s_registry = new OCR2DRRegistry(makeAddr("Link Token"), makeAddr("Link Eth"), address(s_oracle));
+    s_registry = new FunctionsBillingRegistry(makeAddr("Link Token"), makeAddr("Link Eth"), address(s_oracle));
     s_oracle.setRegistry(address(s_registry));
     s_oracle.deactivateAuthorizedReceiver();
   }
@@ -137,7 +137,7 @@ contract OCR2DROracle_sendRequest is OCR2DROracleSetup {
   function testEmptyRequestDataReverts() public {
     bytes memory emptyData;
 
-    vm.expectRevert(OCR2DROracle.EmptyRequestData.selector);
+    vm.expectRevert(FunctionsOracle.EmptyRequestData.selector);
     s_oracle.sendRequest(0, emptyData, 0, 0);
   }
 }

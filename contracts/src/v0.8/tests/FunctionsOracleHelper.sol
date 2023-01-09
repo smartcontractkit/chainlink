@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../dev/ocr2dr/OCR2DROracle.sol";
+import "../dev/functions/FunctionsOracle.sol";
 
-contract OCR2DROracleHelper is OCR2DROracle {
+contract FunctionsOracleHelper is FunctionsOracle {
   function callValidateReport(bytes calldata report) external pure returns (bool isValid) {
     bytes32 configDigest;
     uint40 epochAndRound;

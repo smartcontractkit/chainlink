@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../dev/ocr2dr/OCR2DR.sol";
+import "../dev/functions/Functions.sol";
 
-contract OCR2DRTestHelper {
-  using OCR2DR for OCR2DR.Request;
+contract FunctionsTestHelper {
+  using Functions for Functions.Request;
 
-  OCR2DR.Request private s_req;
+  Functions.Request private s_req;
 
   event RequestData(bytes data);
 
@@ -15,19 +15,19 @@ contract OCR2DRTestHelper {
   }
 
   function initializeRequestForInlineJavaScript(string memory sourceCode) public {
-    OCR2DR.Request memory r;
+    Functions.Request memory r;
     r.initializeRequestForInlineJavaScript(sourceCode);
     storeRequest(r);
   }
 
   function addSecrets(bytes memory secrets) public {
-    OCR2DR.Request memory r = s_req;
+    Functions.Request memory r = s_req;
     r.addInlineSecrets(secrets);
     storeRequest(r);
   }
 
   function addEmptyArgs() public pure {
-    OCR2DR.Request memory r;
+    Functions.Request memory r;
     string[] memory args;
     r.addArgs(args);
   }
@@ -36,12 +36,12 @@ contract OCR2DRTestHelper {
     string[] memory args = new string[](2);
     args[0] = arg1;
     args[1] = arg2;
-    OCR2DR.Request memory r = s_req;
+    Functions.Request memory r = s_req;
     r.addArgs(args);
     storeRequest(r);
   }
 
-  function storeRequest(OCR2DR.Request memory r) private {
+  function storeRequest(Functions.Request memory r) private {
     s_req.codeLocation = r.codeLocation;
     s_req.language = r.language;
     s_req.source = r.source;
