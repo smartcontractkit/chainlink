@@ -4,9 +4,9 @@ import { Contract, ContractFactory, providers } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 import { decodeDietCBOR, stringToBytes } from '../../test-helpers/helpers'
 
-let concreteOCR2DRClientFactory: ContractFactory
-let ocr2drOracleFactory: ContractFactory
-let ocr2drRegistryFactory: ContractFactory
+let concreteFunctionsClientFactory: ContractFactory
+let functionsOracleFactory: ContractFactory
+let functionsBillingRegistryFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 let mockAggregatorV3Factory: ContractFactory
 let roles: Roles
@@ -33,17 +33,17 @@ async function parseOracleRequestEventArgs(tx: providers.TransactionResponse) {
 before(async () => {
   roles = (await getUsers()).roles
 
-  concreteOCR2DRClientFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DRClientTestHelper.sol:OCR2DRClientTestHelper',
+  concreteFunctionsClientFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.defaultAccount,
   )
-  ocr2drOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DROracleHelper.sol:OCR2DROracleHelper',
+  functionsOracleFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
-  ocr2drRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DRRegistry.sol:OCR2DRRegistry',
+  functionsBillingRegistryFactory = await ethers.getContractFactory(
+    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
     roles.defaultAccount,
   )
 
@@ -58,7 +58,7 @@ before(async () => {
   )
 })
 
-describe('OCR2DRClientTestHelper', () => {
+describe('FunctionsClientTestHelper', () => {
   const donPublicKey =
     '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
   let subscriptionId: number
@@ -76,13 +76,13 @@ describe('OCR2DRClientTestHelper', () => {
       0,
       ethers.BigNumber.from(5021530000000000),
     )
-    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
-    registry = await ocr2drRegistryFactory
+    oracle = await functionsOracleFactory.connect(roles.defaultAccount).deploy()
+    registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     await oracle.setRegistry(registry.address)
     await oracle.deactivateAuthorizedReceiver()
-    client = await concreteOCR2DRClientFactory
+    client = await concreteFunctionsClientFactory
       .connect(roles.defaultAccount)
       .deploy(oracle.address)
     await registry.setAuthorizedSenders([oracle.address])

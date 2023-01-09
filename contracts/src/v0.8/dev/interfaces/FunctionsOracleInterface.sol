@@ -1,46 +1,46 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./OCR2DRRegistryInterface.sol";
+import "./FunctionsBillingRegistryInterface.sol";
 
 /**
- * @title OCR2DR oracle interface.
+ * @title Chainlink Functions oracle interface.
  */
-interface OCR2DROracleInterface {
+interface FunctionsOracleInterface {
   /**
    * @notice Gets the stored billing registry address
-   * @return registryAddress The address of OCR2DR billing registry contract
+   * @return registryAddress The address of Chainlink Functions billing registry contract
    */
   function getRegistry() external view returns (address);
 
   /**
    * @notice Sets the stored billing registry address
-   * @param registryAddress The address of OCR2DR billing registry contract
+   * @param registryAddress The new address of Chainlink Functions billing registry contract
    */
   function setRegistry(address registryAddress) external;
 
   /**
-   * @notice Returns DON secp256k1 public key used to encrypt secrets
-   * @dev All Oracles nodes have the corresponding private key
+   * @notice Returns the DON's secp256k1 public key that is used to encrypt secrets
+   * @dev All nodes on the DON have the corresponding private key
    * needed to decrypt the secrets encrypted with the public key
-   * @return publicKey DON's public key
+   * @return publicKey the DON's public key
    */
   function getDONPublicKey() external view returns (bytes memory);
 
   /**
-   * @notice Sets DON secp256k1 public key used to encrypt secrets
+   * @notice Sets DON's secp256k1 public key used to encrypt secrets
    * @dev Used to rotate the key
-   * @param donPublicKey New public key
+   * @param donPublicKey The new public key
    */
   function setDONPublicKey(bytes calldata donPublicKey) external;
 
   /**
    * @notice Determine the fee charged by the DON that will be split between signing Node Operators for servicing the request
-   * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getRequiredFee(bytes calldata data, OCR2DRRegistryInterface.RequestBilling calldata billing)
+  function getRequiredFee(bytes calldata data, FunctionsBillingRegistryInterface.RequestBilling calldata billing)
     external
     view
     returns (uint96);
@@ -49,7 +49,7 @@ interface OCR2DROracleInterface {
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
    * @param subscriptionId A unique subscription ID allocated by billing system,
    * a client can make requests from different contracts referencing the same subscription
-   * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param gasLimit Gas limit for the fulfillment callback
    * @return billedCost Cost in Juels (1e18) of LINK
    */
@@ -64,9 +64,9 @@ interface OCR2DROracleInterface {
    * @notice Sends a request (encoded as data) using the provided subscriptionId
    * @param subscriptionId A unique subscription ID allocated by billing system,
    * a client can make requests from different contracts referencing the same subscription
-   * @param data Encoded OCR2DR request data, use OCR2DRClient API to encode a request
+   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param gasLimit Gas limit for the fulfillment callback
-   * @return requestId A unique request identifier (unique per oracle)
+   * @return requestId A unique request identifier (unique per DON)
    */
   function sendRequest(
     uint64 subscriptionId,
