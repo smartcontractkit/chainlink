@@ -46,13 +46,17 @@ func (g *deployJobSpecs) Run(args []string) {
 		output.Reset()
 
 		tomlPath := filepath.Join(artefactsDir, node.url.Host+".toml")
+		tomlPath, err = filepath.Abs(tomlPath)
+		if err != nil {
+			helpers.PanicErr(err)
+		}
 		fmt.Println("Deploying jobspec:", tomlPath)
 		if _, err := os.Stat(tomlPath); err != nil {
 			helpers.PanicErr(errors.New("toml file does not exist"))
 		}
 
 		fileFs := flag.NewFlagSet("test", flag.ExitOnError)
-		fileFs.String("file", tomlPath, "")
+		fileFs.Parse([]string{tomlPath})
 		err = client.CreateJob(cli.NewContext(app, fileFs, nil))
 		helpers.PanicErr(err)
 		output.Reset()
