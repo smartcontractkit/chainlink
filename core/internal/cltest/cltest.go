@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"math/big"
@@ -14,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +38,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
@@ -1682,4 +1686,50 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 
 	err = tx.Commit()
 	require.NoError(t, err)
+}
+
+// FlagSetApplyFromAction applies the flags from action to the flagSet.
+// `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
+func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
+	cliApp := cmd.Client{}
+	app := cmd.NewApp(&cliApp)
+
+	foundName := parentCommand == ""
+	actionFuncName := getFuncName(action)
+
+	for _, command := range app.Commands {
+		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
+
+		if flags != nil {
+			for _, flag := range flags {
+				flag.Apply(flagSet)
+			}
+		}
+	}
+
+}
+
+func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, parent string, foundName bool) []cli.Flag {
+
+	if command.Action != nil {
+		if actionFuncName == getFuncName(command.Action) && foundName {
+			return command.Flags
+		}
+	}
+
+	for _, subcommand := range command.Subcommands {
+		if !foundName {
+			foundName = strings.ToLower(subcommand.Name) == strings.ToLower(parent)
+		}
+
+		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)
+		if found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func getFuncName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }

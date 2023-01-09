@@ -108,7 +108,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
     bytes calldata data,
     uint32 gasLimit,
     uint256 gasPrice
-  ) external override registryIsSet returns (bytes32) {
+  ) external override registryIsSet validateAuthorizedSender returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
