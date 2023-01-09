@@ -13,16 +13,16 @@ before(async () => {
 
   roles = users.roles
   oracleGeneratorFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DROracleFactory.sol:OCR2DROracleFactory',
+    'src/v0.8/dev/functions/FunctionsOracleFactory.sol:FunctionsOracleFactory',
     roles.defaultAccount,
   )
   oracleFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DROracle.sol:OCR2DROracle',
+    'src/v0.8/dev/functions/FunctionsOracle.sol:FunctionsOracle',
     roles.defaultAccount,
   )
 })
 
-describe('OCR2DROracleFactory', () => {
+describe('FunctionsOracleFactory', () => {
   let factory: Contract
   let oracle: Contract
   let receipt: ContractReceipt
@@ -40,7 +40,10 @@ describe('OCR2DROracleFactory', () => {
 
   describe('#typeAndVersion', () => {
     it('describes the authorized forwarder', async () => {
-      assert.equal(await factory.typeAndVersion(), 'OCR2DROracleFactory 0.0.0')
+      assert.equal(
+        await factory.typeAndVersion(),
+        'FunctionsOracleFactory 0.0.0',
+      )
     })
   })
 

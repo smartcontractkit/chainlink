@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 /**
- * @notice Modified AuthorizedReciever abstract for use on the OCR2DROracle contract to limit usage
+ * @notice Modified AuthorizedReciever abstract for use on the Functions Oracle contract to limit usage
  * @notice Uses tx.origin instead of msg.sender because the client contract sends messages to the Oracle contract
  */
 

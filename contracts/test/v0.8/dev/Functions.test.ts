@@ -5,26 +5,28 @@ import { Contract, ContractFactory, providers, Signer } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 import { makeDebug } from '../../test-helpers/debug'
 
-const debug = makeDebug('OCR2DRTestHelper')
-let concreteOCR2DRTestHelperFactory: ContractFactory
+const debug = makeDebug('FunctionsTestHelper')
+let concreteFunctionsTestHelperFactory: ContractFactory
 
 let roles: Roles
 
 before(async () => {
   roles = (await getUsers()).roles
-  concreteOCR2DRTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DRTestHelper.sol:OCR2DRTestHelper',
+  concreteFunctionsTestHelperFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/FunctionsTestHelper.sol:FunctionsTestHelper',
     roles.defaultAccount,
   )
 })
 
-describe('OCR2DRTestHelper', () => {
+describe('FunctionsTestHelper', () => {
   let ctr: Contract
   let defaultAccount: Signer
 
   beforeEach(async () => {
     defaultAccount = roles.defaultAccount
-    ctr = await concreteOCR2DRTestHelperFactory.connect(defaultAccount).deploy()
+    ctr = await concreteFunctionsTestHelperFactory
+      .connect(defaultAccount)
+      .deploy()
   })
 
   it('has a limited public interface [ @skip-coverage ]', () => {
