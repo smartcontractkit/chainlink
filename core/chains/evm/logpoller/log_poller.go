@@ -108,7 +108,6 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		orm:               orm,
 		lggr:              lggr,
 		replayStart:       make(chan ReplayRequest),
-		replayComplete:    make(chan error),
 		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
@@ -228,8 +227,10 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		return err
 	}
 	if fromBlock < 1 || fromBlock > latest.Number {
-		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
+		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
+	lp.replayComplete = make(chan error)
+
 	// Block until replay notification accepted or cancelled.
 	select {
 	case lp.replayStart <- ReplayRequest{fromBlock}:
@@ -300,6 +301,11 @@ func (lp *logPoller) run() {
 				lp.pollAndSaveLogs(lp.ctx, fromBlock)
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
+			}
+			select {
+			case lp.replayComplete <- err:
+				close(lp.replayComplete)
+			default:
 			}
 		case <-logPollTick:
 			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))

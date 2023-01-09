@@ -1,7 +1,6 @@
 package logpoller_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -125,9 +123,11 @@ func TestLogPoller_Integration(t *testing.T) {
 	// The poller starts on a new chain at latest-finality (5 in this case),
 	// replay to ensure we get all the logs.
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 1))
+	th.WaitForReplayComplete()
 
 	// We should immediately have all those Log1 logs.
 	logs, err := th.LogPoller.Logs(2, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+
 	require.NoError(t, err)
 	assert.Equal(t, 5, len(logs))
 	// Now let's update the filter and replay to get Log2 logs.
@@ -137,22 +137,21 @@ func TestLogPoller_Integration(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Replay an invalid block should error
-	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 0))
-	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 20))
+	err = th.LogPoller.Replay(testutils.Context(t), 0)
+	assert.EqualError(t, err, "Invalid replay block number 0, acceptable range [1, 7]")
+	require.NoError(t, th.WaitForReplayComplete())
+	err = th.LogPoller.Replay(testutils.Context(t), 20)
+	assert.EqualError(t, err, "Invalid replay block number 20, acceptable range [1, 7]")
+	require.NoError(t, th.WaitForReplayComplete())
 	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
-	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
+	err = th.LogPoller.Replay(testutils.Context(t), 4)
+	require.NoError(t, err)
+	require.NoError(t, th.WaitForReplayComplete())
 
 	// We should immediately see 4 logs2 logs.
 	logs, err = th.LogPoller.Logs(2, 7, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 4, len(logs))
-
-	// Cancelling a replay should return an error synchronously.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	assert.True(t, errors.Is(th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient))
-
-	require.NoError(t, th.LogPoller.Close())
 }
 
 // Simulate a badly behaving rpc server, where unfinalized blocks can return different logs

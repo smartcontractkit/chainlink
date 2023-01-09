@@ -587,7 +587,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.NotEmpty(t, blocks[1].BlockHash)
 }
 
-func TestGetReplayFromBlock(t *testing.T) {
+func TestLogPoller_GetReplayFromBlock(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 	// Commit a few blocks
 	for i := 0; i < 10; i++ {
@@ -621,6 +621,50 @@ func TestGetReplayFromBlock(t *testing.T) {
 	fromBlock, err = th.LogPoller.getReplayFromBlock(testutils.Context(t), requested)
 	require.NoError(t, err)
 	assert.Equal(t, requested, fromBlock)
+}
+
+func TestLogPoller_AsyncReplay(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+	// Commit a few blocks
+	for i := 0; i < 3; i++ {
+		th.Client.Commit()
+	}
+	// process logs up through latest
+	th.LogPoller.pollAndSaveLogs(testutils.Context(t), 1)
+	latest, err := th.LogPoller.LatestBlock()
+	require.NoError(t, err)
+	require.Equal(t, int64(4), latest)
+
+	th.LogPoller.ctx, th.LogPoller.cancel = context.WithCancel(testutils.Context(t))
+
+	// Replay() should return as soon as replay signal is received,
+	// so that replay can proceed asynchronously
+	go func() {
+		time.Sleep(100 * time.Microsecond)
+		<-th.LogPoller.replayStart
+	}()
+	err = th.LogPoller.Replay(testutils.Context(t), 2)
+	assert.NoError(t, err)
+
+	// Replay() should abort if cancelled before replayRequest signal is received
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	go func() {
+		time.Sleep(100 * time.Microsecond)
+		cancel()
+	}()
+
+	err = th.LogPoller.Replay(ctx, 2)
+	cancel()
+	assert.EqualError(t, err, ErrReplayAbortedByClient.Error())
+
+	// Replay() should gracefully abort if shutdown ( lp.Close() / lp.cancel() ) is
+	// is initiated before signal is received
+	go func() {
+		time.Sleep(100 * time.Microsecond)
+		th.LogPoller.cancel() // initiate shutdown
+	}()
+	err = th.LogPoller.Replay(testutils.Context(t), 2)
+	assert.EqualError(t, err, ErrReplayAbortedOnShutdown.Error())
 }
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {

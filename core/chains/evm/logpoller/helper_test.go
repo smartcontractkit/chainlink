@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
@@ -91,6 +92,22 @@ func (lp *logPoller) Restart(parentCtx context.Context) error {
 	lp.StartStopOnce = utils.StartStopOnce{}
 	lp.done = make(chan struct{})
 	return lp.Start(parentCtx)
+}
+
+func (th *TestHarness) WaitForReplayComplete() error {
+	return th.LogPoller.WaitForReplayComplete()
+}
+
+func (lp *logPoller) WaitForReplayComplete() error {
+	if lp.replayComplete == nil {
+		return errors.New("WaitForReplayComplete() called before Replay()")
+	}
+	select {
+	case err := <-lp.replayComplete:
+		return err
+	case <-lp.ctx.Done():
+		return errors.New("Logpoller received shutdown signal while waiting for replay to complete")
+	}
 }
 
 func (lp *logPoller) Filter() ethereum.FilterQuery {
