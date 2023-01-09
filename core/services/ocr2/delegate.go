@@ -8,19 +8,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -30,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
@@ -46,6 +44,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type Delegate struct {
@@ -470,6 +469,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
+		// plugin used
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")

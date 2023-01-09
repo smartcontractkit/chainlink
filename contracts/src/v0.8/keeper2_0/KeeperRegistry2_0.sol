@@ -388,9 +388,9 @@ contract KeeperRegistry2_0 is
   function getUpkeep(uint256 id) external view override returns (UpkeepInfo memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
     upkeepInfo = UpkeepInfo({
-      target: reg.target,
+      target: reg.target, // need this
       executeGas: reg.executeGas,
-      checkData: s_checkData[id],
+      checkData: s_checkData[id], // need this
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,

@@ -62,6 +62,20 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
+    //    check for eip-3668
+    //    error OffchainLookup(address sender, string[] urls, bytes callData, bytes4 callbackFunction, bytes extraData);
+    //
+    //    try upkeep.target.call{gas: s_storage.checkGasLimit}(callData) returns (bool success, bytes memory result) {
+    //        //put the good stuff in here
+    //    } catch (bool success, bytes memory result) {
+    //        bytes4 expectedSelector = KeeperRegistryLogic2_0.OffchainLookup.selector;
+    //        bytes4 receivedSelector = bytes4(result);
+    //        if (expectedSelector == receivedSelector){
+    //                assembly {
+    //                  revert(add(32, result), mload(result))
+    //                }
+    //        }
+    //    }
     if (!success) return (false, bytes(""), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed, fastGasWei, linkNative);
 
     bytes memory userPerformData;

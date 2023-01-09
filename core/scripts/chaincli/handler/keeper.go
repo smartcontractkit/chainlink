@@ -343,13 +343,14 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 			)
-		} else if k.cfg.UpkeepEIP3668 {
+		} else if k.cfg.UpkeepEIP3668 && i == existingCount {
 			fmt.Println("EIP-3668")
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_eip3668_wrapper.DeployUpkeepEIP3668(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange),
 				big.NewInt(k.cfg.UpkeepInterval),
 			)
 		} else {
+			fmt.Println("counter")
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
 			)

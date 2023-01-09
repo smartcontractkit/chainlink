@@ -1,7 +1,5 @@
 pragma solidity 0.8.6;
 
-import "../interfaces/KeeperCompatibleInterface.sol";
-
 contract UpkeepEIP3668 {
   event PerformingUpkeep(
     address indexed from,
@@ -9,7 +7,7 @@ contract UpkeepEIP3668 {
     uint256 lastBlock,
     uint256 previousBlock,
     uint256 counter,
-    uint256 resp
+    bytes resp
   );
 
   error OffchainLookup(address sender, string[] urls, bytes callData, bytes4 callbackFunction, bytes extraData);
@@ -40,21 +38,15 @@ contract UpkeepEIP3668 {
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
-    if (eligible()) {
-      //revert OffchainLookup(address sender, string[] urls, bytes callData, bytes4 callbackFunction, bytes extraData)
-      revert OffchainLookup(address(this), urls, abi.encode(data), CALLBACK_SELECTOR, abi.encode(true));
-    }
-    return (false, data);
+    revert OffchainLookup(address(this), urls, abi.encode(data), CALLBACK_SELECTOR, abi.encode(true));
   }
 
   function performUpkeep(bytes calldata performData) external {
     if (initialBlock == 0) {
       initialBlock = block.number;
     }
-    uint256 resp = abi.decode(performData, (uint256));
-    lastBlock = block.number;
     counter = counter + 1;
-    emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter, resp);
+    emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter, performData);
     previousPerformBlock = lastBlock;
   }
 
