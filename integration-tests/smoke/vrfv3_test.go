@@ -4,21 +4,19 @@ import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"strings"
 	"testing"
-	"time"
-
-	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/rs/zerolog/log"
 )
@@ -260,7 +258,7 @@ func TestVRFv3Basic(t *testing.T) {
 	vrfConfigSetEvent, err := vrfBeacon.WaitForConfigSetEvent()
 	log.Info().Interface("Event: ", vrfConfigSetEvent).Msg("OCR2 VRF Config was set")
 
-	// TODO - currently
+	// TODO - currently there VRF OCR fails, need to investigate "latest vrf ConfigSet by sig with confs" error
 
 	receipt, err := consumer.RequestRandomness(
 		2,
@@ -322,9 +320,8 @@ FeeCapDefault = 100000000000`
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv3-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		//KeepConnection:    true,
-		//RemoveOnInterrupt: true,
-		TTL: 30 * time.Minute,
+		//todo - delete when finished with experiments
+		//TTL: 30 * time.Minute,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
