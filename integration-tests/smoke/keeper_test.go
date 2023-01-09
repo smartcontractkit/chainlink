@@ -1126,7 +1126,8 @@ func setupKeeperTest(
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
-	if testEnvironment.WillUseRemoteRunner() {
+	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
+	if onlyStartRunner {
 		t.Cleanup(func() {
 			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
 			require.NoError(t, err, "Error tearing down environment")

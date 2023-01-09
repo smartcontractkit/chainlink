@@ -25,10 +25,6 @@ func TestCronBasic(t *testing.T) {
 	t.Parallel()
 	testEnvironment := setupCronTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
-			require.NoError(t, err, "Error tearing down environment")
-		})
 		return
 	}
 
@@ -94,5 +90,11 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
+	if testEnvironment.WillUseRemoteRunner() {
+		t.Cleanup(func() {
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
+			require.NoError(t, err, "Error tearing down environment")
+		})
+	}
 	return testEnvironment
 }
