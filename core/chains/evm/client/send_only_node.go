@@ -112,6 +112,7 @@ func (s *sendOnlyNode) start(startCtx context.Context) {
 		promEVMPoolRPCNodeTransitionsToUnusable.WithLabelValues(s.chainID.String(), s.name).Inc()
 		s.log.Errorw("Dial failed: EVM SendOnly Node is unusable", "err", err)
 		s.setState(NodeStateUnusable)
+		return
 	}
 	s.dialed = true
 	geth := ethclient.NewClient(rpc)
