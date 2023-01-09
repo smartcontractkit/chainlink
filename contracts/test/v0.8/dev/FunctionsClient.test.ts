@@ -5,8 +5,8 @@ import { Roles, getUsers } from '../../test-helpers/setup'
 import { decodeDietCBOR, stringToBytes } from '../../test-helpers/helpers'
 
 let concreteFunctionsClientFactory: ContractFactory
-let FunctionsOracleFactory: ContractFactory
-let functionsRegistryFactory: ContractFactory
+let functionsOracleFactory: ContractFactory
+let functionsBillingRegistryFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 let mockAggregatorV3Factory: ContractFactory
 let roles: Roles
@@ -37,12 +37,12 @@ before(async () => {
     'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.defaultAccount,
   )
-  FunctionsOracleFactory = await ethers.getContractFactory(
+  functionsOracleFactory = await ethers.getContractFactory(
     'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
-  functionsRegistryFactory = await ethers.getContractFactory(
+  functionsBillingRegistryFactory = await ethers.getContractFactory(
     'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
     roles.defaultAccount,
   )
@@ -76,8 +76,8 @@ describe('FunctionsClientTestHelper', () => {
       0,
       ethers.BigNumber.from(5021530000000000),
     )
-    oracle = await FunctionsOracleFactory.connect(roles.defaultAccount).deploy()
-    registry = await functionsRegistryFactory
+    oracle = await functionsOracleFactory.connect(roles.defaultAccount).deploy()
+    registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     await oracle.setRegistry(registry.address)

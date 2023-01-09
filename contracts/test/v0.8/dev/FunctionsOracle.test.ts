@@ -3,9 +3,9 @@ import { expect } from 'chai'
 import { Contract, ContractFactory } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 
-let FunctionsOracleFactory: ContractFactory
+let functionsOracleFactory: ContractFactory
 let clientTestHelperFactory: ContractFactory
-let functionsRegistryFactory: ContractFactory
+let functionsBillingRegistryFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 let mockAggregatorV3Factory: ContractFactory
 let roles: Roles
@@ -27,7 +27,7 @@ const encodeReport = (requestId: string, result: string, err: string) => {
 before(async () => {
   roles = (await getUsers()).roles
 
-  FunctionsOracleFactory = await ethers.getContractFactory(
+  functionsOracleFactory = await ethers.getContractFactory(
     'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
@@ -37,7 +37,7 @@ before(async () => {
     roles.consumer,
   )
 
-  functionsRegistryFactory = await ethers.getContractFactory(
+  functionsBillingRegistryFactory = await ethers.getContractFactory(
     'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
     roles.defaultAccount,
   )
@@ -69,8 +69,8 @@ describe('FunctionsOracle', () => {
       0,
       ethers.BigNumber.from(5021530000000000),
     )
-    oracle = await FunctionsOracleFactory.connect(roles.defaultAccount).deploy()
-    registry = await functionsRegistryFactory
+    oracle = await functionsOracleFactory.connect(roles.defaultAccount).deploy()
+    registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     await oracle.setRegistry(registry.address)

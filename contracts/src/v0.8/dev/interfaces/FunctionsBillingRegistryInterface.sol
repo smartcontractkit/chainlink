@@ -70,7 +70,7 @@ interface FunctionsBillingRegistryInterface {
    * @param reportValidationGas the amount of gas used for the report validation. Cost is split by all fulfillments on the report.
    * @param initialGas the initial amount of gas that should be used as a baseline to charge the single fulfillment for execution cost
    * @return success whether the callback was successsful
-   * @dev Only callable by a node that have been approved on the Registry
+   * @dev Only callable by a node that has been approved on the Registry
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
   function fulfillAndBill(
@@ -89,7 +89,5 @@ interface FunctionsBillingRegistryInterface {
    * @param subscriptionId - ID of the subscription
    * @return owner - owner of the subscription.
    */
-  function getSubscriptionOwner(
-    uint64 subscriptionId
-  ) external view returns (address owner);
+  function getSubscriptionOwner(uint64 subscriptionId) external view returns (address owner);
 }

@@ -5,7 +5,7 @@ import {CBORChainlink} from "../../vendor/CBORChainlink.sol";
 import {BufferChainlink} from "../../vendor/BufferChainlink.sol";
 
 /**
- * @title Library for Chainlin Functions
+ * @title Library for Chainlink Functions
  */
 library Functions {
   uint256 internal constant DEFAULT_BUFFER_SIZE = 256;

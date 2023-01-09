@@ -5,9 +5,9 @@ import { Roles, getUsers } from '../../test-helpers/setup'
 import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/fork/random'
 import { stringToBytes } from '../../test-helpers/helpers'
 
-let FunctionsOracleFactory: ContractFactory
+let functionsOracleFactory: ContractFactory
 let clientTestHelperFactory: ContractFactory
-let functionsRegistryFactory: ContractFactory
+let functionsBillingRegistryFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 let mockAggregatorV3Factory: ContractFactory
 let roles: Roles
@@ -53,7 +53,7 @@ const config: RegistryConfig = {
 before(async () => {
   roles = (await getUsers()).roles
 
-  FunctionsOracleFactory = await ethers.getContractFactory(
+  functionsOracleFactory = await ethers.getContractFactory(
     'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
@@ -63,7 +63,7 @@ before(async () => {
     roles.consumer,
   )
 
-  functionsRegistryFactory = await ethers.getContractFactory(
+  functionsBillingRegistryFactory = await ethers.getContractFactory(
     'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
     roles.consumer,
   )
@@ -98,8 +98,8 @@ describe('FunctionsRegistry', () => {
     // Deploy
     linkToken = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth)
-    oracle = await FunctionsOracleFactory.connect(roles.defaultAccount).deploy()
-    registry = await functionsRegistryFactory
+    oracle = await functionsOracleFactory.connect(roles.defaultAccount).deploy()
+    registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     client = await clientTestHelperFactory
@@ -125,7 +125,7 @@ describe('FunctionsRegistry', () => {
   // describe('General', () => {
   //   it('#typeAndVersion', async () => {
   //     expect(await registry.callStatic.typeAndVersion()).to.be.equal(
-  //       'FunctionsRegistry 0.0.0',
+  //       'FunctionsBillingRegistry 0.0.0',
   //     )
   //   })
   // })
