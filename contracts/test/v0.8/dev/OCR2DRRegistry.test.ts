@@ -98,10 +98,10 @@ describe('OCR2DRRegistry', () => {
     // Deploy
     linkToken = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth)
+    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
     registry = await ocr2drRegistryFactory
       .connect(roles.defaultAccount)
-      .deploy(linkToken.address, mockLinkEth.address)
-    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
+      .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     client = await clientTestHelperFactory
       .connect(roles.consumer)
       .deploy(oracle.address)
