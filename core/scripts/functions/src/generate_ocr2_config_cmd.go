@@ -1,4 +1,4 @@
-package main
+package src
 
 import (
 	"crypto/ed25519"
@@ -7,13 +7,15 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
@@ -26,51 +28,38 @@ type orc2drOracleConfig struct {
 	OffchainConfig        string   `json:"offchainConfig"`
 }
 
-func addrArrayToPrettyString(addrs []string) string {
-	var quoted []string
-	for _, addr := range addrs {
-		quoted = append(quoted, fmt.Sprintf("\"%s\"", addr))
-	}
-	return "[" + strings.Join(quoted, ",") + "]"
+type generateOCR2Config struct {
 }
 
-func main() {
-	// NOTE: replace values below with actual keys fetched from DON members
-	offchainPubKeysHex := []string{
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01", // replace this
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01",
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01",
-		"7ec48c19696fa23bc5706921e21e1a51423f24ddd0a9d0cce127d5ca0f76cb01"}
+func NewGenerateOCR2ConfigCommand() *generateOCR2Config {
+	return &generateOCR2Config{}
+}
 
-	configPublicKeys := []string{
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a", // replace this
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a",
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a",
-		"1cde63dc6b44dc44562713ce9735e68ffc47884cca966be168e318a6267b2b3a"}
+func (g *generateOCR2Config) Name() string {
+	return "generate-ocr2config"
+}
 
-	onchainPubKeys := []common.Address{
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"), // replace this (on-chain pub key)
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"),
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b"),
-		common.HexToAddress("659da7715b116be562ae1418ca578e1e5280245b")}
-
-	peerIDs := []string{
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h", // replace this
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
-		"12D3KooWS3gci8DQvGTXQg2376YhFQsP4qb1oUbqQFyExvSJxU4h",
+func (g *generateOCR2Config) Run(args []string) {
+	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
+	nodesFile := fs.String("nodes", "", "a file containing nodes urls, logins and passwords")
+	chainID := fs.Int64("chainid", 80001, "chain id")
+	err := fs.Parse(args)
+	if err != nil || nodesFile == nil || *nodesFile == "" || chainID == nil {
+		fs.Usage()
+		os.Exit(1)
 	}
 
-	transmiterAddresses := []string{
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac", // replace this
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
-		"0xDA43dABB62fAE4906CCaeA0B9c47BA4D32b887Ac",
+	nodes := mustReadNodesList(*nodesFile)
+	nca := mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
+
+	onchainPubKeys := []common.Address{}
+	for _, n := range nca {
+		onchainPubKeys = append(onchainPubKeys, common.HexToAddress(n.ocr2OnchainPublicKey))
 	}
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
-	for _, pkHex := range offchainPubKeysHex {
-		pkBytes, err := hex.DecodeString(pkHex)
+	for _, n := range nca {
+		pkBytes, err := hex.DecodeString(n.ocr2OffchainPublicKey)
 		if err != nil {
 			panic(err)
 		}
@@ -85,11 +74,9 @@ func main() {
 	}
 
 	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
-	for _, pkHex := range configPublicKeys {
-		pkBytes, err := hex.DecodeString(pkHex)
-		if err != nil {
-			panic(err)
-		}
+	for _, n := range nca {
+		pkBytes, err := hex.DecodeString(n.ocr2ConfigPublicKey)
+		helpers.PanicErr(err)
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		n := copy(pkBytesFixed[:], pkBytes)
@@ -103,14 +90,14 @@ func main() {
 	S := []int{}
 	identities := []confighelper.OracleIdentityExtra{}
 
-	for index := range configPublicKeys {
+	for index := range nca {
 		S = append(S, 1)
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  onchainPubKeys[index][:],
 				OffchainPublicKey: offchainPubKeysBytes[index],
-				PeerID:            peerIDs[index],
-				TransmitAccount:   types.Account(transmiterAddresses[index]),
+				PeerID:            nca[index].p2pPeerID,
+				TransmitAccount:   types.Account(nca[index].ethAddress),
 			},
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
 		})
@@ -130,7 +117,7 @@ func main() {
 		panic(err)
 	}
 
-	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	signers, transmitters, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		30*time.Second, // deltaProgress
 		10*time.Second, // deltaResend
 		10*time.Second, // deltaRound
@@ -148,9 +135,7 @@ func main() {
 		1,             // f (max faulty oracles)
 		nil,           // empty onChain config
 	)
-	if err != nil {
-		panic(err)
-	}
+	helpers.PanicErr(err)
 
 	var signersStr []string
 	var transmittersStr []string
@@ -168,25 +153,12 @@ func main() {
 		OffchainConfig:        "0x" + hex.EncodeToString(offchainConfig),
 	}
 
-	file, err := json.MarshalIndent(config, "", " ")
+	js, err := json.MarshalIndent(config, "", " ")
+	helpers.PanicErr(err)
 
-	if err != nil {
-		panic(err)
-	}
+	filepath := filepath.Join(artefactsDir, ocr2ConfigJson)
+	err = os.WriteFile(filepath, js, 0600)
+	helpers.PanicErr(err)
 
-	filename := flag.String("o", "OCR2DROracleConfig.json", "output file")
-	flag.Parse()
-
-	err = os.WriteFile(*filename, file, 0600)
-
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("signers: ", addrArrayToPrettyString(signersStr))
-	fmt.Println("transmitters: ", addrArrayToPrettyString(transmittersStr))
-	fmt.Println("f:", f)
-	fmt.Println("onchainConfig:", onchainConfig)
-	fmt.Println("offchainConfigVersion:", offchainConfigVersion)
-	fmt.Printf("offchainConfig: 0x%s\n", hex.EncodeToString(offchainConfig))
+	fmt.Println("Functions OCR2 config has been saved to:", filepath)
 }
