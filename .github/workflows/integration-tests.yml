@@ -166,7 +166,7 @@ jobs:
           TEST_SUITE: smoke
           TEST_ARGS: -test.timeout 30m
           CHAINLINK_IMAGE: ${{ env.CL_ECR }}
-          CHAINLINK_VERSION: develop #latest.${{ github.sha }}
+          CHAINLINK_VERSION: latest.${{ github.sha }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod

@@ -977,24 +977,12 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	internalURLs := e.URLs[chainlinkChart.NodesInternalURLsKey]
 	for i, localURL := range localURLs {
 		internalHost := parseHostname(internalURLs[i])
-		attemptMax := 10
-		var err error
-		var c *Chainlink
-		for i := 0; i < attemptMax; i++ {
-			c, err = NewChainlink(&ChainlinkConfig{
-				URL:      localURL,
-				Email:    "notreal@fakeemail.ch",
-				Password: "fj293fbBnlQ!f9vNs",
-				RemoteIP: internalHost,
-			})
-			if err == nil {
-				break
-			}
-
-			// we have an error, show message and sleep before trying again
-			log.Debug().Err(err).Msg("error connecting to node")
-			time.Sleep(5 * time.Second)
-		}
+		c, err := NewChainlink(&ChainlinkConfig{
+			URL:      localURL,
+			Email:    "notreal@fakeemail.ch",
+			Password: "fj293fbBnlQ!f9vNs",
+			RemoteIP: internalHost,
+		})
 		if err != nil {
 			return nil, err
 		}

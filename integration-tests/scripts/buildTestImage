@@ -37,4 +37,6 @@ fi
 
 docker build -t "${TAG}" -f "./integration-tests/test.Dockerfile" --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg IMAGE_VERSION="${BASE_IMAGE_VERSION}" --build-arg SUITES="${SUITES}" .
 aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin "${AWS_BASE}"
-docker push "${TAG}"
+if "${4}" = "true"]; then
+    docker push "${TAG}"
+fi
