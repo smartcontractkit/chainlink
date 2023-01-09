@@ -111,7 +111,7 @@ contract OCR2DROracle_sendRequest is OCR2DROracleSetup {
 
     // s_link = new LinkToken();
     // s_linketh = new MockV3Aggregator(0, 5021530000000000);
-    s_registry = new OCR2DRRegistry(makeAddr("Link Token"), makeAddr("Link Eth"));
+    s_registry = new OCR2DRRegistry(makeAddr("Link Token"), makeAddr("Link Eth"), address(s_oracle));
     s_oracle.setRegistry(address(s_registry));
     s_oracle.deactivateAuthorizedReceiver();
   }
