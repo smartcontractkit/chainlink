@@ -1,35 +1,49 @@
-##
-# NOTE: any changes to the event triggers or the paths here should be reflected in:
-#       dependency-check-paths-ignore.yml
-##
-
 name: Dependency Vulnerability Check
 
 on:
   push:
-    paths:
-      - '**/go.mod'
-      - '**/go.sum'
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - '**/*go.sum'
+              - '**/*go.mod'
+              - '.github/workflows/dependency-check.yml'
   Go:
     runs-on: ubuntu-latest
+    needs: [changes]
     steps:
       - name: Check out code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
 
       - name: Set up Go
+        if: needs.changes.outputs.src == 'true'
         uses: actions/setup-go@v3
         with:
           go-version-file: 'go.mod'
         id: go
 
       - name: Write Go Modules list
+        if: needs.changes.outputs.src == 'true'
         run: go list -json -m all > go.list
 
       - name: Check vulnerabilities
+        if: needs.changes.outputs.src == 'true'
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
           nancyVersion: "v1.0.39"
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
