@@ -249,6 +249,9 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 	if eb.autoSyncNonce {
 		eb.logger.Debugw("Auto-syncing nonce", "address", k.Address)
 		eb.SyncNonce(ctx, k)
+		if ctx.Err() != nil {
+			return
+		}
 	} else {
 		eb.logger.Debugw("Skipping nonce auto-sync", "address", k.Address)
 	}
