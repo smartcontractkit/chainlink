@@ -1,5 +1,6 @@
 # Build image: Chainlink binary
 FROM golang:1.19-buster as buildgo
+RUN go version
 WORKDIR /chainlink
 
 COPY GNUmakefile VERSION ./
