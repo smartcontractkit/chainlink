@@ -30,7 +30,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	contractAddress := fs.String("contract", "", "oracle contract address")
 	err := fs.Parse(args)
-	if err != nil || nodesFile == nil || *nodesFile == "" || contractAddress == nil {
+	if err != nil || nodesFile == nil || *nodesFile == "" || contractAddress == nil || *contractAddress == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
