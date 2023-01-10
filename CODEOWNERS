@@ -37,7 +37,7 @@
 /core/web @jkongie
 
 # CLI
-/core/cmd @jkongie
+/core/cmd @jkongie @jmank88 @samsondav
 
 # UI
 /operator-ui/ @DeividasK @jkongie
@@ -58,7 +58,7 @@
 /core/internal @samsondav @jmank88
 
 # CI/CD
-/.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
+/.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
 /.github/workflows/integration-tests.yml @kalverra @tateexon @skudasov @anieeg
 /.github/workflows/integration-chaos-tests.yml @kalverra @tateexon @skudasov @anieeg
 /.github/workflows/performance-tests.yml @kalverra @tateexon @skudasov @anieeg

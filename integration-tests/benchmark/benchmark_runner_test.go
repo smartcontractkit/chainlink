@@ -151,6 +151,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 	networkTestName := strings.ReplaceAll(activeEVMNetwork.Name, " ", "")
 	testName := fmt.Sprintf("TestKeeperBenchmark%s%s", networkTestName, registryToTest)
+	log.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
 	benchmarkTestHelper(t, testName, testEnvironment, activeEVMNetwork, blockTime, numberOfNodes)
 }
 

@@ -52,6 +52,11 @@ func (r *NodeResolver) State() string {
 	return r.node.State
 }
 
+// SendOnly resolves the node's sendOnly bool
+func (r *NodeResolver) SendOnly() bool {
+	return r.node.SendOnly
+}
+
 // Chain resolves the node's chain object field.
 func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
 	chain, err := loader.GetChainByID(ctx, r.node.EVMChainID.String())

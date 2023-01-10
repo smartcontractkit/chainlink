@@ -101,6 +101,8 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 		offchainConfig,
 	)
 	require.NoError(t, err)
+	_, err = oracleContract.DeactivateAuthorizedReceiver(owner)
+	require.NoError(t, err)
 }
 
 func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
@@ -109,6 +111,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2*2_100 - 15_000 + 7_315)
 	var weiPerUnitLink = big.NewInt(5000000000000000)
 	var gasOverhead = uint32(500_000)
+	var requestTimeoutSeconds = uint32(300)
 
 	_, err := registryContract.SetConfig(
 		owner,
@@ -117,6 +120,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 		gasAfterPaymentCalculation,
 		weiPerUnitLink,
 		gasOverhead,
+		requestTimeoutSeconds,
 	)
 	require.NoError(t, err)
 
@@ -181,10 +185,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 0, big.NewInt(5021530000000000))
 	require.NoError(t, err)
 
-	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr)
+	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
 	require.NoError(t, err)
 
-	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
+	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr, ocrContractAddress)
 	require.NoError(t, err)
 
 	_, err = ocrContract.SetRegistry(owner, registryAddress)
@@ -336,7 +340,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		contractConfigTrackerPollInterval = "1s"
 		pluginType         = "directrequest"
 		observationSource  = """
-			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 requestId, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
+			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
 			decode_cbor        [type="cborparse" data="$(decode_log.data)"]
 			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}" timeout="20s"]
 			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]

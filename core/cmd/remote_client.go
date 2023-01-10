@@ -509,7 +509,7 @@ func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
-		return nil
+		return cli.errorOut(errors.New("invalid configuration"))
 	}
 	fmt.Println("Valid configuration.")
 	return nil
@@ -615,6 +615,26 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 	return nil
 }
 
+// parseErrorResponseBody parses response body from web API and returns a single string containing all errors
+func parseErrorResponseBody(responseBody []byte) (string, error) {
+	if responseBody == nil {
+		return "Empty error message", nil
+	}
+
+	var errors models.JSONAPIErrors
+	err := json.Unmarshal(responseBody, &errors)
+	if err != nil || len(errors.Errors) == 0 {
+		return "", err
+	}
+
+	var errorDetails strings.Builder
+	errorDetails.WriteString(errors.Errors[0].Detail)
+	for _, errorDetail := range errors.Errors[1:] {
+		fmt.Fprintf(&errorDetails, "\n%s", errorDetail.Detail)
+	}
+	return errorDetails.String(), nil
+}
+
 func parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -623,7 +643,12 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
 	} else if resp.StatusCode >= http.StatusBadRequest {
-		return b, errors.New("Error")
+		errorMessage, err := parseErrorResponseBody(b)
+
+		if err != nil {
+			return b, err
+		}
+		return b, errors.New(errorMessage)
 	}
 	return b, err
 }
