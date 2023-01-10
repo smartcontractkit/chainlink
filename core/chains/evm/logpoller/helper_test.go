@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
@@ -32,6 +34,7 @@ type TestHarness struct {
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
 	EmitterAddress1, EmitterAddress2 common.Address
+	EthDB                            ethdb.Database
 }
 
 func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64) TestHarness {
@@ -42,7 +45,8 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
 	o := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	ethDB := rawdb.NewMemoryDatabase()
+	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
@@ -67,13 +71,26 @@ func SetupTH(t *testing.T, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 		Emitter2:        emitter2,
 		EmitterAddress1: emitterAddress1,
 		EmitterAddress2: emitterAddress2,
+		EthDB:           ethDB,
 	}
+}
+
+// returns next unfinalized block number to be fetched and saved to db
+func (lp *logPoller) GetCurrentBlock() int64 {
+	lastProcessed, _ := lp.orm.SelectLatestBlock()
+	return lastProcessed.BlockNumber + 1
 }
 
 func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
 	lp.pollAndSaveLogs(ctx, currentBlockNumber)
-	lastProcessed, _ := lp.orm.SelectLatestBlock()
-	return lastProcessed.BlockNumber + 1
+	return lp.GetCurrentBlock()
+}
+
+// Similar to lp.Start(), but works after it's already been run once
+func (lp *logPoller) Restart(parentCtx context.Context) error {
+	lp.StartStopOnce = utils.StartStopOnce{}
+	lp.done = make(chan struct{})
+	return lp.Start(parentCtx)
 }
 
 func (lp *logPoller) Filter() ethereum.FilterQuery {

@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
-func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *drocr_mocks.ORM) {
+func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *drocr_mocks.ORM, *directrequestocr.ReportCodec) {
 	lggr := logger.TestLogger(t)
 	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := drocr_mocks.NewORM(t)
@@ -41,7 +41,9 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *droc
 		OffchainConfig: pluginConfigBytes,
 	})
 	require.NoError(t, err)
-	return plugin, orm
+	codec, err := directrequestocr.NewReportCodec()
+	require.NoError(t, err)
+	return plugin, orm, codec
 }
 
 func newRequestID() drocr_serv.RequestID {
@@ -56,34 +58,52 @@ func newRequestWithResult(result []byte) drocr_serv.Request {
 	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.RESULT_READY, Result: result}
 }
 
-func newRequestTransmitted() drocr_serv.Request {
-	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.TRANSMITTED}
+func newRequestFinalized() drocr_serv.Request {
+	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.FINALIZED}
 }
 
 func newRequestTimedOut() drocr_serv.Request {
 	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.TIMED_OUT}
 }
 
-func buildObservation(t *testing.T, requestId []byte, compResult []byte, compError []byte, observer uint8) types.AttributedObservation {
-	observationProto := directrequestocr.Observation{
-		ProcessedRequests: []*directrequestocr.ProcessedRequest{{
-			RequestID: requestId,
-			Result:    compResult,
-			Error:     compError,
-		}},
+func newRequestConfirmed() drocr_serv.Request {
+	return drocr_serv.Request{RequestID: newRequestID(), State: drocr_serv.CONFIRMED}
+}
+
+func newMarshalledQuery(t *testing.T, reqIDs ...drocr_serv.RequestID) []byte {
+	queryProto := directrequestocr.Query{}
+	queryProto.RequestIDs = [][]byte{}
+	for _, id := range reqIDs {
+		id := id
+		queryProto.RequestIDs = append(queryProto.RequestIDs, id[:])
 	}
+	marshalled, err := proto.Marshal(&queryProto)
+	require.NoError(t, err)
+	return marshalled
+}
+
+func newProcessedRequest(requestId drocr_serv.RequestID, compResult []byte, compError []byte) *directrequestocr.ProcessedRequest {
+	return &directrequestocr.ProcessedRequest{
+		RequestID: requestId[:],
+		Result:    compResult,
+		Error:     compError,
+	}
+}
+
+func newObservation(t *testing.T, observerId uint8, requests ...*directrequestocr.ProcessedRequest) types.AttributedObservation {
+	observationProto := directrequestocr.Observation{ProcessedRequests: requests}
 	raw, err := proto.Marshal(&observationProto)
 	require.NoError(t, err)
 	return types.AttributedObservation{
 		Observation: raw,
-		Observer:    commontypes.OracleID(observer),
+		Observer:    commontypes.OracleID(observerId),
 	}
 }
 
 func TestDRReporting_Query(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
-	plugin, orm := preparePlugin(t, batchSize)
+	plugin, orm, _ := preparePlugin(t, batchSize)
 	reqs := []drocr_serv.Request{newRequest(), newRequest()}
 	orm.On("FindOldestEntriesByState", drocr_serv.RESULT_READY, uint32(batchSize)).Return(reqs, nil)
 
@@ -100,7 +120,7 @@ func TestDRReporting_Query(t *testing.T) {
 
 func TestDRReporting_Observation(t *testing.T) {
 	t.Parallel()
-	plugin, orm := preparePlugin(t, 10)
+	plugin, orm, _ := preparePlugin(t, 10)
 
 	req1 := newRequestWithResult([]byte("abc"))
 	req2 := newRequest()
@@ -119,12 +139,8 @@ func TestDRReporting_Observation(t *testing.T) {
 	//   - one is still in progress
 	//   - one has timed out
 	//   - one doesn't exist
-	queryProto := directrequestocr.Query{}
-	queryProto.RequestIDs = [][]byte{req1.RequestID[:], req1.RequestID[:], req2.RequestID[:], req3.RequestID[:], req4.RequestID[:], nonexistentId[:], req4.RequestID[:]}
-	marshalled, err := proto.Marshal(&queryProto)
-	require.NoError(t, err)
-
-	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, marshalled)
+	query := newMarshalledQuery(t, req1.RequestID, req1.RequestID, req2.RequestID, req3.RequestID, req4.RequestID, nonexistentId, req4.RequestID)
+	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, query)
 	require.NoError(t, err)
 
 	observationProto := &directrequestocr.Observation{}
@@ -139,41 +155,51 @@ func TestDRReporting_Observation(t *testing.T) {
 
 func TestDRReporting_Report(t *testing.T) {
 	t.Parallel()
-	plugin, _ := preparePlugin(t, 10)
-	codec, err := directrequestocr.NewReportCodec()
-	require.NoError(t, err)
+	plugin, _, codec := preparePlugin(t, 10)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 
-	queryProto := directrequestocr.Query{}
-	queryProto.RequestIDs = [][]byte{reqId1[:], reqId2[:], reqId3[:]}
-	marshalledQuery, err := proto.Marshal(&queryProto)
-	require.NoError(t, err)
-
+	query := newMarshalledQuery(t, reqId1, reqId2, reqId3, reqId1, reqId2) // duplicates should be ignored
 	obs := []types.AttributedObservation{
-		buildObservation(t, reqId1[:], compResult, []byte{}, 1),
-		buildObservation(t, reqId1[:], compResult, []byte{}, 2),
+		newObservation(t, 1, newProcessedRequest(reqId1, compResult, []byte{})),
+		newObservation(t, 2, newProcessedRequest(reqId1, compResult, []byte{})),
 	}
 
 	// Two observations are not enough to produce a report
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, marshalledQuery, obs)
+	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
 	require.False(t, produced)
 	require.Nil(t, reportBytes)
 	require.NoError(t, err)
 
 	// Three observations with the same requestID should produce a report
-	obs = append(obs, buildObservation(t, reqId1[:], compResult, []byte{}, 3))
-	produced, reportBytes, err = plugin.Report(testutils.Context(t), types.ReportTimestamp{}, marshalledQuery, obs)
+	obs = append(obs, newObservation(t, 3, newProcessedRequest(reqId1, compResult, []byte{})))
+	produced, reportBytes, err = plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
 	decoded, err := codec.DecodeReport(reportBytes)
 	require.NoError(t, err)
-
 	require.Equal(t, 1, len(decoded))
 	require.Equal(t, reqId1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
+}
+
+func TestDRReporting_Report_IncorrectObservation(t *testing.T) {
+	t.Parallel()
+	plugin, _, _ := preparePlugin(t, 10)
+	reqId1 := newRequestID()
+	compResult := []byte("aaa")
+
+	query := newMarshalledQuery(t, reqId1)
+	req := newProcessedRequest(reqId1, compResult, []byte{})
+
+	// There are 4 observations but all are coming from the same node
+	obs := []types.AttributedObservation{newObservation(t, 1, req, req, req, req)}
+	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	require.False(t, produced)
+	require.Nil(t, reportBytes)
+	require.NoError(t, err)
 }
 
 func getReportBytes(t *testing.T, codec *directrequestocr.ReportCodec, reqs ...drocr_serv.Request) []byte {
@@ -187,43 +213,79 @@ func getReportBytes(t *testing.T, codec *directrequestocr.ReportCodec, reqs ...d
 	return reportBytes
 }
 
-func TestDRReporting_ShouldTransmitAcceptedReport(t *testing.T) {
+func TestDRReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
-	plugin, orm := preparePlugin(t, 10)
-	codec, err := directrequestocr.NewReportCodec()
-	require.NoError(t, err)
+	plugin, orm, codec := preparePlugin(t, 10)
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
 	req2 := newRequestWithResult([]byte("abc"))
-	req3 := newRequestTransmitted()
+	req3 := newRequestFinalized()
 	req4 := newRequestTimedOut()
 
 	orm.On("FindById", req1.RequestID).Return(nil, errors.New("nonexistent ID"))
 	orm.On("FindById", req2.RequestID).Return(&req2, nil)
-	orm.On("SetTransmitted", req2.RequestID, mock.Anything, mock.Anything).Return(nil)
+	orm.On("SetFinalized", req2.RequestID, mock.Anything, mock.Anything).Return(nil)
 	orm.On("FindById", req3.RequestID).Return(&req3, nil)
-	orm.On("SetTransmitted", req3.RequestID, mock.Anything, mock.Anything).Return(errors.New("same state"))
+	orm.On("SetFinalized", req3.RequestID, mock.Anything, mock.Anything).Return(errors.New("same state"))
 	orm.On("FindById", req4.RequestID).Return(&req4, nil)
-	orm.On("SetTransmitted", req4.RequestID, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
+	orm.On("SetFinalized", req4.RequestID, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
 
 	// Attempting to transmit 2 requests, out of which:
-	//   - one was already transmitted
+	//   - one was already accepted for transmission earlier
 	//   - one has timed out
-	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
+	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
 	require.NoError(t, err)
 	require.False(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one is ready
-	//   - one was already transmitted
-	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
+	//   - one was already accepted for transmission earlier
+	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
 	require.NoError(t, err)
 	require.True(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one doesn't exist
 	//   - one has timed out
-	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
+	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
+	require.NoError(t, err)
+	require.True(t, should)
+}
+
+func TestDRReporting_ShouldTransmitAcceptedReport(t *testing.T) {
+	t.Parallel()
+	plugin, orm, codec := preparePlugin(t, 10)
+
+	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
+	req2 := newRequestWithResult([]byte("abc"))
+	req3 := newRequestFinalized()
+	req4 := newRequestTimedOut()
+	req5 := newRequestConfirmed()
+
+	orm.On("FindById", req1.RequestID).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", req2.RequestID).Return(&req2, nil)
+	orm.On("FindById", req3.RequestID).Return(&req3, nil)
+	orm.On("FindById", req4.RequestID).Return(&req4, nil)
+	orm.On("FindById", req5.RequestID).Return(&req5, nil)
+
+	// Attempting to transmit 2 requests, out of which:
+	//   - one was already confirmed on chain
+	//   - one has timed out
+	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req5, req4))
+	require.NoError(t, err)
+	require.False(t, should)
+
+	// Attempting to transmit 2 requests, out of which:
+	//   - one is ready
+	//   - one in finalized
+	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
+	require.NoError(t, err)
+	require.True(t, should)
+
+	// Attempting to transmit 2 requests, out of which:
+	//   - one doesn't exist
+	//   - one is ready
+	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req2))
 	require.NoError(t, err)
 	require.True(t, should)
 }

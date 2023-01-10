@@ -188,14 +188,8 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
-		if b.config.EvmNonceAutoSync() {
-			syncer := NewNonceSyncer(b.db, b.logger, b.config, b.ethClient, b.keyStore)
-			if err = syncer.SyncAll(ctx, keyStates); err != nil {
-				return errors.Wrap(err, "Txm: failed to sync with on-chain nonce")
-			}
-		}
 		var ms services.MultiStart
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, b.config.EvmNonceAutoSync())
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err = ms.Start(ctx, eb); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
@@ -316,7 +310,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			close(r.done)
 		}
 
-		eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
+		eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory, false)
 		ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup

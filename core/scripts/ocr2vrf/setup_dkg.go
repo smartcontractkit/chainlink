@@ -32,9 +32,6 @@ func setupDKGNodes(e helpers.Environment) {
 		os.Exit(1)
 	}
 
-	// Set environment variables needed to set up DKG jobs.
-	configureEnvironmentVariables(false)
-
 	//Deploy DKG contract.
 	// uncomment for faster txs
 	// e.Owner.GasPrice = e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
@@ -70,8 +67,11 @@ func setupDKGNodes(e helpers.Environment) {
 		// Create context from flags.
 		context := cli.NewContext(app, flagSet, nil)
 
+		// Set environment variables needed to set up DKG jobs.
+		configureEnvironmentVariables(false, i, *databasePrefix, *databaseSuffixes)
+
 		// Reset DKG node database.
-		resetDatabase(client, context, i, *databasePrefix, *databaseSuffixes)
+		resetDatabase(client, context)
 
 		// Setup DKG node.
 		payload := setupOCR2VRFNodeFromClient(client, context, e)
