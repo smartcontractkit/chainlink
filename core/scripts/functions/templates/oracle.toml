@@ -12,9 +12,9 @@ relay = "evm"
 pluginType = "directrequest"
 transmitterID = "{{node_eth_address}}"
 observationSource = """
-    decode_log   [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, uint64 subscriptionId, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
+    decode_log   [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
     decode_cbor  [type="cborparse" data="$(decode_log.data)"]
-    run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"subscriptionId\\": $(decode_log.subscriptionId), \\"data\\": $(decode_cbor)}" timeout="20s"]
+    run_computation    [type="bridge" name="ea_bridge" requestData="{\\"requestId\\": $(jobRun.meta.oracleRequest.requestId), \\"jobName\\": $(jobSpec.name), \\"subscriptionOwner\\": $(decode_log.subscriptionOwner), \\"subscriptionId\\": $(decode_log.subscriptionId), \\"data\\": $(decode_cbor)}" timeout="20s"]
     parse_result [type=jsonparse data="$(run_computation)" path="data,result"]
     parse_error  [type=jsonparse data="$(run_computation)" path="data,error"]
 
