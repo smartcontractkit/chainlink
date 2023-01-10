@@ -104,6 +104,9 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 }
 
 // Dial starts every node in the pool
+//
+// Nodes handle their own redialing and runloops, so this function does not
+// return any error if the nodes aren't available
 func (p *Pool) Dial(ctx context.Context) error {
 	return p.StartOnce("Pool", func() (merr error) {
 		if len(p.nodes) == 0 {
