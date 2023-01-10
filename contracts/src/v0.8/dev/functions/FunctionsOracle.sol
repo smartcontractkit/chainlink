@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../interfaces/OCR2DROracleInterface.sol";
+import "../interfaces/FunctionsOracleInterface.sol";
 import "../ocr2/OCR2Base.sol";
 import "./AuthorizedOriginReceiver.sol";
 
 /**
- * @title OCR2DR oracle contract
+ * @title Functions Oracle contract
+ * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiver {
-  event OracleRequest(bytes32 indexed requestId, uint64 subscriptionId, bytes data);
+contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOriginReceiver {
+  event OracleRequest(
+    bytes32 indexed requestId,
+    address requestingContract,
+    address requestInitiator,
+    uint64 subscriptionId,
+    address subscriptionOwner,
+    bytes data
+  );
   event OracleResponse(bytes32 indexed requestId);
   event UserCallbackError(bytes32 indexed requestId, string reason);
   event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
@@ -22,7 +30,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
   error InvalidRequestID();
 
   bytes private s_donPublicKey;
-  OCR2DRRegistryInterface private s_registry;
+  FunctionsBillingRegistryInterface private s_registry;
 
   constructor() OCR2Base(true) {}
 
@@ -31,35 +39,35 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
    * @return Type and version string
    */
   function typeAndVersion() external pure override returns (string memory) {
-    return "OCR2DROracle 0.0.0";
+    return "FunctionsOracle 0.0.0";
   }
 
   /**
-   * @inheritdoc OCR2DROracleInterface
+   * @inheritdoc FunctionsOracleInterface
    */
   function getRegistry() external view override returns (address) {
     return address(s_registry);
   }
 
   /**
-   * @inheritdoc OCR2DROracleInterface
+   * @inheritdoc FunctionsOracleInterface
    */
   function setRegistry(address registryAddress) external override onlyOwner {
     if (registryAddress == address(0)) {
       revert EmptyBillingRegistry();
     }
-    s_registry = OCR2DRRegistryInterface(registryAddress);
+    s_registry = FunctionsBillingRegistryInterface(registryAddress);
   }
 
   /**
-   * @inheritdoc OCR2DROracleInterface
+   * @inheritdoc FunctionsOracleInterface
    */
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_donPublicKey;
   }
 
   /**
-   * @inheritdoc OCR2DROracleInterface
+   * @inheritdoc FunctionsOracleInterface
    */
   function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
@@ -69,19 +77,19 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
   }
 
   /**
-   * @inheritdoc OCR2DROracleInterface
+   * @inheritdoc FunctionsOracleInterface
    */
   function getRequiredFee(
     bytes calldata, /* data */
-    OCR2DRRegistryInterface.RequestBilling memory /* billing */
+    FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
-    // NOTE: Optionally, compute additional fee split between oracles here
+    // NOTE: Optionally, compute additional fee split between nodes of the DON here
     // e.g. 0.1 LINK * s_transmitters.length
     return 0;
   }
 
   /**
-   * @inheritdoc OCR2DROracleInterface
+   * @inheritdoc FunctionsOracleInterface
    */
   function estimateCost(
     uint64 subscriptionId,
@@ -89,7 +97,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
     uint32 gasLimit,
     uint256 gasPrice
   ) external view override registryIsSet returns (uint96) {
-    OCR2DRRegistryInterface.RequestBilling memory billing = OCR2DRRegistryInterface.RequestBilling(
+    FunctionsBillingRegistryInterface.RequestBilling memory billing = FunctionsBillingRegistryInterface.RequestBilling(
       subscriptionId,
       msg.sender,
       gasLimit,
@@ -101,7 +109,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
   }
 
   /**
-   * @inheritdoc OCR2DROracleInterface
+   * @inheritdoc FunctionsOracleInterface
    */
   function sendRequest(
     uint64 subscriptionId,
@@ -114,9 +122,16 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
     }
     bytes32 requestId = s_registry.startBilling(
       data,
-      OCR2DRRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
+      FunctionsBillingRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
     );
-    emit OracleRequest(requestId, subscriptionId, data);
+    emit OracleRequest(
+      requestId,
+      msg.sender,
+      tx.origin,
+      subscriptionId,
+      s_registry.getSubscriptionOwner(subscriptionId),
+      data
+    );
     return requestId;
   }
 
@@ -144,11 +159,11 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
     bytes[] memory results;
     bytes[] memory errors;
     (requestIds, results, errors) = abi.decode(report, (bytes32[], bytes[], bytes[]));
-    if (requestIds.length != results.length && requestIds.length != errors.length) {
+    if (requestIds.length == 0 || requestIds.length != results.length || requestIds.length != errors.length) {
       revert ReportInvalid();
     }
 
-    uint256 reportValidationGasShare = (initialGas - gasleft()) / signerCount;
+    uint256 reportValidationGasShare = (initialGas - gasleft()) / requestIds.length;
 
     for (uint256 i = 0; i < requestIds.length; i++) {
       try
@@ -175,7 +190,7 @@ contract OCR2DROracle is OCR2DROracleInterface, OCR2Base, AuthorizedOriginReceiv
   }
 
   /**
-   * @dev Reverts if the the registry is not set
+   * @dev Reverts if the the billing registry is not set
    */
   modifier registryIsSet() {
     if (address(s_registry) == address(0)) {
