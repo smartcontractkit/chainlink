@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./OCR2DRClient.sol";
-import "./OCR2DR.sol";
+import "./FunctionsClient.sol";
+import "./Functions.sol";
 import "../../ConfirmedOwner.sol";
 
 /**
- * @title OCR2DR example client contract implementation
+ * @title Chainlink Functions example client contract implementation
  */
-contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
-  using OCR2DR for OCR2DR.Request;
+contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
+  using Functions for Functions.Request;
 
   bytes32 public lastRequestId;
   bytes public lastResponse;
@@ -17,7 +17,7 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
 
   error UnexpectedRequestID(bytes32 requestId);
 
-  constructor(address oracle) OCR2DRClient(oracle) ConfirmedOwner(msg.sender) {}
+  constructor(address oracle) FunctionsClient(oracle) ConfirmedOwner(msg.sender) {}
 
   /**
    * @notice Send a simple request
@@ -32,7 +32,7 @@ contract OCR2DRClientExample is OCR2DRClient, ConfirmedOwner {
     string[] calldata args,
     uint64 subscriptionId
   ) external onlyOwner {
-    OCR2DR.Request memory req;
+    Functions.Request memory req;
     req.initializeRequestForInlineJavaScript(source);
     if (secrets.length > 0) req.addInlineSecrets(secrets);
     if (args.length > 0) req.addArgs(args);

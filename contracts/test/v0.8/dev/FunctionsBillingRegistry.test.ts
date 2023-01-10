@@ -5,9 +5,9 @@ import { Roles, getUsers } from '../../test-helpers/setup'
 import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/fork/random'
 import { stringToBytes } from '../../test-helpers/helpers'
 
-let ocr2drOracleFactory: ContractFactory
+let functionsOracleFactory: ContractFactory
 let clientTestHelperFactory: ContractFactory
-let ocr2drRegistryFactory: ContractFactory
+let functionsBillingRegistryFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 let mockAggregatorV3Factory: ContractFactory
 let roles: Roles
@@ -53,18 +53,18 @@ const config: RegistryConfig = {
 before(async () => {
   roles = (await getUsers()).roles
 
-  ocr2drOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DROracleHelper.sol:OCR2DROracleHelper',
+  functionsOracleFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DRClientTestHelper.sol:OCR2DRClientTestHelper',
+    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
-  ocr2drRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DRRegistry.sol:OCR2DRRegistry',
+  functionsBillingRegistryFactory = await ethers.getContractFactory(
+    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
     roles.consumer,
   )
 
@@ -79,7 +79,7 @@ before(async () => {
   )
 })
 
-describe('OCR2DRRegistry', () => {
+describe('FunctionsRegistry', () => {
   let registry: Contract
   let oracle: Contract
   let client: Contract
@@ -98,10 +98,10 @@ describe('OCR2DRRegistry', () => {
     // Deploy
     linkToken = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth)
-    registry = await ocr2drRegistryFactory
+    oracle = await functionsOracleFactory.connect(roles.defaultAccount).deploy()
+    registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
-      .deploy(linkToken.address, mockLinkEth.address)
-    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
+      .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     client = await clientTestHelperFactory
       .connect(roles.consumer)
       .deploy(oracle.address)
@@ -125,7 +125,7 @@ describe('OCR2DRRegistry', () => {
   // describe('General', () => {
   //   it('#typeAndVersion', async () => {
   //     expect(await registry.callStatic.typeAndVersion()).to.be.equal(
-  //       'OCR2DRRegistry 0.0.0',
+  //       'FunctionsBillingRegistry 0.0.0',
   //     )
   //   })
   // })

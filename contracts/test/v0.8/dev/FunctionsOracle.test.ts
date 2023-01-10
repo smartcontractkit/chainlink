@@ -3,9 +3,9 @@ import { expect } from 'chai'
 import { Contract, ContractFactory } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 
-let ocr2drOracleFactory: ContractFactory
+let functionsOracleFactory: ContractFactory
 let clientTestHelperFactory: ContractFactory
-let ocr2drRegistryFactory: ContractFactory
+let functionsBillingRegistryFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 let mockAggregatorV3Factory: ContractFactory
 let roles: Roles
@@ -27,18 +27,18 @@ const encodeReport = (requestId: string, result: string, err: string) => {
 before(async () => {
   roles = (await getUsers()).roles
 
-  ocr2drOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DROracleHelper.sol:OCR2DROracleHelper',
+  functionsOracleFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/OCR2DRClientTestHelper.sol:OCR2DRClientTestHelper',
+    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
-  ocr2drRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ocr2dr/OCR2DRRegistry.sol:OCR2DRRegistry',
+  functionsBillingRegistryFactory = await ethers.getContractFactory(
+    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
     roles.defaultAccount,
   )
 
@@ -53,7 +53,7 @@ before(async () => {
   )
 })
 
-describe('OCR2DROracle', () => {
+describe('FunctionsOracle', () => {
   let subscriptionId: number
   const donPublicKey =
     '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
@@ -69,10 +69,10 @@ describe('OCR2DROracle', () => {
       0,
       ethers.BigNumber.from(5021530000000000),
     )
-    registry = await ocr2drRegistryFactory
+    oracle = await functionsOracleFactory.connect(roles.defaultAccount).deploy()
+    registry = await functionsBillingRegistryFactory
       .connect(roles.defaultAccount)
-      .deploy(linkToken.address, mockLinkEth.address)
-    oracle = await ocr2drOracleFactory.connect(roles.defaultAccount).deploy()
+      .deploy(linkToken.address, mockLinkEth.address, oracle.address)
     await oracle.setRegistry(registry.address)
     await oracle.deactivateAuthorizedReceiver()
     client = await clientTestHelperFactory
@@ -115,7 +115,7 @@ describe('OCR2DROracle', () => {
   describe('General', () => {
     it('#typeAndVersion', async () => {
       expect(await oracle.callStatic.typeAndVersion()).to.be.equal(
-        'OCR2DROracle 0.0.0',
+        'FunctionsOracle 0.0.0',
       )
     })
 
@@ -139,7 +139,14 @@ describe('OCR2DROracle', () => {
       const data = stringToHex('some data')
       await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, subscriptionId, data)
+        .withArgs(
+          anyValue,
+          await roles.defaultAccount.getAddress(),
+          await roles.defaultAccount.getAddress(),
+          subscriptionId,
+          await roles.defaultAccount.getAddress(),
+          data,
+        )
     })
 
     it('#sendRequest reverts for empty data', async () => {
@@ -170,7 +177,14 @@ describe('OCR2DROracle', () => {
       )
       await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
         .to.emit(oracle, 'OracleRequest')
-        .withArgs(anyValue, subscriptionId, data)
+        .withArgs(
+          anyValue,
+          await roles.defaultAccount.getAddress(),
+          await roles.defaultAccount.getAddress(),
+          subscriptionId,
+          await roles.defaultAccount.getAddress(),
+          data,
+        )
       const requestId2 = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,

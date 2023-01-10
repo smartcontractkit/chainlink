@@ -5,3 +5,4 @@ postgres 13.3
 ginkgo 2.5.1
 helm 3.9.4
 zig 0.10.0
+golangci-lint 1.50.1

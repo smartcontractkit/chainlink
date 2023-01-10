@@ -3,9 +3,10 @@
 package mocks
 
 import (
+	context "context"
 	big "math/big"
 
-	context "context"
+	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -63,6 +64,20 @@ func (_m *SendOnlyNode) Close() error {
 	return r0
 }
 
+// Name provides a mock function with given fields:
+func (_m *SendOnlyNode) Name() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // SendTransaction provides a mock function with given fields: ctx, tx
 func (_m *SendOnlyNode) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	ret := _m.Called(ctx, tx)
@@ -86,6 +101,20 @@ func (_m *SendOnlyNode) Start(_a0 context.Context) error {
 		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// State provides a mock function with given fields:
+func (_m *SendOnlyNode) State() client.NodeState {
+	ret := _m.Called()
+
+	var r0 client.NodeState
+	if rf, ok := ret.Get(0).(func() client.NodeState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(client.NodeState)
 	}
 
 	return r0
