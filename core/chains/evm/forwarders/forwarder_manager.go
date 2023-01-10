@@ -236,6 +236,7 @@ func (f *FwdMgr) runLoop() {
 
 			if err := f.logpoller.Ready(); err != nil {
 				f.logger.Warnw("Skipping log syncing", "err", err)
+				continue
 			}
 
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
