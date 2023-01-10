@@ -91,9 +91,10 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 	for _, p := range performed {
 		// broadcast log to subscribers
 		l := plugintypes.PerformLog{
-			Key:           pluginutils.BlockAndIdToKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
-			TransmitBlock: plugintypes.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
-			Confirmations: end - p.BlockNumber,
+			Key:             pluginutils.BlockAndIdToKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
+			TransmitBlock:   plugintypes.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
+			TransactionHash: p.TxHash.Hex(),
+			Confirmations:   end - p.BlockNumber,
 		}
 		vals = append(vals, l)
 	}

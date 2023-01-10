@@ -26,17 +26,18 @@ import (
 )
 
 var (
-	ErrLogReadFailure              = fmt.Errorf("failure reading logs")
-	ErrHeadNotAvailable            = fmt.Errorf("head not available")
-	ErrRegistryCallFailure         = fmt.Errorf("registry chain call failure")
-	ErrBlockKeyNotParsable         = fmt.Errorf("block identifier not parsable")
-	ErrUpkeepKeyNotParsable        = fmt.Errorf("upkeep key not parsable")
-	ErrInitializationFailure       = fmt.Errorf("failed to initialize registry")
-	ErrContextCancelled            = fmt.Errorf("context was cancelled")
-	ErrABINotParsable              = fmt.Errorf("error parsing abi")
-	ActiveUpkeepIDBatchSize  int64 = 1000
-	separator                      = "|"
-	reInitializationDelay          = 3 * time.Minute
+	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
+	ErrHeadNotAvailable              = fmt.Errorf("head not available")
+	ErrRegistryCallFailure           = fmt.Errorf("registry chain call failure")
+	ErrBlockKeyNotParsable           = fmt.Errorf("block identifier not parsable")
+	ErrUpkeepKeyNotParsable          = fmt.Errorf("upkeep key not parsable")
+	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
+	ErrContextCancelled              = fmt.Errorf("context was cancelled")
+	ErrABINotParsable                = fmt.Errorf("error parsing abi")
+	ActiveUpkeepIDBatchSize    int64 = 1000
+	FetchUpkeepConfigBatchSize int   = 10
+	separator                        = "|"
+	reInitializationDelay            = 5 * time.Minute
 )
 
 type LatestBlockGetter interface {
@@ -292,7 +293,7 @@ func (r *EvmRegistry) initialize() error {
 
 	var offset int
 	for offset < len(ids) {
-		batch := 100
+		batch := FetchUpkeepConfigBatchSize
 		if len(ids)-offset < batch {
 			batch = len(ids) - offset
 		}
