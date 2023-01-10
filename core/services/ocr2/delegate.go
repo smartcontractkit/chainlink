@@ -291,9 +291,15 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			spec.Relay,
 		)
 	case job.OCR2VRF:
+		chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
+		}
+		chainID := int64(chainIDInterface.(float64))
+
 		// Automatically provide the node's local sending keys to the job spec for OCR2VRF.
 		var sendingKeys []string
-		ethSendingKeys, err2 := d.ethKs.GetAll()
+		ethSendingKeys, err2 := d.ethKs.EnabledKeysForChain(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get eth sending keys")
 		}
@@ -302,16 +308,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		spec.RelayConfig["sendingKeys"] = sendingKeys
 
-		chainIDInterface, ok := jb.OCR2OracleSpec.RelayConfig["chainID"]
-		if !ok {
-			return nil, errors.New("chainID must be provided in relay config")
-		}
-		chainID := int64(chainIDInterface.(float64))
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
-
 		if jb.ForwardingAllowed != chain.Config().EvmUseForwarders() {
 			return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
 		}

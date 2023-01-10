@@ -3,6 +3,7 @@ package client_test
 import (
 	"fmt"
 	"math/big"
+	"net/url"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client/mocks"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -69,9 +71,22 @@ func TestStartSendOnlyNode(t *testing.T) {
 		defer s.Close()
 		err := s.Start(testutils.Context(t))
 		assert.NoError(t, err)
-		// getChainID() should return Error if ChainID = 0
-		// This should get converted into a warning from Start()
+		// If ChainID = 0, this should get converted into a warning from Start()
 		testutils.WaitForLogMessage(t, observedLogs, "ChainID verification skipped")
+	})
+
+	t.Run("becomes unusable (and remains undialed) if initial dial fails", func(t *testing.T) {
+		t.Parallel()
+		lggr, observedLogs := logger.TestLoggerObserved(t, zap.WarnLevel)
+		invalidURL := url.URL{Scheme: "some rubbish", Host: "not a valid host"}
+		s := evmclient.NewSendOnlyNode(lggr, invalidURL, t.Name(), testutils.FixtureChainID)
+
+		defer s.Close()
+		err := s.Start(testutils.Context(t))
+		require.NoError(t, err)
+
+		assert.False(t, client.IsDialed(s))
+		testutils.RequireLogMessage(t, observedLogs, "Dial failed: EVM SendOnly Node is unusable")
 	})
 }
 

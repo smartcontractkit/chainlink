@@ -1,0 +1,9 @@
+type = "bootstrap"
+schemaVersion = 1
+name = "Functions bootstrap {{timestamp}}"
+forwardingAllowed = false
+contractID = "{{oracle_contract_address}}"
+relay = "evm"
+
+[relayConfig]
+chainID = {{chain_id}}
