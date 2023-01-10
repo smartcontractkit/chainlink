@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-import "../interfaces/OperatorInterface.sol";
-import "../ConfirmedOwnerWithProposal.sol";
-import "../AuthorizedReceiver.sol";
-import "../vendor/Address.sol";
+import "./interfaces/OperatorInterface.sol";
+import "./ConfirmedOwnerWithProposal.sol";
+import "./AuthorizedReceiver.sol";
+import "./vendor/Address.sol";
 
 contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;

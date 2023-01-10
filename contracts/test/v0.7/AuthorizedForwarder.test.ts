@@ -1,9 +1,9 @@
 import { ethers } from 'hardhat'
-import { publicAbi } from '../../test-helpers/helpers'
+import { publicAbi } from '../test-helpers/helpers'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, ContractReceipt } from 'ethers'
-import { getUsers, Roles } from '../../test-helpers/setup'
-import { evmRevert } from '../../test-helpers/matchers'
+import { getUsers, Roles } from '../test-helpers/setup'
+import { evmRevert } from '../test-helpers/matchers'
 
 let getterSetterFactory: ContractFactory
 let forwarderFactory: ContractFactory
