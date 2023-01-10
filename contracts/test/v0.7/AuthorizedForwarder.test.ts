@@ -1,12 +1,13 @@
 import { ethers } from 'hardhat'
-import { publicAbi } from '../test-helpers/helpers'
+import { publicAbi } from '../../test-helpers/helpers'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, ContractReceipt } from 'ethers'
-import { getUsers, Roles } from '../test-helpers/setup'
-import { evmRevert } from '../test-helpers/matchers'
+import { getUsers, Roles } from '../../test-helpers/setup'
+import { evmRevert } from '../../test-helpers/matchers'
 
 let getterSetterFactory: ContractFactory
 let forwarderFactory: ContractFactory
+let brokenFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 
 let roles: Roles
@@ -20,8 +21,12 @@ before(async () => {
     'src/v0.4/tests/GetterSetter.sol:GetterSetter',
     roles.defaultAccount,
   )
+  brokenFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/Broken.sol:Broken',
+    roles.defaultAccount,
+  )
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.7/AuthorizedForwarder.sol:AuthorizedForwarder',
+    'src/v0.7/dev/AuthorizedForwarder.sol:AuthorizedForwarder',
     roles.defaultAccount,
   )
   linkTokenFactory = await ethers.getContractFactory(
@@ -75,6 +80,17 @@ describe('AuthorizedForwarder', () => {
   describe('deployment', () => {
     it('sets the correct link token', async () => {
       assert.equal(await forwarder.getChainlinkToken(), link.address)
+    })
+
+    it('reverts on zeroAddress value for link token', async () => {
+      await evmRevert(
+        forwarderFactory.connect(roles.defaultAccount).deploy(
+          zeroAddress, // Link Address
+          await roles.defaultAccount.getAddress(),
+          zeroAddress,
+          '0x',
+        ),
+      )
     })
 
     it('sets no authorized senders', async () => {
@@ -190,6 +206,49 @@ describe('AuthorizedForwarder', () => {
         await forwarder
           .connect(roles.defaultAccount)
           .setAuthorizedSenders([await roles.defaultAccount.getAddress()])
+      })
+
+      describe('when destination call reverts', () => {
+        let brokenMock: Contract
+        let brokenPayload: string
+        let brokenMsgPayload: string
+
+        beforeEach(async () => {
+          brokenMock = await brokenFactory
+            .connect(roles.defaultAccount)
+            .deploy()
+          brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertWithMessage'),
+            ['Failure message'],
+          )
+
+          brokenPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertSilently'),
+            [],
+          )
+        })
+
+        describe('when reverts with message', () => {
+          it('return revert message', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .forward(brokenMock.address, brokenMsgPayload),
+              "reverted with reason string 'Failure message'",
+            )
+          })
+        })
+
+        describe('when reverts without message', () => {
+          it('return silent failure message', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .forward(brokenMock.address, brokenPayload),
+              'Forwarded call reverted without reason',
+            )
+          })
+        })
       })
 
       describe('when sending to a non-contract address', () => {
