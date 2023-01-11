@@ -3,8 +3,8 @@ name: Integration Tests Publish
 
 on:
   push:
-    # branches:
-    #   - develop
+    branches:
+      - develop
 
 env:
   ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:develop

@@ -1114,9 +1114,8 @@ func setupKeeperTest(
 	testEnvironment := environment.New(
 		&environment.Config{
 			NamespacePrefix: fmt.Sprintf("smoke-keeper-%s-%s", testName, networkName),
-			TestName:        t.Name(),
-		},
-	).
+			Test:            t,
+		}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
@@ -1127,12 +1126,7 @@ func setupKeeperTest(
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
-	if onlyStartRunner {
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
-			require.NoError(t, err, "Error tearing down environment")
-		})
-	} else {
+	if !onlyStartRunner {
 		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
 		require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)

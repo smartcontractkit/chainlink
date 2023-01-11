@@ -123,7 +123,7 @@ func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, te
 	}
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		TestName:        t.Name(),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -133,11 +133,5 @@ func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, te
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
-	if testEnvironment.WillUseRemoteRunner() {
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
-			require.NoError(t, err, "Error tearing down environment")
-		})
-	}
 	return testEnvironment, testNetwork
 }

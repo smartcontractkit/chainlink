@@ -754,7 +754,7 @@ func setupAutomationTest(
 
 	testEnvironment := environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-automation-%s-%s", testName, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
-		TestName:        t.Name(),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -802,11 +802,11 @@ func setupAutomationTest(
 		require.NoError(t, err, "Registry config should be be set successfully")
 		require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 		// Register cleanup for any test
+		t.Cleanup(func() {
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+			require.NoError(t, err, "Error tearing down environment")
+		})
 	}
-	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-		require.NoError(t, err, "Error tearing down environment")
-	})
 
 	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner
 }

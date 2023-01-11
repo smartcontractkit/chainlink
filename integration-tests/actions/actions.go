@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 	"testing"
 
@@ -230,21 +229,16 @@ func TeardownSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	clients ...blockchain.EVMClient,
 ) error {
-	keepEnvs := os.Getenv("KEEP_ENVIRONMENTS")
-	if keepEnvs == "" {
-		keepEnvs = "NEVER"
-	}
-
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
 			if err := returnFunds(chainlinkNodes, c); err != nil {
+				fmt.Println(environment.FAILED_FUND_RETURN)
 				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 						"Environment is left running so you can try manually!")
-				keepEnvs = "ALWAYS"
 			}
 		} else {
 			log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
@@ -258,25 +252,7 @@ func TeardownSuite(
 		}
 	}
 
-	// only do the shutdown logic if this is set to true to prevent race conditions in
-	// remote running of tests.
-	if !env.Cfg.IsRemoteTest {
-		switch strings.ToUpper(keepEnvs) {
-		case "ALWAYS":
-			return nil
-		case "ONFAIL":
-			if !t.Failed() {
-				return env.Shutdown()
-			}
-		case "NEVER":
-			return env.Shutdown()
-		default:
-			log.Warn().Str("Invalid Keep Value", keepEnvs).
-				Msg("Invalid 'keep_environments' value, see the KEEP_ENVIRONMENTS env var")
-		}
-	}
-
-	return nil
+	return env.Shutdown()
 }
 
 // TeardownRemoteSuite is used when running a test within a remote-test-runner, like for long-running performance and

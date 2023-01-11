@@ -80,7 +80,7 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 	}
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
-		TestName:        t.Name(),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -90,11 +90,5 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
-	if testEnvironment.WillUseRemoteRunner() {
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
-			require.NoError(t, err, "Error tearing down environment")
-		})
-	}
 	return testEnvironment
 }

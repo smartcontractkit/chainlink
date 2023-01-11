@@ -138,7 +138,7 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 	}
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		TestName:        t.Name(),
+		Test:            t,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
@@ -146,11 +146,5 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
-	if testEnvironment.WillUseRemoteRunner() {
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, nil, nil, nil)
-			require.NoError(t, err, "Error tearing down environment")
-		})
-	}
 	return testEnvironment, testNetwork
 }
