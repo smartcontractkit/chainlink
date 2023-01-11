@@ -38,6 +38,7 @@ var (
 	FetchUpkeepConfigBatchSize int   = 10
 	separator                        = "|"
 	reInitializationDelay            = 5 * time.Minute
+	logEventLookback           int64 = 100
 )
 
 type LatestBlockGetter interface {
@@ -64,6 +65,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),
+		txHashes: make(map[string]bool),
 		registry: registry,
 		abi:      abi,
 		packer:   &evmRegistryPackerV2_0{abi: abi},
@@ -79,15 +81,10 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 }
 
 var upkeepStateEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepMigrated{}.Topic(),   // removes upkeep id and detail from registry
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(), // adds new upkeep id to registry
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),   // adds multiple new upkeep ids to registry
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepCheckDataUpdated{}.Topic(),
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepCanceled{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPaused{}.Topic(),
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryFundsAdded{}.Topic(),
 }
 
 var upkeepActiveEvents = []common.Hash{
@@ -118,6 +115,7 @@ type EvmRegistry struct {
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex
+	txHashes      map[string]bool
 	filterID      int
 	lastPollBlock int64
 	ctx           context.Context
@@ -318,7 +316,7 @@ func (r *EvmRegistry) initialize() error {
 }
 
 func (r *EvmRegistry) pollLogs() error {
-	var start int64
+	var latest int64
 	var end int64
 	var err error
 
@@ -327,12 +325,12 @@ func (r *EvmRegistry) pollLogs() error {
 	}
 
 	r.mu.Lock()
-	start = r.lastPollBlock
+	latest = r.lastPollBlock
 	r.lastPollBlock = end
 	r.mu.Unlock()
 
 	// if start and end are the same, no polling needs to be done
-	if start == 0 || start == end {
+	if latest == 0 || latest == end {
 		return nil
 	}
 
@@ -340,7 +338,7 @@ func (r *EvmRegistry) pollLogs() error {
 		var logs []logpoller.Log
 
 		if logs, err = r.poller.LogsWithSigs(
-			start,
+			end-logEventLookback,
 			end,
 			upkeepStateEvents,
 			r.addr,
@@ -353,10 +351,6 @@ func (r *EvmRegistry) pollLogs() error {
 			r.chLog <- log
 		}
 	}
-
-	r.mu.Lock()
-	r.lastPollBlock = end
-	r.mu.Unlock()
 
 	return nil
 }
@@ -378,41 +372,32 @@ func (r *EvmRegistry) registerEvents(addr common.Address) error {
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 
+	hash := l.TxHash.String()
+	if _, ok := r.txHashes[hash]; ok {
+		return nil
+	}
+	r.txHashes[hash] = true
+
 	rawLog := l.ToGethLog()
 	abilog, err := r.registry.ParseLog(rawLog)
 	if err != nil {
 		return err
 	}
 
+	r.lggr.Debugf("log detected for event %s in transaction %s", abilog.Topic(), hash)
+
 	switch l := abilog.(type) {
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepMigrated: // removes upkeep id and detail from registry
-		r.removeFromActive(l.Id)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepCanceled:
-		r.removeFromActive(l.Id)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepPaused:
-		r.removeFromActive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered: // adds new upkeep id to registry
 		r.addToActive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived: // adds multiple new upkeep ids to registry
 		r.addToActive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
 		r.addToActive(l.Id)
-	case *keeper_registry_wrapper2_0.KeeperRegistryFundsAdded:
-		r.addToActive(l.Id)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepCheckDataUpdated:
-		r.addToActive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
 		r.addToActive(l.Id)
 	}
 
 	return nil
-}
-
-func (r *EvmRegistry) removeFromActive(id *big.Int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	delete(r.active, id.Int64())
 }
 
 func (r *EvmRegistry) addToActive(id *big.Int) {
@@ -438,19 +423,6 @@ func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.
 		Context:     ctx,
 		BlockNumber: nil,
 	}
-
-	// integration tests don't support pending state because the simulated
-	// backend doesn't support it yet. the following commented code shoule be
-	// used when pending state support is added.
-	/*
-		if block == nil || block.Int64() == 0 {
-			opts.Pending = true
-		} else if block.Int64() == r.LatestBlock() {
-			opts.Pending = true
-		} else {
-			opts.BlockNumber = new(big.Int).Add(block, big.NewInt(1))
-		}
-	*/
 
 	if block == nil || block.Int64() == 0 {
 		if r.LatestBlock() != 0 {
@@ -587,8 +559,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 	for i, req := range checkReqs {
 		if req.Error != nil {
 			if strings.Contains(req.Error.Error(), "reverted") {
-				// subscription was canceled
-				// NOTE: would we want to publish the fact that it is inactive?
+				r.lggr.Debugf("revert errror encountered for key %s with message '%s' in check", keys[i], req.Error)
 				continue
 			}
 			// some other error
@@ -660,8 +631,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	for i, req := range performReqs {
 		if req.Error != nil {
 			if strings.Contains(req.Error.Error(), "reverted") {
-				// subscription was canceled
-				// NOTE: would we want to publish the fact that it is inactive?
+				r.lggr.Debugf("revert errror encountered for key %s with message '%s' in perform check", checkResults[i].Key, req.Error)
 				continue
 			}
 			// some other error
@@ -730,7 +700,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	for i, req := range uReqs {
 		if req.Error != nil {
 			if strings.Contains(req.Error.Error(), "reverted") {
-				// NOTE: would we want to publish the fact that it is inactive?
+				r.lggr.Debugf("revert errror encountered for config id %s with message '%s' in get config", ids[i], req.Error)
 				continue
 			}
 			// some other error
