@@ -13,7 +13,7 @@
 ### Changed
 
 - Migrated and improved `AuthorizedReceiverInterface` and `AuthorizedReceiver` from 0.7.0
-- Added `OCR2DR` interfaces and contracts (initial version for PoC)
+- Added `Chainlink Functions` interfaces and contracts (initial version for PoC)
 
 ## 0.5.1 - 2022-09-27
 

@@ -202,27 +202,12 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusOK)
 }
 
-// Delete an ETH key bundle
+// Delete an ETH key bundle (irreversible!)
 // Example:
 // "DELETE <application>/keys/eth/:keyID"
-// "DELETE <application>/keys/eth/:keyID?hard=true"
 func (ekc *ETHKeysController) Delete(c *gin.Context) {
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
-	var hardDelete bool
 	var err error
-
-	if c.Query("hard") != "" {
-		hardDelete, err = strconv.ParseBool(c.Query("hard"))
-		if err != nil {
-			jsonAPIError(c, http.StatusUnprocessableEntity, err)
-			return
-		}
-	}
-
-	if !hardDelete {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("hard delete only"))
-		return
-	}
 
 	keyID := c.Param("keyID")
 	if !common.IsHexAddress(keyID) {

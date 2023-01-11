@@ -469,7 +469,7 @@ func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e help
 	return payload
 }
 
-func configureEnvironmentVariables(useForwarder bool) {
+func configureEnvironmentVariables(useForwarder bool, index int, databasePrefix string, databaseSuffixes string) {
 	helpers.PanicErr(os.Setenv("ETH_USE_FORWARDERS", fmt.Sprintf("%t", useForwarder)))
 	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
 	helpers.PanicErr(os.Setenv("FEATURE_LOG_POLLER", "true"))
@@ -478,10 +478,10 @@ func configureEnvironmentVariables(useForwarder bool) {
 	helpers.PanicErr(os.Setenv("P2PV2_LISTEN_ADDRESSES", "127.0.0.1:8000"))
 	helpers.PanicErr(os.Setenv("ETH_HEAD_TRACKER_HISTORY_DEPTH", "1"))
 	helpers.PanicErr(os.Setenv("ETH_FINALITY_DEPTH", "1"))
+	helpers.PanicErr(os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
 }
 
-func resetDatabase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
-	helpers.PanicErr(os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
+func resetDatabase(client *cmd.Client, context *cli.Context) {
 	helpers.PanicErr(client.ResetDatabase(context))
 }
 
