@@ -639,30 +639,22 @@ func TestLogPoller_AsyncReplay(t *testing.T) {
 
 	// Replay() should return as soon as replay signal is received,
 	// so that replay can proceed asynchronously
-	go func() {
-		time.Sleep(100 * time.Microsecond)
+	time.AfterFunc(100*time.Microsecond, func() {
 		<-th.LogPoller.replayStart
-	}()
+	})
 	err = th.LogPoller.Replay(testutils.Context(t), 2)
 	assert.NoError(t, err)
 
 	// Replay() should abort if cancelled before replayRequest signal is received
 	ctx, cancel := context.WithCancel(testutils.Context(t))
-	go func() {
-		time.Sleep(100 * time.Microsecond)
-		cancel()
-	}()
+	time.AfterFunc(100*time.Microsecond, cancel)
 
 	err = th.LogPoller.Replay(ctx, 2)
-	cancel()
 	assert.EqualError(t, err, ErrReplayAbortedByClient.Error())
 
 	// Replay() should gracefully abort if shutdown ( lp.Close() / lp.cancel() ) is
 	// is initiated before signal is received
-	go func() {
-		time.Sleep(100 * time.Microsecond)
-		th.LogPoller.cancel() // initiate shutdown
-	}()
+	time.AfterFunc(100*time.Microsecond, th.LogPoller.cancel)
 	err = th.LogPoller.Replay(testutils.Context(t), 2)
 	assert.EqualError(t, err, ErrReplayAbortedOnShutdown.Error())
 }

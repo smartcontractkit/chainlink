@@ -106,7 +106,7 @@ func (lp *logPoller) WaitForReplayComplete() error {
 	case err := <-lp.replayComplete:
 		return err
 	case <-lp.ctx.Done():
-		return errors.New("Logpoller received shutdown signal while waiting for replay to complete")
+		return errors.Wrap(lp.ctx.Err(), "Logpoller received shutdown signal while waiting for replay to complete")
 	}
 }
 
