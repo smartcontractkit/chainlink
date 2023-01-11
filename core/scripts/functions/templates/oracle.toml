@@ -9,7 +9,7 @@ p2pv2Bootstrappers = [
   "{{p2p_bootstrapper}}"
 ]
 relay = "evm"
-pluginType = "directrequest"
+pluginType = "functions"
 transmitterID = "{{node_eth_address}}"
 observationSource = """
     decode_log   [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
