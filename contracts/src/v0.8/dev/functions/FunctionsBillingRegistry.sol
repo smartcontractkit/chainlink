@@ -786,7 +786,7 @@ contract FunctionsBillingRegistry is
           subscriptionId,
           s_consumers[consumers[i]][subscriptionId]
         );
-        if (s_requestCommitments[requestId].don == address(0)) {
+        if (s_requestCommitments[requestId].don != address(0)) {
           return true;
         }
       }
