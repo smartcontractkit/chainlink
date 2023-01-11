@@ -408,6 +408,43 @@ describe('FunctionsRegistry', () => {
       })
     })
 
+    describe('#pendingRequestExists', async function () {
+      let subId: number
+      beforeEach(async () => {
+        subId = await createSubscription(subOwner, [consumerAddress])
+        await registry.setConfig(
+          config.maxGasLimit,
+          config.stalenessSeconds,
+          config.gasAfterPaymentCalculation,
+          config.weiPerUnitLink,
+          config.gasOverhead,
+          config.requestTimeoutSeconds,
+        )
+
+        await linkToken
+          .connect(subOwner)
+          .transferAndCall(
+            registry.address,
+            BigNumber.from('130790416713017745'),
+            ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
+          )
+        await registry.connect(subOwner).addConsumer(subId, client.address)
+        await registry.connect(roles.defaultAccount).reg
+        await registry.setAuthorizedSenders([oracle.address])
+      })
+      it('returns false when there is no latest pending request', async function () {
+        expect(await registry.connect(subOwner).pendingRequestExists(subId)).to
+          .be.false
+      })
+      it('returns true when the latest request is pending', async function () {
+        await client
+          .connect(consumer)
+          .sendSimpleRequestWithJavaScript(`return 'hello world'`, subId)
+        expect(await registry.connect(subOwner).pendingRequestExists(subId)).to
+          .be.true
+      })
+    })
+
     describe('#cancelSubscription', async function () {
       let subId: number
       beforeEach(async () => {
