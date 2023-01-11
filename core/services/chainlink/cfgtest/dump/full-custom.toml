@@ -129,7 +129,6 @@ PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
 TraceLogging = true
 
 [P2P.V1]
-Enabled = true
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 57
 BootstrapCheckInterval = '1h0m0s'
