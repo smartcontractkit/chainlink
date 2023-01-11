@@ -124,6 +124,9 @@ func (client *client) NodeStates() (states map[string]string) {
 	for _, n := range client.pool.nodes {
 		states[n.Name()] = n.State().String()
 	}
+	for _, s := range client.pool.sendonlys {
+		states[s.Name()] = s.State().String()
+	}
 	return
 }
 

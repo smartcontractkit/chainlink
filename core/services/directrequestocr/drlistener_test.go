@@ -103,8 +103,12 @@ func PrepareAndStartDRListener(t *testing.T) (*DRListenerUniverse, *log_mocks.Br
 
 	uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logOracleRequest := ocr2dr_oracle.OCR2DROracleOracleRequest{
-		RequestId: RequestID,
-		Data:      []byte("data"),
+		RequestId:          RequestID,
+		RequestingContract: common.Address{},
+		RequestInitiator:   common.Address{},
+		SubscriptionId:     0,
+		SubscriptionOwner:  common.Address{},
+		Data:               []byte("data"),
 	}
 	log.On("DecodedLog").Return(&logOracleRequest)
 	log.On("String").Return("")
