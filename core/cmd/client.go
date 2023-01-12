@@ -148,6 +148,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		if h, ok := cfg.(v2.HasEVMConfigs); ok {
 			var ids []utils.Big
 			for _, c := range h.EVMConfigs() {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
@@ -189,6 +190,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			cfgs := newCfg.TerraConfigs()
 			var ids []string
 			for _, c := range cfgs {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
@@ -224,6 +226,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			cfgs := newCfg.SolanaConfigs()
 			var ids []string
 			for _, c := range cfgs {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
@@ -258,6 +261,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			cfgs := newCfg.StarknetConfigs()
 			var ids []string
 			for _, c := range cfgs {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
