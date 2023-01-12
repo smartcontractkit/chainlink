@@ -23,13 +23,13 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 	tests := []struct {
 		Name         string
 		LatestHead   int64
-		ActiveIDs    []int64
+		ActiveIDs    []string
 		ExpectedErr  error
 		ExpectedKeys []types.UpkeepKey
 	}{
-		{Name: "LatestHeadNotAvailable", ActiveIDs: []int64{8}, ExpectedErr: ErrHeadNotAvailable, ExpectedKeys: nil},
-		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []int64{}, ExpectedKeys: []types.UpkeepKey{}},
-		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []int64{8, 9, 3, 1}, ExpectedKeys: []types.UpkeepKey{
+		{Name: "LatestHeadNotAvailable", ActiveIDs: []string{"8"}, ExpectedErr: ErrHeadNotAvailable, ExpectedKeys: nil},
+		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []types.UpkeepKey{}},
+		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []types.UpkeepKey{
 			types.UpkeepKey("1|8"),
 			types.UpkeepKey("1|9"),
 			types.UpkeepKey("1|3"),
@@ -39,9 +39,11 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			actives := make(map[int64]activeUpkeep)
+			actives := make(map[string]activeUpkeep)
 			for _, id := range test.ActiveIDs {
-				actives[id] = activeUpkeep{ID: big.NewInt(id)}
+				idNum := big.NewInt(0)
+				idNum.SetString(id, 10)
+				actives[id] = activeUpkeep{ID: idNum}
 			}
 
 			mht := new(htmocks.HeadTracker)
