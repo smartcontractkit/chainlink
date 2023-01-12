@@ -26,6 +26,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
   event VRFCoordinatorV2AddressUpdated(address oldAddress, address newAddress);
   event LinkTokenAddressUpdated(address oldAddress, address newAddress);
   event MinWaitPeriodUpdated(uint256 oldMinWaitPeriod, uint256 newMinWaitPeriod);
+  event OutOfGas(uint256 lastId);
 
   error InvalidWatchList();
   error OnlyKeeperRegistry();
@@ -38,9 +39,9 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
     uint56 lastTopUpTimestamp;
   }
 
-  address private s_keeperRegistryAddress;
-  uint256 private s_minWaitPeriodSeconds;
-  uint64[] private s_watchList;
+  address public s_keeperRegistryAddress; // the address of the keeper registry
+  uint256 public s_minWaitPeriodSeconds; // minimum time to wait between top-ups
+  uint64[] public s_watchList; // the watchlist on which subscriptions are stored
   mapping(uint64 => Target) internal s_targets;
 
   /**
@@ -123,7 +124,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
         contractBalance -= target.topUpAmountJuels;
       }
     }
-    if (count != watchList.length) {
+    if (count < watchList.length) {
       assembly {
         mstore(needsFunding, count)
       }
@@ -162,6 +163,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
         }
       }
       if (gasleft() < MIN_GAS_FOR_TRANSFER) {
+        emit OutOfGas(idx);
         return;
       }
     }
@@ -240,41 +242,6 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
   }
 
   /**
-   * @notice Gets the Link token address.
-   */
-  function getLinkTokenAddress() external view returns (address) {
-    return address(LINKTOKEN);
-  }
-
-  /**
-   * @notice Gets the VRF Coordinator address.
-   */
-  function getVRFCoordinatorV2Address() external view returns (address) {
-    return address(COORDINATOR);
-  }
-
-  /**
-   * @notice Gets the keeper registry address.
-   */
-  function getKeeperRegistryAddress() external view returns (address) {
-    return s_keeperRegistryAddress;
-  }
-
-  /**
-   * @notice Gets the minimum wait period.
-   */
-  function getMinWaitPeriodSeconds() external view returns (uint256) {
-    return s_minWaitPeriodSeconds;
-  }
-
-  /**
-   * @notice Gets the list of subscription ids being watched.
-   */
-  function getWatchList() external view returns (uint64[] memory) {
-    return s_watchList;
-  }
-
-  /**
    * @notice Gets configuration information for a subscription on the watchlist.
    */
   function getSubscriptionInfo(uint64 subscriptionId)
@@ -289,6 +256,13 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
   {
     Target memory target = s_targets[subscriptionId];
     return (target.isActive, target.minBalanceJuels, target.topUpAmountJuels, target.lastTopUpTimestamp);
+  }
+
+  /**
+   * @notice Gets the list of subscription ids being watched.
+   */
+  function getWatchList() external view returns (uint64[] memory) {
+    return s_watchList;
   }
 
   /**

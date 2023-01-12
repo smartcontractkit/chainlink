@@ -291,14 +291,14 @@ describe('VRFSubscriptionBalanceMonitor', () => {
     const newAddress = ethers.Wallet.createRandom().address
 
     it('Should initialize with the registry address provided to the constructor', async () => {
-      const address = await bm.getKeeperRegistryAddress()
+      const address = await bm.s_keeperRegistryAddress()
       assert.equal(address, keeperRegistry.address)
     })
 
     it('Should allow the owner to set the registry address', async () => {
       const setTx = await bm.connect(owner).setKeeperRegistryAddress(newAddress)
       await setTx.wait()
-      const address = await bm.getKeeperRegistryAddress()
+      const address = await bm.s_keeperRegistryAddress()
       assert.equal(address, newAddress)
     })
 
@@ -319,7 +319,7 @@ describe('VRFSubscriptionBalanceMonitor', () => {
     const newWaitPeriod = BigNumber.from(1)
 
     it('Should initialize with the wait period provided to the constructor', async () => {
-      const minWaitPeriod = await bm.getMinWaitPeriodSeconds()
+      const minWaitPeriod = await bm.s_minWaitPeriodSeconds()
       expect(minWaitPeriod).to.equal(0)
     })
 
@@ -328,7 +328,7 @@ describe('VRFSubscriptionBalanceMonitor', () => {
         .connect(owner)
         .setMinWaitPeriodSeconds(newWaitPeriod)
       await setTx.wait()
-      const minWaitPeriod = await bm.getMinWaitPeriodSeconds()
+      const minWaitPeriod = await bm.s_minWaitPeriodSeconds()
       expect(minWaitPeriod).to.equal(newWaitPeriod)
     })
 
