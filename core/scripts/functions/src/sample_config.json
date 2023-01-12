@@ -1,0 +1,24 @@
+{
+  "MaxQueryLengthBytes": 10000,
+  "MaxObservationLengthBytes": 10000,
+  "MaxReportLengthBytes": 10000,
+  "MaxRequestBatchSize": 10,
+  "DefaultAggregationMethod": 0,
+  "UniqueReports": true,
+
+  "DeltaProgressMillis": 30000,
+  "DeltaResendMillis": 10000,
+  "DeltaRoundMillis": 10000,
+  "DeltaGraceMillis": 2000,
+  "DeltaStageMillis": 30000,
+  "MaxRoundsPerEpoch": 5,
+  "TransmissionSchedule": [1, 1, 1, 1],
+
+  "MaxDurationQueryMillis": 5000,
+  "MaxDurationObservationMillis": 5000,
+  "MaxDurationReportMillis": 5000,
+  "MaxDurationAcceptMillis": 5000,
+  "MaxDurationTransmitMillis": 5000,
+
+  "MaxFaultyOracles": 1
+}
