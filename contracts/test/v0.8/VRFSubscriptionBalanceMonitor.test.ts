@@ -89,6 +89,9 @@ describe('VRFSubscriptionBalanceMonitor', () => {
       await coordinator.connect(owner).createSubscription()
     }
 
+    // Transfer LINK to stranger.
+    await lt.transfer(stranger.address, oneHundredLINK)
+
     // Fund sub 5.
     await lt
       .connect(owner)
