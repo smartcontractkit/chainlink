@@ -961,7 +961,7 @@ func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []i
 		ids, err = o.loadPipelineRunIDs(&jobID, offset, limit, tx)
 		return err
 	})
-	return ids, errors.Wrap(err, "PipelineRunsByJobIDs failed")
+	return ids, errors.Wrap(err, "FindPipelineRunIDsByJobID failed")
 }
 
 func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.Run, err error) {
@@ -969,6 +969,7 @@ func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.
 		SELECT pipeline_runs.*
 		FROM pipeline_runs
 		WHERE id = ANY($1)
+		ORDER BY created_at DESC, id DESC
 	`
 	if err = tx.Select(&runs, stmt, ids); err != nil {
 		err = errors.Wrap(err, "error loading runs")
@@ -1024,7 +1025,7 @@ func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 		return err
 	})
 
-	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return count, errors.Wrap(err, "CountPipelineRunsByJobID failed")
 }
 
 func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
