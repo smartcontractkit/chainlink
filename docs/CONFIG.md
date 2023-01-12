@@ -986,9 +986,9 @@ AnnouncePort should be set as the externally reachable port of the Chainlink nod
 BootstrapCheckInterval = '20s' # Default
 ```
 BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
-Setting this to a small value would allow newly joined bootstrap nodes to get more connectivityBootstrapCheckInterval = '20s' # Default
-more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively# DefaultBootstrapPeers is the default set of bootstrap peers.
-cheap. We set this to 1 minute during our test.DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
+Setting this to a small value would allow newly joined bootstrap nodes to get more connectivity
+more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively
+cheap. We set this to 1 minute during our test.
 
 ### DefaultBootstrapPeers<a id='P2P-V1-DefaultBootstrapPeers'></a>
 ```toml
@@ -4586,7 +4586,7 @@ WSURL is the WS(S) endpoint for this node. Required for primary nodes.
 ```toml
 HTTPURL = 'https://foo.web' # Example
 ```
-HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Required for `SendOnly`.
+HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 
 ### SendOnly<a id='EVM-Nodes-SendOnly'></a>
 ```toml
