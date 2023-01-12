@@ -161,8 +161,8 @@ contract FunctionsBillingRegistry is
    * @param stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
-   * @param gasOverhead fallback eth/link price in the case of a stale feed
-   * @param requestTimeoutSeconds fallback eth/link price in the case of a stale feed
+   * @param gasOverhead average gas execution cost used in estimating total cost
+   * @param requestTimeoutSeconds e2e timeout after which user won't be charged
    */
   function setConfig(
     uint32 maxGasLimit,
@@ -193,7 +193,7 @@ contract FunctionsBillingRegistry is
    * @return stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
    * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
-   * @return gasOverhead fallback eth/link price in the case of a stale feed
+   * @return gasOverhead average gas execution cost used in estimating total cost
    */
   function getConfig()
     external
