@@ -19,7 +19,7 @@ type PyroscopeConfig interface {
 }
 
 // StartPyroscope starts continuous profiling of the Chainlink Node
-func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
+func StartPyroscope(cfg PyroscopeConfig, lggr pyroscope.Logger) (*pyroscope.Profiler, error) {
 	runtime.SetBlockProfileRate(cfg.AutoPprofBlockProfileRate())
 	runtime.SetMutexProfileFraction(cfg.AutoPprofMutexProfileFraction())
 
@@ -33,7 +33,7 @@ func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
 		AuthToken:     cfg.PyroscopeAuthToken(),
 
 		// We disable logging the profiling info, it will be in the Pyroscope instance anyways...
-		Logger: nil,
+		Logger: lggr,
 
 		Tags: map[string]string{
 			"SHA":         sha,
