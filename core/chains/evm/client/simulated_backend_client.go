@@ -577,6 +577,8 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	}
 
 	switch from := params["from"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
 	case string:
 		callMsg.From = common.HexToAddress(from)
 	case common.Address:
@@ -588,6 +590,8 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	}
 
 	switch data := params["data"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
 	case hexutil.Bytes:
 		callMsg.Data = data
 	case []byte:
