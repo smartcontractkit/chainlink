@@ -66,6 +66,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		client:   client.Client(),
 		registry: registry,
 		abi:      abi,
+		active:   make(map[int64]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: abi},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
@@ -419,9 +420,14 @@ func (r *EvmRegistry) addToActive(id *big.Int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if r.active == nil {
+		r.active = make(map[int64]activeUpkeep)
+	}
+
 	if _, ok := r.active[id.Int64()]; !ok {
 		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
 		if err != nil {
+			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
 			return
 		}
 

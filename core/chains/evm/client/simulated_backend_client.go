@@ -501,6 +501,36 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			}
 
 			b[i].Error = err
+		case "eth_call":
+			if len(elem.Args) != 2 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_call", len(elem.Args))
+			}
+
+			_, ok := elem.Result.(*string)
+			if !ok {
+				return errors.Errorf("SimulatedBackendClient expected result to be *string for eth_call, got: %T", elem.Result)
+			}
+
+			params, ok := elem.Args[0].(map[string]interface{})
+			if !ok {
+				return errors.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", elem.Args[0])
+			}
+
+			blockNum, ok := elem.Args[1].(string)
+			if !ok {
+				return errors.Errorf("SimulatedBackendClient expected second arg to be a string for eth_call, got: %T", elem.Args[1])
+			}
+
+			if blockNum != "" {
+				if _, ok = new(big.Int).SetString(blockNum, 0); !ok {
+					return errors.Errorf("error while converting block number string: %s to big.Int ", blockNum)
+				}
+			}
+
+			callMsg := toCallMsg(params)
+			resp, err := c.b.CallContract(ctx, callMsg, nil)
+			*(b[i].Result.(*string)) = hexutil.Encode(resp)
+			b[i].Error = err
 		default:
 			return errors.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
@@ -529,4 +559,45 @@ func (c *SimulatedBackendClient) NodeStates() map[string]string { return nil }
 // fresh new state.
 func (c *SimulatedBackendClient) Commit() common.Hash {
 	return c.b.Commit()
+}
+
+func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
+	var callMsg ethereum.CallMsg
+
+	switch to := params["to"].(type) {
+	case string:
+		toAddr := common.HexToAddress(to)
+		callMsg.To = &toAddr
+	case *common.Address:
+		callMsg.To = to
+	default:
+		panic("unexpected type of 'to' parameter")
+	}
+
+	if from, ok := params["from"].(common.Address); ok {
+		callMsg.From = from
+	}
+
+	switch data := params["data"].(type) {
+	case hexutil.Bytes:
+		callMsg.Data = data
+	case []byte:
+		callMsg.Data = data
+	default:
+		panic("unexpected type of 'data' parameter")
+	}
+
+	if value, ok := params["value"].(*big.Int); ok {
+		callMsg.Value = value
+	}
+
+	if gas, ok := params["gas"].(uint64); ok {
+		callMsg.Gas = gas
+	}
+
+	if gasPrice, ok := params["gasPrice"].(*big.Int); ok {
+		callMsg.GasPrice = gasPrice
+	}
+
+	return callMsg
 }

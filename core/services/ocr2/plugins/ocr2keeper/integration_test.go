@@ -1,6 +1,5 @@
 package ocr2keeper_test
 
-/*
 import (
 	"context"
 	"encoding/hex"
@@ -370,7 +369,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 
-	lggr.Infow("Upkeep registered and funded")
+	lggr.Infow("Upkeep registered and funded", "upkeepID", upkeepID.String())
 
 	// keeper job is triggered and payload is received
 	receivedBytes := func() []byte {
@@ -662,4 +661,3 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
-*/
