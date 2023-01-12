@@ -568,14 +568,23 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	case string:
 		toAddr := common.HexToAddress(to)
 		callMsg.To = &toAddr
+	case common.Address:
+		callMsg.To = &to
 	case *common.Address:
 		callMsg.To = to
 	default:
 		panic("unexpected type of 'to' parameter")
 	}
 
-	if from, ok := params["from"].(common.Address); ok {
+	switch from := params["from"].(type) {
+	case string:
+		callMsg.From = common.HexToAddress(from)
+	case common.Address:
 		callMsg.From = from
+	case *common.Address:
+		callMsg.From = *from
+	default:
+		panic("unexpected type of 'from' parameter")
 	}
 
 	switch data := params["data"].(type) {
