@@ -68,7 +68,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		txHashes: make(map[string]bool),
 		registry: registry,
 		abi:      abi,
-		active:   make(map[int64]activeUpkeep),
+		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: abi},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
