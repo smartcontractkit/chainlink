@@ -26,9 +26,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-var linkEthFeedResponse = big.NewInt(1e18)
-
 func TestVRFv2Basic(t *testing.T) {
+	linkEthFeedResponse := big.NewInt(1e18)
 	minimumConfirmations := 3
 
 	t.Parallel()

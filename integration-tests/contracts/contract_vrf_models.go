@@ -97,6 +97,7 @@ type VRFBeacon interface {
 		offchainConfig []byte,
 	) error
 	WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error)
+	WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error)
 }
 
 type VRFBeaconConsumer interface {

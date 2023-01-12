@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
@@ -662,7 +663,6 @@ func (dkgContract *EthereumDKG) WaitForTransmittedEvent() (*dkg.DKGTransmitted, 
 	if err != nil {
 		return nil, err
 	}
-	//todo - is it necessary since inside WatchConfigSet unsubscribe ias already invoked
 	defer subscription.Unsubscribe()
 	transmittedEvent := <-transmittedEventsChannel
 	if err != nil {
@@ -678,7 +678,6 @@ func (dkgContract *EthereumDKG) WaitForConfigSetEvent() (*dkg.DKGConfigSet, erro
 	if err != nil {
 		return nil, err
 	}
-	//todo - is it necessary since inside WatchConfigSet unsubscribe ias already invoked
 	defer subscription.Unsubscribe()
 	configSetEvent := <-configSetEventsChannel
 	if err != nil {
@@ -799,13 +798,11 @@ func (beacon *EthereumVRFBeacon) SetConfig(
 }
 
 func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error) {
-
 	configSetEventsChannel := make(chan *vrf_beacon.VRFBeaconConfigSet)
 	subscription, err := beacon.vrfBeacon.WatchConfigSet(nil, configSetEventsChannel)
 	if err != nil {
 		return nil, err
 	}
-	//todo - is it necessary since inside WatchConfigSet unsubscribe ias already invoked
 	defer subscription.Unsubscribe()
 	configSetEvent := <-configSetEventsChannel
 	if err != nil {
@@ -814,11 +811,26 @@ func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconC
 	return configSetEvent, nil
 }
 
+func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error) {
+	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
+	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+	newTransmissionEvent := <-newTransmissionEventsChannel
+	if err != nil {
+		return nil, err
+	}
+	return newTransmissionEvent, nil
+}
+
 // EthereumVRFBeaconConsumer represents VRFBeaconConsumer contract
 type EthereumVRFBeaconConsumer struct {
 	address           *common.Address
 	client            blockchain.EVMClient
 	vrfBeaconConsumer *vrf_beacon_consumer.BeaconVRFConsumer
+	abi               string
 }
 
 func (consumer *EthereumVRFBeaconConsumer) Address() string {
@@ -832,7 +844,7 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 ) (*types.Receipt, error) {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "TransactionOpts failed")
 	}
 	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomness(
 		opts,
@@ -841,14 +853,22 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 		confirmationDelayArg,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "TestRequestRandomness failed")
 	}
+	err = consumer.client.ProcessTransaction(tx)
+	if err != nil {
+		return nil, errors.Wrap(err, "ProcessTransaction failed")
+	}
+	err = consumer.client.WaitForEvents()
 
+	if err != nil {
+		return nil, errors.Wrap(err, "WaitForEvents failed")
+	}
 	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetTxReceipt failed")
 	}
-	return receipt, consumer.client.ProcessTransaction(tx)
+	return receipt, nil
 }
 
 func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(

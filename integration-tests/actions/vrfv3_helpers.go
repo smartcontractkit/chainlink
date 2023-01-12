@@ -23,7 +23,6 @@ import (
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"gopkg.in/guregu/null.v4"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 )
@@ -41,7 +40,7 @@ type DKGConfig struct {
 
 type VRFBeaconConfig struct {
 	VRFBeaconAddress  string
-	ConfDelays        string
+	ConfDelays        []string
 	CoordinatorConfig ocr2vrftypes.CoordinatorConfig
 }
 
@@ -51,6 +50,7 @@ type OCR2Config struct {
 	PeerIds              []string
 	ConfigPublicKeys     []string
 	TransmitterAddresses []string
+	Schedule             []int
 }
 
 type OCR2VRFPluginConfig struct {
@@ -66,14 +66,13 @@ func CreateOCR2VRFV3Jobs(
 	t *testing.T,
 	bootstrapNode *client.Chainlink,
 	nonBootstrapNodes []*client.Chainlink,
-	//todo - why it was necessary to have OCR2VRFPluginConfig as a pointer?
 	OCR2VRFPluginConfig *OCR2VRFPluginConfig,
 	chainID int64,
 	keyIndex int,
 ) {
-	P2Pv2Bootstrapper := createBootstrapJob(t, bootstrapNode, OCR2VRFPluginConfig.DKGConfig.DKGContractAddress, chainID)
+	p2pV2Bootstrapper := createBootstrapJob(t, bootstrapNode, OCR2VRFPluginConfig.DKGConfig.DKGContractAddress, chainID)
 
-	createNonBootstrapJobs(t, nonBootstrapNodes, OCR2VRFPluginConfig, chainID, keyIndex, P2Pv2Bootstrapper)
+	createNonBootstrapJobs(t, nonBootstrapNodes, OCR2VRFPluginConfig, chainID, keyIndex, p2pV2Bootstrapper)
 	log.Info().Msg("Done creating OCR automation jobs")
 }
 
@@ -138,8 +137,7 @@ func createBootstrapJob(t *testing.T, bootstrapNode *client.Chainlink, dkgAddres
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
-	return P2Pv2Bootstrapper
+	return fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
 }
 
 func BuildOCR2DKGConfigVars(
@@ -147,7 +145,6 @@ func BuildOCR2DKGConfigVars(
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRConfig {
 
-	//TODO - ask why configs are different with Automation?
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))
@@ -199,19 +196,18 @@ func BuildOCR2DKGConfigVars(
 
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err :=
 		confighelper.ContractSetConfigArgsForTests(
-			360*time.Second,     // deltaProgress time.Duration,
-			10*time.Second,      // deltaResend time.Duration,
-			10*time.Millisecond, // deltaRound time.Duration,
-			20*time.Millisecond, // deltaGrace time.Duration,
-			20*time.Millisecond, // deltaStage time.Duration,
-			3,                   // rMax uint8,
-			//todo - transmission schedule?? does it depend on the number of nodes?
-			[]int{1, 1, 1, 1, 1}, // s []int,
-			oracleIdentities,     // oracles []OracleIdentityExtra,
+			30*time.Second,                          // deltaProgress time.Duration,
+			10*time.Second,                          // deltaResend time.Duration,
+			10*time.Millisecond,                     // deltaRound time.Duration,
+			20*time.Millisecond,                     // deltaGrace time.Duration,
+			20*time.Millisecond,                     // deltaStage time.Duration,
+			3,                                       // rMax uint8,
+			ocr2VRFPluginConfig.OCR2Config.Schedule, // s []int,
+			oracleIdentities,                        // oracles []OracleIdentityExtra,
 			offchainConfig,
 			10*time.Millisecond, // maxDurationQuery time.Duration,
-			100*time.Second,     // maxDurationObservation time.Duration,
-			100*time.Second,     // maxDurationReport time.Duration,
+			10*time.Second,      // maxDurationObservation time.Duration,
+			10*time.Second,      // maxDurationReport time.Duration,
 			10*time.Millisecond, // maxDurationShouldAcceptFinalizedReport time.Duration,
 			1*time.Second,       // maxDurationShouldTransmitAcceptedReport time.Duration,
 			1,                   // f int,
@@ -314,8 +310,7 @@ func BuildOCR2VRFConfigVars(
 
 	confDelays := make(map[uint32]struct{})
 
-	//todo - change to slice
-	for _, c := range strings.Split(ocr2VRFPluginConfig.VRFBeaconConfig.ConfDelays, ",") {
+	for _, c := range ocr2VRFPluginConfig.VRFBeaconConfig.ConfDelays {
 		confDelay, err := strconv.ParseUint(c, 0, 32)
 		require.NoError(t, err)
 		confDelays[uint32(confDelay)] = struct{}{}
@@ -325,15 +320,14 @@ func BuildOCR2VRFConfigVars(
 
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err :=
 		confighelper.ContractSetConfigArgsForTests(
-			30*time.Second, // deltaProgress time.Duration,
-			10*time.Second, // deltaResend time.Duration,
-			10*time.Second, // deltaRound time.Duration,
-			20*time.Second, // deltaGrace time.Duration,
-			20*time.Second, // deltaStage time.Duration,
-			3,              // rMax uint8,
-			//todo - transmission schedule?? does it depend on the number of nodes?
-			[]int{1, 1, 1, 1, 1}, // s []int,
-			oracleIdentities,     // oracles []OracleIdentityExtra,
+			30*time.Second,                          // deltaProgress time.Duration,
+			10*time.Second,                          // deltaResend time.Duration,
+			10*time.Second,                          // deltaRound time.Duration,
+			20*time.Second,                          // deltaGrace time.Duration,
+			20*time.Second,                          // deltaStage time.Duration,
+			3,                                       // rMax uint8,
+			ocr2VRFPluginConfig.OCR2Config.Schedule, // s []int,
+			oracleIdentities,                        // oracles []OracleIdentityExtra,
 			ocr2vrf.OffchainConfig(&ocr2VRFPluginConfig.VRFBeaconConfig.CoordinatorConfig),
 			10*time.Millisecond, // maxDurationQuery time.Duration,
 			10*time.Second,      // maxDurationObservation time.Duration,
