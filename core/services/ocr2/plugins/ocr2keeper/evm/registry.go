@@ -120,7 +120,7 @@ type EvmRegistry struct {
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
-	active        map[int64]activeUpkeep
+	active        map[string]activeUpkeep
 	headFunc      func(types.BlockKey)
 	runState      int
 	runError      error
@@ -281,7 +281,7 @@ func (r *EvmRegistry) initialize() error {
 	startupCtx, cancel := context.WithTimeout(r.ctx, 30*time.Second)
 	defer cancel()
 
-	idMap := make(map[int64]activeUpkeep)
+	idMap := make(map[string]activeUpkeep)
 
 	// get active upkeep ids from contract
 	ids, err := r.getLatestIDsFromContract(startupCtx)
@@ -302,7 +302,7 @@ func (r *EvmRegistry) initialize() error {
 		}
 
 		for _, active := range actives {
-			idMap[active.ID.Int64()] = active
+			idMap[active.ID.String()] = active
 		}
 
 		offset += batch
@@ -388,23 +388,23 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 
 	switch l := abilog.(type) {
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered: // adds new upkeep id to registry
-		r.addToActive(l.Id)
+		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived: // adds multiple new upkeep ids to registry
-		r.addToActive(l.Id)
+		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
-		r.addToActive(l.Id)
+		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
-		r.addToActive(l.Id)
+		r.addToActive(l.Id, true)
 	}
 
 	return nil
 }
 
-func (r *EvmRegistry) addToActive(id *big.Int) {
+func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.active[id.Int64()]; !ok {
+	if _, ok := r.active[id.String()]; !ok || force {
 		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
 		if err != nil {
 			return
@@ -414,7 +414,7 @@ func (r *EvmRegistry) addToActive(id *big.Int) {
 			return
 		}
 
-		r.active[id.Int64()] = actives[0]
+		r.active[id.String()] = actives[0]
 	}
 }
 
@@ -498,7 +498,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 			continue
 		}
 
-		up, ok := r.active[id.Int64()]
+		up, ok := r.active[id.String()]
 		if ok {
 			upkeepResults[i].ExecuteGas = up.PerformGasLimit
 		}

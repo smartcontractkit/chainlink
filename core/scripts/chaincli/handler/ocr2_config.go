@@ -50,61 +50,6 @@ func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {
 	return nil
 }
 
-/*
-func OCR2SetConfig(hdlr *baseHandler, registry_addr string) error {
-	b, err := common.ParseHexOrString(registry_addr)
-	if err != nil {
-		return fmt.Errorf("failed to parse address hash: %s", err)
-	}
-
-	addr := common.BytesToAddress(b)
-	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, hdlr.client)
-	if err != nil {
-		return fmt.Errorf("failed to create caller for address and backend: %s", err)
-	}
-
-	log.Printf("getting config details from contract: %s\n", addr.Hex())
-	detail, err := registry.LatestConfigDetails(nil)
-	if err != nil {
-		return fmt.Errorf("failed to get latest config detail from contract: %s", err)
-	}
-
-	block, err := hdlr.client.BlockByNumber(context.Background(), big.NewInt(int64(detail.BlockNumber)))
-	if err != nil {
-		return fmt.Errorf("failed to get block at number %d: %s", detail.BlockNumber, err)
-	}
-
-	config, err := configFromBlock(block, addr, detail)
-	if err != nil {
-		return fmt.Errorf("failed to get config from block: %s", err)
-	}
-
-
-	confighelper.ContractSetConfigArgsForTests(
-		config.DeltaProgress,
-		config.DeltaResend,
-		config.DeltaRound,
-		config.DeltaStage,
-		config.DeltaGrace,
-		config.RMax,
-		config.S,
-		config.OracleIdentities,
-		config.ReportingPluginConfig,
-		config.MaxDurationQuery,
-		config.MaxDurationObservation,
-		config.MaxDurationReport,
-		config.MaxDurationShouldAcceptFinalizedReport,
-		config.MaxDurationShouldTransmitAcceptedReport,
-		config.F,
-		nil,
-	)
-
-
-
-	return nil
-}
-*/
-
 func configFromBlock(bl *types.Block, addr common.Address, detail keeper_registry_wrapper2_0.LatestConfigDetails) (*confighelper.PublicConfig, error) {
 	for _, tx := range bl.Transactions() {
 		if tx.To() != nil && bytes.Compare(tx.To()[:], addr[:]) == 0 {
