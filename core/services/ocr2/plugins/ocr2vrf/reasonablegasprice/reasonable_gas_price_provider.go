@@ -1,8 +1,11 @@
 package reasonablegasprice
 
 import (
+	"context"
 	"math/big"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/ocr2vrf/types"
 
@@ -34,9 +37,20 @@ func NewReasonableGasPriceProvider(
 	}
 }
 
-// TODO: implement this function to use a gas estimator. This change can be rolled out
-// to all nodes while the on-chain `useReasonableGasPrice` flag is disabled. Once reasonable
-// gas prices reported by nodes become 'reasonable' the flag can be enabled.
 func (r *reasonableGasPriceProvider) ReasonableGasPrice() (*big.Int, error) {
-	return big.NewInt(0), nil
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+	defer cancel()
+
+	if r.supportsDynamicFee {
+		fee, _, err := r.estimator.GetDynamicFee(ctx, 0, r.maxGasPrice)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch reasonable gas price")
+		}
+		return fee.FeeCap.ToInt(), nil
+	}
+	fee, _, err := r.estimator.GetLegacyGas(ctx, []byte{}, 0, r.maxGasPrice)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch reasonable gas price")
+	}
+	return fee.ToInt(), nil
 }
