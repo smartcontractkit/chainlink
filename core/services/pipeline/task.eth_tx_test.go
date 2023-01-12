@@ -140,6 +140,38 @@ func TestETHTxTask(t *testing.T) {
 			nil, nil, "", pipeline.RunInfo{},
 		},
 		{
+			"happy (with minConfirmations as variable expression)",
+			`[ $(fromAddr) ]`,
+			"$(toAddr)",
+			"$(data)",
+			"$(gasLimit)",
+			`{ "jobID": $(jobID), "requestID": $(requestID), "requestTxHash": $(requestTxHash) }`,
+			"$(minConfirmations)",
+			"",
+			"",
+			nil,
+			false,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"fromAddr":         common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
+				"toAddr":           common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
+				"data":             []byte("foobar"),
+				"gasLimit":         uint64(12345),
+				"minConfirmations": uint64(2),
+				"jobID":            int32(321),
+				"requestID":        common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
+				"requestTxHash":    common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
+			}),
+			nil,
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
+				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
+				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				txManager.On("CreateEthTransaction", mock.MatchedBy(func(tx txmgr.NewTx) bool {
+					return tx.MinConfirmations == clnull.Uint32From(2)
+				})).Return(txmgr.EthTx{}, nil)
+			},
+			nil, nil, "", pipeline.RunInfo{IsPending: true},
+		},
+		{
 			"happy (with vars 2)",
 			`$(fromAddrs)`,
 			"$(toAddr)",

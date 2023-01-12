@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+...
+
+## 0.6.0 - 2023-01-11
+
 ### Added
 
 - Added a Solidity style guide.
