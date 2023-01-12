@@ -35,6 +35,27 @@ interface FunctionsOracleInterface {
   function setDONPublicKey(bytes calldata donPublicKey) external;
 
   /**
+   * @notice Sets a per-node secp256k1 public key used to encrypt secrets for that node
+   * @dev Callable only by contract owner and DON members
+   * @param node node's address
+   * @param publicKey node's public key
+   */
+  function setNodePublicKey(address node, bytes calldata publicKey) external;
+
+  /**
+   * @notice Deletes node's public key
+   * @dev Callable only by contract owner or the node itself
+   * @param node node's address
+   */
+  function deleteNodePublicKey(address node) external;
+
+  /**
+   * @notice Return two arrays of equal size containing DON members' addresses and their corresponding
+   * public keys (or empty byte arrays if per-node key is not defined)
+   */
+  function getAllNodePublicKeys() external view returns (address[] memory, bytes[] memory);
+
+  /**
    * @notice Determine the fee charged by the DON that will be split between signing Node Operators for servicing the request
    * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param billing The request's billing configuration
