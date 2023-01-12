@@ -109,41 +109,41 @@ func TestPollLogs(t *testing.T) {
 		},
 		{
 			Name:             "LastHeadPollIsLatestHead",
-			LastPoll:         5,
-			ExpectedLastPoll: 5,
+			LastPoll:         500,
+			ExpectedLastPoll: 500,
 			ExpectedErr:      nil,
 			LatestBlock: &struct {
 				OutputBlock int64
 				OutputErr   error
 			}{
-				OutputBlock: 5,
+				OutputBlock: 500,
 				OutputErr:   nil,
 			},
 		},
 		{
 			Name:             "LastHeadPollNotInitialized",
 			LastPoll:         0,
-			ExpectedLastPoll: 5,
+			ExpectedLastPoll: 500,
 			ExpectedErr:      nil,
 			LatestBlock: &struct {
 				OutputBlock int64
 				OutputErr   error
 			}{
-				OutputBlock: 5,
+				OutputBlock: 500,
 				OutputErr:   nil,
 			},
 		},
 		{
 			Name:             "LogPollError",
-			LastPoll:         1,
+			LastPoll:         480,
 			Address:          common.BigToAddress(big.NewInt(1)),
-			ExpectedLastPoll: 5,
+			ExpectedLastPoll: 500,
 			ExpectedErr:      ErrLogReadFailure,
 			LatestBlock: &struct {
 				OutputBlock int64
 				OutputErr   error
 			}{
-				OutputBlock: 5,
+				OutputBlock: 500,
 				OutputErr:   nil,
 			},
 			LogsWithSigs: &struct {
@@ -152,23 +152,23 @@ func TestPollLogs(t *testing.T) {
 				OutputLogs []logpoller.Log
 				OutputErr  error
 			}{
-				InputStart: 1,
-				InputEnd:   5,
+				InputStart: 400,
+				InputEnd:   500,
 				OutputLogs: []logpoller.Log{},
 				OutputErr:  fmt.Errorf("test output error"),
 			},
 		},
 		{
 			Name:             "LogPollSuccess",
-			LastPoll:         1,
+			LastPoll:         480,
 			Address:          common.BigToAddress(big.NewInt(1)),
-			ExpectedLastPoll: 5,
+			ExpectedLastPoll: 500,
 			ExpectedErr:      nil,
 			LatestBlock: &struct {
 				OutputBlock int64
 				OutputErr   error
 			}{
-				OutputBlock: 5,
+				OutputBlock: 500,
 				OutputErr:   nil,
 			},
 			LogsWithSigs: &struct {
@@ -177,8 +177,8 @@ func TestPollLogs(t *testing.T) {
 				OutputLogs []logpoller.Log
 				OutputErr  error
 			}{
-				InputStart: 1,
-				InputEnd:   5,
+				InputStart: 400,
+				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
 					{EvmChainId: utils.NewBig(big.NewInt(5)), LogIndex: 1},
 					{EvmChainId: utils.NewBig(big.NewInt(6)), LogIndex: 2},
