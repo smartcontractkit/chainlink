@@ -628,12 +628,12 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		msg := makeNewHeadWSMessage(43)
 		s.MustWriteBinaryMessageSync(t, msg)
 
-		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
-
 		testutils.AssertEventually(t, func() bool {
 			s, n, td := n.StateAndLatest()
 			return s == NodeStateAlive && n != -1 && td != nil
 		})
+
+		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
 	})
 
 	t.Run("transitions to alive if back in-sync", func(t *testing.T) {

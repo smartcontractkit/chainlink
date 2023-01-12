@@ -338,7 +338,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		transmitterID      = "%s"
 		contractConfigConfirmations = 1
 		contractConfigTrackerPollInterval = "1s"
-		pluginType         = "directrequest"
+		pluginType         = "functions"
 		observationSource  = """
 			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
 			decode_cbor        [type="cborparse" data="$(decode_log.data)"]

@@ -812,7 +812,7 @@ func setupForwarderEnabledNode(
 	require.NoError(t, err)
 
 	// deploy a forwarder
-	forwarder, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.Address{}, owner.From, common.Address{}, []byte{})
+	forwarder, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
 	require.NoError(t, err)
 
 	// set EOA as an authorized sender for the forwarder

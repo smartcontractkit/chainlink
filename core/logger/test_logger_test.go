@@ -28,7 +28,7 @@ func TestTestLogger(t *testing.T) {
 	log := logs[0]
 	assert.Equal(t, zap.WarnLevel, log.Level)
 	assert.Equal(t, testMessage, log.Message)
-	assert.Equal(t, fmt.Sprintf("%s.%s", verShaNameStatic(), testName), log.LoggerName)
+	assert.Equal(t, "", log.LoggerName)
 
 	const (
 		serviceName    = "ServiceName"
@@ -44,7 +44,7 @@ func TestTestLogger(t *testing.T) {
 	log = logs[0]
 	assert.Equal(t, zap.DebugLevel, log.Level)
 	assert.Equal(t, serviceMessage, log.Message)
-	assert.Equal(t, fmt.Sprintf("%s.%s.%s", verShaNameStatic(), testName, serviceName), log.LoggerName)
+	assert.Equal(t, serviceName, log.LoggerName)
 	assert.Equal(t, value, log.ContextMap()[key])
 	assert.Contains(t, log.Caller.String(), "core/logger/test_logger_test.go")
 	assert.Equal(t, log.Caller.Line, 40)
@@ -63,7 +63,7 @@ func TestTestLogger(t *testing.T) {
 	log = logs[0]
 	assert.Equal(t, zap.InfoLevel, log.Level)
 	assert.Equal(t, workerMessage, log.Message)
-	assert.Equal(t, fmt.Sprintf("%s.%s.%s.%s", verShaNameStatic(), testName, serviceName, workerName), log.LoggerName)
+	assert.Equal(t, fmt.Sprintf("%s.%s", serviceName, workerName), log.LoggerName)
 	assert.Equal(t, workerId, log.ContextMap()[idKey])
 	assert.Equal(t, resultVal, log.ContextMap()[resultKey])
 
@@ -76,5 +76,5 @@ func TestTestLogger(t *testing.T) {
 	log = logs[0]
 	assert.Equal(t, zap.DPanicLevel, log.Level)
 	assert.Equal(t, critMsg, log.Message)
-	assert.Equal(t, fmt.Sprintf("%s.%s", verShaNameStatic(), testName), log.LoggerName)
+	assert.Equal(t, "", log.LoggerName)
 }

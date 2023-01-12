@@ -519,7 +519,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			rgstry,
 			pluginService,
 		}, nil
-	case job.OCR2DirectRequest:
+	case job.OCR2Functions:
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}
