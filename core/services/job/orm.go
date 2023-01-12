@@ -903,19 +903,19 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 				// If we're already receiving rows back, then we no longer need an offset
 				offset = 0
 			} else {
-				var skipped int
+				var skipped []int
 				// If no rows were returned, we need to know whether there were any ids skipped
 				//  in this batch due to the offset, and reduce it for the next batch
 				err = tx.Select(&skipped,
 					fmt.Sprintf(
-						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $2 AND p.id <= $3`, filter,
-					),
+						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $1 AND p.id <= $2`, filter,
+					), minID, maxID,
 				)
 				if err != nil {
 					err = errors.Wrap(err, "error loading from pipeline_runs")
 					return
 				}
-				offset -= skipped
+				offset -= skipped[0]
 				if offset < 0 { // sanity assertion, if this ever happened it would probably mean db corruption or pg bug
 					lggr.AssumptionViolationw("offset < 0 while reading pipeline_runs")
 					err = errors.Wrap(err, "internal db error while reading pipeline_runs")
