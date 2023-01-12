@@ -30,6 +30,63 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
+func BuildOCR2AggregatorConfig(
+	t *testing.T,
+	chainlinkNodes []*client.Chainlink,
+	deltaStage time.Duration,
+) contracts.OCRConfig {
+	S, oracleIdentities := getOracleIdentities(t, chainlinkNodes)
+
+	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		5*time.Second,         // deltaProgress time.Duration,
+		10*time.Second,        // deltaResend time.Duration,
+		2500*time.Millisecond, // deltaRound time.Duration,
+		50*time.Millisecond,   // deltaGrace time.Duration,
+		deltaStage,            // deltaStage time.Duration,
+		48,                    // rMax uint8,
+		S,                     // s []int,
+		oracleIdentities,      // oracles []OracleIdentityExtra,
+		types2.OffchainConfig{
+			TargetProbability:    "0.999",
+			TargetInRounds:       1,
+			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
+			UniqueReports:        false,           // set quorum requirements
+		}.Encode(), // reportingPluginConfig []byte,
+		20*time.Millisecond,   // maxDurationQuery time.Duration,
+		1600*time.Millisecond, // maxDurationObservation time.Duration,
+		800*time.Millisecond,  // maxDurationReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                     // f int,
+		nil,                   // onchainConfig []byte,
+	)
+	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
+
+	var signers []common.Address
+	for _, signer := range signerOnchainPublicKeys {
+		require.Equal(t, 20, len(signer), "OnChainPublicKey has wrong length for address")
+		signers = append(signers, common.BytesToAddress(signer))
+	}
+
+	var transmitters []common.Address
+	for _, transmitter := range transmitterAccounts {
+		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount is not a valid Ethereum address")
+		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
+	}
+
+	require.NoError(t, err, "Shouldn't fail encoding config")
+
+	log.Info().Msg("Done building OCR config")
+	return contracts.OCRConfig{
+		Signers:      signers,
+		Transmitters: transmitters,
+		F:            f,
+		// OnchainConfig:         []byte,
+		OffchainConfigVersion: offchainConfigVersion,
+		OffchainConfig:        offchainConfig,
+	}
+}
+
 func BuildAutoOCR2ConfigVars(
 	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
@@ -149,6 +206,73 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 	wg.Wait()
 	log.Info().Msg("Done fetching oracle identities")
 	return S, oracleIdentities
+}
+
+func CreateOCR2Jobs(
+	t *testing.T,
+	chainlinkNodes []*client.Chainlink,
+	contractID string,
+	chainID int64,
+	keyIndex int,
+	observationSource string,
+) {
+	bootstrapNode := chainlinkNodes[0]
+	bootstrapNode.RemoteIP()
+	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
+	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
+	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
+
+	bootstrapSpec := &client.OCR2TaskJobSpec{
+		Name:    "ocr2 bootstrap node",
+		JobType: "bootstrap",
+		OCR2OracleSpec: job.OCR2OracleSpec{
+			ContractID: contractID,
+			Relay:      "evm",
+			RelayConfig: map[string]interface{}{
+				"chainID": int(chainID),
+			},
+			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+		},
+	}
+	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
+	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+
+	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
+		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
+		require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
+		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
+		require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
+		var nodeOCRKeyId []string
+		for _, key := range nodeOCRKeys.Data {
+			if key.Attributes.ChainType == string(chaintype.EVM) {
+				nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
+				break
+			}
+		}
+
+		autoOCR2JobSpec := client.OCR2TaskJobSpec{
+			Name:    "ocr2",
+			JobType: "offchainreporting2",
+			OCR2OracleSpec: job.OCR2OracleSpec{
+				PluginType: "ocr2automation",
+				Relay:      "evm",
+				RelayConfig: map[string]interface{}{
+					"chainID": int(chainID),
+				},
+				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+				ContractID:                        contractID,                                        // registryAddr
+				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[keyIndex]),           // get node ocr2config.ID
+				TransmitterID:                     null.StringFrom(nodeTransmitterAddress[keyIndex]), // node addr
+				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},                 // bootstrap node key and address <p2p-key>@bootstrap:8000
+			},
+			ObservationSource: observationSource,
+		}
+
+		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
+		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
+	}
+	log.Info().Msg("Done creating OCR automation jobs")
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs

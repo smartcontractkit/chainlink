@@ -701,6 +701,69 @@ func TestUpdateCheckData(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 }
 
+func TestOCR2Basic(t *testing.T) {
+	t.Parallel()
+	chainClient, _, contractDeployer, linkToken, registry, registrar := setupAutomationTest(
+		t, "basic-ocr2", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+	)
+
+	// consumers, upkeepIDs := actions.DeployConsumers(
+	// 	t,
+	// 	registry,
+	// 	registrar,
+	// 	linkToken,
+	// 	contractDeployer,
+	// 	chainClient,
+	// 	defaultAmountOfUpkeeps,
+	// 	big.NewInt(automationDefaultLinkFunds),
+	// 	automationDefaultUpkeepGasLimit,
+	// )
+
+	// log.Info().Msg("Waiting for all upkeeps to be performed")
+	// gom := gomega.NewGomegaWithT(t)
+	// gom.Eventually(func(g gomega.Gomega) {
+	// 	// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+	// 	for i := 0; i < len(upkeepIDs); i++ {
+	// 		counter, err := consumers[i].Counter(context.Background())
+	// 		require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+	// 		expect := 5
+	// 		log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+	// 		g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+	// 			"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+	// 	}
+	// }, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+
+	// // Cancel all the registered upkeeps via the registry
+	// for i := 0; i < len(upkeepIDs); i++ {
+	// 	err := registry.CancelUpkeep(upkeepIDs[i])
+	// 	require.NoError(t, err, "Could not cancel upkeep at index %d", i)
+	// }
+
+	// err := chainClient.WaitForEvents()
+	// require.NoError(t, err, "Error encountered when waiting for upkeeps to be cancelled")
+
+	// var countersAfterCancellation = make([]*big.Int, len(upkeepIDs))
+
+	// for i := 0; i < len(upkeepIDs); i++ {
+	// 	// Obtain the amount of times the upkeep has been executed so far
+	// 	countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
+	// 	require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+	// 	log.Info().Int64("Upkeep Count", countersAfterCancellation[i].Int64()).Int("Upkeep Index", i).Msg("Cancelled upkeep")
+	// }
+
+	// log.Info().Msg("Making sure the counter stays consistent")
+	// gom.Consistently(func(g gomega.Gomega) {
+	// 	for i := 0; i < len(upkeepIDs); i++ {
+	// 		// Expect the counter to remain constant (At most increase by 1 to account for stale performs) because the upkeep was cancelled
+	// 		latestCounter, err := consumers[i].Counter(context.Background())
+	// 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+	// 		g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterCancellation[i].Int64()+1),
+	// 			"Expected consumer counter to remain less than or equal to %d, but got %d",
+	// 			countersAfterCancellation[i].Int64()+1, latestCounter.Int64())
+	// 	}
+	// }, "1m", "1s").Should(gomega.Succeed())
+}
+
 func setupAutomationTest(
 	t *testing.T,
 	testName string,

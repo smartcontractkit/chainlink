@@ -272,6 +272,12 @@ type ReadAccessController interface {
 	DisableAccessCheck() error
 }
 
+type WriteAccessController interface {
+	Address() string
+	AddAccess(addr string) error
+	DisableAccessCheck() error
+}
+
 // Flags flags contract interface
 type Flags interface {
 	Address() string

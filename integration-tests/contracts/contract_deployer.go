@@ -28,6 +28,8 @@ type ContractDeployer interface {
 	DeployAPIConsumer(linkAddr string) (APIConsumer, error)
 	DeployOracle(linkAddr string) (Oracle, error)
 	DeployReadAccessController() (ReadAccessController, error)
+	DeployAccessController() (*AccessController, error)
+	DeployOCR2Aggregator(linkAddr string, billingAddr string, requesterAddr string) (*OCR2Aggregator, error)
 	DeployFlags(rac string) (Flags, error)
 	DeployDeviationFlaggingValidator(
 		flags string,
@@ -157,6 +159,50 @@ func (e *EthereumContractDeployer) DeployReadAccessController() (ReadAccessContr
 	return &EthereumReadAccessController{
 		client:  e.client,
 		rac:     instance.(*ethereum.SimpleReadAccessController),
+		address: address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployAccessController() (*AccessController, error) {
+	address, _, instance, err := e.client.DeployContract("Access Controller", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum2.DeployAccessController(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &AccessController{
+		client:  e.client,
+		rac:     instance.(*ethereum2.AccessController),
+		address: address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployOCR2Aggregator(linkAddr string, billingAddr string, requesterAddr string) (*OCR2Aggregator, error) {
+	address, _, instance, err := e.client.DeployContract("OCR2 Aggregator", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum2.DeployOCR2Aggregator(
+			auth,
+			backend,
+			common.HexToAddress(linkAddr),
+			big.NewInt(0),
+			big.NewInt(100000),
+			common.HexToAddress(billingAddr),
+			common.HexToAddress(requesterAddr),
+			18,
+			"",
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &OCR2Aggregator{
+		client:  e.client,
+		rac:     instance.(*ethereum2.OCR2Aggregator),
 		address: address,
 	}, nil
 }

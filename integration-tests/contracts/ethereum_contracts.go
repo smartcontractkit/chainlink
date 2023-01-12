@@ -1462,6 +1462,49 @@ func (e *EthereumReadAccessController) Address() string {
 	return e.address.Hex()
 }
 
+type AccessController struct {
+	client  blockchain.EVMClient
+	rac     *ethereum2.AccessController
+	address *common.Address
+}
+
+func (e *AccessController) Address() string {
+	return e.address.Hex()
+}
+
+type OCR2Aggregator struct {
+	client  blockchain.EVMClient
+	rac     *ethereum2.OCR2Aggregator
+	address *common.Address
+}
+
+func (e *OCR2Aggregator) SetConfig(ocrConfig OCRConfig) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+
+	var tx *types.Transaction
+	tx, err = e.rac.SetConfig(
+		opts,
+		ocrConfig.Signers,
+		ocrConfig.Transmitters,
+		ocrConfig.F,
+		ocrConfig.OnchainConfig,
+		ocrConfig.OffchainConfigVersion,
+		ocrConfig.OffchainConfig,
+	)
+
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+func (e *OCR2Aggregator) Address() string {
+	return e.address.Hex()
+}
+
 // EthereumFlags represents flags contract
 type EthereumFlags struct {
 	client  blockchain.EVMClient
