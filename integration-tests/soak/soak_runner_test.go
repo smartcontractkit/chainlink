@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -146,6 +147,7 @@ func soakTestHelper(
 	for key, value := range activeEVMNetwork.ToMap() {
 		remoteRunnerValues[key] = value
 	}
+	remoteRunnerValues[config.EnvVarInsideK8s] = "true"
 	remoteRunnerWrapper := map[string]interface{}{"remote_test_runner": remoteRunnerValues}
 
 	err := testEnvironment.
