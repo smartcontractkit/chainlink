@@ -13,8 +13,8 @@ library Functions {
   using CBORChainlink for BufferChainlink.buffer;
 
   enum Location {
-    Inline
-    // In future version we will add Remote location
+    Inline,
+    Remote
   }
 
   enum CodeLanguage {

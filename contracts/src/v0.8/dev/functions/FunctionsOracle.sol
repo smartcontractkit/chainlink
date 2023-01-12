@@ -28,9 +28,11 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
   error EmptyPublicKey();
   error EmptyBillingRegistry();
   error InvalidRequestID();
+  error UnauthorizedPublicKeyChange();
 
   bytes private s_donPublicKey;
   FunctionsBillingRegistryInterface private s_registry;
+  mapping(address => bytes) private s_nodePublicKeys;
 
   constructor() OCR2Base(true) {}
 
@@ -74,6 +76,53 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
       revert EmptyPublicKey();
     }
     s_donPublicKey = donPublicKey;
+  }
+
+  /**
+   * @dev check if node is in current transmitter list
+   */
+  function _isTransmitter(address node) internal view returns (bool) {
+    address[] memory nodes = this.transmitters();
+    for (uint i = 0; i < nodes.length; i++) {
+      if (nodes[i] == node) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * @inheritdoc FunctionsOracleInterface
+   */
+  function setNodePublicKey(address node, bytes calldata publicKey) external override {
+    // Owner can set anything. Transmitters can set only their own key.
+    if (!(msg.sender == owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
+      revert UnauthorizedPublicKeyChange();
+    }
+    s_nodePublicKeys[node] = publicKey;
+  }
+
+  /**
+   * @inheritdoc FunctionsOracleInterface
+   */
+  function deleteNodePublicKey(address node) external override {
+    // Owner can delete anything. Others can delete only their own key.
+    if (!(msg.sender == owner() || msg.sender == node)) {
+      revert UnauthorizedPublicKeyChange();
+    }
+    delete s_nodePublicKeys[node];
+  }
+
+  /**
+   * @inheritdoc FunctionsOracleInterface
+   */
+  function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
+    address[] memory nodes = this.transmitters();
+    bytes[] memory keys = new bytes[](nodes.length);
+    for (uint i = 0; i < nodes.length; i++) {
+      keys[i] = s_nodePublicKeys[nodes[i]];
+    }
+    return (nodes, keys);
   }
 
   /**
