@@ -1031,9 +1031,6 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		}
 	}
 
-	// Creation of job runs above cannot run in parallel, otherwise run ids are unpredictable
-	//t.Parallel()
-
 	t.Run("with no pipeline runs", func(t *testing.T) {
 		runIDs, err := orm.FindPipelineRunIDsByJobID(jb.ID, 0, 10)
 		require.NoError(t, err)
