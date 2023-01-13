@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"math/big"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -15,13 +16,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
@@ -82,7 +86,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 	var keepers []common.Address
 	var owners []common.Address
 	var cls []cmd.HTTPClient
-	for _, startedNode := range startedNodes {
+	for i, startedNode := range startedNodes {
 		// Create authenticated client
 		var cl cmd.HTTPClient
 		var err error
@@ -91,12 +95,25 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 			log.Fatal("Authentication failed, ", err)
 		}
 
-		// Get node's wallet address
 		var nodeAddrHex string
-		if nodeAddrHex, err = getNodeAddress(cl); err != nil {
-			log.Println("Failed to get node addr: ", err)
-			continue
+
+		if len(k.cfg.KeeperKeys) > 0 {
+			// import key if exists
+			var err error
+			nodeAddrHex, err = k.addKeyToKeeper(cl, k.cfg.KeeperKeys[i])
+			if err != nil {
+				log.Fatal("could not add key to keeper", err)
+			}
+		} else {
+			// get node's default wallet address
+			var err error
+			nodeAddrHex, err = getNodeAddress(cl)
+			if err != nil {
+				log.Println("Failed to get node addr: ", err)
+				continue
+			}
 		}
+
 		nodeAddr := common.HexToAddress(nodeAddrHex)
 
 		// Create keepers
@@ -104,7 +121,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 			log.Println("Failed to create keeper job: ", err)
 			continue
 		}
-		log.Println("Keeper job has been successfully created in the Chainlink node with address ", startedNode.url)
 
 		// Fund node if needed
 		fundAmt, ok := (&big.Int{}).SetString(k.cfg.FundNodeAmount, 10)
@@ -346,4 +362,44 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 	}
 
 	return nil
+}
+
+// addKeyToKeeper imports the provided ETH sending key to the keeper
+func (k *Keeper) addKeyToKeeper(client cmd.HTTPClient, privKeyHex string) (string, error) {
+	privkey, err := crypto.HexToECDSA(utils.RemoveHexPrefix(privKeyHex))
+	if err != nil {
+		log.Fatalf("Failed to decode priv key %s: %v", privKeyHex, err)
+	}
+	address := crypto.PubkeyToAddress(privkey.PublicKey).Hex()
+	log.Printf("importing keeper key %s", address)
+	keyJSON, err := ethkey.FromPrivateKey(privkey).ToEncryptedJSON(defaultChainlinkNodePassword, utils.FastScryptParams)
+	if err != nil {
+		log.Fatalf("Failed to encrypt piv key %s: %v", privKeyHex, err)
+	}
+	importUrl := url.URL{
+		Path: "/v2/keys/evm/import",
+	}
+	query := importUrl.Query()
+
+	query.Set("oldpassword", defaultChainlinkNodePassword)
+	query.Set("evmChainID", fmt.Sprint(k.cfg.ChainID))
+
+	importUrl.RawQuery = query.Encode()
+	resp, err := client.Post(importUrl.String(), bytes.NewReader(keyJSON))
+	if err != nil {
+		log.Fatalf("Failed to import priv key %s: %v", privKeyHex, err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("failed to read error response body: %s", err)
+		}
+
+		return "", fmt.Errorf("unable to create ocr2keeper job: '%v' [%d]", string(body), resp.StatusCode)
+	}
+
+	return address, nil
 }

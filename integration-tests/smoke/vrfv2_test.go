@@ -8,15 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -26,9 +28,10 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-var linkEthFeedResponse = big.NewInt(1e18)
-
 func TestVRFv2Basic(t *testing.T) {
+	linkEthFeedResponse := big.NewInt(1e18)
+	minimumConfirmations := 3
+
 	t.Parallel()
 	testEnvironment, testNetwork := setupVRFv2Test(t)
 
@@ -65,7 +68,7 @@ func TestVRFv2Basic(t *testing.T) {
 	err = linkToken.Transfer(consumer.Address(), big.NewInt(0).Mul(linkFunding, big.NewInt(1e18)))
 	require.NoError(t, err)
 	err = coordinator.SetConfig(
-		1,
+		uint16(minimumConfirmations),
 		2.5e6,
 		86400,
 		33825,
@@ -112,7 +115,7 @@ func TestVRFv2Basic(t *testing.T) {
 			CoordinatorAddress:       coordinator.Address(),
 			FromAddress:              oracleAddr,
 			EVMChainID:               fmt.Sprint(chainClient.GetNetworkConfig().ChainID),
-			MinIncomingConfirmations: 1,
+			MinIncomingConfirmations: minimumConfirmations,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
 			ObservationSource:        ost,
@@ -129,10 +132,10 @@ func TestVRFv2Basic(t *testing.T) {
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 	}
 
-	words := uint32(10)
+	words := uint32(3)
 	keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
 	require.NoError(t, err)
-	err = consumer.RequestRandomness(keyHash, 1, 1, 300000, words)
+	err = consumer.RequestRandomness(keyHash, 1, uint16(minimumConfirmations), 1000000, words)
 	require.NoError(t, err)
 
 	gom := gomega.NewGomegaWithT(t)
@@ -160,12 +163,17 @@ func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, tes
 			WsURLs:      testNetwork.URLs,
 		})
 	}
+
+	networkDetailTOML := `[EVM.GasEstimator]
+LimitDefault = 1400000
+PriceMax = 100000000000
+FeeCapDefault = 100000000000`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig("", testNetwork),
+			"toml": client.AddNetworkDetailedConfig("", networkDetailTOML, testNetwork),
 		}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
