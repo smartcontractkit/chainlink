@@ -707,7 +707,20 @@ func Test_FindJobs(t *testing.T) {
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 
-	config := configtest.NewTestGeneralConfig(t)
+	// Create a config with multiple EVM chains.  The test fixtures already load a 1337 and the
+	// default EVM chain ID.  Additional chains will need additional fixture statements to add
+	// a chain to evm_chains.
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		chainID := utils.NewBigI(1337)
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: chainID,
+			Chain:   evmcfg.Defaults(chainID),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
+
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -721,11 +734,14 @@ func Test_FindJob(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
+	// Create two jobs.  Each job has the same Transmitter Address but on a different chain.
+	// Must uniquely name the OCR Specs to properly insert a new job in the job table.
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	job, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
+			Name:               "orig ocr spec",
 			TransmitterAddress: address.Hex(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
@@ -733,7 +749,22 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	jobSameAddress, err := ocr.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              uuid.NewV4().String(),
+			TransmitterAddress: address.Hex(),
+			Name:               "ocr spec dup addr",
+			EVMChainID:         "1337",
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
 	err = orm.CreateJob(&job)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jobSameAddress)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
@@ -765,14 +796,30 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by address", func(t *testing.T) {
-		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress)
+		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress, job.OCROracleSpec.EVMChainID)
 		require.NoError(t, err)
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err = orm.FindJobIDByAddress("not-existing")
+		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
 		require.Error(t, err)
 		require.ErrorIs(t, err, sql.ErrNoRows)
+	})
+
+	t.Run("by address yet chain scoped", func(t *testing.T) {
+		commonAddr := jobSameAddress.OCROracleSpec.ContractAddress
+
+		// Find job ID for job on chain 1337 with common address.
+		jbID, err := orm.FindJobIDByAddress(commonAddr, jobSameAddress.OCROracleSpec.EVMChainID)
+		require.NoError(t, err)
+
+		assert.Equal(t, jobSameAddress.ID, jbID)
+
+		// Find job ID for job on default evm chain with common address.
+		jbID, err = orm.FindJobIDByAddress(commonAddr, job.OCROracleSpec.EVMChainID)
+		require.NoError(t, err)
+
+		assert.Equal(t, job.ID, jbID)
 	})
 }
 
