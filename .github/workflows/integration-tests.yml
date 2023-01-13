@@ -113,6 +113,9 @@ jobs:
           - name: vrfv2
             nodes: 1
             os: ubuntu-latest
+          - name: ocr2vrf
+            nodes: 1
+            os: ubuntu-latest
     runs-on: ${{ matrix.product.os }}
     steps:
       - name: Checkout the repo
