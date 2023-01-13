@@ -3,11 +3,12 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"math/big"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"

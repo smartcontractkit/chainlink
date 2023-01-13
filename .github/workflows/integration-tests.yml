@@ -113,7 +113,7 @@ jobs:
           - name: vrfv2
             nodes: 1
             os: ubuntu-latest
-          - name: vrfv3
+          - name: ocr2vrf
             nodes: 1
             os: ubuntu-latest
     runs-on: ${{ matrix.product.os }}

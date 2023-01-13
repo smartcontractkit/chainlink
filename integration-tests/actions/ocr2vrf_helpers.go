@@ -5,13 +5,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -22,9 +22,11 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"gopkg.in/guregu/null.v4"
-	"strconv"
-	"testing"
-	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 type DKGKeyConfig struct {
@@ -61,8 +63,8 @@ type OCR2VRFPluginConfig struct {
 	LinkEthFeedAddress    string
 }
 
-// CreateOCR2VRFV3Jobs bootstraps the first node and to the other nodes sends ocr jobs
-func CreateOCR2VRFV3Jobs(
+// CreateOCR2VRFJobs bootstraps the first node and to the other nodes sends ocr jobs
+func CreateOCR2VRFJobs(
 	t *testing.T,
 	bootstrapNode *client.Chainlink,
 	nonBootstrapNodes []*client.Chainlink,
@@ -91,7 +93,7 @@ func createNonBootstrapJobs(t *testing.T, nonBootstrapNodes []*client.Chainlink,
 			}
 		}
 
-		OCR2VRFV3JobSpec := client.OCR2TaskJobSpec{
+		OCR2VRFJobSpec := client.OCR2TaskJobSpec{
 			Name:    "ocr2",
 			JobType: "offchainreporting2",
 			OCR2OracleSpec: job.OCR2OracleSpec{
@@ -105,16 +107,16 @@ func createNonBootstrapJobs(t *testing.T, nonBootstrapNodes []*client.Chainlink,
 				TransmitterID:      null.StringFrom(nodeTransmitterAddress[keyIndex]),
 				P2PV2Bootstrappers: pq.StringArray{P2Pv2Bootstrapper},
 				PluginConfig: map[string]interface{}{
-					"dkgEncryptionPublicKey": null.StringFrom(OCR2VRFPluginConfig.DKGConfig.DKGKeyConfigs[index].DKGEncryptionPublicKey).String,
-					"dkgSigningPublicKey":    null.StringFrom(OCR2VRFPluginConfig.DKGConfig.DKGKeyConfigs[index].DKGSigningPublicKey).String,
-					"dkgKeyID":               null.StringFrom(OCR2VRFPluginConfig.DKGConfig.DKGKeyID).String,
-					"dkgContractAddress":     null.StringFrom(OCR2VRFPluginConfig.DKGConfig.DKGContractAddress).String,
-					"vrfCoordinatorAddress":  null.StringFrom(OCR2VRFPluginConfig.VRFCoordinatorAddress).String,
-					"linkEthFeedAddress":     null.StringFrom(OCR2VRFPluginConfig.LinkEthFeedAddress).String,
+					"dkgEncryptionPublicKey": fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.DKGConfig.DKGKeyConfigs[index].DKGEncryptionPublicKey),
+					"dkgSigningPublicKey":    fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.DKGConfig.DKGKeyConfigs[index].DKGSigningPublicKey),
+					"dkgKeyID":               fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.DKGConfig.DKGKeyID),
+					"dkgContractAddress":     fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.DKGConfig.DKGContractAddress),
+					"vrfCoordinatorAddress":  fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.VRFCoordinatorAddress),
+					"linkEthFeedAddress":     fmt.Sprintf("\"%s\"", OCR2VRFPluginConfig.LinkEthFeedAddress),
 				},
 			},
 		}
-		_, err = nonBootstrapNode.MustCreateJob(&OCR2VRFV3JobSpec)
+		_, err = nonBootstrapNode.MustCreateJob(&OCR2VRFJobSpec)
 		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", index)
 	}
 }

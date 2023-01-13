@@ -2,27 +2,29 @@ package smoke
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+	"testing"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/core/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"strings"
-	"testing"
 
 	"github.com/rs/zerolog/log"
 )
 
-func TestVRFv3Basic(t *testing.T) {
+func TestOCR2VRFBasic(t *testing.T) {
 	linkEthFeedResponse := big.NewInt(1e18)
 	linkFundingAmount := big.NewInt(100)
 	beaconPeriodBlocksCount := big.NewInt(3)
@@ -34,7 +36,7 @@ func TestVRFv3Basic(t *testing.T) {
 	keyId := "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc"
 
 	t.Parallel()
-	testEnvironment, testNetwork := setupVRFv3Test(t)
+	testEnvironment, testNetwork := setupOCR2VRFTest(t)
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err)
@@ -66,7 +68,7 @@ func TestVRFv3Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	//4. Deploy VRFCoordinator(beaconPeriodBlocks, linkAddress, linkEthfeedAddress)
-	coordinator, err := contractDeployer.DeployVRFCoordinatorV3(beaconPeriodBlocksCount, linkToken.Address(), mockETHLinkFeed.Address())
+	coordinator, err := contractDeployer.DeployOCR2VRFCoordinator(beaconPeriodBlocksCount, linkToken.Address(), mockETHLinkFeed.Address())
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
@@ -214,7 +216,7 @@ func TestVRFv3Basic(t *testing.T) {
 		VRFCoordinatorAddress: coordinator.Address(),
 		LinkEthFeedAddress:    mockETHLinkFeed.Address(),
 	}
-	actions.CreateOCR2VRFV3Jobs(
+	actions.CreateOCR2VRFJobs(
 		t,
 		bootstrapNode,
 		nonBootstrapNodes,
@@ -300,7 +302,7 @@ func TestVRFv3Basic(t *testing.T) {
 	}
 }
 
-func setupVRFv3Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+func setupOCR2VRFTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
@@ -330,7 +332,7 @@ PriceMax = 100000000000
 FeeCapDefault = 100000000000`
 
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-vrfv3-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		NamespacePrefix: fmt.Sprintf("smoke-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{

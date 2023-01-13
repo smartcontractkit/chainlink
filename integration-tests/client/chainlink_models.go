@@ -1032,7 +1032,7 @@ observationSource                      = """
 """{{end}}
 {{if eq .JobType "offchainreporting2" }}
 [pluginConfig]{{range $key, $value := .PluginConfig}}
-{{$key}} = "{{$value}}"{{end}}
+{{$key}} = {{$value}}{{end}}
 {{end}}
 [relayConfig]{{range $key, $value := .RelayConfig}}
 {{$key}} = {{$value}}{{end}}
