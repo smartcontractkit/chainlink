@@ -15,7 +15,7 @@ require (
 	github.com/smartcontractkit/chainlink-env v0.2.58
 	github.com/smartcontractkit/chainlink-testing-framework v1.9.0
 	github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407
-	github.com/smartcontractkit/ocr2keepers v0.4.8
+	github.com/smartcontractkit/ocr2keepers v0.6.6
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20221206151523-7ae0ec615c0e
 	github.com/stretchr/testify v1.8.1
 	github.com/umbracle/ethgo v0.1.3
@@ -286,6 +286,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
 	github.com/status-im/keycard-go v0.0.0-20200402102358-957c09536969 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
 	github.com/tendermint/btcd v0.1.1 // indirect
@@ -330,7 +331,7 @@ require (
 	golang.org/x/time v0.1.0 // indirect
 	golang.org/x/tools v0.5.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
-	gonum.org/v1/gonum v0.11.0 // indirect
+	gonum.org/v1/gonum v0.12.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220712132514-bdd2acd4974d // indirect
 	google.golang.org/grpc v1.49.0 // indirect
