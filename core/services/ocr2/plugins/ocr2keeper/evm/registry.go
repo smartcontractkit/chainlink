@@ -82,10 +82,10 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 }
 
 var upkeepStateEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(), // adds new upkeep id to registry
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),   // adds multiple new upkeep ids to registry
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(),  // adds new upkeep id to registry
+	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),    // adds new upkeep id to registry via migration
+	keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet{}.Topic(), // unpauses an upkeep
+	keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused{}.Topic(),    // updates the gas limit for an upkeep
 }
 
 var upkeepActiveEvents = []common.Hash{
@@ -385,16 +385,18 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		return err
 	}
 
-	r.lggr.Debugf("log detected for event %s in transaction %s", abilog.Topic(), hash)
-
 	switch l := abilog.(type) {
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered: // adds new upkeep id to registry
+	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
+		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived: // adds multiple new upkeep ids to registry
+	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived:
+		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
+		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
+		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, true)
 	}
 
