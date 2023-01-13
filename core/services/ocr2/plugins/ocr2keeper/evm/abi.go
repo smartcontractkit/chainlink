@@ -33,7 +33,6 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 	result.FastGasWei = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 	result.LinkNative = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
 
-	// TODO: not sure it it's best to short circuit here
 	if !upkeepNeeded {
 		result.State = types.NotEligible
 	} else {
@@ -48,7 +47,9 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 		result.PerformData = ret0.Result.PerformData
 	}
 
-	// TODO: make an eth call to get this data
+	// This is a default placeholder which is used since we do not get the execute gas
+	// from checkUpkeep result. This field is overwritten later from the execute gas
+	// we have for an upkeep in memory. TODO (AUTO-1482): Refactor this
 	result.ExecuteGas = 5_000_000
 
 	return result, nil

@@ -284,6 +284,7 @@ func (r *EvmRegistry) initialize() error {
 
 	idMap := make(map[string]activeUpkeep)
 
+	r.lggr.Debugf("Re-initializing active upkeeps list")
 	// get active upkeep ids from contract
 	ids, err := r.getLatestIDsFromContract(startupCtx)
 	if err != nil {
