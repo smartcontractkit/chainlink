@@ -82,7 +82,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -run TestOCRSoak ./soak
