@@ -49,7 +49,7 @@ type ORM interface {
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
-	FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error)
+	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -760,17 +760,17 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 }
 
 // FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
-func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (jobID int32, err error) {
+func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (jobID int32, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.id = jobs.ocr_oracle_spec_id
-LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.id = jobs.flux_monitor_spec_id
+LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.evm_chain_id = $2 AND ocrspec.id = jobs.ocr_oracle_spec_id
+LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.evm_chain_id = $2 AND fmspec.id = jobs.flux_monitor_spec_id
 WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 `
-		err = tx.Get(&jobID, stmt, address)
+		err = tx.Get(&jobID, stmt, address, evmChainID)
 
 		if !errors.Is(err, sql.ErrNoRows) {
 			if err != nil {
@@ -961,7 +961,7 @@ func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []i
 		ids, err = o.loadPipelineRunIDs(&jobID, offset, limit, tx)
 		return err
 	})
-	return ids, errors.Wrap(err, "PipelineRunsByJobIDs failed")
+	return ids, errors.Wrap(err, "FindPipelineRunIDsByJobID failed")
 }
 
 func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.Run, err error) {
@@ -969,6 +969,7 @@ func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.
 		SELECT pipeline_runs.*
 		FROM pipeline_runs
 		WHERE id = ANY($1)
+		ORDER BY created_at DESC, id DESC
 	`
 	if err = tx.Select(&runs, stmt, ids); err != nil {
 		err = errors.Wrap(err, "error loading runs")
@@ -1024,7 +1025,7 @@ func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 		return err
 	})
 
-	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return count, errors.Wrap(err, "CountPipelineRunsByJobID failed")
 }
 
 func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
