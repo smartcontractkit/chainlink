@@ -169,7 +169,7 @@ func benchmarkTestHelper(
 		Str("Test Name", testName).
 		Str("Directory", testDirectory).
 		Str("Namespace", testEnvironment.Cfg.Namespace).
-		Msg("Soak Test")
+		Msg("Benchmark Test")
 	remoteRunnerValues := map[string]interface{}{
 		"test_name":             testName,
 		"env_namespace":         testEnvironment.Cfg.Namespace,
