@@ -55,9 +55,9 @@ func BuildAutoOCR2ConfigVars(
 			UniqueReports:        false,           // set quorum requirements
 			GasLimitPerReport:    5_300_000,
 			GasOverheadPerUpkeep: 300_000,
-			SamplingJobDuration:  3000,
-			MinConfirmations:     0,
-			MaxUpkeepBatchSize:   1,
+			//SamplingJobDuration:  3000,
+			//MinConfirmations:     0,
+			//MaxUpkeepBatchSize:   1,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
