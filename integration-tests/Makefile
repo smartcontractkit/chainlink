@@ -84,7 +84,7 @@ test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_
 # Chaos
 .PHONY: test_chaos_raw
 test_chaos_raw:
-	go test -count=1 $(args) ./chaos
+	go test -timeout 24h -v -count=1 $(args) ./chaos
 
 .PHONY: test_chaos
 test_chaos: install_gotestfmt ## Run all smoke tests

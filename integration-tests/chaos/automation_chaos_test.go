@@ -160,7 +160,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		"fail-blockchain-node": {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultOCRSettings),
+			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},

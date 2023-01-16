@@ -31,7 +31,7 @@ import (
 
 var (
 	defaultOCRSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(`OCR.Enabled = true`, networks.SelectedNetwork),
+		"toml":     client.AddNetworksConfig(actions.BaseOCRP2PV1Config, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
