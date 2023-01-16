@@ -127,7 +127,7 @@ func TestKeeperBenchmarkSimulatedGethRegistry_1_3(t *testing.T) {
 	})
 }
 
-func TestKeeperBenchmarkGoerliRegistry_1_3(t *testing.T) {
+func TestKeeperBenchmarkGoerliTestnetRegistry_1_3(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(ChainlinkNodeFunding),
@@ -149,7 +149,7 @@ func TestKeeperBenchmarkArbitrumGoerliRegistry_1_3(t *testing.T) {
 	})
 }
 
-func TestKeeperBenchmarkOptimisticGoerliRegistry_1_3(t *testing.T) {
+func TestKeeperBenchmarkOptimismGoerliRegistry_1_3(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(ChainlinkNodeFunding),
@@ -171,7 +171,7 @@ func TestKeeperBenchmarkSimulatedGethMulti_Registry(t *testing.T) {
 	})
 }
 
-func TestKeeperBenchmarkGoerliMulti_Registry(t *testing.T) {
+func TestKeeperBenchmarkGoerliTestnetMulti_Registry(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3},
 		big.NewFloat(ChainlinkNodeFunding),
@@ -193,7 +193,7 @@ func TestKeeperBenchmarkSimulatedGethRegistry_1_2(t *testing.T) {
 	})
 }
 
-func TestKeeperBenchmarkGoerliRegistry_1_2(t *testing.T) {
+func TestKeeperBenchmarkGoerliTestnetRegistry_1_2(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 		big.NewFloat(ChainlinkNodeFunding),
@@ -215,7 +215,7 @@ func TestKeeperBenchmarkSimulatedGethRegistry_2_0(t *testing.T) {
 	})
 }
 
-func TestKeeperBenchmarkGoerliRegistry_2_0(t *testing.T) {
+func TestKeeperBenchmarkGoerliTestnetRegistry_2_0(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
@@ -226,7 +226,7 @@ func TestKeeperBenchmarkGoerliRegistry_2_0(t *testing.T) {
 	})
 }
 
-func TestKeeperBenchmarkOptimisticGoerliRegistry_2_0(t *testing.T) {
+func TestKeeperBenchmarkOptimismGoerliRegistry_2_0(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
@@ -248,7 +248,7 @@ func TestKeeperBenchmarkArbitrumGoerliRegistry_2_0(t *testing.T) {
 	})
 }
 
-func TestKeeperBenchmarkMumbaiRegistry_2_0(t *testing.T) {
+func TestKeeperBenchmarkPolygonMumbaiRegistry_2_0(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
