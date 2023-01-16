@@ -57,7 +57,7 @@ func BuildAutoOCR2ConfigVars(
 			GasOverheadPerUpkeep: 300_000,
 			SamplingJobDuration:  3000,
 			MinConfirmations:     0,
-			MaxUpkeepBatchSize:   20,
+			MaxUpkeepBatchSize:   1,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
