@@ -118,7 +118,7 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
-	networkDetailTOML := ``
+	networkDetailTOML := `MinIncomingConfirmations = 1`
 
 	if registryToTest == "Registry_2_0" {
 		numberOfNodes += 1
