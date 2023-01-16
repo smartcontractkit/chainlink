@@ -99,7 +99,7 @@ func keeperBenchmark(t *testing.T, benchmarkTestEntry *BenchmarkTestEntry) {
 			BlockRange:            BlockRange,
 			BlockInterval:         BlockInterval,
 			ChainlinkNodeFunding:  benchmarkTestEntry.funding,
-			UpkeepGasLimit:        5_000_000, //5M
+			UpkeepGasLimit:        PerformGasToBurn,
 			UpkeepSLA:             benchmarkTestEntry.upkeepSLA,
 			FirstEligibleBuffer:   1,
 			PreDeployedConsumers:  benchmarkTestEntry.predeployedConsumers,
