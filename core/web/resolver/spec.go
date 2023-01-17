@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"fmt"
+
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -97,6 +99,19 @@ func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 	}
 
 	return &BootstrapSpecResolver{spec: *r.j.BootstrapSpec}, true
+}
+
+func (r *SpecResolver) ToVRFWeb2Spec() (*VRFWeb2SpecResolver, bool) {
+	if r.j.Type != job.VRFWeb2 {
+		return nil, false
+	}
+
+	if r.j.VRFWeb2Spec == nil {
+		fmt.Printf("job: %+v\n", r.j)
+		return nil, false
+	}
+
+	return &VRFWeb2SpecResolver{spec: *r.j.VRFWeb2Spec}, true
 }
 
 type CronSpecResolver struct {
@@ -714,6 +729,35 @@ type WebhookSpecResolver struct {
 // CreatedAt resolves the spec's created at timestamp.
 func (r *WebhookSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+type VRFWeb2SpecResolver struct {
+	spec job.VRFWeb2Spec
+}
+
+func (v *VRFWeb2SpecResolver) LotteryConsumerAddress() string {
+	return v.spec.LotteryConsumerAddress.String()
+}
+
+func (v *VRFWeb2SpecResolver) EVMChainID() *string {
+	cid := v.spec.EVMChainID.String()
+	return &cid
+}
+
+func (v *VRFWeb2SpecResolver) FromAddresses() *[]string {
+	if len(v.spec.FromAddresses) == 0 {
+		return nil
+	}
+
+	var addresses []string
+	for _, a := range v.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
+}
+
+func (v *VRFWeb2SpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: v.spec.CreatedAt}
 }
 
 // BlockhashStoreSpecResolver exposes the job parameters for a BlockhashStoreSpec.

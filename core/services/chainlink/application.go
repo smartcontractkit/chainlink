@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/web2"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -334,6 +335,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),
+			job.VRFWeb2: web2.NewDelegate(
+				db,
+				keyStore,
+				chains.EVM,
+				globalLogger,
+				cfg,
+			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)

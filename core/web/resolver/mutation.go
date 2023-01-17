@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/web2"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -1227,6 +1228,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
+	case job.VRFWeb2:
+		jb, err = web2.ValidatedSpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

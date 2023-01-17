@@ -35,6 +35,7 @@ const (
 	OffchainReporting2 Type = (Type)(pipeline.OffchainReporting2JobType)
 	Keeper             Type = (Type)(pipeline.KeeperJobType)
 	VRF                Type = (Type)(pipeline.VRFJobType)
+	VRFWeb2            Type = (Type)(pipeline.VRFWeb2JobType)
 	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
@@ -68,6 +69,7 @@ var (
 		OffchainReporting2: false, // bootstrap jobs do not require it
 		Keeper:             false, // observationSource is injected in the upkeep executor
 		VRF:                true,
+		VRFWeb2:            false,
 		Webhook:            true,
 		BlockhashStore:     false,
 		Bootstrap:          false,
@@ -80,6 +82,7 @@ var (
 		OffchainReporting2: false,
 		Keeper:             true,
 		VRF:                true,
+		VRFWeb2:            false,
 		Webhook:            true,
 		BlockhashStore:     false,
 		Bootstrap:          false,
@@ -92,6 +95,7 @@ var (
 		OffchainReporting2: 1,
 		Keeper:             1,
 		VRF:                1,
+		VRFWeb2:            1,
 		Webhook:            1,
 		BlockhashStore:     1,
 		Bootstrap:          1,
@@ -115,6 +119,8 @@ type Job struct {
 	KeeperSpec           *KeeperSpec
 	VRFSpecID            *int32
 	VRFSpec              *VRFSpec
+	VRFWeb2SpecID        *int32
+	VRFWeb2Spec          *VRFWeb2Spec
 	WebhookSpecID        *int32
 	WebhookSpec          *WebhookSpec
 	BlockhashStoreSpecID *int32
@@ -461,6 +467,18 @@ type VRFSpec struct {
 	// BackoffMaxDelay is the maximum amount of time to wait before retrying a failed request. V2
 	// only.
 	BackoffMaxDelay time.Duration `toml:"backoffMaxDelay"`
+
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+}
+
+// VRFWeb2Spec defines the job spec for the VRF Web2 job.
+type VRFWeb2Spec struct {
+	ID int32
+
+	LotteryConsumerAddress ethkey.EIP55Address   `toml:"lotteryConsumerAddress"`
+	EVMChainID             *utils.Big            `toml:"evmChainID"`
+	FromAddresses          []ethkey.EIP55Address `toml:"fromAddresses"`
 
 	CreatedAt time.Time `toml:"-"`
 	UpdatedAt time.Time `toml:"-"`

@@ -34,6 +34,7 @@ const (
 	VRFJobSpec               JobSpecType = "vrf"
 	WebhookJobSpec           JobSpecType = "webhook"
 	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
+	VRFWeb2JobSpec           JobSpecType = "vrfweb2"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
 )
 
@@ -316,6 +317,24 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	}
 }
 
+type VRFWeb2Spec struct {
+	LotteryConsumerAddress ethkey.EIP55Address   `json:"lotteryConsumerAddress"`
+	EVMChainID             *utils.Big            `json:"evmChainID"`
+	FromAddresses          []ethkey.EIP55Address `json:"fromAddresses"`
+	CreatedAt              time.Time             `json:"createdAt"`
+	UpdatedAt              time.Time             `json:"updatedAt"`
+}
+
+func NewVRFWeb2Spec(spec *job.VRFWeb2Spec) *VRFWeb2Spec {
+	return &VRFWeb2Spec{
+		LotteryConsumerAddress: spec.LotteryConsumerAddress,
+		FromAddresses:          spec.FromAddresses,
+		EVMChainID:             spec.EVMChainID,
+		CreatedAt:              spec.CreatedAt,
+		UpdatedAt:              spec.UpdatedAt,
+	}
+}
+
 // BlockhashStoreSpec defines the job parameters for a blockhash store feeder job.
 type BlockhashStoreSpec struct {
 	CoordinatorV1Address  *ethkey.EIP55Address `json:"coordinatorV1Address"`
@@ -411,6 +430,7 @@ type JobResource struct {
 	VRFSpec                *VRFSpec                `json:"vrfSpec"`
 	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
 	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
+	VRFWeb2Spec            *VRFWeb2Spec            `json:"vrfWeb2Spec"`
 	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
@@ -449,6 +469,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.WebhookSpec = NewWebhookSpec(j.WebhookSpec)
 	case job.BlockhashStore:
 		resource.BlockhashStoreSpec = NewBlockhashStoreSpec(j.BlockhashStoreSpec)
+	case job.VRFWeb2:
+		resource.VRFWeb2Spec = NewVRFWeb2Spec(j.VRFWeb2Spec)
 	case job.Bootstrap:
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	}

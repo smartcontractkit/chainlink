@@ -67,6 +67,7 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFV2TransparentUpgradeableProxy.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFConsumerV2UpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile BatchVRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile dev/LotteryConsumer.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile VRFV2Wrapper.sol

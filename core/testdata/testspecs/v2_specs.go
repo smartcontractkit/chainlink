@@ -542,6 +542,62 @@ ds -> ds_parse -> ds_multiply;
 	return ws
 }
 
+type VRFWeb2SpecParams struct {
+	JobID                  string
+	Name                   string
+	LotteryConsumerAddress string
+	EVMChainID             int64
+	FromAddresses          []string
+}
+
+type VRFWeb2Spec struct {
+	VRFWeb2SpecParams
+	toml string
+}
+
+func (v VRFWeb2Spec) Toml() string {
+	return v.toml
+}
+
+func GenerateVRFWeb2Spec(params VRFWeb2SpecParams) VRFWeb2Spec {
+	if params.JobID == "" {
+		params.JobID = "123e4567-e89b-12d3-a456-426655442222"
+	}
+
+	if params.Name == "" {
+		params.Name = "vrf-web2"
+	}
+
+	if params.LotteryConsumerAddress == "" {
+		params.LotteryConsumerAddress = "0x19D20b4Ec0424A530C3C1cDe874445E37747eb18"
+	}
+
+	if len(params.FromAddresses) == 0 {
+		params.FromAddresses = []string{"0xD3671B58abb73A3dd462Ac59538b143229E8c7C5", "0x63BBA7D55d0fb32fAE445179112e5704729457E4"}
+	}
+
+	template := `
+type = "vrfweb2"
+schemaVersion = 1
+name = "%s"
+evmChainID = "%d"
+lotteryConsumerAddress = "%s"
+`
+	toml := fmt.Sprintf(template, params.Name, params.EVMChainID, params.LotteryConsumerAddress)
+	if len(params.FromAddresses) != 0 {
+		var addresses []string
+		for _, address := range params.FromAddresses {
+			addresses = append(addresses, fmt.Sprintf("%q", address))
+		}
+		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
+	}
+
+	return VRFWeb2Spec{
+		VRFWeb2SpecParams: params,
+		toml:              toml,
+	}
+}
+
 // BlockhashStoreSpecParams defines params for building a blockhash store job spec.
 type BlockhashStoreSpecParams struct {
 	JobID                 string

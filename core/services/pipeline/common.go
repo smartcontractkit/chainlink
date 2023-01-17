@@ -35,6 +35,7 @@ const (
 	OffchainReporting2JobType string = "offchainreporting2"
 	KeeperJobType             string = "keeper"
 	VRFJobType                string = "vrf"
+	VRFWeb2JobType            string = "vrfweb2"
 	BlockhashStoreJobType     string = "blockhashstore"
 	WebhookJobType            string = "webhook"
 	BootstrapJobType          string = "bootstrap"

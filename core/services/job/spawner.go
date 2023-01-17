@@ -183,6 +183,8 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
+	js.lggr.Infow("job", "job", jb)
+
 	srvs, err := delegate.ServicesForSpec(jb)
 	if err != nil {
 		js.lggr.Errorw("Error creating services for job", "jobID", jb.ID, "error", err)

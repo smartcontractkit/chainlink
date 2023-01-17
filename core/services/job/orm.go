@@ -358,6 +358,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					return errors.Wrap(err, "failed to create ExternalInitiatorWebhookSpecs")
 				}
 			}
+		case VRFWeb2:
+			var specID int32
+			sql := `INSERT INTO vrf_web2_specs (lottery_consumer_address, evm_chain_id, from_addresses, created_at, updated_at)
+			VALUES (:lottery_consumer_address, :evm_chain_id, :from_addresses, NOW(), NOW())
+			RETURNING id;`
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, toVRFWeb2SpecRow(jb.VRFWeb2Spec)); err != nil {
+				return errors.Wrap(err, "failed to create VRFWeb2 spec")
+			}
+			jb.VRFWeb2SpecID = &specID
 		case BlockhashStore:
 			var specID int32
 			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_address, created_at, updated_at)
@@ -1147,6 +1156,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		loadVRFJob(tx, job, job.VRFSpecID),
+		loadVRFWeb2Job(tx, job, job.VRFWeb2SpecID),
 		loadJobType(tx, job, "BlockhashStoreSpec", "blockhash_store_specs", job.BlockhashStoreSpecID),
 		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 	)
@@ -1211,6 +1221,46 @@ func (r vrfSpecRow) toVRFSpec() *VRFSpec {
 			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.VRFSpec
+}
+
+func loadVRFWeb2Job(tx pg.Queryer, job *Job, id *int32) error {
+	fmt.Println("loading vrf web2 job")
+	fmt.Printf("job: %+v\n", job)
+	if id == nil {
+		return nil
+	}
+
+	fmt.Println("job id:", *id)
+
+	var row vrfWeb2SpecRow
+	err := tx.Get(&row, `SELECT * FROM vrf_web2_specs WHERE id = $1`, *id)
+	if err != nil {
+		return errors.Wrapf(err, `failed to load job type VRFWeb2Spec with id %d`, *id)
+	}
+
+	job.VRFWeb2Spec = row.toVRFWeb2Spec()
+	return nil
+}
+
+type vrfWeb2SpecRow struct {
+	*VRFWeb2Spec
+	FromAddresses pq.ByteaArray
+}
+
+func toVRFWeb2SpecRow(spec *VRFWeb2Spec) vrfWeb2SpecRow {
+	addresses := make(pq.ByteaArray, len(spec.FromAddresses))
+	for i, a := range spec.FromAddresses {
+		addresses[i] = a.Bytes()
+	}
+	return vrfWeb2SpecRow{VRFWeb2Spec: spec, FromAddresses: addresses}
+}
+
+func (r vrfWeb2SpecRow) toVRFWeb2Spec() *VRFWeb2Spec {
+	for _, a := range r.FromAddresses {
+		r.VRFWeb2Spec.FromAddresses = append(r.VRFWeb2Spec.FromAddresses,
+			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+	}
+	return r.VRFWeb2Spec
 }
 
 func loadJobSpecErrors(tx pg.Queryer, jb *Job) error {

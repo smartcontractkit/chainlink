@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/lottery_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
@@ -998,6 +1000,37 @@ func main() {
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
+	case "lottery-consumer-deploy":
+		cmd := flag.NewFlagSet("lottery-consumer-deploy", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of vrf coordinator v2")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+
+		_, tx, _, err := lottery_consumer.DeployLotteryConsumer(e.Owner, e.Ec, common.HexToAddress(*coordinatorAddress))
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	case "lottery-consumer-configure":
+		cmd := flag.NewFlagSet("lottery-consumer-configure", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "lottery consumer address")
+		keyHashStr := cmd.String("key-hash", "", "key hash")
+		subID := cmd.Uint64("sub-id", 0, "sub id")
+		minConfs := cmd.Uint("min-confs", 1, "min confs")
+		cbGasLimit := cmd.Uint("cb-gas-limit", 2_500_000, "cb gas limit")
+		numWords := cmd.Uint("num-words", 35, "num words")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "key-hash", "sub-id")
+
+		lottery, err := lottery_consumer.NewLotteryConsumer(common.HexToAddress(*consumerAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		keyHashBytes := hexutil.MustDecode(*keyHashStr)
+		var keyHash [32]byte
+		copy(keyHash[:], keyHashBytes)
+
+		tx, err := lottery.SetRequestConfig(e.Owner, keyHash, *subID, uint16(*minConfs), uint32(*cbGasLimit), uint32(*numWords))
+		helpers.PanicErr(err)
+
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "lottery consumer config set")
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
