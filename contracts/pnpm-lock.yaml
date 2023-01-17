@@ -10765,6 +10765,7 @@ packages:
       typescript: '>=4.3.0'
     dependencies:
       '@types/prettier': 2.7.1
+      command-line-args: 4.0.7
       debug: 4.3.4
       fs-extra: 7.0.1
       glob: 7.1.7
