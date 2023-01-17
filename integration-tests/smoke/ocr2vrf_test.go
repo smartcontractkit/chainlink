@@ -37,6 +37,9 @@ func TestOCR2VRFBasic(t *testing.T) {
 
 	t.Parallel()
 	testEnvironment, testNetwork := setupOCR2VRFTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err)
@@ -333,6 +336,7 @@ FeeCapDefault = 100000000000`
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
