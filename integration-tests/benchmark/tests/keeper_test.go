@@ -254,7 +254,7 @@ func TestKeeperBenchmarkPolygonMumbaiRegistry_2_0(t *testing.T) {
 	keeperBenchmark(t, &BenchmarkTestEntry{
 		[]eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0},
 		big.NewFloat(ChainlinkNodeFunding),
-		int64(20),
+		int64(10),
 		predeployedConsumersMumbai,
 		upkeepResetterContractMumbai,
 		5 * time.Second,
