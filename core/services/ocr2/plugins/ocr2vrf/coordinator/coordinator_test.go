@@ -1457,8 +1457,9 @@ func newOutputsServedLog(
 	e := vrf_coordinator.VRFCoordinatorOutputsServed{
 		RecentBlockHeight: 0,
 		// AggregatorRoundId: 1,
-		OutputsServed:   outputsServed,
-		JuelsPerFeeCoin: big.NewInt(0),
+		OutputsServed:      outputsServed,
+		JuelsPerFeeCoin:    big.NewInt(0),
+		ReasonableGasPrice: 0,
 		// EpochAndRound:     big.NewInt(1),
 		// ConfigDigest:      crypto.Keccak256Hash([]byte("hello world")),
 		Transmitter: newAddress(t),
@@ -1469,7 +1470,7 @@ func newOutputsServedLog(
 			unindexed = append(unindexed, a)
 		}
 	}
-	nonIndexedData, err := unindexed.Pack(e.RecentBlockHeight, e.Transmitter, e.JuelsPerFeeCoin, e.OutputsServed)
+	nonIndexedData, err := unindexed.Pack(e.RecentBlockHeight, e.Transmitter, e.JuelsPerFeeCoin, e.ReasonableGasPrice, e.OutputsServed)
 	require.NoError(t, err)
 
 	topic0 := vrfCoordinatorABI.Events[outputsServedEvent].ID
@@ -1496,11 +1497,12 @@ func newNewTransmissionLog(
 	//     bytes32 configDigest
 	// );
 	e := vrf_beacon.VRFBeaconNewTransmission{
-		AggregatorRoundId: 1,
-		JuelsPerFeeCoin:   big.NewInt(1_000),
-		EpochAndRound:     big.NewInt(1),
-		ConfigDigest:      configDigest,
-		Transmitter:       newAddress(t),
+		AggregatorRoundId:  1,
+		JuelsPerFeeCoin:    big.NewInt(1_000),
+		ReasonableGasPrice: 1_000,
+		EpochAndRound:      big.NewInt(1),
+		ConfigDigest:       configDigest,
+		Transmitter:        newAddress(t),
 	}
 	var unindexed abi.Arguments
 	for _, a := range vrfBeaconABI.Events[newTransmissionEvent].Inputs {
@@ -1509,7 +1511,7 @@ func newNewTransmissionLog(
 		}
 	}
 	nonIndexedData, err := unindexed.Pack(
-		e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest)
+		e.Transmitter, e.JuelsPerFeeCoin, e.ReasonableGasPrice, e.ConfigDigest)
 	require.NoError(t, err)
 
 	// aggregatorRoundId is indexed
