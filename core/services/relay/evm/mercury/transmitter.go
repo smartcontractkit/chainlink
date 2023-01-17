@@ -53,16 +53,10 @@ func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount comm
 	return &mercuryTransmitter{lggr.Named("Mercury"), rpcClient, fromAccount, reportURL, username, password}
 }
 
-func (mt *mercuryTransmitter) Start(ctx context.Context) error {
-	return mt.rpcClient.Start(ctx)
-}
-
-func (mt *mercuryTransmitter) Close() error {
-	return mt.rpcClient.Close()
-}
-
-func (mt *mercuryTransmitter) Healthy() error { return nil } //TODO
-func (mt *mercuryTransmitter) Ready() error   { return nil } //TODO
+func (mt *mercuryTransmitter) Start(ctx context.Context) error { return mt.rpcClient.Start(ctx) }
+func (mt *mercuryTransmitter) Close() error                    { return mt.rpcClient.Close() }
+func (mt *mercuryTransmitter) Healthy() error                  { return mt.rpcClient.Healthy() }
+func (mt *mercuryTransmitter) Ready() error                    { return mt.rpcClient.Ready() }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
 func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
