@@ -5,6 +5,7 @@ import '@typechain/hardhat'
 import 'hardhat-abi-exporter'
 import 'hardhat-contract-sizer'
 import 'solidity-coverage'
+import 'hardhat-ignore-warnings'
 
 const COMPILER_SETTINGS = {
   optimizer: {
@@ -73,4 +74,5 @@ export default {
     timeout: 100000,
     forbidOnly: Boolean(process.env.CI),
   },
+  warnings: !process.env.HIDE_WARNINGS,
 }

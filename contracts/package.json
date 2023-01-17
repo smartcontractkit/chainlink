@@ -60,6 +60,7 @@
     "hardhat": "~2.10.1",
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-contract-sizer": "^2.5.1",
+    "hardhat-ignore-warnings": "^0.2.6",
     "istanbul": "^0.4.5",
     "moment": "^2.29.4",
     "prettier": "^2.7.1",
