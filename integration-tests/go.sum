@@ -1613,8 +1613,8 @@ github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407 h1:P3dhh6U
 github.com/smartcontractkit/libocr v0.0.0-20221209172631-568a30f68407/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.6.6 h1:21wVK5HGHLcfHo4HU4QW8wLCvhENFMhkXdqxMcHPgkU=
 github.com/smartcontractkit/ocr2keepers v0.6.6/go.mod h1:0y0wgX0OQTyOb04f823ifLvzsca+rsyE3ngGnmG8zxU=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221206151523-7ae0ec615c0e h1:LX6TaJ7Uy7VQzi1GWPjHl3v0i/k71nxtzxOH23QZizo=
-github.com/smartcontractkit/ocr2vrf v0.0.0-20221206151523-7ae0ec615c0e/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20230117141905-c3a5c0467fd4 h1:ZS37mHqFOpbVj45sJ3bJQ2UJzRxhBkxFflyPNCT5z4A=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20230117141905-c3a5c0467fd4/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
 github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 h1:k+E0RKzVSG1QpxXakNUtcGUhq4ZMe0MAJ5Awg/l9oSc=
