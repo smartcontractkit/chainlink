@@ -120,3 +120,7 @@ type VRFBeaconConsumer interface {
 	GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error)
 	GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error)
 }
+
+type BatchBlockhashStore interface {
+	Address() string
+}
