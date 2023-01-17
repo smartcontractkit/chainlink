@@ -744,6 +744,56 @@ func (c *Chainlink) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, *http.Res
 	return vrfKey, resp.RawResponse, err
 }
 
+// MustCreateDkgSignKey creates a DKG Sign key on the Chainlink node
+// and returns error if the request is unsuccessful
+func (c *Chainlink) MustCreateDkgSignKey() (*DKGSignKey, error) {
+	dkgSignKey := &DKGSignKey{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Creating DKG Sign Key")
+	resp, err := c.APIClient.R().
+		SetResult(dkgSignKey).
+		Post("/v2/keys/dkgsign")
+	if err == nil {
+		err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	}
+	return dkgSignKey, err
+}
+
+// MustCreateDkgEncryptKey creates a DKG Encrypt key on the Chainlink node
+// and returns error if the request is unsuccessful
+func (c *Chainlink) MustCreateDkgEncryptKey() (*DKGEncryptKey, error) {
+	dkgEncryptKey := &DKGEncryptKey{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Creating DKG Encrypt Key")
+	resp, err := c.APIClient.R().
+		SetResult(dkgEncryptKey).
+		Post("/v2/keys/dkgencrypt")
+	if err == nil {
+		err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	}
+	return dkgEncryptKey, err
+}
+
+// MustReadDKGSignKeys reads all DKG Sign Keys from the Chainlink node returns err if response not 200
+func (c *Chainlink) MustReadDKGSignKeys() (*DKGSignKeys, error) {
+	dkgSignKeys := &DKGSignKeys{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading DKG Sign Keys")
+	resp, err := c.APIClient.R().
+		SetResult(dkgSignKeys).
+		Get("/v2/keys/dkgsign")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	return dkgSignKeys, err
+}
+
+// MustReadDKGEncryptKeys reads all DKG Encrypt Keys from the Chainlink node returns err if response not 200
+func (c *Chainlink) MustReadDKGEncryptKeys() (*DKGEncryptKeys, error) {
+	dkgEncryptKeys := &DKGEncryptKeys{}
+	log.Info().Str("Node URL", c.Config.URL).Msg("Reading DKG Encrypt Keys")
+	resp, err := c.APIClient.R().
+		SetResult(dkgEncryptKeys).
+		Get("/v2/keys/dkgencrypt")
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	return dkgEncryptKeys, err
+}
+
 // CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per noe
 func (c *Chainlink) CreateCSAKey() (*CSAKey, *http.Response, error) {
 	csaKey := &CSAKey{}

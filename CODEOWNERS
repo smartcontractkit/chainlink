@@ -50,6 +50,7 @@
 # Tests
 /integration-tests/ @kalverra @tateexon @skudasov @anieeg
 /integration-tests/**/*keeper* @smartcontractkit/keepers
+/integration-tests/**/*automation* @smartcontractkit/keepers
 
 # Misc
 /core/store @samsondav @jmank88

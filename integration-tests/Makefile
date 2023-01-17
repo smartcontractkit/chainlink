@@ -128,13 +128,15 @@ test_soak_forwarder_ocr:
 test_soak_forwarder_ocr_simulated:
 	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestForwarderOCRSoak ./soak
 
-.PHONY: test_soak_keeper
-test_soak_keeper: 
-	go test -v -count=1 -run TestKeeperSoak ./soak
+.PHONY: test_soak_automation
+test_soak_automation:
+	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
-.PHONY: test_soak_keeper_simulated
-test_soak_keeper_simulated:
-	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestKeeperSoak ./soak
+.PHONY: test_soak_automation_simulated
+test_soak_automation_simulated:
+	SELECTED_NETWORKS="SIMULATED" \
+	TEST_INPUTS="TEST_TYPE=SOAK,NUMBEROFCONTRACTS=50,BLOCKRANGE=1000,BLOCKINTERVAL=50,GRAFANA_DASHBOARD_URL=https://chainlinklabs.grafana.net/d/Q8n6m1unz/chainlink-keepers-qa?orgId=1" \
+	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
 test_benchmark_automation: test_need_operator_assets ## Run the automation benchmark tests

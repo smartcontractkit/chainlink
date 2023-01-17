@@ -34,6 +34,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const (
@@ -112,6 +113,8 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 	if err != nil {
 		log.Fatal("SuggestGasPrice failed: ", err)
 	}
+
+	gasPrice = bigmath.Add(gasPrice, bigmath.Div(gasPrice, 5)) // add 20%
 
 	auth, err := bind.NewKeyedTransactorWithChainID(h.privateKey, big.NewInt(h.cfg.ChainID))
 	if err != nil {
@@ -315,6 +318,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	addr := fmt.Sprintf("http://localhost:%s", portStr)
 	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
+	// TODO - replace with GET to /ready
 	time.Sleep(time.Second * 40)
 
 	return addr, func(writeLogs bool) {
