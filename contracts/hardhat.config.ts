@@ -7,6 +7,7 @@ import 'hardhat-abi-exporter'
 import 'hardhat-contract-sizer'
 import 'hardhat-gas-reporter'
 import 'solidity-coverage'
+import 'hardhat-ignore-warnings'
 import { subtask } from 'hardhat/config'
 import { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } from 'hardhat/builtin-tasks/task-names'
 
@@ -92,4 +93,5 @@ export default {
   gasReporter: {
     enabled: process.env.REPORT_GAS ? true : false,
   },
+  warnings: !process.env.HIDE_WARNINGS,
 }
