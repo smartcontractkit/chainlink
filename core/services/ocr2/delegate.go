@@ -498,6 +498,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
+			HeadSubscriber:               rgstry,
 			Registry:                     rgstry,
 			ReportEncoder:                encoder,
 			PerformLogProvider:           logProvider,
@@ -525,6 +526,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return []job.ServiceCtx{
 			runResultSaver,
 			keeperProvider,
+			rgstry,
 			pluginService,
 		}, nil
 	case job.OCR2Functions:
