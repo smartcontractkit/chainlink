@@ -55,6 +55,9 @@ func BuildAutoOCR2ConfigVars(
 			UniqueReports:        false,           // set quorum requirements
 			GasLimitPerReport:    5_300_000,
 			GasOverheadPerUpkeep: 300_000,
+			SamplingJobDuration:  3000,
+			MinConfirmations:     0,
+			MaxUpkeepBatchSize:   20,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
@@ -204,6 +207,9 @@ func CreateOCRKeeperJobs(
 				Relay:      "evm",
 				RelayConfig: map[string]interface{}{
 					"chainID": int(chainID),
+				},
+				PluginConfig: map[string]interface{}{
+					"maxServiceWorkers": 100,
 				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
