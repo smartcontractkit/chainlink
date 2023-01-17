@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 )
 
 // DeployVRFContract deploy VRF contract
@@ -165,7 +167,7 @@ func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCo
 	}, err
 }
 
-// DeployVRFCoordinatorV3 deploys VRFCoordinatorV3 contract
+// DeployVRFBeacon deploys DeployVRFBeacon contract
 func (e *EthereumContractDeployer) DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error) {
 	keyIDBytes, err := decodeHexTo32ByteArray(keyId)
 	if err != nil {
@@ -184,6 +186,24 @@ func (e *EthereumContractDeployer) DeployVRFBeacon(vrfCoordinatorAddress string,
 		client:    e.client,
 		vrfBeacon: instance.(*vrf_beacon.VRFBeacon),
 		address:   address,
+	}, err
+}
+
+// DeployBatchBlockhashStore deploys DeployBatchBlockhashStore contract
+func (e *EthereumContractDeployer) DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error) {
+	address, _, instance, err := e.client.DeployContract("BatchBlockhashStore", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return batch_blockhash_store.DeployBatchBlockhashStore(auth, backend, common.HexToAddress(blockhashStoreAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumBatchBlockhashStore{
+		client:              e.client,
+		batchBlockhashStore: instance.(*batch_blockhash_store.BatchBlockhashStore),
+		address:             address,
 	}, err
 }
 
@@ -937,4 +957,15 @@ func (consumer *EthereumVRFBeaconConsumer) GetRandomnessByRequestId(ctx context.
 		Context: ctx,
 	}
 	return consumer.vrfBeaconConsumer.SReceivedRandomnessByRequestID(opts, requestID, numWordIndex)
+}
+
+// EthereumBatchBlockhashStore represents BatchBlockhashStore contract
+type EthereumBatchBlockhashStore struct {
+	address             *common.Address
+	client              blockchain.EVMClient
+	batchBlockhashStore *batch_blockhash_store.BatchBlockhashStore
+}
+
+func (v *EthereumBatchBlockhashStore) Address() string {
+	return v.address.Hex()
 }
