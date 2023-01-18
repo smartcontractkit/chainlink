@@ -1031,9 +1031,6 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		}
 	}
 
-	// Creation of job runs above cannot run in parallel, otherwise run ids are unpredictable
-	t.Parallel()
-
 	t.Run("with no pipeline runs", func(t *testing.T) {
 		runIDs, err := orm.FindPipelineRunIDsByJobID(jb.ID, 0, 10)
 		require.NoError(t, err)
@@ -1066,6 +1063,28 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, runIDs, 100)
 		assert.Equal(t, int64(67*(len(jobs)-1)), runIDs[12]-runIDs[79])
+	})
+
+	for i := 0; i < 2100; i++ {
+		mustInsertPipelineRun(t, pipelineORM, jb)
+	}
+
+	// There is a COUNT query which doesn't run unless the query for the most recent 1000 rows
+	//  returns empty.  This can happen if the job id being requested hasn't run in a while,
+	//  but many other jobs have run since.
+	t.Run("with first batch empty, over limit", func(t *testing.T) {
+		runIDs, err := orm.FindPipelineRunIDsByJobID(jobs[3].ID, 0, 25)
+		require.NoError(t, err)
+		require.Len(t, runIDs, 25)
+		assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
+	})
+
+	// Same as previous, but where there are fewer matching jobs than the limit
+	t.Run("with first batch empty, under limit", func(t *testing.T) {
+		runIDs, err := orm.FindPipelineRunIDsByJobID(jobs[3].ID, 143, 190)
+		require.NoError(t, err)
+		require.Len(t, runIDs, 107)
+		assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
 	})
 }
 

@@ -22,7 +22,7 @@ type DirectRequestReportingPluginFactory struct {
 
 var _ types.ReportingPluginFactory = (*DirectRequestReportingPluginFactory)(nil)
 
-type directRequestReporting struct {
+type functionsReporting struct {
 	logger         commontypes.Logger
 	pluginORM      directrequestocr.ORM
 	jobID          uuid.UUID
@@ -31,7 +31,7 @@ type directRequestReporting struct {
 	specificConfig *config.ReportingPluginConfigWrapper
 }
 
-var _ types.ReportingPlugin = &directRequestReporting{}
+var _ types.ReportingPlugin = &functionsReporting{}
 
 func formatRequestId(requestId []byte) string {
 	return fmt.Sprintf("0x%x", requestId)
@@ -52,7 +52,7 @@ func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.R
 		return nil, types.ReportingPluginInfo{}, err
 	}
 	info := types.ReportingPluginInfo{
-		Name:          "directRequestReporting",
+		Name:          "functionsReporting",
 		UniqueReports: pluginConfig.Config.GetUniqueReports(), // Enforces (N+F+1)/2 signatures. Must match setting in OCR2Base.sol.
 		Limits: types.ReportingPluginLimits{
 			MaxQueryLength:       int(pluginConfig.Config.GetMaxQueryLengthBytes()),
@@ -60,7 +60,7 @@ func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.R
 			MaxReportLength:      int(pluginConfig.Config.GetMaxReportLengthBytes()),
 		},
 	}
-	plugin := directRequestReporting{
+	plugin := functionsReporting{
 		logger:         f.Logger,
 		pluginORM:      f.PluginORM,
 		jobID:          f.JobID,
@@ -72,8 +72,8 @@ func (f DirectRequestReportingPluginFactory) NewReportingPlugin(rpConfig types.R
 }
 
 // Query() complies with ReportingPlugin
-func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimestamp) (types.Query, error) {
-	r.logger.Debug("directRequestReporting Query phase", commontypes.LogFields{
+func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp) (types.Query, error) {
+	r.logger.Debug("FunctionsReporting Query start", commontypes.LogFields{
 		"epoch":    ts.Epoch,
 		"round":    ts.Round,
 		"oracleID": r.genericConfig.OracleID,
@@ -91,7 +91,7 @@ func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimes
 		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 		idStrs = append(idStrs, formatRequestId(result.RequestID[:]))
 	}
-	r.logger.Debug("directRequestReporting Query phase done", commontypes.LogFields{
+	r.logger.Debug("FunctionsReporting Query end", commontypes.LogFields{
 		"epoch":      ts.Epoch,
 		"round":      ts.Round,
 		"oracleID":   r.genericConfig.OracleID,
@@ -102,8 +102,8 @@ func (r *directRequestReporting) Query(ctx context.Context, ts types.ReportTimes
 }
 
 // Observation() complies with ReportingPlugin
-func (r *directRequestReporting) Observation(ctx context.Context, ts types.ReportTimestamp, query types.Query) (types.Observation, error) {
-	r.logger.Debug("directRequestReporting Observation phase", commontypes.LogFields{
+func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTimestamp, query types.Query) (types.Observation, error) {
+	r.logger.Debug("FunctionsReporting Observation start", commontypes.LogFields{
 		"epoch":    ts.Epoch,
 		"round":    ts.Round,
 		"oracleID": r.genericConfig.OracleID,
@@ -121,7 +121,7 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 	for _, id := range queryProto.RequestIDs {
 		id := sliceToByte32(id)
 		if _, ok := processedIds[id]; ok {
-			r.logger.Error("directRequestReporting Observation phase duplicate ID in query", commontypes.LogFields{
+			r.logger.Error("FunctionsReporting Observation duplicate ID in query", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
 			})
 			continue
@@ -129,7 +129,7 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 		processedIds[id] = true
 		localResult, err2 := r.pluginORM.FindById(id)
 		if err2 != nil {
-			r.logger.Debug("directRequestReporting Observation phase can't find request from query", commontypes.LogFields{
+			r.logger.Debug("FunctionsReporting Observation can't find request from query", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
 				"err":       err2,
 			})
@@ -146,7 +146,7 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 			idStrs = append(idStrs, formatRequestId(localResult.RequestID[:]))
 		}
 	}
-	r.logger.Debug("directRequestReporting Observation phase done", commontypes.LogFields{
+	r.logger.Debug("FunctionsReporting Observation end", commontypes.LogFields{
 		"epoch":          ts.Epoch,
 		"round":          ts.Round,
 		"oracleID":       r.genericConfig.OracleID,
@@ -158,8 +158,8 @@ func (r *directRequestReporting) Observation(ctx context.Context, ts types.Repor
 }
 
 // Report() complies with ReportingPlugin
-func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTimestamp, query types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
-	r.logger.Debug("directRequestReporting Report phase", commontypes.LogFields{
+func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestamp, query types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
+	r.logger.Debug("FunctionsReporting Report start", commontypes.LogFields{
 		"epoch":         ts.Epoch,
 		"round":         ts.Round,
 		"oracleID":      r.genericConfig.OracleID,
@@ -169,7 +169,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 	queryProto := &Query{}
 	err := proto.Unmarshal(query, queryProto)
 	if err != nil {
-		r.logger.Error("directRequestReporting Report phase unable to decode query!",
+		r.logger.Error("FunctionsReporting Report: unable to decode query!",
 			commontypes.LogFields{"err": err})
 		return false, nil, err
 	}
@@ -183,7 +183,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 		observationProto := &Observation{}
 		err = proto.Unmarshal(ob.Observation, observationProto)
 		if err != nil {
-			r.logger.Error("directRequestReporting Report phase unable to decode observation!",
+			r.logger.Error("FunctionsReporting Report: unable to decode observation!",
 				commontypes.LogFields{"err": err, "observer": ob.Observer})
 			continue
 		}
@@ -191,7 +191,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 		for _, processedReq := range observationProto.ProcessedRequests {
 			id := formatRequestId(processedReq.RequestID)
 			if _, seen := seenReqIds[id]; seen {
-				r.logger.Error("directRequestReporting Report phase observation contains duplicate IDs!",
+				r.logger.Error("FunctionsReporting Report: observation contains duplicate IDs!",
 					commontypes.LogFields{"requestID": id, "observer": ob.Observer})
 				continue
 			}
@@ -199,7 +199,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 				reqIdToObservationList[id] = append(val, processedReq)
 				seenReqIds[id] = struct{}{}
 			} else {
-				r.logger.Error("directRequestReporting Report phase observation contains ID that's not the query!",
+				r.logger.Error("FunctionsReporting Report: observation contains ID that's not the query!",
 					commontypes.LogFields{"requestID": id, "observer": ob.Observer})
 			}
 		}
@@ -210,7 +210,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 	var allIdStrs []string
 	for reqId, observations := range reqIdToObservationList {
 		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
-			r.logger.Debug("directRequestReporting unable to aggregate request in current round", commontypes.LogFields{
+			r.logger.Debug("FunctionsReporting Report: unable to aggregate request in current round", commontypes.LogFields{
 				"epoch":         ts.Epoch,
 				"round":         ts.Round,
 				"requestID":     reqId,
@@ -223,7 +223,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 		// https://app.shortcut.com/chainlinklabs/story/57701/per-request-plugin-config
 		aggregated, errAgg := Aggregate(defaultAggMethod, observations)
 		if errAgg != nil {
-			r.logger.Error("directRequestReporting error when aggregating reqId", commontypes.LogFields{
+			r.logger.Error("FunctionsReporting Report: error when aggregating reqId", commontypes.LogFields{
 				"epoch":     ts.Epoch,
 				"round":     ts.Round,
 				"requestID": reqId,
@@ -235,7 +235,7 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 		allIdStrs = append(allIdStrs, reqId)
 	}
 
-	r.logger.Debug("directRequestReporting Report phase done", commontypes.LogFields{
+	r.logger.Debug("FunctionsReporting Report end", commontypes.LogFields{
 		"epoch":               ts.Epoch,
 		"round":               ts.Round,
 		"oracleID":            r.genericConfig.OracleID,
@@ -254,8 +254,8 @@ func (r *directRequestReporting) Report(ctx context.Context, ts types.ReportTime
 }
 
 // ShouldAcceptFinalizedReport() complies with ReportingPlugin
-func (r *directRequestReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts types.ReportTimestamp, report types.Report) (bool, error) {
-	r.logger.Debug("directRequestReporting ShouldAcceptFinalizedReport phase", commontypes.LogFields{
+func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts types.ReportTimestamp, report types.Report) (bool, error) {
+	r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport start", commontypes.LogFields{
 		"epoch":    ts.Epoch,
 		"round":    ts.Round,
 		"oracleID": r.genericConfig.OracleID,
@@ -265,7 +265,7 @@ func (r *directRequestReporting) ShouldAcceptFinalizedReport(ctx context.Context
 	// can't use anything more convenient like protobufs but we need to ABI-decode here instead.
 	decoded, err := r.reportCodec.DecodeReport(report)
 	if err != nil {
-		r.logger.Error("directRequestReporting unable to decode report built in reporting phase", commontypes.LogFields{"err": err})
+		r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: unable to decode report built in reporting phase", commontypes.LogFields{"err": err})
 		return false, err
 	}
 
@@ -276,31 +276,31 @@ func (r *directRequestReporting) ShouldAcceptFinalizedReport(ctx context.Context
 		allIds = append(allIds, reqIdStr)
 		_, err := r.pluginORM.FindById(sliceToByte32(item.RequestID))
 		if err != nil {
-			r.logger.Warn("directRequestReporting request doesn't exist locally! Accepting anyway.", commontypes.LogFields{"requestID": reqIdStr})
+			r.logger.Warn("FunctionsReporting ShouldAcceptFinalizedReport: request doesn't exist locally! Accepting anyway.", commontypes.LogFields{"requestID": reqIdStr})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
 		err = r.pluginORM.SetFinalized(sliceToByte32(item.RequestID), item.Result, item.Error) // validates state transition
 		if err != nil {
-			r.logger.Debug("directRequestReporting state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
+			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
 			continue
 		}
 		needTransmissionIds = append(needTransmissionIds, reqIdStr)
 	}
-	r.logger.Debug("directRequestReporting ShouldAcceptFinalizedReport phase done", commontypes.LogFields{
+	r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport end", commontypes.LogFields{
 		"epoch":               ts.Epoch,
 		"round":               ts.Round,
 		"oracleID":            r.genericConfig.OracleID,
 		"allIds":              allIds,
 		"needTransmissionIds": needTransmissionIds,
-		"reporting":           len(needTransmissionIds) > 0,
+		"accepting":           len(needTransmissionIds) > 0,
 	})
 	return len(needTransmissionIds) > 0, nil
 }
 
 // ShouldTransmitAcceptedReport() complies with ReportingPlugin
-func (r *directRequestReporting) ShouldTransmitAcceptedReport(ctx context.Context, ts types.ReportTimestamp, report types.Report) (bool, error) {
-	r.logger.Debug("directRequestReporting ShouldTransmitAcceptedReport phase", commontypes.LogFields{
+func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, ts types.ReportTimestamp, report types.Report) (bool, error) {
+	r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport start", commontypes.LogFields{
 		"epoch":    ts.Epoch,
 		"round":    ts.Round,
 		"oracleID": r.genericConfig.OracleID,
@@ -308,7 +308,7 @@ func (r *directRequestReporting) ShouldTransmitAcceptedReport(ctx context.Contex
 
 	decoded, err := r.reportCodec.DecodeReport(report)
 	if err != nil {
-		r.logger.Error("directRequestReporting unable to decode report built in reporting phase", commontypes.LogFields{"err": err})
+		r.logger.Error("FunctionsReporting ShouldTransmitAcceptedReport: unable to decode report built in reporting phase", commontypes.LogFields{"err": err})
 		return false, err
 	}
 
@@ -319,12 +319,12 @@ func (r *directRequestReporting) ShouldTransmitAcceptedReport(ctx context.Contex
 		allIds = append(allIds, reqIdStr)
 		request, err := r.pluginORM.FindById(sliceToByte32(item.RequestID))
 		if err != nil {
-			r.logger.Warn("directRequestReporting request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr})
+			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
 		if request.State == directrequestocr.TIMED_OUT || request.State == directrequestocr.CONFIRMED {
-			r.logger.Debug("directRequestReporting request is not FINALIZED any more. Not transmitting.",
+			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request is not FINALIZED any more. Not transmitting.",
 				commontypes.LogFields{
 					"requestID": reqIdStr,
 					"state":     request.State.String(),
@@ -332,7 +332,7 @@ func (r *directRequestReporting) ShouldTransmitAcceptedReport(ctx context.Contex
 			continue
 		}
 		if request.State == directrequestocr.IN_PROGRESS || request.State == directrequestocr.RESULT_READY {
-			r.logger.Warn("directRequestReporting unusual request state. Still transmitting.",
+			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: unusual request state. Still transmitting.",
 				commontypes.LogFields{
 					"requestID": reqIdStr,
 					"state":     request.State.String(),
@@ -340,20 +340,20 @@ func (r *directRequestReporting) ShouldTransmitAcceptedReport(ctx context.Contex
 		}
 		needTransmissionIds = append(needTransmissionIds, reqIdStr)
 	}
-	r.logger.Debug("directRequestReporting ShouldTransmitAcceptedReport phase done", commontypes.LogFields{
+	r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport end", commontypes.LogFields{
 		"epoch":               ts.Epoch,
 		"round":               ts.Round,
 		"oracleID":            r.genericConfig.OracleID,
 		"allIds":              allIds,
 		"needTransmissionIds": needTransmissionIds,
-		"reporting":           len(needTransmissionIds) > 0,
+		"transmitting":        len(needTransmissionIds) > 0,
 	})
 	return len(needTransmissionIds) > 0, nil
 }
 
 // Close() complies with ReportingPlugin
-func (r *directRequestReporting) Close() error {
-	r.logger.Debug("directRequestReporting Close", commontypes.LogFields{
+func (r *functionsReporting) Close() error {
+	r.logger.Debug("FunctionsReporting Close", commontypes.LogFields{
 		"oracleID": r.genericConfig.OracleID,
 	})
 	return nil
