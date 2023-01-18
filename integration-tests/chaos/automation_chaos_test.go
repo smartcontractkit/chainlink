@@ -148,32 +148,35 @@ func TestAutomationChaos(t *testing.T) {
 				ContainerNames: &[]*string{a.Str("chainlink-db")},
 			},
 		},
-		"fail-majority-network": {
-			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
-			chaos.NewNetworkPartition,
-			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
-				DurationStr: "1m",
-			},
-		},
-		"fail-blockchain-node": {
-			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
-			chaos.NewNetworkPartition,
-			&chaos.Props{
-				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityAutomationPlus: a.Str("1")},
-				DurationStr: "1m",
-			},
-		},
+		// TODO: we have a bug with @jsii.Kernel panic if different manifests are used sequentially
+		// TODO: create minimal reproducible environment and fix it
+		//"fail-majority-network": {
+		//	ethereum.New(defaultEthereumSettings),
+		//	chainlink.New(0, defaultAutomationSettings),
+		//	chaos.NewNetworkPartition,
+		//	&chaos.Props{
+		//		FromLabels:  &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
+		//		DurationStr: "1m",
+		//	},
+		//},
+		//"fail-blockchain-node": {
+		//	ethereum.New(defaultEthereumSettings),
+		//	chainlink.New(0, defaultAutomationSettings),
+		//	chaos.NewNetworkPartition,
+		//	&chaos.Props{
+		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
+		//		ToLabels:    &map[string]*string{ChaosGroupMajorityAutomationPlus: a.Str("1")},
+		//		DurationStr: "1m",
+		//	},
+		//},
 	}
 
 	for n, tst := range testCases {
 		name := n
 		testCase := tst
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			network := networks.SelectedNetwork
 
 			testEnvironment := environment.
