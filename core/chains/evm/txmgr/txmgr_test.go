@@ -471,6 +471,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmUseForwarders").Return(true).Maybe()
 	cfg.On("LogSQL").Maybe().Return(false)
 	cfg.On("DatabaseDefaultQueryTimeout").Return(pg.DefaultQueryTimeout).Maybe()
+	cfg.On("EthTxUnconfirmedAlertThreshold").Return(time.Duration(0)).Maybe()
 
 	return cfg
 }

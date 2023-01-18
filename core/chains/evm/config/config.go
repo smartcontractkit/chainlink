@@ -42,6 +42,7 @@ type ChainScopedOnlyConfig interface {
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
+	EthTxUnconfirmedAlertThreshold() time.Duration
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
@@ -658,6 +659,23 @@ func (c *chainScopedConfig) EthTxResendAfterThreshold() time.Duration {
 		return p.Duration()
 	}
 	return c.defaultSet.ethTxResendAfterThreshold
+}
+
+// Txmgr will log critical, if the oldest unconfirmed tx exceeds the EthTxUnconfirmedAlertThreshold since it was created.
+func (c *chainScopedConfig) EthTxUnconfirmedAlertThreshold() time.Duration {
+	val, ok := c.GeneralConfig.GlobalEthTxUnconfirmedAlertThreshold()
+	if ok {
+		c.logEnvOverrideOnce("EthTxUnconfirmedAlertThreshold", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EthTxUnconfirmedAlertThreshold
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EthTxUnconfirmedAlertThreshold", p.Duration())
+		return p.Duration()
+	}
+	return c.defaultSet.ethTxUnconfirmedAlertThreshold
 }
 
 // BlockHistoryEstimatorBatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator

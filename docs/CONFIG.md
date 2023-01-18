@@ -1380,6 +1380,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1457,6 +1458,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1534,6 +1536,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1611,6 +1614,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1689,6 +1693,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '15s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1766,6 +1771,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1843,6 +1849,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1921,6 +1928,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -1998,6 +2006,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2074,6 +2083,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2150,6 +2160,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2228,6 +2239,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '15s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2306,6 +2318,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2383,6 +2396,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2460,6 +2474,7 @@ MaxQueued = 5000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2537,6 +2552,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2615,6 +2631,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2692,6 +2709,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2768,6 +2786,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2845,6 +2864,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2921,6 +2941,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '0s'
 ResendAfterThreshold = '0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -2998,6 +3019,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3074,6 +3096,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3152,6 +3175,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3229,6 +3253,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3306,6 +3331,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3383,6 +3409,7 @@ MaxQueued = 5000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3461,6 +3488,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3539,6 +3567,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3616,6 +3645,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3693,6 +3723,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3770,6 +3801,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+UnconfirmedAlertThreshold = '5m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -3975,6 +4007,7 @@ MaxQueued = 250 # Default
 ReaperInterval = '1h' # Default
 ReaperThreshold = '168h' # Default
 ResendAfterThreshold = '1m' # Default
+UnconfirmedAlertThreshold = '5m' # Default
 ```
 
 
@@ -4023,6 +4056,12 @@ ReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
 ResendAfterThreshold = '1m' # Default
 ```
 ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
+
+### UnconfirmedAlertThreshold<a id='EVM-Transactions-UnconfirmedAlertThreshold'></a>
+```toml
+UnconfirmedAlertThreshold = '5m' # Default
+```
+UnconfirmedAlertThreshold controls how long to wait for transaction confirmation before logging critical.
 
 ## EVM.BalanceMonitor<a id='EVM-BalanceMonitor'></a>
 ```toml

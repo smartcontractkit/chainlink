@@ -64,6 +64,7 @@ func TestConfigSchema(t *testing.T) {
 		"EthTxReaperInterval":                            "ETH_TX_REAPER_INTERVAL",
 		"EthTxReaperThreshold":                           "ETH_TX_REAPER_THRESHOLD",
 		"EthTxResendAfterThreshold":                      "ETH_TX_RESEND_AFTER_THRESHOLD",
+		"EthTxUnconfirmedAlertThreshold":                 "ETH_TX_UNCONFIRMED_ALERT_THRESHOLD",
 		"EthereumHTTPURL":                                "ETH_HTTP_URL",
 		"EthereumSecondaryURL":                           "ETH_SECONDARY_URL",
 		"EthereumSecondaryURLs":                          "ETH_SECONDARY_URLS",

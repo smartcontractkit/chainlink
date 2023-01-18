@@ -357,6 +357,16 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 	if err != nil {
 		return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx"), retryable
 	}
+	// Check if there are any unconfirmed txs that exceed a configurable threshold and log critical.
+	oldestUnconfirmedTx, err := eb.findOldestUnconfirmedTransactionFromAddress(eb.db, fromAddress, eb.chainID)
+	if err != nil {
+		return errors.Wrap(err, "findOldestUnconfirmedTransactionFromAddress failed"), true
+	}
+	if oldestUnconfirmedTx != nil {
+		if time.Since(oldestUnconfirmedTx.CreatedAt) > eb.config.EthTxUnconfirmedAlertThreshold() {
+			eb.logger.Criticalw("", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
+		}
+	}
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
@@ -717,6 +727,15 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 func findNextUnstartedTransactionFromAddress(db *sqlx.DB, etx *EthTx, fromAddress gethCommon.Address, chainID big.Int) error {
 	err := db.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
 	return errors.Wrap(err, "failed to findNextUnstartedTransactionFromAddress")
+}
+
+func (eb *EthBroadcaster) findOldestUnconfirmedTransactionFromAddress(db *sqlx.DB, fromAddress gethCommon.Address, chainID big.Int) (*EthTx, error) {
+	etx := new(EthTx)
+	err := db.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 AND state = 'unconfirmed' AND evm_chain_id = $2 ORDER BY created_at ASC, value ASC, id ASC LIMIT 1`, fromAddress, chainID.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return etx, errors.Wrap(err, "failed to findOldestUnconfirmedTransactionFromAddress")
 }
 
 func (eb *EthBroadcaster) saveAttempt(etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, callbacks ...func(tx pg.Queryer) error) error {

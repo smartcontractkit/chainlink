@@ -96,6 +96,8 @@ ReaperInterval = '1h' # Default
 ReaperThreshold = '168h' # Default
 # ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 ResendAfterThreshold = '1m' # Default
+# UnconfirmedAlertThreshold controls how long to wait for transaction confirmation before logging critical.
+UnconfirmedAlertThreshold = '5m' # Default
 
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.

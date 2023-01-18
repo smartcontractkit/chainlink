@@ -38,6 +38,7 @@ type (
 		ethTxReaperInterval                           time.Duration
 		ethTxReaperThreshold                          time.Duration
 		ethTxResendAfterThreshold                     time.Duration
+		ethTxUnconfirmedAlertThreshold                time.Duration
 		finalityDepth                                 uint32
 		flagsContractAddress                          string
 		gasBumpPercent                                uint16
@@ -132,6 +133,7 @@ func setChainSpecificConfigDefaultSets() {
 		ethTxReaperInterval:                   1 * time.Hour,
 		ethTxReaperThreshold:                  168 * time.Hour,
 		ethTxResendAfterThreshold:             1 * time.Minute,
+		ethTxUnconfirmedAlertThreshold:        5 * time.Minute,
 		finalityDepth:                         50,
 		gasBumpPercent:                        20,
 		gasBumpThreshold:                      3,

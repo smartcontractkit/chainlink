@@ -18,6 +18,7 @@ MaxQueued = 250
 ReaperInterval = '1h'
 ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
+UnconfirmedAlertThreshold = '5m'
 
 [BalanceMonitor]
 Enabled = true

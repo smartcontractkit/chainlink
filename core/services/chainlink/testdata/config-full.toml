@@ -218,6 +218,7 @@ MaxQueued = 99
 ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
+UnconfirmedAlertThreshold = '1m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true

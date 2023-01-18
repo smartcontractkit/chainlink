@@ -359,6 +359,7 @@ func (c *Chain) asV1() *types.ChainCfg {
 		ChainType:                      null.StringFromPtr(c.ChainType),
 		EthTxReaperThreshold:           c.Transactions.ReaperThreshold,
 		EthTxResendAfterThreshold:      c.Transactions.ResendAfterThreshold,
+		EthTxUnconfirmedAlertThreshold: c.Transactions.UnconfirmedAlertThreshold,
 		EvmEIP1559DynamicFees:          null.BoolFromPtr(c.GasEstimator.EIP1559DynamicFees),
 		EvmFinalityDepth:               nullInt(c.FinalityDepth),
 		EvmGasBumpPercent:              nullInt(c.GasEstimator.BumpPercent),
@@ -427,12 +428,13 @@ func nullString[S fmt.Stringer](s *S) null.String {
 }
 
 type Transactions struct {
-	ForwardersEnabled    *bool
-	MaxInFlight          *uint32
-	MaxQueued            *uint32
-	ReaperInterval       *models.Duration
-	ReaperThreshold      *models.Duration
-	ResendAfterThreshold *models.Duration
+	ForwardersEnabled         *bool
+	MaxInFlight               *uint32
+	MaxQueued                 *uint32
+	ReaperInterval            *models.Duration
+	ReaperThreshold           *models.Duration
+	ResendAfterThreshold      *models.Duration
+	UnconfirmedAlertThreshold *models.Duration
 }
 
 func (t *Transactions) setFrom(f *Transactions) {
@@ -453,6 +455,9 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 	if v := f.ResendAfterThreshold; v != nil {
 		t.ResendAfterThreshold = v
+	}
+	if v := f.UnconfirmedAlertThreshold; v != nil {
+		t.UnconfirmedAlertThreshold = v
 	}
 }
 
@@ -762,6 +767,9 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	}
 	if cfg.EthTxResendAfterThreshold != nil {
 		c.Transactions.ResendAfterThreshold = cfg.EthTxResendAfterThreshold
+	}
+	if cfg.EthTxUnconfirmedAlertThreshold != nil {
+		c.Transactions.UnconfirmedAlertThreshold = cfg.EthTxUnconfirmedAlertThreshold
 	}
 	if cfg.EvmFinalityDepth.Valid {
 		v := uint32(cfg.EvmFinalityDepth.Int64)

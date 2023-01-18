@@ -42,6 +42,9 @@ func (g *generalConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
 func (g *generalConfig) GlobalEthTxResendAfterThreshold() (time.Duration, bool) {
 	panic(v2.ErrUnsupported)
 }
+func (g *generalConfig) GlobalEthTxUnconfirmedAlertThreshold() (time.Duration, bool) {
+	panic(v2.ErrUnsupported)
+}
 func (g *generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool)      { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalEvmFinalityDepth() (uint32, bool)         { panic(v2.ErrUnsupported) }
 func (g *generalConfig) GlobalEvmGasBumpPercent() (uint16, bool)        { panic(v2.ErrUnsupported) }

@@ -41,6 +41,7 @@ type Config interface {
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
+	EthTxUnconfirmedAlertThreshold() time.Duration
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
 	EvmGasLimitDefault() uint32

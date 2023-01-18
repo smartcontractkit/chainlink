@@ -64,6 +64,7 @@ type ChainCfg struct {
 	ChainType                                      null.String
 	EthTxReaperThreshold                           *models.Duration
 	EthTxResendAfterThreshold                      *models.Duration
+	EthTxUnconfirmedAlertThreshold                 *models.Duration
 	EvmEIP1559DynamicFees                          null.Bool
 	EvmFinalityDepth                               null.Int
 	EvmGasBumpPercent                              null.Int

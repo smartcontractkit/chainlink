@@ -155,6 +155,7 @@ type ConfigSchema struct {
 	EthTxReaperInterval               time.Duration `env:"ETH_TX_REAPER_INTERVAL"`
 	EthTxReaperThreshold              time.Duration `env:"ETH_TX_REAPER_THRESHOLD"`
 	EthTxResendAfterThreshold         time.Duration `env:"ETH_TX_RESEND_AFTER_THRESHOLD"`
+	EthTxUnconfirmedAlertThreshold    time.Duration `env:"ETH_TX_UNCONFIRMED_ALERT_THRESHOLD"`
 	EvmFinalityDepth                  uint32        `env:"ETH_FINALITY_DEPTH"`
 	EvmHeadTrackerHistoryDepth        uint          `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EvmHeadTrackerMaxBufferSize       uint          `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`

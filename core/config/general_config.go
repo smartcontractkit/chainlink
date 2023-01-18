@@ -223,6 +223,7 @@ type GlobalConfig interface {
 	GlobalEthTxReaperInterval() (time.Duration, bool)
 	GlobalEthTxReaperThreshold() (time.Duration, bool)
 	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
+	GlobalEthTxUnconfirmedAlertThreshold() (time.Duration, bool)
 	GlobalEvmEIP1559DynamicFees() (bool, bool)
 	GlobalEvmFinalityDepth() (uint32, bool)
 	GlobalEvmGasBumpPercent() (uint16, bool)
@@ -1354,6 +1355,9 @@ func (c *generalConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
 }
 func (c *generalConfig) GlobalEthTxResendAfterThreshold() (time.Duration, bool) {
 	return lookupEnv(c, envvar.Name("EthTxResendAfterThreshold"), time.ParseDuration)
+}
+func (c *generalConfig) GlobalEthTxUnconfirmedAlertThreshold() (time.Duration, bool) {
+	return lookupEnv(c, envvar.Name("EthTxUnconfirmedAlertThreshold"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalEvmFinalityDepth() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmFinalityDepth"), parse.Uint32)

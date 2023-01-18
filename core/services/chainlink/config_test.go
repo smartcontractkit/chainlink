@@ -491,12 +491,13 @@ func TestConfig_Marshal(t *testing.T) {
 				RPCBlockQueryDelay:       ptr[uint16](10),
 
 				Transactions: evmcfg.Transactions{
-					MaxInFlight:          ptr[uint32](19),
-					MaxQueued:            ptr[uint32](99),
-					ReaperInterval:       &minute,
-					ReaperThreshold:      &minute,
-					ResendAfterThreshold: &hour,
-					ForwardersEnabled:    ptr(true),
+					MaxInFlight:               ptr[uint32](19),
+					MaxQueued:                 ptr[uint32](99),
+					ReaperInterval:            &minute,
+					ReaperThreshold:           &minute,
+					ResendAfterThreshold:      &hour,
+					UnconfirmedAlertThreshold: &minute,
+					ForwardersEnabled:         ptr(true),
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -831,6 +832,7 @@ MaxQueued = 99
 ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
+UnconfirmedAlertThreshold = '1m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true

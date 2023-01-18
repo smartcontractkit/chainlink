@@ -891,6 +891,20 @@ func (_m *ChainScopedConfig) EVMRPCEnabled() bool {
 	return r0
 }
 
+// EthTxUnconfirmedAlertThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) EthTxUnconfirmedAlertThreshold() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // EthTxReaperInterval provides a mock function with given fields:
 func (_m *ChainScopedConfig) EthTxReaperInterval() time.Duration {
 	ret := _m.Called()
