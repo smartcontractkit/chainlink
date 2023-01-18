@@ -53,7 +53,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: EVM Chaos Tests
+    name: EVM Pods Chaos Tests
     runs-on: ubuntu-latest
     needs:
       - build-chainlink
@@ -70,7 +70,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: EVM Chaos Tests
+          this-job-name: EVM Pods Chaos Tests
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -82,7 +82,7 @@ jobs:
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/chaos/logs
-          publish_check_name: EVM Chaos Test Results
+          publish_check_name: EVM Pods Chaos Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -95,7 +95,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: EVM Chaos Tests
+    name: EVM Network Chaos Tests
     runs-on: ubuntu-latest
     needs:
       - build-chainlink
@@ -112,7 +112,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: EVM Chaos Tests
+          this-job-name: EVM Network Chaos Tests
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -124,7 +124,7 @@ jobs:
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/chaos/logs
-          publish_check_name: EVM Chaos Test Results
+          publish_check_name: EVM Network Chaos Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
