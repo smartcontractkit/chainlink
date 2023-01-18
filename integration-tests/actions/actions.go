@@ -24,17 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
-var (
-	BaseOCRP2PV1Config = `[OCR]
-Enabled = true
-
-[P2P]
-[P2P.V1]
-Enabled = true
-ListenIP = '0.0.0.0'
-ListenPort = 6690`
-)
-
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
 // Example: When deploying 1000 contracts, stop every ContractDeploymentInterval have been deployed to wait before continuing
 var ContractDeploymentInterval = 200

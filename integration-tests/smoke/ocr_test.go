@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/stretchr/testify/require"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -86,7 +87,7 @@ func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testN
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworksConfig(actions.BaseOCRP2PV1Config, testNetwork),
+			"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
 			"replicas": 6,
 		}))
 	err := testEnvironment.Run()

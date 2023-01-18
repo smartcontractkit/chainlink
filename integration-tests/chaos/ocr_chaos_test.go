@@ -11,6 +11,7 @@ import (
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/stretchr/testify/require"
 
 	"github.com/onsi/gomega"
@@ -31,7 +32,7 @@ import (
 
 var (
 	defaultOCRSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(actions.BaseOCRP2PV1Config, networks.SelectedNetwork),
+		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
