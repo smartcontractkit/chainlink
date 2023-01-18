@@ -71,6 +71,7 @@ type ContractDeployer interface {
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployUpkeepResetter() (UpkeepResetter, error)
 	DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error)
+	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type

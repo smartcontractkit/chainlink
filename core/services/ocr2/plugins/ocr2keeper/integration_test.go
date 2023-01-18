@@ -178,7 +178,7 @@ func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.Keeper
 	return parsedLog.Id
 }
 
-func TestIntegration_KeeperPlugin(t *testing.T) {
+func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -199,7 +199,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 6*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -271,11 +271,12 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 		p2pv2Bootstrappers = [
 		  "%s"
 		]
-		
+
 		[relayConfig]
 		chainID = 1337
-		
+
 		[pluginConfig]
+		maxServiceWorkers = 100
 		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)))
 	}
 
@@ -298,23 +299,24 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	}, configType)
 	require.NoError(t, err)
 	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		10*time.Second,       // deltaProgress time.Duration,
-		10*time.Second,       // deltaResend time.Duration,
-		5*time.Second,        // deltaRound time.Duration,
-		500*time.Millisecond, // deltaGrace time.Duration,
-		2*time.Second,        // deltaStage time.Duration,
-		3,                    // rMax uint8,
+		10*time.Second,        // deltaProgress time.Duration,
+		10*time.Second,        // deltaResend time.Duration,
+		2500*time.Millisecond, // deltaRound time.Duration,
+		40*time.Millisecond,   // deltaGrace time.Duration,
+		15*time.Second,        // deltaStage time.Duration,
+		3,                     // rMax uint8,
 		[]int{1, 1, 1, 1},
 		oracles,
 		ocr2keepers.OffchainConfig{
-			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
-			UniqueReports:        false,           // set quorum requirements
+			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on goerli)
+			UniqueReports:        false,          // set quorum requirements
+			MinConfirmations:     1,
 		}.Encode(), // reportingPluginConfig []byte,
-		50*time.Millisecond, // Max duration query
-		1*time.Second,       // Max duration observation
-		1*time.Second,
-		1*time.Second,
-		1*time.Second,
+		20*time.Millisecond,   // Max duration query
+		1600*time.Millisecond, // Max duration observation
+		800*time.Millisecond,
+		20*time.Millisecond,
+		20*time.Millisecond,
 		1, // f
 		onchainConfig,
 	)
@@ -367,7 +369,7 @@ func TestIntegration_KeeperPlugin(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 
-	lggr.Infow("Upkeep registered and funded")
+	lggr.Infow("Upkeep registered and funded", "upkeepID", upkeepID.String())
 
 	// keeper job is triggered and payload is received
 	receivedBytes := func() []byte {
@@ -525,10 +527,10 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		  "%s"
 		]
 		forwardingAllowed = true
-		
+
 		[relayConfig]
 		chainID = 1337
-		
+
 		[pluginConfig]
 		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)))
 	}
