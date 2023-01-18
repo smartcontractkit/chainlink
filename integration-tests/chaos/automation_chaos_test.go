@@ -120,7 +120,10 @@ func TestAutomationChaos(t *testing.T) {
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
-		"fail-minority-nodes": {
+		// network-* and pods-* are split intentionally into 2 parallel groups
+		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
+		// because of jsii runtime bug, see Makefile
+		"pod-chaos-fail-minority-nodes": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
@@ -129,7 +132,7 @@ func TestAutomationChaos(t *testing.T) {
 				DurationStr:    "1m",
 			},
 		},
-		"fail-majority-nodes": {
+		"pod-chaos-fail-majority-nodes": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
@@ -138,7 +141,7 @@ func TestAutomationChaos(t *testing.T) {
 				DurationStr:    "1m",
 			},
 		},
-		"fail-majority-db": {
+		"pod-chaos-fail-majority-db": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
@@ -148,7 +151,7 @@ func TestAutomationChaos(t *testing.T) {
 				ContainerNames: &[]*string{a.Str("chainlink-db")},
 			},
 		},
-		"fail-majority-network": {
+		"network-chaos-fail-majority-network": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
@@ -158,9 +161,9 @@ func TestAutomationChaos(t *testing.T) {
 				DurationStr: "1m",
 			},
 		},
-		"fail-blockchain-node": {
+		"network-chaos-fail-blockchain-node": {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultOCRSettings),
+			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
@@ -209,6 +212,9 @@ func TestAutomationChaos(t *testing.T) {
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
+				if chainClient != nil {
+					chainClient.GasStats().PrintStats()
+				}
 				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
@@ -266,6 +272,7 @@ func TestAutomationChaos(t *testing.T) {
 			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			_, err = testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))
+			require.NoError(t, err)
 
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10

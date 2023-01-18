@@ -458,6 +458,8 @@ func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) 
 
 	queryThreshold := start.Add(-threshold)
 
+	rowsDeleted := int64(0)
+
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		result, cancel, err := q.ExecQIter(`
 WITH batched_pipeline_runs AS (
@@ -481,6 +483,7 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 		if err != nil {
 			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to get rows affected")
 		}
+		rowsDeleted += rowsAffected
 
 		return uint(rowsAffected), err
 	})
@@ -490,7 +493,7 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 
 	deleteTS := time.Now()
 
-	o.lggr.Debugw("pipeline_runs reaper DELETE query completed", "duration", deleteTS.Sub(start))
+	o.lggr.Debugw("pipeline_runs reaper DELETE query completed", "rowsDeleted", rowsDeleted, "duration", deleteTS.Sub(start))
 	defer func(start time.Time) {
 		o.lggr.Debugw("pipeline_runs reaper VACUUM ANALYZE query completed", "duration", time.Since(start))
 	}(deleteTS)
