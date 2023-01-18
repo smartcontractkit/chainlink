@@ -142,7 +142,8 @@ func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string, empty bool) (s
 		return "", errors.New("path missing from database URL")
 	}
 
-	dbname := fmt.Sprintf("%s_%s", parsed.Path[1:], postfix)
+	// Match the naming schema that our dangling DB cleanup methods expect
+	dbname := fmt.Sprintf(cmd.TestDBNamePrefix+"%s", postfix)
 	if l := len(dbname); l > 63 {
 		return "", fmt.Errorf("dbname %v too long (%d), max is 63 bytes. Try a shorter postfix", dbname, l)
 	}
