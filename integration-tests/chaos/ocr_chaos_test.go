@@ -8,15 +8,16 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog/log"
+	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/stretchr/testify/require"
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -31,7 +32,7 @@ import (
 
 var (
 	defaultOCRSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(`OCR.Enabled = true`, networks.SelectedNetwork),
+		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
@@ -50,7 +51,6 @@ var (
 	}
 	chaosStartRound int64 = 1
 	chaosEndRound   int64 = 4
-	chaosApplied          = false
 )
 
 const (
@@ -74,35 +74,10 @@ func TestOCRChaos(t *testing.T) {
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
-		"fail-minority": {
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
-				DurationStr:    "1m",
-			},
-		},
-		"fail-majority": {
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
-				DurationStr:    "1m",
-			},
-		},
-		"fail-majority-db": {
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
-				DurationStr:    "1m",
-				ContainerNames: &[]*string{a.Str("chainlink-db")},
-			},
-		},
-		"fail-majority-network": {
+		// network-* and pods-* are split intentionally into 2 parallel groups
+		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
+		// because of jsii runtime bug, see Makefile
+		"network-chaos-fail-majority-network": {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
@@ -112,7 +87,7 @@ func TestOCRChaos(t *testing.T) {
 				DurationStr: "1m",
 			},
 		},
-		"fail-blockchain-node": {
+		"network-chaos-fail-blockchain-node": {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
@@ -120,6 +95,34 @@ func TestOCRChaos(t *testing.T) {
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
 				ToLabels:    &map[string]*string{ChaosGroupMajorityOCRPlus: a.Str("1")},
 				DurationStr: "1m",
+			},
+		},
+		"pod-chaos-fail-minority": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
+				DurationStr:    "1m",
+			},
+		},
+		"pod-chaos-fail-majority": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
+				DurationStr:    "1m",
+			},
+		},
+		"pod-chaos-fail-majority-db": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewFailPods,
+			&chaos.Props{
+				LabelsSelector: &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
+				DurationStr:    "1m",
+				ContainerNames: &[]*string{a.Str("chainlink-db")},
 			},
 		},
 	}
@@ -177,6 +180,8 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err)
 			actions.SetAllAdapterResponsesToTheSameValue(t, 5, ocrInstances, chainlinkNodes, ms)
 			actions.CreateOCRJobs(t, ocrInstances, chainlinkNodes, ms)
+
+			chaosApplied := false
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
