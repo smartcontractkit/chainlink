@@ -1,6 +1,7 @@
 package fluxmonitorv2_test
 
 import (
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"math/big"
 	"strings"
 	"testing"
@@ -894,7 +895,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 // chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
 // 63 bytes is max and chainlink_test_ takes up 15, plus 4 for a random hex suffix.
 func dbName(s string) string {
-	diff := len("chainlink_test_") + len("_FFF")
+	diff := len(cmd.TestDBNamePrefix) + len("_FFF")
 	if len(s) <= diff {
 		return strings.ReplaceAll(strings.ToLower(s), "/", "")
 	}
