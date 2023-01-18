@@ -1065,13 +1065,13 @@ func (_m *VRFBeaconInterface) SProvingKeyHash(opts *bind.CallOpts) ([32]byte, er
 	return r0, r1
 }
 
-// SetBilling provides a mock function with given fields: opts, maximumGasPriceGwei, reasonableGasPriceGwei, observationPaymentGjuels, transmissionPaymentGjuels, accountingGas
-func (_m *VRFBeaconInterface) SetBilling(opts *bind.TransactOpts, maximumGasPriceGwei uint32, reasonableGasPriceGwei uint32, observationPaymentGjuels uint32, transmissionPaymentGjuels uint32, accountingGas *big.Int) (*types.Transaction, error) {
-	ret := _m.Called(opts, maximumGasPriceGwei, reasonableGasPriceGwei, observationPaymentGjuels, transmissionPaymentGjuels, accountingGas)
+// SetBilling provides a mock function with given fields: opts, maximumGasPrice, reasonableGasPrice, observationPayment, transmissionPayment, accountingGas
+func (_m *VRFBeaconInterface) SetBilling(opts *bind.TransactOpts, maximumGasPrice uint64, reasonableGasPrice uint64, observationPayment uint64, transmissionPayment uint64, accountingGas *big.Int) (*types.Transaction, error) {
+	ret := _m.Called(opts, maximumGasPrice, reasonableGasPrice, observationPayment, transmissionPayment, accountingGas)
 
 	var r0 *types.Transaction
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, uint32, uint32, uint32, uint32, *big.Int) *types.Transaction); ok {
-		r0 = rf(opts, maximumGasPriceGwei, reasonableGasPriceGwei, observationPaymentGjuels, transmissionPaymentGjuels, accountingGas)
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, uint64, uint64, uint64, uint64, *big.Int) *types.Transaction); ok {
+		r0 = rf(opts, maximumGasPrice, reasonableGasPrice, observationPayment, transmissionPayment, accountingGas)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -1079,8 +1079,8 @@ func (_m *VRFBeaconInterface) SetBilling(opts *bind.TransactOpts, maximumGasPric
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, uint32, uint32, uint32, uint32, *big.Int) error); ok {
-		r1 = rf(opts, maximumGasPriceGwei, reasonableGasPriceGwei, observationPaymentGjuels, transmissionPaymentGjuels, accountingGas)
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, uint64, uint64, uint64, uint64, *big.Int) error); ok {
+		r1 = rf(opts, maximumGasPrice, reasonableGasPrice, observationPayment, transmissionPayment, accountingGas)
 	} else {
 		r1 = ret.Error(1)
 	}
