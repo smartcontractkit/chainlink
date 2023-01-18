@@ -906,10 +906,10 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 				var skipped int
 				// If no rows were returned, we need to know whether there were any ids skipped
 				//  in this batch due to the offset, and reduce it for the next batch
-				err = tx.Select(&skipped,
+				err = tx.Get(&skipped,
 					fmt.Sprintf(
-						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $2 AND p.id <= $3`, filter,
-					),
+						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $1 AND p.id <= $2`, filter,
+					), minID, maxID,
 				)
 				if err != nil {
 					err = errors.Wrap(err, "error loading from pipeline_runs")
