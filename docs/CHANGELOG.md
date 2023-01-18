@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
 - Removed `Keeper.UpkeepCheckGasPriceEnabled` config (`KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` in old env var configuration) as this feature is deprecated now. The variable should be completely removed by NOPs.
 
+### Fixed
+
+- Fixed (SQLSTATE 42P18) error on Job Runs page, when attempting to view specific older or infrequenty run jobs
 <!-- unreleasedstop -->
 
 ## 1.11.0 - 2022-12-12
