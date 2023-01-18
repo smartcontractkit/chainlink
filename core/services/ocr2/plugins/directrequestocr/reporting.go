@@ -175,8 +175,17 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	}
 
 	reqIdToObservationList := make(map[string][]*ProcessedRequest)
+	var uniqueQueryIds []string
 	for _, id := range queryProto.RequestIDs {
-		reqIdToObservationList[formatRequestId(id)] = []*ProcessedRequest{}
+		reqId := formatRequestId(id)
+		if _, ok := reqIdToObservationList[reqId]; ok {
+			r.logger.Error("FunctionsReporting Report: duplicate ID in query", commontypes.LogFields{
+				"requestID": reqId,
+			})
+			continue
+		}
+		uniqueQueryIds = append(uniqueQueryIds, reqId)
+		reqIdToObservationList[reqId] = []*ProcessedRequest{}
 	}
 
 	for _, ob := range obs {
@@ -208,7 +217,8 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	defaultAggMethod := r.specificConfig.Config.GetDefaultAggregationMethod()
 	var allAggregated []*ProcessedRequest
 	var allIdStrs []string
-	for reqId, observations := range reqIdToObservationList {
+	for _, reqId := range uniqueQueryIds {
+		observations := reqIdToObservationList[reqId]
 		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
 			r.logger.Debug("FunctionsReporting Report: unable to aggregate request in current round", commontypes.LogFields{
 				"epoch":         ts.Epoch,
