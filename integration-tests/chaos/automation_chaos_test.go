@@ -120,7 +120,10 @@ func TestAutomationChaos(t *testing.T) {
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
-		"fail-minority-nodes": {
+		// network-* and pods-* are split intentionally into 2 parallel groups
+		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
+		// because of jsii runtime bug, see Makefile
+		"pod-chaos-fail-minority-nodes": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
@@ -129,7 +132,7 @@ func TestAutomationChaos(t *testing.T) {
 				DurationStr:    "1m",
 			},
 		},
-		"fail-majority-nodes": {
+		"pod-chaos-fail-majority-nodes": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
@@ -138,7 +141,7 @@ func TestAutomationChaos(t *testing.T) {
 				DurationStr:    "1m",
 			},
 		},
-		"fail-majority-db": {
+		"pod-chaos-fail-majority-db": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
@@ -148,28 +151,26 @@ func TestAutomationChaos(t *testing.T) {
 				ContainerNames: &[]*string{a.Str("chainlink-db")},
 			},
 		},
-		// TODO: we have a bug with @jsii.Kernel panic if different manifests are used sequentially
-		// TODO: create minimal reproducible environment and fix it
-		//"fail-majority-network": {
-		//	ethereum.New(defaultEthereumSettings),
-		//	chainlink.New(0, defaultAutomationSettings),
-		//	chaos.NewNetworkPartition,
-		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
-		//		DurationStr: "1m",
-		//	},
-		//},
-		//"fail-blockchain-node": {
-		//	ethereum.New(defaultEthereumSettings),
-		//	chainlink.New(0, defaultAutomationSettings),
-		//	chaos.NewNetworkPartition,
-		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMajorityAutomationPlus: a.Str("1")},
-		//		DurationStr: "1m",
-		//	},
-		//},
+		"network-chaos-fail-majority-network": {
+			ethereum.New(defaultEthereumSettings),
+			chainlink.New(0, defaultAutomationSettings),
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
+		"network-chaos-fail-blockchain-node": {
+			ethereum.New(defaultEthereumSettings),
+			chainlink.New(0, defaultAutomationSettings),
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{"app": a.Str("geth")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityAutomationPlus: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
 	}
 
 	for n, tst := range testCases {

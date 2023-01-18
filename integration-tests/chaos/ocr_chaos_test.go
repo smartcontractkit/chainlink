@@ -73,29 +73,30 @@ func TestOCRChaos(t *testing.T) {
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
-		// TODO: we have a bug with @jsii.Kernel panic if different manifests are used sequentially
-		// TODO: create minimal reproducible environment and fix it
-		//"fail-majority-network": {
-		//	ethereum.New(nil),
-		//	chainlink.New(0, defaultOCRSettings),
-		//	chaos.NewNetworkPartition,
-		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
-		//		DurationStr: "1m",
-		//	},
-		//},
-		//"fail-blockchain-node": {
-		//	ethereum.New(nil),
-		//	chainlink.New(0, defaultOCRSettings),
-		//	chaos.NewNetworkPartition,
-		//	&chaos.Props{
-		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
-		//		ToLabels:    &map[string]*string{ChaosGroupMajorityOCRPlus: a.Str("1")},
-		//		DurationStr: "1m",
-		//	},
-		//},
-		"fail-minority": {
+		// network-* and pods-* are split intentionally into 2 parallel groups
+		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
+		// because of jsii runtime bug, see Makefile
+		"network-chaos-fail-majority-network": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{ChaosGroupMajorityOCR: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinorityOCR: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
+		"network-chaos-fail-blockchain-node": {
+			ethereum.New(nil),
+			chainlink.New(0, defaultOCRSettings),
+			chaos.NewNetworkPartition,
+			&chaos.Props{
+				FromLabels:  &map[string]*string{"app": a.Str("geth")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityOCRPlus: a.Str("1")},
+				DurationStr: "1m",
+			},
+		},
+		"pod-chaos-fail-minority": {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
@@ -104,7 +105,7 @@ func TestOCRChaos(t *testing.T) {
 				DurationStr:    "1m",
 			},
 		},
-		"fail-majority": {
+		"pod-chaos-fail-majority": {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
@@ -113,7 +114,7 @@ func TestOCRChaos(t *testing.T) {
 				DurationStr:    "1m",
 			},
 		},
-		"fail-majority-db": {
+		"pod-chaos-fail-majority-db": {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
