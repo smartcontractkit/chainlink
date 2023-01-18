@@ -10,6 +10,22 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
+  init:
+    name: initialize
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      # Determine if `on` event should trigger linting to run
+      on_trigger_lint: ${{ steps.golangci-lint.outputs.on_trigger }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Check if event should trigger lint
+        id: golangci-lint
+        run: ./.github/scripts/ci-core-on-trigger-lint.sh
+
   golangci-changes:
     name: detect changes for lint
     runs-on: ubuntu-latest
@@ -30,20 +46,17 @@ jobs:
   golangci:
     name: lint
     runs-on: ubuntu-latest
-    needs: [golangci-changes]
+    needs: [init, golangci-changes]
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v3
-        if: github.event.schedule != '' || needs.golangci-changes.outputs.src == 'true'
+        if: needs.golangci-changes.outputs.src == 'true' && needs.init.outputs.on_trigger_lint == 'true'
         with:
           go-version-file: 'go.mod'
       - name: golangci-lint
-        # any scheduled run or push/pulls with relevant changed paths, but skip PRs from release branches
-        if: |
-          github.event.schedule != '' ||
-          (needs.golangci-changes.outputs.src == 'true' && (github.event_name == 'push' || github.event_name == 'pull_request'))
+        if: needs.golangci-changes.outputs.src == 'true' && needs.init.outputs.on_trigger_lint == 'true'
         ##
         # XXX: change this to the official action once multiple --out-format args are supported.
         # See: https://github.com/golangci/golangci-lint-action/issues/612
