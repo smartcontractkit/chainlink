@@ -49,6 +49,7 @@ const ownerPermsMask = os.FileMode(0700)
 // PristineDBName is a clean copy of test DB with migrations.
 // Used by heavyweight.FullTestDB* functions.
 const PristineDBName = "chainlink_test_pristine"
+const TestDBNamePrefix = "chainlink_test_"
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -555,7 +556,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 		}()
 	}
 	for _, dbname := range dbs {
-		if strings.HasPrefix(dbname, "chainlink_test_") && !strings.HasSuffix(dbname, "_pristine") {
+		if strings.HasPrefix(dbname, TestDBNamePrefix) && !strings.HasSuffix(dbname, "_pristine") {
 			ch <- dbname
 		}
 	}
