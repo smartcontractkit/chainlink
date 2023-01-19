@@ -32,8 +32,8 @@ jobs:
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: git diff --minimal --exit-code
-      - run: npm install -g pnpm
-      - run: make pnpmdep
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
       - run: make generate
       - name: Ensure clean after generate
         run: git diff --stat --exit-code
