@@ -1310,6 +1310,7 @@ EVM defaults depend on ChainID:
 <details><summary>Ethereum Mainnet (1)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -1388,6 +1389,7 @@ GasLimit = 5300000
 <details><summary>Ethereum Ropsten (3)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -1465,6 +1467,7 @@ GasLimit = 5300000
 <details><summary>Ethereum Rinkeby (4)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -1542,6 +1545,7 @@ GasLimit = 5300000
 <details><summary>Ethereum Goerli (5)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -1619,6 +1623,7 @@ GasLimit = 5300000
 <details><summary>Optimism Mainnet (10)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimism'
@@ -1697,6 +1702,7 @@ GasLimit = 6500000
 <details><summary>RSK Mainnet (30)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -1774,6 +1780,7 @@ GasLimit = 5300000
 <details><summary>RSK Testnet (31)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -1851,6 +1858,7 @@ GasLimit = 5300000
 <details><summary>Ethereum Kovan (42)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -1929,6 +1937,7 @@ GasLimit = 5300000
 <details><summary>BSC Mainnet (56)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -2006,6 +2015,7 @@ GasLimit = 5300000
 <details><summary>OKX Testnet (65)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -2082,6 +2092,7 @@ GasLimit = 5300000
 <details><summary>OKX Mainnet (66)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -2158,6 +2169,7 @@ GasLimit = 5300000
 <details><summary>Optimism Kovan (69)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimism'
@@ -2236,6 +2248,7 @@ GasLimit = 6500000
 <details><summary>xDai Mainnet (100)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'xdai'
@@ -2314,6 +2327,7 @@ GasLimit = 5300000
 <details><summary>Heco Mainnet (128)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -2391,6 +2405,7 @@ GasLimit = 5300000
 <details><summary>Polygon Mainnet (137)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
@@ -2468,6 +2483,7 @@ GasLimit = 5300000
 <details><summary>Fantom Mainnet (250)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -2545,6 +2561,7 @@ GasLimit = 3800000
 <details><summary>Optimism Goerli (420)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
@@ -2623,6 +2640,7 @@ GasLimit = 6500000
 <details><summary>Metis Rinkeby (588)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
@@ -2700,6 +2718,7 @@ GasLimit = 5300000
 <details><summary>Klaytn Testnet (1001)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 1
@@ -2776,6 +2795,7 @@ GasLimit = 5300000
 <details><summary>Metis Mainnet (1088)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
@@ -2853,6 +2873,7 @@ GasLimit = 5300000
 <details><summary>Simulated (1337)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 1
@@ -2929,6 +2950,7 @@ GasLimit = 5300000
 <details><summary>Fantom Testnet (4002)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -3006,6 +3028,7 @@ GasLimit = 3800000
 <details><summary>Klaytn Mainnet (8217)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 1
@@ -3082,6 +3105,7 @@ GasLimit = 5300000
 <details><summary>Arbitrum Mainnet (42161)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
@@ -3160,6 +3184,7 @@ GasLimit = 5300000
 <details><summary>Avalanche Fuji (43113)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 1
@@ -3237,6 +3262,7 @@ GasLimit = 5300000
 <details><summary>Avalanche Mainnet (43114)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 1
@@ -3314,6 +3340,7 @@ GasLimit = 5300000
 <details><summary>Polygon Mumbai (80001)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
@@ -3391,6 +3418,7 @@ GasLimit = 5300000
 <details><summary>Arbitrum Rinkeby (421611)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
@@ -3469,6 +3497,7 @@ GasLimit = 5300000
 <details><summary>Arbitrum Goerli (421613)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
@@ -3547,6 +3576,7 @@ GasLimit = 5300000
 <details><summary>Ethereum Sepolia (11155111)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -3624,6 +3654,7 @@ GasLimit = 5300000
 <details><summary>Harmony Mainnet (1666600000)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -3701,6 +3732,7 @@ GasLimit = 5300000
 <details><summary>Harmony Testnet (1666700000)</summary><p>
 
 ```toml
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -3787,6 +3819,12 @@ ChainID is the EVM chain ID. Mandatory.
 Enabled = true # Default
 ```
 Enabled enables this chain.
+
+### AutoCreateKey
+```toml
+AutoCreateKey = true # Default
+```
+AutoCreateKey, if set to true, will ensure that there is always at least one transmit key for the given chain.
 
 ### BlockBackfillDepth
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._

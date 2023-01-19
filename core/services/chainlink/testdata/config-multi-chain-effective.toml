@@ -193,6 +193,7 @@ Release = ''
 
 [[EVM]]
 ChainID = '1'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 26
@@ -276,6 +277,7 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '42'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
@@ -354,6 +356,7 @@ WSURL = 'wss://web.socket/test'
 
 [[EVM]]
 ChainID = '137'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500

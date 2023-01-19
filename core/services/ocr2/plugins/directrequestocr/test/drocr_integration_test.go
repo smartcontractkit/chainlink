@@ -30,7 +30,7 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	defer ticker.Stop()
 
 	// bootstrap node and job
-	bootstrapNodePort := uint16(29999)
+	bootstrapNodePort := uint16(39999)
 	bootstrapNode := utils.StartNewNode(t, owner, bootstrapNodePort, "bootstrap", b, uint32(maxGas), nil)
 	utils.AddBootstrapJob(t, bootstrapNode.App, oracleContractAddress)
 

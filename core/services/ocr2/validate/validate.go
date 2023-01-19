@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	mercuryconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
@@ -105,6 +106,8 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	case job.OCR2Functions:
 		// TODO validator for DR-OCR spec: https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
 		return nil
+	case job.Mercury:
+		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -178,4 +181,13 @@ func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
 
 func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
+}
+
+func validateOCR2MercurySpec(jsonConfig job.JSONConfig) error {
+	var pluginConfig mercuryconfig.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	if err != nil {
+		return errors.Wrap(err, "error while unmarshaling plugin config")
+	}
+	return errors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig), "Mercury PluginConfig is invalid")
 }

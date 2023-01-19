@@ -6,6 +6,8 @@
 ChainID = '1' # Example
 # Enabled enables this chain.
 Enabled = true # Default
+# AutoCreateKey, if set to true, will ensure that there is always at least one transmit key for the given chain.
+AutoCreateKey = true # Default
 # **ADVANCED**
 # BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
 BlockBackfillDepth = 10 # Default

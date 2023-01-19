@@ -1,36 +1,44 @@
 package mercury
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
-	pb "github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/report"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
-var _ ocrtypes.ContractTransmitter = &mercuryTransmitter{}
-var _ services.ServiceCtx = &mercuryTransmitter{}
-
-type mercuryTransmitter struct {
-	lggr      logger.Logger
-	rpcClient wsrpc.Client
-
-	fromAccount common.Address
-
-	reportURL string
-	username  string
-	password  string
+type Transmitter interface {
+	relaymercury.Transmitter
+	services.ServiceCtx
 }
 
-var payloadTypes = getPayloadTypes()
+type ConfigTracker interface {
+	LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error)
+}
+
+var _ Transmitter = &mercuryTransmitter{}
+
+type mercuryTransmitter struct {
+	lggr       logger.Logger
+	rpcClient  wsrpc.Client
+	cfgTracker ConfigTracker
+
+	feedID      [32]byte
+	fromAccount string
+}
+
+var PayloadTypes = getPayloadTypes()
 
 func getPayloadTypes() abi.Arguments {
 	mustNewType := func(t string) abi.Type {
@@ -49,8 +57,8 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount common.Address, reportURL, username, password string) *mercuryTransmitter {
-	return &mercuryTransmitter{lggr.Named("Mercury"), rpcClient, fromAccount, reportURL, username, password}
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte) *mercuryTransmitter {
+	return &mercuryTransmitter{lggr.Named("MercuryTransmitter"), rpcClient, cfgTracker, feedID, fmt.Sprintf("%x", fromAccount)}
 }
 
 func (mt *mercuryTransmitter) Start(ctx context.Context) error { return mt.rpcClient.Start(ctx) }
@@ -81,20 +89,20 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	payload, err := payloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
+	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	rr := &pb.ReportRequest{
+	req := &pb.TransmitRequest{
 		Payload: payload,
 	}
 
-	mt.lggr.Debugw("Transmitting report", "reportRequest", rr, "report", report, "reportCtx", reportCtx, "signatures", signatures)
+	mt.lggr.Debugw("Transmitting report", "transmitRequest", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
-	res, err := mt.rpcClient.Transmit(ctx, rr)
+	res, err := mt.rpcClient.Transmit(ctx, req)
 	if err != nil {
-		return errors.Wrap(err, "failed to POST to mercury server")
+		return errors.Wrap(err, "Transmit report to Mercury server failed")
 	}
 
 	if res.Error == "" {
@@ -107,17 +115,50 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 	return nil
 }
 
+// FromAccount returns the stringified (hex) CSA public key
 func (mt *mercuryTransmitter) FromAccount() ocrtypes.Account {
-	return ocrtypes.Account(mt.fromAccount.Hex())
+	return ocrtypes.Account(mt.fromAccount)
 }
 
 // LatestConfigDigestAndEpoch retrieves the latest config digest and epoch from the OCR2 contract.
-// It is plugin independent, in particular avoids use of the plugin specific generated evm wrappers
-// by using the evm client Call directly for functions/events that are part of OCR2Abstract.
 func (mt *mercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (cd ocrtypes.ConfigDigest, epoch uint32, err error) {
-	// ConfigDigest and epoch are not stored on the contract in mercury mode
-	// TODO: Do we need to support retrieving it from the server? Does it matter?
-	// https://app.shortcut.com/chainlinklabs/story/57500/return-the-actual-latest-transmission-details
-	err = errors.New("Retrieving config digest/epoch is not supported in Mercury mode")
-	return
+	req := &pb.LatestReportRequest{
+		FeedId: mt.feedID[:],
+	}
+	resp, err := mt.rpcClient.LatestReport(ctx, req)
+	if err != nil {
+		return cd, epoch, errors.Wrap(err, "LatestConfigDigestAndEpoch failed to fetch LatestReport")
+	}
+	if len(resp.ConfigDigest) == 0 {
+		mt.cfgTracker.LatestConfigDetails(ctx)
+		mt.lggr.Info("LatestConfigDigestAndEpoch returned nil reponse, this is a brand new feed")
+		return cd, epoch, nil
+	}
+	cd, err = ocrtypes.BytesToConfigDigest(resp.ConfigDigest)
+	if err != nil {
+		return cd, epoch, errors.Wrapf(err, "LatestConfigDigestAndEpoch failed; response contained invalid config digest, got: 0x%x", resp.ConfigDigest)
+	}
+	if !bytes.Equal(resp.FeedId, mt.feedID[:]) {
+		return cd, epoch, errors.Errorf("LatestConfigDigestAndEpoch failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.FeedId)
+	}
+
+	return cd, resp.Epoch, nil
+}
+
+func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (int64, error) {
+	req := &pb.LatestReportRequest{
+		FeedId: mt.feedID[:],
+	}
+	resp, err := mt.rpcClient.LatestReport(ctx, req)
+	if err != nil {
+		return 0, errors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
+	}
+	if len(resp.FeedId) == 0 {
+		mt.lggr.Infow("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed so initial block number is 0")
+		return 0, nil
+	} else if !bytes.Equal(resp.FeedId, mt.feedID[:]) {
+		return 0, errors.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.FeedId)
+	}
+
+	return resp.BlockNumber, nil
 }
