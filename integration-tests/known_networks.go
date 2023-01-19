@@ -179,7 +179,8 @@ var (
 func determineSelectedNetworks() []blockchain.EVMNetwork {
 	logging.Init()
 	selectedNetworks := make([]blockchain.EVMNetwork, 0)
-	setNetworkNames := strings.Split(strings.ToUpper(os.Getenv("SELECTED_NETWORKS")), ",")
+	rawSelectedNetworks := strings.ToUpper(os.Getenv("SELECTED_NETWORKS"))
+	setNetworkNames := strings.Split(rawSelectedNetworks, ",")
 
 	for _, setNetworkName := range setNetworkNames {
 		if chosenNetwork, valid := mappedNetworks[setNetworkName]; valid {

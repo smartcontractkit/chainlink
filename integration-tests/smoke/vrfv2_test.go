@@ -34,6 +34,9 @@ func TestVRFv2Basic(t *testing.T) {
 
 	t.Parallel()
 	testEnvironment, testNetwork := setupVRFv2Test(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err)
@@ -170,6 +173,7 @@ PriceMax = 100000000000
 FeeCapDefault = 100000000000`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{

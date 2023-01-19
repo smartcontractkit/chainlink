@@ -55,6 +55,15 @@ install_gotestfmt:
 	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	set -euo pipefail
 
+# Builds the test image
+# tag: the tag for the test image being built, example: tag=tate
+# base_tag: the tag for the base-test-image to use, example: base_tag=latest
+# suite: the test suites to build into the image, example: suite="chaos soak smoke reorg migration performance"
+# push: set to true if you want the image pushed or leave blank if not, example: push=true
+.PHONY: build_test_image
+build_test_image:
+	./scripts/buildTestImage $(tag) $(base_tag) "$(suite)" $(push)
+
 ## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
 
 # Smoke
