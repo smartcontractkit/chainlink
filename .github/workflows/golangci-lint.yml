@@ -26,10 +26,11 @@ jobs:
         with:
           filters: |
             src:
-            - '**.go'
+            - '**/*.go'
             - '**/go.mod'
             - '**/go.sum'
             - '.golangci.yml'
+            - '.github/workflows/golangci-lint.yml'
   golangci:
     name: lint
     runs-on: ubuntu-latest
