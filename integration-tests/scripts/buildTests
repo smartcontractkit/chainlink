@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# build test binaries
+# accepts a single space separated argument of the folders to build
+
+set -ex
+
+# get this scripts directory
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+cd "$SCRIPT_DIR"/../ || exit 1
+
+# parse out quotes if they exist in the string
+temp="${1%\"}"
+tosplit="${temp#\"}"
+
+# find the suite name
+OIFS=$IFS
+IFS=' '
+for x in $tosplit
+do
+    go test -c ./"${x}"
+done
+IFS=$OIFS

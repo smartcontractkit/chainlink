@@ -46,6 +46,7 @@ func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
 	session := &Session{Email: c.Email, Password: c.Password}
 	resp, err := rc.R().SetBody(session).Post("/sessions")
 	if err != nil {
+		log.Info().Interface("session", session).Msg("session used")
 		return nil, err
 	}
 	rc.SetCookies(resp.Cookies())

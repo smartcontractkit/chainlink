@@ -7,6 +7,10 @@ concurrency:
   group: integration-tests-chainlink-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CL_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
+
 jobs:
   changes:
     environment: integration
@@ -35,6 +39,7 @@ jobs:
         continue-on-error: true
     outputs:
       src: ${{ steps.changes.outputs.src }}
+
   build-chainlink:
     environment: integration
     permissions:
@@ -67,6 +72,40 @@ jobs:
           this-job-name: Build Chainlink Image
         continue-on-error: true
 
+  build-test-image:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Test Image
+    runs-on: ubuntu20.04-16cores-64GB
+    needs: [changes]
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Test Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: build test runner
+        uses: smartcontractkit/chainlink-github-actions/docker/build-push@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        with:
+          tags: ${{ env.ENV_JOB_IMAGE }}
+          file: ./integration-tests/test.Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
+            IMAGE_VERSION=v0.3.0
+            SUITES="smoke"
+          #SUITES="chaos migration performance reorg smoke soak"
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
   eth-smoke-tests-matrix:
     environment: integration
     permissions:
@@ -75,7 +114,7 @@ jobs:
       id-token: write
       contents: read
     name: ETH Smoke Tests Matrix
-    needs: [build-chainlink, changes]
+    needs: [build-chainlink, changes, build-test-image]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -126,6 +165,11 @@ jobs:
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        env:
+          TEST_SUITE: smoke
+          TEST_ARGS: -test.timeout 30m
+          CHAINLINK_IMAGE: ${{ env.CL_ECR }}
+          CHAINLINK_VERSION: latest.${{ github.sha }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
