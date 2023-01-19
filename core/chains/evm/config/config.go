@@ -28,6 +28,7 @@ import (
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
 
+	AutoCreateKey() bool
 	BalanceMonitorEnabled() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	BlockHistoryEstimatorBatchSize() (size uint32)
@@ -1168,6 +1169,10 @@ func (c *chainScopedConfig) FlagsContractAddress() string {
 		return p.String
 	}
 	return c.defaultSet.flagsContractAddress
+}
+
+func (c *chainScopedConfig) AutoCreateKey() bool {
+	return true // legacy config always autocreates
 }
 
 // BalanceMonitorEnabled enables the balance monitor

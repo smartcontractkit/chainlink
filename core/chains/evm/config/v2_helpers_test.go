@@ -23,6 +23,8 @@ func FallbackDefaultsAsV2() v2.Chain {
 
 func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	c := v2.Chain{
+		AutoCreateKey: ptr(true),
+
 		// moved from global, so setting that default here
 		BlockBackfillDepth: ptr[uint32](10),
 		BlockBackfillSkip:  ptr(false),

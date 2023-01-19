@@ -329,9 +329,11 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 
 		for _, ch := range evmChainSet.Chains() {
-			err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
-			if err2 != nil {
-				return errors.Wrap(err2, "failed to ensure keystore keys")
+			if ch.Config().AutoCreateKey() {
+				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+				if err2 != nil {
+					return errors.Wrap(err2, "failed to ensure keystore keys")
+				}
 			}
 		}
 	}

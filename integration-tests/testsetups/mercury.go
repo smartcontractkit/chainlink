@@ -126,8 +126,6 @@ func SetupMercuryServer(
 	var msRpcNodesConf []*oracle
 	for i, chainlinkNode := range chainlinkNodes {
 		nodeName := fmt.Sprint(i)
-		nodeAddress, err := chainlinkNode.PrimaryEthAddress()
-		require.NoError(t, err)
 		csaKeys, resp, err := chainlinkNode.ReadCSAKeys()
 		require.NoError(t, err)
 		csaKeyId := csaKeys.Data[0].ID

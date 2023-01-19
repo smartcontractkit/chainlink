@@ -299,25 +299,23 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
-// it will also provide an unlocked account on the keystore
+// it will also provide an unlocked account on the keystore.
+// This function always generates one eth key if none is given.
 func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
-	require.NoError(t, app.KeyStore.Unlock(Password))
+
 	chainID := *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case ethkey.KeyV2:
-			app.Keys = append(app.Keys, v)
-		case p2pkey.KeyV2:
-			require.NoError(t, app.GetKeyStore().P2P().Add(v))
 		case evmtypes.DBChain:
 			chainID = v.ID
 		case *utils.Big:
 			chainID = *v
 		}
 	}
+
 	if len(app.Keys) == 0 {
 		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
 		app.Keys = []ethkey.KeyV2{k}
@@ -329,6 +327,25 @@ func NewApplicationWithConfigAndKey(t testing.TB, c config.GeneralConfig, flagsA
 	}
 
 	return app
+}
+
+func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID utils.Big) {
+	require.NoError(t, app.KeyStore.Unlock(Password))
+
+	for _, dep := range flagsAndDeps {
+		switch v := dep.(type) {
+		case ethkey.KeyV2:
+			app.Keys = append(app.Keys, v)
+		case p2pkey.KeyV2:
+			require.NoError(t, app.GetKeyStore().P2P().Add(v))
+		case csakey.KeyV2:
+			require.NoError(t, app.GetKeyStore().CSA().Add(v))
+		case ocr2key.KeyBundle:
+			require.NoError(t, app.GetKeyStore().OCR2().Add(v))
+		}
+	}
+
+	return
 }
 
 const (
@@ -527,6 +544,8 @@ func NewApplicationWithConfig(t testing.TB, cfg config.GeneralConfig, flagsAndDe
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
+
+	setKeys(t, ta, flagsAndDeps...)
 
 	return ta
 }

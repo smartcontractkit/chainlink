@@ -1,3 +1,4 @@
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50

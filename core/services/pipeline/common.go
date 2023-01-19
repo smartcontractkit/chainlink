@@ -17,6 +17,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -170,6 +171,13 @@ func (result FinalResult) HasErrors() bool {
 		}
 	}
 	return false
+}
+
+func (result FinalResult) CombinedError() error {
+	if !result.HasErrors() {
+		return nil
+	}
+	return multierr.Combine(result.AllErrors...)
 }
 
 // SingularResult returns a single result if the FinalResult only has one set of outputs/errors

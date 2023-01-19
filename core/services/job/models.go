@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -286,6 +287,25 @@ func (r JSONConfig) EVMChainID() (int64, error) {
 	return int64(f), nil
 }
 
+func (r JSONConfig) FeedID() (common.Hash, error) {
+	i, ok := r["feedID"]
+	if !ok {
+		return common.Hash{}, nil
+	}
+	f, ok := i.(string)
+	if !ok {
+		return common.Hash{}, errors.Errorf("expected feed ID to be string but got: %T", i)
+	}
+	b, err := hexutil.Decode(f)
+	if err != nil {
+		return common.Hash{}, errors.Wrap(err, "not valid hex")
+	}
+	if len(b) != 32 {
+		return common.Hash{}, errors.Errorf("invalid length for feedID, expected 32 bytes, got: %d", len(b))
+	}
+	return common.BytesToHash(b), nil
+}
+
 // OCR2PluginType defines supported OCR2 plugin types.
 type OCR2PluginType string
 
@@ -303,6 +323,8 @@ const (
 	OCR2Keeper OCR2PluginType = "ocr2automation"
 
 	OCR2Functions OCR2PluginType = "functions"
+
+	Mercury OCR2PluginType = "mercury"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -312,7 +334,6 @@ type OCR2OracleSpec struct {
 	ContractID                        string          `toml:"contractID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
-	RelayConfigMercuryConfig          JSONConfig      `toml:"relayConfigMercuryConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`

@@ -1,7 +1,9 @@
 package evm
 
 import (
+	"context"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -19,6 +21,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+var sampleAddress = testutils.NewAddress()
+
+type mockTransmitter struct{}
+
+func (mockTransmitter) CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte) error {
+	return nil
+}
+func (mockTransmitter) FromAddress() gethcommon.Address { return sampleAddress }
+
 func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
@@ -33,7 +44,7 @@ func TestContractTransmitter(t *testing.T) {
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(digestAndEpochDontScanLogs, nil).Once()
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, nil, lp, lggr)
+	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, mockTransmitter{}, lp, lggr)
 	require.NoError(t, err)
 	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
@@ -56,4 +67,5 @@ func TestContractTransmitter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
+	assert.Equal(t, fmt.Sprintf("0x%x", sampleAddress), string(ot.FromAccount()))
 }

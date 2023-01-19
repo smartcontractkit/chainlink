@@ -104,6 +104,9 @@ func ChainTypeForID(chainID *utils.Big) (config.ChainType, bool) {
 
 // SetFrom updates c with any non-nil values from f.
 func (c *Chain) SetFrom(f *Chain) {
+	if v := f.AutoCreateKey; v != nil {
+		c.AutoCreateKey = v
+	}
 	if v := f.BlockBackfillDepth; v != nil {
 		c.BlockBackfillDepth = v
 	}
