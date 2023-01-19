@@ -24,6 +24,9 @@ import (
 func TestCronBasic(t *testing.T) {
 	t.Parallel()
 	testEnvironment := setupCronTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -77,6 +80,7 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 	}
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
