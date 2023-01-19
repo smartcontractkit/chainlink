@@ -11,4 +11,3 @@ cd "$SCRIPT_DIR"/../ || exit 1
 PRODUCT=${PRODUCT:=cron}
 ARGS=${ARGS:=}
 go test -v ${ARGS} ./smoke/"$PRODUCT"_test.go
-	

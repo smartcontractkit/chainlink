@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 
 	"github.com/lib/pq"
@@ -986,6 +987,7 @@ func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 }
 
 func Test_Service_ApproveSpec(t *testing.T) {
+	var evmChainID *utils.Big
 	address := ethkey.EIP55AddressFromAddress(common.Address{})
 
 	var (
@@ -1060,7 +1062,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -1098,7 +1100,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -1160,7 +1162,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 			},
 			id:      spec.ID,
 			force:   false,
@@ -1175,7 +1177,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -1280,7 +1282,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -1304,7 +1306,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -1334,7 +1336,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",

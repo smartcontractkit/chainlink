@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 
 	"github.com/stretchr/testify/require"
@@ -164,16 +165,16 @@ func benchmarkTestHelper(
 	blockTime string,
 	nodeReplicas int,
 ) {
-	testDirectory := "./soak/tests"
+	testDirectory := "./benchmark/tests"
 	log.Info().
 		Str("Test Name", testName).
 		Str("Directory", testDirectory).
 		Str("Namespace", testEnvironment.Cfg.Namespace).
-		Msg("Soak Test")
+		Msg("Benchmark Test")
 	remoteRunnerValues := map[string]interface{}{
 		"test_name":             testName,
 		"env_namespace":         testEnvironment.Cfg.Namespace,
-		"test_dir":              "./benchmark/tests",
+		"test_dir":              testDirectory,
 		"test_log_level":        "debug",
 		"grafana_dashboard_url": getEnv("GRAFANA_DASHBOARD_URL", ""),
 		"TEST_INPUTS":           os.Getenv("TEST_INPUTS"),
@@ -183,6 +184,7 @@ func benchmarkTestHelper(
 	for key, value := range activeEVMNetwork.ToMap() {
 		remoteRunnerValues[key] = value
 	}
+	remoteRunnerValues[config.EnvVarInsideK8s] = "true"
 	remoteRunnerWrapper := map[string]interface{}{
 		"remote_test_runner": remoteRunnerValues,
 	}

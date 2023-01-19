@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -894,7 +895,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 // chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
 // 63 bytes is max and chainlink_test_ takes up 15, plus 4 for a random hex suffix.
 func dbName(s string) string {
-	diff := len("chainlink_test_") + len("_FFF")
+	diff := len(cmd.TestDBNamePrefix) + len("_FFF")
 	if len(s) <= diff {
 		return strings.ReplaceAll(strings.ToLower(s), "/", "")
 	}
