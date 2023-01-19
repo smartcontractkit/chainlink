@@ -1,7 +1,10 @@
 package keeper
 
 import (
+	"encoding/csv"
+	"fmt"
 	"log"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -70,9 +73,90 @@ var upkeepHistoryCmd = &cobra.Command{
 	},
 }
 
+var ocr2UpkeepReportHistoryCmd = &cobra.Command{
+	Use:   "ocr2-reports",
+	Short: "Print ocr2 automation reports",
+	Long:  "Print ocr2 automation reports within specified range for registry address",
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := config.New()
+		hdlr := handler.NewBaseHandler(cfg)
+
+		var hashes []string
+		var err error
+		var path string
+
+		path, err = cmd.Flags().GetString("csv")
+		if err == nil && len(path) != 0 {
+			rec, err := readCsvFile(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if len(rec) < 1 {
+				log.Fatal("not enough records")
+			}
+
+			hashes = make([]string, len(rec))
+			for i := 0; i < len(rec); i++ {
+				hashes[i] = rec[i][0]
+			}
+		} else {
+			hashes, err = cmd.Flags().GetStringSlice("tx-hashes")
+			if err != nil {
+				log.Fatalf("failed to get transaction hashes from input: %s", err)
+			}
+		}
+
+		if err := handler.OCR2AutomationReports(hdlr, hashes); err != nil {
+			log.Fatalf("failed to collect transaction data: %s", err)
+		}
+	},
+}
+
+var ocr2UpdateConfigCmd = &cobra.Command{
+	Use:   "ocr2-get-config",
+	Short: "Get OCR2 config parameters",
+	Long:  "Get latest OCR2 config parameters from registry contract address",
+	Run: func(cmd *cobra.Command, args []string) {
+
+		cfg := config.New()
+		hdlr := handler.NewBaseHandler(cfg)
+
+		if err := handler.OCR2GetConfig(hdlr, cfg.RegistryAddress); err != nil {
+			log.Fatalf("failed to get config data: %s", err)
+		}
+	},
+}
+
 func init() {
 	upkeepHistoryCmd.Flags().String("upkeep-id", "", "upkeep ID")
 	upkeepHistoryCmd.Flags().Uint64("from", 0, "from block")
 	upkeepHistoryCmd.Flags().Uint64("to", 0, "to block")
 	upkeepHistoryCmd.Flags().Uint64("gas-price", 0, "gas price to use")
+
+	ocr2UpkeepReportHistoryCmd.Flags().StringSlice("tx-hashes", []string{}, "list of transaction hashes to get information for")
+	ocr2UpkeepReportHistoryCmd.Flags().String("csv", "", "path to csv file containing transaction hashes; first element per line should be transaction hash; file should not have headers")
+
+	ocr2UpdateConfigCmd.Flags().String("tx", "", "transaction of last config update")
+}
+
+func readCsvFile(filePath string) ([][]string, error) {
+	var records [][]string
+	var err error
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return records, fmt.Errorf("Unable to read input file "+filePath, err)
+	}
+	defer f.Close()
+
+	csvReader := csv.NewReader(f)
+	csvReader.FieldsPerRecord = 0
+	csvReader.LazyQuotes = false
+	records, err = csvReader.ReadAll()
+	if err != nil {
+		return records, fmt.Errorf("Unable to parse file as CSV for "+filePath, err)
+	}
+
+	return records, nil
 }

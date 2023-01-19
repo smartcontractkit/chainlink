@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Runs tests for a specific product
+
+set -ex
+
+# get this scripts directory
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+cd "$SCRIPT_DIR"/../ || exit 1
+
+# Arguments needed
+# ARGS=${ARGS:=} any extra args for go test
+# SUITE=${SUITE:=} the suite of tests you want to run
+# TEST_NAME=${TEST_NAME:=} The specific test to run
+
+# run the tests
+./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$

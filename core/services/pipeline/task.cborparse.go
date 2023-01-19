@@ -10,16 +10,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     map[string]interface{} with potential value types:
-//         float64
-//         string
-//         bool
-//         map[string]interface{}
-//         []interface{}
-//         nil
 //
+//	map[string]interface{} with potential value types:
+//	    float64
+//	    string
+//	    bool
+//	    map[string]interface{}
+//	    []interface{}
+//	    nil
 type CBORParseTask struct {
 	BaseTask `mapstructure:",squash"`
 	Data     string `json:"data"`
@@ -61,7 +60,7 @@ func (t *CBORParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		}
 		return Result{Value: parsed}, runInfo
 	case "standard":
-		parsed, err := cbor.ParseStandardCBOR([]byte(data))
+		parsed, err := cbor.ParseStandardCBOR(data)
 		if err != nil {
 			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}

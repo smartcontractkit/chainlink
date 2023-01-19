@@ -62,6 +62,7 @@ describe('FunctionsOracle', () => {
   let registry: Contract
   let linkToken: Contract
   let mockLinkEth: Contract
+  let transmitters: string[]
 
   beforeEach(async () => {
     linkToken = await linkTokenFactory.connect(roles.defaultAccount).deploy()
@@ -110,6 +111,18 @@ describe('FunctionsOracle', () => {
         ethers.BigNumber.from('300938394174049741'),
         ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
       )
+
+    const signers = Array.from(
+      [0, 0, 0, 0],
+      (_) => ethers.Wallet.createRandom().address,
+    )
+    transmitters = [
+      await roles.oracleNode1.getAddress(),
+      await roles.oracleNode2.getAddress(),
+      await roles.oracleNode3.getAddress(),
+      await roles.oracleNode4.getAddress(),
+    ]
+    await oracle.setConfig(signers, transmitters, 1, [], 1, [])
   })
 
   describe('General', () => {
@@ -131,6 +144,90 @@ describe('FunctionsOracle', () => {
       await expect(oracle.setDONPublicKey(emptyPublicKey)).to.be.revertedWith(
         'EmptyPublicKey',
       )
+    })
+
+    async function validatePubKeys(
+      expectedNodes: string[],
+      expectedKeys: string[],
+    ) {
+      const allNodesAndKeys = await oracle.getAllNodePublicKeys()
+      for (let i = 0; i < expectedNodes.length; i++) {
+        expect(allNodesAndKeys[0][i]).to.be.equal(expectedNodes[i])
+        expect(allNodesAndKeys[1][i]).to.be.equal(expectedKeys[i])
+      }
+    }
+
+    it('set/delete/get node public keys', async () => {
+      const emptyKey = stringToHex('')
+      const publicKey2 = stringToHex('key420')
+      const publicKey3 = stringToHex('key666')
+
+      await oracle.setNodePublicKey(roles.oracleNode2.getAddress(), publicKey2)
+      await oracle.setNodePublicKey(roles.oracleNode3.getAddress(), publicKey3)
+      validatePubKeys(transmitters, [
+        emptyKey,
+        publicKey2,
+        publicKey3,
+        emptyKey,
+      ])
+
+      await oracle.deleteNodePublicKey(roles.oracleNode1.getAddress())
+      await oracle.deleteNodePublicKey(roles.oracleNode2.getAddress())
+      validatePubKeys(transmitters, [emptyKey, emptyKey, publicKey3, emptyKey])
+    })
+
+    it('reverts setNodePublicKey for unauthorized callers', async () => {
+      const pubKey = stringToHex('abcd')
+
+      await expect(
+        oracle
+          .connect(roles.defaultAccount)
+          .setNodePublicKey(roles.oracleNode2.getAddress(), pubKey),
+      ).not.to.be.reverted
+
+      await expect(
+        oracle
+          .connect(roles.consumer)
+          .setNodePublicKey(roles.oracleNode2.getAddress(), pubKey),
+      ).to.be.revertedWith('UnauthorizedPublicKeyChange')
+
+      await expect(
+        oracle
+          .connect(roles.consumer)
+          .setNodePublicKey(roles.consumer.getAddress(), pubKey),
+      ).to.be.revertedWith('UnauthorizedPublicKeyChange')
+
+      await expect(
+        oracle
+          .connect(roles.oracleNode2)
+          .setNodePublicKey(roles.oracleNode3.getAddress(), pubKey),
+      ).to.be.revertedWith('UnauthorizedPublicKeyChange')
+
+      await expect(
+        oracle
+          .connect(roles.oracleNode2)
+          .setNodePublicKey(roles.oracleNode2.getAddress(), pubKey),
+      ).not.to.be.reverted
+    })
+
+    it('reverts deleteNodePublicKey for unauthorized callers', async () => {
+      await expect(
+        oracle
+          .connect(roles.defaultAccount)
+          .deleteNodePublicKey(roles.oracleNode2.getAddress()),
+      ).not.to.be.reverted
+
+      await expect(
+        oracle
+          .connect(roles.consumer)
+          .deleteNodePublicKey(roles.oracleNode2.getAddress()),
+      ).to.be.revertedWith('UnauthorizedPublicKeyChange')
+
+      await expect(
+        oracle
+          .connect(roles.consumer)
+          .deleteNodePublicKey(roles.consumer.getAddress()),
+      ).not.to.be.reverted
     })
   })
 

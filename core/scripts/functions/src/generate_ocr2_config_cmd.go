@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -19,11 +20,37 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
 )
 
+// NOTE: Field names need to match what's in the JSON input file (see sample_config.json)
+type InputConfig struct {
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxReportLengthBytes      uint32
+	MaxRequestBatchSize       uint32
+	DefaultAggregationMethod  int32
+	UniqueReports             bool
+
+	DeltaProgressMillis  uint32
+	DeltaResendMillis    uint32
+	DeltaRoundMillis     uint32
+	DeltaGraceMillis     uint32
+	DeltaStageMillis     uint32
+	MaxRoundsPerEpoch    uint8
+	TransmissionSchedule []int
+
+	MaxDurationQueryMillis       uint32
+	MaxDurationObservationMillis uint32
+	MaxDurationReportMillis      uint32
+	MaxDurationAcceptMillis      uint32
+	MaxDurationTransmitMillis    uint32
+
+	MaxFaultyOracles int
+}
+
 type orc2drOracleConfig struct {
 	Signers               []string `json:"signers"`
 	Transmitters          []string `json:"transmitters"`
 	F                     uint8    `json:"f"`
-	OnchainConfig         []string `json:"onchainConfig"`
+	OnchainConfig         string   `json:"onchainConfig"`
 	OffchainConfigVersion uint64   `json:"offchainConfigVersion"`
 	OffchainConfig        string   `json:"offchainConfig"`
 }
@@ -39,16 +66,35 @@ func (g *generateOCR2Config) Name() string {
 	return "generate-ocr2config"
 }
 
+func mustParseJSONConfigFile(fileName string, output *InputConfig) {
+	jsonFile, err := os.Open(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	configBytes, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(configBytes, output)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (g *generateOCR2Config) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	nodesFile := fs.String("nodes", "", "a file containing nodes urls, logins and passwords")
+	configFile := fs.String("config", "", "a file containing JSON config")
 	chainID := fs.Int64("chainid", 80001, "chain id")
 	err := fs.Parse(args)
-	if err != nil || nodesFile == nil || *nodesFile == "" || chainID == nil {
+	if err != nil || *nodesFile == "" || *configFile == "" || chainID == nil {
 		fs.Usage()
 		os.Exit(1)
 	}
 
+	var cfg InputConfig
+	mustParseJSONConfigFile(*configFile, &cfg)
 	nodes := mustReadNodesList(*nodesFile)
 	nca := mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
 
@@ -87,11 +133,8 @@ func (g *generateOCR2Config) Run(args []string) {
 		configPubKeysBytes = append(configPubKeysBytes, types.ConfigEncryptionPublicKey(pkBytesFixed))
 	}
 
-	S := []int{}
 	identities := []confighelper.OracleIdentityExtra{}
-
 	for index := range nca {
-		S = append(S, 1)
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  onchainPubKeys[index][:],
@@ -105,35 +148,35 @@ func (g *generateOCR2Config) Run(args []string) {
 
 	reportingPluginConfigBytes, err := config.EncodeReportingPluginConfig(&config.ReportingPluginConfigWrapper{
 		Config: &config.ReportingPluginConfig{
-			MaxQueryLengthBytes:       10_000,
-			MaxObservationLengthBytes: 10_000,
-			MaxReportLengthBytes:      10_000,
-			MaxRequestBatchSize:       10,
-			DefaultAggregationMethod:  config.AggregationMethod_AGGREGATION_MODE,
-			UniqueReports:             true,
+			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
+			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
+			MaxRequestBatchSize:       cfg.MaxRequestBatchSize,
+			DefaultAggregationMethod:  config.AggregationMethod(cfg.DefaultAggregationMethod),
+			UniqueReports:             cfg.UniqueReports,
 		},
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	signers, transmitters, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		30*time.Second, // deltaProgress
-		10*time.Second, // deltaResend
-		10*time.Second, // deltaRound
-		2*time.Second,  // deltaGrace
-		30*time.Second, // deltaStage
-		5,              // RMax (maxRounds)
-		S,              // S (schedule of randomized transmission order)
+	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
+		time.Duration(cfg.DeltaResendMillis)*time.Millisecond,
+		time.Duration(cfg.DeltaRoundMillis)*time.Millisecond,
+		time.Duration(cfg.DeltaGraceMillis)*time.Millisecond,
+		time.Duration(cfg.DeltaStageMillis)*time.Millisecond,
+		cfg.MaxRoundsPerEpoch,
+		cfg.TransmissionSchedule,
 		identities,
 		reportingPluginConfigBytes,
-		5*time.Second, // maxDurationQuery
-		5*time.Second, // maxDurationObservation
-		5*time.Second, // maxDurationReport
-		5*time.Second, // maxDurationAccept
-		5*time.Second, // maxDurationTransmit
-		1,             // f (max faulty oracles)
-		nil,           // empty onChain config
+		time.Duration(cfg.MaxDurationQueryMillis)*time.Millisecond,
+		time.Duration(cfg.MaxDurationObservationMillis)*time.Millisecond,
+		time.Duration(cfg.MaxDurationReportMillis)*time.Millisecond,
+		time.Duration(cfg.MaxDurationAcceptMillis)*time.Millisecond,
+		time.Duration(cfg.MaxDurationTransmitMillis)*time.Millisecond,
+		cfg.MaxFaultyOracles,
+		nil, // empty onChain config
 	)
 	helpers.PanicErr(err)
 
@@ -148,7 +191,7 @@ func (g *generateOCR2Config) Run(args []string) {
 		Signers:               signersStr,
 		Transmitters:          transmittersStr,
 		F:                     f,
-		OnchainConfig:         make([]string, 0),
+		OnchainConfig:         "0x" + hex.EncodeToString(onchainConfig),
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        "0x" + hex.EncodeToString(offchainConfig),
 	}
