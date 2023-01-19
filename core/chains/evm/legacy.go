@@ -121,6 +121,14 @@ func SetupNodes(db *sqlx.DB, cfg LegacyEthNodeConfig, lggr logger.Logger) (err e
 	if err = json.Unmarshal([]byte(cfg.EthereumNodes()), &nodes); err != nil {
 		return errors.Wrapf(err, "invalid EVM_NODES json, got: %q", cfg.EthereumNodes())
 	}
+
+	// Nodes cannot specify 'send_only' and 'ws_url' simultaneously - preempt the eventual persistence failure (due to a constraint)
+	for _, evmNode := range nodes {
+		if evmNode.SendOnly && evmNode.WSURL.Valid {
+			return errors.New("Invalid EVM node configuration:  A node cannot simultaneously specify both 'sendOnly' and 'wsUrl'")
+		}
+	}
+
 	// Sorting gives a consistent insert ordering
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Name < nodes[j].Name
