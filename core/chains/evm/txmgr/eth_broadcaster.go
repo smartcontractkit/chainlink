@@ -327,6 +327,8 @@ func (eb *EthBroadcaster) SyncNonce(ctx context.Context, k ethkey.State) {
 						eb.logger.Warnw("Failed to sync with on-chain nonce", "address", k.Address, "attempt", attempt, "err", err)
 					}
 					continue
+				} else {
+					return
 				}
 			}
 		}
