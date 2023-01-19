@@ -26,9 +26,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	mercuryconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc"
 	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -37,7 +39,6 @@ import (
 var _ relaytypes.Relayer = &Relayer{}
 
 type RelayerConfig interface {
-	MercuryCredentials(url string) (username, password string, err error)
 }
 
 type Relayer struct {
@@ -86,9 +87,43 @@ func (r *Relayer) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.Healthy()}
 }
 
-// This is a stub, to be added in smartcontractkit/chainlink#8340
+// TODO: Mercury needs integration test
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
-	return nil, errors.New("mercury is not supported")
+	// TODO: mercury needs filtering
+	// See: https://smartcontract-it.atlassian.net/browse/MERC-81?atlOrigin=eyJpIjoiZjFhZGUxMDE5MDJlNDI3ZDk2YWFjZDBiZDE4NmRiODIiLCJwIjoiamlyYS1zbGFjay1pbnQifQ
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var relayConfig types.RelayConfig
+	if err = json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var mercuryConfig mercuryconfig.PluginConfig
+	if err = json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if mercuryConfig.FeedID == (common.Hash{}) {
+		return nil, errors.New("FeedID must be specified")
+	}
+	reportCodec := reportcodec.NewEVMReportCodec(mercuryConfig.FeedID, r.lggr.Named("ReportCodec"))
+
+	privKey, err := r.ks.CSA().Get(mercuryConfig.ClientPubKey.String())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get CSA key for mercury connection")
+	}
+
+	reportURL := mercuryConfig.URL
+	if reportURL == nil {
+		return nil, errors.New("Mercury URL must be specified")
+	}
+	client := wsrpc.NewClient(privKey, mercuryConfig.ServerPubKey, reportURL.URL())
+	transmitter := mercury.NewTransmitter(r.lggr, client, reportURL.String(), privKey.PublicKey, mercuryConfig.FeedID)
+
+	return &mercuryProvider{configWatcher, transmitter, reportCodec, services.MultiStart{}}, nil
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
@@ -342,19 +377,14 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	}
 	var contractTransmitter ContractTransmitter
 	var reportCodec median.ReportCodec
-	if relayConfig.MercuryConfig != nil {
-		r.lggr.Debugf("Mercury mode enabled for job %d", rargs.JobID)
-		contractTransmitter, reportCodec, err = r.NewMercuryMedianProvider(relayConfig)
-	} else {
-		r.lggr.Debugf("On-chain mode enabled for job %d", rargs.JobID)
-		reportCodec = evmreportcodec.ReportCodec{}
-		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
-	}
+
+	reportCodec = evmreportcodec.ReportCodec{}
+	contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
 	if err != nil {
 		return nil, err
 	}
 
-	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr, relayConfig.MercuryConfig != nil)
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -364,35 +394,6 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
 	}, nil
-
-}
-
-func (r *Relayer) NewMercuryMedianProvider(relayConfig types.RelayConfig) (contractTransmitter ContractTransmitter, reportCodec median.ReportCodec, err error) {
-	// Override on-chain transmitter with Mercury if the relevant config is set
-	reportURL := relayConfig.MercuryConfig.URL
-	if reportURL == nil {
-		return contractTransmitter, reportCodec, errors.New("Mercury URL must be specified")
-	}
-	if !relayConfig.EffectiveTransmitterAddress.Valid {
-		return contractTransmitter, reportCodec, errors.New("EffectiveTransmitterAddress must be specified")
-	}
-	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-	var username, password string
-	username, password, err = r.cfg.MercuryCredentials(reportURL.String())
-	if err != nil {
-		return contractTransmitter, reportCodec, errors.Wrapf(err, "failed to get mercury credentials for URL: %s", reportURL.String())
-	}
-	privKey, err := r.ks.CSA().Get(relayConfig.MercuryConfig.ClientPrivKeyID)
-	if err != nil {
-		return contractTransmitter, reportCodec, errors.Wrap(err, "failed to get CSA key for mercury connection")
-	}
-	serverPubKey := relayConfig.MercuryConfig.ServerPubKey
-	contractTransmitter = mercury.NewTransmitter(r.lggr, wsrpc.NewClient(privKey, serverPubKey, reportURL.URL()), effectiveTransmitterAddress, reportURL.String(), username, password)
-	if relayConfig.MercuryConfig.FeedID == (common.Hash{}) {
-		return contractTransmitter, reportCodec, errors.New("FeedID must be specified")
-	}
-	reportCodec = mercury.ReportCodec{FeedID: relayConfig.MercuryConfig.FeedID}
-	return
 }
 
 var _ relaytypes.MedianProvider = (*medianProvider)(nil)

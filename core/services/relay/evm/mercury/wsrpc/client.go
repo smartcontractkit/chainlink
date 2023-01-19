@@ -10,13 +10,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/report"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type Client interface {
 	services.ServiceCtx
-	report.ReportClient
+	pb.MercuryClient
 }
 
 type client struct {
@@ -27,7 +27,7 @@ type client struct {
 	serverURL    *url.URL
 
 	conn   *wsrpc.ClientConn
-	client report.ReportClient
+	client pb.MercuryClient
 }
 
 func NewClient(privKey csakey.KeyV2, serverPubKey []byte, serverURL *url.URL) Client {
@@ -53,7 +53,7 @@ func (w *client) Start(_ context.Context) error {
 			return errors.Wrap(err, "failed to dial wsrpc client")
 		}
 		w.conn = conn
-		w.client = report.NewReportClient(conn)
+		w.client = pb.NewMercuryClient(conn)
 		return nil
 	})
 }
@@ -93,4 +93,24 @@ func (w *client) Healthy() (err error) {
 		return errors.Errorf("client state should be %s; got %s", connectivity.Ready, state)
 	}
 	return nil
+}
+
+func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
+	ok := w.IfStarted(func() {
+		resp, err = w.client.Transmit(ctx, req)
+	})
+	if !ok {
+		return nil, errors.New("client is not started")
+	}
+	return
+}
+
+func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
+	ok := w.IfStarted(func() {
+		resp, err = w.client.LatestReport(ctx, req)
+	})
+	if !ok {
+		return nil, errors.New("client is not started")
+	}
+	return
 }

@@ -302,6 +302,8 @@ const (
 	OCR2Keeper OCR2PluginType = "ocr2automation"
 
 	OCR2Functions OCR2PluginType = "functions"
+
+	Mercury OCR2PluginType = "mercury"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
