@@ -125,7 +125,7 @@ func SetupNodes(db *sqlx.DB, cfg LegacyEthNodeConfig, lggr logger.Logger) (err e
 	// Nodes cannot specify 'send_only' and 'ws_url' simultaneously - preempt the eventual persistence failure (due to a constraint)
 	for _, evmNode := range nodes {
 		if evmNode.SendOnly && evmNode.WSURL.Valid {
-			return errors.New("Invalid EVM node configuration:  A node cannot simultaneously specify both 'sendOnly' and 'wsUrl'")
+			return errors.New("invalid EVM node configuration: a node cannot simultaneously specify both 'sendOnly' and 'wsUrl'")
 		}
 	}
 
