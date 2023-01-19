@@ -17,7 +17,7 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.src }}
+      src: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -51,7 +51,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.50.1
-          only-new-issues: ${{github.event.schedule == ''}} # show only new issues, unless it's a scheduled run
+          only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
