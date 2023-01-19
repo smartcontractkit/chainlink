@@ -9,7 +9,7 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.src }}
+      src: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -37,17 +37,17 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
-        if: ${{ needs.changes.outputs.changes == 'true' }}
+        if: ${{ needs.changes.outputs.src == 'true' }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: ${{ needs.changes.outputs.changes == 'true' }}
+        if: ${{ needs.changes.outputs.src == 'true' }}
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
       - name: Run Forge build
-        if: ${{ needs.changes.outputs.changes == 'true' }}
+        if: ${{ needs.changes.outputs.src == 'true' }}
         run: |
           forge --version
           forge build --sizes
@@ -55,14 +55,14 @@ jobs:
         working-directory: contracts
 
       - name: Run Forge tests
-        if: ${{ needs.changes.outputs.changes == 'true' }}
+        if: ${{ needs.changes.outputs.src == 'true' }}
         run: |
           forge test -vvv
         id: test
         working-directory: contracts
 
       - name: Run Forge snapshot
-        if: ${{ needs.changes.outputs.changes == 'true' }}
+        if: ${{ needs.changes.outputs.src == 'true' }}
         run: |
           forge snapshot --match-test _gas --check
         id: snapshot
