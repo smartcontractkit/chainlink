@@ -18,8 +18,12 @@ import (
 )
 
 func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
-	nNodes := 4
-	nClients := 20
+	// a batch of 8 max-length results uses around 1M gas (assuming 70k gas per client callback - see FunctionsClientExample.sol)
+	nOracleNodes := 4
+	nClients := 50
+	requestLenBytes := 1000
+	maxGas := 1_300_000
+	batchSize := 8
 
 	// simulated chain with all contracts
 	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryAddress, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
@@ -27,15 +31,15 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 
 	// bootstrap node and job
 	bootstrapNodePort := uint16(29999)
-	bootstrapNode := utils.StartNewNode(t, owner, bootstrapNodePort, "bootstrap", b, nil)
+	bootstrapNode := utils.StartNewNode(t, owner, bootstrapNodePort, "bootstrap", b, uint32(maxGas), nil)
 	utils.AddBootstrapJob(t, bootstrapNode.App, oracleContractAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
 	var jobIds []int32
 	var oracles []confighelper2.OracleIdentityExtra
 	var apps []*cltest.TestApplication
-	for i := 0; i < nNodes; i++ {
-		oracleNode := utils.StartNewNode(t, owner, bootstrapNodePort+1+uint16(i), fmt.Sprintf("oracle%d", i), b, []commontypes.BootstrapperLocator{
+	for i := 0; i < nOracleNodes; i++ {
+		oracleNode := utils.StartNewNode(t, owner, bootstrapNodePort+1+uint16(i), fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})
 		apps = append(apps, oracleNode.App)
@@ -52,26 +56,28 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 	utils.SetRegistryConfig(t, owner, registryContract, oracleContractAddress)
 
 	// config for oracle contract
-	utils.SetOracleConfig(t, owner, oracleContract, oracles)
+	utils.SetOracleConfig(t, owner, oracleContract, oracles, batchSize)
 	utils.CommitWithFinality(b)
 
 	// set up subscription
 	subscriptionId := utils.CreateAndFundSubscriptions(t, owner, linkToken, registryAddress, registryContract, clientContracts)
 
 	// send requests
-	sent := make([][]byte, nClients)
-	s := rand.NewSource(666)
-	r := rand.New(s)
+	requestSources := make([][]byte, nClients)
+	rnd := rand.New(rand.NewSource(666))
 	for i := 0; i < nClients; i++ {
-		sent[i] = []byte{byte(r.Uint32() % 256)}
-		_, err := clientContracts[i].Contract.SendRequest(owner, hex.EncodeToString(sent[i]), []byte{}, []string{}, subscriptionId)
+		requestSources[i] = make([]byte, requestLenBytes)
+		for j := 0; j < requestLenBytes; j++ {
+			requestSources[i][j] = byte(rnd.Uint32() % 256)
+		}
+		_, err := clientContracts[i].Contract.SendRequest(owner, hex.EncodeToString(requestSources[i]), []byte{}, []string{}, subscriptionId)
 		require.NoError(t, err)
 	}
 	utils.CommitWithFinality(b)
 
 	// validate that all DR-OCR jobs completed as many runs as sent requests
 	var wg sync.WaitGroup
-	for i := 0; i < nNodes; i++ {
+	for i := 0; i < nOracleNodes; i++ {
 		ic := i
 		wg.Add(1)
 		go func() {
@@ -87,11 +93,11 @@ func TestIntegration_OCR2DR_MultipleRequests_Success(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			gomega.NewGomegaWithT(t).Eventually(func() []byte {
+			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
 				answer, err := clientContracts[ic].Contract.LastResponse(nil)
 				require.NoError(t, err)
 				return answer
-			}, 1*time.Minute, 1*time.Second).Should(gomega.Equal(append([]byte{0xab}, sent[ic]...)))
+			}, 1*time.Minute, 1*time.Second).Should(gomega.Equal(utils.GetExpectedResponse(requestSources[ic])))
 		}()
 	}
 	wg.Wait()
