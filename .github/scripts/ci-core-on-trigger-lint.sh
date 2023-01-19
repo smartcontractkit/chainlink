@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# set -euo pipefail
 
 ##
 # Trigger golangci-lint job steps when event is one of:
@@ -7,6 +7,8 @@ set -euo pipefail
 # 2. on PR's where the head branch is not prefixed with "release/*"
 # 3. on pushes to these branches: staging, trying, rollup
 ##
+
+echo ${{ github.event_name }}
 
 on_trigger=false
 if [[ "${{ github.event_name }}" = "schedule" ]]; then
