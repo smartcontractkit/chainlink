@@ -12,8 +12,6 @@ set -euo pipefail
 #   2. on PR's where the target branch (GITHUB_BASE_REF) is not prefixed with 'release/*'
 #   3. on pushes to these branches (GITHUB_REF): staging, trying, rollup
 #
-# usage: $(basename "$0") [-h]"
-#
 # env vars:
 # GITHUB_EVENT_NAME GitHub's event name, ex: schedule|pull_request|push (GitHub context: github.event_name)
 # GITHUB_BASE_REF   GitHub's base ref - target branch of pull request (GitHub context: github.base_ref)
