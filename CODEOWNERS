@@ -48,7 +48,7 @@
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 
 # Tests
-/integration-tests/ @kalverra @tateexon @skudasov @anieeg
+/integration-tests/ @smartcontractkit/set-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
@@ -60,9 +60,9 @@
 
 # CI/CD
 /.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
-/.github/workflows/integration-tests.yml @kalverra @tateexon @skudasov @anieeg
-/.github/workflows/integration-chaos-tests.yml @kalverra @tateexon @skudasov @anieeg
-/.github/workflows/performance-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/integration-tests.yml @smartcontractkit/set-team
+/.github/workflows/integration-chaos-tests.yml @smartcontractkit/set-team
+/.github/workflows/performance-tests.yml @smartcontractkit/set-team
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
 # Dependencies
