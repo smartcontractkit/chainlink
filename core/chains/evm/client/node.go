@@ -280,6 +280,8 @@ func (n *node) dial(callerCtx context.Context) error {
 		n.http.geth = ethclient.NewClient(httprpc)
 	}
 
+	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
+
 	return nil
 }
 
