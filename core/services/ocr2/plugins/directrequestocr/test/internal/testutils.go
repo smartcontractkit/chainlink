@@ -46,7 +46,7 @@ import (
 
 func ptr[T any](v T) *T { return &v }
 
-func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra) {
+func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra, batchSize int) {
 	S := make([]int, len(oracles))
 	for i := 0; i < len(S); i++ {
 		S[i] = 1
@@ -57,7 +57,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 			MaxQueryLengthBytes:       10_000,
 			MaxObservationLengthBytes: 10_000,
 			MaxReportLengthBytes:      10_000,
-			MaxRequestBatchSize:       4,
+			MaxRequestBatchSize:       uint32(batchSize),
 			DefaultAggregationMethod:  drconfig.AggregationMethod_AGGREGATION_MODE,
 			UniqueReports:             true,
 		},
@@ -202,6 +202,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 			Address:  clientContractAddress,
 			Contract: clientContract,
 		})
+		if i%10 == 0 {
+			// Max 10 requests per block
+			b.Commit()
+		}
 	}
 	CommitWithFinality(b)
 	ticker := time.NewTicker(1 * time.Second)
@@ -228,6 +232,7 @@ func StartNewNode(
 	port uint16,
 	dbName string,
 	b *backends.SimulatedBackend,
+	maxGas uint32,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *Node {
 	p2pKey, err := p2pkey.NewV2()
@@ -252,6 +257,7 @@ func StartNewNode(
 
 		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
@@ -374,4 +380,17 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		// prepend "0xab" to source and return as result
 		res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
 	}))
+}
+
+// Mock EA prepends 0xab to source and user contract crops the answer to first 32 bytes
+func GetExpectedResponse(source []byte) [32]byte {
+	var resp [32]byte
+	resp[0] = 0xab
+	for j := 0; j < 31; j++ {
+		if j >= len(source) {
+			break
+		}
+		resp[j+1] = source[j]
+	}
+	return resp
 }
