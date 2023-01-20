@@ -125,6 +125,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
       - name: Set SonarQube Report Paths
