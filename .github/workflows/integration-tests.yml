@@ -359,7 +359,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        testnet: [GOERLI, OPTIMSIM_GOERLI, ARBITRUM_GOERLI]
+        testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
