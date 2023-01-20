@@ -325,3 +325,88 @@ jobs:
           this-job-name: Solana Smoke Tests
         continue-on-error: true
   ### End Solana Section
+
+  ### Start Live Testnet Section
+
+  testnet-smoke-tests-matrix:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: Live Testnet Smoke Tests Matrix
+    needs: [build-chainlink, changes, build-test-image]
+    env:
+      SELECTED_NETWORKS: ${{ matrix.testnet }}
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: testnet-ci
+      TEST_LOG_LEVEL: debug
+      EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
+      GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
+      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+      OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
+      OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
+      ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
+      ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
+    strategy:
+      fail-fast: false
+      matrix:
+        testnet: [GOERLI, OPTIMSIM_GOERLI, ARBITRUM_GOERLI]
+    runs-on: ${{ matrix.product.os }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      ## Only run OCR smoke test for now
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        env:
+          TEST_SUITE: smoke
+          TEST_ARGS: -test.timeout 30m
+          CHAINLINK_IMAGE: ${{ env.CL_ECR }}
+          CHAINLINK_VERSION: latest.${{ github.sha }}
+        with:
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/ocr_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          cl_image_tag: latest.${{ github.sha }}
+          artifacts_location: ./integration-tests/smoke/logs
+          publish_check_name: ${{ matrix.testnet }} OCR Smoke Test Results
+          triggered_by: testnet-ci
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+      ## Run this step when changes that do not need the test to run are made
+      - name: Run Setup
+        if: needs.changes.outputs.src == 'false'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        with:
+          test_download_vendor_packages_command: make gomod
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+      ## Run Cleanup regardless
+      - name: cleanup
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
+        with:
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Live Testnet Smoke Tests Matrix (${{ matrix.testnet }})
+        continue-on-error: true
+
+  ### End Live Testnet Section
