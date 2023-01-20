@@ -62,7 +62,9 @@
 /.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
 /.github/workflows/integration-tests.yml @smartcontractkit/set-team
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/set-team
+/.github/workflows/integration-tests-publish.yml @smartcontractkit/set-team
 /.github/workflows/performance-tests.yml @smartcontractkit/set-team
+
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
 # Dependencies

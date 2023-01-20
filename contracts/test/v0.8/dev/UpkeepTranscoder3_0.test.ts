@@ -356,7 +356,7 @@ async function deployRegistry20(
   return registry20
 }
 
-describe.only('UpkeepTranscoder3_0', () => {
+describe('UpkeepTranscoder3_0', () => {
   beforeEach(async () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
   })

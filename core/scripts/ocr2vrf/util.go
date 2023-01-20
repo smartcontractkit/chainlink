@@ -70,6 +70,7 @@ func setAuthorizedSenders(e helpers.Environment, forwarder common.Address, sende
 	f, err := authorized_forwarder.NewAuthorizedForwarder(forwarder, e.Ec)
 	helpers.PanicErr(err)
 	tx, err := f.SetAuthorizedSenders(e.Owner, senders)
+	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
@@ -181,7 +182,7 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string, c vrfBeaconSetConfigArgs) {
+func (c *vrfBeaconSetConfigArgs) setVRFBeaconConfig(e helpers.Environment, vrfBeaconAddr string) {
 	oracleIdentities := toOraclesIdentityList(
 		helpers.ParseAddressSlice(c.onchainPubKeys),
 		strings.Split(c.offchainPubKeys, ","),
