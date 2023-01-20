@@ -2,28 +2,25 @@
 set -euo pipefail
 
 ##
+# Execute tests via: ./ontriggerlint_test.sh
+#
 # For the GitHub contexts that should be passed in as args, see:
 # https://docs.github.com/en/actions/learn-github-actions/contexts
+#
+# Trigger golangci-lint job steps when event is one of:
+#   1. on a schedule (GITHUB_EVENT_NAME)
+#   2. on PR's where the target branch (GITHUB_BASE_REF) is not prefixed with 'release/*'
+#   3. on pushes to these branches (GITHUB_REF): staging, trying, rollup
+#
+# usage: $(basename "$0") [-h]"
+#
+# env vars:
+# GITHUB_EVENT_NAME GitHub's event name, ex: schedule|pull_request|push (GitHub context: github.event_name)
+# GITHUB_BASE_REF   GitHub's base ref - target branch of pull request (GitHub context: github.base_ref)
+# GITHUB_REF        GitHub's ref - branch or tag that triggered run (GitHub context: github.ref)
 ##
 
-help() {
-    echo "Trigger golangci-lint job steps when event is one of:"
-    printf "\t1. on a schedule (cron)\n"
-    printf "\t2. on PR's where the target branch is not prefixed with 'release/*'\n"
-    printf "\t3. on pushes to these branches: staging, trying, rollup\n"
-    echo
-    echo "usage: $(basename "$0") [-h]"
-    echo
-    echo "env vars:"
-    echo "GITHUB_EVENT_NAME GitHub's event name, ex: schedule|pull_request|push (GitHub context: github.event_name)"
-    echo "GITHUB_BASE_REF   GitHub's base ref - target branch of pull request (GitHub context: github.base_ref)"
-    echo "GITHUB_REF        GitHub's ref - branch or tag that triggered run (GitHub context: github.ref)"
-    echo
-}
-
-if [[ -z "${GITHUB_REF:-}" ]]; then
-    GITHUB_REF=""
-fi
+if [[ -z "${GITHUB_REF:-}" ]]; then GITHUB_REF=""; fi
 
 # Strip out /refs/heads/ from GITHUB_REF leaving just the abbreviated name
 ABBREV_GITHUB_REF="${GITHUB_REF#refs\/heads\/}"
