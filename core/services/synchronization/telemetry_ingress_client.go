@@ -19,9 +19,6 @@ import (
 
 //go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
 
-// SendIngressBufferSize is the number of messages to keep in the buffer before dropping additional ones
-const SendIngressBufferSize = 100
-
 // TelemetryIngressClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressClient interface {
@@ -70,14 +67,14 @@ type TelemPayload struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger) TelemetryIngressClient {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryIngressClient {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
 		lggr:            lggr.Named("TelemetryIngressClient"),
-		chTelemetry:     make(chan TelemPayload, SendIngressBufferSize),
+		chTelemetry:     make(chan TelemPayload, telemBufferSize),
 		chDone:          make(chan struct{}),
 	}
 }
