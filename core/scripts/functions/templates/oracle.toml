@@ -29,3 +29,4 @@ minIncomingConfirmations = 2
 requestTimeoutBatchLookupSize = 5
 requestTimeoutCheckFrequencySec = 30
 requestTimeoutSec = 1_200
+listenerEventHandlerTimeoutSec = 120
