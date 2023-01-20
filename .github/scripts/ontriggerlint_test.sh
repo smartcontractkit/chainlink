@@ -90,8 +90,6 @@ test_misc() {
     local ACTUAL_RESULT
     ACTUAL_RESULT=$(SRC_CHANGED=true GITHUB_EVENT_NAME=invalid_event_name ./ontriggerlint.sh)
     _compare_result "${TEST_NAME}" "${EXPECTED_RESULT}" "${ACTUAL_RESULT}"
-
-
 }
 
 test_schedule
