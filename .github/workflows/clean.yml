@@ -8,8 +8,8 @@ defaults:
     shell: bash
 
 jobs:
-  clean:
-    name: clean
+  go-tidy-gen:
+    name: Go Tidy & Generate
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
