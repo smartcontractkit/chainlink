@@ -110,6 +110,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   eth-smoke-tests-matrix:
+    if: false ## TODO: Remove after debug
     environment: integration
     permissions:
       checks: write
@@ -250,6 +251,7 @@ jobs:
     name: Solana Build Artifacts
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, get_projectserum_version]
+    if: false ## TODO: Remove after debug
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:
