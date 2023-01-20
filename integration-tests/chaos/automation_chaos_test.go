@@ -120,9 +120,7 @@ func TestAutomationChaos(t *testing.T) {
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
-		// network-* and pods-* are split intentionally into 2 parallel groups
-		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
-		// because of jsii runtime bug, see Makefile
+		// see ocr_chaos.test.go for comments
 		"pod-chaos-fail-minority-nodes": {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),

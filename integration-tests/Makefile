@@ -102,7 +102,7 @@ test_chaos_network_raw:
 .PHONY: test_chaos_pods
 test_chaos_pods: install_gotestfmt ## Run all smoke tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run Test/pod-chaos ./ 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run Test/pod-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_chaos_network
 test_chaos_network: install_gotestfmt ## Run all smoke tests
