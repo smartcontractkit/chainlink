@@ -1,9 +1,7 @@
 package config
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"net"
 	"time"
 
@@ -76,13 +74,17 @@ func (c *generalConfig) randomP2PListenPort() uint16 {
 	if c.randomP2PPort > 0 {
 		return c.randomP2PPort
 	}
-	r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
-		panic(fmt.Errorf("unexpected error generating random port: %w", err))
+		panic(fmt.Errorf("unexpected ResolveTCPAddr error generating random port: %w", err))
 	}
-	randPort := uint16(r.Int64() + 1024)
-	c.lggr.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", randPort), "p2pPort", randPort)
-	c.randomP2PPort = randPort
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		panic(fmt.Errorf("unexpected ListenTCP error generating random port: %w", err))
+	}
+	defer l.Close()
+	c.randomP2PPort = uint16(l.Addr().(*net.TCPAddr).Port)
+	c.lggr.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", c.randomP2PPort), "p2pPort", c.randomP2PPort)
 	return c.randomP2PPort
 }
 
