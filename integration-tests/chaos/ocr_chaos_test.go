@@ -76,7 +76,14 @@ func TestOCRChaos(t *testing.T) {
 	}{
 		// network-* and pods-* are split intentionally into 2 parallel groups
 		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
-		// because of jsii runtime bug, see Makefile
+		// because of jsii runtime bug, see Makefile and please use those targets to run tests
+		//
+		// We are using two chaos experiments to simulate pods/network faults,
+		// check chaos.NewFailPods method (https://chaos-mesh.org/docs/simulate-pod-chaos-on-kubernetes/)
+		// and chaos.NewNetworkPartition method (https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/)
+		// in order to regenerate Go bindings if k8s version will be updated
+		// you can pull new CRD spec from your current cluster and check README here
+		// https://github.com/smartcontractkit/chainlink-env/blob/master/README.md
 		"network-chaos-fail-majority-network": {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),

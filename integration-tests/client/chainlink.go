@@ -579,6 +579,34 @@ func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
 	return exportedKeys, nil
 }
 
+// ExportEVMKeysForChain exports Chainlink private EVM keys for a particular chain
+func (c *Chainlink) ExportEVMKeysForChain(chainid string) ([]*ExportedEVMKey, error) {
+	exportedKeys := make([]*ExportedEVMKey, 0)
+	keys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys.Data {
+		if key.Attributes.ETHBalance != "0" && key.Attributes.ChainID == chainid {
+			exportedKey := &ExportedEVMKey{}
+			_, err := c.APIClient.R().
+				SetResult(exportedKey).
+				SetPathParam("keyAddress", key.Attributes.Address).
+				SetQueryParam("newpassword", ChainlinkKeyPassword).
+				Post("/v2/keys/eth/export/{keyAddress}")
+			if err != nil {
+				return nil, err
+			}
+			exportedKeys = append(exportedKeys, exportedKey)
+		}
+	}
+	log.Info().
+		Str("Node URL", c.Config.URL).
+		Str("Password", ChainlinkKeyPassword).
+		Msg("Exported EVM Keys")
+	return exportedKeys, nil
+}
+
 // CreateTxKey creates a tx key on the Chainlink node
 func (c *Chainlink) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
