@@ -205,6 +205,7 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 			tc.chDone,
 			make(chan TelemPayload, tc.telemBufferSize),
 			payload.ContractID,
+			payload.TelemType,
 			tc.globalLogger,
 			tc.logging,
 		)
