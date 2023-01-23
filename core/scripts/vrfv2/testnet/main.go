@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -56,26 +55,35 @@ func main() {
 		// the vrf task in the VRF pipeline, specifically the "output" log field.
 		// Sample Loki query:
 		// {app="app-name"} | json | taskType="vrfv2" |~ "39f2d812c04e07cb9c71e93ce6547e48b7dd23ed4cc02616dfef5ef063a58bde"
-		txdata := cmd.String("txdata", "", "hex encoded tx data")
-		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator or batch coordinator address")
-		gasLimit := cmd.Uint64("gas-limit", 0, "tx gas limit")
-		helpers.ParseArgs(cmd, os.Args[2:], "txdata", "coordinator-address", "gas-limit")
-		txdataBytes := hexutil.MustDecode(*txdata)
+		txdatas := cmd.String("txdatas", "", "hex encoded tx data")
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
+		gasMultiplier := cmd.Float64("gas-multiplier", 1.1, "gas multiplier")
+		helpers.ParseArgs(cmd, os.Args[2:], "txdatas", "coordinator-address")
+		txdatasParsed := helpers.ParseHexSlice(*txdatas)
 		coordinatorAddr := common.HexToAddress(*coordinatorAddress)
-		nonce, err := e.Ec.PendingNonceAt(context.Background(), e.Owner.From)
-		helpers.PanicErr(err)
-		tx := types.NewTx(&types.LegacyTx{
-			Nonce:    nonce,
-			GasPrice: e.Owner.GasPrice,
-			Gas:      *gasLimit,
-			To:       &coordinatorAddr,
-			Data:     txdataBytes,
-		})
-		signedTx, err := e.Owner.Signer(e.Owner.From, tx)
-		helpers.PanicErr(err)
-		err = e.Ec.SendTransaction(context.Background(), signedTx)
-		helpers.PanicErr(err)
-		helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx, e.ChainID, "manual fulfillment")
+		for i, txdata := range txdatasParsed {
+			nonce, err := e.Ec.PendingNonceAt(context.Background(), e.Owner.From)
+			helpers.PanicErr(err)
+			estimate, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
+				From: common.HexToAddress("0x0"),
+				To:   &coordinatorAddr,
+				Data: txdata,
+			})
+			helpers.PanicErr(err)
+			finalEstimate := uint64(*gasMultiplier * float64(estimate))
+			tx := types.NewTx(&types.LegacyTx{
+				Nonce:    nonce,
+				GasPrice: e.Owner.GasPrice,
+				Gas:      finalEstimate,
+				To:       &coordinatorAddr,
+				Data:     txdata,
+			})
+			signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+			helpers.PanicErr(err)
+			err = e.Ec.SendTransaction(context.Background(), signedTx)
+			helpers.PanicErr(err)
+			helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx, e.ChainID, fmt.Sprintf("manual fulfillment %d", i+1))
+		}
 	case "topics":
 		randomWordsRequested := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()
 		randomWordsFulfilled := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()
