@@ -25,6 +25,6 @@ func (t *ExplorerAgent) SendLog(log []byte) {
 }
 
 // GenMonitoringEndpoint creates a monitoring endpoint for telemetry
-func (t *ExplorerAgent) GenMonitoringEndpoint(contractID string) ocrtypes.MonitoringEndpoint {
+func (t *ExplorerAgent) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
 	return t
 }

@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
@@ -14,6 +15,6 @@ func (t *NoopAgent) SendLog(log []byte) {
 }
 
 // GenMonitoringEndpoint creates a monitoring endpoint for telemetry
-func (t *NoopAgent) GenMonitoringEndpoint(contractID string) ocrtypes.MonitoringEndpoint {
+func (t *NoopAgent) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
 	return t
 }
