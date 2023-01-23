@@ -235,6 +235,8 @@ func TeardownSuite(
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
 			if err := returnFunds(chainlinkNodes, c); err != nil {
+				// This printed line is required for tests that use real funds to propagate the failure
+				// out to the system running the test. Do not remove
 				fmt.Println(environment.FAILED_FUND_RETURN)
 				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
@@ -289,7 +291,7 @@ func returnFunds(chainlinkNodes []*client.Chainlink, blockchainClient blockchain
 	}
 
 	for _, chainlinkNode := range chainlinkNodes {
-		fundedKeys, err := chainlinkNode.ExportEVMKeys()
+		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(blockchainClient.GetChainID().String())
 		if err != nil {
 			return err
 		}

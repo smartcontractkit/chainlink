@@ -100,32 +100,6 @@ ForwardersEnabled = true`
 	soakTestHelper(t, testEnvironment, activeEVMNetwork)
 }
 
-// Run the keeper soak test defined in ./tests/keeper_test.go
-func TestKeeperSoak(t *testing.T) {
-	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
-
-	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
-		"soak-keeper-%s",
-		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
-	)
-
-	replicas := 6
-	// Values you want each node to have the exact same of (e.g. eth_chain_id)
-	baseTOML := `[Keeper]
-TurnLookBack = 0
-[Keeper.Registry]
-SyncInterval = '5s'
-PerformGasOverhead = 150_000`
-	testEnvironment := environment.New(baseEnvironmentConfig)
-	for i := 0; i < replicas; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
-			"toml": client.AddNetworksConfig(baseTOML, activeEVMNetwork),
-		}))
-	}
-
-	soakTestHelper(t, testEnvironment, activeEVMNetwork)
-}
-
 // builds tests, launches environment, and triggers the soak test to run
 func soakTestHelper(
 	t *testing.T,

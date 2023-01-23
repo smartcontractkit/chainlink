@@ -91,14 +91,23 @@ test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_
 	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests
 
 # Chaos
-.PHONY: test_chaos_raw
-test_chaos_raw:
-	go test -count=1 $(args) ./chaos
+.PHONY: test_chaos_pods_raw
+test_chaos_pods_raw:
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run Test/pod-chaos ./chaos
 
-.PHONY: test_chaos
-test_chaos: install_gotestfmt ## Run all smoke tests
+.PHONY: test_chaos_network_raw
+test_chaos_network_raw:
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run Test/network-chaos ./chaos
+
+.PHONY: test_chaos_pods
+test_chaos_pods: install_gotestfmt ## Run all smoke tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 24h -count=1 -json $(args) ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run Test/pod-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+.PHONY: test_chaos_network
+test_chaos_network: install_gotestfmt ## Run all smoke tests
+	TEST_LOG_LEVEL="disabled" \
+	go test -timeout 2h -count=1 -json $(args) -run Test/network-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_chaos_verbose
 test_chaos_verbose: install_gotestfmt ## Run all smoke tests with verbose logging
@@ -128,13 +137,15 @@ test_soak_forwarder_ocr:
 test_soak_forwarder_ocr_simulated:
 	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestForwarderOCRSoak ./soak
 
-.PHONY: test_soak_keeper
-test_soak_keeper: 
-	go test -v -count=1 -run TestKeeperSoak ./soak
+.PHONY: test_soak_automation
+test_soak_automation:
+	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
-.PHONY: test_soak_keeper_simulated
-test_soak_keeper_simulated:
-	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestKeeperSoak ./soak
+.PHONY: test_soak_automation_simulated
+test_soak_automation_simulated:
+	SELECTED_NETWORKS="SIMULATED" \
+	TEST_INPUTS="TEST_TYPE=SOAK,NUMBEROFCONTRACTS=50,BLOCKRANGE=1000,BLOCKINTERVAL=50,GRAFANA_DASHBOARD_URL=https://chainlinklabs.grafana.net/d/Q8n6m1unz/chainlink-keepers-qa?orgId=1" \
+	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
 test_benchmark_automation: test_need_operator_assets ## Run the automation benchmark tests
