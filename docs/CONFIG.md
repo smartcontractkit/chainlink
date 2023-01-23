@@ -2585,7 +2585,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
@@ -3046,7 +3046,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
