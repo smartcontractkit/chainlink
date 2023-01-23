@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -48,6 +49,33 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "manual-fulfill":
+		cmd := flag.NewFlagSet("manual-fulfill", flag.ExitOnError)
+		// In order to get the tx data for a fulfillment transaction, you can grep the
+		// chainlink node logs for the VRF v2 request ID in hex. You will find a log for
+		// the vrf task in the VRF pipeline, specifically the "output" log field.
+		// Sample Loki query:
+		// {app="app-name"} | json | taskType="vrfv2" |~ "39f2d812c04e07cb9c71e93ce6547e48b7dd23ed4cc02616dfef5ef063a58bde"
+		txdata := cmd.String("txdata", "", "hex encoded tx data")
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator or batch coordinator address")
+		gasLimit := cmd.Uint64("gas-limit", 0, "tx gas limit")
+		helpers.ParseArgs(cmd, os.Args[2:], "txdata", "coordinator-address", "gas-limit")
+		txdataBytes := hexutil.MustDecode(*txdata)
+		coordinatorAddr := common.HexToAddress(*coordinatorAddress)
+		nonce, err := e.Ec.PendingNonceAt(context.Background(), e.Owner.From)
+		helpers.PanicErr(err)
+		tx := types.NewTx(&types.LegacyTx{
+			Nonce:    nonce,
+			GasPrice: e.Owner.GasPrice,
+			Gas:      *gasLimit,
+			To:       &coordinatorAddr,
+			Data:     txdataBytes,
+		})
+		signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+		helpers.PanicErr(err)
+		err = e.Ec.SendTransaction(context.Background(), signedTx)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx, e.ChainID, "manual fulfillment")
 	case "topics":
 		randomWordsRequested := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()
 		randomWordsFulfilled := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()
