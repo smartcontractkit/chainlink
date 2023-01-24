@@ -34,7 +34,10 @@ jobs:
   shellspec:
     name: ShellSpec Tests
     runs-on: ubuntu-latest
-    needs: [changes] 
+    needs: [changes]
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -49,8 +52,8 @@ jobs:
             --output "${GZ_TAR_FILE}" \
             && echo "Checking sha256sum of ShellSpec released archive." \
             && echo "${VERSION_SHA256SUM} ${GZ_TAR_FILE}" | sha256sum --check
-          tar -xzf "${GZ_TAR_FILE}"
-          sudo ln -s shellspec/shellspec /usr/local/bin/shellspec
+          tar -xzf "${GZ_TAR_FILE}" -C "${HOME}/.local"
+          ln -s "${HOME}/.local/shellspec/shellspec" /usr/local/bin/shellspec
           shellspec --version
       - name: Run shellspec tests
         if: needs.changes.outputs.bash-cicd-scripts-src == 'true'
