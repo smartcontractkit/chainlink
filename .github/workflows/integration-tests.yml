@@ -349,9 +349,9 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: testnet-ci
       TEST_LOG_LEVEL: debug
-      TEST_EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-      TEST_GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      TEST_GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+      EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
+      GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
+      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
       TEST_OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
       TEST_OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
       TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
