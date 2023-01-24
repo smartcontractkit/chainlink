@@ -1,8 +1,10 @@
 package soak
 
 import (
+	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +19,9 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -27,27 +31,12 @@ func TestMain(m *testing.M) {
 }
 
 func TestForwarderOCRSoak(t *testing.T) {
-	soakNetwork := blockchain.LoadNetworkFromEnvironment()
-	testEnvironment := environment.New(&environment.Config{InsideK8s: true})
-	err := testEnvironment.
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: soakNetwork.Name,
-			Simulated:   soakNetwork.Simulated,
-			WsURLs:      soakNetwork.URLs,
-		})).
-		AddHelm(chainlink.New(0, nil)).
-		AddHelm(chainlink.New(1, nil)).
-		AddHelm(chainlink.New(2, nil)).
-		AddHelm(chainlink.New(3, nil)).
-		AddHelm(chainlink.New(4, nil)).
-		AddHelm(chainlink.New(5, nil)).
-		Run()
-	require.NoError(t, err, "Error deploying test environment")
-	log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Soak Environment")
+	testEnvironment, network := SetupForwarderOCRSoakEnv(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
-	chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
 	ocrSoakTest := testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 		BlockchainClient:     chainClient,
@@ -68,4 +57,50 @@ func TestForwarderOCRSoak(t *testing.T) {
 	ocrSoakTest.Setup(t, testEnvironment)
 	log.Info().Msg("Setup soak test")
 	ocrSoakTest.Run(t)
+}
+
+func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork) {
+	network := networks.SelectedNetwork // Environment currently being used to soak test on
+
+	baseEnvironmentConfig := &environment.Config{
+		TTL: time.Hour * 720, // 30 days,
+		NamespacePrefix: fmt.Sprintf(
+			"soak-forwarder-ocr-%s",
+			strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"),
+		),
+	}
+
+	replicas := 6
+	// Values you want each node to have the exact same of (e.g. eth_chain_id)
+	baseTOML := `[OCR]
+Enabled = true
+
+[Feature]
+LogPoller = true
+
+[P2P]
+[P2P.V1]
+Enabled = true
+ListenIP = '0.0.0.0'
+ListenPort = 6690`
+	networkDetailTOML := `[EVM.Transactions]
+ForwardersEnabled = true`
+	testEnvironment := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		}))
+	for i := 0; i < replicas; i++ {
+		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
+			"toml": client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, network),
+		}))
+	}
+
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error launching test environment")
+	return testEnvironment, network
+
 }
