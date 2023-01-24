@@ -1,7 +1,6 @@
 name: Bash CICD Scripts
 
 on:
-  push:
   pull_request:
 
 jobs:

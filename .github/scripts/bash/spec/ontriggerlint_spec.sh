@@ -1,3 +1,5 @@
+# shellcheck shell=sh
+
 Describe 'Scheduled'
   It 'Trigger on schedule when source changed'
     export SRC_CHANGED=true
