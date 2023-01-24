@@ -204,7 +204,7 @@ type Staking interface {
 	SetMerkleRoot(newMerkleRoot [32]byte) error
 }
 
-type AtlasFunctionsTest interface {
+type AtlasFunctions interface {
 	Address() string
 	OracleRequest(requestId [32]byte, subscriptionId uint64, data []byte) error
 	OracleResponse(requestId [32]byte) error
