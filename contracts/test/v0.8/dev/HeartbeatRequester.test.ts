@@ -26,7 +26,7 @@ let requesterFactory: HeartbeatRequesterFactory
 let authorizedForwarder: MockAuthorizedForwarder
 let authorizedForwarderFactory: MockAuthorizedForwarderFactory
 
-describe.only('HeartbeatRequester', () => {
+describe('HeartbeatRequester', () => {
   beforeEach(async () => {
     personas = (await getUsers()).personas
     owner = personas.Default
