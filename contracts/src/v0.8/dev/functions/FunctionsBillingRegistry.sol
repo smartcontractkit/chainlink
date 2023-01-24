@@ -331,7 +331,7 @@ contract FunctionsBillingRegistry is
     // Check that subscription can afford the estimated cost
     uint96 oracleFee = FunctionsOracleInterface(msg.sender).getRequiredFee(data, billing);
     uint96 registryFee = getRequiredFee(data, billing);
-    uint96 estimatedCost = estimateCost(billing.gasLimit, tx.gasprice, oracleFee, registryFee);
+    uint96 estimatedCost = estimateCost(billing.gasLimit, billing.gasPrice, oracleFee, registryFee);
     uint96 effectiveBalance = s_subscriptions[billing.subscriptionId].balance -
       s_subscriptions[billing.subscriptionId].blockedBalance;
     if (effectiveBalance < estimatedCost) {
@@ -345,7 +345,7 @@ contract FunctionsBillingRegistry is
       billing.subscriptionId,
       billing.client,
       billing.gasLimit,
-      tx.gasprice,
+      billing.gasPrice,
       msg.sender,
       oracleFee,
       registryFee,

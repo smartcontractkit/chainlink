@@ -24,10 +24,14 @@ contract FunctionsClientTestHelper is FunctionsClient {
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
-  function estimateJuelCost(string memory sourceCode, uint64 subscriptionId) public view returns (uint96) {
+  function estimateJuelCost(
+    string memory sourceCode,
+    uint64 subscriptionId,
+    uint256 gasCost
+  ) public view returns (uint96) {
     Functions.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    return estimateCost(request, subscriptionId, 20_000, 4_388_265);
+    return estimateCost(request, subscriptionId, 20_000, gasCost);
   }
 
   function fulfillRequest(

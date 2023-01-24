@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
-import { Contract, ContractFactory } from 'ethers'
+import { BigNumber, Contract, ContractFactory } from 'ethers'
 import { Roles, getUsers } from '../../test-helpers/setup'
 
 let functionsOracleFactory: ContractFactory
@@ -82,12 +82,12 @@ describe('FunctionsOracle', () => {
     await registry.setAuthorizedSenders([oracle.address])
 
     await registry.setConfig(
-      1_000_000,
-      86_400,
-      21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
-      ethers.BigNumber.from('5000000000000000'),
-      500_000,
-      300,
+      1_000_000, // maxGasLimit
+      86_400, // stalenessSeconds
+      39_173, // gasAfterPaymentCalculation
+      ethers.BigNumber.from('5000000000000000'), // fallbackWeiPerUnitLink
+      519_719, // gasOverhead
+      300, // requestTimeoutSeconds
     )
 
     const createSubTx = await registry
@@ -337,28 +337,46 @@ describe('FunctionsOracle', () => {
         .withArgs(requestId)
     })
 
-    // it('#estimateCost correctly estimates cost', async () => {
-    //   const estimatedCost = await client.estimateJuelCost(
-    //     'function(){}',
-    //     subscriptionId,
-    //     { gasPrice: 1000000093 },
-    //   )
+    it('#estimateCost correctly estimates cost [ @skip-coverage ]', async () => {
+      const [subscriptionBalanceBefore] = await registry.getSubscription(
+        subscriptionId,
+      )
 
-    //   const requestId = await client
-    //     .connect(roles.oracleNode)
-    //     .sendSimpleRequestWithJavaScript('function(){}', subscriptionId, {
-    //       gasPrice: 1000000093,
-    //     })
+      const request = await client
+        .connect(roles.oracleNode)
+        .sendSimpleRequestWithJavaScript('function(){}', subscriptionId)
+      const receipt = await request.wait()
+      const requestId = receipt.events[3].args[0]
 
-    //   const report = encodeReport(
-    //     ethers.utils.hexZeroPad(requestId, 32),
-    //     stringToHex('response'),
-    //     stringToHex(''),
-    //   )
-    //   await expect(oracle.connect(roles.oracleNode).callReport(report))
-    //     .to.emit(oracle, 'OracleResponse')
-    //     .withArgs(requestId)
-    // })
+      const report = encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        stringToHex('response'),
+        stringToHex(''),
+      )
+
+      await expect(oracle.connect(roles.oracleNode).callReport(report))
+        .to.emit(oracle, 'OracleResponse')
+        .withArgs(requestId)
+        .to.emit(registry, 'BillingEnd')
+
+      const [subscriptionBalanceAfter] = await registry.getSubscription(
+        subscriptionId,
+      )
+
+      const feeData = await ethers.provider.getFeeData()
+      const estimatedCost = await client.estimateJuelCost(
+        'function(){}',
+        subscriptionId,
+        feeData.gasPrice ?? BigNumber.from(0),
+      )
+      // Expect charged amount to be +-0.01%
+      expect(
+        subscriptionBalanceBefore.sub(subscriptionBalanceAfter),
+      ).to.be.below(estimatedCost.add(estimatedCost.div(100)))
+      expect(
+        subscriptionBalanceBefore.sub(subscriptionBalanceAfter),
+      ).to.be.above(estimatedCost.sub(estimatedCost.div(100)))
+    })
 
     it('#fulfillRequest emits UserCallbackError if callback reverts', async () => {
       const requestId = await placeTestRequest()
