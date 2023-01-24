@@ -82,6 +82,9 @@ func (l *DRListener) Start(context.Context) error {
 			},
 			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 		})
+		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
+			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
+		}
 		l.shutdownWaitGroup.Add(3)
 		go l.processOracleEvents()
 		go l.timeoutRequests()
@@ -204,6 +207,14 @@ func ExtractRawBytes(input []byte) ([]byte, error) {
 	return utils.TryParseHex(string(input))
 }
 
+func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
+	timeoutSec := l.pluginConfig.ListenerEventHandlerTimeoutSec
+	if timeoutSec == 0 {
+		return context.WithCancel(l.serviceContext)
+	}
+	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
+}
+
 func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("Oracle request received",
@@ -236,13 +247,15 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 			"blockStateRoot":        lb.StateRoot(),
 		},
 	})
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash)
+	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
 	if err != nil {
-		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId))
+		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
-	_, err = l.pipelineRunner.Run(l.serviceContext, &run, l.logger, true, func(tx pg.Queryer) error {
+	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {
 		l.markLogConsumed(lb, pg.WithQueryer(tx))
 		return nil
 	})
@@ -251,11 +264,11 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		return
 	}
 
-	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName)
+	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
 		// Internal problem: Can't find parsed computation results
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errResult.Error()), time.Now()); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId))
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errResult.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 		return
 	}
@@ -265,11 +278,11 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		return
 	}
 
-	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName)
+	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName, pg.WithParentCtx(ctx))
 	if errErr != nil {
 		// Internal problem: Can't find parsed computation error
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errErr.Error()), time.Now()); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId))
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errErr.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 		return
 	}
@@ -280,12 +293,12 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	}
 
 	if len(computationError) != 0 {
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, USER_EXCEPTION, computationError, time.Now()); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId))
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, USER_EXCEPTION, computationError, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 	} else {
-		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now()); err2 != nil {
-			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId))
+		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 	}
 }
@@ -294,8 +307,10 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle response received", "type", responseType, "requestID", formatRequestId(requestID))
 
-	if err := l.pluginORM.SetConfirmed(requestID); err != nil {
-		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID))
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
+	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
+		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
 	l.markLogConsumed(lb)
 }
@@ -321,7 +336,9 @@ func (l *DRListener) timeoutRequests() {
 			return
 		case <-ticker.C:
 			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
-			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize)
+			ctx, cancel := l.getNewHandlerContext()
+			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize, pg.WithParentCtx(ctx))
+			cancel()
 			if err != nil {
 				l.logger.Errorw("error when calling FindExpiredResults", "err", err)
 				break
