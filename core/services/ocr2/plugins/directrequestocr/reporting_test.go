@@ -105,7 +105,7 @@ func TestDRReporting_Query(t *testing.T) {
 	const batchSize = 10
 	plugin, orm, _ := preparePlugin(t, batchSize)
 	reqs := []drocr_serv.Request{newRequest(), newRequest()}
-	orm.On("FindOldestEntriesByState", drocr_serv.RESULT_READY, uint32(batchSize)).Return(reqs, nil)
+	orm.On("FindOldestEntriesByState", drocr_serv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
@@ -128,11 +128,11 @@ func TestDRReporting_Observation(t *testing.T) {
 	req4 := newRequestTimedOut()
 	nonexistentId := newRequestID()
 
-	orm.On("FindById", req1.RequestID).Return(&req1, nil)
-	orm.On("FindById", req2.RequestID).Return(&req2, nil)
-	orm.On("FindById", req3.RequestID).Return(&req3, nil)
-	orm.On("FindById", req4.RequestID).Return(&req4, nil)
-	orm.On("FindById", nonexistentId).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", req1.RequestID, mock.Anything).Return(&req1, nil)
+	orm.On("FindById", req2.RequestID, mock.Anything).Return(&req2, nil)
+	orm.On("FindById", req3.RequestID, mock.Anything).Return(&req3, nil)
+	orm.On("FindById", req4.RequestID, mock.Anything).Return(&req4, nil)
+	orm.On("FindById", nonexistentId, mock.Anything).Return(nil, errors.New("nonexistent ID"))
 
 	// Query asking for 5 requests (with duplicates), out of which:
 	//   - two are ready
@@ -256,13 +256,13 @@ func TestDRReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	req3 := newRequestFinalized()
 	req4 := newRequestTimedOut()
 
-	orm.On("FindById", req1.RequestID).Return(nil, errors.New("nonexistent ID"))
-	orm.On("FindById", req2.RequestID).Return(&req2, nil)
-	orm.On("SetFinalized", req2.RequestID, mock.Anything, mock.Anything).Return(nil)
-	orm.On("FindById", req3.RequestID).Return(&req3, nil)
-	orm.On("SetFinalized", req3.RequestID, mock.Anything, mock.Anything).Return(errors.New("same state"))
-	orm.On("FindById", req4.RequestID).Return(&req4, nil)
-	orm.On("SetFinalized", req4.RequestID, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
+	orm.On("FindById", req1.RequestID, mock.Anything).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", req2.RequestID, mock.Anything).Return(&req2, nil)
+	orm.On("SetFinalized", req2.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	orm.On("FindById", req3.RequestID, mock.Anything).Return(&req3, nil)
+	orm.On("SetFinalized", req3.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("same state"))
+	orm.On("FindById", req4.RequestID, mock.Anything).Return(&req4, nil)
+	orm.On("SetFinalized", req4.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already accepted for transmission earlier
@@ -296,11 +296,11 @@ func TestDRReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	req4 := newRequestTimedOut()
 	req5 := newRequestConfirmed()
 
-	orm.On("FindById", req1.RequestID).Return(nil, errors.New("nonexistent ID"))
-	orm.On("FindById", req2.RequestID).Return(&req2, nil)
-	orm.On("FindById", req3.RequestID).Return(&req3, nil)
-	orm.On("FindById", req4.RequestID).Return(&req4, nil)
-	orm.On("FindById", req5.RequestID).Return(&req5, nil)
+	orm.On("FindById", req1.RequestID, mock.Anything).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", req2.RequestID, mock.Anything).Return(&req2, nil)
+	orm.On("FindById", req3.RequestID, mock.Anything).Return(&req3, nil)
+	orm.On("FindById", req4.RequestID, mock.Anything).Return(&req4, nil)
+	orm.On("FindById", req5.RequestID, mock.Anything).Return(&req5, nil)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already confirmed on chain
