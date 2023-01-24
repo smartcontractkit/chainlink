@@ -340,17 +340,17 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "dump",
-					Usage:  "LEGACY CONFIG (ENV) ONLY - Dump a TOML file equivalent to the current environment and database configuration",
+					Usage:  "Dump prints V2 TOML that is equivalent to the current environment and database configuration [Not supported with TOML]",
 					Action: client.ConfigDump,
 				},
 				{
 					Name:   "list",
-					Usage:  "LEGACY CONFIG (ENV) ONLY - Show the node's environment variables",
+					Usage:  "Show the node's environment variables [Not supported with TOML]",
 					Action: client.GetConfiguration,
 				},
 				{
 					Name:   "show",
-					Usage:  "V2 CONFIG (TOML) ONLY - Show the application configuration",
+					Usage:  "Show the application configuration [Only supported with TOML]",
 					Action: client.ConfigV2,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -361,7 +361,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "setgasprice",
-					Usage:  "Set the default gas price to use for outgoing transactions",
+					Usage:  "Set the default gas price to use for outgoing transactions [Not supported with TOML]",
 					Action: client.SetEvmGasPriceDefault,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -402,7 +402,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "validate",
-					Usage:  "Validate provided TOML config file",
+					Usage:  "Validate provided TOML config file, and print the full effective configuration, with defaults included [Only supported with TOML]",
 					Action: client.ConfigFileValidate,
 				},
 			},
@@ -486,15 +486,11 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:  "delete",
-							Usage: format(`Delete the ETH key by address`),
+							Usage: format(`Delete the ETH key by address (irreversible!)`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
 									Name:  "yes, y",
 									Usage: "skip the confirmation prompt",
-								},
-								cli.BoolFlag{
-									Name:  "hard",
-									Usage: "hard-delete the key instead of archiving (irreversible!)",
 								},
 							},
 							Action: client.DeleteETHKey,

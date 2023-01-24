@@ -143,6 +143,7 @@ type OffchainAggregator interface {
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
+	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
 type Oracle interface {
@@ -172,11 +173,6 @@ type Storage interface {
 	Set(*big.Int) error
 }
 
-type VRF interface {
-	Fund(ethAmount *big.Float) error
-	ProofLength(context.Context) (*big.Int, error)
-}
-
 // JobByInstance helper struct to match job + instance ID
 type JobByInstance struct {
 	ID       string
@@ -186,6 +182,7 @@ type JobByInstance struct {
 type MockETHLINKFeed interface {
 	Address() string
 	LatestRoundData() (*big.Int, error)
+	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
 type MockGasFeed interface {
@@ -196,52 +193,15 @@ type BlockHashStore interface {
 	Address() string
 }
 
-type VRFCoordinator interface {
-	RegisterProvingKey(
-		fee *big.Int,
-		oracleAddr string,
-		publicProvingKey [2]*big.Int,
-		jobID [32]byte,
-	) error
-	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
+type Staking interface {
 	Address() string
-}
-
-type VRFCoordinatorV2 interface {
-	SetConfig(
-		minimumRequestConfirmations uint16,
-		maxGasLimit uint32,
-		stalenessSeconds uint32,
-		gasAfterPaymentCalculation uint32,
-		fallbackWeiPerUnitLink *big.Int, feeConfig ethereum.VRFCoordinatorV2FeeConfig,
-	) error
-	RegisterProvingKey(
-		oracleAddr string,
-		publicProvingKey [2]*big.Int,
-	) error
-	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
-	Address() string
-}
-
-type VRFConsumer interface {
-	Address() string
-	RequestRandomness(hash [32]byte, fee *big.Int) error
-	CurrentRoundID(ctx context.Context) (*big.Int, error)
-	RandomnessOutput(ctx context.Context) (*big.Int, error)
-	WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error
 	Fund(ethAmount *big.Float) error
-}
-
-type VRFConsumerV2 interface {
-	Address() string
-	CurrentSubscription() (uint64, error)
-	CreateFundedSubscription(funds *big.Int) error
-	TopUpSubscriptionFunds(funds *big.Int) error
-	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error
-	RandomnessOutput(ctx context.Context, arg0 *big.Int) (*big.Int, error)
-	GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error)
-	GasAvailable() (*big.Int, error)
-	Fund(ethAmount *big.Float) error
+	AddOperators(operators []common.Address) error
+	RemoveOperators(operators []common.Address) error
+	SetFeedOperators(operators []common.Address) error
+	RaiseAlert() error
+	Start(amount *big.Int, initialRewardRate *big.Int) error
+	SetMerkleRoot(newMerkleRoot [32]byte) error
 }
 
 type RoundData struct {

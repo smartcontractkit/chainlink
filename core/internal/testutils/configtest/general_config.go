@@ -92,13 +92,11 @@ type GeneralConfigOverrides struct {
 	GlobalMinimumContractPayment                    *assets.Link
 	GlobalOCRObservationGracePeriod                 time.Duration
 	GlobalOCR2AutomationGasLimit                    null.Int
-	KeeperCheckUpkeepGasPriceFeatureEnabled         null.Bool
 	KeeperRegistryMaxPerformDataSize                null.Int
 	KeeperMaximumGracePeriod                        null.Int
 	KeeperRegistrySyncInterval                      *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize               null.Int
 	KeeperTurnLookBack                              null.Int
-	KeeperTurnFlagEnabled                           null.Bool
 	LeaseLockDuration                               *time.Duration
 	LeaseLockRefreshInterval                        *time.Duration
 	LogFileDir                                      null.String
@@ -468,14 +466,6 @@ func (c *TestGeneralConfig) KeeperRegistryMaxPerformDataSize() uint32 {
 	return c.GeneralConfig.KeeperRegistryMaxPerformDataSize()
 }
 
-// KeeperCheckUpkeepGasPriceFeatureEnabled overrides
-func (c *TestGeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	if c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Valid {
-		return c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Bool
-	}
-	return c.GeneralConfig.KeeperCheckUpkeepGasPriceFeatureEnabled()
-}
-
 func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
 	if c.Overrides.BlockBackfillDepth.Valid {
 		return uint64(c.Overrides.BlockBackfillDepth.Int64)
@@ -495,13 +485,6 @@ func (c *TestGeneralConfig) KeeperTurnLookBack() int64 {
 		return c.Overrides.KeeperTurnLookBack.Int64
 	}
 	return c.GeneralConfig.KeeperTurnLookBack()
-}
-
-func (c *TestGeneralConfig) KeeperTurnFlagEnabled() bool {
-	if c.Overrides.KeeperTurnFlagEnabled.Valid {
-		return c.Overrides.KeeperTurnFlagEnabled.Bool
-	}
-	return c.GeneralConfig.KeeperTurnFlagEnabled()
 }
 
 func (c *TestGeneralConfig) BlockBackfillSkip() bool {

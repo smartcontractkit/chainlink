@@ -37,7 +37,7 @@ type KeysController interface {
 
 type keysController[K keystore.Key, R jsonapi.EntityNamer] struct {
 	ks           Keystore[K]
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 	auditLogger  audit.AuditLogger
 	typ          string
 	resourceName string
@@ -54,7 +54,7 @@ func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lg
 	}
 	return &keysController[K, R]{
 		ks:           ks,
-		lggr:         lggr,
+		lggr:         logger.Sugared(lggr),
 		auditLogger:  auditLogger,
 		typ:          typ,
 		resourceName: resourceName,
@@ -109,7 +109,7 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 }
 
 func (kc *keysController[K, R]) Import(c *gin.Context) {
-	defer kc.lggr.ErrorIfClosing(c.Request.Body, "Import ")
+	defer kc.lggr.ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -132,7 +132,7 @@ func (kc *keysController[K, R]) Import(c *gin.Context) {
 }
 
 func (kc *keysController[K, R]) Export(c *gin.Context) {
-	defer kc.lggr.ErrorIfClosing(c.Request.Body, "Export request body")
+	defer kc.lggr.ErrorIfFn(c.Request.Body.Close, "Error closing Export request body")
 
 	keyID := c.Param("ID")
 	newPassword := c.Query("newpassword")

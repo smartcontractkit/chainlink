@@ -171,6 +171,7 @@ go generate ./...
 
 ```bash
 export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
+export CL_DATABASE_URL=$DATABASE_URL
 ```
 
 Note: Other environment variables should not be set for all tests to pass

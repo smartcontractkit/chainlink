@@ -104,6 +104,9 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 }
 
 // Dial starts every node in the pool
+//
+// Nodes handle their own redialing and runloops, so this function does not
+// return any error if the nodes aren't available
 func (p *Pool) Dial(ctx context.Context) error {
 	return p.StartOnce("Pool", func() (merr error) {
 		if len(p.nodes) == 0 {
@@ -143,14 +146,16 @@ func (p *Pool) Dial(ctx context.Context) error {
 }
 
 // nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
+// totalDifficulty will be 0 if all nodes return nil.
 func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
+	totalDifficulty = utils.NewBigI(0)
 	for _, n := range p.nodes {
 		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++
 			if num > blockNumber {
 				blockNumber = num
 			}
-			if totalDifficulty == nil || td.Cmp(totalDifficulty) > 0 {
+			if td != nil && td.Cmp(totalDifficulty) > 0 {
 				totalDifficulty = td
 			}
 		}

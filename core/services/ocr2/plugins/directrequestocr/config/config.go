@@ -4,8 +4,11 @@ import "google.golang.org/protobuf/proto"
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
-	MinIncomingConfirmations uint32 `json:"minIncomingConfirmations"`
-	RequestE2eTimeoutMillis  uint32 `json:"requestE2eTimeoutMillis"`
+	MinIncomingConfirmations        uint32 `json:"minIncomingConfirmations"`
+	RequestTimeoutSec               uint32 `json:"requestTimeoutSec"`
+	RequestTimeoutCheckFrequencySec uint32 `json:"requestTimeoutCheckFrequencySec"`
+	RequestTimeoutBatchLookupSize   uint32 `json:"requestTimeoutBatchLookupSize"`
+	ListenerEventHandlerTimeoutSec  uint32 `json:"listenerEventHandlerTimeoutSec"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {

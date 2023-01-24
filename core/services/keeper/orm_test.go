@@ -176,7 +176,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	}
 	cltest.AssertCount(t, db, "upkeep_registrations", 100)
 
-	eligibleUpkeeps, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, blockheight, gracePeriod, fmt.Sprintf("%b", utils.NewHash().Big()))
+	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, blockheight, gracePeriod, fmt.Sprintf("%b", utils.NewHash().Big()))
 	assert.NoError(t, err)
 
 	require.Len(t, eligibleUpkeeps, 100)
@@ -204,12 +204,12 @@ func TestKeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 	// if current keeper index = 0 and all upkeeps last perform was done by index = 0 and still within grace period
 	upkeep := keeper.UpkeepRegistration{}
 	require.NoError(t, db.Get(&upkeep, `UPDATE upkeep_registrations SET last_keeper_index = 0, last_run_block_height = 10 RETURNING *`))
-	list0, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, fmt.Sprintf("%b", utils.NewHash().Big())) // none eligible
+	list0, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, fmt.Sprintf("%b", utils.NewHash().Big())) // none eligible
 	require.NoError(t, err)
 	require.Equal(t, 0, len(list0), "should be 0 as all last perform was done by current node")
 
 	// once passed grace period
-	list1, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 121, 100, fmt.Sprintf("%b", utils.NewHash().Big())) // none eligible
+	list1, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 121, 100, fmt.Sprintf("%b", utils.NewHash().Big())) // none eligible
 	require.NoError(t, err)
 	require.NotEqual(t, 0, len(list1), "should get some eligible upkeeps now that they are outside grace period")
 }
@@ -229,13 +229,13 @@ func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 	cltest.AssertCount(t, db, "upkeep_registrations", 1000)
 
 	// 3 keepers 10 block turns should be different every turn
-	list1, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 20, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
+	list1, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 20, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
 	require.NoError(t, err)
-	list2, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 31, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
+	list2, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 31, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
 	require.NoError(t, err)
-	list3, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 42, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
+	list3, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 42, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
 	require.NoError(t, err)
-	list4, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 53, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
+	list4, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 53, 100, fmt.Sprintf("%b", utils.NewHash().Big()))
 	require.NoError(t, err)
 
 	// sort before compare
@@ -274,7 +274,7 @@ func TestKeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testi
 	// if current keeper index = 0 and all upkeeps last perform was done by index = 0 then skip as it would not pass required turn taking
 	upkeep := keeper.UpkeepRegistration{}
 	require.NoError(t, db.Get(&upkeep, `UPDATE upkeep_registrations SET last_keeper_index = 0 RETURNING *`))
-	list0, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, fmt.Sprintf("%b", utils.NewHash().Big())) // none eligible
+	list0, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, fmt.Sprintf("%b", utils.NewHash().Big())) // none eligible
 	require.NoError(t, err)
 	require.Equal(t, 0, len(list0), "should be 0 as all last perform was done by current node")
 }
@@ -295,10 +295,10 @@ func TestKeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
 
 	upkeep := keeper.UpkeepRegistration{}
 	binaryHash := fmt.Sprintf("%b", utils.NewHash().Big())
-	listBefore, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, binaryHash) // normal
+	listBefore, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, binaryHash) // normal
 	require.NoError(t, err)
 	require.NoError(t, db.Get(&upkeep, `UPDATE upkeep_registrations SET last_keeper_index = 0 RETURNING *`))
-	listAfter, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, binaryHash) // covering buddy
+	listAfter, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, binaryHash) // covering buddy
 	require.NoError(t, err)
 	require.Greater(t, len(listAfter), len(listBefore), "after our buddy runs all the performs we should have more eligible then a normal turn")
 }
@@ -319,7 +319,7 @@ func TestKeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
 
 	binaryHash := fmt.Sprintf("%b", utils.NewHash().Big())
 	// last keeper index is null to simulate a normal first run
-	listKpr0, err := orm.NewEligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, binaryHash) // someone eligible only kpr0 turn
+	listKpr0, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, 21, 100, binaryHash) // someone eligible only kpr0 turn
 	require.NoError(t, err)
 	require.NotEqual(t, 0, len(listKpr0), "kpr0 should have some eligible as a normal turn")
 }
@@ -339,9 +339,9 @@ func TestKeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	cltest.AssertCount(t, db, "upkeep_registrations", 2)
 
 	binaryHash := fmt.Sprintf("%b", utils.NewHash().Big())
-	list1, err := orm.NewEligibleUpkeepsForRegistry(registry1.ContractAddress, 20, 100, binaryHash)
+	list1, err := orm.EligibleUpkeepsForRegistry(registry1.ContractAddress, 20, 100, binaryHash)
 	require.NoError(t, err)
-	list2, err := orm.NewEligibleUpkeepsForRegistry(registry2.ContractAddress, 20, 100, binaryHash)
+	list2, err := orm.EligibleUpkeepsForRegistry(registry2.ContractAddress, 20, 100, binaryHash)
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, len(list1))

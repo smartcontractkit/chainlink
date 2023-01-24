@@ -182,7 +182,7 @@ BumpTxDepth = 10 # Default
 #
 # If you are using BlockHistoryEstimator (default for most chains):
 # - With gas bumping disabled, it will submit all transactions with `feecap=PriceMax` and `tipcap=<calculated using past blocks>`
-# - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+# - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap = ( current block base fee * (1.125 ^ N) + tipcap )` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 #
 # Bumping works as follows:
 #
@@ -326,7 +326,7 @@ ObservationGracePeriod = '1s' # Default
 Name = 'foo' # Example
 # WSURL is the WS(S) endpoint for this node. Required for primary nodes.
 WSURL = 'wss://web.socket/test' # Example
-# HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Required for `SendOnly`.
+# HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 HTTPURL = 'https://foo.web' # Example
 # SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 SendOnly = false # Default

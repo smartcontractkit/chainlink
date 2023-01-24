@@ -140,12 +140,14 @@ func FindEthTxAttemptsRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFli
 	if maxInFlightTransactions > 0 {
 		limit = null.Uint32From(maxInFlightTransactions)
 	}
+	// this select distinct works because of unique index on eth_txes
+	// (evm_chain_id, from_address, nonce)
 	err = db.Select(&attempts, `
-SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
+SELECT DISTINCT ON (nonce) eth_tx_attempts.*
 FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
 WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
-ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
+ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
 LIMIT $4
 `, olderThan, chainID.String(), address, limit)
 

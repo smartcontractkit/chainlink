@@ -22,17 +22,29 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 	// FindJob -> find error
 	j, err := app.JobORM().FindJob(testutils.Context(t), jID)
 	require.NoError(t, err)
-	require.Len(t, j.JobSpecErrors, 2)
-	jse := j.JobSpecErrors[1]
+	t.Log(j.JobSpecErrors)
+	require.GreaterOrEqual(t, len(j.JobSpecErrors), 1) // second 'got nil head' error may have occured also
+	var id int64 = -1
+	for i := range j.JobSpecErrors {
+		jse := j.JobSpecErrors[i]
+		if jse.Description == description {
+			id = jse.ID
+			break
+		}
+	}
+	require.NotEqual(t, -1, id, "error not found")
 
-	resp, cleanup := client.Delete(fmt.Sprintf("/v2/pipeline/job_spec_errors/%v", jse.ID))
+	resp, cleanup := client.Delete(fmt.Sprintf("/v2/pipeline/job_spec_errors/%v", id))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 
 	// FindJob -> error is gone
 	j, err = app.JobORM().FindJob(testutils.Context(t), j.ID)
 	require.NoError(t, err)
-	require.Len(t, j.JobSpecErrors, 1)
+	for i := range j.JobSpecErrors {
+		jse := j.JobSpecErrors[i]
+		require.NotEqual(t, id, jse.ID)
+	}
 }
 
 func TestPipelineJobSpecErrorsController_Delete_NotFound(t *testing.T) {

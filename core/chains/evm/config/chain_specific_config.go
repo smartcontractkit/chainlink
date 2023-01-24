@@ -319,7 +319,7 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
 	arbitrumGoerli := arbitrumRinkeby
-	arbitrumGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
+	arbitrumGoerli.linkContractAddress = "0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28"
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -342,8 +342,6 @@ func setChainSpecificConfigDefaultSets() {
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
-	optimismGoerli := optimismKovan
-	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Optimism's Bedrock upgrade uses EIP-1559.
 	optimismBedrock := fallbackDefaultSet
@@ -354,6 +352,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismBedrock.chainType = config.ChainOptimismBedrock
 	optimismBedrock.ethTxResendAfterThreshold = 30 * time.Second
 	optimismBedrock.logPollInterval = 2 * time.Second
+	optimismBedrock.ocr2AutomationGasLimit = 6_500_000 // 5M (upkeep limit) + 1.5M. Optimism requires a larger overhead than normal chains
 	// Bedrock supports a 10 block reorg resistance in L1. However, it considers a block final when it is included in a final block in L1.
 	// L1 finality with PoS: Every 32 slots(epoch) each validator on the network has the opportunity to vote in favor of the epoch.
 	// It takes two justified epochs for those epochs, and all the blocks inside of them, to be considered finalized.
@@ -361,8 +360,9 @@ func setChainSpecificConfigDefaultSets() {
 	optimismBedrock.finalityDepth = 200
 	optimismBedrock.headTrackerHistoryDepth = 300
 	optimismBedrock.nodeSyncThreshold = 10
-	// TODO: remove this testnet when all Optimism networks have migrated: https://app.shortcut.com/chainlinklabs/story/55389/remove-optimism-pre-bedrock-error-messages
-	optimismAlpha := optimismBedrock
+	optimismGoerli := optimismBedrock
+	optimismGoerli.minGasPriceWei = *assets.NewWeiI(1) // Gas prices were significantly reduced after the upgrade.
+	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -373,6 +373,7 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
+	fantomMainnet.ocr2AutomationGasLimit = 3_800_000 // 3.5M (upkeep limit) + 300K. Fantom has a lower max gas limit than other chains
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 	fantomTestnet.blockEmissionIdleWarningThreshold = 0
@@ -486,7 +487,6 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[66] = okxMainnet
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
-	chainSpecificConfigDefaultSets[28528] = optimismAlpha
 	chainSpecificConfigDefaultSets[8217] = klaytnMainnet
 	chainSpecificConfigDefaultSets[1001] = klaytnTestnet
 

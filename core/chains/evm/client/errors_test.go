@@ -171,6 +171,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
 			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
+			{"call failed: InsufficientFunds, Account balance: 4740799397601480913, cumulative cost: 22019342038993800000", true, "Nethermind"},
 			{"insufficient funds", true, "Klaytn"},
 		}
 		for _, test := range tests {

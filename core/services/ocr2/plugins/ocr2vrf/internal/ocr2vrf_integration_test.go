@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -251,7 +252,7 @@ func setupNodeOCR2(
 		require.Len(t, sendingKeys, 2)
 
 		// Deploy a forwarder.
-		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.Address{}, owner.From, common.Address{}, []byte{})
+		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
 		require.NoError(t, err)
 
 		// Set the node's sending keys as authorized senders.
@@ -299,10 +300,16 @@ func setupNodeOCR2(
 }
 
 func TestIntegration_OCR2VRF_ForwarderFlow(t *testing.T) {
+	if os.Getenv("CI") == "" && os.Getenv("VRF_LOCAL_TESTING") == "" {
+		t.Skip("Skipping test locally.")
+	}
 	runOCR2VRFTest(t, true)
 }
 
 func TestIntegration_OCR2VRF(t *testing.T) {
+	if os.Getenv("CI") == "" && os.Getenv("VRF_LOCAL_TESTING") == "" {
+		t.Skip("Skipping test locally.")
+	}
 	runOCR2VRFTest(t, false)
 }
 
@@ -529,24 +536,32 @@ linkEthFeedAddress     	= "%s"
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(subAfterFulfillmentRequest.Balance.Int64()-assets.GWei(50_000_000).Int64()), subAfterBatchFulfillmentRequest.Balance)
 
+	t.Logf("sub balance after batch fulfillment request: %d", subAfterBatchFulfillmentRequest.Balance)
+
 	t.Log("waiting for fulfillment")
 
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
-		// Ensure a refund is provided. Refund amount comes out to ~29_000_000 million GJuels.
+		// Ensure a refund is provided. Refund amount comes out to ~22_000_000 GJuels.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
-		refundUpperBound := big.NewInt(0).Add(assets.GWei(30_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
-		refundLowerBound := big.NewInt(0).Add(assets.GWei(28_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundUpperBound := big.NewInt(0).Add(assets.GWei(23_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundLowerBound := big.NewInt(0).Add(assets.GWei(21_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
 		subAfterRefund, err := uni.coordinator.GetSubscription(nil, 1)
 		require.NoError(t, err)
-		if ok := ((subAfterRefund.Balance.Cmp(refundUpperBound) == -1) && (subAfterRefund.Balance.Cmp(refundLowerBound) == 1)); !ok {
-			return false
-		}
 
 		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, big.NewInt(0))
 		t.Logf("TestRedeemRandomness err: %+v", err1)
-		return err1 == nil
+		if err1 != nil {
+			return false
+		}
+
+		if ok := ((subAfterRefund.Balance.Cmp(refundUpperBound) == -1) && (subAfterRefund.Balance.Cmp(refundLowerBound) == 1)); !ok {
+			t.Logf("unexpected sub balance after refund: %d", subAfterRefund.Balance)
+			return false
+		}
+
+		return true
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 
 	// Mine block after redeeming randomness

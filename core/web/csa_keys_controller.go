@@ -55,7 +55,7 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 
 // Import imports a CSA key
 func (ctrl *CSAKeysController) Import(c *gin.Context) {
-	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
+	defer ctrl.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -79,7 +79,7 @@ func (ctrl *CSAKeysController) Import(c *gin.Context) {
 
 // Export exports a key
 func (ctrl *CSAKeysController) Export(c *gin.Context) {
-	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+	defer ctrl.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Export request body")
 
 	keyID := c.Param("ID")
 	newPassword := c.Query("newpassword")

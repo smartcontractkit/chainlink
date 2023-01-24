@@ -53,6 +53,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.abi ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.bin VRFSingleConsumerExample vrf_single_consumer_example
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.abi ../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.bin VRFExternalSubOwnerExample vrf_external_sub_owner_example
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin VRFV2RevertingExample vrfv2_reverting_example
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.abi ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.bin VRFConsumerV2UpgradeableExample vrf_consumer_v2_upgradeable_example
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.abi ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.bin VRFV2TransparentUpgradeableProxy vrfv2_transparent_upgradeable_proxy
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.abi ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.bin VRFV2ProxyAdmin vrfv2_proxy_admin
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/NoCancelVRFCoordinatorV2.bin NoCancelVRFCoordinatorV2 nocancel_vrf_coordinator_v2
 
 // VRF V2 Wrapper
@@ -72,11 +75,11 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/LogEmitter.abi ../../contracts/solc/v0.8.6/LogEmitter.bin LogEmitter log_emitter
 
 // Direct Request OCR
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/OCR2DR.abi ../../contracts/solc/v0.8.6/OCR2DR.bin OCR2DR ocr2dr
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/OCR2DRClient.abi ../../contracts/solc/v0.8.6/OCR2DRClient.bin OCR2DRClient ocr2dr_client
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/OCR2DRClientExample.abi ../../contracts/solc/v0.8.6/OCR2DRClientExample.bin OCR2DRClientExample ocr2dr_client_example
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/OCR2DROracle.abi ../../contracts/solc/v0.8.6/OCR2DROracle.bin OCR2DROracle ocr2dr_oracle
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/OCR2DRRegistry.abi ../../contracts/solc/v0.8.6/OCR2DRRegistry.bin OCR2DRRegistry ocr2dr_registry
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/Functions.abi ../../contracts/solc/v0.8.6/Functions.bin OCR2DR ocr2dr
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsClient.abi ../../contracts/solc/v0.8.6/FunctionsClient.bin OCR2DRClient ocr2dr_client
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsClientExample.abi ../../contracts/solc/v0.8.6/FunctionsClientExample.bin OCR2DRClientExample ocr2dr_client_example
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsOracle.abi ../../contracts/solc/v0.8.6/FunctionsOracle.bin OCR2DROracle ocr2dr_oracle
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsBillingRegistry.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistry.bin OCR2DRRegistry ocr2dr_registry
 
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:

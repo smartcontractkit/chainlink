@@ -49,7 +49,7 @@ type ORM interface {
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
-	FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error)
+	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -70,7 +70,7 @@ type ORM interface {
 	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
 
-	FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error)
+	FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) ([]byte, error)
 	AssertBridgesExist(p pipeline.Pipeline) error
 }
 
@@ -83,7 +83,7 @@ type orm struct {
 	chainSet    evm.ChainSet
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
-	lggr        logger.Logger
+	lggr        logger.SugaredLogger
 	cfg         pg.QConfig
 	bridgeORM   bridges.ORM
 }
@@ -99,7 +99,7 @@ func NewORM(
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) *orm {
-	namedLogger := lggr.Named("JobORM")
+	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
 		q:           pg.NewQ(db, namedLogger, cfg),
 		chainSet:    chainSet,
@@ -231,6 +231,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.OCROracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
+
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
@@ -245,32 +246,11 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
-
-					newChainID, err := EVMChainIDForJobSpec(jb.OCR2OracleSpec)
-					if err != nil {
-						return err
-					}
-
-					var spec OCR2OracleSpec
-					chainIdPath := []string{"chainID"}
-					err = tx.Get(&spec, `SELECT * FROM ocr2_oracle_specs WHERE relay = $1 AND contract_id = $2 AND relay_config #>> $3 = $4 LIMIT 1`,
-						relay.EVM, jb.OCR2OracleSpec.ContractID, chainIdPath, fmt.Sprintf("%d", newChainID),
-					)
-
-					if !errors.Is(err, sql.ErrNoRows) {
-						if err != nil {
-							return errors.Wrapf(err, "db read error while validating contract_id")
-						}
-						return errors.Errorf("Job ID %v already exists for chain ID %d with contract address %v",
-							jb.ID, newChainID, jb.OCR2OracleSpec.ContractID)
-					}
 				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
-					// TODO: add unique contract per chain constraint for Solana and other non-EVM chains
-					//   ( prereq: chainlink-solana (etc.) should implement GetChainIDAsString() or similar method )
 				case relay.Terra:
 					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
@@ -282,7 +262,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				}
-
 			}
 
 			if jb.OCR2OracleSpec.PluginType == Median {
@@ -781,17 +760,17 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 }
 
 // FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
-func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (jobID int32, err error) {
+func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (jobID int32, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.id = jobs.ocr_oracle_spec_id
-LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.id = jobs.flux_monitor_spec_id
+LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.evm_chain_id = $2 AND ocrspec.id = jobs.ocr_oracle_spec_id
+LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.evm_chain_id = $2 AND fmspec.id = jobs.flux_monitor_spec_id
 WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 `
-		err = tx.Get(&jobID, stmt, address)
+		err = tx.Get(&jobID, stmt, address, evmChainID)
 
 		if !errors.Is(err, sql.ErrNoRows) {
 			if err != nil {
@@ -927,10 +906,10 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 				var skipped int
 				// If no rows were returned, we need to know whether there were any ids skipped
 				//  in this batch due to the offset, and reduce it for the next batch
-				err = tx.Select(&skipped,
+				err = tx.Get(&skipped,
 					fmt.Sprintf(
-						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $2 AND p.id <= $3`, filter,
-					),
+						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $1 AND p.id <= $2`, filter,
+					), minID, maxID,
 				)
 				if err != nil {
 					err = errors.Wrap(err, "error loading from pipeline_runs")
@@ -951,8 +930,9 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 	return
 }
 
-func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) (result []byte, err error) {
-	err = o.q.Transaction(func(tx pg.Queryer) error {
+func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) (result []byte, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := fmt.Sprintf("SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1 AND dot_id = '%s';", taskName)
 
 		var taskRuns []pipeline.TaskRun
@@ -982,7 +962,7 @@ func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []i
 		ids, err = o.loadPipelineRunIDs(&jobID, offset, limit, tx)
 		return err
 	})
-	return ids, errors.Wrap(err, "PipelineRunsByJobIDs failed")
+	return ids, errors.Wrap(err, "FindPipelineRunIDsByJobID failed")
 }
 
 func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.Run, err error) {
@@ -990,6 +970,7 @@ func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.
 		SELECT pipeline_runs.*
 		FROM pipeline_runs
 		WHERE id = ANY($1)
+		ORDER BY created_at DESC, id DESC
 	`
 	if err = tx.Select(&runs, stmt, ids); err != nil {
 		err = errors.Wrap(err, "error loading runs")
@@ -1045,7 +1026,7 @@ func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 		return err
 	})
 
-	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return count, errors.Wrap(err, "CountPipelineRunsByJobID failed")
 }
 
 func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
