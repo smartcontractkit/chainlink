@@ -1,8 +1,9 @@
 package telemetry
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 )
 
 var _ MonitoringEndpointGenerator = &NoopAgent{}
