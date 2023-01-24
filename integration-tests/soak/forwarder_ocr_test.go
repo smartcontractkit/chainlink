@@ -68,6 +68,7 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 			"soak-forwarder-ocr-%s",
 			strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"),
 		),
+		Test: t,
 	}
 
 	replicas := 6

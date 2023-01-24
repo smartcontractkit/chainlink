@@ -59,6 +59,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			"soak-ocr-%s",
 			strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"),
 		),
+		Test: t,
 	}
 
 	replicas := 6
