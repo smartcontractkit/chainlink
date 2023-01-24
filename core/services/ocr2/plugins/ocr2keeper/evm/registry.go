@@ -507,7 +507,10 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 			continue
 		}
 
+		r.mu.RLock()
 		up, ok := r.active[id.String()]
+		r.mu.RUnlock()
+
 		if ok {
 			upkeepResults[i].ExecuteGas = up.PerformGasLimit
 		}
