@@ -20,6 +20,8 @@ import (
 
 //go:generate mockery --quiet --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
 
+//go:generate mockery --quiet --name TelemetryIngressClient --output ./mocks --case=underscore
+
 // TelemetryIngressClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressClient interface {
