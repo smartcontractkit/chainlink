@@ -38,7 +38,7 @@ var (
 	FetchUpkeepConfigBatchSize int   = 10
 	separator                        = "|"
 	reInitializationDelay            = 5 * time.Minute
-	logEventLookback           int64 = 100
+	logEventLookback           int64 = 250
 )
 
 type LatestBlockGetter interface {
