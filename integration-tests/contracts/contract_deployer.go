@@ -72,6 +72,7 @@ type ContractDeployer interface {
 	DeployUpkeepResetter() (UpkeepResetter, error)
 	DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
+	DeployAtlasFunctionsTest() (AtlasFunctionsTest, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -254,6 +255,23 @@ func (e *EthereumContractDeployer) DeployStaking(params ethereum2.StakingPoolCon
 		client:  e.client,
 		staking: instance.(*ethereum2.Staking),
 		address: stakingAddress,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployAtlasFunctionsTest() (AtlasFunctionsTest, error) {
+	address, _, instance, err := e.client.DeployContract("AtlasFunctionsTest", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum2.DeployAtlasFunctionsTest(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAtlasFunctionsTest{
+		client:             e.client,
+		atlasFunctionsTest: instance.(*ethereum2.AtlasFunctionsTest),
+		address:            address,
 	}, nil
 }
 
