@@ -110,7 +110,6 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   eth-smoke-tests-matrix:
-    if: false ## TODO: Remove after debug
     environment: integration
     permissions:
       checks: write
@@ -129,36 +128,36 @@ jobs:
       fail-fast: false
       matrix:
         product:
-          - name: automation
-            nodes: 9
-            os: ubuntu-latest
-          - name: cron
-            nodes: 1
-            os: ubuntu-latest
-          - name: flux
-            nodes: 1
-            os: ubuntu-latest
-          - name: keeper
-            nodes: 30
-            os: ubuntu20.04-4cores-16GB
-          - name: forwarder_ocr
-            nodes: 1
-            os: ubuntu-latest
+          # - name: automation
+          #   nodes: 9
+          #   os: ubuntu-latest
+          # - name: cron
+          #   nodes: 1
+          #   os: ubuntu-latest
+          # - name: flux
+          #   nodes: 1
+          #   os: ubuntu-latest
+          # - name: keeper
+          #   nodes: 30
+          #   os: ubuntu20.04-4cores-16GB
+          # - name: forwarder_ocr
+          #   nodes: 1
+          #   os: ubuntu-latest
           - name: ocr
             nodes: 1
             os: ubuntu-latest
-          - name: runlog
-            nodes: 1
-            os: ubuntu-latest
-          - name: vrf
-            nodes: 1
-            os: ubuntu-latest
-          - name: vrfv2
-            nodes: 1
-            os: ubuntu-latest
-          - name: ocr2vrf
-            nodes: 1
-            os: ubuntu-latest
+          # - name: runlog
+          #   nodes: 1
+          #   os: ubuntu-latest
+          # - name: vrf
+          #   nodes: 1
+          #   os: ubuntu-latest
+          # - name: vrfv2
+          #   nodes: 1
+          #   os: ubuntu-latest
+          # - name: ocr2vrf
+          #   nodes: 1
+          #   os: ubuntu-latest
     runs-on: ${{ matrix.product.os }}
     steps:
       - name: Checkout the repo
