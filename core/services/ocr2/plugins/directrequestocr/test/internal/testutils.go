@@ -344,6 +344,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		transmitterID      = "%s"
 		contractConfigConfirmations = 1
 		contractConfigTrackerPollInterval = "1s"
+		maxTaskDuration    = "30s"
 		pluginType         = "functions"
 		observationSource  = """
 			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
@@ -360,8 +361,8 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		fromBlock = 1
 
 		[pluginConfig]
-		minIncomingConfirmations = 2
-		requestE2eTimeoutMillis = 10_000
+		minIncomingConfirmations = 3
+		listenerEventHandlerTimeoutSec = 40
 	`, contractAddress, keyBundleID, transmitter))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
