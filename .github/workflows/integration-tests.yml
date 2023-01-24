@@ -12,7 +12,6 @@ concurrency:
 
 env:
   CL_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
 
 jobs:
   changes:
@@ -124,6 +123,7 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-eth
       TEST_LOG_LEVEL: debug
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
     strategy:
       fail-fast: false
       matrix:
@@ -292,6 +292,7 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-solana
       TEST_LOG_LEVEL: debug
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
