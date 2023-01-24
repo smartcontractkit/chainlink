@@ -125,8 +125,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error running test environment")
 
-			//todo - 3 nodes instead of 2 are down when specifying 1-2
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 1, ChaosGroupMinority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
@@ -288,6 +287,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
+			//g := gomega.NewGomegaWithT(t)
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 				randomness, err := consumer.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
