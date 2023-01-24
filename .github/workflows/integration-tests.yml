@@ -302,10 +302,10 @@ jobs:
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           download_contract_artifacts_path: contracts/target/deploy
-          artifacts_location: /home/runner/work/chainlink/chainlink/tests/e2e/smoke/logs
+          artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/integration-tests/logs
           publish_check_name: Solana Smoke Test Results
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
-          go_mod_path: ./tests/go.mod
+          go_mod_path: ./integration-tests/go.mod
           token: ${{ secrets.GITHUB_TOKEN }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

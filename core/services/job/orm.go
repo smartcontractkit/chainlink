@@ -70,7 +70,7 @@ type ORM interface {
 	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
 
-	FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error)
+	FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) ([]byte, error)
 	AssertBridgesExist(p pipeline.Pipeline) error
 }
 
@@ -930,8 +930,9 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 	return
 }
 
-func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) (result []byte, err error) {
-	err = o.q.Transaction(func(tx pg.Queryer) error {
+func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) (result []byte, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := fmt.Sprintf("SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1 AND dot_id = '%s';", taskName)
 
 		var taskRuns []pipeline.TaskRun
