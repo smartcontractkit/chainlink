@@ -16,11 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
-func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, err error, vrfBeacon contracts.VRFBeacon) {
+func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, vrfBeacon contracts.VRFBeacon) {
 	ocr2VrfConfig := BuildOCR2VRFConfigVars(t, ocr2VRFPluginConfig)
 	log.Debug().Interface("OCR2 VRF Config", ocr2VrfConfig).Msg("OCR2 VRF Config prepared")
 
-	err = vrfBeacon.SetConfig(
+	err := vrfBeacon.SetConfig(
 		ocr2VrfConfig.Signers,
 		ocr2VrfConfig.Transmitters,
 		ocr2VrfConfig.F,
@@ -35,12 +35,12 @@ func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OC
 	log.Info().Interface("Event", vrfConfigSetEvent).Msg("OCR2 VRF Config was set")
 }
 
-func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, err error, dkg contracts.DKG) {
+func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, dkg contracts.DKG) {
 	ocr2DkgConfig := BuildOCR2DKGConfigVars(t, ocr2VRFPluginConfig)
 
 	//13. set config for DKG OCR
 	log.Debug().Interface("OCR2 DKG Config", ocr2DkgConfig).Msg("OCR2 DKG Config prepared")
-	err = dkg.SetConfig(
+	err := dkg.SetConfig(
 		ocr2DkgConfig.Signers,
 		ocr2DkgConfig.Transmitters,
 		ocr2DkgConfig.F,

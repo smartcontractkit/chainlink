@@ -6,7 +6,7 @@ const (
 	// ChaosGroupMajority a group of nodes that are working even if minority fails
 	ChaosGroupMajority = "chaosGroupMajority"
 	// ChaosGroupMajorityPlus a group of nodes that are majority + 1
-	ChaosGroupMajorityPlus = "chaosGroupMajority"
+	ChaosGroupMajorityPlus = "chaosGroupMajorityPlus"
 
 	PodChaosFailMinorityNodes       = "pod-chaos-fail-minority-nodes"
 	PodChaosFailMajorityNodes       = "pod-chaos-fail-majority-nodes"
