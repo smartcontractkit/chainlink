@@ -38,7 +38,7 @@ Describe 'Pull Request'
     The stdout should equal 'on_trigger=false'
   End
 
-  It '"No trigger on pull_request for release branches when source changed'
+  It 'No trigger on pull_request for release branches when source changed'
     export SRC_CHANGED=true
     export GITHUB_EVENT_NAME=pull_request
     export GITHUB_BASE_REF=release/1.2.3
