@@ -19,7 +19,7 @@ type AdminUsersPresenter struct {
 	presenters.UserResource
 }
 
-var adminUsersTableHeaders = []string{"Email", "Role", "Has API token", "Created At", "Updated at"}
+var adminUsersTableHeaders = []string{"Email", "Role", "Has API token", "Created at", "Updated at"}
 
 func (p *AdminUsersPresenter) ToRow() []string {
 	row := []string{

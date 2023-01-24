@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
@@ -117,9 +118,20 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 
+	// In case email/role is not specified try to give friendlier error messages
+	if request.Email == "" {
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("must enter an email"))
+		return
+	}
+	_, err := clsession.GetUserRole(request.NewRole)
+	if err != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("new role does not exist, possible options are 'admin', 'edit', 'run', 'view'"))
+		return
+	}
+
 	user, err := c.App.SessionORM().UpdateRole(request.Email, request.NewRole)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("error updating API user"))
+		jsonAPIError(ctx, http.StatusInternalServerError, multierr.Combine(errors.New("error updating API user"), err))
 		return
 	}
 

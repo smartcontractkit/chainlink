@@ -36,6 +36,7 @@ import (
 )
 
 var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
+var errForbidden = errors.New(http.StatusText(http.StatusForbidden))
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
@@ -330,10 +331,11 @@ func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	if errors.Is(err, errUnauthorized) {
 		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
+	if errors.Is(err, errForbidden) {
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("this acction requires admin privileges current user does not have enough privileges to perform this action, login with admin via 'chainlink admin login'")))
+	}
 	if err != nil {
-		jae := models.JSONAPIErrors{}
-		unmarshalErr := json.Unmarshal(b, &jae)
-		return nil, cli.errorOut(multierr.Combine(err, unmarshalErr, &jae))
+		return nil, cli.errorOut(err)
 	}
 	return b, err
 }
@@ -642,6 +644,8 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
+	} else if resp.StatusCode == http.StatusForbidden {
+		return b, errForbidden
 	} else if resp.StatusCode >= http.StatusBadRequest {
 		errorMessage, err := parseErrorResponseBody(b)
 
