@@ -449,13 +449,20 @@ func (_m *ORM) FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]job.Spec
 	return r0, r1
 }
 
-// FindTaskResultByRunIDAndTaskName provides a mock function with given fields: runID, taskName
-func (_m *ORM) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([]byte, error) {
-	ret := _m.Called(runID, taskName)
+// FindTaskResultByRunIDAndTaskName provides a mock function with given fields: runID, taskName, qopts
+func (_m *ORM) FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) ([]byte, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, runID, taskName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 []byte
-	if rf, ok := ret.Get(0).(func(int64, string) []byte); ok {
-		r0 = rf(runID, taskName)
+	if rf, ok := ret.Get(0).(func(int64, string, ...pg.QOpt) []byte); ok {
+		r0 = rf(runID, taskName, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
@@ -463,8 +470,8 @@ func (_m *ORM) FindTaskResultByRunIDAndTaskName(runID int64, taskName string) ([
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(int64, string) error); ok {
-		r1 = rf(runID, taskName)
+	if rf, ok := ret.Get(1).(func(int64, string, ...pg.QOpt) error); ok {
+		r1 = rf(runID, taskName, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
