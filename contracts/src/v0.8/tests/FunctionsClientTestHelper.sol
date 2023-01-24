@@ -20,7 +20,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
   {
     Functions.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    requestId = sendRequest(request, subscriptionId, 20_000, tx.gasprice);
+    requestId = sendRequest(request, subscriptionId, 20_000);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 

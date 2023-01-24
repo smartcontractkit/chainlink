@@ -234,7 +234,7 @@ describe('FunctionsOracle', () => {
   describe('Sending requests', () => {
     it('#sendRequest emits OracleRequest event', async () => {
       const data = stringToHex('some data')
-      await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
+      await expect(oracle.sendRequest(subscriptionId, data, 0))
         .to.emit(oracle, 'OracleRequest')
         .withArgs(
           anyValue,
@@ -249,7 +249,7 @@ describe('FunctionsOracle', () => {
     it('#sendRequest reverts for empty data', async () => {
       const data = stringToHex('')
       await expect(
-        oracle.sendRequest(subscriptionId, data, 0, 0),
+        oracle.sendRequest(subscriptionId, data, 0),
       ).to.be.revertedWith('EmptyRequestData')
     })
 
@@ -258,7 +258,6 @@ describe('FunctionsOracle', () => {
       const requestId = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
-        0,
         0,
       )
       expect(requestId).not.to.be.empty
@@ -270,9 +269,8 @@ describe('FunctionsOracle', () => {
         subscriptionId,
         data,
         0,
-        0,
       )
-      await expect(oracle.sendRequest(subscriptionId, data, 0, 0))
+      await expect(oracle.sendRequest(subscriptionId, data, 0))
         .to.emit(oracle, 'OracleRequest')
         .withArgs(
           anyValue,
@@ -285,7 +283,6 @@ describe('FunctionsOracle', () => {
       const requestId2 = await oracle.callStatic.sendRequest(
         subscriptionId,
         data,
-        0,
         0,
       )
       expect(requestId1).not.to.be.equal(requestId2)
