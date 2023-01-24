@@ -1,7 +1,6 @@
 package chainlink
 
 import (
-	"crypto/rand"
 	_ "embed"
 	"fmt"
 	"math/big"
@@ -846,11 +845,16 @@ func (g *generalConfig) P2PListenPort() uint16 {
 	p := *v1.ListenPort
 	if p == 0 && *v1.Enabled {
 		g.randomP2PPortOnce.Do(func() {
-			r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
+			addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 			if err != nil {
-				panic(fmt.Errorf("unexpected error generating random P2PListenPort: %w", err))
+				panic(fmt.Errorf("unexpected ResolveTCPAddr error generating random P2PListenPort: %w", err))
 			}
-			g.randomP2PPort = uint16(r.Int64() + 1024)
+			l, err := net.ListenTCP("tcp", addr)
+			if err != nil {
+				panic(fmt.Errorf("unexpected ListenTCP error generating random P2PListenPort: %w", err))
+			}
+			defer l.Close()
+			g.randomP2PPort = uint16(l.Addr().(*net.TCPAddr).Port)
 			g.lggr.Warnw(fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", g.randomP2PPort), "p2pPort", g.randomP2PPort)
 		})
 		return g.randomP2PPort
