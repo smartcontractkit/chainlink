@@ -60,6 +60,7 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 	CacheTTL          string `json:"cacheTTL"`
+	Headers           string `json:"headers"`
 
 	specId     int32
 	orm        bridges.ORM
@@ -88,15 +89,21 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		requestData       MapParam
 		includeInputAtKey StringParam
 		cacheTTL          Uint64Param
+		reqHeaders        StringSliceParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
+		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
+	}
+
+	if len(reqHeaders)%2 != 0 {
+		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
 	}
 
 	url, err := t.getBridgeURLFromName(name)
@@ -157,7 +164,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	var cachedResponse bool
-	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), []string{}, requestData, t.httpClient, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
 		promBridgeErrors.WithLabelValues(t.Name).Inc()
 		if cacheTTL == 0 {
