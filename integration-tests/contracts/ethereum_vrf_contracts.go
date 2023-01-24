@@ -847,6 +847,15 @@ func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent() (*vrf_beacon.VRFB
 	return newTransmissionEvent, nil
 }
 
+func (beacon *EthereumVRFBeacon) LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
+	error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(beacon.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	return beacon.vrfBeacon.LatestConfigDigestAndEpoch(opts)
+}
+
 // EthereumVRFBeaconConsumer represents VRFBeaconConsumer contract
 type EthereumVRFBeaconConsumer struct {
 	address           *common.Address
