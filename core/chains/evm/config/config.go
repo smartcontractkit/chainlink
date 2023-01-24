@@ -229,7 +229,10 @@ func (c *chainScopedConfig) validate() (err error) {
 	if !chainType.IsValid() {
 		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q unrecognised", chainType))
 	} else if c.knownID && c.defaultSet.chainType != chainType {
-		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
+		// Exclude Optimism Bedrock for now, until the upgrade is over.
+		if chainType != config.ChainOptimismBedrock {
+			err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
+		}
 	} else {
 		switch chainType {
 		case config.ChainOptimism, config.ChainMetis:

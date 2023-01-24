@@ -87,7 +87,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
-	var lookbackBlocks int64 = 100
+	var lookbackBlocks int64 = 250
 	logProvider, err := NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
 	return keeperProvider, registry, encoder, logProvider, err
