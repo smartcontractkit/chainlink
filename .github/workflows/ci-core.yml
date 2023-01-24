@@ -48,7 +48,7 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_REF: ${{ github.ref }}
           SRC_CHANGED: ${{ needs.golangci-changes.outputs.src }}
-        run: ./.github/scripts/ontriggerlint.sh >> $GITHUB_OUTPUT
+        run: ./.github/scripts/bash/ontriggerlint.sh >> $GITHUB_OUTPUT
 
   golangci:
     name: lint
