@@ -39,6 +39,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Install shellspec
+        if: needs.changes.outputs.bash-cicd-scripts-src == 'true'
         env:
           VERSION: 0.28.1
           VERSION_SHA256SUM: 350d3de04ba61505c54eda31a3c2ee912700f1758b1a80a284bc08fd8b6c5992
@@ -47,10 +48,11 @@ jobs:
           curl -sSfL "https://github.com/shellspec/shellspec/releases/download/${VERSION}/shellspec-dist.tar.gz" \
             --output "${GZ_TAR_FILE}" \
             && echo "Checking sha256sum of ShellSpec released archive." \
-            && echo "${VERSION_SHA256SUM} "${GZ_TAR_FILE}" | sha256sum --check
+            && echo "${VERSION_SHA256SUM} ${GZ_TAR_FILE}" | sha256sum --check
           tar -xzf "${GZ_TAR_FILE}"
           sudo ln -s shellspec/shellspec /usr/local/bin/shellspec
           shellspec --version
       - name: Run shellspec tests
+        if: needs.changes.outputs.bash-cicd-scripts-src == 'true'
         working-directory: ./.github/scripts/bash
         run: shellspec
