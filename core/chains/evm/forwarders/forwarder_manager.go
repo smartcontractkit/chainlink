@@ -2,6 +2,7 @@ package forwarders
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -103,6 +104,10 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 	})
 }
 
+func (f *FwdMgr) filterName(addr common.Address) string {
+	return fmt.Sprintf("Forwarder - AuthorizedSendersChanged logs for %s", addr)
+}
+
 func (f *FwdMgr) GetForwarderForEOA(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
 	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
@@ -200,10 +205,12 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 		f.logger.Warnw("Unable to subscribe to AuthorizedSendersChanged logs", "forwarder", addr, "err", err)
 		return nil
 	}
-	_, err := f.logpoller.RegisterFilter(
+
+	err := f.logpoller.RegisterFilter(
 		evmlogpoller.Filter{
-			EventSigs: []common.Hash{authChangedTopic},
-			Addresses: []common.Address{addr},
+			FilterName: f.filterName(addr),
+			EventSigs:  []common.Hash{authChangedTopic},
+			Addresses:  []common.Address{addr},
 		})
 	return err
 }

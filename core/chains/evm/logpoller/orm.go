@@ -37,6 +37,54 @@ func (o *ORM) InsertBlock(h common.Hash, n int64, qopts ...pg.QOpt) error {
 	return err
 }
 
+// InsertFilter is idempotent.
+//
+// Each address/event pair must have a unique job id, so it may be removed when the job is deleted.
+// If a second job tries to overwrite the same pair, this should fail.
+func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
+	q := o.q.WithOpts(qopts...)
+	addresses := make([][]byte, 0)
+	events := make([][]byte, 0)
+
+	for _, addr := range filter.Addresses {
+		addresses = append(addresses, addr.Bytes())
+	}
+	for _, ev := range filter.EventSigs {
+		events = append(events, ev.Bytes())
+	}
+	err = q.ExecQ(`INSERT INTO log_poller_filters
+								(filter_name, evm_chain_id, created_at, address, event)
+								SELECT * FROM
+									(SELECT $1, $2::NUMERIC, NOW()) x,
+									(SELECT unnest($3::BYTEA[]) addr) a,
+									(SELECT unnest($4::BYTEA[]) ev) e
+								ON CONFLICT (filter_name, evm_chain_id, address, event) DO NOTHING`,
+		filter.FilterName, utils.NewBig(o.chainID), addresses, events)
+	return err
+}
+
+// DeleteFilter removes all events,address pairs associated with the filter
+func (o *ORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	err := q.ExecQ(`DELETE FROM log_poller_filters WHERE name = $1`, name)
+	return err
+}
+
+// LoadFiltersForChain returns all filters for this chain
+func (o *ORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
+	q := o.q.WithOpts(qopts...)
+	rows := make([]Filter, 0)
+	err := q.Select(&rows, `SELECT * FROM (SELECT filter_name, ARRAY_AGG(address)::BYTEA[] AS addresses, ARRAY_AGG(event)::BYTEA[] AS event_sigs
+									FROM log_poller_filters WHERE evm_chain_id = $1
+									GROUP BY filter_name) x`, utils.NewBig(o.chainID))
+	filters := make(map[string]Filter)
+	for _, filter := range rows {
+		filters[filter.FilterName] = filter
+	}
+
+	return filters, err
+}
+
 func (o *ORM) SelectBlockByHash(h common.Hash, qopts ...pg.QOpt) (*LogPollerBlock, error) {
 	q := o.q.WithOpts(qopts...)
 	var b LogPollerBlock

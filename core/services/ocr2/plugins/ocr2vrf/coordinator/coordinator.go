@@ -171,7 +171,7 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	_, err = logPoller.RegisterFilter(logpoller.Filter{
+	err = logPoller.RegisterFilter(logpoller.Filter{
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
 			t.randomnessFulfillmentRequestedTopic,

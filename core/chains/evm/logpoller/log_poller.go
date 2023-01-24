@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/jackc/pgtype"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
@@ -30,8 +31,8 @@ import (
 type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
-	RegisterFilter(filter Filter) (int, error)
-	UnregisterFilter(filterID int) error
+	RegisterFilter(filter Filter) error
+	UnregisterFilter(name string) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 	// General querying
@@ -75,8 +76,7 @@ type logPoller struct {
 	backupPollerNextBlock int64
 
 	filterMu        sync.RWMutex
-	currentFilterID int
-	filters         map[int]Filter
+	filters         map[string]Filter
 	filterDirty     bool
 	cachedAddresses []common.Address
 	cachedEventSigs []common.Hash
@@ -104,7 +104,8 @@ type ReplayRequest struct {
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
 	finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
-	return &logPoller{
+
+	lp := &logPoller{
 		ec:                ec,
 		orm:               orm,
 		lggr:              lggr,
@@ -116,14 +117,116 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 		backfillBatchSize: backfillBatchSize,
 		rpcBatchSize:      rpcBatchSize,
 		keepBlocksDepth:   keepBlocksDepth,
-		filters:           make(map[int]Filter),
+		filters:           make(map[string]Filter),
 		filterDirty:       true, // Always build filter on first call to cache an empty filter if nothing registered yet.
 	}
+
+	return lp
 }
 
+type AddressArray []common.Address
+type HashArray []common.Hash
+
 type Filter struct {
-	EventSigs []common.Hash
-	Addresses []common.Address
+	FilterName string
+	EventSigs  HashArray
+	Addresses  AddressArray
+}
+
+func (a *AddressArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return errors.New("Expected BYTEA[] column for AddressArray")
+	}
+	if baArray.Status != pgtype.Present || len(baArray.Dimensions) != 1 {
+		return errors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+	addresses := []common.Address(*a)
+	lastAddress := common.Address{}
+	for i, ba := range baArray.Elements {
+		addr := common.Address{}
+		if ba.Status != pgtype.Present {
+			return errors.Errorf("Expected all addresses in AddressArray to be non-NULL.  Got AddressArray[%d] = NULL", i)
+		}
+		err = addr.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		if addr != lastAddress { // dedup addresses
+			addresses = append(addresses, addr)
+			lastAddress = addr
+		}
+	}
+	*a = addresses
+	return nil
+}
+
+func (h *HashArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return errors.New("Expected BYTEA[] column for HashArray")
+	}
+	if baArray.Status != pgtype.Present || len(baArray.Dimensions) != 1 {
+		return errors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+
+	hashes := []common.Hash(*h)
+	lastHash := common.Hash{}
+	for i, ba := range baArray.Elements {
+		hash := common.Hash{}
+		if ba.Status != pgtype.Present {
+			return errors.Errorf("Expected all addresses in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
+		}
+		err = hash.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		if hash != lastHash { // dedup hashs
+			hashes = append(hashes, hash)
+			lastHash = hash
+		}
+	}
+	*h = hashes
+	return err
+}
+
+func (a *AddressArray) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.DecodeBinary(ci, src)
+
+	if err != nil {
+		return errors.New("Expected BYTEA[] column for AddressArray")
+	}
+	a = &AddressArray{}
+	err = baArray.AssignTo(a)
+	return err
+}
+
+// CompareTo returns true if this filter contains any events or addresses not already
+// included in existing filter.
+func (filter *Filter) CompareTo(existing *Filter) bool {
+	addresses := make(map[common.Address]interface{})
+	for _, addr := range existing.Addresses {
+		addresses[addr] = struct{}{}
+	}
+	events := make(map[common.Hash]interface{})
+	for _, ev := range existing.EventSigs {
+		events[ev] = struct{}{}
+	}
+
+	for _, addr := range filter.Addresses {
+		if _, ok := addresses[addr]; ok {
+			return false
+		}
+	}
+	for _, ev := range filter.EventSigs {
+		if _, ok := events[ev]; ok {
+			return false
+		}
+	}
+	return true
 }
 
 // RegisterFilter adds the provided EventSigs and Addresses to the log poller's log filter query.
@@ -137,40 +240,57 @@ type Filter struct {
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
-// It returns an ID which can be used to unregister.
-func (lp *logPoller) RegisterFilter(filter Filter) (int, error) {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
+// The filter may be unregistered later by FilterName
+func (lp *logPoller) RegisterFilter(filter Filter) error {
 	if len(filter.Addresses) == 0 {
-		return 0, errors.Errorf("at least one address must be specified")
+		return errors.Errorf("at least one address must be specified")
 	}
 	if len(filter.EventSigs) == 0 {
-		return 0, errors.Errorf("at least one event must be specified")
+		return errors.Errorf("at least one event must be specified")
 	}
+
 	for _, eventSig := range filter.EventSigs {
 		if eventSig == [common.HashLength]byte{} {
-			return 0, errors.Errorf("empty event sig")
+			return errors.Errorf("empty event sig")
 		}
 	}
 	for _, addr := range filter.Addresses {
 		if addr == [common.AddressLength]byte{} {
-			return 0, errors.Errorf("empty address")
+			return errors.Errorf("empty address")
 		}
 	}
-	lp.currentFilterID++
-	lp.filters[lp.currentFilterID] = filter
-	lp.filterDirty = true
-	return lp.currentFilterID, nil
-}
 
-func (lp *logPoller) UnregisterFilter(filterID int) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
-	_, ok := lp.filters[filterID]
-	if !ok {
-		return errors.Errorf("filter %d doesn't exist", filterID)
+
+	if existingFilter, ok := lp.filters[filter.FilterName]; ok {
+		if filter.CompareTo(&existingFilter) {
+			lp.lggr.Errorw("Updating existing filter %s with more events or addresses", "FilterName", filter.FilterName)
+		}
+	} else {
+		lp.lggr.Debugf("Creating new filter %s", filter.FilterName)
 	}
-	delete(lp.filters, filterID)
+
+	if err := lp.orm.InsertFilter(filter); err != nil {
+		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
+	}
+	lp.filters[filter.FilterName] = filter
+	lp.filterDirty = true
+	return nil
+}
+
+func (lp *logPoller) UnregisterFilter(name string) error {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+
+	_, ok := lp.filters[name]
+	if !ok {
+		return errors.Errorf("filter %s not found", name)
+	}
+	if err := lp.orm.DeleteFilter(name); err != nil {
+		return errors.Wrapf(err, "Failed to delete filter %s", name)
+	}
+	delete(lp.filters, name)
 	lp.filterDirty = true
 	return nil
 }
@@ -260,6 +380,14 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
 		lp.cancel = cancel
+		filters, err := lp.orm.LoadFilters(pg.WithParentCtx(lp.ctx))
+		if err != nil {
+			// Most likely, we will get them anyway once RegisterFilter() is called, but
+			//  this could result in some missed logs in some circumstances.  Log an
+			//  error and hope it gets noticed, but keep going.
+			lp.lggr.Errorf("Failed to load filters while initializing logpoller")
+		}
+		lp.filters = filters
 		go lp.run()
 		return nil
 	})
