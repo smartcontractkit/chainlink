@@ -82,6 +82,8 @@ jobs:
     name: Build Test Image
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
+    env:
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
