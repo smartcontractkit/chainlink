@@ -8,6 +8,7 @@ type PluginConfig struct {
 	RequestTimeoutSec               uint32 `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec uint32 `json:"requestTimeoutCheckFrequencySec"`
 	RequestTimeoutBatchLookupSize   uint32 `json:"requestTimeoutBatchLookupSize"`
+	ListenerEventHandlerTimeoutSec  uint32 `json:"listenerEventHandlerTimeoutSec"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {
