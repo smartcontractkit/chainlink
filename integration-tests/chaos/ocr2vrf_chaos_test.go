@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -245,8 +244,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			//17. wait for the event ConfigSet from VRFBeacon contract
 			ocr2vrf_actions.SetAndWaitForVRFBeaconProcessToFinish(t, ocr2VRFPluginConfig, vrfBeacon)
 
-			//todo - do we really need to perform requestAndRedeemRandomness() before Chaos experiment is applied?
-			//Request and Redeem Randomness
+			//Request and Redeem Randomness to verify that process works fine
 			requestID := ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
 				consumer,
@@ -257,15 +255,11 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
-			g := gomega.NewGomegaWithT(t)
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 				randomness, err := consumer.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				require.NoError(t, err)
 				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
-				g.
-					Expect(randomness.Uint64()).
-					ShouldNot(gomega.BeNumerically("==", 0),
-						"Randomness retrieved from Consumer contract give an answer other than 0")
+				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 			}
 
 			id, err := testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))
@@ -287,15 +281,11 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
-			//g := gomega.NewGomegaWithT(t)
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 				randomness, err := consumer.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				require.NoError(t, err)
 				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
-				g.
-					Expect(randomness.Uint64()).
-					ShouldNot(gomega.BeNumerically("==", 0),
-						"Randomness retrieved from Consumer contract give an answer other than 0")
+				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 			}
 		})
 	}

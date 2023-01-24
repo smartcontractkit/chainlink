@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -159,15 +158,11 @@ func TestOCR2VRFBasic(t *testing.T) {
 		ocr2vrf_constants.ConfirmationDelay,
 	)
 
-	g := gomega.NewGomegaWithT(t)
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 		randomness, err := consumer.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
-		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		require.NoError(t, err)
 		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
-		g.
-			Expect(randomness.Uint64()).
-			ShouldNot(gomega.BeNumerically("==", 0),
-				"Randomness retrieved from Consumer contract give an answer other than 0")
+		require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 	}
 }
 
