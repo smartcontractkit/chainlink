@@ -49,9 +49,9 @@ jobs:
           GZ_TAR_FILE: shellspec-dist.tar.gz
         run: |
           curl -sSfL "https://github.com/shellspec/shellspec/releases/download/${VERSION}/shellspec-dist.tar.gz" \
-            --output "${GZ_TAR_FILE}" \
-            && echo "Checking sha256sum of ShellSpec released archive." \
-            && echo "${VERSION_SHA256SUM} ${GZ_TAR_FILE}" | sha256sum --check
+            --output "${GZ_TAR_FILE}"
+          echo "Checking sha256sum of ShellSpec released archive."
+          echo "${VERSION_SHA256SUM} ${GZ_TAR_FILE}" | sha256sum --check
           tar -xzf "${GZ_TAR_FILE}" -C "${HOME}/.local"
           ln -s "${HOME}/.local/shellspec/shellspec" /usr/local/bin/shellspec
           shellspec --version
