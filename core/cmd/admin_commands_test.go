@@ -62,9 +62,10 @@ func TestClient_ChangeRole(t *testing.T) {
 		role  string
 		err   string
 	}{
-		{"No params", "", "", "must enter an email"},
-		{"No email", "", "view", "must enter an email"},
-		{"No role", user.Email, "", "new role does not exist"},
+		{"No params", "", "", "must specify an email"},
+		{"No email", "", "view", "must specify an email"},
+		{"No role", user.Email, "", "must specify a new role"},
+		{"Unknown role", user.Email, "foo", "new role does not exist"},
 		{"Unknown user", cltest.MustRandomUser(t).Email, "admin", "error updating API user"},
 		{"Valid params", user.Email, "view", ""},
 	}

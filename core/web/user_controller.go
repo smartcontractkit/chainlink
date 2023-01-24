@@ -118,9 +118,13 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 
-	// In case email/role is not specified try to give friendlier error messages
+	// In case email/role is not specified try to give friendlier/actionable error messages
 	if request.Email == "" {
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("must enter an email"))
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("email flag is empty, must specify an email"))
+		return
+	}
+	if request.NewRole == "" {
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("newrole flag is empty, must specify a new role, possible options are 'admin', 'edit', 'run', 'view'"))
 		return
 	}
 	_, err := clsession.GetUserRole(request.NewRole)
