@@ -105,7 +105,7 @@ library Functions {
   }
 
   /**
-   * @notice Adds user encrypted secrets to a Request
+   * @notice Adds Inline user encrypted secrets to a Request
    * @param self The initialized request
    * @param secrets The user encrypted secrets (must not be empty)
    */
@@ -114,6 +114,18 @@ library Functions {
 
     self.secretsLocation = Location.Inline;
     self.secrets = secrets;
+  }
+
+  /**
+   * @notice Adds Remote user encrypted secrets to a Request
+   * @param self The initialized request
+   * @param encryptedSecretsURLs Encrypted comma-separated string of URLs pointing to off-chain secrets
+   */
+  function addRemoteSecrets(Request memory self, bytes memory encryptedSecretsURLs) internal pure {
+    if (encryptedSecretsURLs.length == 0) revert EmptySecrets();
+
+    self.secretsLocation = Location.Remote;
+    self.secrets = encryptedSecretsURLs;
   }
 
   /**
