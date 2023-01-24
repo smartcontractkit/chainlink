@@ -204,6 +204,15 @@ type Staking interface {
 	SetMerkleRoot(newMerkleRoot [32]byte) error
 }
 
+type AtlasFunctions interface {
+	Address() string
+	OracleRequest(requestId [32]byte, subscriptionId uint64, data []byte) error
+	OracleResponse(requestId [32]byte) error
+	UserCallbackError(requestId [32]byte, reason string) error
+	UserCallbackRawError(requestId [32]byte, lowLevelData []byte) error
+	SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
+}
+
 type RoundData struct {
 	RoundId         *big.Int
 	Answer          *big.Int
