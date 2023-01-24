@@ -7,6 +7,9 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      # To allow writing comments to the current PR
+      pull-requests: write
+
     name: Breaking Changes GQL Check
     runs-on: ubuntu-latest
     steps:
