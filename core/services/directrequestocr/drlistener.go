@@ -266,10 +266,8 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
-	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {
-		l.markLogConsumed(lb, pg.WithQueryer(tx))
-		return nil
-	})
+	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
 	if err != nil {
 		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
@@ -318,7 +316,7 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
-	l.markLogConsumed(lb)
+	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 }
 
 func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
