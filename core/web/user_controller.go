@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
@@ -135,7 +134,7 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 
 	user, err := c.App.SessionORM().UpdateRole(request.Email, request.NewRole)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, multierr.Combine(errors.New("error updating API user"), err))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.Wrap(err, "error updating API user"))
 		return
 	}
 
