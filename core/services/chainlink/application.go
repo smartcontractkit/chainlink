@@ -384,7 +384,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		relayers := make(map[relay.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore.Eth())
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore)
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
 		}
