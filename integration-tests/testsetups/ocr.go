@@ -121,14 +121,14 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 			o.chainClient,
 		)
 	} else {
-		o.ocrInstances = actions.DeployOCRContracts(
-			t,
+		o.ocrInstances, err = actions.DeployOCRContracts(
 			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
 			o.chainlinkNodes,
 			o.chainClient,
 		)
+		require.NoError(t, err)
 	}
 
 	err = o.chainClient.WaitForEvents()
@@ -147,11 +147,13 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run(t *testing.T) {
 	// Set initial value and create jobs
-	actions.SetAllAdapterResponsesToTheSameValue(t, o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	err := actions.SetAllAdapterResponsesToTheSameValue(o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	require.NoError(t, err)
 	if o.OperatorForwarderFlow {
 		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
 	} else {
-		actions.CreateOCRJobs(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		err = actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		require.NoError(t, err)
 	}
 
 	log.Info().
@@ -305,7 +307,8 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	for _, report := range o.TestReporter.ContractReports {
 		report.NewAnswerExpected(currentAdapterValue, startingBlockNum)
 	}
-	actions.SetAllAdapterResponsesToTheSameValue(t, currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	require.NoError(t, err)
 	log.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")
