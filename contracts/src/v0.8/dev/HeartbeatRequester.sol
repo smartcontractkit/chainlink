@@ -36,17 +36,17 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
   }
 
   /**
-   * @dev adds a permitted caller and proxy combination.
+   * @notice adds a permitted caller and proxy combination.
    * @param permittedCaller the permitted caller
    * @param proxy the proxy corresponding to this caller
    */
-  function addHeartbeat(address permittedCaller, address proxy) external onlyOwner {
-    s_heartbeatList[permittedCaller] = IAggregatorProxy(proxy);
-    emit HeartbeatSet(permittedCaller, proxy);
+  function addHeartbeat(address permittedCaller, IAggregatorProxy proxy) external onlyOwner {
+    s_heartbeatList[permittedCaller] = proxy;
+    emit HeartbeatSet(permittedCaller, address(proxy));
   }
 
   /**
-   * @dev removes a permitted caller and proxy combination.
+   * @notice removes a permitted caller and proxy combination.
    * @param permittedCaller the permitted caller
    */
   function removeHeartbeat(address permittedCaller) external onlyOwner {
@@ -55,23 +55,23 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
   }
 
   /**
-   * @dev updates the author forwarder address.
+   * @notice updates the authorized forwarder address.
    * @param newAuthForwarder the new authorized forwarder address
    */
-  function setAuthForwarder(address newAuthForwarder) external onlyOwner {
-    i_authForwarder = IAuthorizedForwarder(newAuthForwarder);
-    emit AuthorizedForwarderSet(newAuthForwarder);
+  function setAuthForwarder(IAuthorizedForwarder newAuthForwarder) external onlyOwner {
+    i_authForwarder = newAuthForwarder;
+    emit AuthorizedForwarderSet(address(newAuthForwarder));
   }
 
   /**
-   * @dev returns the authorized forwarder.
+   * @notice returns the authorized forwarder.
    */
-  function getAuthForwarder() external view returns (address) {
-    return address(i_authForwarder);
+  function getAuthForwarder() external view returns (IAuthorizedForwarder) {
+    return i_authForwarder;
   }
 
   /**
-   * @dev fetches aggregator address from proxy and forward function call to the aggregator via authorized forwarder.
+   * @notice fetches aggregator address from proxy and forward function call to the aggregator via authorized forwarder.
    * @param proxy the proxy address
    * @param aggregatorFuncSig the function signature on aggregator
    */
