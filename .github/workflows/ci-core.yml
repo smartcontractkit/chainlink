@@ -209,7 +209,8 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [core-complete]
+    needs: [core]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
