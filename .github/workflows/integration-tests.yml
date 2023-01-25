@@ -346,7 +346,6 @@ jobs:
     name: Live Testnet Smoke Tests Matrix
     needs: [build-chainlink, build-test-image]
     env:
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
       SELECTED_NETWORKS: ${{ matrix.testnet }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
