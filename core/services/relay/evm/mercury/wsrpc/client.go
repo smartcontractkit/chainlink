@@ -75,23 +75,14 @@ func (w *client) Transmit(ctx context.Context, in *report.ReportRequest) (rr *re
 	return
 }
 
-// Ready if started
-func (w *client) Ready() (err error) {
-	if err = w.StartStopOnce.Ready(); err != nil {
-		return err
-	}
-	return nil
-}
-
 // Healthy if connected
 func (w *client) Healthy() (err error) {
 	if err = w.StartStopOnce.Healthy(); err != nil {
 		return err
 	}
 	state := w.conn.GetState()
-	if state == connectivity.Ready {
-		return nil
-	} else {
+	if state != connectivity.Ready {
 		return errors.Errorf("client state should be %s; got %s", connectivity.Ready, state)
 	}
+	return nil
 }
