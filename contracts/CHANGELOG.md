@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-...
+### Added
+
+- Support for off-chain secrets in Functions Oracle contract
+
+### Changed
+
+- Modified FunctionsClientExample.sol to use constant amount of gas regardless of response size
+- Fixed comments in FunctionsBillingRegistry.sol
 
 ## 0.6.0 - 2023-01-11
 
