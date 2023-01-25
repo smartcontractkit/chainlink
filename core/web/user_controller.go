@@ -146,7 +146,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 	email := ctx.Param("email")
 
 	// Attempt find user by email
-	_, err := c.App.SessionORM().FindUser(email)
+	user, err := c.App.SessionORM().FindUser(email)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("specified user not found: %s", email))
 		return
@@ -169,7 +169,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(ctx, presenters.NewUserResource(clsession.User{Email: email}), "user")
+	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
 }
 
 // UpdatePassword changes the password for the current User.

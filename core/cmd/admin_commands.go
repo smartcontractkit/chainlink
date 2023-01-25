@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -159,7 +160,12 @@ func (cli *Client) ChangeRole(c *cli.Context) (err error) {
 
 // DeleteUser deletes an API user by email
 func (cli *Client) DeleteUser(c *cli.Context) (err error) {
-	response, err := cli.HTTP.Delete(fmt.Sprintf("/v2/users/%s", c.String("email")))
+	email := c.String("email")
+	if email == "" {
+		return cli.errorOut(errors.New("email flag is empty, must specify an email"))
+	}
+
+	response, err := cli.HTTP.Delete(fmt.Sprintf("/v2/users/%s", email))
 	if err != nil {
 		return cli.errorOut(err)
 	}

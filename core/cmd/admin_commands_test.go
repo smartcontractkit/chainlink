@@ -87,3 +87,36 @@ func TestClient_ChangeRole(t *testing.T) {
 		})
 	}
 }
+
+func TestClient_DeleteUser(t *testing.T) {
+	app := startNewApplicationV2(t, nil)
+	client, _ := app.NewClientAndRenderer()
+	user := cltest.MustRandomUser(t)
+	require.NoError(t, app.SessionORM().CreateUser(&user))
+
+	tests := []struct {
+		name  string
+		email string
+		err   string
+	}{
+		{"No email", "", "must specify an email"},
+		{"Unknown email", "foo", "specified user not found"},
+		{"Valid params", user.Email, ""},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			set := flag.NewFlagSet("test", 0)
+			cltest.FlagSetApplyFromAction(client.DeleteUser, set, "")
+
+			require.NoError(t, set.Set("email", test.email))
+			c := cli.NewContext(nil, set, nil)
+			if test.err != "" {
+				assert.ErrorContains(t, client.DeleteUser(c), test.err)
+			} else {
+				assert.NoError(t, client.DeleteUser(c))
+			}
+		})
+	}
+}
