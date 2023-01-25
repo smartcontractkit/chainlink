@@ -4,12 +4,23 @@
 
 ### Added
 
+- Support for off-chain secrets in Functions Oracle contract
+
+### Changed
+
+- Modified FunctionsClientExample.sol to use constant amount of gas regardless of response size
+- Fixed comments in FunctionsBillingRegistry.sol
+
+## 0.6.0 - 2023-01-11
+
+### Added
+
 - Added a Solidity style guide.
 
 ### Changed
 
 - Migrated and improved `AuthorizedReceiverInterface` and `AuthorizedReceiver` from 0.7.0
-- Added `OCR2DR` interfaces and contracts (initial version for PoC)
+- Added `Chainlink Functions` interfaces and contracts (initial version for PoC)
 
 ## 0.5.1 - 2022-09-27
 

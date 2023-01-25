@@ -63,10 +63,16 @@ type ContractDeployer interface {
 	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
+	DeployDKG() (DKG, error)
+	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string, linkEthFeedAddr string) (VRFCoordinatorV3, error)
+	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
+	DeployVRFBeaconConsumer(vrfCoordinatorV3Address string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployUpkeepResetter() (UpkeepResetter, error)
 	DeployStaking(params ethereum2.StakingPoolConstructorParams) (Staking, error)
+	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
+	DeployAtlasFunctions() (AtlasFunctions, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -252,6 +258,23 @@ func (e *EthereumContractDeployer) DeployStaking(params ethereum2.StakingPoolCon
 	}, nil
 }
 
+func (e *EthereumContractDeployer) DeployAtlasFunctions() (AtlasFunctions, error) {
+	address, _, instance, err := e.client.DeployContract("AtlasFunctions", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum2.DeployAtlasFunctions(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAtlasFunctions{
+		client:         e.client,
+		atlasFunctions: instance.(*ethereum2.AtlasFunctions),
+		address:        address,
+	}, nil
+}
+
 // DeployLinkTokenContract deploys a Link Token contract to an EVM chain
 func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) {
 	linkTokenAddress, _, instance, err := e.client.DeployContract("LINK Token", func(
@@ -399,24 +422,6 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 		address: addr,
 		client:  e.client,
 		oracle:  instance.(*ethereum.Oracle),
-	}, err
-}
-
-// DeployVRFContract deploy VRF contract
-func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
-	address, _, instance, err := e.client.DeployContract("VRF", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRF(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRF{
-		client:  e.client,
-		vrf:     instance.(*ethereum.VRF),
-		address: address,
 	}, err
 }
 
@@ -829,96 +834,6 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 		client:             e.client,
 		performDataChecker: instance.(*ethereum.PerformDataChecker),
 		address:            address,
-	}, err
-}
-
-// DeployBlockhashStore deploys blockhash store used with VRF contract
-func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error) {
-	address, _, instance, err := e.client.DeployContract("BlockhashStore", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployBlockhashStore(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumBlockhashStore{
-		client:         e.client,
-		blockHashStore: instance.(*ethereum.BlockhashStore),
-		address:        address,
-	}, err
-}
-
-// DeployVRFCoordinatorV2 deploys VRFV2 coordinator contract
-func (e *EthereumContractDeployer) DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFCoordinatorV2(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr), common.HexToAddress(linkEthFeedAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFCoordinatorV2{
-		client:      e.client,
-		coordinator: instance.(*ethereum.VRFCoordinatorV2),
-		address:     address,
-	}, err
-}
-
-// DeployVRFCoordinator deploys VRF coordinator contract
-func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFCoordinator{
-		client:      e.client,
-		coordinator: instance.(*ethereum.VRFCoordinator),
-		address:     address,
-	}, err
-}
-
-// DeployVRFConsumer deploys VRF consumer contract
-func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFConsumer", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFConsumer(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFConsumer{
-		client:   e.client,
-		consumer: instance.(*ethereum.VRFConsumer),
-		address:  address,
-	}, err
-}
-
-// DeployVRFConsumerV2 deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error) {
-	address, _, instance, err := e.client.DeployContract("VRFConsumerV2", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFConsumerV2(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFConsumerV2{
-		client:   e.client,
-		consumer: instance.(*ethereum.VRFConsumerV2),
-		address:  address,
 	}, err
 }
 

@@ -196,6 +196,10 @@ func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) error {
 }
 
 func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
+	if err := f.logpoller.Ready(); err != nil {
+		f.logger.Warnw("Unable to subscribe to AuthorizedSendersChanged logs", "forwarder", addr, "err", err)
+		return nil
+	}
 	_, err := f.logpoller.RegisterFilter(
 		evmlogpoller.Filter{
 			EventSigs: []common.Hash{authChangedTopic},
@@ -224,6 +228,11 @@ func (f *FwdMgr) runLoop() {
 	for ; ; tick = time.After(utils.WithJitter(time.Duration(time.Minute))) {
 		select {
 		case <-tick:
+			if err := f.logpoller.Ready(); err != nil {
+				f.logger.Warnw("Skipping log syncing", "err", err)
+				continue
+			}
+
 			addrs := f.collectAddresses()
 			if len(addrs) == 0 {
 				f.logger.Debug("Skipping log syncing, no forwarders tracked.")

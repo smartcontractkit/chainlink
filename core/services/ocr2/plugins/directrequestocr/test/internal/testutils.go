@@ -46,7 +46,7 @@ import (
 
 func ptr[T any](v T) *T { return &v }
 
-func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra) {
+func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra, batchSize int) {
 	S := make([]int, len(oracles))
 	for i := 0; i < len(S); i++ {
 		S[i] = 1
@@ -57,7 +57,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 			MaxQueryLengthBytes:       10_000,
 			MaxObservationLengthBytes: 10_000,
 			MaxReportLengthBytes:      10_000,
-			MaxRequestBatchSize:       5,
+			MaxRequestBatchSize:       uint32(batchSize),
 			DefaultAggregationMethod:  drconfig.AggregationMethod_AGGREGATION_MODE,
 			UniqueReports:             true,
 		},
@@ -101,14 +101,17 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 		offchainConfig,
 	)
 	require.NoError(t, err)
+	_, err = oracleContract.DeactivateAuthorizedReceiver(owner)
+	require.NoError(t, err)
 }
 
 func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract *ocr2dr_registry.OCR2DRRegistry, oracleContractAddress common.Address) {
-	var maxGasLimit = uint32(1_000_000)
+	var maxGasLimit = uint32(450_000)
 	var stalenessSeconds = uint32(86_400)
 	var gasAfterPaymentCalculation = big.NewInt(21_000 + 5_000 + 2_100 + 20_000 + 2*2_100 - 15_000 + 7_315)
 	var weiPerUnitLink = big.NewInt(5000000000000000)
 	var gasOverhead = uint32(500_000)
+	var requestTimeoutSeconds = uint32(300)
 
 	_, err := registryContract.SetConfig(
 		owner,
@@ -117,6 +120,7 @@ func SetRegistryConfig(t *testing.T, owner *bind.TransactOpts, registryContract 
 		gasAfterPaymentCalculation,
 		weiPerUnitLink,
 		gasOverhead,
+		requestTimeoutSeconds,
 	)
 	require.NoError(t, err)
 
@@ -181,10 +185,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 0, big.NewInt(5021530000000000))
 	require.NoError(t, err)
 
-	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr)
+	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
 	require.NoError(t, err)
 
-	ocrContractAddress, _, ocrContract, err := ocr2dr_oracle.DeployOCR2DROracle(owner, b)
+	registryAddress, _, registryContract, err := ocr2dr_registry.DeployOCR2DRRegistry(owner, b, linkAddr, linkEthFeedAddr, ocrContractAddress)
 	require.NoError(t, err)
 
 	_, err = ocrContract.SetRegistry(owner, registryAddress)
@@ -198,6 +202,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 			Address:  clientContractAddress,
 			Contract: clientContract,
 		})
+		if i%10 == 0 {
+			// Max 10 requests per block
+			b.Commit()
+		}
 	}
 	CommitWithFinality(b)
 	ticker := time.NewTicker(1 * time.Second)
@@ -224,6 +232,7 @@ func StartNewNode(
 	port uint16,
 	dbName string,
 	b *backends.SimulatedBackend,
+	maxGas uint32,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *Node {
 	p2pKey, err := p2pkey.NewV2()
@@ -248,6 +257,7 @@ func StartNewNode(
 
 		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
@@ -334,9 +344,10 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		transmitterID      = "%s"
 		contractConfigConfirmations = 1
 		contractConfigTrackerPollInterval = "1s"
-		pluginType         = "directrequest"
+		maxTaskDuration    = "30s"
+		pluginType         = "functions"
 		observationSource  = """
-			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 requestId, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
+			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
 			decode_cbor        [type="cborparse" data="$(decode_log.data)"]
 			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}" timeout="20s"]
 			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
@@ -350,8 +361,8 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		fromBlock = 1
 
 		[pluginConfig]
-		minIncomingConfirmations = 2
-		requestE2eTimeoutMillis = 10_000
+		minIncomingConfirmations = 3
+		listenerEventHandlerTimeoutSec = 40
 	`, contractAddress, keyBundleID, transmitter))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
@@ -370,4 +381,17 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		// prepend "0xab" to source and return as result
 		res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
 	}))
+}
+
+// Mock EA prepends 0xab to source and user contract crops the answer to first 32 bytes
+func GetExpectedResponse(source []byte) [32]byte {
+	var resp [32]byte
+	resp[0] = 0xab
+	for j := 0; j < 31; j++ {
+		if j >= len(source) {
+			break
+		}
+		resp[j+1] = source[j]
+	}
+	return resp
 }

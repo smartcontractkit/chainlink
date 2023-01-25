@@ -62,3 +62,8 @@ tests-*.xml
 *.test
 tmp-manifest-*.yaml
 ztarrepo.tar.gz
+
+# goreleaser builds
+cosign.*
+dist/
+MacOSX*

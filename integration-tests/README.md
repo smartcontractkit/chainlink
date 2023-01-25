@@ -15,14 +15,6 @@ Prerequisites to run the tests.
 </details>
 
 <details>
-  <summary>Install Ginkgo</summary>
-
-  [Ginkgo](https://onsi.github.io/ginkgo/) is the testing framework we use to compile and run our tests. It comes with a lot of handy testing setups and goodies on top of the standard Go testing packages.
-
-  `go install github.com/onsi/ginkgo/v2/ginkgo`
-</details>
-
-<details>
   <summary>Install NodeJS</summary>
 
   [Install](https://nodejs.org/en/download/)
@@ -76,17 +68,40 @@ make test_smoke_simulated # Run all smoke tests on a simulated network
 Run all smoke tests in parallel, only using simulated blockchains. *Note: As of now, you can only run tests in parallel on simulated chains, not on live ones. Running on parallel tests on live chains will give errors*
 
 ```sh
-make test_smoke_simulated args="-nodes=<number-of-parallel-tests>"
+make test_smoke_simulated args="-test.parallel=<number-of-parallel-tests>"
 ```
 
-You can also run specific tests using `make test_smoke` and a `focus` tag.
+You can also run specific tests and debug tests in vscode by setting up your .vscode/settings.json with this information. Just replace all the "<put your ...>" with your information before running a test.
 
+```json
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+    "go.testEnvVars": {
+        "LOG_LEVEL": "debug",
+        "SELECTED_NETWORKS": "SIMULATED,SIMULATED_1,SIMULATED_2",
+        "CHAINLINK_IMAGE":"<put your account number here>.dkr.ecr.us-west-2.amazonaws.com/chainlink",
+        "CHAINLINK_VERSION":"develop",
+        "CHAINLINK_ENV_USER":"<put your name>",
+        "TEST_LOG_LEVEL":"debug",
+        "AWS_ACCESS_KEY_ID":"<put your access key id here>",
+        "AWS_SECRET_ACCESS_KEY":"<put your access key here>",
+        "AWS_SESSION_TOKEN":"<put your token here>"
+    },
+    "go.testTimeout": "900s"
+}
+```
+
+You can also run your tests inside of kubernetes instead of from locally to reduce local resource usage and the number of ports that get forwarded to the cluster. This is not recommended for normal developement since building and pushing the image can be time heavy depending on your internet upload speeds. To do this you will want to either pull down an already built chainlink-tests image or build one yourself. To build and push one yourself you can run:
 ```sh
-make test_smoke args="-focus=@ocr" # Runs all the ocr smoke tests
-make test_smoke args="-focus=@keeper" # Runs all smoke tests for keepers
+make build_test_image tag=<a tag for your image> base_tag=latest suite="smoke soak chaos reorg migration performance" push=true
 ```
-
-[Check out](https://onsi.github.io/ginkgo/#description-based-filtering) how Ginkgo handles focus and skip tags if you're looking for more precise behavior.
+Once that is done building you can add this to your go.testEnvVars in .vscode/settings.json with the correct account number and tag filled out.
+```json
+        "TEST_SUITE": "smoke",
+        "TEST_ARGS": "-test.timeout 30m",
+        "ENV_JOB_IMAGE":"<account number>.dkr.ecr.us-west-2.amazonaws.com/chainlink-env-tests:<tag you used in the build step>",
+```
+Once that is done you can run/debug your test using the vscode test view just like normal.
 
 ### Soak
 

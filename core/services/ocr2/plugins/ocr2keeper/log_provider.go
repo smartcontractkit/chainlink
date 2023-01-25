@@ -89,16 +89,12 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 
 	vals := []plugintypes.PerformLog{}
 	for _, p := range performed {
-		if p.BlockNumber < int64(p.CheckBlockNumber) {
-			c.logger.Infof("log block number '%d' is before the block the upkeep was checked at '%d'; not including log in output", p.BlockNumber, p.CheckBlockNumber)
-			continue
-		}
-
 		// broadcast log to subscribers
 		l := plugintypes.PerformLog{
-			Key:           pluginutils.BlockAndIdToKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
-			TransmitBlock: plugintypes.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
-			Confirmations: p.Confirmations,
+			Key:             pluginutils.BlockAndIdToKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
+			TransmitBlock:   plugintypes.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
+			TransactionHash: p.TxHash.Hex(),
+			Confirmations:   end - p.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
@@ -125,7 +121,6 @@ func (c *LogProvider) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
 			r := performed{
 				Log:                           log,
 				KeeperRegistryUpkeepPerformed: *l,
-				Confirmations:                 0,
 			}
 
 			results = append(results, r)
@@ -138,5 +133,4 @@ func (c *LogProvider) unmarshalLogs(logs []logpoller.Log) ([]performed, error) {
 type performed struct {
 	logpoller.Log
 	registry.KeeperRegistryUpkeepPerformed
-	Confirmations int64
 }

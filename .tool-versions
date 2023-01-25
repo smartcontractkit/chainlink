@@ -1,6 +1,8 @@
-golang 1.19.3
+golang 1.19.4
 mockery 2.14.0
 nodejs 16.13.2
 postgres 13.3
-ginkgo 2.5.1
-helm 3.9.4
+helm 3.10.3
+zig 0.10.0
+golangci-lint 1.50.1
+shellspec 0.28.1

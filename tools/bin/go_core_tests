@@ -8,20 +8,8 @@ OUTPUT_FILE="./output.txt"
 echo "Failed tests and panics: ---------------------"
 echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-go test -ldflags "$GO_LDFLAGS" -tags integration -p 3 -coverprofile=coverage.txt -covermode=atomic $1 | tee $OUTPUT_FILE | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
+go test -ldflags "$GO_LDFLAGS" -tags integration -p 3 -coverprofile=coverage.txt -covermode=atomic $1 | tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
-echo ""
-echo "----------------------------------------------"
-
-echo ""
-echo "(Note: panics abruptly end the test run and may appear out-of-place, not where they originate."
-echo "Finding their origin test may involve disabling parallelism)"
-echo ""
-echo "Potentially related:"
-echo ""
-
-grep --after-context=2 --group-separator=$'---' "panic: " $OUTPUT_FILE
-grep --group-separator=$'---' "driver: bad connection" $OUTPUT_FILE
 
 # Assert no known sensitive strings present in test logger output
 printf "\n----------------------------------------------\n\n"

@@ -19,17 +19,18 @@ var (
 	// SelectedNetworks uses the SELECTED_NETWORKS env var to determine which network to run the test on.
 	// For use in tests that utilize multiple chains. For tests on one chain, see SelectedNetwork
 	// For CCIP use index 1 and 2 of SELECTED_NETWORKS to denote source and destination network respectively
-	SelectedNetworks []*blockchain.EVMNetwork = determineSelectedNetworks()
+	SelectedNetworks []blockchain.EVMNetwork = determineSelectedNetworks()
 	// SelectedNetwork uses the first listed network in SELECTED_NETWORKS, for use in tests on only one chain
-	SelectedNetwork *blockchain.EVMNetwork = SelectedNetworks[0]
+	SelectedNetwork blockchain.EVMNetwork = SelectedNetworks[0]
 
 	// SimulatedEVM represents a simulated network
-	SimulatedEVM *blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
+	SimulatedEVM blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 	// generalEVM is a customizable network through environment variables
-	generalEVM *blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
+	// This is getting little use, and causes some confusion. Can re-enable if people want it.
+	// generalEVM blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
 
 	// SimulatedevmNonDev1 represents a simulated network which can be used to deploy a non-dev geth node
-	SimulatedEVMNonDev1 = &blockchain.EVMNetwork{
+	SimulatedEVMNonDev1 = blockchain.EVMNetwork{
 		Name:                 "source-chain",
 		Simulated:            true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
@@ -46,7 +47,7 @@ var (
 	}
 
 	// SimulatedEVM_NON_DEV_2 represents a simulated network with chain id 2337 which can be used to deploy a non-dev geth node
-	SimulatedEVMNonDev2 = &blockchain.EVMNetwork{
+	SimulatedEVMNonDev2 = blockchain.EVMNetwork{
 		Name:                 "dest-chain",
 		Simulated:            true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
@@ -63,7 +64,7 @@ var (
 	}
 
 	// sepoliaTestnet https://sepolia.dev/
-	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	SepoliaTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Sepolia Testnet",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   11155111,
@@ -75,7 +76,7 @@ var (
 	}
 
 	// goerliTestnet https://goerli.net/
-	GoerliTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	GoerliTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Goerli Testnet",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   5,
@@ -87,7 +88,7 @@ var (
 	}
 
 	// klaytnBaobab https://klaytn.foundation/
-	KlaytnBaobab *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	KlaytnBaobab blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Klaytn Baobab",
 		ClientImplementation:      blockchain.KlaytnClientImplementation,
 		ChainID:                   1001,
@@ -99,7 +100,7 @@ var (
 	}
 
 	// metisStardust https://www.metis.io/
-	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	MetisStardust blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Metis Stardust",
 		ClientImplementation:      blockchain.MetisClientImplementation,
 		ChainID:                   588,
@@ -111,7 +112,7 @@ var (
 	}
 
 	// arbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
-	ArbitrumGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	ArbitrumGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Arbitrum Goerli",
 		ClientImplementation:      blockchain.ArbitrumClientImplementation,
 		ChainID:                   421613,
@@ -123,7 +124,7 @@ var (
 	}
 
 	// optimismGoerli https://dev.optimism.io/kovan-to-goerli/
-	OptimismGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	OptimismGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Optimism Goerli",
 		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   420,
@@ -135,7 +136,7 @@ var (
 	}
 
 	// rskTestnet https://www.rsk.co/
-	RSKTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	RSKTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "RSK Testnet",
 		ClientImplementation:      blockchain.RSKClientImplementation,
 		ChainID:                   31,
@@ -147,7 +148,7 @@ var (
 	}
 
 	// PolygonMumbai https://mumbai.polygonscan.com/
-	PolygonMumbai *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	PolygonMumbai blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Polygon Mumbai",
 		ClientImplementation:      blockchain.PolygonClientImplementation,
 		ChainID:                   80001,
@@ -158,11 +159,11 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
-	mappedNetworks = map[string]*blockchain.EVMNetwork{
-		"SIMULATED":       SimulatedEVM,
-		"SIMULATED_1":     SimulatedEVMNonDev1,
-		"SIMULATED_2":     SimulatedEVMNonDev2,
-		"GENERAL":         generalEVM,
+	mappedNetworks = map[string]blockchain.EVMNetwork{
+		"SIMULATED":   SimulatedEVM,
+		"SIMULATED_1": SimulatedEVMNonDev1,
+		"SIMULATED_2": SimulatedEVMNonDev2,
+		// "GENERAL":         generalEVM, // See above
 		"GOERLI":          GoerliTestnet,
 		"SEPOLIA":         SepoliaTestnet,
 		"KLAYTN_BAOBAB":   KlaytnBaobab,
@@ -175,10 +176,11 @@ var (
 )
 
 // determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which network(s) to run the tests on
-func determineSelectedNetworks() []*blockchain.EVMNetwork {
+func determineSelectedNetworks() []blockchain.EVMNetwork {
 	logging.Init()
-	selectedNetworks := make([]*blockchain.EVMNetwork, 0)
-	setNetworkNames := strings.Split(strings.ToUpper(os.Getenv("SELECTED_NETWORKS")), ",")
+	selectedNetworks := make([]blockchain.EVMNetwork, 0)
+	rawSelectedNetworks := strings.ToUpper(os.Getenv("SELECTED_NETWORKS"))
+	setNetworkNames := strings.Split(rawSelectedNetworks, ",")
 
 	for _, setNetworkName := range setNetworkNames {
 		if chosenNetwork, valid := mappedNetworks[setNetworkName]; valid {
@@ -186,8 +188,8 @@ func determineSelectedNetworks() []*blockchain.EVMNetwork {
 				Interface("SELECTED_NETWORKS", setNetworkNames).
 				Str("Network Name", chosenNetwork.Name).
 				Msg("Read network choice from 'SELECTED_NETWORKS'")
-			setURLs(setNetworkName, chosenNetwork)
-			setKeys(setNetworkName, chosenNetwork)
+			setURLs(setNetworkName, &chosenNetwork)
+			setKeys(setNetworkName, &chosenNetwork)
 			selectedNetworks = append(selectedNetworks, chosenNetwork)
 		} else {
 			validNetworks := make([]string, 0)
