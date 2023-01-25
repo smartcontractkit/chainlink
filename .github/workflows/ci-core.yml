@@ -4,8 +4,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Run on key branches to make sure integration is good, otherwise run on all PR's
 on:
   push:
+    branches:
+      - master
+      - develop
+      - 'release/*'
+      - staging
+      - trying
+      - rollup
+  pull_request:
   schedule:
     - cron: "0 0 * * *"
 
