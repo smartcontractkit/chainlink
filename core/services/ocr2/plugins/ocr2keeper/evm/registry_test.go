@@ -152,7 +152,7 @@ func TestPollLogs(t *testing.T) {
 				OutputLogs []logpoller.Log
 				OutputErr  error
 			}{
-				InputStart: 400,
+				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{},
 				OutputErr:  fmt.Errorf("test output error"),
@@ -177,7 +177,7 @@ func TestPollLogs(t *testing.T) {
 				OutputLogs []logpoller.Log
 				OutputErr  error
 			}{
-				InputStart: 400,
+				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
 					{EvmChainId: utils.NewBig(big.NewInt(5)), LogIndex: 1},
