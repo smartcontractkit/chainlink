@@ -169,7 +169,7 @@ func TestDRListener_HandleOracleRequestLogError(t *testing.T) {
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, []byte("BAD"), mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
 
@@ -241,4 +241,7 @@ func TestDRListener_ExtractRawBytes(t *testing.T) {
 
 	_, err = drocr_service.ExtractRawBytes([]byte("\"0xqwer\""))
 	require.Error(t, err)
+
+	_, err = drocr_service.ExtractRawBytes([]byte("null"))
+	require.ErrorContains(t, err, "null value")
 }
