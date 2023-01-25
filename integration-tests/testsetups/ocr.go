@@ -148,12 +148,12 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 func (o *OCRSoakTest) Run(t *testing.T) {
 	// Set initial value and create jobs
 	err := actions.SetAllAdapterResponsesToTheSameValue(o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
-	require.NoError(t, err)
+	require.NoError(t, err, "Error setting adapter responses")
 	if o.OperatorForwarderFlow {
 		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
 	} else {
 		err = actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer)
-		require.NoError(t, err)
+		require.NoError(t, err, "Error creating OCR jobs")
 	}
 
 	log.Info().
@@ -308,7 +308,7 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 		report.NewAnswerExpected(currentAdapterValue, startingBlockNum)
 	}
 	err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
-	require.NoError(t, err)
+	require.NoError(t, err, "Error setting adapter responses")
 	log.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")
