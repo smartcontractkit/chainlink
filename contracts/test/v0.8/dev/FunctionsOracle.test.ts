@@ -84,9 +84,14 @@ describe('FunctionsOracle', () => {
     await registry.setConfig(
       1_000_000, // maxGasLimit
       86_400, // stalenessSeconds
-      39_173, // gasAfterPaymentCalculation
+      39_173 /* gasAfterPaymentCalculation
+      gathered by taking the difference from gasleft() directly after payment calculation, and then again after the BillingEnd event, using a hardhat console log
+      */,
       ethers.BigNumber.from('5000000000000000'), // fallbackWeiPerUnitLink
-      519_719, // gasOverhead
+      519_719 /* gasOverhead
+      gathered by taking the difference from initialGas and gasleft() directly after payment calculation, adding back the user's callback gas usage, using a hardhat console log
+      NOTE: this number can vary slightly by number of nodes on the DON
+      */,
       300, // requestTimeoutSeconds
     )
 
