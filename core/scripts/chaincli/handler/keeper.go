@@ -183,6 +183,7 @@ func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registr
 		log.Fatal("DeployAbi failed: ", err)
 	}
 	k.waitDeployment(ctx, deployKeeperRegistryLogicTx)
+	log.Println("KeeperRegistry2.0 Logic deployed:", registryLogicAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryLogicTx.Hash()))
 
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry20.DeployKeeperRegistry(
 		k.buildTxOpts(ctx),

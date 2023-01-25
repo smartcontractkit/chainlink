@@ -799,7 +799,7 @@ contract FunctionsBillingRegistry is
    * @param requestIdsToTimeout - A list of request IDs to time out
    */
 
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external {
+  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external whenNotPaused {
     for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
       bytes32 requestId = requestIdsToTimeout[i];
       Commitment memory commitment = s_requestCommitments[requestId];

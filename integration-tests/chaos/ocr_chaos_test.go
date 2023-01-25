@@ -182,11 +182,14 @@ func TestOCRChaos(t *testing.T) {
 			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances := actions.DeployOCRContracts(t, 1, lt, cd, chainlinkNodes, chainClient)
+			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, chainlinkNodes, chainClient)
+			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
-			actions.SetAllAdapterResponsesToTheSameValue(t, 5, ocrInstances, chainlinkNodes, ms)
-			actions.CreateOCRJobs(t, ocrInstances, chainlinkNodes, ms)
+			err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, ms)
+			require.NoError(t, err)
+			err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, ms)
+			require.NoError(t, err)
 
 			chaosApplied := false
 

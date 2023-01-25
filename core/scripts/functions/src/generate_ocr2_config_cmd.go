@@ -21,7 +21,11 @@ import (
 )
 
 // NOTE: Field names need to match what's in the JSON input file (see sample_config.json)
-type InputConfig struct {
+type TopLevelConfigSource struct {
+	OracleConfig OracleConfigSource
+}
+
+type OracleConfigSource struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
 	MaxReportLengthBytes      uint32
@@ -66,7 +70,7 @@ func (g *generateOCR2Config) Name() string {
 	return "generate-ocr2config"
 }
 
-func mustParseJSONConfigFile(fileName string, output *InputConfig) {
+func mustParseJSONConfigFile(fileName string, output *TopLevelConfigSource) {
 	jsonFile, err := os.Open(fileName)
 	if err != nil {
 		panic(err)
@@ -93,8 +97,9 @@ func (g *generateOCR2Config) Run(args []string) {
 		os.Exit(1)
 	}
 
-	var cfg InputConfig
-	mustParseJSONConfigFile(*configFile, &cfg)
+	var topLevelCfg TopLevelConfigSource
+	mustParseJSONConfigFile(*configFile, &topLevelCfg)
+	cfg := topLevelCfg.OracleConfig
 	nodes := mustReadNodesList(*nodesFile)
 	nca := mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
 

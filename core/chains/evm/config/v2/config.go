@@ -247,8 +247,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
-					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				if config.ChainType(*c.ChainType) != config.ChainOptimismBedrock {
+					err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+						Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				}
 			}
 		}
 	}
