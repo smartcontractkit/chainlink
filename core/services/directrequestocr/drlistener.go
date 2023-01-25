@@ -1,6 +1,7 @@
 package directrequestocr
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -194,6 +195,9 @@ func (l *DRListener) processOracleEvents() {
 //  1. "" (2 characters) -> return empty byte array
 //  2. "0x<val>" where <val> is a non-empty, valid hex -> return hex-decoded <val>
 func ExtractRawBytes(input []byte) ([]byte, error) {
+	if bytes.Equal(input, []byte("null")) {
+		return nil, fmt.Errorf("null value")
+	}
 	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
 		return nil, fmt.Errorf("unable to decode input: %v", input)
 	}
@@ -215,10 +219,17 @@ func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc
 	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
 }
 
+func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
+	readyForProcessing := errType != INTERNAL_ERROR
+	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
+		l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(requestId), "err", err)
+	}
+}
+
 func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("Oracle request received",
-		"requestId", formatRequestId(request.RequestId),
+		"requestID", formatRequestId(request.RequestId),
 		"data", fmt.Sprintf("%0x", request.Data),
 	)
 
@@ -263,13 +274,12 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
+	l.logger.Infow("Pipeline run finished", "requestID", formatRequestId(request.RequestId))
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
 		// Internal problem: Can't find parsed computation results
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errResult.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
-		}
+		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errResult.Error()))
 		return
 	}
 	computationResult, errResult = ExtractRawBytes(computationResult)
@@ -281,9 +291,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName, pg.WithParentCtx(ctx))
 	if errErr != nil {
 		// Internal problem: Can't find parsed computation error
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errErr.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
-		}
+		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errErr.Error()))
 		return
 	}
 	computationError, errErr = ExtractRawBytes(computationError)
@@ -293,9 +301,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	}
 
 	if len(computationError) != 0 {
-		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, USER_EXCEPTION, computationError, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
-		}
+		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
 	} else {
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
