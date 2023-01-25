@@ -1471,6 +1471,7 @@ describe('Operator', () => {
       let maliciousConsumer: Contract
       let gasGuzzlingConsumer: Contract
       let request: ReturnType<typeof decodeRunRequest>
+      let request2: ReturnType<typeof decodeRunRequest>
 
       describe('gas guzzling consumer [ @skip-coverage ]', () => {
         beforeEach(async () => {
@@ -1662,6 +1663,70 @@ describe('Operator', () => {
 
             bigNumEquals(request.payment, await operator.withdrawable())
           })
+        })
+      })
+
+      describe('with a malicious oracle', () => {
+        beforeEach(async () => {
+          // Setup Request 1
+          basicConsumer = await basicConsumerFactory
+            .connect(roles.defaultAccount)
+            .deploy(link.address, operator.address, specId)
+          const paymentAmount = toWei('1')
+          await link.transfer(basicConsumer.address, paymentAmount)
+          const currency = 'USD'
+          const tx = await basicConsumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          )
+          const receipt = await tx.wait()
+          request = decodeRunRequest(receipt.logs?.[3])
+          // Setup Request 2
+          await link.transfer(basicConsumer.address, paymentAmount)
+          const tx2 = await basicConsumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          )
+          const receipt2 = await tx2.wait()
+          request2 = decodeRunRequest(receipt2.logs?.[3])
+        })
+
+        it('cannot spoof requestId in response data by moving calldata offset', async () => {
+          // Malicious Oracle Fulfill 2
+          const functionSelector = '0x6ae0bc76' // fulfillOracleRequest2
+          const dataOffset =
+            '0000000000000000000000000000000000000000000000000000000000000100' // Moved to 0x0124
+          const fillerBytes =
+            '0000000000000000000000000000000000000000000000000000000000000000'
+          const expectedCalldataStart = request.requestId.slice(2) // 0xe4, this is checked against requestId in validateMultiWordResponseId
+          const dataSize =
+            '0000000000000000000000000000000000000000000000000000000000000040' // Two 32 byte blocks
+          const maliciousCalldataId = request2.requestId.slice(2) // 0x0124, set to a different requestId
+          const calldataData =
+            '1122334455667788991122334455667788991122334455667788991122334455' // some garbage value as response value
+
+          const data =
+            functionSelector +
+            /** Input Params - slice off 0x prefix and pad with 0's */
+            request.requestId.slice(2) +
+            request.payment.slice(2).padStart(64, '0') +
+            request.callbackAddr.slice(2).padStart(64, '0') +
+            request.callbackFunc.slice(2).padEnd(64, '0') +
+            request.expiration.slice(2).padStart(64, '0') +
+            // calldata "data"
+            dataOffset +
+            fillerBytes +
+            expectedCalldataStart +
+            dataSize +
+            maliciousCalldataId +
+            calldataData
+
+          await evmRevert(
+            operator.connect(roles.oracleNode).signer.sendTransaction({
+              to: operator.address,
+              data,
+            }),
+          )
         })
       })
 

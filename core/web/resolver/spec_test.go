@@ -621,6 +621,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						BatchFulfillmentGasMultiplier: 1,
 						BackoffInitialDelay:           time.Minute,
 						BackoffMaxDelay:               time.Hour,
+						GasLanePrice:                  assets.GWei(200),
 					},
 				}, nil)
 			},
@@ -646,6 +647,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									chunkSize
 									backoffInitialDelay
 									backoffMaxDelay
+									gasLanePrice
 								}
 							}
 						}
@@ -671,7 +673,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"batchFulfillmentGasMultiplier": 1,
 							"chunkSize": 25,
 							"backoffInitialDelay": "1m0s",
-							"backoffMaxDelay": "1h0m0s"
+							"backoffMaxDelay": "1h0m0s",
+							"gasLanePrice": "200 gwei"
 						}
 					}
 				}

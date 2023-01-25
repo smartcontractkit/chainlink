@@ -6,9 +6,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -191,6 +191,50 @@ type VRFKey struct {
 // VRFKeys is the model that represents the created VRF keys when read
 type VRFKeys struct {
 	Data []VRFKey `json:"data"`
+}
+
+// DKGSignKeyAttributes is the model that represents the created DKG Sign key attributes when read
+type DKGSignKeyAttributes struct {
+	PublicKey string `json:"publicKey"`
+}
+
+// DKGSignKeyData is the model that represents the created DKG Sign key's data when read
+type DKGSignKeyData struct {
+	Type       string               `json:"type"`
+	ID         string               `json:"id"`
+	Attributes DKGSignKeyAttributes `json:"attributes"`
+}
+
+// DKGSignKey is the model that represents the created DKG Sign key when read
+type DKGSignKey struct {
+	Data DKGSignKeyData `json:"data"`
+}
+
+// DKGSignKeys is the model that represents the created DKGSignData key when read
+type DKGSignKeys struct {
+	Data []DKGSignKey `json:"data"`
+}
+
+// DKGEncryptKeyAttributes is the model that represents the created DKG Encrypt key attributes when read
+type DKGEncryptKeyAttributes struct {
+	PublicKey string `json:"publicKey"`
+}
+
+// DKGEncryptKeyData is the model that represents the created DKG Encrypt key's data when read
+type DKGEncryptKeyData struct {
+	Type       string                  `json:"type"`
+	ID         string                  `json:"id"`
+	Attributes DKGEncryptKeyAttributes `json:"attributes"`
+}
+
+// DKGEncryptKey is the model that represents the created DKG Encrypt key when read
+type DKGEncryptKey struct {
+	Data DKGEncryptKeyData `json:"data"`
+}
+
+// DKGEncryptKeys is the model that represents the created DKGEncryptKeys key when read
+type DKGEncryptKeys struct {
+	Data []DKGEncryptKey `json:"data"`
 }
 
 // OCRKeys is the model that represents the created OCR keys when read
@@ -829,7 +873,7 @@ type P2PData struct {
 	PeerID     string
 }
 
-func (p P2PData) P2PV2Bootstrapper() string {
+func (p *P2PData) P2PV2Bootstrapper() string {
 	if p.RemotePort == "" {
 		p.RemotePort = "6690"
 	}
@@ -962,42 +1006,37 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
 		ObservationSource:     o.ObservationSource,
 	}
-	ocr2TemplateString := `type = "{{ .JobType }}"
+	ocr2TemplateString := `
+type                                   = "{{ .JobType }}"
+name                                   = "{{.Name}}"
+{{if .PluginType}}
+pluginType                             = "{{ .PluginType }}" {{end}}
+relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
+contractID                             = "{{.ContractID}}"
+{{if eq .JobType "offchainreporting2" }}
+ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
+{{if eq .JobType "offchainreporting2" }}
+transmitterID                          = "{{.TransmitterID}}" {{end}}
 blockchainTimeout                      ={{if not .BlockchainTimeout}} "20s" {{else}} "{{.BlockchainTimeout}}" {{end}}
 contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{else}} {{.ContractConfirmations}} {{end}}
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} "{{.TrackerPollInterval}}" {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} "{{.TrackerSubscribeInterval}}" {{end}}
-name 																	 = "{{.Name}}"
-relay																	 = "{{.Relay}}"
-contractID		                         = "{{.ContractID}}"
 {{if .P2PV2Bootstrappers}}
-p2pv2Bootstrappers                      = [
-  {{range .P2PV2Bootstrappers}}"{{.}}",
-  {{end}}
-]
-{{else}}
-p2pv2Bootstrappers                      = []
-{{end}}
-monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
-{{if eq .JobType "offchainreporting2" }}
-pluginType                             = "{{ .PluginType }}"
-ocrKeyBundleID                         = "{{.OCRKeyBundleID}}"
-transmitterID                     		 = "{{.TransmitterID}}"
+p2pv2Bootstrappers                     = [{{range .P2PV2Bootstrappers}}"{{.}}",{{end}}]{{end}}
+{{if .MonitoringEndpoint}}
+monitoringEndpoint                     = "{{.MonitoringEndpoint}}" {{end}}
+{{if .ObservationSource}}
 observationSource                      = """
 {{.ObservationSource}}
-"""
-[pluginConfig]
-{{range $key, $value := .PluginConfig}}
-{{$key}} = {{$value}}
+"""{{end}}
+{{if eq .JobType "offchainreporting2" }}
+[pluginConfig]{{range $key, $value := .PluginConfig}}
+{{$key}} = {{$value}}{{end}}
 {{end}}
-{{end}}
-
-[relayConfig]
-{{range $key, $value := .RelayConfig}}
-{{$key}} = {{$value}}
-{{end}}`
-
+[relayConfig]{{range $key, $value := .RelayConfig}}
+{{$key}} = {{$value}}{{end}}
+`
 	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
 

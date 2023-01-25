@@ -70,7 +70,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					EVMChainID:     *utils.NewBigI(22),
 					Nonce:          nil,
 				}, nil)
-				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
@@ -126,7 +126,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					EVMChainID:     *utils.NewBigI(22),
 					Nonce:          &num,
 				}, nil)
-				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
@@ -254,7 +254,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 						EVMChainID:     *utils.NewBigI(22),
 					},
 				}, 1, nil)
-				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmORM.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
 					{
 						EthTxID:                 1,
 						Hash:                    hash,

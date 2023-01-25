@@ -113,6 +113,7 @@ type Secrets struct {
 	Explorer  ExplorerSecrets  `toml:",omitempty"`
 	Password  Passwords        `toml:",omitempty"`
 	Pyroscope PyroscopeSecrets `toml:",omitempty"`
+	Mercury   MercurySecrets   `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -162,6 +163,31 @@ type PyroscopeSecrets struct {
 	AuthToken *models.Secret
 }
 
+type MercuryCredentials struct {
+	URL      *models.SecretURL
+	Username *models.Secret
+	Password *models.Secret
+}
+
+type MercurySecrets struct {
+	Credentials []MercuryCredentials
+}
+
+func (m *MercurySecrets) ValidateConfig() (err error) {
+	urls := make(map[string]struct{}, len(m.Credentials))
+	for _, creds := range m.Credentials {
+		if creds.URL == nil {
+			return errors.New("`url` must be set for all mercury credentials")
+		}
+		s := creds.URL.String()
+		if _, exists := urls[s]; exists {
+			return errors.New("Credentials: may not contain duplicate URLs")
+		}
+		urls[s] = struct{}{}
+	}
+	return nil
+}
+
 type Feature struct {
 	FeedsManager *bool
 	LogPoller    *bool
@@ -196,10 +222,10 @@ type Database struct {
 }
 
 func (d *Database) LockingMode() string {
-	if d.Lock.Mode == "" {
+	if *d.Lock.Enabled {
 		return "lease"
 	}
-	return d.Lock.Mode
+	return "none"
 }
 
 func (d *Database) setFrom(f *Database) {
@@ -249,7 +275,7 @@ func (d *DatabaseListener) setFrom(f *DatabaseListener) {
 }
 
 type DatabaseLock struct {
-	Mode                 string `toml:"-"`
+	Enabled              *bool
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
 }
@@ -263,6 +289,9 @@ func (l *DatabaseLock) ValidateConfig() (err error) {
 }
 
 func (l *DatabaseLock) setFrom(f *DatabaseLock) {
+	if v := f.Enabled; v != nil {
+		l.Enabled = v
+	}
 	if v := f.LeaseDuration; v != nil {
 		l.LeaseDuration = v
 	}
@@ -416,6 +445,7 @@ func (l *LogFile) setFrom(f *LogFile) {
 type WebServer struct {
 	AllowOrigins            *string
 	BridgeResponseURL       *models.URL
+	BridgeCacheTTL          *models.Duration
 	HTTPWriteTimeout        *models.Duration
 	HTTPPort                *uint16
 	SecureCookies           *bool
@@ -433,6 +463,9 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 	if v := f.BridgeResponseURL; v != nil {
 		w.BridgeResponseURL = v
+	}
+	if v := f.BridgeCacheTTL; v != nil {
+		w.BridgeCacheTTL = v
 	}
 	if v := f.HTTPWriteTimeout; v != nil {
 		w.HTTPWriteTimeout = v
@@ -520,6 +553,7 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 type JobPipeline struct {
 	ExternalInitiatorsEnabled *bool
 	MaxRunDuration            *models.Duration
+	MaxSuccessfulRuns         *uint64
 	ReaperInterval            *models.Duration
 	ReaperThreshold           *models.Duration
 	ResultWriteQueueDepth     *uint32
@@ -533,6 +567,9 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.MaxRunDuration; v != nil {
 		j.MaxRunDuration = v
+	}
+	if v := f.MaxSuccessfulRuns; v != nil {
+		j.MaxSuccessfulRuns = v
 	}
 	if v := f.ReaperInterval; v != nil {
 		j.ReaperInterval = v
@@ -792,8 +829,6 @@ type Keeper struct {
 	BaseFeeBufferPercent         *uint16
 	MaxGracePeriod               *int64
 	TurnLookBack                 *int64
-	TurnFlagEnabled              *bool
-	UpkeepCheckGasPriceEnabled   *bool
 
 	Registry KeeperRegistry `toml:",omitempty"`
 }
@@ -816,12 +851,6 @@ func (k *Keeper) setFrom(f *Keeper) {
 	}
 	if v := f.TurnLookBack; v != nil {
 		k.TurnLookBack = v
-	}
-	if v := f.TurnFlagEnabled; v != nil {
-		k.TurnFlagEnabled = v
-	}
-	if v := f.UpkeepCheckGasPriceEnabled; v != nil {
-		k.UpkeepCheckGasPriceEnabled = v
 	}
 
 	k.Registry.setFrom(&f.Registry)

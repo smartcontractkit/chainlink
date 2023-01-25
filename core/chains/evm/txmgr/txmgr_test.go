@@ -8,10 +8,8 @@ import (
 	"testing"
 	"time"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -588,6 +585,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
 	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
+	kst.On("EnabledKeysForChain", &cltest.FixtureChainID).Return([]ethkey.KeyV2{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -759,80 +757,5 @@ func TestTxm_Reset(t *testing.T) {
 		err = db.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr2)
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
-	})
-}
-
-func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
-	var err error
-	db := pgtest.NewSqlxDB(t)
-
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].NonceAutoSync = ptr(true)
-	})
-
-	kst := cltest.NewKeyStore(t, db, cfg).Eth()
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)
-	_, disabledAddress := cltest.MustInsertRandomKeyReturningState(t, kst, false)
-
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-
-	ethNodeNonce := uint64(22)
-
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
-	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	checkerFactory := &testCheckerFactory{}
-
-	t.Run("when eth node returns error", func(t *testing.T) {
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-
-		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
-
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == fromAddress.Hex()
-		})).Return(ethNodeNonce, errors.New("something exploded")).Once()
-
-		err = txm.Start(testutils.Context(t))
-		require.Error(t, err)
-		defer txm.Close()
-		require.Contains(t, err.Error(), "something exploded")
-
-		// disabled address did not get updated
-		var n int
-		err := db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, disabledAddress)
-		require.NoError(t, err)
-		require.Equal(t, 0, n)
-
-		// real address did not update (it errored)
-		err = db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, fromAddress)
-		require.NoError(t, err)
-		require.Equal(t, 0, n)
-	})
-
-	t.Run("when eth node returns nonce", func(t *testing.T) {
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-
-		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
-
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == fromAddress.Hex()
-		})).Return(ethNodeNonce, nil).Once()
-		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
-
-		require.NoError(t, txm.Start(testutils.Context(t)))
-		defer txm.Close()
-
-		// Check keyState to make sure it has correct nonce assigned
-		var nonce int64
-		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
-		require.NoError(t, err)
-		assert.Equal(t, int64(ethNodeNonce), nonce)
-
-		// The disabled key did not get updated
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
-		require.NoError(t, err)
-		assert.Equal(t, int64(0), nonce)
 	})
 }

@@ -143,11 +143,14 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		}
 	}
 
+	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
 		if h, ok := cfg.(v2.HasEVMConfigs); ok {
 			var ids []utils.Big
 			for _, c := range h.EVMConfigs() {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
@@ -169,6 +172,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
+		MailMon:          mailMon,
 	}
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
@@ -189,6 +193,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			cfgs := newCfg.TerraConfigs()
 			var ids []string
 			for _, c := range cfgs {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
@@ -224,6 +229,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			cfgs := newCfg.SolanaConfigs()
 			var ids []string
 			for _, c := range cfgs {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
@@ -258,6 +264,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			cfgs := newCfg.StarknetConfigs()
 			var ids []string
 			for _, c := range cfgs {
+				c := c
 				ids = append(ids, *c.ChainID)
 			}
 			if len(ids) > 0 {
@@ -294,6 +301,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
+		MailMon:                  mailMon,
 		Logger:                   appLggr,
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: externalInitiatorManager,
@@ -356,7 +364,11 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		return errors.New("You must specify at least one port to listen on")
 	}
 
-	server := server{handler: web.Router(app.(*chainlink.ChainlinkApplication), prometheus), lggr: app.GetLogger()}
+	handler, err := web.NewRouter(app, prometheus)
+	if err != nil {
+		return errors.Wrap(err, "failed to create web router")
+	}
+	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
 	if config.Port() != 0 {
@@ -459,7 +471,7 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	return errors.Wrap(err, "failed to run TLS server")
+	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTSPort=0 in your config)")
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
@@ -601,13 +613,13 @@ type ClientOpts struct {
 type SessionCookieAuthenticator struct {
 	config ClientOpts
 	store  CookieStore
-	lggr   logger.Logger
+	lggr   logger.SugaredLogger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
 func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr logger.Logger) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store, lggr: lggr}
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: logger.Sugared(lggr)}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -634,7 +646,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer t.lggr.ErrorIfClosing(resp.Body, "Authenticate response body")
+	defer t.lggr.ErrorIfFn(resp.Body.Close, "Error closing Authenticate response body")
 
 	_, err = parseResponse(resp)
 	if err != nil {

@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Runner --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
 	services.ServiceCtx
@@ -100,11 +100,11 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
-		config:                 config,
+		config:                 cfg,
 		chainSet:               chainSet,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
@@ -243,6 +243,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).orm = r.btORM
+			task.(*BridgeTask).specId = run.PipelineSpec.ID
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
@@ -252,6 +253,9 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
+		case TaskTypeETHGetBlock:
+			task.(*ETHGetBlockTask).chainSet = r.chainSet
+			task.(*ETHGetBlockTask).config = r.config
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:

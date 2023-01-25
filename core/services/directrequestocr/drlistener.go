@@ -30,6 +30,7 @@ const (
 )
 
 type DRListener struct {
+	utils.StartStopOnce
 	oracle            *ocr2dr_oracle.OCR2DROracle
 	job               job.Job
 	pipelineRunner    pipeline.Runner
@@ -43,10 +44,14 @@ type DRListener struct {
 	pluginORM         ORM
 	pluginConfig      config.PluginConfig
 	logger            logger.Logger
-	utils.StartStopOnce
+	mailMon           *utils.MailboxMonitor
 }
 
-func NewDRListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger) *DRListener {
+func formatRequestId(requestId [32]byte) string {
+	return fmt.Sprintf("0x%x", requestId)
+}
+
+func NewDRListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *DRListener {
 	return &DRListener{
 		oracle:         oracle,
 		job:            jb,
@@ -58,6 +63,7 @@ func NewDRListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeli
 		pluginORM:      pluginORM,
 		pluginConfig:   pluginConfig,
 		logger:         lggr,
+		mailMon:        mailMon,
 	}
 }
 
@@ -69,18 +75,26 @@ func (l *DRListener) Start(context.Context) error {
 			Contract: l.oracle.Address(),
 			ParseLog: l.oracle.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
-				ocr2dr_oracle.OCR2DROracleOracleRequest{}.Topic():  {},
-				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic(): {},
+				ocr2dr_oracle.OCR2DROracleOracleRequest{}.Topic():        {},
+				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic():       {},
+				ocr2dr_oracle.OCR2DROracleUserCallbackError{}.Topic():    {},
+				ocr2dr_oracle.OCR2DROracleUserCallbackRawError{}.Topic(): {},
 			},
 			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 		})
-		l.shutdownWaitGroup.Add(2)
+		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
+			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
+		}
+		l.shutdownWaitGroup.Add(3)
 		go l.processOracleEvents()
+		go l.timeoutRequests()
 		go func() {
 			<-l.chStop
 			unsubscribeLogs()
 			l.shutdownWaitGroup.Done()
 		}()
+
+		l.mailMon.Monitor(l.mbOracleEvents, "DirectRequestListener", "OracleEvents", fmt.Sprint(l.job.ID))
 
 		return nil
 	})
@@ -93,11 +107,11 @@ func (l *DRListener) Close() error {
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
 
-		return nil
+		return l.mbOracleEvents.Close()
 	})
 }
 
-// HandleLog() complies with log.Listener
+// HandleLog implements log.Listener
 func (l *DRListener) HandleLog(lb log.Broadcast) {
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
@@ -106,7 +120,7 @@ func (l *DRListener) HandleLog(lb log.Broadcast) {
 	}
 
 	switch log := log.(type) {
-	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse:
+	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse, *ocr2dr_oracle.OCR2DROracleUserCallbackError, *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
 		wasOverCapacity := l.mbOracleEvents.Deliver(lb)
 		if wasOverCapacity {
 			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
@@ -122,13 +136,18 @@ func (l *DRListener) JobID() int32 {
 }
 
 func (l *DRListener) processOracleEvents() {
+	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
 		case <-l.chStop:
-			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleEvents.Notify():
 			for {
+				select {
+				case <-l.chStop:
+					return
+				default:
+				}
 				lb, exists := l.mbOracleEvents.Retrieve()
 				if !exists {
 					break
@@ -136,15 +155,15 @@ func (l *DRListener) processOracleEvents() {
 				was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 				if err != nil {
 					l.logger.Errorw("Could not determine if log was already consumed", "error", err)
-					break
+					continue
 				} else if was {
-					break
+					continue
 				}
 
 				log := lb.DecodedLog()
 				if log == nil || reflect.ValueOf(log).IsNil() {
 					l.logger.Error("processOracleEvents: ignoring nil value")
-					break
+					continue
 				}
 
 				switch log := log.(type) {
@@ -153,7 +172,13 @@ func (l *DRListener) processOracleEvents() {
 					go l.handleOracleRequest(log, lb)
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse(log, lb)
+					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
+				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
+					l.shutdownWaitGroup.Add(1)
+					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
+				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
+					l.shutdownWaitGroup.Add(1)
+					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}
@@ -162,10 +187,38 @@ func (l *DRListener) processOracleEvents() {
 	}
 }
 
+// Process result from the EA saved by a jsonparse pipeline task.
+// That value is a valid JSON string so it contains double quote characters.
+// Allowed inputs are:
+//
+//  1. "" (2 characters) -> return empty byte array
+//  2. "0x<val>" where <val> is a non-empty, valid hex -> return hex-decoded <val>
+func ExtractRawBytes(input []byte) ([]byte, error) {
+	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
+		return nil, fmt.Errorf("unable to decode input: %v", input)
+	}
+	input = input[1 : len(input)-1]
+	if len(input) == 0 {
+		return []byte{}, nil
+	}
+	if len(input) < 4 || len(input)%2 != 0 {
+		return nil, fmt.Errorf("input is not a valid, non-empty hex string of even length: %v", input)
+	}
+	return utils.TryParseHex(string(input))
+}
+
+func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
+	timeoutSec := l.pluginConfig.ListenerEventHandlerTimeoutSec
+	if timeoutSec == 0 {
+		return context.WithCancel(l.serviceContext)
+	}
+	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
+}
+
 func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("Oracle request received",
-		"requestId", fmt.Sprintf("%0x", request.RequestId),
+		"requestId", formatRequestId(request.RequestId),
 		"data", fmt.Sprintf("%0x", request.Data),
 	)
 
@@ -194,57 +247,72 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 			"blockStateRoot":        lb.StateRoot(),
 		},
 	})
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	dbRequestID, err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash)
+	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
 	if err != nil {
-		l.logger.Errorf("Failed to create a DB entry for new request (ID: %v)", request.RequestId)
+		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
-	_, err = l.pipelineRunner.Run(l.serviceContext, &run, l.logger, true, func(tx pg.Queryer) error {
+	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {
 		l.markLogConsumed(lb, pg.WithQueryer(tx))
 		return nil
 	})
 	if err != nil {
-		l.logger.Errorf("Pipeline run failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "err", err)
 		return
 	}
 
-	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName)
-	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName)
-
+	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
 		// Internal problem: Can't find parsed computation results
-		if err2 := l.pluginORM.SetError(dbRequestID, run.ID, NODE_EXCEPTION, errResult.Error(), time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetError failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errResult.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 		return
 	}
+	computationResult, errResult = ExtractRawBytes(computationResult)
+	if errResult != nil {
+		l.logger.Errorw("failed to extract result", "requestID", formatRequestId(request.RequestId), "err", errResult)
+		return
+	}
+
+	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName, pg.WithParentCtx(ctx))
 	if errErr != nil {
 		// Internal problem: Can't find parsed computation error
-		if err2 := l.pluginORM.SetError(dbRequestID, run.ID, NODE_EXCEPTION, errErr.Error(), time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetError failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, NODE_EXCEPTION, []byte(errErr.Error()), time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
+		return
+	}
+	computationError, errErr = ExtractRawBytes(computationError)
+	if errErr != nil {
+		l.logger.Errorw("failed to extract error", "requestID", formatRequestId(request.RequestId), "err", errErr)
 		return
 	}
 
 	if len(computationError) != 0 {
-		if err2 := l.pluginORM.SetError(dbRequestID, run.ID, USER_EXCEPTION, string(computationError), time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetError failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetError(request.RequestId, run.ID, USER_EXCEPTION, computationError, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 	} else {
-		if err2 := l.pluginORM.SetResult(dbRequestID, run.ID, computationResult, time.Now()); err2 != nil {
-			l.logger.Errorf("Call to SetResult failed for request ID: %v, DBID: %v", request.RequestId, dbRequestID)
+		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 	}
 }
 
-func (l *DRListener) handleOracleResponse(response *ocr2dr_oracle.OCR2DROracleOracleResponse, lb log.Broadcast) {
+func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("Oracle response received", "requestId", fmt.Sprintf("%0x", response.RequestId))
+	l.logger.Infow("oracle response received", "type", responseType, "requestID", formatRequestId(requestID))
 
-	if err := l.pluginORM.SetConfirmed(response.RequestId); err != nil {
-		l.logger.Errorf("Call to SetConfirmed failed for request ID: %v", response.RequestId)
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
+	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
+		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
+	l.markLogConsumed(lb)
 }
 
 func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
@@ -253,6 +321,37 @@ func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
 	}
 }
 
-func formatRequestId(requestId [32]byte) string {
-	return fmt.Sprintf("0x%x", requestId)
+func (l *DRListener) timeoutRequests() {
+	defer l.shutdownWaitGroup.Done()
+	timeoutSec, freqSec, batchSize := l.pluginConfig.RequestTimeoutSec, l.pluginConfig.RequestTimeoutCheckFrequencySec, l.pluginConfig.RequestTimeoutBatchLookupSize
+	if timeoutSec == 0 || freqSec == 0 || batchSize == 0 {
+		l.logger.Warn("request timeout checker not configured - disabling it")
+		return
+	}
+	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
+			ctx, cancel := l.getNewHandlerContext()
+			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize, pg.WithParentCtx(ctx))
+			cancel()
+			if err != nil {
+				l.logger.Errorw("error when calling FindExpiredResults", "err", err)
+				break
+			}
+			if len(ids) > 0 {
+				var idStrs []string
+				for _, id := range ids {
+					idStrs = append(idStrs, formatRequestId(id))
+				}
+				l.logger.Debugw("timed out requests", "requestIDs", idStrs)
+			} else {
+				l.logger.Debug("no requests to time out")
+			}
+		}
+	}
 }

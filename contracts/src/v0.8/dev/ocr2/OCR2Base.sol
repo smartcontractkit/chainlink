@@ -15,6 +15,8 @@ import "./OCR2Abstract.sol";
  * of juicy storage layout optimizations, leading to a substantial increase in gas cost.
  */
 abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
+  error ReportInvalid();
+
   bool internal immutable i_uniqueReports;
 
   constructor(bool uniqueReports) ConfirmedOwner(msg.sender) {
@@ -253,13 +255,33 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
 
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal virtual;
 
-  function _report(
+  /**
+   * @dev hook to allow additional validation of the report by the extending contract
+   * @param configDigest separation tag for current config (see configDigestFromConfigData)
+   * @param epochAndRound 27 byte padding, 4-byte epoch and 1-byte round
+   * @param report serialized report
+   */
+  function _validateReport(
     bytes32 configDigest,
     uint40 epochAndRound,
     bytes memory report
-  ) internal virtual;
+  ) internal virtual returns (bool);
 
-  function _payTransmitter(uint32 initialGas, address transmitter) internal virtual;
+  /**
+   * @dev hook called after the report has been fully validated
+   * for the extending contract to handle additional logic, such as oracle payment
+   * @param initialGas the amount of gas before validation
+   * @param transmitter the address of the account that submitted the report
+   * @param signers the addresses of all signing accounts
+   * @param report serialized report
+   */
+  function _report(
+    uint256 initialGas,
+    address transmitter,
+    uint8 signerCount,
+    address[maxNumOracles] memory signers,
+    bytes calldata report
+  ) internal virtual;
 
   // The constant-length components of the msg.data sent to transmit.
   // See the "If we wanted to call sam" example on for example reasoning
@@ -319,7 +341,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       bytes32 configDigest = reportContext[0];
       uint32 epochAndRound = uint32(uint256(reportContext[1]));
 
-      _report(configDigest, epochAndRound, report);
+      if (!_validateReport(configDigest, epochAndRound, report)) {
+        revert ReportInvalid();
+      }
 
       emit Transmitted(configDigest, uint32(epochAndRound >> 8));
 
@@ -345,22 +369,24 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       );
     }
 
+    address[maxNumOracles] memory signed;
+    uint8 signerCount = 0;
+
     {
       // Verify signatures attached to report
       bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
-      bool[maxNumOracles] memory signed;
 
       Oracle memory o;
       for (uint256 i = 0; i < rs.length; ++i) {
         address signer = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         o = s_oracles[signer];
         require(o.role == Role.Signer, "address not authorized to sign");
-        require(!signed[o.index], "non-unique signature");
-        signed[o.index] = true;
+        require(signed[o.index] == address(0), "non-unique signature");
+        signed[o.index] = signer;
+        signerCount += 1;
       }
     }
 
-    assert(initialGas < maxUint32);
-    _payTransmitter(uint32(initialGas), msg.sender);
+    _report(initialGas, msg.sender, signerCount, signed, report);
   }
 }

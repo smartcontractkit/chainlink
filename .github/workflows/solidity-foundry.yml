@@ -1,0 +1,78 @@
+name: Solidity Foundry
+on: [pull_request]
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - 'contracts/**/*'
+              - '.github/workflows/solidity-foundry.yml'
+
+  tests:
+    needs: [changes]
+    name: Tests
+    # See https://github.com/foundry-rs/foundry/issues/3827
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          submodules: recursive
+
+      # Only needed because we use the NPM versions of packages
+      # and not native Foundry. This is to make sure the dependencies
+      # stay in sync.
+      - name: Setup NodeJS
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Run Forge build
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: |
+          forge --version
+          forge build --sizes
+        id: build
+        working-directory: contracts
+
+      - name: Run Forge tests
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: contracts
+
+      - name: Run Forge snapshot
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: |
+          forge snapshot --match-test _gas --check
+        id: snapshot
+        working-directory: contracts
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Foundry Tests
+        continue-on-error: true

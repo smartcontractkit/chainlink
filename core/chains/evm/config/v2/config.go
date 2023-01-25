@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/constraints"
+	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -69,6 +70,20 @@ func (cs EVMConfigs) ValidateConfig() (err error) {
 		}
 	}
 	return
+}
+
+func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
+	for _, f := range *fs {
+		if f.ChainID == nil {
+			*cs = append(*cs, f)
+		} else if i := slices.IndexFunc(*cs, func(c *EVMConfig) bool {
+			return c.ChainID != nil && c.ChainID.Cmp(f.ChainID) == 0
+		}); i == -1 {
+			*cs = append(*cs, f)
+		} else {
+			(*cs)[i].SetFrom(f)
+		}
+	}
 }
 
 func (cs EVMConfigs) Chains(ids ...utils.Big) (chains []types.DBChain) {
@@ -162,6 +177,20 @@ func (cs EVMConfigs) NodesByID(chainIDs ...utils.Big) (ns []types.Node) {
 
 type EVMNodes []*Node
 
+func (ns *EVMNodes) SetFrom(fs *EVMNodes) {
+	for _, f := range *fs {
+		if f.Name == nil {
+			*ns = append(*ns, f)
+		} else if i := slices.IndexFunc(*ns, func(n *Node) bool {
+			return n.Name != nil && *n.Name == *f.Name
+		}); i == -1 {
+			*ns = append(*ns, f)
+		} else {
+			(*ns)[i].SetFrom(f)
+		}
+	}
+}
+
 type EVMConfig struct {
 	ChainID *utils.Big
 	Enabled *bool
@@ -171,6 +200,17 @@ type EVMConfig struct {
 
 func (c *EVMConfig) IsEnabled() bool {
 	return c.Enabled == nil || *c.Enabled
+}
+
+func (c *EVMConfig) SetFrom(f *EVMConfig) {
+	if f.ChainID != nil {
+		c.ChainID = f.ChainID
+	}
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
+	c.Chain.SetFrom(&f.Chain)
+	c.Nodes.SetFrom(&f.Nodes)
 }
 
 func (c *EVMConfig) SetFromDB(ch types.DBChain, nodes []types.Node) error {
@@ -207,8 +247,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
-					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				if config.ChainType(*c.ChainType) != config.ChainOptimismBedrock {
+					err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+						Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
+				}
 			}
 		}
 	}
@@ -668,6 +710,7 @@ type NodePool struct {
 	PollFailureThreshold *uint32
 	PollInterval         *models.Duration
 	SelectionMode        *string
+	SyncThreshold        *uint32
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -679,6 +722,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.SelectionMode; v != nil {
 		p.SelectionMode = v
+	}
+	if v := f.SyncThreshold; v != nil {
+		p.SyncThreshold = v
 	}
 }
 
@@ -896,11 +942,11 @@ func (n *Node) ValidateConfig() (err error) {
 		sendOnly = *n.SendOnly
 	}
 	if n.WSURL == nil {
-		if sendOnly {
+		if !sendOnly {
 			err = multierr.Append(err, v2.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else if n.WSURL.IsZero() {
-		if sendOnly {
+		if !sendOnly {
 			err = multierr.Append(err, v2.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else {
@@ -924,6 +970,21 @@ func (n *Node) ValidateConfig() (err error) {
 	}
 
 	return
+}
+
+func (n *Node) SetFrom(f *Node) {
+	if f.Name != nil {
+		n.Name = f.Name
+	}
+	if f.WSURL != nil {
+		n.WSURL = f.WSURL
+	}
+	if f.HTTPURL != nil {
+		n.HTTPURL = f.HTTPURL
+	}
+	if f.SendOnly != nil {
+		n.SendOnly = f.SendOnly
+	}
 }
 
 func (n *Node) SetFromDB(db types.Node) (err error) {

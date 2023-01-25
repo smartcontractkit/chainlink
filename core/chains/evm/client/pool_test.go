@@ -132,7 +132,7 @@ func TestPool_Dial(t *testing.T) {
 			},
 		},
 		{
-			name:            "remote RPC has wrong chain ID for sendonly node",
+			name:            "remote RPC has wrong chain ID for sendonly node - no error, it will go into retry loop",
 			poolChainID:     testutils.FixtureChainID,
 			nodeChainID:     testutils.FixtureChainID.Int64(),
 			sendNodeChainID: testutils.FixtureChainID.Int64(),
@@ -142,11 +142,6 @@ func TestPool_Dial(t *testing.T) {
 			sendNodes: []chainIDResp{
 				{42, nil},
 			},
-			// TODO: Followup; sendonly nodes should not halt if they fail to
-			// dail on startup; instead should go into retry loop like
-			// primaries
-			// See: https://app.shortcut.com/chainlinklabs/story/31338/sendonly-nodes-should-not-halt-node-boot-if-they-fail-to-dial-instead-should-have-retry-loop-like-primaries
-			errStr: "sendonly rpc ChainID doesn't match local chain ID: RPC ID=42, local ID=0",
 		},
 	}
 	for _, test := range tests {
@@ -206,9 +201,18 @@ type chainIDResps struct {
 }
 
 func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
-	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (string, string) {
+	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
+		}
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
-		return "", ""
+		return
 	})
 
 	wsURL, err := url.Parse(ws)
@@ -319,5 +323,5 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 
 	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID)
 
-	p.BatchCallContextAll(ctx, b)
+	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }

@@ -4,14 +4,25 @@ pragma solidity ^0.7.0;
 import "../KeeperCompatible.sol";
 
 contract UpkeepMock is KeeperCompatible {
+  bool public shouldRevertCheck;
   bool public canCheck;
   bool public canPerform;
+  bytes public performData;
   uint256 public checkGasToBurn;
   uint256 public performGasToBurn;
 
-  uint256 constant gasBuffer = 1000; // use all but this amount in gas burn loops
+  uint256 constant checkGasBuffer = 6000; // use all but this amount in gas burn loops
+  uint256 constant performGasBuffer = 1000; // use all but this amount in gas burn loops
 
   event UpkeepPerformedWith(bytes upkeepData);
+
+  function setShouldRevertCheck(bool value) public {
+    shouldRevertCheck = value;
+  }
+
+  function setPerformData(bytes calldata data) public {
+    performData = data;
+  }
 
   function setCanCheck(bool value) public {
     canCheck = value;
@@ -22,21 +33,30 @@ contract UpkeepMock is KeeperCompatible {
   }
 
   function setCheckGasToBurn(uint256 value) public {
-    require(value > gasBuffer || value == 0, "checkGasToBurn must be 0 (disabled) or greater than buffer");
-    checkGasToBurn = value - gasBuffer;
+    require(value > checkGasBuffer || value == 0, "checkGasToBurn must be 0 (disabled) or greater than buffer");
+    if (value > 0) {
+      checkGasToBurn = value - checkGasBuffer;
+    } else {
+      checkGasToBurn = 0;
+    }
   }
 
   function setPerformGasToBurn(uint256 value) public {
-    require(value > gasBuffer || value == 0, "performGasToBurn must be 0 (disabled) or greater than buffer");
-    performGasToBurn = value - gasBuffer;
+    require(value > performGasBuffer || value == 0, "performGasToBurn must be 0 (disabled) or greater than buffer");
+    if (value > 0) {
+      performGasToBurn = value - performGasBuffer;
+    } else {
+      performGasToBurn = 0;
+    }
   }
 
   function checkUpkeep(bytes calldata data)
     external
     override
     cannotExecute
-    returns (bool callable, bytes calldata executedata)
+    returns (bool callable, bytes memory executedata)
   {
+    require(!shouldRevertCheck, "shouldRevertCheck should be false");
     uint256 startGas = gasleft();
     bool couldCheck = canCheck;
 
@@ -44,15 +64,13 @@ contract UpkeepMock is KeeperCompatible {
 
     while (startGas - gasleft() < checkGasToBurn) {} // burn gas
 
-    return (couldCheck, data);
+    return (couldCheck, performData);
   }
 
   function performUpkeep(bytes calldata data) external override {
     uint256 startGas = gasleft();
 
     require(canPerform, "Cannot perform");
-
-    setCanPerform(false);
 
     emit UpkeepPerformedWith(data);
 

@@ -4,20 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
-	"gopkg.in/guregu/null.v4"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -25,24 +24,35 @@ import (
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
+	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ relaytypes.Relayer = &Relayer{}
 
-type Relayer struct {
-	db       *sqlx.DB
-	chainSet evm.ChainSet
-	lggr     logger.Logger
+type RelayerConfig interface {
+	MercuryCredentials(url string) (username, password string, err error)
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger) *Relayer {
+type Relayer struct {
+	db          *sqlx.DB
+	chainSet    evm.ChainSet
+	lggr        logger.Logger
+	cfg         RelayerConfig
+	ethKeystore keystore.Eth
+}
+
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ethKeystore keystore.Eth) *Relayer {
 	return &Relayer{
-		db:       db,
-		chainSet: chainSet,
-		lggr:     lggr.Named("Relayer"),
+		db:          db,
+		chainSet:    chainSet,
+		lggr:        lggr.Named("Relayer"),
+		cfg:         cfg,
+		ethKeystore: ethKeystore,
 	}
 }
 
@@ -80,7 +90,7 @@ type configWatcher struct {
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
-	offchainDigester types.OffchainConfigDigester
+	offchainDigester ocrtypes.OffchainConfigDigester
 	configPoller     *ConfigPoller
 	chain            evm.Chain
 	runReplay        bool
@@ -93,7 +103,7 @@ type configWatcher struct {
 func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	contractABI abi.ABI,
-	offchainDigester types.OffchainConfigDigester,
+	offchainDigester ocrtypes.OffchainConfigDigester,
 	configPoller *ConfigPoller,
 	chain evm.Chain,
 	fromBlock uint64,
@@ -144,16 +154,16 @@ func (c *configWatcher) Close() error {
 	})
 }
 
-func (c *configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
+func (c *configWatcher) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
 	return c.offchainDigester
 }
 
-func (c *configWatcher) ContractConfigTracker() types.ContractConfigTracker {
+func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
 func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err
@@ -186,45 +196,30 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, configPoller, chain, relayConfig.FromBlock, args.New), nil
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
-	var relayConfig RelayConfig
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*ContractTransmitter, error) {
+	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
 	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
+	if !relayConfig.EffectiveTransmitterAddress.Valid {
+		return nil, errors.New("EffectiveTransmitterAddress must be specified")
+	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
-	useForwarders := configWatcher.chain.Config().EvmUseForwarders()
 
-	if useForwarders {
-		// If using the forwarder, ensure sending keys are provided.
-		if len(sendingKeys) == 0 {
-			return nil, errors.New("no sending keys found in job spec with forwarder enabled")
-		}
+	sendingKeysLength := len(sendingKeys)
+	if sendingKeysLength == 0 {
+		return nil, errors.New("no sending keys provided")
+	}
 
-		// The sending keys provided are used as the from addresses.
-		for _, s := range sendingKeys {
-			// Ensure the transmitter is not contained in the sending keys slice.
-			if s == effectiveTransmitterAddress.String() {
-				return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
-			}
-			fromAddresses = append(fromAddresses, common.HexToAddress(s))
+	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
+	// Ensure that this forwarder is not set to a local sending key.
+	for _, s := range sendingKeys {
+		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
+			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-	} else {
-		// Ensure the transmitter is contained in the sending keys slice.
-		var transmitterFoundLocally bool
-		for _, s := range sendingKeys {
-			if s == effectiveTransmitterAddress.String() {
-				transmitterFoundLocally = true
-				break
-			}
-		}
-		if !transmitterFoundLocally {
-			return nil, errors.New("the transmitter was not found in the list of sending keys, perhaps EvmUseForwarders needs to be enabled")
-		}
-
-		// If not using the forwarder, the effectiveTransmitterAddress (TransmitterID) is used as the from address.
-		fromAddresses = append(fromAddresses, effectiveTransmitterAddress)
+		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
 
 	scoped := configWatcher.chain.Config()
@@ -240,22 +235,40 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
 
+	transmitter, err := ocrcommon.NewTransmitter(
+		configWatcher.chain.TxManager(),
+		fromAddresses,
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		txm.TransmitCheckerSpec{},
+		configWatcher.chain.ID(),
+		ethKeystore,
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create transmitter")
+	}
+
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), fromAddresses, gasLimit, effectiveTransmitterAddress, strategy, txm.TransmitCheckerSpec{}),
+		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)
 }
 
 func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, pluginGasLimit *uint32, configWatcher *configWatcher, spec job.Job, pr pipeline.Runner) (*ContractTransmitter, error) {
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
 
+	if !relayConfig.EffectiveTransmitterAddress.Valid {
+		return nil, errors.New("EffectiveTransmitterAddress must be specified")
+	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	scoped := configWatcher.chain.Config()
@@ -299,39 +312,71 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+
+	var relayConfig types.RelayConfig
+	if err = json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+		return nil, err
+	}
+	var contractTransmitter ocrtypes.ContractTransmitter
+	var reportCodec median.ReportCodec
+	if relayConfig.MercuryConfig != nil {
+		r.lggr.Debugf("Mercury mode enabled for job %d", rargs.JobID)
+		contractTransmitter, reportCodec, err = r.NewMercuryMedianProvider(relayConfig)
+	} else {
+		r.lggr.Debugf("On-chain mode enabled for job %d", rargs.JobID)
+		reportCodec = evmreportcodec.ReportCodec{}
+		contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
+	}
 	if err != nil {
 		return nil, err
 	}
-	medianContract, err := newMedianContract(configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr)
+
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr, relayConfig.MercuryConfig != nil)
 	if err != nil {
 		return nil, err
 	}
 	return &medianProvider{
 		configWatcher:       configWatcher,
-		reportCodec:         evmreportcodec.ReportCodec{},
+		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
 		medianContract:      medianContract,
 	}, nil
+
 }
 
-type RelayConfig struct {
-	ChainID                     *utils.Big     `json:"chainID"`
-	FromBlock                   uint64         `json:"fromBlock"`
-	EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`
-	SendingKeys                 pq.StringArray `json:"sendingKeys"`
+func (r *Relayer) NewMercuryMedianProvider(relayConfig types.RelayConfig) (contractTransmitter ocrtypes.ContractTransmitter, reportCodec median.ReportCodec, err error) {
+	// Override on-chain transmitter with Mercury if the relevant config is set
+	reportURL := relayConfig.MercuryConfig.URL
+	if reportURL == nil {
+		return contractTransmitter, reportCodec, errors.New("Mercury URL must be specified")
+	}
+	if !relayConfig.EffectiveTransmitterAddress.Valid {
+		return contractTransmitter, reportCodec, errors.New("EffectiveTransmitterAddress must be specified")
+	}
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterAddress.String)
+	var username, password string
+	username, password, err = r.cfg.MercuryCredentials(reportURL.String())
+	if err != nil {
+		return contractTransmitter, reportCodec, errors.Wrapf(err, "failed to get mercury credentials for URL: %s", reportURL.String())
+	}
+	contractTransmitter = mercury.NewTransmitter(r.lggr, http.DefaultClient, effectiveTransmitterAddress, reportURL.String(), username, password)
+	if relayConfig.MercuryConfig.FeedID == (common.Hash{}) {
+		return contractTransmitter, reportCodec, errors.New("FeedID must be specified")
+	}
+	reportCodec = mercury.ReportCodec{FeedID: relayConfig.MercuryConfig.FeedID}
+	return
 }
 
 var _ relaytypes.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ocrtypes.ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
 }
 
-func (p *medianProvider) ContractTransmitter() types.ContractTransmitter {
+func (p *medianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return p.contractTransmitter
 }
 

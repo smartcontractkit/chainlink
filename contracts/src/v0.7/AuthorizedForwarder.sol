@@ -19,6 +19,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     address recipient,
     bytes memory message
   ) ConfirmedOwnerWithProposal(owner, recipient) {
+    require(link != address(0));
     getChainlinkToken = link;
     if (recipient != address(0)) {
       emit OwnershipTransferRequestedWithMessage(owner, recipient, message);
@@ -77,7 +78,12 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
    */
   function _forward(address to, bytes calldata data) private {
     require(to.isContract(), "Must forward to a contract");
-    (bool status, ) = to.call(data);
-    require(status, "Forwarded call failed");
+    (bool success, bytes memory result) = to.call(data);
+    if (!success) {
+      if (result.length == 0) revert("Forwarded call reverted without reason");
+      assembly {
+        revert(add(32, result), mload(result))
+      }
+    }
   }
 }

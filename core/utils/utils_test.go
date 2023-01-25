@@ -384,24 +384,23 @@ func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
 	ready := make(chan bool)
 
 	go func() {
-		once.StartOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StartOnce("slow service", func() (err error) {
 			ch <- 1
 			ready <- true
 			<-time.After(time.Millisecond * 500) // wait for StopOnce to happen
 			ch <- 2
 
 			return nil
-		})
-
+		}))
 	}()
 
 	go func() {
 		<-ready // try stopping halfway through startup
-		once.StopOnce("slow service", func() (err error) {
+		assert.NoError(t, once.StopOnce("slow service", func() (err error) {
 			ch <- 3
 
 			return nil
-		})
+		}))
 	}()
 
 	require.Equal(t, 1, <-ch)

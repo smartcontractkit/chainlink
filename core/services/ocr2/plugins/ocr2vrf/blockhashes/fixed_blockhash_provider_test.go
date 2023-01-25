@@ -54,7 +54,6 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		lp.On("LatestBlock", mock.Anything).Return(h, nil).Once()
 
 		blocks := []logpoller.LogPollerBlock{
-			createLogPollerBlock(92),
 			createLogPollerBlock(93),
 			createLogPollerBlock(94),
 			createLogPollerBlock(95),
@@ -65,16 +64,43 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 			createLogPollerBlock(100),
 		}
 
-		lp.On("GetBlocks", ctx, mock.MatchedBy(func(val []uint64) bool {
-			return slicesEqual(val, []uint64{92, 93, 94, 95, 96, 97, 98, 99, 100})
-		})).Return(blocks, nil).Once()
+		lp.On("GetBlocksRange", ctx, mock.MatchedBy(func(val []uint64) bool {
+			return slicesEqual(val, []uint64{93, 94, 95, 96, 97, 98, 99, 100})
+		}), mock.Anything).Return(blocks, nil).Once()
 
 		p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 8)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, uint64(100-8), startHeight)
-		assert.Equal(t, 9, len(hashes))
+		assert.Equal(t, uint64(100-7), startHeight)
+		assert.Equal(t, 8, len(hashes))
+		for _, hash := range hashes {
+			assert.NotEmpty(t, hash)
+		}
+		lp.AssertExpectations(t)
+	})
+
+	t.Run("returns max expected blocks", func(t *testing.T) {
+		lp := lp_mocks.NewLogPoller(t)
+		lp.On("LatestBlock", mock.Anything).Return(int64(1000), nil).Once()
+
+		var blocks []logpoller.LogPollerBlock
+		var blockHeights []uint64
+		for i := (1000 - 255); i <= 1000; i++ {
+			blocks = append(blocks, createLogPollerBlock(int64(i)))
+			blockHeights = append(blockHeights, uint64(i))
+		}
+
+		lp.On("GetBlocksRange", ctx, mock.MatchedBy(func(val []uint64) bool {
+			return slicesEqual(val, blockHeights)
+		}), mock.Anything).Return(blocks, nil).Once()
+
+		p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 500)
+		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1000-255), startHeight)
+		assert.Equal(t, 256, len(hashes))
 		for _, hash := range hashes {
 			assert.NotEmpty(t, hash)
 		}
@@ -85,9 +111,9 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		lp := lp_mocks.NewLogPoller(t)
 		lp.On("LatestBlock", mock.Anything).Return(h, nil).Once()
 
-		lp.On("GetBlocks", ctx, mock.MatchedBy(func(val []uint64) bool {
-			return slicesEqual(val, []uint64{92, 93, 94, 95, 96, 97, 98, 99, 100})
-		})).Return(nil, errors.New("error in LP")).Once()
+		lp.On("GetBlocksRange", ctx, mock.MatchedBy(func(val []uint64) bool {
+			return slicesEqual(val, []uint64{93, 94, 95, 96, 97, 98, 99, 100})
+		}), mock.Anything).Return(nil, errors.New("error in LP")).Once()
 
 		p := blockhashes.NewFixedBlockhashProvider(lp, lggr, 8)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)

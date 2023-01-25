@@ -61,13 +61,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
-	GetLogger() logger.Logger
+	GetLogger() logger.SugaredLogger
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
@@ -135,7 +135,7 @@ type ChainlinkApplication struct {
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
-	logger                   logger.Logger
+	logger                   logger.SugaredLogger
 	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
@@ -150,6 +150,7 @@ type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	Logger                   logger.Logger
 	EventBroadcaster         pg.EventBroadcaster
+	MailMon                  *utils.MailboxMonitor
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	Chains                   Chains
@@ -198,8 +199,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	cfg := opts.Config
 	chains := opts.Chains
 	eventBroadcaster := opts.EventBroadcaster
+	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
-	globalLogger := opts.Logger
+	globalLogger := logger.Sugared(opts.Logger)
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
@@ -276,7 +278,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster)
+	srvcs = append(srvcs, eventBroadcaster, mailMon)
 	srvcs = append(srvcs, chains.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	srvcs = append(srvcs, promReporter)
@@ -290,6 +292,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
 	)
 
+	srvcs = append(srvcs, pipelineORM)
+
 	for _, chain := range chains.EVM.Chains() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
@@ -301,13 +305,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				chains.EVM),
+				chains.EVM,
+				mailMon),
 			job.Keeper: keeper.NewDelegate(
 				db,
 				jobORM,
 				pipelineRunner,
 				globalLogger,
-				chains.EVM),
+				chains.EVM,
+				mailMon),
 			job.VRF: vrf.NewDelegate(
 				db,
 				keyStore,
@@ -315,7 +321,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineORM,
 				chains.EVM,
 				globalLogger,
-				cfg),
+				cfg,
+				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
 				externalInitiatorManager,
@@ -368,6 +375,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			chains.EVM,
 			globalLogger,
 			cfg,
+			mailMon,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
@@ -376,7 +384,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		relayers := make(map[relay.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"), cfg, keyStore.Eth())
 			relayers[relay.EVM] = evmRelayer
 			srvcs = append(srvcs, evmRelayer)
 		}
@@ -409,6 +417,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
 			relayers,
+			mailMon,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -613,7 +622,7 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 	return app.KeyStore
 }
 
-func (app *ChainlinkApplication) GetLogger() logger.Logger {
+func (app *ChainlinkApplication) GetLogger() logger.SugaredLogger {
 	return app.logger
 }
 

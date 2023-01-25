@@ -20,7 +20,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
 	limits "github.com/gin-contrib/size"
-	"github.com/gin-gonic/contrib/sessions"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+
 	"github.com/gin-gonic/gin"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
@@ -38,15 +41,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
-// Router listens and responds to requests to the node for valid paths.
-func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+// NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
+func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
-		app.GetLogger().Panic(err)
+		return nil, err
 	}
-	sessionStore := sessions.NewCookieStore(secret)
+	sessionStore := cookie.NewStore(secret)
 	sessionStore.Options(config.SessionOptions())
 	cors := uiCorsHandler(config)
 	if prometheus != nil {
@@ -87,7 +90,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		graphqlHandler(app),
 	)
 
-	return engine
+	return engine, nil
 }
 
 // Defining the Graphql handler
@@ -267,8 +270,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
-		authv2.GET("/config/dump-v1-as-v2", auth.RequiresAdminRole(cc.Dump))
-		authv2.GET("/config/v2", auth.RequiresAdminRole(cc.Show))
+		authv2.GET("/config/dump-v1-as-v2", cc.Dump)
+		authv2.GET("/config/v2", cc.Show2)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -289,7 +292,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/csa/import", auth.RequiresAdminRole(csakc.Import))
 		authv2.POST("/keys/csa/export/:ID", auth.RequiresAdminRole(csakc.Export))
 
-		ekc := ETHKeysController{app}
+		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
 		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))
@@ -444,7 +447,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.SugaredLogger) {
 	// Serve static files
 	var assetsRouterHandlers []gin.HandlerFunc
 	if !devMode {
@@ -501,7 +504,7 @@ func guiAssetRoutes(engine *gin.Engine, devMode bool, lggr logger.Logger) {
 			}
 			return
 		}
-		defer lggr.ErrorIfClosing(file, "file")
+		defer lggr.ErrorIfFn(file.Close, "Error closing file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})
@@ -532,7 +535,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 		c.Next()
 		end := time.Now()
 
-		lggr.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
+		lggr.Debugw(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,

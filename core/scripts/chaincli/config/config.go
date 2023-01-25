@@ -19,6 +19,7 @@ type Config struct {
 	KeeperURLs           []string `mapstructure:"KEEPER_URLS"`
 	KeeperEmails         []string `mapstructure:"KEEPER_EMAILS"`
 	KeeperPasswords      []string `mapstructure:"KEEPER_PASSWORDS"`
+	KeeperKeys           []string `mapstructure:"KEEPER_KEYS"`
 	ApproveAmount        string   `mapstructure:"APPROVE_AMOUNT"`
 	GasLimit             uint64   `mapstructure:"GAS_LIMIT"`
 	FundNodeAmount       string   `mapstructure:"FUND_CHAINLINK_NODE"`
@@ -94,6 +95,14 @@ func (c *Config) Validate() error {
 	// OCR2Keeper job could be ran only with the registry 2.0
 	if c.OCR2Keepers && c.RegistryVersion != keeper.RegistryVersion_2_0 {
 		return fmt.Errorf("ocr2keeper job could be ran only with the registry 2.0, but %s specified", c.RegistryVersion)
+	}
+
+	// validate keepers env vars
+	keepersFields := [][]string{c.KeeperURLs, c.KeeperEmails, c.KeeperPasswords, c.KeeperKeys}
+	for i := 0; i < len(keepersFields); i++ {
+		if len(keepersFields[i]) != 0 && len(keepersFields[i]) != c.KeepersCount {
+			return fmt.Errorf("keepers config length doesn't match expected keeper count, check keeper env vars")
+		}
 	}
 
 	return nil

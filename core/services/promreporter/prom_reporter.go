@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
 type (
 	promReporter struct {
 		db           *sql.DB
@@ -103,7 +103,7 @@ func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...interface{}) *promR
 		db:           db,
 		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
-		newHeads:     utils.NewMailbox[*evmtypes.Head](1),
+		newHeads:     utils.NewSingleMailbox[*evmtypes.Head](),
 		chStop:       chStop,
 		reportPeriod: period,
 	}

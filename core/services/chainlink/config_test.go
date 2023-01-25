@@ -19,6 +19,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -252,6 +253,7 @@ func TestConfig_Marshal(t *testing.T) {
 			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
 		Lock: config.DatabaseLock{
+			Enabled:              ptr(false),
 			LeaseDuration:        &minute,
 			LeaseRefreshInterval: &second,
 		},
@@ -287,6 +289,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.WebServer = config.WebServer{
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
+		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
 		HTTPWriteTimeout:        models.MustNewDuration(time.Minute),
 		HTTPPort:                ptr[uint16](56),
 		SecureCookies:           ptr(true),
@@ -313,6 +316,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.JobPipeline = config.JobPipeline{
 		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
+		MaxSuccessfulRuns:         ptr[uint64](123456),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
@@ -383,8 +387,6 @@ func TestConfig_Marshal(t *testing.T) {
 		BaseFeeBufferPercent:         ptr[uint16](89),
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
-		TurnFlagEnabled:              ptr(true),
-		UpkeepCheckGasPriceEnabled:   ptr(true),
 		Registry: config.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
@@ -507,6 +509,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
+					SyncThreshold:        ptr[uint32](13),
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -645,6 +648,7 @@ MinReconnectInterval = '5m0s'
 FallbackPollInterval = '2m0s'
 
 [Database.Lock]
+Enabled = false
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
@@ -673,6 +677,7 @@ MaxBackups = 9
 		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `[WebServer]
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
+BridgeCacheTTL = '10s'
 HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
@@ -703,6 +708,7 @@ SimulateTransactions = true
 		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
+MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
@@ -766,8 +772,6 @@ GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaxGracePeriod = 31
 TurnLookBack = 91
-TurnFlagEnabled = true
-UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
 CheckGasOverhead = 90
@@ -879,6 +883,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1015,14 +1020,13 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `5 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 5 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
-		- 0: 4 errors:
-			- Nodes: missing: must have at least one primary node with WSURL
+		- 0: 3 errors:
 			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to Transactions.MaxInFlight
 			- GasEstimator: 6 errors:
 				- BumpPercent: invalid value (1): may not be less than Geth's default of 10
@@ -1035,9 +1039,7 @@ func TestConfig_Validate(t *testing.T) {
 				- 0: 2 errors:
 					- WSURL: missing: required for primary nodes
 					- HTTPURL: missing: required for all nodes
-				- 1: 2 errors:
-					- WSURL: missing: required for primary nodes
-					- HTTPURL: missing: required for all nodes
+				- 1.HTTPURL: missing: required for all nodes
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
@@ -1054,15 +1056,17 @@ func TestConfig_Validate(t *testing.T) {
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
-				- 0: 2 errors:
+				- 0: 3 errors:
 					- Name: missing: required for all nodes
+					- WSURL: missing: required for primary nodes
 					- HTTPURL: empty: required for all nodes
 				- 1: 3 errors:
 					- Name: missing: required for all nodes
 					- WSURL: invalid value (http): must be ws or wss
 					- HTTPURL: missing: required for all nodes
-				- 2: 2 errors:
+				- 2: 3 errors:
 					- Name: empty: required for all nodes
+					- WSURL: missing: required for primary nodes
 					- HTTPURL: invalid value (ws): must be http or https
 				- 3.HTTPURL: missing: required for all nodes
 				- 4.HTTPURL: missing: required for all nodes
@@ -1193,7 +1197,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
 	var opts GeneralConfigOpts
 	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
-	assert.EqualError(t, err, "toml: invalid character at start of key: {")
+	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
@@ -1201,7 +1205,7 @@ func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 Dev = true`
 	var opts GeneralConfigOpts
 	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
-	assert.EqualError(t, err, "toml: key Dev is already defined")
+	assert.EqualError(t, err, "failed to decode config TOML: toml: key Dev is already defined")
 }
 
 func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
@@ -1231,7 +1235,7 @@ func TestSecrets_Validate(t *testing.T) {
 		{name: "partial",
 			toml: `Explorer.AccessKey = "access_key"
 Explorer.Secret = "secret"`,
-			exp: `2 errors:
+			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty`},
 
@@ -1239,7 +1243,7 @@ Explorer.Secret = "secret"`,
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"`,
-			exp: `2 errors:
+			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
 		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
 	Must have a length of 16-50 characters
@@ -1267,7 +1271,18 @@ BackupURL = "foo-bar?password=asdf"`,
 URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = true`,
-			exp: `Password.Keystore: empty: must be provided and non-empty`},
+			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
+		{name: "duplicate-mercury-credentials-disallowed",
+			toml: `
+[Mercury]
+[[Mercury.Credentials]]
+URL = "http://example.com/foo"
+[[Mercury.Credentials]]
+URL = "http://example.COM/foo"`,
+			exp: `invalid secrets: 3 errors:
+	- Database.URL: empty: must be provided and non-empty
+	- Password.Keystore: empty: must be provided and non-empty
+	- Mercury.Credentials: may not contain duplicate URLs`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
@@ -1299,19 +1314,45 @@ func TestConfig_setDefaults(t *testing.T) {
 }
 
 func Test_validateEnv(t *testing.T) {
-	validate := func() error { _, err := utils.MultiErrorList(validateEnv()); return err }
 	t.Setenv("LOG_LEVEL", "warn")
 	t.Setenv("DATABASE_URL", "foo")
-	assert.ErrorContains(t, validate(), `environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set`)
+	assert.ErrorContains(t, validateEnv(), `invalid environment: environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set`)
 
 	t.Setenv("CL_DATABASE_URL", "foo")
-	assert.NoError(t, validate())
+	assert.NoError(t, validateEnv())
 
 	t.Setenv("CL_DATABASE_URL", "bar")
 	t.Setenv("GAS_UPDATER_ENABLED", "true")
 	t.Setenv("ETH_GAS_BUMP_TX_DEPTH", "7")
-	assert.ErrorContains(t, validate(), `3 errors:
+	assert.ErrorContains(t, validateEnv(), `invalid environment: 3 errors:
 	- environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set
 	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2
 	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
+}
+
+func TestConfig_SetFrom(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name string
+		exp  string
+		from []string
+	}{
+		{"empty", "", []string{""}},
+		{"empty-full", fullTOML, []string{"", fullTOML}},
+		{"empty-multi", multiChainTOML, []string{"", multiChainTOML}},
+		{"full-empty", fullTOML, []string{fullTOML, ""}},
+		{"multi-empty", multiChainTOML, []string{multiChainTOML, ""}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var c Config
+			for _, fs := range tt.from {
+				var f Config
+				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
+				c.SetFrom(&f)
+			}
+			ts, err := c.TOMLString()
+			require.NoError(t, err)
+			assert.Equal(t, tt.exp, ts)
+		})
+	}
 }

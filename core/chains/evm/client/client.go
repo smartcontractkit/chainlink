@@ -21,8 +21,8 @@ import (
 
 const queryTimeout = 10 * time.Second
 
-//go:generate mockery --name Client --output ../mocks/ --case=underscore
-//go:generate mockery --name Subscription --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Client --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Subscription --output ../mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -123,6 +123,9 @@ func (client *client) NodeStates() (states map[string]string) {
 	states = make(map[string]string)
 	for _, n := range client.pool.nodes {
 		states[n.Name()] = n.State().String()
+	}
+	for _, s := range client.pool.sendonlys {
+		states[s.Name()] = s.State().String()
 	}
 	return
 }

@@ -29,6 +29,7 @@ MinReconnectInterval = '5m0s'
 FallbackPollInterval = '2m0s'
 
 [Database.Lock]
+Enabled = false
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 
@@ -63,6 +64,7 @@ MaxBackups = 9
 [WebServer]
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
+BridgeCacheTTL = '10s'
 HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
@@ -89,6 +91,7 @@ KeyPath = 'tls/key/path'
 [JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
+MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
@@ -156,8 +159,6 @@ GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaxGracePeriod = 31
 TurnLookBack = 91
-TurnFlagEnabled = true
-UpkeepCheckGasPriceEnabled = true
 
 [Keeper.Registry]
 CheckGasOverhead = 90
@@ -269,6 +270,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
 
 [EVM.OCR]
 ContractConfirmations = 11

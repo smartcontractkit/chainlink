@@ -13,15 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     float64
-//     string
-//     bool
-//     map[string]interface{}
-//     []interface{}
-//     nil
 //
+//	float64
+//	string
+//	bool
+//	map[string]interface{}
+//	[]interface{}
+//	nil
 type JSONParseTask struct {
 	BaseTask  `mapstructure:",squash"`
 	Path      string `json:"path"`
@@ -110,12 +109,9 @@ func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, input
 		}
 	}
 
-	switch val := decoded.(type) {
-	case json.Number:
-		decoded, err = getJsonNumberValue(val)
-		if err != nil {
-			return Result{Error: multierr.Combine(ErrBadInput, err)}, runInfo
-		}
+	decoded, err = reinterpetJsonNumbers(decoded)
+	if err != nil {
+		return Result{Error: multierr.Combine(ErrBadInput, err)}, runInfo
 	}
 
 	return Result{Value: decoded}, runInfo

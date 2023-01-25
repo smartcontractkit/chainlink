@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/fatih/color"
 	"go.uber.org/zap"
@@ -15,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// LogsFile describes the logs file name
-const LogsFile = "chainlink_debug.log"
+// logsFile describes the logs file name
+const logsFile = "chainlink_debug.log"
 
 func init() {
 	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
@@ -43,7 +44,7 @@ func init() {
 	}
 }
 
-//go:generate mockery --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+//go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
@@ -108,9 +109,11 @@ type Logger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 
 	// ErrorIf logs the error if present.
+	// Deprecated: use SugaredLogger.ErrorIf
 	ErrorIf(err error, msg string)
 
 	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
+	// Deprecated: use SugaredLogger.ErrorIfFn with c.Close
 	ErrorIfClosing(c io.Closer, name string)
 
 	// Sync flushes any buffered log entries.
@@ -254,6 +257,10 @@ func (c Config) DebugLogsToDisk() bool {
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
 	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
+}
+
+func (c Config) LogsFile() string {
+	return filepath.Join(c.Dir, logsFile)
 }
 
 // InitColor explicitly sets the global color.NoColor option.

@@ -10,14 +10,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	types "github.com/smartcontractkit/chainlink/core/services/relay/evm/types"
 )
 
 // DKGProvider provides all components needed for a DKG plugin.
@@ -44,16 +46,18 @@ var (
 
 // Relayer with added DKG and OCR2VRF provider functions.
 type ocr2vrfRelayer struct {
-	db    *sqlx.DB
-	chain evm.Chain
-	lggr  logger.Logger
+	db          *sqlx.DB
+	chain       evm.Chain
+	lggr        logger.Logger
+	ethKeystore keystore.Eth
 }
 
-func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger) OCR2VRFRelayer {
+func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
 	return &ocr2vrfRelayer{
-		db:    db,
-		chain: chain,
-		lggr:  lggr,
+		db:          db,
+		chain:       chain,
+		lggr:        lggr,
+		ethKeystore: ethKeystore,
 	}
 }
 
@@ -62,7 +66,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +89,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +105,7 @@ type dkgProvider struct {
 	pluginConfig        config.PluginConfig
 }
 
-func (c *dkgProvider) ContractTransmitter() types.ContractTransmitter {
+func (c *dkgProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
@@ -110,12 +114,12 @@ type ocr2vrfProvider struct {
 	contractTransmitter *ContractTransmitter
 }
 
-func (c *ocr2vrfProvider) ContractTransmitter() types.ContractTransmitter {
+func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
 func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relaytypes.RelayArgs) (*configWatcher, error) {
-	var relayConfig RelayConfig
+	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err

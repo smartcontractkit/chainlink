@@ -616,6 +616,38 @@ func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
 	return run
 }
 
+func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus) (run pipeline.Run) {
+	var finishedAt *time.Time
+	var outputs pipeline.JSONSerializable
+	var allErrors pipeline.RunErrors
+	var fatalErrors pipeline.RunErrors
+	now := time.Now()
+	switch status {
+	case pipeline.RunStatusCompleted:
+		finishedAt = &now
+		outputs = pipeline.JSONSerializable{
+			Val:   "foo",
+			Valid: true,
+		}
+	case pipeline.RunStatusErrored:
+		finishedAt = &now
+		allErrors = []null.String{null.StringFrom("oh no!")}
+		fatalErrors = []null.String{null.StringFrom("oh no!")}
+	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
+		// leave empty
+	default:
+		t.Fatalf("unknown status: %s", status)
+	}
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`, status, pipelineSpecID, finishedAt, outputs, allErrors, fatalErrors))
+	return run
+}
+
+func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
+	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
+	require.NoError(t, err)
+	return
+}
+
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {
 	/* #nosec G404 */
 	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.NewV4()))

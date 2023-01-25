@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
@@ -19,18 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
-
-// GinkgoSuite provides the default setup for running a Ginkgo test suite
-func GinkgoSuite() {
-	logging.Init()
-	gomega.RegisterFailHandler(ginkgo.Fail)
-}
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
 // Example: When deploying 1000 contracts, stop every ContractDeploymentInterval have been deployed to wait before continuing
@@ -70,6 +61,27 @@ func FundChainlinkNodesAddress(
 		err = client.Fund(toAddress[keyIndex], amount)
 		if err != nil {
 			return err
+		}
+	}
+	return client.WaitForEvents()
+}
+
+// FundChainlinkNodesAddress will fund all of the provided Chainlink nodes addresses with a set amount of native currency
+func FundChainlinkNodesAddresses(
+	nodes []*client.Chainlink,
+	client blockchain.EVMClient,
+	amount *big.Float,
+) error {
+	for _, cl := range nodes {
+		toAddress, err := cl.EthAddressesForChain(client.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, addr := range toAddress {
+			err = client.Fund(addr, amount)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return client.WaitForEvents()
@@ -210,27 +222,25 @@ func GetMockserverInitializerDataForOTPE(
 // TeardownSuite tears down networks/clients and environment and creates a logs folder for failed tests in the
 // specified path. Can also accept a testreporter (if one was used) to log further results
 func TeardownSuite(
+	t *testing.T,
 	env *environment.Environment,
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	clients ...blockchain.EVMClient,
 ) error {
-	keepEnvs := os.Getenv("KEEP_ENVIRONMENTS")
-	if keepEnvs == "" {
-		keepEnvs = "NEVER"
-	}
-
-	if err := testreporters.WriteTeardownLogs(env, optionalTestReporter); err != nil {
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
 			if err := returnFunds(chainlinkNodes, c); err != nil {
+				// This printed line is required for tests that use real funds to propagate the failure
+				// out to the system running the test. Do not remove
+				fmt.Println(environment.FAILED_FUND_RETURN)
 				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 						"Environment is left running so you can try manually!")
-				keepEnvs = "ALWAYS"
 			}
 		} else {
 			log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
@@ -244,32 +254,20 @@ func TeardownSuite(
 		}
 	}
 
-	switch strings.ToUpper(keepEnvs) {
-	case "ALWAYS":
-		return nil
-	case "ONFAIL":
-		if !ginkgo.CurrentSpecReport().Failed() {
-			return env.Shutdown()
-		}
-	case "NEVER":
-		return env.Shutdown()
-	default:
-		log.Warn().Str("Invalid Keep Value", keepEnvs).
-			Msg("Invalid 'keep_environments' value, see the KEEP_ENVIRONMENTS env var")
-	}
-	return nil
+	return env.Shutdown()
 }
 
 // TeardownRemoteSuite is used when running a test within a remote-test-runner, like for long-running performance and
 // soak tests
 func TeardownRemoteSuite(
+	t *testing.T,
 	env *environment.Environment,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
 	var err error
-	if err = testreporters.SendReport(env, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
 		log.Warn().Err(err).Msg("Error writing test report")
 	}
 	if err = returnFunds(chainlinkNodes, client); err != nil {
@@ -293,7 +291,7 @@ func returnFunds(chainlinkNodes []*client.Chainlink, blockchainClient blockchain
 	}
 
 	for _, chainlinkNode := range chainlinkNodes {
-		fundedKeys, err := chainlinkNode.ExportEVMKeys()
+		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(blockchainClient.GetChainID().String())
 		if err != nil {
 			return err
 		}

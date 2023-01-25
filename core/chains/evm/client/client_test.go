@@ -60,11 +60,21 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		result := mustReadResult(t, "../../../testdata/jsonrpc/getTransactionReceipt.json")
 
-		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-			require.Equal(t, "eth_getTransactionReceipt", method)
-			require.True(t, params.IsArray())
-			require.Equal(t, txHash, params.Array()[0].String())
-			return string(result), ""
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			}
+			if assert.Equal(t, "eth_getTransactionReceipt", method) && assert.True(t, params.IsArray()) &&
+				assert.Equal(t, txHash, params.Array()[0].String()) {
+				resp.Result = string(result)
+			}
+			return
 		})
 
 		ethClient := mustNewClient(t, wsURL)
@@ -80,11 +90,21 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 
 	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
 		result := mustReadResult(t, "../../../testdata/jsonrpc/getTransactionReceipt_notFound.json")
-		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-			require.Equal(t, "eth_getTransactionReceipt", method)
-			require.True(t, params.IsArray())
-			require.Equal(t, txHash, params.Array()[0].String())
-			return string(result), ""
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			}
+			if assert.Equal(t, "eth_getTransactionReceipt", method) && assert.True(t, params.IsArray()) &&
+				assert.Equal(t, txHash, params.Array()[0].String()) {
+				resp.Result = string(result)
+			}
+			return
 		})
 
 		ethClient := mustNewClient(t, wsURL)
@@ -102,13 +122,25 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 
 	address := testutils.NewAddress()
 
-	wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-		require.Equal(t, "eth_getTransactionCount", method)
-		require.True(t, params.IsArray())
+	wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
+		}
+		if !assert.Equal(t, "eth_getTransactionCount", method) || !assert.True(t, params.IsArray()) {
+			return
+		}
 		arr := params.Array()
-		require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(arr[0].String()))
-		require.Equal(t, "pending", arr[1].String())
-		return `"0x100"`, ""
+		if assert.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(arr[0].String())) &&
+			assert.Equal(t, "pending", arr[1].String()) {
+			resp.Result = `"0x100"`
+		}
+		return
 	})
 
 	ethClient := mustNewClient(t, wsURL)
@@ -139,11 +171,21 @@ func TestEthClient_BalanceAt(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-				require.Equal(t, "eth_getBalance", method)
-				require.True(t, params.IsArray())
-				require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(params.Array()[0].String()))
-				return `"` + hexutil.EncodeBig(test.balance) + `"`, ""
+			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				switch method {
+				case "eth_subscribe":
+					resp.Result = `"0x00"`
+					resp.Notify = headResult
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
+				}
+				if assert.Equal(t, "eth_getBalance", method) && assert.True(t, params.IsArray()) &&
+					assert.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(params.Array()[0].String())) {
+					resp.Result = `"` + hexutil.EncodeBig(test.balance) + `"`
+				}
+				return
 			})
 
 			ethClient := mustNewClient(t, wsURL)
@@ -179,17 +221,30 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
-			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-				require.Equal(t, "eth_call", method)
-				require.True(t, params.IsArray())
+			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				switch method {
+				case "eth_subscribe":
+					resp.Result = `"0x00"`
+					resp.Notify = headResult
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
+				}
+				if !assert.Equal(t, "eth_call", method) || !assert.True(t, params.IsArray()) {
+					return
+				}
 				arr := params.Array()
 				callArgs := arr[0]
-				require.True(t, callArgs.IsObject())
-				require.Equal(t, strings.ToLower(contractAddress.Hex()), callArgs.Get("to").String())
-				require.Equal(t, hexutil.Encode(txData), callArgs.Get("data").String())
+				if assert.True(t, callArgs.IsObject()) &&
+					assert.Equal(t, strings.ToLower(contractAddress.Hex()), callArgs.Get("to").String()) &&
+					assert.Equal(t, hexutil.Encode(txData), callArgs.Get("data").String()) &&
+					assert.Equal(t, "latest", arr[1].String()) {
 
-				require.Equal(t, "latest", arr[1].String())
-				return `"` + hexutil.EncodeBig(test.balance) + `"`, ""
+					resp.Result = `"` + hexutil.EncodeBig(test.balance) + `"`
+				}
+				return
+
 			})
 
 			ethClient := mustNewClient(t, wsURL)
@@ -245,18 +300,28 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-				require.Equal(t, "eth_getBlockByNumber", method)
-				require.True(t, params.IsArray())
+			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				switch method {
+				case "eth_subscribe":
+					resp.Result = `"0x00"`
+					resp.Notify = headResult
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
+				}
+				if !assert.Equal(t, "eth_getBlockByNumber", method) || !assert.True(t, params.IsArray()) {
+					return
+				}
 				arr := params.Array()
 				blockNumStr := arr[0].String()
 				var blockNum hexutil.Big
 				err := blockNum.UnmarshalText([]byte(blockNumStr))
-				require.NoError(t, err)
-				require.Equal(t, test.expectedRequestBlock, blockNum.ToInt())
-
-				require.Equal(t, false, arr[1].Bool())
-				return test.rpcResp, ""
+				if assert.NoError(t, err) && assert.Equal(t, test.expectedRequestBlock, blockNum.ToInt()) &&
+					assert.Equal(t, false, arr[1].Bool()) {
+					resp.Result = test.rpcResp
+				}
+				return
 			})
 
 			ethClient := mustNewClient(t, wsURL)
@@ -283,9 +348,21 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 
 	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-		require.Equal(t, "eth_sendRawTransaction", method)
-		return `"` + tx.Hash().Hex() + `"`, ""
+	wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
+		}
+		if !assert.Equal(t, "eth_sendRawTransaction", method) {
+			return
+		}
+		resp.Result = `"` + tx.Hash().Hex() + `"`
+		return
 	})
 
 	ethClient := mustNewClient(t, wsURL)
@@ -301,9 +378,19 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 
 	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-		require.Equal(t, "eth_sendRawTransaction", method)
-		return `"` + tx.Hash().Hex() + `"`, ""
+	wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
+		case "eth_sendRawTransaction":
+			resp.Result = `"` + tx.Hash().Hex() + `"`
+		}
+		return
 	})
 
 	rpcSrv := rpc.NewServer()
@@ -347,16 +434,17 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	defer cancel()
 
 	chainId := big.NewInt(123456)
-	const headResult = `{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`
-	wsURL := cltest.NewWSServer(t, chainId, func(method string, params gjson.Result) (string, string) {
+	wsURL := cltest.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		if method == "eth_unsubscribe" {
-			return "true", ""
+			resp.Result = "true"
+			return
 		}
 		assert.Equal(t, "eth_subscribe", method)
-		if assert.True(t, params.IsArray()) {
-			require.Equal(t, "newHeads", params.Array()[0].String())
+		if assert.True(t, params.IsArray()) && assert.Equal(t, "newHeads", params.Array()[0].String()) {
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
 		}
-		return `"0x00"`, headResult
+		return
 	})
 
 	ethClient := mustNewClientWithChainID(t, wsURL, chainId)
@@ -378,3 +466,5 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 		require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
 	}
 }
+
+const headResult = evmclient.HeadResult

@@ -36,6 +36,7 @@ type EnvPrinter struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
+	BridgeCacheTTL                             time.Duration   `json:"BRIDGE_CACHE_TTL"`
 	ChainType                                  string          `json:"CHAIN_TYPE"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
@@ -69,9 +70,7 @@ type EnvPrinter struct {
 	KeeperRegistryMaxPerformDataSize           uint32          `json:"KEEPER_REGISTRY_MAX_PERFORM_DATA_SIZE"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
-	KeeperCheckUpkeepGasPriceFeatureEnabled    bool            `json:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED"`
 	KeeperTurnLookBack                         int64           `json:"KEEPER_TURN_LOOK_BACK"`
-	KeeperTurnFlagEnabled                      bool            `json:"KEEPER_TURN_FLAG_ENABLED"`
 	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
 	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
@@ -159,6 +158,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			AllowOrigins:                   cfg.AllowOrigins(),
 			BlockBackfillDepth:             cfg.BlockBackfillDepth(),
 			BridgeResponseURL:              bridgeResponseURL,
+			BridgeCacheTTL:                 cfg.BridgeCacheTTL(),
 			DatabaseBackupFrequency:        cfg.DatabaseBackupFrequency(),
 			DatabaseBackupMode:             string(cfg.DatabaseBackupMode()),
 			DatabaseBackupOnVersionUpgrade: cfg.DatabaseBackupOnVersionUpgrade(),
@@ -182,19 +182,17 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			JobPipelineReaperThreshold:     cfg.JobPipelineReaperThreshold(),
 
 			// Keeper
-			KeeperDefaultTransactionQueueDepth:      cfg.KeeperDefaultTransactionQueueDepth(),
-			KeeperGasPriceBufferPercent:             cfg.KeeperGasPriceBufferPercent(),
-			KeeperGasTipCapBufferPercent:            cfg.KeeperGasTipCapBufferPercent(),
-			KeeperBaseFeeBufferPercent:              cfg.KeeperBaseFeeBufferPercent(),
-			KeeperMaximumGracePeriod:                cfg.KeeperMaximumGracePeriod(),
-			KeeperRegistryCheckGasOverhead:          cfg.KeeperRegistryCheckGasOverhead(),
-			KeeperRegistryPerformGasOverhead:        cfg.KeeperRegistryPerformGasOverhead(),
-			KeeperRegistryMaxPerformDataSize:        cfg.KeeperRegistryMaxPerformDataSize(),
-			KeeperRegistrySyncInterval:              cfg.KeeperRegistrySyncInterval(),
-			KeeperRegistrySyncUpkeepQueueSize:       cfg.KeeperRegistrySyncUpkeepQueueSize(),
-			KeeperCheckUpkeepGasPriceFeatureEnabled: cfg.KeeperCheckUpkeepGasPriceFeatureEnabled(),
-			KeeperTurnLookBack:                      cfg.KeeperTurnLookBack(),
-			KeeperTurnFlagEnabled:                   cfg.KeeperTurnFlagEnabled(),
+			KeeperDefaultTransactionQueueDepth: cfg.KeeperDefaultTransactionQueueDepth(),
+			KeeperGasPriceBufferPercent:        cfg.KeeperGasPriceBufferPercent(),
+			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
+			KeeperBaseFeeBufferPercent:         cfg.KeeperBaseFeeBufferPercent(),
+			KeeperMaximumGracePeriod:           cfg.KeeperMaximumGracePeriod(),
+			KeeperRegistryCheckGasOverhead:     cfg.KeeperRegistryCheckGasOverhead(),
+			KeeperRegistryPerformGasOverhead:   cfg.KeeperRegistryPerformGasOverhead(),
+			KeeperRegistryMaxPerformDataSize:   cfg.KeeperRegistryMaxPerformDataSize(),
+			KeeperRegistrySyncInterval:         cfg.KeeperRegistrySyncInterval(),
+			KeeperRegistrySyncUpkeepQueueSize:  cfg.KeeperRegistrySyncUpkeepQueueSize(),
+			KeeperTurnLookBack:                 cfg.KeeperTurnLookBack(),
 
 			LeaseLockDuration:        cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval: cfg.LeaseLockRefreshInterval(),

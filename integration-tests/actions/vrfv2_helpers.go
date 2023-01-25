@@ -1,16 +1,17 @@
 package actions
 
-//revive:disable:dot-imports
 import (
 	"context"
 	"fmt"
 	"math/big"
+	"testing"
 
-	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -26,24 +27,26 @@ type VRFV2JobInfo struct {
 }
 
 func DeployVRFV2Contracts(
+	t *testing.T,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
 	c blockchain.EVMClient,
 	linkEthFeedAddress string,
 ) (contracts.VRFCoordinatorV2, contracts.VRFConsumerV2, contracts.BlockHashStore) {
 	bhs, err := contractDeployer.DeployBlockhashStore()
-	Expect(err).ShouldNot(HaveOccurred())
+	require.NoError(t, err, "Error deploying blockhash store")
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedAddress)
-	Expect(err).ShouldNot(HaveOccurred())
+	require.NoError(t, err, "Error deploying VRFv2 Coordinator")
 	consumer, err := contractDeployer.DeployVRFConsumerV2(linkTokenContract.Address(), coordinator.Address())
-	Expect(err).ShouldNot(HaveOccurred())
+	require.NoError(t, err, "Error deploying VRFv2 Consumer")
 	err = c.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred())
+	require.NoError(t, err, "Error waiting for events")
 
 	return coordinator, consumer, bhs
 }
 
 func CreateVRFV2Jobs(
+	t *testing.T,
 	chainlinkNodes []*client.Chainlink,
 	coordinator contracts.VRFCoordinatorV2,
 	c blockchain.EVMClient,
@@ -52,7 +55,7 @@ func CreateVRFV2Jobs(
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, n := range chainlinkNodes {
 		vrfKey, err := n.MustCreateVRFKey()
-		Expect(err).ShouldNot(HaveOccurred())
+		require.NoError(t, err, "Error creating VRF key")
 		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.NewV4()
@@ -60,9 +63,9 @@ func CreateVRFV2Jobs(
 			Address: coordinator.Address(),
 		}
 		ost, err := os.String()
-		Expect(err).ShouldNot(HaveOccurred())
+		require.NoError(t, err, "Error getting job string")
 		oracleAddr, err := n.PrimaryEthAddress()
-		Expect(err).ShouldNot(HaveOccurred())
+		require.NoError(t, err, "Error getting node's primary ETH key")
 		job, err := n.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
@@ -74,10 +77,10 @@ func CreateVRFV2Jobs(
 			ObservationSource:        ost,
 			BatchFulfillmentEnabled:  false,
 		})
-		Expect(err).ShouldNot(HaveOccurred())
-		provingKey := VRFV2RegisterProvingKey(vrfKey, oracleAddr, coordinator)
+		require.NoError(t, err, "Error creating VRFv2 job")
+		provingKey := VRFV2RegisterProvingKey(t, vrfKey, oracleAddr, coordinator)
 		keyHash, err := coordinator.HashOfKey(context.Background(), provingKey)
-		Expect(err).ShouldNot(HaveOccurred(), "Should be able to create a keyHash from the proving key")
+		require.NoError(t, err, "Error creating a keyHash from the proving key")
 		ji := VRFV2JobInfo{
 			Job:            job,
 			VRFKey:         vrfKey,
@@ -90,16 +93,17 @@ func CreateVRFV2Jobs(
 }
 
 func VRFV2RegisterProvingKey(
+	t *testing.T,
 	vrfKey *client.VRFKey,
 	oracleAddress string,
 	coordinator contracts.VRFCoordinatorV2,
 ) VRFV2EncodedProvingKey {
 	provingKey, err := EncodeOnChainVRFProvingKey(*vrfKey)
-	Expect(err).ShouldNot(HaveOccurred())
+	require.NoError(t, err, "Error encoding proving key")
 	err = coordinator.RegisterProvingKey(
 		oracleAddress,
 		provingKey,
 	)
-	Expect(err).ShouldNot(HaveOccurred())
+	require.NoError(t, err, "Error registering proving keys")
 	return provingKey
 }

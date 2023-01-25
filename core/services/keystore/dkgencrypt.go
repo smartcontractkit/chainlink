@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 )
 
-//go:generate mockery --name DKGEncrypt --output mocks/ --case=underscore
+//go:generate mockery --quiet --name DKGEncrypt --output mocks/ --case=underscore
 
 // DKGEncrypt provides encryption keys for the DKG.
 type DKGEncrypt interface {

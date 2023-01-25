@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	CountManagers() (int64, error)
@@ -34,6 +34,7 @@ type ORM interface {
 
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	CountJobProposals() (int64, error)
+	CountJobProposalsByStatus() (counts *JobProposalCounts, err error)
 	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	ListJobProposals() (jps []JobProposal, err error)
@@ -312,6 +313,22 @@ func (o *orm) CountJobProposals() (count int64, err error) {
 
 	err = o.q.Get(&count, stmt)
 	return count, errors.Wrap(err, "CountJobProposals failed")
+}
+
+// CountJobProposals counts the number of job proposal records.
+func (o *orm) CountJobProposalsByStatus() (counts *JobProposalCounts, err error) {
+	stmt := `
+SELECT 
+	COUNT(*) filter (where job_proposals.status = 'pending') as pending,
+	COUNT(*) filter (where job_proposals.status = 'approved') as approved,
+	COUNT(*) filter (where job_proposals.status = 'rejected') as rejected,
+	COUNT(*) filter (where job_proposals.status = 'cancelled') as cancelled
+FROM job_proposals;
+	`
+
+	counts = new(JobProposalCounts)
+	err = o.q.Get(counts, stmt)
+	return counts, errors.Wrap(err, "CountJobProposalsByStatus failed")
 }
 
 // GetJobProposal gets a job proposal by id.
