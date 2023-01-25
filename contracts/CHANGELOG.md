@@ -10,6 +10,9 @@
 
 - Modified FunctionsClientExample.sol to use constant amount of gas regardless of response size
 - Fixed comments in FunctionsBillingRegistry.sol
+- Make Functions billing registry's timeoutRequest pausable (#8299)
+- Remove user specified gas price from Functions Oracle sendRequest
+  (#8320)
 
 ## 0.6.0 - 2023-01-11
 
