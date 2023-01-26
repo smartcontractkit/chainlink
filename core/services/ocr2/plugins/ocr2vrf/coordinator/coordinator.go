@@ -170,13 +170,8 @@ func New(
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	_, err = logPoller.RegisterFilter(logpoller.Filter{
-		EventSigs: []common.Hash{
-			topics.randomnessRequestedTopic,
-			topics.randomnessFulfillmentRequestedTopic,
-			topics.randomWordsFulfilledTopic,
-			topics.configSetTopic,
-			topics.outputsServedTopic,
-			topics.newTransmissionTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
+		EventSigs: topics.allSigs(),
+		Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +228,7 @@ func (c *coordinator) ReportIsOnchain(
 
 	c.lggr.Info(fmt.Sprintf("epoch and round: %s %s", epochAndRound.String(), enrTopic.String()))
 	logs, err := c.lp.IndexedLogs(
-		c.topics.newTransmissionTopic,
+		c.newTransmissionTopic,
 		c.beaconAddress,
 		2,
 		[]common.Hash{

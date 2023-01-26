@@ -1,6 +1,8 @@
 package coordinator
 
 import (
+	"reflect"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
@@ -25,4 +27,12 @@ func newTopics() topics {
 		newTransmissionTopic:                vrf_beacon.VRFBeaconNewTransmission{}.Topic(),
 		outputsServedTopic:                  vrf_coordinator.VRFCoordinatorOutputsServed{}.Topic(),
 	}
+}
+
+func (t topics) allSigs() (rv []common.Hash) {
+	e := reflect.ValueOf(t)
+	for i := 0; i < e.NumField(); i++ {
+		rv = append(rv, e.Field(i).Interface().(common.Hash))
+	}
+	return rv
 }
