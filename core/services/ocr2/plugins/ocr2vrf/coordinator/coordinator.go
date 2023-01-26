@@ -308,12 +308,7 @@ func (c *coordinator) ReportBlocks(
 	logs, err := c.lp.LogsWithSigs(
 		currentHeight-c.coordinatorConfig.LookbackBlocks,
 		currentHeight,
-		[]common.Hash{
-			c.randomnessRequestedTopic,
-			c.randomnessFulfillmentRequestedTopic,
-			c.randomWordsFulfilledTopic,
-			c.outputsServedTopic,
-		},
+		c.vrfSigs(),
 		c.coordinatorAddress,
 		pg.WithParentCtx(ctx))
 	if err != nil {
@@ -323,11 +318,9 @@ func (c *coordinator) ReportBlocks(
 
 	c.lggr.Tracew("logsWithSigs", "logs", logs)
 
-	randomnessRequestedLogs,
-		randomnessFulfillmentRequestedLogs,
-		randomWordsFulfilledLogs,
-		outputsServedLogs,
-		err := c.unmarshalLogs(logs)
+	randomnessRequestedLogs, randomnessFulfillmentRequestedLogs,
+		randomWordsFulfilledLogs, outputsServedLogs, err :=
+		c.unmarshalLogs(logs)
 	if err != nil {
 		err = errors.Wrap(err, "unmarshal logs")
 		return

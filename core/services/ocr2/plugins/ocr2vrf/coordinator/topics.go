@@ -10,12 +10,15 @@ import (
 )
 
 type topics struct {
+	// VRF logs
 	randomnessRequestedTopic            common.Hash
 	randomnessFulfillmentRequestedTopic common.Hash
 	randomWordsFulfilledTopic           common.Hash
-	configSetTopic                      common.Hash
-	newTransmissionTopic                common.Hash
 	outputsServedTopic                  common.Hash
+
+	// OCR logs
+	newTransmissionTopic common.Hash
+	configSetTopic       common.Hash
 }
 
 func newTopics() topics {
@@ -35,4 +38,15 @@ func (t topics) allSigs() (rv []common.Hash) {
 		rv = append(rv, e.Field(i).Interface().(common.Hash))
 	}
 	return rv
+}
+
+// vrfSigs returns the topics of the logs directly concerned with the operation
+// of the VRF service.
+func (t topics) vrfSigs() []common.Hash {
+	return []common.Hash{
+		t.randomnessRequestedTopic,
+		t.randomnessFulfillmentRequestedTopic,
+		t.randomWordsFulfilledTopic,
+		t.outputsServedTopic,
+	}
 }
