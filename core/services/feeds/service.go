@@ -618,9 +618,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		address = j.OCROracleSpec.ContractAddress
 		evmChainID = j.OCROracleSpec.EVMChainID
 	case job.OffchainReporting2:
-		eipAddress, err := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
+		eipAddress, addrErr := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
 		if err != nil {
-			return errors.Wrap(err, "failed to create EIP55Address from OCR2 job spec")
+			return errors.Wrap(addrErr, "failed to create EIP55Address from OCR2 job spec")
 		}
 
 		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
