@@ -332,7 +332,7 @@ func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 	if errors.Is(err, errForbidden) {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("this acction requires admin privileges current user does not have enough privileges to perform this action, login with admin via 'chainlink admin login'")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("this action requires admin privileges current user does not have enough privileges to perform this action, login with admin via 'chainlink admin login'")))
 	}
 	if err != nil {
 		return nil, cli.errorOut(err)
