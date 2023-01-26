@@ -2,9 +2,21 @@
 pragma solidity 0.8.6;
 
 import "./../interfaces/TypeAndVersionInterface.sol";
-import "./interfaces/IAggregatorProxy.sol";
-import "./interfaces/IAuthorizedForwarder.sol";
 import "./../ConfirmedOwner.sol";
+
+// defines some interfaces for type safety and reduces encoding/decoding
+// does not use the full interfaces intentionally because the requester only uses a fraction of them
+interface IAggregatorProxy {
+  function aggregator() external view returns (address);
+}
+
+interface IAuthorizedForwarder {
+  function forward(address to, bytes calldata data) external;
+}
+
+interface IOffchainAggregator {
+  function requestNewRound() external returns (uint80);
+}
 
 /**
  * @notice The heartbeat requester will maintain a mapping from allowed callers to corresponding proxies. When requested

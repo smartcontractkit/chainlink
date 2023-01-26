@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../dev/interfaces/IAuthorizedForwarder.sol";
-
-contract MockAuthorizedForwarder is IAuthorizedForwarder {
+contract MockAuthorizedForwarder {
   event ForwardFuncCalled(address to, bytes data);
 
-  function forward(address to, bytes calldata data) external override {
+  function forward(address to, bytes calldata data) external {
     to.call(data);
     emit ForwardFuncCalled(to, data);
   }

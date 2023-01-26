@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../dev/interfaces/IAggregatorProxy.sol";
-
-contract MockAggregatorProxy is IAggregatorProxy {
+contract MockAggregatorProxy {
   address internal s_aggregator;
 
   constructor(address aggregator) {
@@ -14,7 +12,7 @@ contract MockAggregatorProxy is IAggregatorProxy {
     s_aggregator = aggregator;
   }
 
-  function aggregator() external view override returns (address) {
+  function aggregator() external view returns (address) {
     return s_aggregator;
   }
 }
