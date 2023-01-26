@@ -26,7 +26,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -37,7 +36,7 @@ var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
 var (
 	dkgABI            = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
 	vrfBeaconABI      = evmtypes.MustGetABI(vrf_beacon.VRFBeaconMetaData.ABI)
-	vrfCoordinatorABI = evmtypes.MustGetABI(vrf_coordinator.VRFCoordinatorMetaData.ABI)
+	vrfCoordinatorABI = evmtypes.MustGetABI(vrf_wrapper.VRFCoordinatorMetaData.ABI)
 	counterBuckets    = []float64{
 		0,
 		1,
@@ -466,7 +465,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	return
 }
 
-func (c *coordinator) getFulfilledBlocks(outputsServedLogs []*vrf_coordinator.VRFCoordinatorOutputsServed) (fulfilled []block) {
+func (c *coordinator) getFulfilledBlocks(outputsServedLogs []*vrf_wrapper.VRFCoordinatorOutputsServed) (fulfilled []block) {
 	for _, r := range outputsServedLogs {
 		for _, o := range r.OutputsServed {
 			fulfilled = append(fulfilled, block{
@@ -748,7 +747,7 @@ func (c *coordinator) unmarshalLogs(
 				err = errors.Wrap(err2, "unmarshal OutputsServed log")
 				return
 			}
-			nt, ok := unpacked.(*vrf_coordinator.VRFCoordinatorOutputsServed)
+			nt, ok := unpacked.(*vrf_wrapper.VRFCoordinatorOutputsServed)
 			if !ok {
 				// should never happen
 				err = errors.New("cast to *vrf_coordinator.VRFCoordinatorOutputsServed")
