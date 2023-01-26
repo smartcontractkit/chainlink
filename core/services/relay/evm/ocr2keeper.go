@@ -85,7 +85,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 
 type ocr2keeperProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 }
 
 func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
