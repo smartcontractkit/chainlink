@@ -25,14 +25,14 @@ type vrfRouter struct {
 }
 
 // vrfRouter implements VRFBeaconCoordinator interface
-var _ VRFBeaconCoordinator = &vrfRouter{}
+var _ vrfBeaconCoordinator = &vrfRouter{}
 
 func newRouter(
 	lggr logger.Logger,
 	beaconAddress common.Address,
 	coordinatorAddress common.Address,
 	client evmclient.Client,
-) (VRFBeaconCoordinator, error) {
+) (vrfBeaconCoordinator, error) {
 	beacon, err := vrf_beacon.NewVRFBeacon(beaconAddress, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "beacon wrapper creation")
@@ -48,28 +48,28 @@ func newRouter(
 	}, nil
 }
 
-// SProvingKeyHash retrieves the proving key hash from the on-chain contract.
+// sProvingKeyHash retrieves the proving key hash from the on-chain contract.
 // Calls VRF beacon wrapper to retrieve proving key hash
-func (v *vrfRouter) SProvingKeyHash(opts *bind.CallOpts) ([32]byte, error) {
+func (v *vrfRouter) sProvingKeyHash(opts *bind.CallOpts) ([32]byte, error) {
 	return v.beacon.SProvingKeyHash(opts)
 }
 
-// SKeyID retrieves the keyID from the on-chain contract.
+// sKeyID retrieves the keyID from the on-chain contract.
 // Calls VRF beacon wrapper to retrieve key ID
-func (v *vrfRouter) SKeyID(opts *bind.CallOpts) ([32]byte, error) {
+func (v *vrfRouter) sKeyID(opts *bind.CallOpts) ([32]byte, error) {
 	return v.beacon.SKeyID(opts)
 }
 
-// IBeaconPeriodBlocks retrieves the beacon period in blocks from the on-chain contract.
+// iBeaconPeriodBlocks retrieves the beacon period in blocks from the on-chain contract.
 // Calls VRF coordinator wrapper to beacon period blocks
-func (v *vrfRouter) IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error) {
+func (v *vrfRouter) iBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error) {
 	return v.coordinator.IBeaconPeriodBlocks(opts)
 }
 
-// ParseLog parses the raw log data and topics into a go object.
+// parseLog parses the raw log data and topics into a go object.
 // The returned object must be casted to the expected type.
 // Calls either VRF beacon wrapper or VRF coordinator wrapper depending on the addresses of the log
-func (v *vrfRouter) ParseLog(log types.Log) (generated.AbigenLog, error) {
+func (v *vrfRouter) parseLog(log types.Log) (generated.AbigenLog, error) {
 	if log.Address == v.beacon.Address() {
 		return v.beacon.ParseLog(log)
 	} else if log.Address == v.coordinator.Address() {
@@ -79,8 +79,8 @@ func (v *vrfRouter) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	}
 }
 
-// GetConfirmationDelays retrieves confirmation delays from the on-chain contract.
+// getConfirmationDelays retrieves confirmation delays from the on-chain contract.
 // Calls VRF coordinator to retrieve confirmation delays
-func (v *vrfRouter) GetConfirmationDelays(opts *bind.CallOpts) ([8]*big.Int, error) {
+func (v *vrfRouter) getConfirmationDelays(opts *bind.CallOpts) ([8]*big.Int, error) {
 	return v.coordinator.GetConfirmationDelays(opts)
 }

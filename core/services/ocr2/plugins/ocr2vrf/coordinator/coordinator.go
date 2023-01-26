@@ -133,7 +133,7 @@ type coordinator struct {
 	topics
 	finalityDepth uint32
 
-	onchainRouter      VRFBeaconCoordinator
+	onchainRouter      vrfBeaconCoordinator
 	coordinatorAddress common.Address
 	beaconAddress      common.Address
 
@@ -243,7 +243,7 @@ func (c *coordinator) ReportIsOnchain(
 	var logsWithCorrectConfigDigest []logpoller.Log
 	for i := 0; i < len(logs); i++ {
 		rawLog := toGethLog(logs[i])
-		unpacked, err := c.onchainRouter.ParseLog(rawLog)
+		unpacked, err := c.onchainRouter.parseLog(rawLog)
 		if err != nil {
 			c.lggr.Warnw("Incorrect log found in NewTransmissions", "log", logs[i], "err", err)
 			continue
@@ -692,7 +692,7 @@ func (c *coordinator) unmarshalLogs(
 		rawLog := toGethLog(lg)
 		switch lg.EventSig {
 		case c.randomnessRequestedTopic:
-			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
+			unpacked, err2 := c.onchainRouter.parseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
@@ -706,7 +706,7 @@ func (c *coordinator) unmarshalLogs(
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
 		case c.randomnessFulfillmentRequestedTopic:
-			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
+			unpacked, err2 := c.onchainRouter.parseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
@@ -720,7 +720,7 @@ func (c *coordinator) unmarshalLogs(
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, rfr)
 		case c.randomWordsFulfilledTopic:
-			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
+			unpacked, err2 := c.onchainRouter.parseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
@@ -734,7 +734,7 @@ func (c *coordinator) unmarshalLogs(
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
 		case c.outputsServedTopic:
-			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
+			unpacked, err2 := c.onchainRouter.parseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal OutputsServed log")
@@ -893,7 +893,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 // node. On ethereum this can be retrieved from the VRF contract's attribute
 // s_provingKeyHash
 func (c *coordinator) ProvingKeyHash(ctx context.Context) (common.Hash, error) {
-	h, err := c.onchainRouter.SProvingKeyHash(&bind.CallOpts{
+	h, err := c.onchainRouter.sProvingKeyHash(&bind.CallOpts{
 		Context: ctx,
 	})
 	if err != nil {
@@ -905,7 +905,7 @@ func (c *coordinator) ProvingKeyHash(ctx context.Context) (common.Hash, error) {
 
 // BeaconPeriod returns the period used in the coordinator's contract
 func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
-	beaconPeriodBlocks, err := c.onchainRouter.IBeaconPeriodBlocks(&bind.CallOpts{
+	beaconPeriodBlocks, err := c.onchainRouter.iBeaconPeriodBlocks(&bind.CallOpts{
 		Context: ctx,
 	})
 	if err != nil {
@@ -917,7 +917,7 @@ func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
 
 // ConfirmationDelays returns the list of confirmation delays defined in the coordinator's contract
 func (c *coordinator) ConfirmationDelays(ctx context.Context) ([]uint32, error) {
-	confDelays, err := c.onchainRouter.GetConfirmationDelays(&bind.CallOpts{
+	confDelays, err := c.onchainRouter.getConfirmationDelays(&bind.CallOpts{
 		Context: ctx,
 	})
 	if err != nil {
@@ -932,7 +932,7 @@ func (c *coordinator) ConfirmationDelays(ctx context.Context) ([]uint32, error) 
 
 // KeyID returns the key ID from coordinator's contract
 func (c *coordinator) KeyID(ctx context.Context) (dkg.KeyID, error) {
-	keyID, err := c.onchainRouter.SKeyID(&bind.CallOpts{Context: ctx})
+	keyID, err := c.onchainRouter.sKeyID(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return dkg.KeyID{}, errors.Wrap(err, "could not get key ID")
 	}
