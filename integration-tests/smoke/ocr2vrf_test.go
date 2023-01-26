@@ -56,11 +56,9 @@ func TestOCR2VRFBasic(t *testing.T) {
 	mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 	require.NoError(t, err)
 
-	//3. Deploy DKG contract
-	//4. Deploy VRFCoordinator(beaconPeriodBlocks, linkAddress, linkEthfeedAddress)
-	//5. Deploy VRFBeacon
+	//3. Deploy OCR2VRF Contracts (VRFRouter, VRFCoordinator, VRFBeacon, Consumer Contract)
 	// Deploy Consumer Contract
-	dkg, coordinator, vrfBeacon, consumer := ocr2vrf_actions.DeployOCR2VRFContracts(
+	dkg, router, coordinator, vrfBeacon, consumer := ocr2vrf_actions.DeployOCR2VRFContracts(
 		t,
 		contractDeployer,
 		chainClient,
@@ -70,28 +68,32 @@ func TestOCR2VRFBasic(t *testing.T) {
 		ocr2vrf_constants.KeyID,
 	)
 
-	//6. Add VRFBeacon as DKG client
+	//4. Register coordinator to router
+	err = router.RegisterCoordinator(coordinator.Address())
+	require.NoError(t, err)
+
+	//5. Add VRFBeacon as DKG client
 	err = dkg.AddClient(ocr2vrf_constants.KeyID, vrfBeacon.Address())
 	require.NoError(t, err)
 
-	//7. Adding VRFBeacon as producer in VRFCoordinator
+	//6. Adding VRFBeacon as producer in VRFCoordinator
 	err = coordinator.SetProducer(vrfBeacon.Address())
 	require.NoError(t, err)
 
-	//9. Subscription:
-	//9.1	Create Subscription
+	//7. Subscription:
+	//7.1	Create Subscription
 	err = coordinator.CreateSubscription()
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
-	//9.2	Add Consumer to subscription
+	//7.2	Add Consumer to subscription
 	err = coordinator.AddConsumer(ocr2vrf_constants.SubscriptionID, consumer.Address())
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
-	//9.3	fund subscription with LINK token
+	//7.3	fund subscription with LINK token
 	ocr2vrf_actions.FundVRFCoordinatorSubscription(
 		t,
 		linkToken,

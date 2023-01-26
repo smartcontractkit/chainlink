@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_router"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_blockhash_store"
 )
@@ -149,13 +150,31 @@ func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
 	}, err
 }
 
+// DeployVRFRouter deploys VRF router contract
+func (e *EthereumContractDeployer) DeployVRFRouter() (VRFRouter, error) {
+	address, _, instance, err := e.client.DeployContract("VRFRouter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return vrf_router.DeployVRFRouter(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFRouter{
+		client:    e.client,
+		vrfRouter: instance.(*vrf_router.VRFRouter),
+		address:   address,
+	}, err
+}
+
 // DeployOCR2VRFCoordinator deploys CR2VRFCoordinator contract
-func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string) (VRFCoordinatorV3, error) {
+func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string, vrfRouter string) (VRFCoordinatorV3, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress))
+		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress), common.HexToAddress(vrfRouter))
 	})
 	if err != nil {
 		return nil, err
@@ -708,6 +727,32 @@ func (dkgContract *EthereumDKG) WaitForConfigSetEvent() (*dkg.DKGConfigSet, erro
 	return configSetEvent, nil
 }
 
+// EthereumVRFRouter represents EthereumVRFRouter contract
+type EthereumVRFRouter struct {
+	address   *common.Address
+	client    blockchain.EVMClient
+	vrfRouter *vrf_router.VRFRouter
+}
+
+func (router *EthereumVRFRouter) Address() string {
+	return router.address.Hex()
+}
+
+func (router *EthereumVRFRouter) RegisterCoordinator(coordinatorAddress string) error {
+	opts, err := router.client.TransactionOpts(router.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := router.vrfRouter.RegisterCoordinator(
+		opts,
+		common.HexToAddress(coordinatorAddress),
+	)
+	if err != nil {
+		return err
+	}
+	return router.client.ProcessTransaction(tx)
+}
+
 // EthereumVRFCoordinatorV3 represents VRFCoordinatorV3 contract
 type EthereumVRFCoordinatorV3 struct {
 	address          *common.Address
@@ -748,7 +793,7 @@ func (coordinator *EthereumVRFCoordinatorV3) CreateSubscription() error {
 	return coordinator.client.ProcessTransaction(tx)
 }
 
-func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId uint64, consumerAddress string) error {
+func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consumerAddress string) error {
 	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -870,8 +915,7 @@ func (consumer *EthereumVRFBeaconConsumer) Address() string {
 
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 	numWords uint16,
-	subID uint64,
-	confirmationDelayArg *big.Int,
+	subID, confirmationDelayArg *big.Int,
 ) (*types.Receipt, error) {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
@@ -903,7 +947,7 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 }
 
 func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
-	requestID *big.Int,
+	subID, requestID *big.Int,
 ) error {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
@@ -911,6 +955,7 @@ func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
 	}
 	tx, err := consumer.vrfBeaconConsumer.TestRedeemRandomness(
 		opts,
+		subID,
 		requestID,
 	)
 	if err != nil {
@@ -921,8 +966,7 @@ func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
 
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	numWords uint16,
-	subID uint64,
-	confirmationDelayArg *big.Int,
+	subID, confirmationDelayArg *big.Int,
 	callbackGasLimit uint32,
 	arguments []byte,
 ) error {

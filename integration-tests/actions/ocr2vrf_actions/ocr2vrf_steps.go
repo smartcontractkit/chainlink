@@ -141,8 +141,8 @@ func SetAndGetOCR2VRFPluginConfig(t *testing.T, nonBootstrapNodes []*client.Chai
 	return ocr2VRFPluginConfig
 }
 
-func FundVRFCoordinatorSubscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, chainClient blockchain.EVMClient, subscriptionID uint64, linkFundingAmount *big.Int) {
-	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
+func FundVRFCoordinatorSubscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, chainClient blockchain.EVMClient, subscriptionID, linkFundingAmount *big.Int) {
+	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint256"}]`, subscriptionID.String())
 	require.NoError(t, err)
 
 	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
@@ -158,7 +158,12 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
-	coordinator, err := contractDeployer.DeployOCR2VRFCoordinator(beaconPeriodBlocksCount, linkToken.Address(), mockETHLinkFeed.Address())
+	router, err := contractDeployer.DeployVRFRouter()
+	require.NoError(t, err)
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err)
+
+	coordinator, err := contractDeployer.DeployOCR2VRFCoordinator(beaconPeriodBlocksCount, linkToken.Address(), mockETHLinkFeed.Address(), router.Address())
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
@@ -173,7 +178,7 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
-	return dkg, coordinator, vrfBeacon, consumer
+	return dkg, router, coordinator, vrfBeacon, consumer
 }
 
 func RequestAndRedeemRandomness(t *testing.T, consumer contracts.VRFBeaconConsumer, chainClient blockchain.EVMClient, vrfBeacon contracts.VRFBeacon, numberOfRandomWordsToRequest uint16, subscriptionID uint64, confirmationDelay *big.Int) *big.Int {
