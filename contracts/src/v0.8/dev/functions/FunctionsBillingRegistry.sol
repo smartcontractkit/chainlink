@@ -103,15 +103,15 @@ contract FunctionsBillingRegistry is
   }
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
     private s_requestCommitments;
-  event BillingStart(bytes32 requestId, Commitment commitment);
+  event BillingStart(bytes32 indexed requestId, Commitment commitment);
   struct ItemizedBill {
     uint96 signerPayment;
     uint96 transmitterPayment;
     uint96 totalCost;
   }
   event BillingEnd(
-    uint64 subscriptionId,
     bytes32 indexed requestId,
+    uint64 subscriptionId,
     uint96 signerPayment,
     uint96 transmitterPayment,
     uint96 totalCost,
@@ -473,8 +473,8 @@ contract FunctionsBillingRegistry is
     s_subscriptions[commitment.subscriptionId].blockedBalance -= commitment.estimatedCost;
     // Include payment in the event for tracking costs.
     emit BillingEnd(
-      commitment.subscriptionId,
       requestId,
+      commitment.subscriptionId,
       bill.signerPayment,
       bill.transmitterPayment,
       bill.totalCost,
@@ -799,7 +799,7 @@ contract FunctionsBillingRegistry is
    * @param requestIdsToTimeout - A list of request IDs to time out
    */
 
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external {
+  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external whenNotPaused {
     for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
       bytes32 requestId = requestIdsToTimeout[i];
       Commitment memory commitment = s_requestCommitments[requestId];

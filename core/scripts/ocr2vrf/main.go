@@ -225,7 +225,7 @@ func main() {
 			},
 		}
 
-		setVRFBeaconConfig(e, *beaconAddress, commands)
+		commands.setVRFBeaconConfig(e, *beaconAddress)
 	case "coordinator-set-producer":
 		cmd := flag.NewFlagSet("coordinator-set-producer", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")

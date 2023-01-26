@@ -28,6 +28,9 @@ import (
 func TestForwarderOCRBasic(t *testing.T) {
 	t.Parallel()
 	testEnvironment, testNetwork := setupForwarderOCRTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
@@ -73,9 +76,11 @@ func TestForwarderOCRBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	actions.SetAllAdapterResponsesToTheSameValue(t, 5, ocrInstances, chainlinkNodes, mockServer)
+	err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer)
+	require.NoError(t, err)
 	actions.CreateOCRJobsWithForwarder(t, ocrInstances, chainlinkNodes, mockServer)
-	actions.StartNewRound(t, 1, ocrInstances, chainClient)
+	err = actions.StartNewRound(1, ocrInstances, chainClient)
+	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
@@ -83,8 +88,10 @@ func TestForwarderOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-	actions.SetAllAdapterResponsesToTheSameValue(t, 10, ocrInstances, chainlinkNodes, mockServer)
-	actions.StartNewRound(t, 2, ocrInstances, chainClient)
+	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, mockServer)
+	require.NoError(t, err)
+	err = actions.StartNewRound(2, ocrInstances, chainClient)
+	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
@@ -118,6 +125,7 @@ ListenPort = 6690`
 ForwardersEnabled = true`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).

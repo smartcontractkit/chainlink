@@ -221,6 +221,77 @@ func (f *EthereumStaking) SetMerkleRoot(newMerkleRoot [32]byte) error {
 	return f.client.ProcessTransaction(tx)
 }
 
+// EthereumAtlasFunctions
+type EthereumAtlasFunctions struct {
+	client         blockchain.EVMClient
+	atlasFunctions *ethereum2.AtlasFunctions
+	address        *common.Address
+}
+
+func (f *EthereumAtlasFunctions) Address() string {
+	return f.address.Hex()
+}
+
+func (f *EthereumAtlasFunctions) OracleRequest(requestId [32]byte, subscriptionId uint64, data []byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireOracleRequest(opts, requestId, subscriptionId, data)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) OracleResponse(requestId [32]byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireOracleResponse(opts, requestId)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) UserCallbackError(requestId [32]byte, reason string) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireUserCallbackError(opts, requestId, reason)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) UserCallbackRawError(requestId [32]byte, lowLevelData []byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireUserCallbackRawError(opts, requestId, lowLevelData)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumAtlasFunctions) SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.atlasFunctions.FireSubscriptionFunded(opts, subscriptionId, oldBalance, newBalance)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
 // EthereumFluxAggregator represents the basic flux aggregation contract
 type EthereumFluxAggregator struct {
 	client         blockchain.EVMClient
@@ -505,74 +576,6 @@ func (f *FluxAggregatorRoundConfirmer) Wait() error {
 
 func (f *FluxAggregatorRoundConfirmer) Complete() bool {
 	return f.complete
-}
-
-// VRFConsumerRoundConfirmer is a header subscription that awaits for a certain VRF round to be completed
-type VRFConsumerRoundConfirmer struct {
-	consumer VRFConsumer
-	roundID  *big.Int
-	doneChan chan struct{}
-	context  context.Context
-	cancel   context.CancelFunc
-	done     bool
-}
-
-// NewVRFConsumerRoundConfirmer provides a new instance of a NewVRFConsumerRoundConfirmer
-func NewVRFConsumerRoundConfirmer(
-	contract VRFConsumer,
-	roundID *big.Int,
-	timeout time.Duration,
-) *VRFConsumerRoundConfirmer {
-	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
-	return &VRFConsumerRoundConfirmer{
-		consumer: contract,
-		roundID:  roundID,
-		doneChan: make(chan struct{}),
-		context:  ctx,
-		cancel:   ctxCancel,
-	}
-}
-
-// ReceiveHeader will query the latest VRFConsumer round and check to see whether the round has confirmed
-func (f *VRFConsumerRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) error {
-	if f.done {
-		return nil
-	}
-	roundID, err := f.consumer.CurrentRoundID(context.Background())
-	if err != nil {
-		return err
-	}
-	l := log.Debug().
-		Str("Contract Address", f.consumer.Address()).
-		Int64("Waiting for Round", f.roundID.Int64()).
-		Int64("Current round ID", roundID.Int64()).
-		Uint64("Header Number", header.Number.Uint64())
-	if roundID.Int64() == f.roundID.Int64() {
-		randomness, err := f.consumer.RandomnessOutput(context.Background())
-		if err != nil {
-			return err
-		}
-		l.Uint64("Randomness", randomness.Uint64()).
-			Msg("VRFConsumer round completed")
-		f.done = true
-		f.doneChan <- struct{}{}
-	} else {
-		l.Msg("Waiting for VRFConsumer round")
-	}
-	return nil
-}
-
-// Wait is a blocking function that will wait until the round has confirmed, and timeout if the deadline has passed
-func (f *VRFConsumerRoundConfirmer) Wait() error {
-	for {
-		select {
-		case <-f.doneChan:
-			f.cancel()
-			return nil
-		case <-f.context.Done():
-			return fmt.Errorf("timeout waiting for VRFConsumer round to confirm: %d", f.roundID)
-		}
-	}
 }
 
 // EthereumLinkToken represents a LinkToken address
@@ -1067,27 +1070,6 @@ func (e *EthereumStorage) Get(ctxt context.Context) (*big.Int, error) {
 	return e.store.Get(opts)
 }
 
-// EthereumVRF represents a VRF contract
-type EthereumVRF struct {
-	client  blockchain.EVMClient
-	vrf     *ethereum.VRF
-	address *common.Address
-}
-
-// Fund sends specified currencies to the contract
-func (v *EthereumVRF) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
-}
-
-// ProofLength returns the PROOFLENGTH call from the VRF contract
-func (v *EthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctxt,
-	}
-	return v.vrf.PROOFLENGTH(opts)
-}
-
 // EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
 type EthereumMockETHLINKFeed struct {
 	client  blockchain.EVMClient
@@ -1130,298 +1112,6 @@ type EthereumMockGASFeed struct {
 
 func (v *EthereumMockGASFeed) Address() string {
 	return v.address.Hex()
-}
-
-// EthereumBlockhashStore represents a blockhash store for VRF contract
-type EthereumBlockhashStore struct {
-	address        *common.Address
-	client         blockchain.EVMClient
-	blockHashStore *ethereum.BlockhashStore
-}
-
-func (v *EthereumBlockhashStore) Address() string {
-	return v.address.Hex()
-}
-
-// EthereumVRFCoordinatorV2 represents VRFV2 coordinator contract
-type EthereumVRFCoordinatorV2 struct {
-	address     *common.Address
-	client      blockchain.EVMClient
-	coordinator *ethereum.VRFCoordinatorV2
-}
-
-func (v *EthereumVRFCoordinatorV2) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumVRFCoordinatorV2) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	hash, err := v.coordinator.HashOfKey(opts, pubKey)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	return hash, nil
-}
-
-func (v *EthereumVRFCoordinatorV2) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig ethereum.VRFCoordinatorV2FeeConfig) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.SetConfig(
-		opts,
-		minimumRequestConfirmations,
-		maxGasLimit,
-		stalenessSeconds,
-		gasAfterPaymentCalculation,
-		fallbackWeiPerUnitLink,
-		feeConfig,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumVRFCoordinatorV2) RegisterProvingKey(
-	oracleAddr string,
-	publicProvingKey [2]*big.Int,
-) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, common.HexToAddress(oracleAddr), publicProvingKey)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// EthereumVRFCoordinator represents VRF coordinator contract
-type EthereumVRFCoordinator struct {
-	address     *common.Address
-	client      blockchain.EVMClient
-	coordinator *ethereum.VRFCoordinator
-}
-
-func (v *EthereumVRFCoordinator) Address() string {
-	return v.address.Hex()
-}
-
-// HashOfKey get a hash of proving key to use it as a request ID part for VRF
-func (v *EthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	hash, err := v.coordinator.HashOfKey(opts, pubKey)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	return hash, nil
-}
-
-// RegisterProvingKey register VRF proving key
-func (v *EthereumVRFCoordinator) RegisterProvingKey(
-	fee *big.Int,
-	oracleAddr string,
-	publicProvingKey [2]*big.Int,
-	jobID [32]byte,
-) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, fee, common.HexToAddress(oracleAddr), publicProvingKey, jobID)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// EthereumVRFConsumerV2 represents VRFv2 consumer contract
-type EthereumVRFConsumerV2 struct {
-	address  *common.Address
-	client   blockchain.EVMClient
-	consumer *ethereum.VRFConsumerV2
-}
-
-// CurrentSubscription get current VRFv2 subscription
-func (v *EthereumVRFConsumerV2) CurrentSubscription() (uint64, error) {
-	return v.consumer.SSubId(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: context.Background(),
-	})
-}
-
-// CreateFundedSubscription create funded subscription for VRFv2 randomness
-func (v *EthereumVRFConsumerV2) CreateFundedSubscription(funds *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TestCreateSubscriptionAndFund(opts, funds)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// TopUpSubscriptionFunds add funds to a VRFv2 subscription
-func (v *EthereumVRFConsumerV2) TopUpSubscriptionFunds(funds *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TopUpSubscription(opts, funds)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumVRFConsumerV2) Address() string {
-	return v.address.Hex()
-}
-
-// GasAvailable get available gas after randomness fulfilled
-func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
-	return v.consumer.SGasAvailable(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: context.Background(),
-	})
-}
-
-func (v *EthereumVRFConsumerV2) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
-}
-
-// RequestRandomness request VRFv2 random words
-func (v *EthereumVRFConsumerV2) RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TestRequestRandomness(opts, hash, subID, confs, gasLimit, numWords)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// RandomnessOutput get VRFv2 randomness output (word)
-func (v *EthereumVRFConsumerV2) RandomnessOutput(ctx context.Context, arg0 *big.Int) (*big.Int, error) {
-	return v.consumer.SRandomWords(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}, arg0)
-}
-
-// GetAllRandomWords get all VRFv2 randomness output words
-func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error) {
-	words := make([]*big.Int, 0)
-	for i := 0; i < num; i++ {
-		word, err := v.consumer.SRandomWords(&bind.CallOpts{
-			From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-			Context: ctx,
-		}, big.NewInt(int64(i)))
-		if err != nil {
-			return nil, err
-		}
-		words = append(words, word)
-	}
-	return words, nil
-}
-
-// LoadExistingConsumer loads an EthereumVRFConsumerV2 with a specified address
-func (v *EthereumVRFConsumerV2) LoadExistingConsumer(address string, client blockchain.EVMClient) error {
-	a := common.HexToAddress(address)
-	consumer, err := ethereum.NewVRFConsumerV2(a, client.(*blockchain.EthereumClient).Client)
-	if err != nil {
-		return err
-	}
-	v.client = client
-	v.consumer = consumer
-	v.address = &a
-	return nil
-}
-
-// EthereumVRFConsumer represents VRF consumer contract
-type EthereumVRFConsumer struct {
-	address  *common.Address
-	client   blockchain.EVMClient
-	consumer *ethereum.VRFConsumer
-}
-
-func (v *EthereumVRFConsumer) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumVRFConsumer) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
-}
-
-// RequestRandomness requests VRF randomness
-func (v *EthereumVRFConsumer) RequestRandomness(hash [32]byte, fee *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TestRequestRandomness(opts, hash, fee)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// CurrentRoundID helper roundID counter in consumer to check when all randomness requests are finished
-func (v *EthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	return v.consumer.CurrentRoundID(opts)
-}
-
-func (v *EthereumVRFConsumer) WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error {
-	ethEventChan := make(chan *ethereum.VRFConsumerPerfMetricsEvent)
-	sub, err := v.consumer.WatchPerfMetricsEvent(&bind.WatchOpts{}, ethEventChan)
-	if err != nil {
-		return err
-	}
-	defer sub.Unsubscribe()
-	for {
-		select {
-		case event := <-ethEventChan:
-			eventChan <- &PerfEvent{
-				Contract:       v,
-				RequestID:      event.RequestId,
-				Round:          event.RoundID,
-				BlockTimestamp: event.Timestamp,
-			}
-		case err := <-sub.Err():
-			return err
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
-// RandomnessOutput get VRF randomness output
-func (v *EthereumVRFConsumer) RandomnessOutput(ctx context.Context) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	out, err := v.consumer.RandomnessOutput(opts)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // EthereumReadAccessController represents read access controller contract

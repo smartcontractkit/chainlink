@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 
 	"github.com/stretchr/testify/require"
@@ -183,6 +184,7 @@ func benchmarkTestHelper(
 	for key, value := range activeEVMNetwork.ToMap() {
 		remoteRunnerValues[key] = value
 	}
+	remoteRunnerValues[config.EnvVarInsideK8s] = "true"
 	remoteRunnerWrapper := map[string]interface{}{
 		"remote_test_runner": remoteRunnerValues,
 	}

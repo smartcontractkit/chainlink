@@ -18,6 +18,7 @@ import (
 type linkEthPriceProvider struct {
 	aggregator aggregator_v3_interface.AggregatorV3InterfaceInterface
 	timeout    time.Duration
+	stubbed    bool
 }
 
 var _ types.JuelsPerFeeCoin = (*linkEthPriceProvider)(nil)
@@ -27,10 +28,14 @@ func NewLinkEthPriceProvider(linkEthFeedAddress common.Address, client evmclient
 	if err != nil {
 		return nil, errors.Wrap(err, "new aggregator v3 interface")
 	}
-	return &linkEthPriceProvider{aggregator: aggregator, timeout: timeout}, nil
+	// Return the stubbed implementation, as we are not currently using juelsPerFeeCoin.
+	return &linkEthPriceProvider{aggregator: aggregator, timeout: timeout, stubbed: true}, nil
 }
 
 func (p *linkEthPriceProvider) JuelsPerFeeCoin() (*big.Int, error) {
+	if p.stubbed {
+		return p.juelsPerFeeCoinStubbed()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
 	defer cancel()
 	roundData, err := p.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
@@ -38,4 +43,9 @@ func (p *linkEthPriceProvider) JuelsPerFeeCoin() (*big.Int, error) {
 		return nil, errors.Wrap(err, "get aggregator latest answer")
 	}
 	return roundData.Answer, nil
+}
+
+// Stubbed implementation, returns 0 and does not make an RPC call.
+func (p *linkEthPriceProvider) juelsPerFeeCoinStubbed() (*big.Int, error) {
+	return big.NewInt(0), nil
 }

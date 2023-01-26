@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/services/relay/evm/mercury/wsrpc/report";
+
+package report;
+
+service Report {
+    rpc Transmit(ReportRequest) returns (ReportResponse);
+}
+
+message ReportRequest {
+	bytes payload = 1;
+}
+
+message ReportResponse {
+    int32 code = 1;
+    string error = 2;
+}
+

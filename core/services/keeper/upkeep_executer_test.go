@@ -125,7 +125,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), nil)
 
-		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
@@ -168,7 +168,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
 			})
 
-			gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+			gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
@@ -272,7 +272,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 			cltest.NewAwaiter(),
 		}
-		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
