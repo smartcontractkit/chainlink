@@ -54,6 +54,12 @@ func TestOCR2VRFChaos(t *testing.T) {
 		// network-* and pods-* are split intentionally into 2 parallel groups
 		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
 		// because of jsii runtime bug, see Makefile
+
+		// PodChaosFailMinorityNodes Test description:
+		//1. DKG and VRF beacon processes are set and VRF request gets fulfilled
+		//2. Apply chaos experiment - take down 2 nodes out of 5 non-bootstrap
+		//3. Bring back all nodes to normal
+		//4. verify VRF request gets fulfilled
 		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultOCR2VRFEthereumSettings),
 			chainlink.New(0, defaultOCR2VRFSettings),

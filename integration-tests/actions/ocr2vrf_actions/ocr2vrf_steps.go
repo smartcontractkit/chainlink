@@ -38,7 +38,7 @@ func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OC
 func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, dkg contracts.DKG) {
 	ocr2DkgConfig := BuildOCR2DKGConfigVars(t, ocr2VRFPluginConfig)
 
-	//13. set config for DKG OCR
+	// set config for DKG OCR
 	log.Debug().Interface("OCR2 DKG Config", ocr2DkgConfig).Msg("OCR2 DKG Config prepared")
 	err := dkg.SetConfig(
 		ocr2DkgConfig.Signers,
@@ -50,11 +50,11 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	)
 	require.NoError(t, err)
 
-	//14. wait for the event ConfigSet from DKG contract
+	// wait for the event ConfigSet from DKG contract
 	dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent()
 	require.NoError(t, err)
 	log.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config was set")
-	//15. wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
+	// wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
 	dkgSharesTransmittedEvent, err := dkg.WaitForTransmittedEvent()
 	require.NoError(t, err)
 	log.Info().Interface("Event", dkgSharesTransmittedEvent).Msg("DKG Shares were generated and transmitted by OCR Committee")
