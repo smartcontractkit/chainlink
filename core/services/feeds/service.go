@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	ocr2 "github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -34,6 +35,7 @@ import (
 //go:generate mockery --quiet --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 var (
+	ErrOCR2Disabled         = errors.New("ocr2 is disabled")
 	ErrOCRDisabled          = errors.New("ocr is disabled")
 	ErrSingleFeedsManager   = errors.New("only a single feeds manager is supported")
 	ErrJobAlreadyExists     = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
@@ -615,6 +617,19 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	case job.OffchainReporting:
 		address = j.OCROracleSpec.ContractAddress
 		evmChainID = j.OCROracleSpec.EVMChainID
+	case job.OffchainReporting2:
+		eipAddress, err := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
+		if err != nil {
+			return errors.Wrap(err, "failed to create EIP55Address from OCR2 job spec")
+		}
+
+		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
+		if chainErr != nil {
+			return errors.Wrap(chainErr, "failed to get evmChainID from OCR2 job spec")
+		}
+
+		evmChainID = utils.NewBig(evmChain.ID())
+		address = eipAddress
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
 		evmChainID = j.FluxMonitorSpec.EVMChainID
@@ -877,6 +892,11 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 			return nil, ErrOCRDisabled
 		}
 		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
+	case job.OffchainReporting2:
+		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting2() {
+			return nil, ErrOCR2Disabled
+		}
+		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:
@@ -1030,7 +1050,7 @@ func (s *service) validateProposeJobArgs(args ProposeJobArgs) error {
 	}
 
 	// Validate bootstrap multiaddrs which are only allowed for OCR jobs
-	if len(args.Multiaddrs) > 0 && j.Type != job.OffchainReporting {
+	if len(args.Multiaddrs) > 0 && j.Type != job.OffchainReporting && j.Type != job.OffchainReporting2 {
 		return errors.New("only OCR job type supports multiaddr")
 	}
 
