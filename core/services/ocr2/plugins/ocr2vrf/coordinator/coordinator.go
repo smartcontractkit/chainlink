@@ -156,27 +156,27 @@ func New(
 	beaconAddress common.Address,
 	coordinatorAddress common.Address,
 	dkgAddress common.Address,
-	client evmclient.Client,
+	evmClient evmclient.Client,
 	logPoller logpoller.LogPoller,
 	finalityDepth uint32,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
-	onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, client)
+	onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "onchain router creation")
 	}
 
-	t := newTopics()
+	topics := newTopics()
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	_, err = logPoller.RegisterFilter(logpoller.Filter{
 		EventSigs: []common.Hash{
-			t.randomnessRequestedTopic,
-			t.randomnessFulfillmentRequestedTopic,
-			t.randomWordsFulfilledTopic,
-			t.configSetTopic,
-			t.outputsServedTopic,
-			t.newTransmissionTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
+			topics.randomnessRequestedTopic,
+			topics.randomnessFulfillmentRequestedTopic,
+			topics.randomWordsFulfilledTopic,
+			topics.configSetTopic,
+			topics.outputsServedTopic,
+			topics.newTransmissionTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
 	if err != nil {
 		return nil, err
 	}
@@ -185,19 +185,20 @@ func New(
 	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
 
 	return &coordinator{
-		onchainRouter:            onchainRouter,
-		coordinatorAddress:       coordinatorAddress,
-		beaconAddress:            beaconAddress,
-		dkgAddress:               dkgAddress,
-		lp:                       logPoller,
-		topics:                   t,
-		finalityDepth:            finalityDepth,
-		evmClient:                client,
-		lggr:                     lggr.Named("OCR2VRFCoordinator"),
-		toBeTransmittedBlocks:    NewBlockCache[blockInReport](cacheEvictionWindow),
-		toBeTransmittedCallbacks: NewBlockCache[callbackInReport](cacheEvictionWindow),
-		// defaults
-		coordinatorConfig: &ocr2vrftypes.CoordinatorConfig{
+		lggr.Named("OCR2VRFCoordinator"),
+		logPoller,
+		topics,
+		finalityDepth,
+
+		onchainRouter,
+		coordinatorAddress,
+		beaconAddress,
+
+		dkgAddress,
+		evmClient,
+		NewBlockCache[blockInReport](cacheEvictionWindow),    // toBeTransmittedBlocks
+		NewBlockCache[callbackInReport](cacheEvictionWindow), // toBeTransmittedCallbacks
+		&ocr2vrftypes.CoordinatorConfig{
 			CacheEvictionWindowSeconds: cacheEvictionWindowSeconds,
 			BatchGasLimit:              5_000_000,
 			CoordinatorOverhead:        50_000,
