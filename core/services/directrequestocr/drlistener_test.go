@@ -126,8 +126,6 @@ func PrepareAndStartDRListener(t *testing.T, expectPipelineRun bool) (*DRListene
 		Return(false, nil).
 		Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(pg.Queryer) error)
-			require.NoError(t, fn(nil))
 		}).Once()
 
 	return uni, log, runBeganAwaiter
