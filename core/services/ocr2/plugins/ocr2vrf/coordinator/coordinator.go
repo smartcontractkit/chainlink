@@ -96,7 +96,7 @@ const (
 	randomnessRequestedEvent            string = "RandomnessRequested"
 	randomnessFulfillmentRequestedEvent string = "RandomnessFulfillmentRequested"
 	randomWordsFulfilledEvent           string = "RandomWordsFulfilled"
-	newTransmissionEvent                string = "NewTransmission"
+	newTransmissionEvent                string = "NewTransmission" // XXX: This is also emitted by the DKG process?
 	outputsServedEvent                  string = "OutputsServed"
 
 	// Both VRF and DKG contracts emit this, it's an OCR event.
