@@ -25,8 +25,8 @@ decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error
 chainID = {{chain_id}}
 
 [pluginConfig]
-minIncomingConfirmations = 2
-requestTimeoutBatchLookupSize = 5
-requestTimeoutCheckFrequencySec = 30
-requestTimeoutSec = 1_200
+minIncomingConfirmations = 3
+requestTimeoutSec = 300
+requestTimeoutCheckFrequencySec = 10
+requestTimeoutBatchLookupSize = 20
 listenerEventHandlerTimeoutSec = 120
