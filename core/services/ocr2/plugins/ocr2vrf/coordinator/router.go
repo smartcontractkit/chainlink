@@ -15,16 +15,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-var _ VRFBeaconCoordinator = &vrfRouter{}
-
 //go:generate mockery --quiet --name VRFBeaconCoordinator --output ./mocks/ --case=underscore
 
-// VRFProxy routes requests to VRFBeacon and VRFCoordinator go wrappers and implements VRFBeaconCoordinator interface
+// vrfRouter routes requests to VRFBeacon and VRFCoordinator go wrappers
 type vrfRouter struct {
 	lggr        logger.Logger
 	beacon      vrf_beacon.VRFBeaconInterface
 	coordinator vrf_coordinator.VRFCoordinatorInterface
 }
+
+// vrfRouter implements VRFBeaconCoordinator interface
+var _ VRFBeaconCoordinator = &vrfRouter{}
 
 func newRouter(
 	lggr logger.Logger,
