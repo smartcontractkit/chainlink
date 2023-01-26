@@ -1,15 +1,22 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 func TestClient_CreateUser(t *testing.T) {
@@ -25,6 +32,7 @@ func TestClient_CreateUser(t *testing.T) {
 		role  string
 		err   string
 	}{
+		{"Invalid request", "//", "", "parseResponse error"},
 		{"No params", "", "", "Invalid role"},
 		{"No email", "", "view", "Must enter an email"},
 		{"User exists", cltest.APIEmailAdmin, "admin", fmt.Sprintf(`user with email %s already exists`, cltest.APIEmailAdmin)},
@@ -62,6 +70,7 @@ func TestClient_ChangeRole(t *testing.T) {
 		role  string
 		err   string
 	}{
+		{"Invalid request", "//", "", "parseResponse error"},
 		{"No params", "", "", "must specify an email"},
 		{"No email", "", "view", "must specify an email"},
 		{"No role", user.Email, "", "must specify a new role"},
@@ -99,6 +108,7 @@ func TestClient_DeleteUser(t *testing.T) {
 		email string
 		err   string
 	}{
+		{"Invalid request", "//", "parseResponse error"},
 		{"No email", "", "must specify an email"},
 		{"Unknown email", "foo", "specified user not found"},
 		{"Valid params", user.Email, ""},
@@ -119,4 +129,61 @@ func TestClient_DeleteUser(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClient_ListUsers(t *testing.T) {
+	app := startNewApplicationV2(t, nil)
+	client, _ := app.NewClientAndRenderer()
+	user := cltest.MustRandomUser(t)
+	require.NoError(t, app.SessionORM().CreateUser(&user))
+
+	set := flag.NewFlagSet("test", 0)
+	cltest.FlagSetApplyFromAction(client.ListUsers, set, "")
+	c := cli.NewContext(nil, set, nil)
+
+	buffer := bytes.NewBufferString("")
+	client.Renderer = cmd.RendererTable{Writer: buffer}
+
+	assert.NoError(t, client.ListUsers(c), user.Email)
+
+	output := buffer.String()
+	assert.Contains(t, output, user.Email)
+	assert.Contains(t, output, user.Role)
+	assert.Contains(t, output, user.TokenKey.String)
+	assert.Contains(t, output, user.CreatedAt.String())
+	assert.Contains(t, output, user.UpdatedAt.String())
+}
+
+func TestAdminUsersPresenter_RenderTable(t *testing.T) {
+	user := sessions.User{
+		Email:     "foo@bar.com",
+		Role:      "admin",
+		CreatedAt: time.Now(),
+		TokenKey:  null.StringFrom("tokenKey"),
+		UpdatedAt: time.Now().Add(time.Duration(rand.Intn(10000)) * time.Second),
+	}
+
+	presenter := cmd.AdminUsersPresenter{
+		JAID: cmd.JAID{ID: user.Email},
+		UserResource: presenters.UserResource{
+			JAID:              presenters.JAID{ID: user.Email},
+			Email:             user.Email,
+			Role:              user.Role,
+			HasActiveApiToken: user.TokenKey.String,
+			CreatedAt:         user.CreatedAt,
+			UpdatedAt:         user.UpdatedAt,
+		},
+	}
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+
+	require.NoError(t, presenter.RenderTable(r))
+
+	output := buffer.String()
+	assert.Contains(t, output, user.Email)
+	assert.Contains(t, output, user.Role)
+	assert.Contains(t, output, user.TokenKey.String)
+	assert.Contains(t, output, user.CreatedAt.String())
+	assert.Contains(t, output, user.UpdatedAt.String())
 }
