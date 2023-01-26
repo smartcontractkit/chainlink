@@ -18,7 +18,7 @@ type ORM interface {
 	CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error
 
 	SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error
-	SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error
+	SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error
 	SetFinalized(requestID RequestID, reportedResult []byte, reportedError []byte, qopts ...pg.QOpt) error
 	SetConfirmed(requestID RequestID, qopts ...pg.QOpt) error
 
@@ -84,8 +84,13 @@ func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byt
 	return err
 }
 
-func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error {
-	newState := RESULT_READY
+func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
+	var newState RequestState
+	if readyForProcessing {
+		newState = RESULT_READY
+	} else {
+		newState = IN_PROGRESS
+	}
 	err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
 		stmt := `
 			UPDATE ocr2dr_requests
