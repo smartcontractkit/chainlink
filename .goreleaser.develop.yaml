@@ -34,7 +34,7 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: linux-amd64
@@ -54,7 +54,7 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
       - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
@@ -76,7 +76,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-amd64"
@@ -98,7 +98,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-arm64"
@@ -121,7 +121,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-amd64"
@@ -144,7 +144,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-arm64"
@@ -184,7 +184,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-{{ .ShortCommit }}"
+  name_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
 
 changelog:
   sort: asc
