@@ -793,6 +793,26 @@ func (coordinator *EthereumVRFCoordinatorV3) CreateSubscription() error {
 	return coordinator.client.ProcessTransaction(tx)
 }
 
+func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, error) {
+	fopts := &bind.FilterOpts{}
+	owner := coordinator.client.GetDefaultWallet().Address()
+
+	subscriptionIterator, err := coordinator.vrfCoordinatorV3.FilterSubscriptionCreated(
+		fopts,
+		nil,
+		[]common.Address{common.HexToAddress(owner)},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if !subscriptionIterator.Next() {
+		return nil, fmt.Errorf("expected at leats 1 subID for the given owner %s", owner)
+	}
+
+	return subscriptionIterator.Event.SubId, nil
+}
+
 func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consumerAddress string) error {
 	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
 	if err != nil {

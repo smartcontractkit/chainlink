@@ -89,6 +89,7 @@ type VRFCoordinatorV3 interface {
 	Address() string
 	SetProducer(producerAddress string) error
 	CreateSubscription() error
+	FindSubscriptionID() (*big.Int, error)
 	AddConsumer(subId *big.Int, consumerAddress string) error
 }
 

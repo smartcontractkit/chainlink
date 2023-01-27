@@ -151,7 +151,7 @@ func FundVRFCoordinatorSubscription(t *testing.T, linkToken contracts.LinkToken,
 	require.NoError(t, err)
 }
 
-func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, mockETHLinkFeed contracts.MockETHLINKFeed, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
+func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, mockETHLinkFeed contracts.MockETHLINKFeed, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFRouter, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
 	dkg, err := contractDeployer.DeployDKG()
 	require.NoError(t, err)
 
@@ -181,7 +181,7 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 	return dkg, router, coordinator, vrfBeacon, consumer
 }
 
-func RequestAndRedeemRandomness(t *testing.T, consumer contracts.VRFBeaconConsumer, chainClient blockchain.EVMClient, vrfBeacon contracts.VRFBeacon, numberOfRandomWordsToRequest uint16, subscriptionID uint64, confirmationDelay *big.Int) *big.Int {
+func RequestAndRedeemRandomness(t *testing.T, consumer contracts.VRFBeaconConsumer, chainClient blockchain.EVMClient, vrfBeacon contracts.VRFBeacon, numberOfRandomWordsToRequest uint16, subscriptionID, confirmationDelay *big.Int) *big.Int {
 	receipt, err := consumer.RequestRandomness(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
@@ -206,7 +206,7 @@ func RequestAndRedeemRandomness(t *testing.T, consumer contracts.VRFBeaconConsum
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent()
 	log.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
 
-	err = consumer.RedeemRandomness(requestID)
+	err = consumer.RedeemRandomness(subscriptionID, requestID)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)

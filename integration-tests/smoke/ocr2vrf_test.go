@@ -86,9 +86,11 @@ func TestOCR2VRFBasic(t *testing.T) {
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
+	subID, err := coordinator.FindSubscriptionID()
+	require.NoError(t, err)
 
 	//7.2	Add Consumer to subscription
-	err = coordinator.AddConsumer(ocr2vrf_constants.SubscriptionID, consumer.Address())
+	err = coordinator.AddConsumer(subID, consumer.Address())
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
@@ -99,7 +101,7 @@ func TestOCR2VRFBasic(t *testing.T) {
 		linkToken,
 		coordinator,
 		chainClient,
-		ocr2vrf_constants.SubscriptionID,
+		subID,
 		ocr2vrf_constants.LinkFundingAmount,
 	)
 
@@ -156,7 +158,7 @@ func TestOCR2VRFBasic(t *testing.T) {
 		chainClient,
 		vrfBeacon,
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
-		ocr2vrf_constants.SubscriptionID,
+		subID,
 		ocr2vrf_constants.ConfirmationDelay,
 	)
 

@@ -160,10 +160,11 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err)
 
 			//3. Deploy DKG contract
-			//4. Deploy VRFCoordinator(beaconPeriodBlocks, linkAddress, linkEthfeedAddress)
-			//5. Deploy VRFBeacon
-			//8. Deploy Consumer Contract
-			dkg, coordinator, vrfBeacon, consumer := ocr2vrf_actions.DeployOCR2VRFContracts(
+			//4. Deploy VRFRouter
+			//5. Deploy VRFCoordinator(beaconPeriodBlocks, linkAddress, linkEthfeedAddress)
+			//6. Deploy VRFBeacon
+			//7. Deploy Consumer Contract
+			dkg, router, coordinator, vrfBeacon, consumer := ocr2vrf_actions.DeployOCR2VRFContracts(
 				t,
 				contractDeployer,
 				chainClient,
@@ -173,43 +174,49 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.KeyID,
 			)
 
-			//6. Add VRFBeacon as DKG client
+			//8. Register coordnator
+			err = router.RegisterCoordinator(coordinator.Address())
+			require.NoError(t, err)
+
+			//9. Add VRFBeacon as DKG client
 			err = dkg.AddClient(ocr2vrf_constants.KeyID, vrfBeacon.Address())
 			require.NoError(t, err)
 
-			//7. Adding VRFBeacon as producer in VRFCoordinator
+			//10. Adding VRFBeacon as producer in VRFCoordinator
 			err = coordinator.SetProducer(vrfBeacon.Address())
 			require.NoError(t, err)
 
-			//9. Subscription:
-			//9.1	Create Subscription
+			//11. Subscription:
+			//11.1	Create Subscription
 			err = coordinator.CreateSubscription()
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
+			subID, err := coordinator.FindSubscriptionID()
+			require.NoError(t, err)
 
-			//9.2	Add Consumer to subscription
-			err = coordinator.AddConsumer(ocr2vrf_constants.SubscriptionID, consumer.Address())
+			//11.2	Add Consumer to subscription
+			err = coordinator.AddConsumer(subID, consumer.Address())
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
 
-			//9.3	fund subscription with LINK token
+			//11.3	fund subscription with LINK token
 			ocr2vrf_actions.FundVRFCoordinatorSubscription(
 				t,
 				linkToken,
 				coordinator,
 				chainClient,
-				ocr2vrf_constants.SubscriptionID,
+				subID,
 				ocr2vrf_constants.LinkFundingAmount,
 			)
 
-			//10. set Payees for VRFBeacon ((address which gets the reward) for each transmitter)
+			//12. set Payees for VRFBeacon ((address which gets the reward) for each transmitter)
 			nonBootstrapNodeAddresses := nodeAddresses[1:]
 			err = vrfBeacon.SetPayees(nonBootstrapNodeAddresses, nonBootstrapNodeAddresses)
 			require.NoError(t, err)
 
-			//11. fund OCR Nodes (so that they can transmit)
+			//13. fund OCR Nodes (so that they can transmit)
 			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, ocr2vrf_constants.EthFundingAmount)
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
@@ -218,8 +225,8 @@ func TestOCR2VRFChaos(t *testing.T) {
 			bootstrapNode := chainlinkNodes[0]
 			nonBootstrapNodes := chainlinkNodes[1:]
 
-			//11. Create DKG Sign and Encrypt keys for each non-bootstrap node
-			//12. set Job specs for each node
+			//14. Create DKG Sign and Encrypt keys for each non-bootstrap node
+			//15. set Job specs for each node
 			ocr2VRFPluginConfig := ocr2vrf_actions.SetAndGetOCR2VRFPluginConfig(
 				t,
 				nonBootstrapNodes,
@@ -231,7 +238,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.VRFBeaconAllowedConfirmationDelays,
 				ocr2vrf_constants.CoordinatorConfig,
 			)
-			//12. Create Jobs for Bootstrap and non-boostrap nodes
+			//16. Create Jobs for Bootstrap and non-boostrap nodes
 			ocr2vrf_actions.CreateOCR2VRFJobs(
 				t,
 				bootstrapNode,
@@ -241,13 +248,13 @@ func TestOCR2VRFChaos(t *testing.T) {
 				0,
 			)
 
-			//13. set config for DKG OCR,
-			//14. wait for the event ConfigSet from DKG contract
-			//15. wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
+			//17. set config for DKG OCR,
+			//18. wait for the event ConfigSet from DKG contract
+			//19. wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
 			ocr2vrf_actions.SetAndWaitForDKGProcessToFinish(t, ocr2VRFPluginConfig, dkg)
 
-			//16. set config for VRFBeacon OCR,
-			//17. wait for the event ConfigSet from VRFBeacon contract
+			//20. set config for VRFBeacon OCR,
+			//21. wait for the event ConfigSet from VRFBeacon contract
 			ocr2vrf_actions.SetAndWaitForVRFBeaconProcessToFinish(t, ocr2VRFPluginConfig, vrfBeacon)
 
 			//Request and Redeem Randomness to verify that process works fine
@@ -257,7 +264,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				chainClient,
 				vrfBeacon,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
-				ocr2vrf_constants.SubscriptionID,
+				subID,
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
@@ -283,7 +290,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				chainClient,
 				vrfBeacon,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
-				ocr2vrf_constants.SubscriptionID,
+				subID,
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
