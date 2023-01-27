@@ -373,6 +373,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 func waitForNodeReady(addr string) error {
 	client := &http.Client{}
+	defer client.CloseIdleConnections()
 	const timeout = 120
 	startTime := time.Now().Unix()
 	for {
@@ -485,7 +486,7 @@ func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, erro
 func getP2PKeyID(client cmd.HTTPClient) (string, error) {
 	resp, err := nodeRequest(client, "/v2/keys/p2p")
 	if err != nil {
-		return "", fmt.Errorf("failed to get OCR2 keys: %s", err)
+		return "", fmt.Errorf("failed to get P2P keys: %s", err)
 	}
 
 	var keys cmd.P2PKeyPresenters
