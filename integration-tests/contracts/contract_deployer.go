@@ -527,7 +527,17 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion ethereu
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	opts *KeeperRegistryOpts,
 ) (KeeperRegistry, error) {
-	paymentModel := uint8(0)
+	var paymentModel uint8
+	switch e.client.GetChainID() {
+	//Arbitrum payment model
+	case big.NewInt(421613):
+		paymentModel = uint8(1)
+	//Optimism payment model
+	case big.NewInt(420):
+		paymentModel = uint8(2)
+	default:
+		paymentModel = uint8(0)
+	}
 	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:

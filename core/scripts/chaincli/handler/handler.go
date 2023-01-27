@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -318,8 +319,10 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	addr := fmt.Sprintf("http://localhost:%s", portStr)
 	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
-	// TODO - replace with GET to /ready
-	time.Sleep(time.Second * 40)
+	if err = waitForNodeReady(addr); err != nil {
+		log.Fatal(err, nodeContainerResp.ID)
+	}
+	log.Println("Node ready: ", nodeContainerResp.ID)
 
 	return addr, func(writeLogs bool) {
 		fileCleanup()
@@ -366,6 +369,24 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			log.Fatal("Failed to remove DB container: ", err)
 		}
 	}, nil
+}
+
+func waitForNodeReady(addr string) error {
+	const timeout = 120
+	startTime := time.Now().Unix()
+	for {
+		resp, err := http.Get(fmt.Sprintf("%s/health", addr))
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+		}
+		if time.Now().Unix()-startTime > int64(timeout*time.Second) {
+			return fmt.Errorf("timed out waiting for node to start, waited %d seconds", timeout)
+		}
+		time.Sleep(time.Second * 5)
+	}
 }
 
 // authenticate creates a http client with URL, email and password
