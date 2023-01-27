@@ -153,12 +153,12 @@ var _ ocr2vrftypes.CoordinatorInterface = (*coordinator)(nil)
 // New creates a new CoordinatorInterface implementor.
 func New(
 	lggr logger.Logger,
-	beaconAddress common.Address,
-	coordinatorAddress common.Address,
-	dkgAddress common.Address,
-	evmClient evmclient.Client,
+	beaconAddress common.Address, // address of VRFBeacon contract
+	coordinatorAddress common.Address, // address of VRFBeaconCoordinator contract
+	dkgAddress common.Address, // address of DKG contract
+	evmClient evmclient.Client, // interface to blockchain
 	logPoller logpoller.LogPoller,
-	finalityDepth uint32,
+	finalityDepth uint32, // depth at which blocks are to be considered final
 ) (ocr2vrftypes.CoordinatorInterface, error) {
 	onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, evmClient)
 	if err != nil {
