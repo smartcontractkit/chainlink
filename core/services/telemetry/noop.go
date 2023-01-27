@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"encoding/base64"
 	"os"
 
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
@@ -14,12 +15,12 @@ type NoopAgent struct {
 // SendLog sends a telemetry log to the explorer
 func (t *NoopAgent) SendLog(log []byte) {
 	if os.Getenv("TELEMETRY_INGRESS_LOG_FILE") != "" {
-		f, err := os.Create("telemetry.log")
+		f, err := os.OpenFile("telemetry.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0755)
 		if err != nil {
 			return
 		}
 		defer f.Close()
-		_, err = f.Write(log)
+		_, err = f.WriteString(base64.StdEncoding.EncodeToString(log) + "\n")
 		if err != nil {
 			return
 		}
