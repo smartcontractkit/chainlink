@@ -91,18 +91,28 @@ var (
 	}, []string{"evmChainID", "methodName"})
 )
 
+// recentBlockHashKey represents subsequent blockhash (from recentBlockHeight)
+// for the output of a VRF task.n The blockhash is used to prevent replay of a
+// report containing the VRF output for a beacon block which has been
+// invalidated by a chain re-org.
+type recentBlockHashKey struct {
+	recentBlockHeight uint64
+	recentBlockHash   common.Hash
+}
+
 // block is used to key into a set that tracks beacon blocks.
 type block struct {
 	blockNumber uint64
 	confDelay   uint32
 }
 
+// blockInReport is the key for a beacon block along with a recentBlockHash
 type blockInReport struct {
 	block
-	recentBlockHeight uint64
-	recentBlockHash   common.Hash
+	recentBlockHashKey
 }
 
+// callback is the key for a callback request the VRF service needs to run
 type callback struct {
 	blockNumber uint64
 	requestID   uint64
@@ -110,10 +120,10 @@ type callback struct {
 
 type callbackInReport struct {
 	callback
-	recentBlockHeight uint64
-	recentBlockHash   common.Hash
+	recentBlockHashKey
 }
 
+// coordinator tracks the tasks the VRF service needs to complete
 type coordinator struct {
 	lggr logger.Logger
 
@@ -777,11 +787,13 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 		if len(output.VRFProof) > 0 {
 			bR := blockInReport{
 				block: block{
-					blockNumber: output.BlockHeight,
-					confDelay:   output.ConfirmationDelay,
+					output.BlockHeight,
+					output.ConfirmationDelay,
 				},
-				recentBlockHeight: report.RecentBlockHeight,
-				recentBlockHash:   report.RecentBlockHash,
+				recentBlockHashKey: recentBlockHashKey{
+					report.RecentBlockHeight,
+					report.RecentBlockHash,
+				},
 			}
 			// Store block in blocksRequested.br
 			blocksRequested = append(blocksRequested, bR)
@@ -794,8 +806,10 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 					blockNumber: cb.BeaconHeight,
 					requestID:   cb.RequestID,
 				},
-				recentBlockHeight: report.RecentBlockHeight,
-				recentBlockHash:   report.RecentBlockHash,
+				recentBlockHashKey: recentBlockHashKey{
+					recentBlockHeight: report.RecentBlockHeight,
+					recentBlockHash:   report.RecentBlockHash,
+				},
 			}
 
 			// Add callback to callbacksRequested.
