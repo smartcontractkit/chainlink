@@ -372,10 +372,16 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 }
 
 func waitForNodeReady(addr string) error {
+	client := &http.Client{}
 	const timeout = 120
 	startTime := time.Now().Unix()
 	for {
-		resp, err := http.Get(fmt.Sprintf("%s/health", addr))
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", addr), nil)
+		if err != nil {
+			return err
+		}
+		req.Close = true
+		resp, err := client.Do(req)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
