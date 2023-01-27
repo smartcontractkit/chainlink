@@ -147,6 +147,9 @@ type coordinator struct {
 	coordinatorConfig        *ocr2vrftypes.CoordinatorConfig
 }
 
+// coordinator implements CoordinatorInterface
+var _ ocr2vrftypes.CoordinatorInterface = (*coordinator)(nil)
+
 // New creates a new CoordinatorInterface implementor.
 func New(
 	lggr logger.Logger,
