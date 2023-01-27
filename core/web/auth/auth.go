@@ -235,7 +235,8 @@ func RequiresAdminRole(handler func(*gin.Context)) func(*gin.Context) {
 		}
 		if user.Role != clsessions.UserRoleAdmin {
 			c.Abort()
-			jsonAPIError(c, http.StatusForbidden, errors.New("Unauthorized"))
+			addForbiddenErrorHeaders(c, "admin", string(user.Role), user.Email)
+			jsonAPIError(c, http.StatusForbidden, errors.New("Forbidden"))
 			return
 		}
 		handler(c)
