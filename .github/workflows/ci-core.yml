@@ -4,8 +4,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Run on key branches to make sure integration is good, otherwise run on all PR's
 on:
   push:
+    branches:
+      - master
+      - develop
+      - 'release/*'
+      - staging
+      - trying
+      - rollup
+  pull_request:
   schedule:
     - cron: "0 0 * * *"
 
@@ -48,7 +57,7 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_REF: ${{ github.ref }}
           SRC_CHANGED: ${{ needs.golangci-changes.outputs.src }}
-        run: ./.github/scripts/bash/ontriggerlint.sh >> $GITHUB_OUTPUT
+        run: ./.github/scripts/bash/ontriggerlint.sh | tee -a $GITHUB_OUTPUT
 
   golangci:
     name: lint
@@ -200,7 +209,8 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [core-complete]
+    needs: [core]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo

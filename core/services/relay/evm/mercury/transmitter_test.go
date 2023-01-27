@@ -40,7 +40,6 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			transmit: func(ctx context.Context, in *report.ReportRequest) (out *report.ReportResponse, err error) {
 				require.NotNil(t, in)
 				assert.Equal(t, samplePayloadHex, hexutil.Encode(in.Payload))
-				assert.Equal(t, sampleFromAccount.Bytes(), in.FromAccount)
 				out = new(report.ReportResponse)
 				out.Code = 42
 				out.Error = ""

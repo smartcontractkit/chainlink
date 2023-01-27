@@ -2,12 +2,14 @@ package contracts
 
 import (
 	"context"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"math/big"
 )
 
 type VRF interface {
@@ -98,6 +100,8 @@ type VRFBeacon interface {
 	) error
 	WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error)
 	WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error)
+	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
+		error)
 }
 
 type VRFBeaconConsumer interface {
