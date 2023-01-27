@@ -177,7 +177,7 @@ func New(
 	}
 
 	cacheEvictionWindowSeconds := int64(60)
-	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds * int64(time.Second))
+	cacheEvictionWindow := time.Duration(cacheEvictionWindowSeconds) * time.Second
 
 	return &coordinator{
 		lggr.Named("OCR2VRFCoordinator"),
