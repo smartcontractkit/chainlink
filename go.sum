@@ -1587,6 +1587,8 @@ github.com/smartcontractkit/ocr2vrf v0.0.0-20230117141905-c3a5c0467fd4 h1:ZS37mH
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230117141905-c3a5c0467fd4/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230117145849-09a91a822ee2 h1:xiaI621shLKa4oK81bMMZdQZq5s08iWSNzWRM7LaqoA=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230117145849-09a91a822ee2/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20230127002820-5bf26270b2a0 h1:sS4LPAMCyagfkljCklYQ0edXhPhAjGTUw5uPHuDmv7Y=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20230127002820-5bf26270b2a0/go.mod h1:NKkp8yf3trq+hJe/gn2Q1dd4abZvcYavUKPzYJCgVew=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
 github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 h1:k+E0RKzVSG1QpxXakNUtcGUhq4ZMe0MAJ5Awg/l9oSc=
