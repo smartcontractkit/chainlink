@@ -173,7 +173,7 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
-	consumer, err := contractDeployer.DeployVRFBeaconConsumer(coordinator.Address(), beaconPeriodBlocksCount)
+	consumer, err := contractDeployer.DeployVRFBeaconConsumer(router.Address(), beaconPeriodBlocksCount)
 	require.NoError(t, err)
 
 	err = chainClient.WaitForEvents()

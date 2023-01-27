@@ -241,12 +241,12 @@ func decodeHexTo32ByteArray(val string) ([32]byte, error) {
 }
 
 // DeployVRFBeaconConsumer deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfCoordinatorV3Address string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
+func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfRouterAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFBeaconConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfCoordinatorV3Address), false, beaconPeriodBlockCount)
+		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfRouterAddress), false, beaconPeriodBlockCount)
 	})
 	if err != nil {
 		return nil, err

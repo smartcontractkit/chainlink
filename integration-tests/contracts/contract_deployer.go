@@ -67,7 +67,7 @@ type ContractDeployer interface {
 	DeployVRFRouter() (VRFRouter, error)
 	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string, linkEthFeedAddr string, routerAddr string) (VRFCoordinatorV3, error)
 	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
-	DeployVRFBeaconConsumer(vrfCoordinatorV3Address string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
+	DeployVRFBeaconConsumer(vrfRouterAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployUpkeepResetter() (UpkeepResetter, error)
