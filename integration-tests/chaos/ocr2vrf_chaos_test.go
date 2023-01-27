@@ -151,118 +151,35 @@ func TestOCR2VRFChaos(t *testing.T) {
 
 			chainClient.ParallelTransactions(true)
 
-			//1. DEPLOY LINK TOKEN
 			linkToken, err := contractDeployer.DeployLinkTokenContract()
 			require.NoError(t, err)
 
-			//2. DEPLOY ETHLINK FEED
 			mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 			require.NoError(t, err)
 
-			//3. Deploy DKG contract
-			//4. Deploy VRFCoordinator(beaconPeriodBlocks, linkAddress, linkEthfeedAddress)
-			//5. Deploy VRFBeacon
-			//8. Deploy Consumer Contract
-			dkg, coordinator, vrfBeacon, consumer := ocr2vrf_actions.DeployOCR2VRFContracts(
+			_, _, vrfBeaconContract, consumerContract := ocr2vrf_actions.SetupOCR2VRFUniverse(
 				t,
+				linkToken,
+				mockETHLinkFeed,
 				contractDeployer,
 				chainClient,
-				linkToken,
-				mockETHLinkFeed,
-				ocr2vrf_constants.BeaconPeriodBlocksCount,
-				ocr2vrf_constants.KeyID,
+				nodeAddresses,
+				chainlinkNodes,
+				testNetwork,
 			)
-
-			//6. Add VRFBeacon as DKG client
-			err = dkg.AddClient(ocr2vrf_constants.KeyID, vrfBeacon.Address())
-			require.NoError(t, err)
-
-			//7. Adding VRFBeacon as producer in VRFCoordinator
-			err = coordinator.SetProducer(vrfBeacon.Address())
-			require.NoError(t, err)
-
-			//9. Subscription:
-			//9.1	Create Subscription
-			err = coordinator.CreateSubscription()
-			require.NoError(t, err)
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err)
-
-			//9.2	Add Consumer to subscription
-			err = coordinator.AddConsumer(ocr2vrf_constants.SubscriptionID, consumer.Address())
-			require.NoError(t, err)
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err)
-
-			//9.3	fund subscription with LINK token
-			ocr2vrf_actions.FundVRFCoordinatorSubscription(
-				t,
-				linkToken,
-				coordinator,
-				chainClient,
-				ocr2vrf_constants.SubscriptionID,
-				ocr2vrf_constants.LinkFundingAmount,
-			)
-
-			//10. set Payees for VRFBeacon ((address which gets the reward) for each transmitter)
-			nonBootstrapNodeAddresses := nodeAddresses[1:]
-			err = vrfBeacon.SetPayees(nonBootstrapNodeAddresses, nonBootstrapNodeAddresses)
-			require.NoError(t, err)
-
-			//11. fund OCR Nodes (so that they can transmit)
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, ocr2vrf_constants.EthFundingAmount)
-			require.NoError(t, err)
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err)
-
-			bootstrapNode := chainlinkNodes[0]
-			nonBootstrapNodes := chainlinkNodes[1:]
-
-			//11. Create DKG Sign and Encrypt keys for each non-bootstrap node
-			//12. set Job specs for each node
-			ocr2VRFPluginConfig := ocr2vrf_actions.SetAndGetOCR2VRFPluginConfig(
-				t,
-				nonBootstrapNodes,
-				dkg,
-				vrfBeacon,
-				coordinator,
-				mockETHLinkFeed,
-				ocr2vrf_constants.KeyID,
-				ocr2vrf_constants.VRFBeaconAllowedConfirmationDelays,
-				ocr2vrf_constants.CoordinatorConfig,
-			)
-			//12. Create Jobs for Bootstrap and non-boostrap nodes
-			ocr2vrf_actions.CreateOCR2VRFJobs(
-				t,
-				bootstrapNode,
-				nonBootstrapNodes,
-				ocr2VRFPluginConfig,
-				testNetwork.ChainID,
-				0,
-			)
-
-			//13. set config for DKG OCR,
-			//14. wait for the event ConfigSet from DKG contract
-			//15. wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
-			ocr2vrf_actions.SetAndWaitForDKGProcessToFinish(t, ocr2VRFPluginConfig, dkg)
-
-			//16. set config for VRFBeacon OCR,
-			//17. wait for the event ConfigSet from VRFBeacon contract
-			ocr2vrf_actions.SetAndWaitForVRFBeaconProcessToFinish(t, ocr2VRFPluginConfig, vrfBeacon)
-
 			//Request and Redeem Randomness to verify that process works fine
 			requestID := ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
-				consumer,
+				consumerContract,
 				chainClient,
-				vrfBeacon,
+				vrfBeaconContract,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				ocr2vrf_constants.SubscriptionID,
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumer.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 				require.NoError(t, err)
 				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
@@ -279,16 +196,16 @@ func TestOCR2VRFChaos(t *testing.T) {
 			//Request and Redeem Randomness again to see that after Chaos Experiment whole process is still working
 			requestID = ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
-				consumer,
+				consumerContract,
 				chainClient,
-				vrfBeacon,
+				vrfBeaconContract,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				ocr2vrf_constants.SubscriptionID,
 				ocr2vrf_constants.ConfirmationDelay,
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-				randomness, err := consumer.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 				require.NoError(t, err)
 				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
