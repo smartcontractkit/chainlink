@@ -1580,3 +1580,12 @@ func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64
 
 	return lp
 }
+
+const (
+	// VRF-only events.
+	randomnessRequestedEvent            = "RandomnessRequested"
+	randomnessFulfillmentRequestedEvent = "RandomnessFulfillmentRequested"
+	randomWordsFulfilledEvent           = "RandomWordsFulfilled"
+	newTransmissionEvent                = "NewTransmission" // XXX: This is also emitted by the DKG process?
+	outputsServedEvent                  = "OutputsServed"
+)

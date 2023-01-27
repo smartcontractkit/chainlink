@@ -91,18 +91,6 @@ var (
 	}, []string{"evmChainID", "methodName"})
 )
 
-const (
-	// VRF-only events.
-	randomnessRequestedEvent            string = "RandomnessRequested"
-	randomnessFulfillmentRequestedEvent string = "RandomnessFulfillmentRequested"
-	randomWordsFulfilledEvent           string = "RandomWordsFulfilled"
-	newTransmissionEvent                string = "NewTransmission" // XXX: This is also emitted by the DKG process?
-	outputsServedEvent                  string = "OutputsServed"
-
-	// Both VRF and DKG contracts emit this, it's an OCR event.
-	configSetEvent = "ConfigSet"
-)
-
 // block is used to key into a set that tracks beacon blocks.
 type block struct {
 	blockNumber uint64
@@ -1041,3 +1029,5 @@ func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	promBlocksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numBlocks))
 	promCallbacksInReport.WithLabelValues(c.evmClient.ChainID().String()).Observe(float64(numCallbacks))
 }
+
+const configSetEvent = "ConfigSet"
