@@ -71,6 +71,8 @@ func TestOCR2VRFBasic(t *testing.T) {
 	//4. Register coordinator to router
 	err = router.RegisterCoordinator(coordinator.Address())
 	require.NoError(t, err)
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err)
 
 	//5. Add VRFBeacon as DKG client
 	err = dkg.AddClient(ocr2vrf_constants.KeyID, vrfBeacon.Address())
