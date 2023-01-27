@@ -138,6 +138,6 @@ contract FunctionsOracle_sendRequest is FunctionsOracleSetup {
     bytes memory emptyData;
 
     vm.expectRevert(FunctionsOracle.EmptyRequestData.selector);
-    s_oracle.sendRequest(0, emptyData, 0, 0);
+    s_oracle.sendRequest(0, emptyData, 0);
   }
 }
