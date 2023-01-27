@@ -154,12 +154,12 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	consumerAddress, _, consumer, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(
-		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
+		owner, b, routerAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
 	b.Commit()
 
 	loadTestConsumerAddress, _, loadTestConsumer, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(
-		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
+		owner, b, routerAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
 	b.Commit()
 
