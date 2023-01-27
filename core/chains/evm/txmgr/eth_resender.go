@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -14,7 +13,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -32,6 +30,7 @@ const defaultResenderPollInterval = 5 * time.Second
 // if gas bumping is disabled)
 type EthResender struct {
 	db        *sqlx.DB
+	o         ORM
 	ethClient evmclient.Client
 	ks        KeyStore
 	chainID   big.Int
@@ -52,6 +51,7 @@ func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client,
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EthResender{
 		db,
+		NewORM(db, lggr, config),
 		ethClient,
 		ks,
 		*ethClient.ChainID(),
@@ -108,7 +108,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	var allAttempts []EthTxAttempt
 	for _, k := range keys {
 		var attempts []EthTxAttempt
-		attempts, err = FindEthTxAttemptsRequiringResend(er.db, olderThan, maxInFlightTransactions, er.chainID, k.Address)
+		attempts, err = er.o.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
@@ -131,27 +131,6 @@ func (er *EthResender) resendUnconfirmed() error {
 	logResendResult(er.logger, reqs)
 
 	return nil
-}
-
-// FindEthTxAttemptsRequiringResend returns the highest priced attempt for each
-// eth_tx that was last sent before or at the given time (up to limit)
-func FindEthTxAttemptsRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int, address common.Address) (attempts []EthTxAttempt, err error) {
-	var limit null.Uint32
-	if maxInFlightTransactions > 0 {
-		limit = null.Uint32From(maxInFlightTransactions)
-	}
-	// this select distinct works because of unique index on eth_txes
-	// (evm_chain_id, from_address, nonce)
-	err = db.Select(&attempts, `
-SELECT DISTINCT ON (nonce) eth_tx_attempts.*
-FROM eth_tx_attempts
-JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
-WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
-ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
-LIMIT $4
-`, olderThan, chainID.String(), address, limit)
-
-	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
 }
 
 func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
