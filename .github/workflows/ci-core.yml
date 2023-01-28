@@ -244,3 +244,37 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: sonarqube-scan
         continue-on-error: true
+
+  clean:
+    name: Clean Go Tidy & Generate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
+      - run: make mockery
+      - run: make abigen
+      - run: make gomodtidy
+      - name: Ensure clean after tidy
+        run: git diff --minimal --exit-code
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - run: make generate
+      - name: Ensure clean after generate
+        run: git diff --stat --exit-code
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: clean
+        continue-on-error: true
