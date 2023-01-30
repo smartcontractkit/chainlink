@@ -169,9 +169,8 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	_, err = logPoller.RegisterFilter(logpoller.Filter{
-		EventSigs: topics.allSigs(),
-		Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
+	contracts := []common.Address{beaconAddress, coordinatorAddress, dkgAddress}
+	_, err = logPoller.RegisterFilter(logpoller.Filter{topics.allSigs(), contracts})
 	if err != nil {
 		return nil, err
 	}
