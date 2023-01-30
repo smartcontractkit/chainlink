@@ -7,6 +7,10 @@ runs:
       run: docker compose up -d
       shell: bash
       working-directory: ./.github/actions/setup-postgres
+    - name: Wait for postgres service to be healthy
+      run: ./wait-for-healthy-postgres.sh
+      shell: bash
+      working-directory: ./.github/actions/setup-postgres
     - name: Print postgres config
       shell: bash
       working-directory: ./.github/actions/setup-postgres
@@ -14,7 +18,3 @@ runs:
         docker compose exec postgres psql -U postgres -c 'SHOW fsync;'
         docker compose exec postgres psql -U postgres -c 'SHOW full_page_writes;'
         docker compose exec postgres psql -U postgres -c 'SHOW shared_buffers;'
-    - name: Wait for postgres service to be healthy
-      run: ./wait-for-healthy-postgres.sh
-      shell: bash
-      working-directory: ./.github/actions/setup-postgres
