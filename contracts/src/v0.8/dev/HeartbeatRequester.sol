@@ -20,17 +20,17 @@ interface IOffchainAggregator {
 
 /**
  * @notice The heartbeat requester will maintain a mapping from allowed callers to corresponding proxies. When requested
- *         by eligible caller, it will call a proxy for an aggregator address and call aggregator function to request a
- *         new round.
+ *         by eligible caller, it will call a proxy for an aggregator address and call aggregator function via an
+ *         authorized forwarder to request a new round.
  */
 contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
-  event HeartbeatSet(address indexed permittedCaller, address indexed proxy);
+  event HeartbeatPermitted(address indexed permittedCaller, address indexed proxy);
   event HeartbeatRemoved(address indexed permittedCaller);
-  event AuthorizedForwarderSet(address indexed authForwarder);
 
-  error InvalidHeartbeatCombo();
+  error HeartbeatNotPermitted();
 
-  IAuthorizedForwarder internal i_authForwarder;
+  bytes internal constant REQUEST_SELECTOR_CALL_DATA =
+    abi.encodeWithSelector(IOffchainAggregator.requestNewRound.selector);
   mapping(address => IAggregatorProxy) internal s_heartbeatList;
 
   /**
@@ -40,21 +40,16 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
    */
   string public constant override typeAndVersion = "HeartbeatRequester 1.0.0";
 
-  /**
-   * @param authForwarder the authorized forwarder address
-   */
-  constructor(address authForwarder) ConfirmedOwner(msg.sender) {
-    i_authForwarder = IAuthorizedForwarder(authForwarder);
-  }
+  constructor() ConfirmedOwner(msg.sender) {}
 
   /**
    * @notice adds a permitted caller and proxy combination.
    * @param permittedCaller the permitted caller
    * @param proxy the proxy corresponding to this caller
    */
-  function addHeartbeat(address permittedCaller, IAggregatorProxy proxy) external onlyOwner {
+  function permitHeartbeat(address permittedCaller, IAggregatorProxy proxy) external onlyOwner {
     s_heartbeatList[permittedCaller] = proxy;
-    emit HeartbeatSet(permittedCaller, address(proxy));
+    emit HeartbeatPermitted(permittedCaller, address(proxy));
   }
 
   /**
@@ -67,31 +62,15 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
   }
 
   /**
-   * @notice updates the authorized forwarder address.
-   * @param newAuthForwarder the new authorized forwarder address
-   */
-  function setAuthForwarder(IAuthorizedForwarder newAuthForwarder) external onlyOwner {
-    i_authForwarder = newAuthForwarder;
-    emit AuthorizedForwarderSet(address(newAuthForwarder));
-  }
-
-  /**
-   * @notice returns the authorized forwarder.
-   */
-  function getAuthForwarder() external view returns (IAuthorizedForwarder) {
-    return i_authForwarder;
-  }
-
-  /**
-   * @notice fetches aggregator address from proxy and forward function call to the aggregator via authorized forwarder.
+   * @notice fetches aggregator address from proxy and requests a new round via authorized forwarder.
    * @param proxy the proxy address
-   * @param aggregatorFuncSig the function signature on aggregator
+   * @param forwarder the forwarder address
    */
-  function requestHeartbeat(address proxy, bytes calldata aggregatorFuncSig) external {
+  function getAggregatorAndForward(address proxy, IAuthorizedForwarder forwarder) external {
     IAggregatorProxy proxyInterface = s_heartbeatList[msg.sender];
-    if (address(proxyInterface) != proxy) revert InvalidHeartbeatCombo();
+    if (address(proxyInterface) != proxy) revert HeartbeatNotPermitted();
 
     address aggregator = proxyInterface.aggregator();
-    i_authForwarder.forward(aggregator, aggregatorFuncSig);
+    forwarder.forward(aggregator, REQUEST_SELECTOR_CALL_DATA);
   }
 }

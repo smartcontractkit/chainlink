@@ -44,21 +44,19 @@ describe('HeartbeatRequester', () => {
 
     // deploy heartbeat requester
     requesterFactory = await ethers.getContractFactory('HeartbeatRequester')
-    requester = await requesterFactory
-      .connect(owner)
-      .deploy(authorizedForwarder.address)
+    requester = await requesterFactory.connect(owner).deploy()
     await requester.deployed()
   })
 
-  describe('#addHeartbeat', () => {
+  describe('#permitHeartbeat', () => {
     it('adds a heartbeat and emits an event', async () => {
       const callerAddress = await caller1.getAddress()
       const proxyAddress = await proxy.getAddress()
       const tx = await requester
         .connect(owner)
-        .addHeartbeat(callerAddress, proxyAddress)
+        .permitHeartbeat(callerAddress, proxyAddress)
       await expect(tx)
-        .to.emit(requester, 'HeartbeatSet')
+        .to.emit(requester, 'HeartbeatPermitted')
         .withArgs(callerAddress, proxyAddress)
     })
 
@@ -66,7 +64,7 @@ describe('HeartbeatRequester', () => {
       const callerAddress = await caller1.getAddress()
       const proxyAddress = await proxy.getAddress()
       await expect(
-        requester.connect(caller1).addHeartbeat(callerAddress, proxyAddress),
+        requester.connect(caller1).permitHeartbeat(callerAddress, proxyAddress),
       ).to.be.revertedWith('Only callable by owner')
     })
   })
@@ -77,9 +75,9 @@ describe('HeartbeatRequester', () => {
       const proxyAddress = await proxy.getAddress()
       const tx1 = await requester
         .connect(owner)
-        .addHeartbeat(callerAddress, proxyAddress)
+        .permitHeartbeat(callerAddress, proxyAddress)
       await expect(tx1)
-        .to.emit(requester, 'HeartbeatSet')
+        .to.emit(requester, 'HeartbeatPermitted')
         .withArgs(callerAddress, proxyAddress)
 
       const tx2 = await requester.connect(owner).removeHeartbeat(callerAddress)
@@ -95,38 +93,22 @@ describe('HeartbeatRequester', () => {
     })
   })
 
-  describe('#setAuthForwarder', () => {
-    it('sets an authorized forwarder and emits an event', async () => {
-      const oldForwarder = await requester.getAuthForwarder()
-      assert.equal(oldForwarder, authorizedForwarder.address)
-
-      const newForwarder = await personas.Neil.getAddress()
-      const tx = await requester.connect(owner).setAuthForwarder(newForwarder)
-      assert.equal(await requester.getAuthForwarder(), newForwarder)
-      await expect(tx)
-        .to.emit(requester, 'AuthorizedForwarderSet')
-        .withArgs(newForwarder)
-    })
-
-    it('reverts when not called by its owner', async () => {
-      const newForwarder = await personas.Neil.getAddress()
-      await expect(
-        requester.connect(caller1).setAuthForwarder(newForwarder),
-      ).to.be.revertedWith('Only callable by owner')
-    })
-  })
-
-  describe('#requestHeartbeat', () => {
+  describe('#getAggregatorAndForward', () => {
     it('reverts if caller and proxy combination is not allowed', async () => {
       const callerAddress = await caller1.getAddress()
       const proxyAddress = await proxy.getAddress()
-      await requester.connect(owner).addHeartbeat(callerAddress, proxyAddress)
+      await requester
+        .connect(owner)
+        .permitHeartbeat(callerAddress, proxyAddress)
 
       await expect(
         requester
           .connect(caller1)
-          .requestHeartbeat(await owner.getAddress(), '0x'),
-      ).to.be.revertedWith('InvalidHeartbeatCombo()')
+          .getAggregatorAndForward(
+            await owner.getAddress(),
+            authorizedForwarder.address,
+          ),
+      ).to.be.revertedWith('HeartbeatNotPermitted()')
     })
 
     it('calls corresponding aggregator to request a new round', async () => {
@@ -146,14 +128,17 @@ describe('HeartbeatRequester', () => {
 
       await requester
         .connect(owner)
-        .addHeartbeat(await caller1.getAddress(), aggregatorProxy.address)
+        .permitHeartbeat(await caller1.getAddress(), aggregatorProxy.address)
 
       const ABI = ['function requestNewRound()']
       const i = new ethers.utils.Interface(ABI)
       const calldata = i.encodeFunctionData('requestNewRound', [])
       const tx1 = await requester
         .connect(caller1)
-        .requestHeartbeat(aggregatorProxy.address, calldata)
+        .getAggregatorAndForward(
+          aggregatorProxy.address,
+          authorizedForwarder.address,
+        )
 
       await expect(tx1)
         .to.emit(authorizedForwarder, 'ForwardFuncCalled')
@@ -163,7 +148,10 @@ describe('HeartbeatRequester', () => {
 
       const tx2 = await requester
         .connect(caller1)
-        .requestHeartbeat(aggregatorProxy.address, calldata)
+        .getAggregatorAndForward(
+          aggregatorProxy.address,
+          authorizedForwarder.address,
+        )
 
       await expect(tx2)
         .to.emit(authorizedForwarder, 'ForwardFuncCalled')
