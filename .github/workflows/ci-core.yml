@@ -136,7 +136,7 @@ jobs:
         cmd: ["go_core_tests", "go_core_race_tests"]
         split: ${{ fromJson(needs.split-packages.outputs.splits) }}
     name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu20.04-8cores-32GB
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
