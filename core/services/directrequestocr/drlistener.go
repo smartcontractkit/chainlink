@@ -228,7 +228,7 @@ func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId in
 
 func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("Oracle request received",
+	l.logger.Infow("oracle request received",
 		"requestID", formatRequestId(request.RequestId),
 		"data", fmt.Sprintf("%0x", request.Data),
 	)
@@ -269,10 +269,10 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
 	if err != nil {
-		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "err", err)
+		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
 		return
 	}
-	l.logger.Infow("Pipeline run finished", "requestID", formatRequestId(request.RequestId))
+	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
@@ -299,6 +299,9 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 	}
 
 	if len(computationError) != 0 {
+		if len(computationResult) != 0 {
+			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
+		}
 		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
 	} else {
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
@@ -321,7 +324,7 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 
 func (l *DRListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
 	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
-		l.logger.Errorw("Unable to mark log consumed", "err", err, "log", lb.String())
+		l.logger.Errorw("unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }
 

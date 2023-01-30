@@ -25,19 +25,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestOCR2VRFBasic(t *testing.T) {
+func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
-	testEnvironment, testNetwork := setupOCR2VRFTest(t)
+	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	require.NoError(t, err)
+	require.NoError(t, err, "Error connecting to blockchain")
 	contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err)
+	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
 	nodeAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes)
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
@@ -48,125 +48,119 @@ func TestOCR2VRFBasic(t *testing.T) {
 
 	chainClient.ParallelTransactions(true)
 
-	//1. DEPLOY LINK TOKEN
 	linkToken, err := contractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err)
+	require.NoError(t, err, "Error deploying LINK token")
 
-	//2. DEPLOY ETHLINK FEED
 	mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
-	require.NoError(t, err)
+	require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
-	//3. Deploy DKG contract
-	//4. Deploy VRFCoordinator(beaconPeriodBlocks, linkAddress, linkEthfeedAddress)
-	//5. Deploy VRFBeacon
-	// Deploy Consumer Contract
-	dkg, coordinator, vrfBeacon, consumer := ocr2vrf_actions.DeployOCR2VRFContracts(
+	_, _, vrfBeaconContract, consumerContract := ocr2vrf_actions.SetupOCR2VRFUniverse(
 		t,
+		linkToken,
+		mockETHLinkFeed,
 		contractDeployer,
 		chainClient,
-		linkToken,
-		mockETHLinkFeed,
-		ocr2vrf_constants.BeaconPeriodBlocksCount,
-		ocr2vrf_constants.KeyID,
+		nodeAddresses,
+		chainlinkNodes,
+		testNetwork,
 	)
-
-	//6. Add VRFBeacon as DKG client
-	err = dkg.AddClient(ocr2vrf_constants.KeyID, vrfBeacon.Address())
-	require.NoError(t, err)
-
-	//7. Adding VRFBeacon as producer in VRFCoordinator
-	err = coordinator.SetProducer(vrfBeacon.Address())
-	require.NoError(t, err)
-
-	//9. Subscription:
-	//9.1	Create Subscription
-	err = coordinator.CreateSubscription()
-	require.NoError(t, err)
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err)
-
-	//9.2	Add Consumer to subscription
-	err = coordinator.AddConsumer(ocr2vrf_constants.SubscriptionID, consumer.Address())
-	require.NoError(t, err)
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err)
-
-	//9.3	fund subscription with LINK token
-	ocr2vrf_actions.FundVRFCoordinatorSubscription(
-		t,
-		linkToken,
-		coordinator,
-		chainClient,
-		ocr2vrf_constants.SubscriptionID,
-		ocr2vrf_constants.LinkFundingAmount,
-	)
-
-	//10. set Payees for VRFBeacon ((address which gets the reward) for each transmitter)
-	nonBootstrapNodeAddresses := nodeAddresses[1:]
-	err = vrfBeacon.SetPayees(nonBootstrapNodeAddresses, nonBootstrapNodeAddresses)
-	require.NoError(t, err)
-
-	//11. fund OCR Nodes (so that they can transmit)
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, ocr2vrf_constants.EthFundingAmount)
-	require.NoError(t, err)
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err)
-
-	bootstrapNode := chainlinkNodes[0]
-	nonBootstrapNodes := chainlinkNodes[1:]
-
-	//11. Create DKG Sign and Encrypt keys for each non-bootstrap node
-	// set Job specs for each node
-	ocr2VRFPluginConfig := ocr2vrf_actions.SetAndGetOCR2VRFPluginConfig(
-		t,
-		nonBootstrapNodes,
-		dkg,
-		vrfBeacon,
-		coordinator,
-		mockETHLinkFeed,
-		ocr2vrf_constants.KeyID,
-		ocr2vrf_constants.VRFBeaconAllowedConfirmationDelays,
-		ocr2vrf_constants.CoordinatorConfig,
-	)
-	//12. Create Jobs for Bootstrap and non-boostrap nodes
-	ocr2vrf_actions.CreateOCR2VRFJobs(
-		t,
-		bootstrapNode,
-		nonBootstrapNodes,
-		ocr2VRFPluginConfig,
-		testNetwork.ChainID,
-		0,
-	)
-
-	//13. set config for DKG OCR,
-	//14. wait for the event ConfigSet from DKG contract
-	//15. wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
-	ocr2vrf_actions.SetAndWaitForDKGProcessToFinish(t, ocr2VRFPluginConfig, dkg)
-
-	//16. set config for VRFBeacon OCR,
-	//17. wait for the event ConfigSet from VRFBeacon contract
-	ocr2vrf_actions.SetAndWaitForVRFBeaconProcessToFinish(t, ocr2VRFPluginConfig, vrfBeacon)
 
 	//Request and Redeem Randomness
 	requestID := ocr2vrf_actions.RequestAndRedeemRandomness(
 		t,
-		consumer,
+		consumerContract,
 		chainClient,
-		vrfBeacon,
+		vrfBeaconContract,
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
 		ocr2vrf_constants.SubscriptionID,
 		ocr2vrf_constants.ConfirmationDelay,
 	)
 
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
-		randomness, err := consumer.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 		require.NoError(t, err)
 		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 	}
+
+	requestID = ocr2vrf_actions.RequestRandomnessFulfillment(
+		t,
+		consumerContract,
+		chainClient,
+		vrfBeaconContract,
+		ocr2vrf_constants.NumberOfRandomWordsToRequest,
+		ocr2vrf_constants.SubscriptionID,
+		ocr2vrf_constants.ConfirmationDelay,
+	)
+
+	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
+		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+		require.NoError(t, err)
+		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
+		require.NotEqual(t, 0, randomness.Uint64(), "Randomness Fulfillment retrieved from Consumer contract give an answer other than 0")
+	}
+
 }
 
-func setupOCR2VRFTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+func TestOCR2VRFFulfillmentModel(t *testing.T) {
+	t.Parallel()
+	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
+
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	require.NoError(t, err, "Error connecting to blockchain")
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	require.NoError(t, err, "Error building contract deployer")
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	require.NoError(t, err, "Error connecting to Chainlink nodes")
+	nodeAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes)
+	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+
+	t.Cleanup(func() {
+		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		require.NoError(t, err, "Error tearing down environment")
+	})
+
+	chainClient.ParallelTransactions(true)
+
+	linkToken, err := contractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Error deploying LINK token")
+
+	mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
+	require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
+
+	_, _, vrfBeaconContract, consumerContract := ocr2vrf_actions.SetupOCR2VRFUniverse(
+		t,
+		linkToken,
+		mockETHLinkFeed,
+		contractDeployer,
+		chainClient,
+		nodeAddresses,
+		chainlinkNodes,
+		testNetwork,
+	)
+
+	requestID := ocr2vrf_actions.RequestRandomnessFulfillment(
+		t,
+		consumerContract,
+		chainClient,
+		vrfBeaconContract,
+		ocr2vrf_constants.NumberOfRandomWordsToRequest,
+		ocr2vrf_constants.SubscriptionID,
+		ocr2vrf_constants.ConfirmationDelay,
+	)
+
+	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
+		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
+		require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
+		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
+		require.NotEqual(t, 0, randomness.Uint64(), "Randomness Fulfillment retrieved from Consumer contract give an answer other than 0")
+	}
+}
+
+func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	testNetwork = networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
