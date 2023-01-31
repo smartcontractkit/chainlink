@@ -104,7 +104,7 @@ describe('HeartbeatRequester', () => {
       await expect(
         requester
           .connect(caller1)
-          .getAggregatorAndForward(
+          .getAggregatorAndRequestHeartbeat(
             await owner.getAddress(),
             authorizedForwarder.address,
           ),
@@ -135,7 +135,7 @@ describe('HeartbeatRequester', () => {
       const calldata = i.encodeFunctionData('requestNewRound', [])
       const tx1 = await requester
         .connect(caller1)
-        .getAggregatorAndForward(
+        .getAggregatorAndRequestHeartbeat(
           aggregatorProxy.address,
           authorizedForwarder.address,
         )
@@ -148,7 +148,7 @@ describe('HeartbeatRequester', () => {
 
       const tx2 = await requester
         .connect(caller1)
-        .getAggregatorAndForward(
+        .getAggregatorAndRequestHeartbeat(
           aggregatorProxy.address,
           authorizedForwarder.address,
         )
