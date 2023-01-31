@@ -66,7 +66,7 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
    * @param proxy the proxy address
    * @param forwarder the forwarder address
    */
-  function getAggregatorAndForward(address proxy, IAuthorizedForwarder forwarder) external {
+  function getAggregatorAndRequestHeartbeat(address proxy, IAuthorizedForwarder forwarder) external {
     IAggregatorProxy proxyInterface = s_heartbeatList[msg.sender];
     if (address(proxyInterface) != proxy) revert HeartbeatNotPermitted();
 

@@ -93,7 +93,7 @@ describe('HeartbeatRequester', () => {
     })
   })
 
-  describe('#getAggregatorAndForward', () => {
+  describe('#getAggregatorAndRequestHeartbeat', () => {
     it('reverts if caller and proxy combination is not allowed', async () => {
       const callerAddress = await caller1.getAddress()
       const proxyAddress = await proxy.getAddress()
