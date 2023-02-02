@@ -88,7 +88,7 @@ func SetComputeUnitPrice(tx *solana.Transaction, price ComputeUnitPrice) error {
 	// get instruction data
 	data, err := price.Data()
 	if err != nil {
-		return nil
+		return err
 	}
 
 	// compiled instruction
