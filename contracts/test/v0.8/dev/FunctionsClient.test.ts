@@ -43,7 +43,7 @@ before(async () => {
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistry',
+    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 

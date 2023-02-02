@@ -1,7 +1,7 @@
 pragma solidity ^0.8.0;
 
 import {BaseTest} from "../BaseTest.t.sol";
-import {FunctionsOracleWithInit} from "../../../../src/v0.8/tests/FunctionsOracleWithInit.sol";
+import {FunctionsOracle_v0, FunctionsOracleWithInit} from "../../../../src/v0.8/tests/FunctionsOracleWithInit.sol";
 import {FunctionsBillingRegistryWithInit} from "../../../../src/v0.8/tests/FunctionsBillingRegistryWithInit.sol";
 
 // import {LinkToken} from "../../../../src/v0.4/LinkToken.sol";
@@ -51,7 +51,7 @@ contract FunctionsOracle_setDONPublicKey is FunctionsOracleSetup {
   function testEmptyPublicKeyReverts() public {
     bytes memory donPublicKey;
 
-    vm.expectRevert(FunctionsOracleWithInit.EmptyPublicKey.selector);
+    vm.expectRevert(FunctionsOracle_v0.EmptyPublicKey.selector);
     s_oracle.setDONPublicKey(donPublicKey);
   }
 
@@ -87,7 +87,7 @@ contract FunctionsOracle_setRegistry is FunctionsOracleSetup {
   function testEmptyPublicKeyReverts() public {
     address registryAddress;
 
-    vm.expectRevert(FunctionsOracleWithInit.EmptyBillingRegistry.selector);
+    vm.expectRevert(FunctionsOracle_v0.EmptyBillingRegistry.selector);
     s_oracle.setRegistry(registryAddress);
   }
 
@@ -137,7 +137,7 @@ contract FunctionsOracle_sendRequest is FunctionsOracleSetup {
   function testEmptyRequestDataReverts() public {
     bytes memory emptyData;
 
-    vm.expectRevert(FunctionsOracleWithInit.EmptyRequestData.selector);
+    vm.expectRevert(FunctionsOracle_v0.EmptyRequestData.selector);
     s_oracle.sendRequest(0, emptyData, 0);
   }
 }

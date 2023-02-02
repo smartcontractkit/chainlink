@@ -43,7 +43,7 @@ contract FunctionsOracle_v0 is
   /**
    * @dev Initializes the contract.
    */
-  function initialize() internal onlyInitializing {
+  function initialize() internal initializer {
     __OCR2Base_initialize(true);
     __AuthorizedOriginReceiver_initialize(true);
   }

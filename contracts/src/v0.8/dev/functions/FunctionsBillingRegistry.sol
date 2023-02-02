@@ -159,7 +159,7 @@ contract FunctionsBillingRegistry_v0 is
     address link,
     address linkEthFeed,
     address oracle
-  ) internal onlyInitializing {
+  ) internal initializer {
     __Pausable_init();
     __ConfirmedOwner_initialize(msg.sender, address(0));
     LINK = LinkTokenInterface(link);
