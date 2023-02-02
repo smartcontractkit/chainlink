@@ -113,12 +113,10 @@ func (c *pendingTxContext) Remove(sig solana.Signature) (id uuid.UUID) {
 	defer c.lock.Unlock()
 	id, sigExists = c.sigToId[sig]
 	if !sigExists {
-		c.lock.RUnlock()
 		return id
 	}
 	sigs, idExists := c.idToSigs[id]
 	if !idExists {
-		c.lock.RUnlock()
 		return id
 	}
 
