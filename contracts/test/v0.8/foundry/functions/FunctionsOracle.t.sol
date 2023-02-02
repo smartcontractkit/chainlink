@@ -1,8 +1,8 @@
 pragma solidity ^0.8.0;
 
 import {BaseTest} from "../BaseTest.t.sol";
-import {FunctionsOracle} from "../../../../src/v0.8/dev/functions/FunctionsOracle.sol";
-import {FunctionsBillingRegistry} from "../../../../src/v0.8/dev/functions/FunctionsBillingRegistry.sol";
+import {FunctionsOracleWithInit} from "../../../../src/v0.8/tests/FunctionsOracleWithInit.sol";
+import {FunctionsBillingRegistryWithInit} from "../../../../src/v0.8/tests/FunctionsBillingRegistryWithInit.sol";
 
 // import {LinkToken} from "../../../../src/v0.4/LinkToken.sol";
 // import {MockV3Aggregator} from "../../../../src/v0.7/tests/MockV3Aggregator.sol";
@@ -11,12 +11,12 @@ contract FunctionsOracleSetup is BaseTest {
   bytes constant DATA = abi.encode("bytes");
   address registryAddress = makeAddr("Registry");
 
-  FunctionsOracle s_oracle;
+  FunctionsOracleWithInit s_oracle;
 
   function setUp() public virtual override {
     BaseTest.setUp();
 
-    s_oracle = new FunctionsOracle();
+    s_oracle = new FunctionsOracleWithInit();
   }
 }
 
@@ -51,7 +51,7 @@ contract FunctionsOracle_setDONPublicKey is FunctionsOracleSetup {
   function testEmptyPublicKeyReverts() public {
     bytes memory donPublicKey;
 
-    vm.expectRevert(FunctionsOracle.EmptyPublicKey.selector);
+    vm.expectRevert(FunctionsOracleWithInit.EmptyPublicKey.selector);
     s_oracle.setDONPublicKey(donPublicKey);
   }
 
@@ -87,7 +87,7 @@ contract FunctionsOracle_setRegistry is FunctionsOracleSetup {
   function testEmptyPublicKeyReverts() public {
     address registryAddress;
 
-    vm.expectRevert(FunctionsOracle.EmptyBillingRegistry.selector);
+    vm.expectRevert(FunctionsOracleWithInit.EmptyBillingRegistry.selector);
     s_oracle.setRegistry(registryAddress);
   }
 
@@ -101,7 +101,7 @@ contract FunctionsOracle_setRegistry is FunctionsOracleSetup {
 }
 
 contract FunctionsOracle_sendRequest is FunctionsOracleSetup {
-  FunctionsBillingRegistry s_registry;
+  FunctionsBillingRegistryWithInit s_registry;
 
   //   LinkToken s_link;
   //   MockV3Aggregator s_linketh;
@@ -111,7 +111,7 @@ contract FunctionsOracle_sendRequest is FunctionsOracleSetup {
 
     // s_link = new LinkToken();
     // s_linketh = new MockV3Aggregator(0, 5021530000000000);
-    s_registry = new FunctionsBillingRegistry(makeAddr("Link Token"), makeAddr("Link Eth"), address(s_oracle));
+    s_registry = new FunctionsBillingRegistryWithInit(makeAddr("Link Token"), makeAddr("Link Eth"), address(s_oracle));
     s_oracle.setRegistry(address(s_registry));
     s_oracle.deactivateAuthorizedReceiver();
   }
@@ -137,7 +137,7 @@ contract FunctionsOracle_sendRequest is FunctionsOracleSetup {
   function testEmptyRequestDataReverts() public {
     bytes memory emptyData;
 
-    vm.expectRevert(FunctionsOracle.EmptyRequestData.selector);
+    vm.expectRevert(FunctionsOracleWithInit.EmptyRequestData.selector);
     s_oracle.sendRequest(0, emptyData, 0);
   }
 }

@@ -1115,6 +1115,123 @@ func (_OCR2DROracle *OCR2DROracleFilterer) ParseConfigSet(log types.Log) (*OCR2D
 	return event, nil
 }
 
+type OCR2DROracleInitializedIterator struct {
+	Event *OCR2DROracleInitialized
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *OCR2DROracleInitializedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OCR2DROracleInitialized)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(OCR2DROracleInitialized)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *OCR2DROracleInitializedIterator) Error() error {
+	return it.fail
+}
+
+func (it *OCR2DROracleInitializedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type OCR2DROracleInitialized struct {
+	Version uint8
+	Raw     types.Log
+}
+
+func (_OCR2DROracle *OCR2DROracleFilterer) FilterInitialized(opts *bind.FilterOpts) (*OCR2DROracleInitializedIterator, error) {
+
+	logs, sub, err := _OCR2DROracle.contract.FilterLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return &OCR2DROracleInitializedIterator{contract: _OCR2DROracle.contract, event: "Initialized", logs: logs, sub: sub}, nil
+}
+
+func (_OCR2DROracle *OCR2DROracleFilterer) WatchInitialized(opts *bind.WatchOpts, sink chan<- *OCR2DROracleInitialized) (event.Subscription, error) {
+
+	logs, sub, err := _OCR2DROracle.contract.WatchLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(OCR2DROracleInitialized)
+				if err := _OCR2DROracle.contract.UnpackLog(event, "Initialized", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_OCR2DROracle *OCR2DROracleFilterer) ParseInitialized(log types.Log) (*OCR2DROracleInitialized, error) {
+	event := new(OCR2DROracleInitialized)
+	if err := _OCR2DROracle.contract.UnpackLog(event, "Initialized", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type OCR2DROracleOracleRequestIterator struct {
 	Event *OCR2DROracleOracleRequest
 
@@ -2041,6 +2158,8 @@ func (_OCR2DROracle *OCR2DROracle) ParseLog(log types.Log) (generated.AbigenLog,
 		return _OCR2DROracle.ParseAuthorizedSendersDeactive(log)
 	case _OCR2DROracle.abi.Events["ConfigSet"].ID:
 		return _OCR2DROracle.ParseConfigSet(log)
+	case _OCR2DROracle.abi.Events["Initialized"].ID:
+		return _OCR2DROracle.ParseInitialized(log)
 	case _OCR2DROracle.abi.Events["OracleRequest"].ID:
 		return _OCR2DROracle.ParseOracleRequest(log)
 	case _OCR2DROracle.abi.Events["OracleResponse"].ID:
@@ -2075,6 +2194,10 @@ func (OCR2DROracleAuthorizedSendersDeactive) Topic() common.Hash {
 
 func (OCR2DROracleConfigSet) Topic() common.Hash {
 	return common.HexToHash("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
+}
+
+func (OCR2DROracleInitialized) Topic() common.Hash {
+	return common.HexToHash("0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498")
 }
 
 func (OCR2DROracleOracleRequest) Topic() common.Hash {
@@ -2189,6 +2312,12 @@ type OCR2DROracleInterface interface {
 	WatchConfigSet(opts *bind.WatchOpts, sink chan<- *OCR2DROracleConfigSet) (event.Subscription, error)
 
 	ParseConfigSet(log types.Log) (*OCR2DROracleConfigSet, error)
+
+	FilterInitialized(opts *bind.FilterOpts) (*OCR2DROracleInitializedIterator, error)
+
+	WatchInitialized(opts *bind.WatchOpts, sink chan<- *OCR2DROracleInitialized) (event.Subscription, error)
+
+	ParseInitialized(log types.Log) (*OCR2DROracleInitialized, error)
 
 	FilterOracleRequest(opts *bind.FilterOpts, requestId [][32]byte) (*OCR2DROracleOracleRequestIterator, error)
 
