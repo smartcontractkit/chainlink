@@ -20,7 +20,7 @@ import "../vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/proxy/uti
  * @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsBillingRegistry is
+contract FunctionsBillingRegistry_v0 is
   Initializable,
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
