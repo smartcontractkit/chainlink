@@ -9,21 +9,28 @@ import "../interfaces/FunctionsClientInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 import "../interfaces/AuthorizedOriginReceiverInterface.sol";
-import "../../ConfirmedOwner.sol";
+import "../ConfirmedOwnerUpgradeable.sol";
 import "../AuthorizedReceiver.sol";
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
-import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
+import "../vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/security/PausableUpgradeable.sol";
+import "../vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/proxy/utils/Initializable.sol";
 
+/**
+ * @title Functions Billing Registry contract
+ * @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
+ * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
+ */
 contract FunctionsBillingRegistry is
-  ConfirmedOwner,
-  Pausable,
+  Initializable,
+  ConfirmedOwnerUpgradeable,
+  PausableUpgradeable,
   FunctionsBillingRegistryInterface,
   ERC677ReceiverInterface,
   AuthorizedReceiver
 {
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
-  AuthorizedOriginReceiverInterface private immutable ORACLE_WITH_ALLOWLIST;
+  LinkTokenInterface public LINK;
+  AggregatorV3Interface public LINK_ETH_FEED;
+  AuthorizedOriginReceiverInterface private ORACLE_WITH_ALLOWLIST;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -145,11 +152,16 @@ contract FunctionsBillingRegistry is
     uint32 gasOverhead
   );
 
-  constructor(
+  /**
+   * @dev Initializes the contract.
+   */
+  function initialize(
     address link,
     address linkEthFeed,
     address oracle
-  ) ConfirmedOwner(msg.sender) {
+  ) internal onlyInitializing {
+    __Pausable_init();
+    __ConfirmedOwner_initialize(msg.sender, address(0));
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     ORACLE_WITH_ALLOWLIST = AuthorizedOriginReceiverInterface(oracle);
@@ -850,4 +862,11 @@ contract FunctionsBillingRegistry is
   function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
     return true;
   }
+
+  /**
+   * @dev This empty reserved space is put in place to allow future versions to add new
+   * variables without shifting down storage in the inheritance chain.
+   * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+   */
+  uint256[49] private __gap;
 }
