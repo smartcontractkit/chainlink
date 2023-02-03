@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
@@ -18,6 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
+
+type OcrSoakInputs struct {
+	TestDuration         time.Duration `envconfig:"TEST_DURATION" default:"15m"`
+	ChainlinkNodeFunding float64       `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"`
+	TimeBetweenRounds    time.Duration `envconfig:"TIME_BETWEEN_ROUNDS" default:"1m"`
+}
 
 func TestOCRSoak(t *testing.T) {
 	soakNetwork := blockchain.LoadNetworkFromEnvironment()
@@ -42,14 +49,19 @@ func TestOCRSoak(t *testing.T) {
 
 	chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
 	require.NoError(t, err, "Error connecting to network")
+
+	var testInputs OcrSoakInputs
+	err = envconfig.Process("OCR", &testInputs)
+	require.NoError(t, err, "Error reading OCR soak test inputs")
+
 	ocrSoakTest := testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 		BlockchainClient:     chainClient,
-		TestDuration:         time.Minute * 15,
+		TestDuration:         testInputs.TestDuration,
 		NumberOfContracts:    2,
-		ChainlinkNodeFunding: big.NewFloat(.1),
+		ChainlinkNodeFunding: big.NewFloat(testInputs.ChainlinkNodeFunding),
 		ExpectedRoundTime:    time.Minute * 2,
 		RoundTimeout:         time.Minute * 15,
-		TimeBetweenRounds:    time.Minute * 1,
+		TimeBetweenRounds:    testInputs.TimeBetweenRounds,
 		StartingAdapterValue: 5,
 	})
 	t.Cleanup(func() {
