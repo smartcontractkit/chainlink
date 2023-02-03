@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/FunctionsBillingRegistryInterface.sol";
-import "../interfaces/FunctionsOracleInterface.sol";
-import "../interfaces/FunctionsClientInterface.sol";
-import "../../interfaces/TypeAndVersionInterface.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
-import "../interfaces/AuthorizedOriginReceiverInterface.sol";
-import "../ConfirmedOwnerUpgradeable.sol";
-import "../AuthorizedReceiver.sol";
-import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
-import "../vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/security/PausableUpgradeable.sol";
-import "../vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/proxy/utils/Initializable.sol";
+import "../interfaces/LinkTokenInterface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../dev/interfaces/FunctionsBillingRegistryInterface.sol";
+import "../dev/interfaces/FunctionsOracleInterface.sol";
+import "../dev/interfaces/FunctionsClientInterface.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
+import "../interfaces/ERC677ReceiverInterface.sol";
+import "../dev/interfaces/AuthorizedOriginReceiverInterface.sol";
+import "../dev/ConfirmedOwnerUpgradeable.sol";
+import "../dev/AuthorizedReceiver.sol";
+import "../dev/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
+import "../dev/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/security/PausableUpgradeable.sol";
+import "../dev/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Billing Registry contract
  * @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsBillingRegistry is
+contract FunctionsBillingRegistryMigration is
   Initializable,
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
@@ -284,8 +284,7 @@ contract FunctionsBillingRegistry is
     bytes calldata, /* data */
     FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
-    // NOTE: Optionally, compute additional fee here
-    return 0;
+    return 1;
   }
 
   /**

@@ -3,7 +3,7 @@ pragma solidity ^0.8.6;
 
 import "../dev/functions/FunctionsBillingRegistry.sol";
 
-contract FunctionsBillingRegistryWithInit is FunctionsBillingRegistry_v0 {
+contract FunctionsBillingRegistryWithInit is FunctionsBillingRegistry {
   constructor(
     address link,
     address linkEthFeed,
