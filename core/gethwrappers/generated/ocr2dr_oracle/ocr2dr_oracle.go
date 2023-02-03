@@ -542,6 +542,18 @@ func (_OCR2DROracle *OCR2DROracleTransactorSession) DeleteNodePublicKey(node com
 	return _OCR2DROracle.Contract.DeleteNodePublicKey(&_OCR2DROracle.TransactOpts, node)
 }
 
+func (_OCR2DROracle *OCR2DROracleTransactor) Initialize(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _OCR2DROracle.contract.Transact(opts, "initialize")
+}
+
+func (_OCR2DROracle *OCR2DROracleSession) Initialize() (*types.Transaction, error) {
+	return _OCR2DROracle.Contract.Initialize(&_OCR2DROracle.TransactOpts)
+}
+
+func (_OCR2DROracle *OCR2DROracleTransactorSession) Initialize() (*types.Transaction, error) {
+	return _OCR2DROracle.Contract.Initialize(&_OCR2DROracle.TransactOpts)
+}
+
 func (_OCR2DROracle *OCR2DROracleTransactor) RemoveAuthorizedSenders(opts *bind.TransactOpts, senders []common.Address) (*types.Transaction, error) {
 	return _OCR2DROracle.contract.Transact(opts, "removeAuthorizedSenders", senders)
 }
@@ -2272,6 +2284,8 @@ type OCR2DROracleInterface interface {
 	DeactivateAuthorizedReceiver(opts *bind.TransactOpts) (*types.Transaction, error)
 
 	DeleteNodePublicKey(opts *bind.TransactOpts, node common.Address) (*types.Transaction, error)
+
+	Initialize(opts *bind.TransactOpts) (*types.Transaction, error)
 
 	RemoveAuthorizedSenders(opts *bind.TransactOpts, senders []common.Address) (*types.Transaction, error)
 
