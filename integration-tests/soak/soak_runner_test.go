@@ -2,6 +2,7 @@ package soak_test
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -135,4 +136,10 @@ func soakTestHelper(
 	require.NoError(t, err, "Error launching test environment")
 	err = actions.TriggerRemoteTest("../../", testEnvironment)
 	require.NoError(t, err, "Error activating remote test")
+}
+
+func exportOCRSoakEnvs(remoteRunnerValues map[string]any) {
+	remoteRunnerValues["OCR_TEST_DURATION"] = os.Getenv("OCR_TEST_DURATION")
+	remoteRunnerValues["OCR_CHAINLINK_NODE_FUNDING"] = os.Getenv("OCR_CHAINLINK_NODE_FUNDING")
+	remoteRunnerValues["OCR_TIME_BETWEEN_ROUNDS"] = os.Getenv("OCR_TIME_BETWEEN_ROUNDS")
 }
