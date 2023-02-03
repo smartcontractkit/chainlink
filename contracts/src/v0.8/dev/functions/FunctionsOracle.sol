@@ -83,7 +83,7 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
    */
   function _isTransmitter(address node) internal view returns (bool) {
     address[] memory nodes = this.transmitters();
-    for (uint i = 0; i < nodes.length; i++) {
+    for (uint256 i = 0; i < nodes.length; i++) {
       if (nodes[i] == node) {
         return true;
       }
@@ -119,7 +119,7 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
   function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
     address[] memory nodes = this.transmitters();
     bytes[] memory keys = new bytes[](nodes.length);
-    for (uint i = 0; i < nodes.length; i++) {
+    for (uint256 i = 0; i < nodes.length; i++) {
       keys[i] = s_nodePublicKeys[nodes[i]];
     }
     return (nodes, keys);
@@ -163,15 +163,14 @@ contract FunctionsOracle is FunctionsOracleInterface, OCR2Base, AuthorizedOrigin
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
-    uint256 gasPrice
+    uint32 gasLimit
   ) external override registryIsSet validateAuthorizedSender returns (bytes32) {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
     bytes32 requestId = s_registry.startBilling(
       data,
-      FunctionsBillingRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice)
+      FunctionsBillingRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, tx.gasprice)
     );
     emit OracleRequest(
       requestId,

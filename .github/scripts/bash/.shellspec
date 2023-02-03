@@ -1,0 +1,12 @@
+--require spec_helper
+
+## Default kcov (coverage) options
+# --kcov-options "--include-path=. --path-strip-level=1"
+# --kcov-options "--include-pattern=.sh"
+# --kcov-options "--exclude-pattern=/.shellspec,/spec/,/coverage/,/report/"
+
+## Example: Include script "myprog" with no extension
+# --kcov-options "--include-pattern=.sh,myprog"
+
+## Example: Only specified files/directories
+# --kcov-options "--include-pattern=myprog,/lib/"

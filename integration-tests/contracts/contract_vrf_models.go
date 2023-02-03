@@ -2,12 +2,14 @@ package contracts
 
 import (
 	"context"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"math/big"
 )
 
 type VRF interface {
@@ -98,6 +100,8 @@ type VRFBeacon interface {
 	) error
 	WaitForConfigSetEvent() (*vrf_beacon.VRFBeaconConfigSet, error)
 	WaitForNewTransmissionEvent() (*vrf_beacon.VRFBeaconNewTransmission, error)
+	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
+		error)
 }
 
 type VRFBeaconConsumer interface {
@@ -114,8 +118,7 @@ type VRFBeaconConsumer interface {
 		confirmationDelayArg *big.Int,
 		callbackGasLimit uint32,
 		arguments []byte,
-	) error
-
+	) (*types.Receipt, error)
 	IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error)
 	GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error)
 	GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error)

@@ -49,21 +49,27 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	ocrInstances := actions.DeployOCRContracts(t, 1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
+	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
+	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
 	profileFunction := func(chainlinkNode *client.Chainlink) {
-		actions.SetAllAdapterResponsesToTheSameValue(t, 5, ocrInstances, chainlinkNodes, mockServer)
-		actions.CreateOCRJobs(t, ocrInstances, chainlinkNodes, mockServer)
-		actions.StartNewRound(t, 1, ocrInstances, chainClient)
+		err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer)
+		require.NoError(t, err)
+		err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockServer)
+		require.NoError(t, err)
+		err = actions.StartNewRound(1, ocrInstances, chainClient)
+		require.NoError(t, err)
 
 		answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
 		require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 		require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-		actions.SetAllAdapterResponsesToTheSameValue(t, 10, ocrInstances, chainlinkNodes, mockServer)
-		actions.StartNewRound(t, 2, ocrInstances, chainClient)
+		err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, mockServer)
+		require.NoError(t, err)
+		err = actions.StartNewRound(2, ocrInstances, chainClient)
+		require.NoError(t, err)
 
 		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
 		require.NoError(t, err, "Error getting latest OCR answer")
