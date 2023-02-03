@@ -53,7 +53,6 @@ func TestOCRSoak(t *testing.T) {
 	var testInputs OcrSoakInputs
 	err = envconfig.Process("OCR", &testInputs)
 	require.NoError(t, err, "Error reading OCR soak test inputs")
-	log.Debug().Interface("Inputs", testInputs).Msg("Read OCR Input Values")
 
 	ocrSoakTest := testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 		BlockchainClient:     chainClient,
