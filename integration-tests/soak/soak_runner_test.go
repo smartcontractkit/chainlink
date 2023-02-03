@@ -123,6 +123,7 @@ func soakTestHelper(
 		remoteRunnerValues[key] = value
 	}
 	remoteRunnerValues[config.EnvVarInsideK8s] = "true"
+	remoteRunnerValues = exportOCRSoakEnvs(remoteRunnerValues)
 	remoteRunnerWrapper := map[string]interface{}{"remote_test_runner": remoteRunnerValues}
 
 	err := testEnvironment.
@@ -138,8 +139,9 @@ func soakTestHelper(
 	require.NoError(t, err, "Error activating remote test")
 }
 
-func exportOCRSoakEnvs(remoteRunnerValues map[string]any) {
+func exportOCRSoakEnvs(remoteRunnerValues map[string]any) map[string]any {
 	remoteRunnerValues["OCR_TEST_DURATION"] = os.Getenv("OCR_TEST_DURATION")
 	remoteRunnerValues["OCR_CHAINLINK_NODE_FUNDING"] = os.Getenv("OCR_CHAINLINK_NODE_FUNDING")
 	remoteRunnerValues["OCR_TIME_BETWEEN_ROUNDS"] = os.Getenv("OCR_TIME_BETWEEN_ROUNDS")
+	return remoteRunnerValues
 }
