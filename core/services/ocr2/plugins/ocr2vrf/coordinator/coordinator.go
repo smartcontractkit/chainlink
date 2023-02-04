@@ -951,9 +951,7 @@ func (c *coordinator) KeyID(ctx context.Context) (dkg.KeyID, error) {
 // a number of confirmations on the beacon block is always enough confirmations
 // for the request block.
 func isBlockEligible(nextBeaconOutputHeight uint64, confDelay *big.Int, currentHeight int64) bool {
-	cond := confDelay.Int64() < currentHeight // Edge case: for simulated chains with low block numbers
-	cond = cond && (nextBeaconOutputHeight+confDelay.Uint64()) < uint64(currentHeight)
-	return cond
+	return nextBeaconOutputHeight+confDelay.Uint64() < uint64(currentHeight)
 }
 
 // toEpochAndRoundUint40 returns a single unsigned 40 bit big.Int object
