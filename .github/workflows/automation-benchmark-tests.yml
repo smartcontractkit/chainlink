@@ -45,7 +45,7 @@ on:
         type: string
 
 env:
-  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  REF_NAME: ${{ github.head_ref || github.ref_name }}
 
 jobs:
   automation_benchmark:
@@ -64,7 +64,7 @@ jobs:
       TEST_INPUTS: ${{ inputs.TestInputs }}
       TEST_TRIGGERED_BY: automation-benchmark
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.head_ref || github.ref_name }}
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ env.REF_NAME }}
     steps:
       - name: Add mask
         run: |
@@ -83,9 +83,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
-          ref: ${{ env.BRANCH_NAME }}
+          ref: ${{ env.REF_NAME }}
       - name: build test runner
-        if: ${{ env.BRANCH_NAME != 'develop' }}
+        if: ${{ env.REF_NAME != 'develop' }}
         uses: smartcontractkit/chainlink-github-actions/docker/build-push@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
         with:
           tags: ${{ env.ENV_JOB_IMAGE }}
