@@ -76,7 +76,7 @@ jobs:
       OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
       OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
       TEST_LOG_LEVEL: debug
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ env.REF_NAME }}
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.head_ref || github.ref_name }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics

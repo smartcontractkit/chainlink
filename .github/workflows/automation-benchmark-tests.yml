@@ -64,7 +64,7 @@ jobs:
       TEST_INPUTS: ${{ inputs.TestInputs }}
       TEST_TRIGGERED_BY: automation-benchmark
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ env.REF_NAME }}
+      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.head_ref || github.ref_name }}
     steps:
       - name: Add mask
         run: |
