@@ -96,7 +96,7 @@ pragma solidity ^0.8.4;
  * @dev and so remains effective only in the case of unmodified oracle software).
  */
 
-import "./vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
 
 /**
  * @dev The VRFConsumerBaseV2Upgradable is an upgradable variant of VRFConsumerBaseV2

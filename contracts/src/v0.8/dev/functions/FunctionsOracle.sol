@@ -4,7 +4,7 @@ pragma solidity ^0.8.6;
 import "../interfaces/FunctionsOracleInterface.sol";
 import "../ocr2/OCR2BaseUpgradeable.sol";
 import "./AuthorizedOriginReceiverUpgradeable.sol";
-import "../vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Oracle contract

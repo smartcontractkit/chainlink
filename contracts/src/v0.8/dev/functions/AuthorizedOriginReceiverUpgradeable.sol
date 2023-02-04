@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import "../vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/structs/EnumerableSet.sol";
-import "../vendor/@openzeppelin/contracts-upgradeable/v4.8.1/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @notice Modified AuthorizedReciever abstract for use on the FunctionsOracle contract to limit usage
