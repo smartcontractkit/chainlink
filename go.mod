@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink
 
-go 1.19
+go 1.20
 
 require (
 	github.com/Depado/ginprom v1.7.4
