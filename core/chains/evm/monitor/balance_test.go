@@ -3,6 +3,7 @@ package monitor_test
 import (
 	"context"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -226,7 +226,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	// executed once
 	var callCount atomic.Int32
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { callCount.Inc() }).
+		Run(func(mock.Arguments) { callCount.Add(1) }).
 		Maybe().
 		Return(big.NewInt(42), nil)
 
