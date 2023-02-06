@@ -10,18 +10,14 @@ interface IAggregatorProxy {
   function aggregator() external view returns (address);
 }
 
-interface IAuthorizedForwarder {
-  function forward(address to, bytes calldata data) external;
-}
-
 interface IOffchainAggregator {
   function requestNewRound() external returns (uint80);
 }
 
 /**
  * @notice The heartbeat requester will maintain a mapping from allowed callers to corresponding proxies. When requested
- *         by eligible caller, it will call a proxy for an aggregator address and call aggregator function via an
- *         authorized forwarder to request a new round.
+ *         by eligible caller, it will call a proxy for an aggregator address and request a new round. The aggregator
+ *         is gated by permissions and this requester address needs to be whitelisted.
  */
 contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
   event HeartbeatPermitted(address indexed permittedCaller, address indexed proxy);
@@ -29,14 +25,12 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
 
   error HeartbeatNotPermitted();
 
-  bytes internal constant REQUEST_SELECTOR_CALL_DATA =
-    abi.encodeWithSelector(IOffchainAggregator.requestNewRound.selector);
   mapping(address => IAggregatorProxy) internal s_heartbeatList;
 
   /**
    * @notice versions:
    * - HeartbeatRequester 1.0.0: The requester fetches the latest aggregator address from proxy, and request a new round
-   *                             from authorized forwarder using the aggregator address.
+   *                             using the aggregator address.
    */
   string public constant override typeAndVersion = "HeartbeatRequester 1.0.0";
 
@@ -62,15 +56,14 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
   }
 
   /**
-   * @notice fetches aggregator address from proxy and requests a new round via authorized forwarder.
+   * @notice fetches aggregator address from proxy and requests a new round.
    * @param proxy the proxy address
-   * @param forwarder the forwarder address
    */
-  function getAggregatorAndRequestHeartbeat(address proxy, IAuthorizedForwarder forwarder) external {
+  function getAggregatorAndRequestHeartbeat(address proxy) external {
     IAggregatorProxy proxyInterface = s_heartbeatList[msg.sender];
     if (address(proxyInterface) != proxy) revert HeartbeatNotPermitted();
 
-    address aggregator = proxyInterface.aggregator();
-    forwarder.forward(aggregator, REQUEST_SELECTOR_CALL_DATA);
+    IOffchainAggregator aggregator = IOffchainAggregator(proxyInterface.aggregator());
+    aggregator.requestNewRound();
   }
 }

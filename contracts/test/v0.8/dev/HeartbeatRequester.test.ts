@@ -2,13 +2,11 @@ import { getUsers, Personas } from '../../test-helpers/setup'
 import { ethers } from 'hardhat'
 import { Signer } from 'ethers'
 import {
-  MockAuthorizedForwarder,
   HeartbeatRequester,
   MockAggregatorProxy,
   MockOffchainAggregator,
 } from '../../../typechain'
 import { HeartbeatRequester__factory as HeartbeatRequesterFactory } from '../../../typechain/factories/HeartbeatRequester__factory'
-import { MockAuthorizedForwarder__factory as MockAuthorizedForwarderFactory } from '../../../typechain/factories/MockAuthorizedForwarder__factory'
 import { MockAggregatorProxy__factory as MockAggregatorProxyFactory } from '../../../typechain/factories/MockAggregatorProxy__factory'
 import { MockOffchainAggregator__factory as MockOffchainAggregatorFactory } from '../../../typechain/factories/MockOffchainAggregator__factory'
 import { assert, expect } from 'chai'
@@ -23,8 +21,6 @@ let aggregatorProxy: MockAggregatorProxy
 let aggregatorProxyFactory: MockAggregatorProxyFactory
 let requester: HeartbeatRequester
 let requesterFactory: HeartbeatRequesterFactory
-let authorizedForwarder: MockAuthorizedForwarder
-let authorizedForwarderFactory: MockAuthorizedForwarderFactory
 
 describe('HeartbeatRequester', () => {
   beforeEach(async () => {
@@ -32,15 +28,6 @@ describe('HeartbeatRequester', () => {
     owner = personas.Default
     caller1 = personas.Carol
     proxy = personas.Nelly
-
-    // deploy authorized forwarder
-    authorizedForwarderFactory = await ethers.getContractFactory(
-      'MockAuthorizedForwarder',
-    )
-    authorizedForwarder = await authorizedForwarderFactory
-      .connect(owner)
-      .deploy()
-    await authorizedForwarder.deployed()
 
     // deploy heartbeat requester
     requesterFactory = await ethers.getContractFactory('HeartbeatRequester')
@@ -104,10 +91,7 @@ describe('HeartbeatRequester', () => {
       await expect(
         requester
           .connect(caller1)
-          .getAggregatorAndRequestHeartbeat(
-            await owner.getAddress(),
-            authorizedForwarder.address,
-          ),
+          .getAggregatorAndRequestHeartbeat(await owner.getAddress()),
       ).to.be.revertedWith('HeartbeatNotPermitted()')
     })
 
@@ -130,32 +114,17 @@ describe('HeartbeatRequester', () => {
         .connect(owner)
         .permitHeartbeat(await caller1.getAddress(), aggregatorProxy.address)
 
-      const ABI = ['function requestNewRound()']
-      const i = new ethers.utils.Interface(ABI)
-      const calldata = i.encodeFunctionData('requestNewRound', [])
       const tx1 = await requester
         .connect(caller1)
-        .getAggregatorAndRequestHeartbeat(
-          aggregatorProxy.address,
-          authorizedForwarder.address,
-        )
+        .getAggregatorAndRequestHeartbeat(aggregatorProxy.address)
 
-      await expect(tx1)
-        .to.emit(authorizedForwarder, 'ForwardFuncCalled')
-        .withArgs(aggregator.address, calldata)
       await expect(tx1).to.emit(aggregator, 'RoundIdUpdated').withArgs(1)
       assert.equal((await aggregator.roundId()).toNumber(), 1)
 
       const tx2 = await requester
         .connect(caller1)
-        .getAggregatorAndRequestHeartbeat(
-          aggregatorProxy.address,
-          authorizedForwarder.address,
-        )
+        .getAggregatorAndRequestHeartbeat(aggregatorProxy.address)
 
-      await expect(tx2)
-        .to.emit(authorizedForwarder, 'ForwardFuncCalled')
-        .withArgs(aggregator.address, calldata)
       await expect(tx2).to.emit(aggregator, 'RoundIdUpdated').withArgs(2)
       assert.equal((await aggregator.roundId()).toNumber(), 2)
     })
