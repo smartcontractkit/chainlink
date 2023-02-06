@@ -30,6 +30,9 @@ import (
 
 func TestFluxPerformance(t *testing.T) {
 	testEnvironment, testNetwork := setupFluxTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
@@ -184,6 +187,7 @@ HTTPWriteTimout = '300s'
 Enabled = true`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
