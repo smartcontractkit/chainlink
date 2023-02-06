@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
   CL_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 
 jobs:
@@ -82,8 +83,6 @@ jobs:
     name: Build Test Image
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
-    env:
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -125,41 +124,40 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-eth
       TEST_LOG_LEVEL: debug
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
     strategy:
       fail-fast: false
       matrix:
         product:
-          # - name: automation
-          #   nodes: 9
-          #   os: ubuntu-latest
-          # - name: cron
-          #   nodes: 1
-          #   os: ubuntu-latest
-          # - name: flux
-          #   nodes: 1
-          #   os: ubuntu-latest
-          # - name: keeper
-          #   nodes: 30
-          #   os: ubuntu20.04-4cores-16GB
-          # - name: forwarder_ocr
-          #   nodes: 1
-          #   os: ubuntu-latest
+          - name: automation
+            nodes: 9
+            os: ubuntu-latest
+          - name: cron
+            nodes: 1
+            os: ubuntu-latest
+          - name: flux
+            nodes: 1
+            os: ubuntu-latest
+          - name: keeper
+            nodes: 30
+            os: ubuntu20.04-4cores-16GB
+          - name: forwarder_ocr
+            nodes: 1
+            os: ubuntu-latest
           - name: ocr
             nodes: 1
             os: ubuntu-latest
-          # - name: runlog
-          #   nodes: 1
-          #   os: ubuntu-latest
-          # - name: vrf
-          #   nodes: 1
-          #   os: ubuntu-latest
-          # - name: vrfv2
-          #   nodes: 1
-          #   os: ubuntu-latest
-          # - name: ocr2vrf
-          #   nodes: 1
-          #   os: ubuntu-latest
+          - name: runlog
+            nodes: 1
+            os: ubuntu-latest
+          - name: vrf
+            nodes: 1
+            os: ubuntu-latest
+          - name: vrfv2
+            nodes: 1
+            os: ubuntu-latest
+          - name: ocr2vrf
+            nodes: 1
+            os: ubuntu-latest
     runs-on: ${{ matrix.product.os }}
     steps:
       - name: Checkout the repo
@@ -301,7 +299,6 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_TRIGGERED_BY: core-CI-solana
       TEST_LOG_LEVEL: debug
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
@@ -353,7 +350,6 @@ jobs:
     name: Live Testnet Smoke Tests Matrix
     needs: [build-chainlink, build-test-image]
     env:
-      ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
       SELECTED_NETWORKS: ${{ matrix.testnet }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
