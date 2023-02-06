@@ -2,11 +2,11 @@ package headtracker_test
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +47,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 
 	var headCount atomic.Int32
 	handler := func(context.Context, *evmtypes.Head) error {
-		headCount.Inc()
+		headCount.Add(1)
 		return nil
 	}
 

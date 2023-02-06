@@ -4,8 +4,8 @@ pragma solidity 0.8.6;
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
-import "../interfaces/MigratableKeeperRegistryInterface.sol";
-import "../interfaces/UpkeepTranscoderInterface.sol";
+import "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
+import "../interfaces/UpkeepTranscoderInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
@@ -387,10 +387,10 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins);
-    MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
-      UpkeepTranscoderInterface(s_storage.transcoder).transcodeUpkeeps(
-        UPKEEP_TRANSCODER_VERSION_BASE,
-        MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
+    MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
+      UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
+        UPKEEP_VERSION_BASE,
+        MigratableKeeperRegistryInterfaceV2(destination).upkeepVersion(),
         encodedUpkeeps
       )
     );

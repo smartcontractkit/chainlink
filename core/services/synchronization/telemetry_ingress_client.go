@@ -5,8 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"sync"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
@@ -171,7 +170,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 // 300
 // etc...
 func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPayload) {
-	count := tc.dropMessageCount.Inc()
+	count := tc.dropMessageCount.Add(1)
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		tc.lggr.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}

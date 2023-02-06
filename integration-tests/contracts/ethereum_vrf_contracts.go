@@ -989,10 +989,10 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	subID, confirmationDelayArg *big.Int,
 	callbackGasLimit uint32,
 	arguments []byte,
-) error {
+) (*types.Receipt, error) {
 	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomnessFulfillment(
 		opts,
@@ -1003,9 +1003,22 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 		arguments,
 	)
 	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "TestRequestRandomnessFulfillment failed")
 	}
-	return consumer.client.ProcessTransaction(tx)
+	err = consumer.client.ProcessTransaction(tx)
+	if err != nil {
+		return nil, errors.Wrap(err, "ProcessTransaction failed")
+	}
+	err = consumer.client.WaitForEvents()
+
+	if err != nil {
+		return nil, errors.Wrap(err, "WaitForEvents failed")
+	}
+	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
+	if err != nil {
+		return nil, errors.Wrap(err, "GetTxReceipt failed")
+	}
+	return receipt, nil
 }
 
 func (consumer *EthereumVRFBeaconConsumer) IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error) {
