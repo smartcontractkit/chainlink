@@ -2,6 +2,7 @@ package types
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/lib/pq"
 
 	"gopkg.in/guregu/null.v2"
@@ -11,8 +12,10 @@ import (
 )
 
 type MercuryConfig struct {
-	FeedID common.Hash `json:"feedID"`
-	URL    *models.URL `json:"url"`
+	FeedID          common.Hash   `json:"feedID"`
+	URL             *models.URL   `json:"url"`
+	ServerPubKey    hexutil.Bytes `json:"serverPubKey"`
+	ClientPrivKeyID string        `json:"clientPrivKeyID"`
 }
 
 type RelayConfig struct {

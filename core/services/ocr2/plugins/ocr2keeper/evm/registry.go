@@ -38,7 +38,7 @@ var (
 	FetchUpkeepConfigBatchSize int   = 10
 	separator                        = "|"
 	reInitializationDelay            = 5 * time.Minute
-	logEventLookback           int64 = 100
+	logEventLookback           int64 = 250
 )
 
 type LatestBlockGetter interface {
@@ -507,7 +507,10 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 			continue
 		}
 
+		r.mu.RLock()
 		up, ok := r.active[id.String()]
+		r.mu.RUnlock()
+
 		if ok {
 			upkeepResults[i].ExecuteGas = up.PerformGasLimit
 		}

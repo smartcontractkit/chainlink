@@ -170,7 +170,7 @@ MaxIdleConns = 10 # Default
 ```
 MaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 
 ### MaxOpenConns<a id='Database-MaxOpenConns'></a>
 ```toml
@@ -178,7 +178,7 @@ MaxOpenConns = 20 # Default
 ```
 MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
-Postgres has connection limits, so you must use cation when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
+Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
 
 ### MigrateOnStartup<a id='Database-MigrateOnStartup'></a>
 ```toml
@@ -2585,7 +2585,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
@@ -2595,16 +2595,16 @@ GasLimit = 5300000
 ```toml
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimism'
-FinalityDepth = 1
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
 LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 100
-LogPollInterval = '15s'
+LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 
@@ -2614,38 +2614,38 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '15s'
+ResendAfterThreshold = '30s'
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
+PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 0
+BumpThreshold = 3
 BumpTxDepth = 10
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockHistorySize = 0
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -2656,7 +2656,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 
 [OCR]
-ContractConfirmations = 1
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -3046,7 +3046,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 3800000
 ```
 
 </p></details>
@@ -3116,83 +3116,6 @@ SyncThreshold = 5
 
 [OCR]
 ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5300000
-```
-
-</p></details>
-
-<details><summary>Optimism Alpha (28528)<a id='EVM-28528'></a></summary><p>
-
-```toml
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
-FinalityDepth = 200
-LogBackfillBatchSize = 100
-LogPollInterval = '2s'
-LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '1m0s'
-RPCDefaultBatchSize = 100
-RPCBlockQueryDelay = 1
-
-[Transactions]
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '30s'
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-BumpTxDepth = 10
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 4
-BlockHistorySize = 24
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[HeadTracker]
-HistoryDepth = 300
-MaxBufferSize = 3
-SamplingInterval = '1s'
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'

@@ -27,7 +27,7 @@ jobs:
           this-job-name: Publish Integration Test Image
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: build test runner
@@ -37,7 +37,7 @@ jobs:
           file: ./integration-tests/test.Dockerfile
           build-args: |
             BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.0
+            IMAGE_VERSION=v0.3.8
             SUITES="chaos migration performance reorg smoke soak benchmark"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
