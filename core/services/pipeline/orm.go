@@ -686,7 +686,7 @@ LIMIT $3
 	if rowsAffected == 0 {
 		// check the spec still exists and garbage collect if necessary
 		var exists bool
-		if err := q.SelectContext(o.ctx, &exists, `SELECT EXISTS(SELECT * FROM pipeline_specs WHERE id = $1)`, pipelineSpecID); err != nil {
+		if err := q.GetContext(o.ctx, &exists, `SELECT EXISTS(SELECT * FROM pipeline_specs WHERE id = $1)`, pipelineSpecID); err != nil {
 			o.lggr.Errorw("Failed check existence of pipeline_spec while pruning runs", "err", err, "pipelineSpecID", pipelineSpecID)
 			return
 		}
