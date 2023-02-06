@@ -34,7 +34,7 @@ const (
 	// IN_PROGRESS is the initial state of a request, set right after receiving it in an on-chain event.
 	IN_PROGRESS RequestState = iota
 
-	// RESULT_READY means that computation has finished executing (with either success or error).
+	// RESULT_READY means that computation has finished executing (with either success or user error).
 	// OCR2 reporting includes only requests in RESULT_READY state (for Query and Observation phases).
 	RESULT_READY
 
@@ -82,7 +82,7 @@ func CheckStateTransition(prev RequestState, next RequestState) error {
 	}
 	transitions := map[RequestState]map[RequestState]error{
 		IN_PROGRESS: {
-			IN_PROGRESS:  sameStateError,
+			IN_PROGRESS:  nil, // allowed for re-tries due to internal errors (request will stay IN_PROGRESS until processing succeeds)
 			RESULT_READY: nil, // computation completed (either successfully or not)
 			TIMED_OUT:    nil, // timing out a request in progress - what happened to the computation?
 			FINALIZED:    nil, // generated a report without this node's participation in OCR round
@@ -127,9 +127,10 @@ type ErrType int8
 
 const (
 	NONE ErrType = iota
-	NODE_EXCEPTION
-	SANDBOX_TIMEOUT
-	USER_EXCEPTION
+	// caused by internal infra problems, potentially retryable
+	INTERNAL_ERROR
+	// caused by user's code (exception, crash, timeout, ...)
+	USER_ERROR
 )
 
 func (r *RequestID) Scan(value interface{}) error {
@@ -168,12 +169,10 @@ func (e ErrType) String() string {
 	switch e {
 	case NONE:
 		return "None"
-	case NODE_EXCEPTION:
-		return "NodeException"
-	case SANDBOX_TIMEOUT:
-		return "SandboxTimeout"
-	case USER_EXCEPTION:
-		return "UserException"
+	case INTERNAL_ERROR:
+		return "InternalError"
+	case USER_ERROR:
+		return "UserError"
 	}
 	return "unknown"
 }

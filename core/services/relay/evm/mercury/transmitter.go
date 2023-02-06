@@ -80,8 +80,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 	}
 
 	rr := &pb.ReportRequest{
-		Payload:     payload,
-		FromAccount: mt.fromAccount.Bytes(),
+		Payload: payload,
 	}
 
 	mt.lggr.Debugw("Transmitting report", "reportRequest", rr, "report", report, "reportCtx", reportCtx, "signatures", signatures)
