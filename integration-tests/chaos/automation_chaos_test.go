@@ -26,15 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
-const (
-	// ChaosGroupMinorityAutomation a group of faulty nodes, even if they fail OCR must work
-	ChaosGroupMinorityAutomation = "chaosGroupMinority"
-	// ChaosGroupMajorityAutomation a group of nodes that are working even if minority fails
-	ChaosGroupMajorityAutomation = "chaosGroupMajority"
-	// ChaosGroupMajorityAutomationPlus a group of nodes that are majority + 1
-	ChaosGroupMajorityAutomationPlus = "chaosGroupMajority"
-)
-
 var (
 	baseTOML = `[Feature]
 LogPoller = true
@@ -120,54 +111,52 @@ func TestAutomationChaos(t *testing.T) {
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
-		// network-* and pods-* are split intentionally into 2 parallel groups
-		// we can't use chaos.NewNetworkPartition and chaos.NewFailPods in parallel
-		// because of jsii runtime bug, see Makefile
-		"pod-chaos-fail-minority-nodes": {
+		// see ocr_chaos.test.go for comments
+		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
 				DurationStr:    "1m",
 			},
 		},
-		"pod-chaos-fail-majority-nodes": {
+		PodChaosFailMajorityNodes: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
 				DurationStr:    "1m",
 			},
 		},
-		"pod-chaos-fail-majority-db": {
+		PodChaosFailMajorityDB: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
+				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
 				DurationStr:    "1m",
 				ContainerNames: &[]*string{a.Str("chainlink-db")},
 			},
 		},
-		"network-chaos-fail-majority-network": {
+		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajorityAutomation: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinorityAutomation: a.Str("1")},
+				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
 				DurationStr: "1m",
 			},
 		},
-		"network-chaos-fail-blockchain-node": {
+		NetworkChaosFailBlockchainNode: {
 			ethereum.New(defaultEthereumSettings),
 			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityAutomationPlus: a.Str("1")},
+				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
 				DurationStr: "1m",
 			},
 		},
@@ -195,11 +184,11 @@ func TestAutomationChaos(t *testing.T) {
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
 
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinorityAutomation)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajorityAutomation)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityAutomationPlus)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
 			chainClient, err := blockchain.NewEVMClient(network, testEnvironment)

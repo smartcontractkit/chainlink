@@ -648,7 +648,7 @@ describe('FunctionsRegistry', () => {
       await expect(
         oracle
           .connect(stranger)
-          .sendRequest(subId, stringToBytes('some data'), 0, 0),
+          .sendRequest(subId, stringToBytes('some data'), 0),
       ).to.be.revertedWith(
         `reverted with custom error 'InvalidConsumer(${subId}, "${strangerAddress}")`,
       )

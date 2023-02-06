@@ -2,12 +2,12 @@ package synchronization
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/atomic"
 )
 
 // telemetryIngressBatchWorker pushes telemetry in batches to the ingress server via wsrpc.
@@ -102,7 +102,7 @@ func (tw *telemetryIngressBatchWorker) Start() {
 // 300
 // etc...
 func (tw *telemetryIngressBatchWorker) logBufferFullWithExpBackoff(payload TelemPayload) {
-	count := tw.dropMessageCount.Inc()
+	count := tw.dropMessageCount.Add(1)
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		tw.lggr.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}

@@ -102,7 +102,7 @@ func TestBuildJobSpec(t *testing.T) {
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: false,
 			},
-			"performUpkeepGasLimit": uint32(21),
+			"performUpkeepGasLimit": uint32(5_000_000 + 9),
 			"maxPerformDataSize":    uint32(1000),
 			"gasPrice":              gasPrice.ToInt(),
 			"gasTipCap":             gasTipCap.ToInt(),

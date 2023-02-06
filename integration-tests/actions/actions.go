@@ -291,7 +291,7 @@ func returnFunds(chainlinkNodes []*client.Chainlink, blockchainClient blockchain
 	}
 
 	for _, chainlinkNode := range chainlinkNodes {
-		fundedKeys, err := chainlinkNode.ExportEVMKeys()
+		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(blockchainClient.GetChainID().String())
 		if err != nil {
 			return err
 		}

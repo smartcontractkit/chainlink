@@ -57,10 +57,9 @@ abstract contract FunctionsClient is FunctionsClientInterface {
   function sendRequest(
     Functions.Request memory req,
     uint64 subscriptionId,
-    uint32 gasLimit,
-    uint256 gasPrice
+    uint32 gasLimit
   ) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
+    bytes32 requestId = s_oracle.sendRequest(subscriptionId, Functions.encodeCBOR(req), gasLimit);
     s_pendingRequests[requestId] = s_oracle.getRegistry();
     emit RequestSent(requestId);
     return requestId;

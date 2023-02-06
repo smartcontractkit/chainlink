@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/directrequestocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/directrequestocr/config"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type DirectRequestReportingPluginFactory struct {
@@ -79,7 +80,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		"oracleID": r.genericConfig.OracleID,
 	})
 	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
-	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize)
+	results, err := r.pluginORM.FindOldestEntriesByState(directrequestocr.RESULT_READY, maxBatchSize, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 			continue
 		}
 		processedIds[id] = true
-		localResult, err2 := r.pluginORM.FindById(id)
+		localResult, err2 := r.pluginORM.FindById(id, pg.WithParentCtx(ctx))
 		if err2 != nil {
 			r.logger.Debug("FunctionsReporting Observation can't find request from query", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
@@ -284,15 +285,16 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		_, err := r.pluginORM.FindById(sliceToByte32(item.RequestID))
+		_, err := r.pluginORM.FindById(sliceToByte32(item.RequestID), pg.WithParentCtx(ctx))
 		if err != nil {
+			// TODO: Differentiate between ID not found and other ORM errors (https://smartcontract-it.atlassian.net/browse/DRO-215)
 			r.logger.Warn("FunctionsReporting ShouldAcceptFinalizedReport: request doesn't exist locally! Accepting anyway.", commontypes.LogFields{"requestID": reqIdStr})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		err = r.pluginORM.SetFinalized(sliceToByte32(item.RequestID), item.Result, item.Error) // validates state transition
+		err = r.pluginORM.SetFinalized(sliceToByte32(item.RequestID), item.Result, item.Error, pg.WithParentCtx(ctx)) // validates state transition
 		if err != nil {
-			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
+			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
 		}
 		needTransmissionIds = append(needTransmissionIds, reqIdStr)
@@ -327,9 +329,9 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		request, err := r.pluginORM.FindById(sliceToByte32(item.RequestID))
+		request, err := r.pluginORM.FindById(sliceToByte32(item.RequestID), pg.WithParentCtx(ctx))
 		if err != nil {
-			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr})
+			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
