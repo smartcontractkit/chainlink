@@ -118,8 +118,7 @@ type VRFBeaconConsumer interface {
 		confirmationDelayArg *big.Int,
 		callbackGasLimit uint32,
 		arguments []byte,
-	) error
-
+	) (*types.Receipt, error)
 	IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error)
 	GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error)
 	GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error)
