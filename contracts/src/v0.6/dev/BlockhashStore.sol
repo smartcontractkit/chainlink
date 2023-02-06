@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.6;
 
+import "./ChainSpecificUtil.sol";
+
 /**
  * @title BlockhashStore
  * @notice This contract provides a way to access blockhashes older than
@@ -20,7 +22,7 @@ contract BlockhashStore {
    * @param n the number of the block whose blockhash should be stored
    */
   function store(uint256 n) public {
-    bytes32 h = blockhash(n);
+    bytes32 h = ChainSpecificUtil.getBlockhash(n);
     require(h != 0x0, "blockhash(n) failed");
     s_blockhashes[n] = h;
   }
