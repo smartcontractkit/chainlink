@@ -2,6 +2,7 @@ package synchronization_test
 
 import (
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -65,19 +65,19 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 
 		if telemBatchReq.ContractId == "0x1" {
 			for _, telem := range telemBatchReq.Telemetry {
-				contractCounter1.Inc()
+				contractCounter1.Add(1)
 				assert.Equal(t, telemPayload1.Telemetry, telem)
 			}
 		}
 		if telemBatchReq.ContractId == "0x2" {
 			for _, telem := range telemBatchReq.Telemetry {
-				contractCounter2.Inc()
+				contractCounter2.Add(1)
 				assert.Equal(t, telemPayload2.Telemetry, telem)
 			}
 		}
 		if telemBatchReq.ContractId == "0x3" {
 			for _, telem := range telemBatchReq.Telemetry {
-				contractCounter3.Inc()
+				contractCounter3.Add(1)
 				assert.Equal(t, telemPayload3.Telemetry, telem)
 			}
 		}
