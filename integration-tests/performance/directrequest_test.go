@@ -29,6 +29,9 @@ import (
 
 func TestDirectRequestPerformance(t *testing.T) {
 	testEnvironment := setupDirectRequestTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
@@ -135,6 +138,7 @@ func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environm
 HTTPWriteTimout = '300s'`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
