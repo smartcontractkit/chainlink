@@ -281,7 +281,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx solanaGo.Transacti
 				}(shouldBump, bumpCount, currentTx)
 			}
 
-			// exponential increase in wait time, capped at 500ms
+			// exponential increase in wait time, capped at 250ms
 			deltaT *= 2
 			if deltaT > MaxRetryTimeMs {
 				deltaT = MaxRetryTimeMs
@@ -453,7 +453,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 			errStr := fmt.Sprintf("%v", res.Err) // convert to string to handle various interfaces
 			switch {
 			// blockhash not found when simulating, occurs when network bank has not seen the given blockhash or tx is too old
-			// let simulation process/clean up
+			// let confirmation process clean up
 			case strings.Contains(errStr, "BlockhashNotFound"):
 				txm.lggr.Warnw("simulate: BlockhashNotFound", "id", msg.id, "signature", msg.signature, "result", res)
 				continue

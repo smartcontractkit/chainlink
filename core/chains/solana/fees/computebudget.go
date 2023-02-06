@@ -7,7 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 )
 
-// https://github.com/solana-labs/solana/blob/master/sdk/src/compute_budget.rs
+// https://github.com/solana-labs/solana/blob/60858d043ca612334de300805d93ea3014e8ab37/sdk/src/compute_budget.rs#L25
 const (
 	// deprecated: will not support for building instruction
 	Instruction_RequestUnitsDeprecated uint8 = iota
@@ -66,7 +66,7 @@ func (val ComputeUnitPrice) Data() ([]byte, error) {
 // modifies passed in tx to set compute unit price
 func SetComputeUnitPrice(tx *solana.Transaction, price ComputeUnitPrice) error {
 	// find ComputeBudget program to accounts if it exists
-	// reimplements HasAccount to retrieve index: https://github.com/gagliardetto/solana-go/blob/main/message.go#L228
+	// reimplements HasAccount to retrieve index: https://github.com/gagliardetto/solana-go/blob/618f56666078f8131a384ab27afd918d248c08b7/message.go#L233
 	var exists bool
 	var programIdx uint16
 	for i, a := range tx.Message.AccountKeys {
@@ -81,7 +81,7 @@ func SetComputeUnitPrice(tx *solana.Transaction, price ComputeUnitPrice) error {
 		tx.Message.AccountKeys = append(tx.Message.AccountKeys, price.ProgramID())
 		programIdx = uint16(len(tx.Message.AccountKeys) - 1) // last index of account keys
 
-		// https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L291
+		// https://github.com/gagliardetto/solana-go/blob/618f56666078f8131a384ab27afd918d248c08b7/transaction.go#L293
 		tx.Message.Header.NumReadonlyUnsignedAccounts++
 	}
 
