@@ -100,9 +100,8 @@ jobs:
           file: ./integration-tests/test.Dockerfile
           build-args: |
             BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.0
-            SUITES="smoke"
-          #SUITES="chaos migration performance reorg smoke soak"
+            IMAGE_VERSION=v0.3.8
+            SUITES="smoke soak chaos benchmark migration performance"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -153,7 +152,7 @@ jobs:
             nodes: 1
             os: ubuntu-latest
           - name: ocr2vrf
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
     runs-on: ${{ matrix.product.os }}
     steps:
@@ -201,6 +200,13 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@e72f0a768ac934afce498a802de893d89b12802f # v2.1.1
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}-${{ matrix.product.name }}
+      - name: Upload test log
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        if: failure()
+        with:
+          name: test-log-${{ matrix.product.name }}
+          path: /tmp/gotest.log
+          retention-days: 7
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

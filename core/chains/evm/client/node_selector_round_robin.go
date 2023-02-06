@@ -1,6 +1,6 @@
 package client
 
-import "go.uber.org/atomic"
+import "sync/atomic"
 
 type roundRobinSelector struct {
 	nodes           []Node
@@ -27,7 +27,7 @@ func (s *roundRobinSelector) Select() Node {
 	}
 
 	// NOTE: Inc returns the number after addition, so we must -1 to get the "current" counter
-	count := s.roundRobinCount.Inc() - 1
+	count := s.roundRobinCount.Add(1) - 1
 	idx := int(count % uint32(nNodes))
 
 	return liveNodes[idx]

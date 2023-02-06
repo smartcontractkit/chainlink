@@ -42,8 +42,8 @@ func BuildAutoOCR2ConfigVars(
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
-		2500*time.Millisecond, // deltaRound time.Duration,
-		50*time.Millisecond,   // deltaGrace time.Duration,
+		1000*time.Millisecond, // deltaRound time.Duration,
+		20*time.Millisecond,   // deltaGrace time.Duration,
 		deltaStage,            // deltaStage time.Duration,
 		48,                    // rMax uint8,
 		S,                     // s []int,
@@ -59,13 +59,13 @@ func BuildAutoOCR2ConfigVars(
 			MinConfirmations:     0,
 			MaxUpkeepBatchSize:   20,
 		}.Encode(), // reportingPluginConfig []byte,
-		20*time.Millisecond,   // maxDurationQuery time.Duration,
-		1600*time.Millisecond, // maxDurationObservation time.Duration,
-		800*time.Millisecond,  // maxDurationReport time.Duration,
-		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
-		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                     // f int,
-		nil,                   // onchainConfig []byte,
+		20*time.Millisecond,  // maxDurationQuery time.Duration,
+		20*time.Millisecond,  // maxDurationObservation time.Duration,
+		800*time.Millisecond, // maxDurationReport time.Duration,
+		20*time.Millisecond,  // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,  // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                    // f int,
+		nil,                  // onchainConfig []byte,
 	)
 	require.NoError(t, err, "Shouldn't fail ContractSetConfigArgsForTests")
 

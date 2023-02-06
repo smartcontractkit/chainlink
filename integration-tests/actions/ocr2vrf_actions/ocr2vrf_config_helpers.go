@@ -1,4 +1,4 @@
-package actions
+package ocr2vrf_actions
 
 import (
 	"crypto/ed25519"
@@ -28,40 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
-
-type DKGKeyConfig struct {
-	DKGEncryptionPublicKey string
-	DKGSigningPublicKey    string
-}
-
-type DKGConfig struct {
-	DKGKeyConfigs      []DKGKeyConfig
-	DKGKeyID           string
-	DKGContractAddress string
-}
-
-type VRFBeaconConfig struct {
-	VRFBeaconAddress  string
-	ConfDelays        []string
-	CoordinatorConfig ocr2vrftypes.CoordinatorConfig
-}
-
-type OCR2Config struct {
-	OnchainPublicKeys    []string
-	OffchainPublicKeys   []string
-	PeerIds              []string
-	ConfigPublicKeys     []string
-	TransmitterAddresses []string
-	Schedule             []int
-}
-
-type OCR2VRFPluginConfig struct {
-	OCR2Config            OCR2Config
-	DKGConfig             DKGConfig
-	VRFBeaconConfig       VRFBeaconConfig
-	VRFCoordinatorAddress string
-	LinkEthFeedAddress    string
-}
 
 // CreateOCR2VRFJobs bootstraps the first node and to the other nodes sends ocr jobs
 func CreateOCR2VRFJobs(
@@ -330,7 +296,7 @@ func BuildOCR2VRFConfigVars(
 			3,                                       // rMax uint8,
 			ocr2VRFPluginConfig.OCR2Config.Schedule, // s []int,
 			oracleIdentities,                        // oracles []OracleIdentityExtra,
-			ocr2vrf.OffchainConfig(&ocr2VRFPluginConfig.VRFBeaconConfig.CoordinatorConfig),
+			ocr2vrf.OffchainConfig(ocr2VRFPluginConfig.VRFBeaconConfig.CoordinatorConfig),
 			10*time.Millisecond, // maxDurationQuery time.Duration,
 			10*time.Second,      // maxDurationObservation time.Duration,
 			10*time.Second,      // maxDurationReport time.Duration,
