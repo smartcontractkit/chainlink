@@ -95,7 +95,7 @@ func DeployOCRContracts(
 			transmitterAddresses,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error setting OCR config for contract '%d': %w", ocrInstance.Address(), err)
+			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
 			err = client.WaitForEvents()
