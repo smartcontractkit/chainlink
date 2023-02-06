@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
@@ -26,7 +27,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
-	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 )
@@ -181,7 +181,7 @@ type Sleeper interface {
 // BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
 	backoff.Backoff
-	beenRun *atomic.Bool
+	beenRun atomic.Bool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
@@ -193,13 +193,12 @@ func NewBackoffSleeper() *BackoffSleeper {
 			Min: 1 * time.Second,
 			Max: 10 * time.Second,
 		},
-		beenRun: atomic.NewBool(false),
 	}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
 func (bs *BackoffSleeper) Sleep() {
-	if bs.beenRun.CAS(false, true) {
+	if bs.beenRun.CompareAndSwap(false, true) {
 		return
 	}
 	time.Sleep(bs.Backoff.Duration())
@@ -207,7 +206,7 @@ func (bs *BackoffSleeper) Sleep() {
 
 // After returns the duration for the next stop, and increments the backoff.
 func (bs *BackoffSleeper) After() time.Duration {
-	if bs.beenRun.CAS(false, true) {
+	if bs.beenRun.CompareAndSwap(false, true) {
 		return 0
 	}
 	return bs.Backoff.Duration()
@@ -692,7 +691,7 @@ func (t *PausableTicker) Destroy() {
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
-	beenRun *atomic.Bool
+	beenRun atomic.Bool
 }
 
 // NewCronTicker returns a new CrontTicker for the given schedule.
@@ -706,15 +705,15 @@ func NewCronTicker(schedule string) (CronTicker, error) {
 		}
 	})
 	if err != nil {
-		return CronTicker{beenRun: atomic.NewBool(false)}, err
+		return CronTicker{}, err
 	}
-	return CronTicker{Cron: cron, ch: ch, beenRun: atomic.NewBool(false)}, nil
+	return CronTicker{Cron: cron, ch: ch}, nil
 }
 
 // Start - returns true if the CronTicker was actually started, false otherwise
 func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		if t.beenRun.CAS(false, true) {
+		if t.beenRun.CompareAndSwap(false, true) {
 			t.Cron.Start()
 			return true
 		}
@@ -725,7 +724,7 @@ func (t *CronTicker) Start() bool {
 // Stop - returns true if the CronTicker was actually stopped, false otherwise
 func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		if t.beenRun.CAS(true, false) {
+		if t.beenRun.CompareAndSwap(true, false) {
 			t.Cron.Stop()
 			return true
 		}
@@ -860,7 +859,7 @@ func (s StartStopOnceState) String() string {
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	// SAFETY: We do this compare-and-swap outside of the lock so that
 	// concurrent StartOnce() calls return immediately.
-	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
+	success := once.state.CompareAndSwap(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
 	if !success {
 		return errors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
@@ -872,9 +871,9 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	err := fn()
 
 	if err == nil {
-		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
 	} else {
-		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
 	}
 
 	if !success {
@@ -894,7 +893,7 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	once.Lock()
 	defer once.Unlock()
 
-	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
+	success := once.state.CompareAndSwap(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
 		state := once.state.Load()
@@ -911,9 +910,9 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	err := fn()
 
 	if err == nil {
-		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
 	} else {
-		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
+		success = once.state.CompareAndSwap(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
 	}
 
 	if !success {
