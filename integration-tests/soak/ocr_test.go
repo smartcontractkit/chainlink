@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -105,6 +106,6 @@ type OcrSoakInputs struct {
 
 func (i OcrSoakInputs) setForRemoteRunner() {
 	os.Setenv("TEST_OCR_TEST_DURATION", i.TestDuration.String())
-	os.Setenv("TEST_OCR_CHAINLINK_NODE_FUNDING", fmt.Sprintf("%f", i.ChainlinkNodeFunding))
+	os.Setenv("TEST_OCR_CHAINLINK_NODE_FUNDING", strconv.FormatFloat(i.ChainlinkNodeFunding, 'f', -1, 64))
 	os.Setenv("TEST_OCR_TIME_BETWEEN_ROUNDS", i.TimeBetweenRounds.String())
 }
