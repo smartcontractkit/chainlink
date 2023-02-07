@@ -20,7 +20,7 @@ abstract contract AuthorizedOriginReceiver {
   error NotAllowedToSetSenders();
   error AlreadySet();
 
-  bool private _active;
+  bool private s_active;
   EnumerableSet.AddressSet private s_authorizedSenders;
   address[] private s_authorizedSendersList;
 
@@ -28,14 +28,14 @@ abstract contract AuthorizedOriginReceiver {
    * @dev Initializes the contract in active state.
    */
   constructor() {
-    _active = true;
+    s_active = true;
   }
 
   /**
    * @dev Returns true if the contract is paused, and false otherwise.
    */
   function authorizedReceiverActive() public view virtual returns (bool) {
-    return _active;
+    return s_active;
   }
 
   /**
@@ -49,7 +49,7 @@ abstract contract AuthorizedOriginReceiver {
     if (authorizedReceiverActive()) {
       revert AlreadySet();
     }
-    _active = true;
+    s_active = true;
     emit AuthorizedSendersActive(msg.sender);
   }
 
@@ -64,7 +64,7 @@ abstract contract AuthorizedOriginReceiver {
     if (!authorizedReceiverActive()) {
       revert AlreadySet();
     }
-    _active = false;
+    s_active = false;
     emit AuthorizedSendersDeactive(msg.sender);
   }
 

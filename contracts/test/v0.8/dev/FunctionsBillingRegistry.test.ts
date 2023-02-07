@@ -143,7 +143,9 @@ describe('FunctionsRegistry', () => {
             config.gasOverhead,
             config.requestTimeoutSeconds,
           ),
-      ).to.be.revertedWith('Only callable by owner')
+      ).to.be.revertedWith(
+        "Error: VM Exception while processing transaction: reverted with custom error 'OnlyCallableByOwner()'",
+      )
     })
 
     it('owner can set config', async () => {
@@ -195,7 +197,9 @@ describe('FunctionsRegistry', () => {
     it('non-owner is unable to register a DON', async () => {
       await expect(
         registry.connect(roles.stranger).setAuthorizedSenders([oracle.address]),
-      ).to.be.revertedWith('Only callable by owner')
+      ).to.be.revertedWith(
+        "Error: VM Exception while processing transaction: reverted with custom error 'OnlyCallableByOwner()'",
+      )
     })
 
     it('owner can register a DON', async () => {
@@ -578,7 +582,9 @@ describe('FunctionsRegistry', () => {
       it('only owner can recover', async function () {
         await expect(
           registry.connect(subOwner).recoverFunds(strangerAddress),
-        ).to.be.revertedWith(`Only callable by owner`)
+        ).to.be.revertedWith(
+          "Error: VM Exception while processing transaction: reverted with custom error 'OnlyCallableByOwner()'",
+        )
       })
 
       it('owner can recover link transferred', async function () {

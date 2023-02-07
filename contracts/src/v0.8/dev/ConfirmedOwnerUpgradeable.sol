@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.6;
 
 import "../interfaces/OwnableInterface.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
- * @title The ConfirmedOwner contract
- * @notice A contract with helpers for basic contract ownership.
+ * @title The ConfirmedOwnerUpgradeable contract
+ * @notice An upgrade compatible contract with helpers for basic contract ownership.
  */
 contract ConfirmedOwnerUpgradeable is Initializable, OwnableInterface {
   address private s_owner;
@@ -15,11 +15,18 @@ contract ConfirmedOwnerUpgradeable is Initializable, OwnableInterface {
   event OwnershipTransferRequested(address indexed from, address indexed to);
   event OwnershipTransferred(address indexed from, address indexed to);
 
+  error OwnerMustBeSet();
+  error NotProposedOwner();
+  error CannotSelfTransfer();
+  error OnlyCallableByOwner();
+
   /**
    * @dev Initializes the contract in unpaused state.
    */
   function __ConfirmedOwner_initialize(address newOwner, address pendingOwner) internal onlyInitializing {
-    require(newOwner != address(0), "Cannot set owner to zero");
+    if (newOwner == address(0)) {
+      revert OwnerMustBeSet();
+    }
 
     s_owner = newOwner;
     if (pendingOwner != address(0)) {
@@ -39,7 +46,9 @@ contract ConfirmedOwnerUpgradeable is Initializable, OwnableInterface {
    * @notice Allows an ownership transfer to be completed by the recipient.
    */
   function acceptOwnership() external override {
-    require(msg.sender == s_pendingOwner, "Must be proposed owner");
+    if (msg.sender != s_pendingOwner) {
+      revert NotProposedOwner();
+    }
 
     address oldOwner = s_owner;
     s_owner = msg.sender;
@@ -59,7 +68,9 @@ contract ConfirmedOwnerUpgradeable is Initializable, OwnableInterface {
    * @notice validate, transfer ownership, and emit relevant events
    */
   function _transferOwnership(address to) private {
-    require(to != msg.sender, "Cannot transfer to self");
+    if (to == msg.sender) {
+      revert CannotSelfTransfer();
+    }
 
     s_pendingOwner = to;
 
@@ -70,7 +81,9 @@ contract ConfirmedOwnerUpgradeable is Initializable, OwnableInterface {
    * @notice validate access
    */
   function _validateOwnership() internal view {
-    require(msg.sender == s_owner, "Only callable by owner");
+    if (msg.sender != s_owner) {
+      revert OnlyCallableByOwner();
+    }
   }
 
   /**

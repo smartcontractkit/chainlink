@@ -28,8 +28,8 @@ contract FunctionsBillingRegistry is
   ERC677ReceiverInterface,
   AuthorizedReceiver
 {
-  LinkTokenInterface public LINK;
-  AggregatorV3Interface public LINK_ETH_FEED;
+  LinkTokenInterface private LINK;
+  AggregatorV3Interface private LINK_ETH_FEED;
   AuthorizedOriginReceiverInterface private ORACLE_WITH_ALLOWLIST;
 
   // We need to maintain a list of consuming addresses.
@@ -206,6 +206,8 @@ contract FunctionsBillingRegistry is
    * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @return gasOverhead average gas execution cost used in estimating total cost
+   * @return linkAddress address of contract for the LINK token
+   * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
    */
   function getConfig()
     external
@@ -215,7 +217,9 @@ contract FunctionsBillingRegistry is
       uint32 stalenessSeconds,
       uint256 gasAfterPaymentCalculation,
       int256 fallbackWeiPerUnitLink,
-      uint32 gasOverhead
+      uint32 gasOverhead,
+      address linkAddress,
+      address linkPriceFeed
     )
   {
     return (
@@ -223,7 +227,9 @@ contract FunctionsBillingRegistry is
       s_config.stalenessSeconds,
       s_config.gasAfterPaymentCalculation,
       s_fallbackWeiPerUnitLink,
-      s_config.gasOverhead
+      s_config.gasOverhead,
+      address(LINK),
+      address(LINK_ETH_FEED)
     );
   }
 
