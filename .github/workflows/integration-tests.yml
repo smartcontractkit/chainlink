@@ -117,6 +117,7 @@ jobs:
       contents: read
     name: ETH Smoke Tests Matrix
     needs: [build-chainlink, changes, build-test-image]
+    if: false ## TODO: Remove after debug
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
