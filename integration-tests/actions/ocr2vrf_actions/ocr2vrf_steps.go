@@ -293,6 +293,8 @@ func SetupOCR2VRFUniverse(
 	// Adding VRFBeacon as producer in VRFCoordinator
 	err = coordinatorContract.SetProducer(vrfBeaconContract.Address())
 	require.NoError(t, err, "Error setting Producer for VRFCoordinator contract")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for TXs to complete")
 
 	// Subscription:
 	//1.	Create Subscription
