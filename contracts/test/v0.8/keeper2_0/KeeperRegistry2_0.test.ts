@@ -33,6 +33,13 @@ enum UpkeepFailureReason {
   INSUFFICIENT_BALANCE,
 }
 
+// copied from AutomationRegistryInterface2_0.sol
+enum Mode {
+  DEFAULT,
+  ARBITRUM,
+  OPTIMISM,
+}
+
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
   return receipt.events[0].args.id
@@ -555,7 +562,12 @@ describe('KeeperRegistry2_0', () => {
 
     registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+      .deploy(
+        Mode.DEFAULT,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+      )
 
     config = {
       paymentPremiumPPB,
@@ -973,7 +985,7 @@ describe('KeeperRegistry2_0', () => {
         let registryLogic = await keeperRegistryLogicFactory
           .connect(owner)
           .deploy(
-            1, // arbitrum
+            Mode.ARBITRUM,
             linkToken.address,
             linkEthFeed.address,
             gasPriceFeed.address,
@@ -1816,7 +1828,7 @@ describe('KeeperRegistry2_0', () => {
         let registryLogic = await keeperRegistryLogicFactory
           .connect(owner)
           .deploy(
-            1, // arbitrum
+            Mode.ARBITRUM,
             linkToken.address,
             linkEthFeed.address,
             gasPriceFeed.address,
@@ -2559,12 +2571,18 @@ describe('KeeperRegistry2_0', () => {
     const l1CostWeiOpt = BigNumber.from(2000000)
 
     it('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(0, multipliers, gasAmounts, premiums, flatFees)
+      await verifyMaxPayment(
+        Mode.DEFAULT,
+        multipliers,
+        gasAmounts,
+        premiums,
+        flatFees,
+      )
     })
 
     it('calculates the max fee appropriately for Arbitrum', async () => {
       await verifyMaxPayment(
-        1,
+        Mode.ARBITRUM,
         multipliers,
         gasAmounts,
         premiums,
@@ -2575,7 +2593,7 @@ describe('KeeperRegistry2_0', () => {
 
     it('calculates the max fee appropriately for Optimism', async () => {
       await verifyMaxPayment(
-        2,
+        Mode.OPTIMISM,
         multipliers,
         gasAmounts,
         premiums,
@@ -3978,7 +3996,12 @@ describe('KeeperRegistry2_0', () => {
     beforeEach(async () => {
       registryLogic2 = await keeperRegistryLogicFactory
         .connect(owner)
-        .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+        .deploy(
+          Mode.DEFAULT,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
 
       const config = {
         paymentPremiumPPB,
