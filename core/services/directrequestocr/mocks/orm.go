@@ -119,20 +119,20 @@ func (_m *ORM) SetConfirmed(requestID directrequestocr.RequestID, qopts ...pg.QO
 	return r0
 }
 
-// SetError provides a mock function with given fields: requestID, runID, errorType, computationError, readyAt, qopts
-func (_m *ORM) SetError(requestID directrequestocr.RequestID, runID int64, errorType directrequestocr.ErrType, computationError []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+// SetError provides a mock function with given fields: requestID, runID, errorType, computationError, readyAt, readyForProcessing, qopts
+func (_m *ORM) SetError(requestID directrequestocr.RequestID, runID int64, errorType directrequestocr.ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, requestID, runID, errorType, computationError, readyAt)
+	_ca = append(_ca, requestID, runID, errorType, computationError, readyAt, readyForProcessing)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, int64, directrequestocr.ErrType, []byte, time.Time, ...pg.QOpt) error); ok {
-		r0 = rf(requestID, runID, errorType, computationError, readyAt, qopts...)
+	if rf, ok := ret.Get(0).(func(directrequestocr.RequestID, int64, directrequestocr.ErrType, []byte, time.Time, bool, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, runID, errorType, computationError, readyAt, readyForProcessing, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

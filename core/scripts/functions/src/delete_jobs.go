@@ -18,8 +18,15 @@ type deleteJobs struct {
 type OCRSpec struct {
 	ContractID string
 }
+
+type BootSpec struct {
+	ContractID string
+}
+
 type JobSpec struct {
 	Id                           string
+	Name                         string
+	BootstrapSpec                BootSpec
 	OffChainReporting2OracleSpec OCRSpec
 }
 
@@ -63,8 +70,8 @@ func (g *deleteJobs) Run(args []string) {
 		helpers.PanicErr(err)
 
 		for _, jobSpec := range parsed {
-			if jobSpec.OffChainReporting2OracleSpec.ContractID == *contractAddress {
-				fmt.Println("Deleting job with ID", jobSpec.Id)
+			if jobSpec.BootstrapSpec.ContractID == *contractAddress || jobSpec.OffChainReporting2OracleSpec.ContractID == *contractAddress {
+				fmt.Println("Deleting job ID:", jobSpec.Id, "name:", jobSpec.Name)
 				set := flag.NewFlagSet("test", flag.ExitOnError)
 				set.Parse([]string{jobSpec.Id})
 				err = client.DeleteJob(cli.NewContext(app, set, nil))
