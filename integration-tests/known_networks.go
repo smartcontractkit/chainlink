@@ -131,7 +131,7 @@ var (
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{time.Minute},
-		MinimumConfirmations:      0,
+		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 	}
 
