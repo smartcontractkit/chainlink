@@ -312,7 +312,7 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
 	var attempts []EthTxAttempt
 	err = ec.q.Select(&attempts,
-		`SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
+		`SELECT DISTINCT ON (eth_tx_attempts.eth_tx_id) eth_tx_attempts.*
 		FROM eth_tx_attempts
 		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
 		WHERE evm_chain_id = $1
