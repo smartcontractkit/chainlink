@@ -186,7 +186,7 @@ func GetAuthenticatedExternalInitiator(c *gin.Context) (*bridges.ExternalInitiat
 	return obj.(*bridges.ExternalInitiator), ok
 }
 
-// RequiresRunRole extracts the user object from the context, and asserts the the user's role is at least
+// RequiresRunRole extracts the user object from the context, and asserts the user's role is at least
 // 'run'
 func RequiresRunRole(handler func(*gin.Context)) func(*gin.Context) {
 	return func(c *gin.Context) {
@@ -205,7 +205,7 @@ func RequiresRunRole(handler func(*gin.Context)) func(*gin.Context) {
 	}
 }
 
-// RequiresEditRole extracts the user object from the context, and asserts the the user's role is at least
+// RequiresEditRole extracts the user object from the context, and asserts the user's role is at least
 // 'edit'
 func RequiresEditRole(handler func(*gin.Context)) func(*gin.Context) {
 	return func(c *gin.Context) {
@@ -224,7 +224,7 @@ func RequiresEditRole(handler func(*gin.Context)) func(*gin.Context) {
 	}
 }
 
-// RequiresAdminRole extracts the user object from the context, and asserts the the user's role is 'admin'
+// RequiresAdminRole extracts the user object from the context, and asserts the user's role is 'admin'
 func RequiresAdminRole(handler func(*gin.Context)) func(*gin.Context) {
 	return func(c *gin.Context) {
 		user, ok := GetAuthenticatedUser(c)
@@ -235,7 +235,8 @@ func RequiresAdminRole(handler func(*gin.Context)) func(*gin.Context) {
 		}
 		if user.Role != clsessions.UserRoleAdmin {
 			c.Abort()
-			jsonAPIError(c, http.StatusUnauthorized, errors.New("Unauthorized"))
+			addForbiddenErrorHeaders(c, "admin", string(user.Role), user.Email)
+			jsonAPIError(c, http.StatusForbidden, errors.New("Forbidden"))
 			return
 		}
 		handler(c)
