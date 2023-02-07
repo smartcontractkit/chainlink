@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
@@ -27,8 +28,10 @@ import (
 )
 
 type Environment struct {
-	Owner *bind.TransactOpts
-	Ec    *ethclient.Client
+	Owner      *bind.TransactOpts
+	Ec         *ethclient.Client
+	RPC        *rpc.Client
+	PrivateKey *ecdsa.PrivateKey
 
 	// AvaxEc is appropriately set if the environment is configured to interact with an avalanche
 	// chain. It should be used instead of the regular Ec field because avalanche calculates
@@ -72,6 +75,9 @@ func SetupEnv(overrideNonce bool) Environment {
 	}
 
 	ec, err := ethclient.Dial(ethURL)
+	PanicErr(err)
+
+	jrpc, err := rpc.Dial(ethURL)
 	PanicErr(err)
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
@@ -125,10 +131,12 @@ func SetupEnv(overrideNonce bool) Environment {
 
 	// the execution environment for the scripts
 	return Environment{
-		Owner:   owner,
-		Ec:      ec,
-		AvaxEc:  avaxClient,
-		ChainID: chainID,
+		Owner:      owner,
+		Ec:         ec,
+		AvaxEc:     avaxClient,
+		ChainID:    chainID,
+		RPC:        jrpc,
+		PrivateKey: &privateKey,
 	}
 }
 

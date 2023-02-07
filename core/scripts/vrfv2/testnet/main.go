@@ -10,10 +10,13 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -48,6 +51,123 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "sign-message":
+		// components of the domain separator
+		eip712Domain := crypto.Keccak256Hash([]byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"))
+		name := crypto.Keccak256Hash([]byte("Uniswap V2"))
+		version := crypto.Keccak256Hash([]byte("1"))
+		contractAddress := common.HexToAddress("0x1Ad45a86396545eA4206Cb165F603c9168AE349a")
+
+		// components of the message that gets signed
+		// keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+		permitTypehash := common.HexToHash("0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9")
+		nonce := big.NewInt(0) // uint256. this should be the current nonce of the owner in the ERC20 contract.
+		owner := e.Owner.From
+		spender := common.HexToAddress("0xB328d19998588b11f087502331505291fa70F4A4")
+		value := big.NewInt(1000)                                     // how much to permit
+		deadline := big.NewInt(time.Now().Add(24 * time.Hour).Unix()) // should be a future timestamp, just add one day for ease of use
+		abiEncoded, err := utils.ABIEncode(
+			`
+[
+			{"name":"eip712Domain","type":"bytes32"},
+			{"name":"name","type":"bytes32"},
+			{"name": "version", "type": "bytes32"},
+			{"name": "chainId", "type": "uint256"},
+			{"name": "contractAddress", "type": "address"}
+]`,
+			eip712Domain,
+			name,
+			version,
+			big.NewInt(e.ChainID),
+			contractAddress,
+		)
+		helpers.PanicErr(err)
+		calculatedDomainSeparator := crypto.Keccak256(abiEncoded)
+		fmt.Println("calculated domain separator:", hexutil.Encode(calculatedDomainSeparator))
+		domainSeparator := common.HexToHash("0x01b2a607d365af535c1bf42f9ca25e93931c9f3b6f4b730989a95098dff45c70") // from contract
+		// bytes32 digest = keccak256(
+		//     abi.encodePacked(
+		//         '\x19\x01',
+		//         DOMAIN_SEPARATOR,
+		//         keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline))
+		//     )
+		// );
+		message := []byte{0x19, 0x01} // \x19\x01
+		message = append(message, domainSeparator[:]...)
+		encodedCall, err := utils.ABIEncode(
+			`
+[
+
+			{"name": "permitTypeHash","type":"bytes32"},
+			{"name": "owner","type":"address"},
+			{"name": "spender", "type": "address"},
+			{"name": "value", "type": "uint256"},
+			{"name": "nonce", "type": "uint256"},
+			{"name": "deadline", "type": "uint256"}
+]
+`, permitTypehash, owner, spender, value, nonce, deadline,
+		)
+		helpers.PanicErr(err)
+		fmt.Println()
+		fmt.Println("encoded call:", hexutil.Encode(encodedCall))
+
+		encodedHash := crypto.Keccak256(encodedCall)
+		fmt.Println()
+		fmt.Println("encoded hash:", hexutil.Encode(encodedHash))
+
+		message = append(message, encodedHash...)
+		fmt.Println()
+		fmt.Println("full message (encoded packed):", hexutil.Encode(message))
+
+		messageDigest := crypto.Keccak256(message)
+		fmt.Println()
+		fmt.Println("message digest:", hexutil.Encode(messageDigest))
+
+		signature, err := crypto.Sign(messageDigest, e.PrivateKey)
+		helpers.PanicErr(err)
+		// decompose signature into v, r and s
+		// the returned byte array is [R || S || V]
+		if len(signature) != 65 {
+			panic("signature should be 65 bytes long")
+		}
+
+		fmt.Println()
+		fmt.Println("geth signature:", hexutil.Encode(signature))
+		r := signature[:32] // first 32 bytes is R
+		var rArray [32]byte
+		copy(rArray[:], r[:])
+		s := signature[32:64] // second 32 bytes is S
+		var sArray [32]byte
+		copy(sArray[:], s[:])
+		v := uint8(signature[64])
+		if v == 1 {
+			v = 28
+		} else {
+			v = 27
+		}
+
+		f, err := os.Open("UniswapV2ERC20.json")
+		helpers.PanicErr(err)
+		uniswapABI, err := abi.JSON(f)
+		helpers.PanicErr(err)
+		encoded, err := uniswapABI.Pack("permit", owner, spender, value, deadline, v, rArray, sArray)
+		helpers.PanicErr(err)
+		fmt.Println()
+		fmt.Println("abi encoded call to permit:", hexutil.Encode(encoded))
+		fmt.Println()
+		fmt.Println("owner:", owner.Hex())
+		fmt.Println()
+		fmt.Println("spender:", spender.Hex())
+		fmt.Println()
+		fmt.Println("value:", value)
+		fmt.Println()
+		fmt.Println("deadline:", deadline)
+		fmt.Println()
+		fmt.Println("v:", v)
+		fmt.Println()
+		fmt.Println("r:", hexutil.Encode(r))
+		fmt.Println()
+		fmt.Println("s:", hexutil.Encode(s))
 	case "manual-fulfill":
 		cmd := flag.NewFlagSet("manual-fulfill", flag.ExitOnError)
 		// In order to get the tx data for a fulfillment transaction, you can grep the
