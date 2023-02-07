@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/ocr2dr_oracle"
@@ -23,6 +25,26 @@ import (
 var (
 	_ log.Listener   = &DRListener{}
 	_ job.ServiceCtx = &DRListener{}
+
+	promOracleEvents = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_oracle_events",
+		Help: "Metric to track oracle events",
+	}, []string{"oracle", "event"})
+
+	promRequestErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_errors",
+		Help: "Metric to track request errors",
+	}, []string{"oracle", "error"})
+
+	promTimedOutRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_timed_out_requests",
+		Help: "Metric to track timed out requests",
+	}, []string{"oracle"})
+
+	promConfirmedRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_confirmed_requests",
+		Help: "Metric to track confirmed requests",
+	}, []string{"oracle"})
 )
 
 const (
@@ -169,15 +191,19 @@ func (l *DRListener) processOracleEvents() {
 
 				switch log := log.(type) {
 				case *ocr2dr_oracle.OCR2DROracleOracleRequest:
+					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleRequest(log, lb)
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
+					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
+					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
+					promOracleEvents.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
 				default:
@@ -220,6 +246,7 @@ func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc
 }
 
 func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
+	promRequestErrors.WithLabelValues(l.oracle.Address().Hex(), errType.String()).Inc()
 	readyForProcessing := errType != INTERNAL_ERROR
 	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(requestId), "err", err)
@@ -319,6 +346,7 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
+	promConfirmedRequests.WithLabelValues(l.oracle.Address().Hex()).Inc()
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 }
 
@@ -351,6 +379,7 @@ func (l *DRListener) timeoutRequests() {
 				break
 			}
 			if len(ids) > 0 {
+				promTimedOutRequests.WithLabelValues(l.oracle.Address().Hex()).Add(float64(len(ids)))
 				var idStrs []string
 				for _, id := range ids {
 					idStrs = append(idStrs, formatRequestId(id))
