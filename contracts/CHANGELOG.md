@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+...
+
+## 0.6.1 - 2023-02-06
+
 ### Added
 
 - Support for off-chain secrets in Functions Oracle contract
