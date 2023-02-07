@@ -2,9 +2,8 @@ package fluxmonitorv2
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
-
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -52,7 +51,7 @@ type PollManagerConfig struct {
 type PollManager struct {
 	cfg PollManagerConfig
 
-	isHibernating    *atomic.Bool
+	isHibernating    atomic.Bool
 	hibernationTimer utils.ResettableTimer
 	pollTicker       utils.PausableTicker
 	idleTimer        utils.ResettableTimer
@@ -90,11 +89,10 @@ func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, 
 		}
 	}
 
-	return &PollManager{
+	p := &PollManager{
 		cfg:    cfg,
 		logger: logger.Named("PollManager"),
 
-		isHibernating:    atomic.NewBool(cfg.IsHibernating),
 		hibernationTimer: utils.NewResettableTimer(),
 		pollTicker:       utils.NewPausableTicker(cfg.PollTickerInterval),
 		idleTimer:        idleTimer,
@@ -102,7 +100,9 @@ func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, 
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
 		drumbeat:         drumbeatTicker,
 		chPoll:           make(chan PollRequest),
-	}, nil
+	}
+	p.isHibernating.Store(cfg.IsHibernating)
+	return p, nil
 }
 
 // PollTickerTicks ticks on a given interval

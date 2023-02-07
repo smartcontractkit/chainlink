@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
-	"go.uber.org/atomic"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -172,7 +172,7 @@ func main() {
 						fmt.Println("proof", pf.String(), "is not valid", "total valid proofs:", numValid)
 						panic("found invalid proof")
 					}
-					numValid.Inc()
+					numValid.Add(1)
 				case <-time.After(250 * time.Millisecond):
 					return
 				}

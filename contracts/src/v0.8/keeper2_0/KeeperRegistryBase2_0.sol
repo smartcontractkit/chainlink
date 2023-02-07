@@ -51,7 +51,13 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
-  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V3;
+  /**
+   * @dev UPKEEP_TRANSCODER_VERSION_BASE is temporary necessity for backwards compatibility with
+   * MigratableKeeperRegistryInterfaceV1 - it should be removed in future versions in favor of
+   * UPKEEP_VERSION_BASE and MigratableKeeperRegistryInterfaceV2
+   */
+  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
+  uint8 internal constant UPKEEP_VERSION_BASE = uint8(UpkeepFormat.V3);
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
