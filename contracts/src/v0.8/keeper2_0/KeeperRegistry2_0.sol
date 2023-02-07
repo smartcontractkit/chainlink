@@ -7,6 +7,7 @@ import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
 import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../interfaces/AutomationRegistryInterface2_0.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
+import "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 import "../OCR2Abstract.sol";
 
@@ -25,6 +26,7 @@ contract KeeperRegistry2_0 is
   OCR2Abstract,
   AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
+  MigratableKeeperRegistryInterfaceV2,
   ERC677ReceiverInterface
 {
   using Address for address;
@@ -35,6 +37,7 @@ contract KeeperRegistry2_0 is
 
   /**
    * @notice versions:
+   * - KeeperRegistry 2.0.1: implements workaround for buggy migrate function in 1.X
    * - KeeperRegistry 2.0.0: implement OCR interface
    * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
    *                       : account for Arbitrum and Optimism L1 gas fee
@@ -47,12 +50,17 @@ contract KeeperRegistry2_0 is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
+  string public constant override typeAndVersion = "KeeperRegistry 2.0.1";
 
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
+
+  /**
+   * @inheritdoc MigratableKeeperRegistryInterfaceV2
+   */
+  uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
 
   /**
    * @param keeperRegistryLogic address of the logic contract
@@ -936,7 +944,10 @@ contract KeeperRegistry2_0 is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
+  function migrateUpkeeps(uint256[] calldata ids, address destination)
+    external
+    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
+  {
     // Executed through logic contract
     _fallback();
   }
@@ -944,7 +955,10 @@ contract KeeperRegistry2_0 is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
+  function receiveUpkeeps(bytes calldata encodedUpkeeps)
+    external
+    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
+  {
     // Executed through logic contract
     _fallback();
   }

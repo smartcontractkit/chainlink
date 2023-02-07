@@ -48,6 +48,9 @@ func CleanupPerformanceTest(
 
 func TestCronPerformance(t *testing.T) {
 	testEnvironment := setupCronTest(t)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -116,6 +119,7 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 HTTPWriteTimout = '300s'`
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
