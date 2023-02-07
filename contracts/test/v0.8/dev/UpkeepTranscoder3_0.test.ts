@@ -46,7 +46,7 @@ const maxPerformGas = BigNumber.from(5000000)
 const minUpkeepSpend = BigNumber.from(0)
 const maxCheckDataSize = BigNumber.from(1000)
 const maxPerformDataSize = BigNumber.from(1000)
-const paymentModel = BigNumber.from(0)
+const mode = BigNumber.from(0)
 const linkEth = BigNumber.from(300000000)
 const gasWei = BigNumber.from(100)
 const registryGasOverhead = BigNumber.from('80000')
@@ -278,12 +278,7 @@ async function deployRegistry20(
 
   const registryLogic = await keeperRegistryLogicFactory20
     .connect(owner)
-    .deploy(
-      paymentModel,
-      linkToken.address,
-      linkEthFeed.address,
-      gasPriceFeed.address,
-    )
+    .deploy(mode, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
 
   const registry20 = await keeperRegistryFactory20
     .connect(owner)

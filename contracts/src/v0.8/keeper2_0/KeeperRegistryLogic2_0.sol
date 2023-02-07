@@ -15,17 +15,17 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   using EnumerableSet for EnumerableSet.UintSet;
 
   /**
-   * @param paymentModel one of Default, Arbitrum, Optimism
+   * @param mode one of Default, Arbitrum, Optimism
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
-    PaymentModel paymentModel,
+    Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed
-  ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {}
+  ) KeeperRegistryBase2_0(mode, link, linkNativeFeed, fastGasFeed) {}
 
   function checkUpkeep(uint256 id)
     external

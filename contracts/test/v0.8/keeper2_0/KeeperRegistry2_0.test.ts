@@ -302,7 +302,7 @@ describe('KeeperRegistry2_0', () => {
   }
 
   const verifyMaxPayment = async (
-    paymentModel: number,
+    mode: number,
     multipliers: BigNumber[],
     gasAmounts: number[],
     premiums: number[],
@@ -329,7 +329,7 @@ describe('KeeperRegistry2_0', () => {
     let registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(
-        paymentModel,
+        mode,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
