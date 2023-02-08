@@ -16,5 +16,6 @@
 //     despite node crashes and reorgs. The granularity of the filter is always at least one block (more when backfilling).
 //   - After calling Replay(fromBlock), all blocks including that one to the latest chain tip will be polled
 //     with the current filter. This can be used on first time job add to specify a start block from which you wish to capture
-//     existing logs.
+//     existing logs.  Replay also accepts an async param; if true it will return as soon as replay has been successfully initiated
+//     instead of waiting for it to complete.
 package logpoller

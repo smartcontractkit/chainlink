@@ -28,7 +28,7 @@ func (disabled) HealthReport() map[string]error {
 	return map[string]error{"disabledLogPoller": ErrDisabled}
 }
 
-func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrDisabled }
+func (disabled) Replay(ctx context.Context, fromBlock int64, async bool) error { return ErrDisabled }
 
 func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
 

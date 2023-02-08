@@ -484,13 +484,13 @@ func (_m *LogPoller) RegisterFilter(filter logpoller.Filter) error {
 	return r0
 }
 
-// Replay provides a mock function with given fields: ctx, fromBlock
-func (_m *LogPoller) Replay(ctx context.Context, fromBlock int64) error {
-	ret := _m.Called(ctx, fromBlock)
+// Replay provides a mock function with given fields: ctx, fromBlock, async
+func (_m *LogPoller) Replay(ctx context.Context, fromBlock int64, async bool) error {
+	ret := _m.Called(ctx, fromBlock, async)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
-		r0 = rf(ctx, fromBlock)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, bool) error); ok {
+		r0 = rf(ctx, fromBlock, async)
 	} else {
 		r0 = ret.Error(0)
 	}

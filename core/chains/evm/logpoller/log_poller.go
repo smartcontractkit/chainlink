@@ -31,7 +31,7 @@ import (
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.ServiceCtx
-	Replay(ctx context.Context, fromBlock int64) error
+	Replay(ctx context.Context, fromBlock int64, async bool) error
 	RegisterFilter(filter Filter) error
 	UnregisterFilter(name string, q pg.Queryer) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
@@ -305,8 +305,28 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
-func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
-	latest, err := lp.ec.HeadByNumber(ctx, nil)
+func (lp *logPoller) Replay(ctx context.Context, fromBlock int64, async bool) error {
+	replayCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		// merge log poller context and parent context.  If either of them are cancelled, abort replay
+		// This is so that lp.run() can pass a single context to lp.PollAndSaveLogs().  Not used in this
+		// function since we want to return differentiate between the two, for returning proper error code
+		select {
+		case <-lp.ctx.Done():
+			cancel()
+		case <-ctx.Done():
+			if !async {
+				// In the async case, we don't want to cancel the replay after we've returned to the caller (unless the
+				// log poller is shutting down).  This is important for a web controller, since it will always
+				// cancel the context as soon as the request is complete, which will likely be before the replay is done.
+				cancel()
+			}
+		case <-replayCtx.Done():
+		}
+	}()
+
+	latest, err := lp.ec.HeadByNumber(replayCtx, nil)
 	if err != nil {
 		return err
 	}
@@ -317,19 +337,39 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	select {
 	case lp.replayStart <- ReplayRequest{fromBlock, ctx}:
 	case <-lp.ctx.Done():
+		cancel()
 		return ErrReplayAbortedOnShutdown
 	case <-ctx.Done():
+		cancel()
 		return ErrReplayAbortedByClient
 	}
-	// Block until replay complete or cancelled.
-	select {
-	case err := <-lp.replayComplete:
-		return err
-	case <-lp.ctx.Done():
-		return ErrReplayAbortedOnShutdown
-	case <-ctx.Done():
-		return ErrReplayAbortedByClient
+
+	// Replay has been initiated with no errors
+
+	waitForReplayComplete := func() error {
+		// Block until replay complete or cancelled.
+		select {
+		case err := <-lp.replayComplete:
+			return err
+		case <-lp.ctx.Done():
+			return ErrReplayAbortedOnShutdown
+		case <-ctx.Done():
+			return ErrReplayAbortedByClient
+		}
 	}
+
+	if async {
+		// We can return now, but something must receive the replayComplete event,
+		//  otherwise the logpoller will hang on sending it.
+		go func() {
+			err := waitForReplayComplete()
+			if err != nil {
+				lp.lggr.Errorf(err.Error())
+			}
+		}()
+		return nil
+	}
+	return waitForReplayComplete()
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {
@@ -419,6 +459,7 @@ func (lp *logPoller) run() {
 					// Serially process replay requests.
 					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", replayReq.fromBlock)
 					lp.PollAndSaveLogs(replayReq.ctx, fromBlock)
+					lp.lggr.Infow("Replay completed successfully", "fromBlock", fromBlock)
 				}
 			} else {
 				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)

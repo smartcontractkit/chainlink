@@ -128,7 +128,7 @@ func ExampleRun_blocks() {
 	//    core.test blocks command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    replay  Replays block data from the given number
+	//    replay  Initiates a (background) replay of block data from the given number.
 	//
 	// OPTIONS:
 	//    --help, -h  show help

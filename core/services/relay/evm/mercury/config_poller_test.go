@@ -118,7 +118,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	latest, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	// Ensure we capture this config set log.
-	require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1))
+	require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1, false))
 
 	// Send blocks until we see the config updated.
 	var configBlock uint64

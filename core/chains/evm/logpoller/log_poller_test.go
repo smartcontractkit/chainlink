@@ -133,7 +133,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	}
 	// The poller starts on a new chain at latest-finality (5 in this case),
 	// replay to ensure we get all the logs.
-	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 1))
+	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 1, false))
 
 	// We should immediately have all those Log1 logs.
 	logs, err := th.LogPoller.Logs(2, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
@@ -146,10 +146,10 @@ func TestLogPoller_Integration(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Replay an invalid block should error
-	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 0))
-	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 20))
+	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 0, false))
+	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 20, false))
 	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
-	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
+	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4, false))
 
 	// We should immediately see 4 logs2 logs.
 	logs, err = th.LogPoller.Logs(2, 7, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
@@ -159,7 +159,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	// Cancelling a replay should return an error synchronously.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	assert.True(t, errors.Is(th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient))
+	assert.True(t, errors.Is(th.LogPoller.Replay(ctx, 4, false), logpoller.ErrReplayAbortedByClient))
 
 	require.NoError(t, th.LogPoller.Close())
 }

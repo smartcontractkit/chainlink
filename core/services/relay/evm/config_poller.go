@@ -105,7 +105,7 @@ func (cp *configPoller) Notify() <-chan struct{} {
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation
 func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
-	return cp.destChainLogPoller.Replay(ctx, fromBlock)
+	return cp.destChainLogPoller.Replay(ctx, fromBlock, false)
 }
 
 // LatestConfigDetails returns the latest config details from the logs
