@@ -117,9 +117,24 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 
+	// In case email/role is not specified try to give friendlier/actionable error messages
+	if request.Email == "" {
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("email flag is empty, must specify an email"))
+		return
+	}
+	if request.NewRole == "" {
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("newrole flag is empty, must specify a new role, possible options are 'admin', 'edit', 'run', 'view'"))
+		return
+	}
+	_, err := clsession.GetUserRole(request.NewRole)
+	if err != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("new role does not exist, possible options are 'admin', 'edit', 'run', 'view'"))
+		return
+	}
+
 	user, err := c.App.SessionORM().UpdateRole(request.Email, request.NewRole)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("error updating API user"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.Wrap(err, "error updating API user"))
 		return
 	}
 
@@ -131,7 +146,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 	email := ctx.Param("email")
 
 	// Attempt find user by email
-	_, err := c.App.SessionORM().FindUser(email)
+	user, err := c.App.SessionORM().FindUser(email)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("specified user not found: %s", email))
 		return
@@ -154,7 +169,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(ctx, presenters.NewUserResource(clsession.User{Email: email}), "user")
+	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
 }
 
 // UpdatePassword changes the password for the current User.

@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"time"
 
-	caigotypes "github.com/dontpanicdao/caigo/types"
 	"github.com/pkg/errors"
 
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
@@ -43,7 +42,7 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 		lggr: lggr.Named("Chain"),
 	}
 
-	getClient := func() (caigotypes.Provider, error) {
+	getClient := func() (*starknet.Client, error) {
 		return ch.getClient()
 	}
 
