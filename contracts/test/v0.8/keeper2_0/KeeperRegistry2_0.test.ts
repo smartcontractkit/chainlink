@@ -2338,14 +2338,18 @@ describe('KeeperRegistry2_0', () => {
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       })
 
-      it('returns false and error code if the target check reverts', async () => {
+      it('returns false, error code, and revert data if the target check reverts', async () => {
         await mock.setShouldRevertCheck(true)
         let checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(upkeepId)
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
-        assert.equal(checkUpkeepResult.performData, '0x')
+        const revertReasonBytes = `0x${checkUpkeepResult.performData.slice(10)}` // remove sighash
+        assert.equal(
+          ethers.utils.defaultAbiCoder.decode(['string'], revertReasonBytes)[0],
+          'shouldRevertCheck should be false',
+        )
         assert.equal(
           checkUpkeepResult.upkeepFailureReason,
           UpkeepFailureReason.TARGET_CHECK_REVERTED,
@@ -2688,7 +2692,7 @@ describe('KeeperRegistry2_0', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.1')
+      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.2')
     })
   })
 

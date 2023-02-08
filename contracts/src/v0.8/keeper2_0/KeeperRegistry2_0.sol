@@ -37,6 +37,7 @@ contract KeeperRegistry2_0 is
 
   /**
    * @notice versions:
+   * - KeeperRegistry 2.0.2: pass revert bytes as performData when target contract reverts
    * - KeeperRegistry 2.0.1: implements workaround for buggy migrate function in 1.X
    * - KeeperRegistry 2.0.0: implement OCR interface
    * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
@@ -50,11 +51,12 @@ contract KeeperRegistry2_0 is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 2.0.1";
+  string public constant override typeAndVersion = "KeeperRegistry 2.0.2";
 
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
+
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
   /**
