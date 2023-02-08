@@ -1431,57 +1431,60 @@ describe('KeeperRegistry2_0', () => {
                 assert.equal(upkeepPerformedLogs.length, 1)
                 let upkeepPerformedLog = upkeepPerformedLogs[0]
 
-                let gasUsed = upkeepPerformedLog.args.gasUsed
-                let gasOverhead = upkeepPerformedLog.args.gasOverhead
+                let upkeepGasUsed = upkeepPerformedLog.args.gasUsed
+                let chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
+                let actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
 
-                assert.isTrue(gasUsed.gt(BigNumber.from('0')))
-                assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+                assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
+                assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
 
                 if (i == '0' && j == '0' && k == '0') {
                   console.log(
                     'Gas Benchmarking - sig verification ( f =',
                     newF,
                     '): calculated overhead: ',
-                    gasOverhead.toString(),
+                    chargedGasOverhead.toString(),
                     ' actual overhead: ',
-                    receipt.gasUsed.sub(gasUsed).toString(),
+                    actualGasOverhead.toString(),
                     ' margin over gasUsed: ',
-                    gasUsed.add(gasOverhead).sub(receipt.gasUsed).toString(),
+                    chargedGasOverhead.sub(actualGasOverhead).toString(),
                   )
                 }
 
                 // Overhead should not get capped
+                let gasOverheadCap = registryGasOverhead
+                  .add(
+                    registryPerSignerGasOverhead.mul(BigNumber.from(newF + 1)),
+                  )
+                  .add(
+                    BigNumber.from(
+                      registryPerPerformByteGasOverhead.toNumber() *
+                        performData.length,
+                    ),
+                  )
+                let gasCapMinusOverhead = gasOverheadCap.sub(chargedGasOverhead)
                 assert.isTrue(
-                  gasOverhead.lt(
-                    registryGasOverhead
-                      .add(
-                        registryPerSignerGasOverhead.mul(
-                          BigNumber.from(newF + 1),
-                        ),
-                      )
-                      .add(
-                        BigNumber.from(
-                          registryPerPerformByteGasOverhead.toNumber() *
-                            performData.length,
-                        ),
-                      ),
-                  ),
-                  'Gas overhead got capped, increase VERIFY_SIGN_TX_GAS_OVERHEAD / VERIFY_PER_SIGNER_GAS_OVERHEAD',
+                  gasCapMinusOverhead.gt(BigNumber.from(0)),
+                  'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD by atleast ' +
+                    gasCapMinusOverhead.toString(),
                 )
                 // total gas charged should be greater than tx gas but within gasCalculationMargin
                 assert.isTrue(
-                  gasUsed.add(gasOverhead).gt(receipt.gasUsed),
-                  'Gas overhead calculated is too low, increase account gas variables',
+                  chargedGasOverhead.gt(actualGasOverhead),
+                  'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD) by atleast ' +
+                    actualGasOverhead.sub(chargedGasOverhead).toString(),
                 )
 
                 assert.isTrue(
-                  gasUsed
-                    .add(gasOverhead)
-                    .lt(
-                      receipt.gasUsed.add(BigNumber.from(gasCalculationMargin)),
-                    ),
+                  chargedGasOverhead
+                    .sub(actualGasOverhead)
+                    .lt(BigNumber.from(gasCalculationMargin)),
                 ),
-                  'Gas overhead calculated is too high, decrease account gas variables'
+                  'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
+                    chargedGasOverhead
+                      .sub(chargedGasOverhead)
+                      .sub(BigNumber.from(gasCalculationMargin))
+                      .toString()
               }
             }
           }
@@ -1745,7 +1748,7 @@ describe('KeeperRegistry2_0', () => {
                 if (overheadsGotCapped) {
                   assert.isTrue(
                     overheadCanGetCapped,
-                    'Gas overheads are too low, increase REGISTRY_GAS_OVERHEAD/VERIFY_SIGN_TX_GAS_OVERHEAD/VERIFY_PER_SIGNER_GAS_OVERHEAD',
+                    'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD',
                   )
                 }
 
