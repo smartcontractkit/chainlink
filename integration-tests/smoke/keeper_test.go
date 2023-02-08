@@ -19,11 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -1152,4 +1153,45 @@ func setupKeeperTest(
 	}
 
 	return chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner
+}
+
+// TurnLookBack = 0
+
+// [Keeper.Registry]
+// SyncInterval = '5s'
+// PerformGasOverhead = 150_000
+func setupEnvVarKeeperTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+	testNetwork = networks.SelectedNetwork
+	evmConfig := eth.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = eth.New(&eth.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
+		})
+	}
+	envVars := map[string]any{
+		"KEEPER_TURN_LOOK_BACK":                "0",
+		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5s",
+		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
+	}
+	if !testNetwork.Simulated {
+		envVars["ETH_URL"] = testNetwork.URLs[0]
+		envVars["ETH_HTTP_URL"] = testNetwork.HTTPURLs[0]
+		envVars["ETH_CHAIN_ID"] = fmt.Sprint(testNetwork.ChainID)
+	}
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.NewVersioned(0, "0.0.11", map[string]interface{}{
+			"env":      envVars,
+			"replicas": 6,
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment, testNetwork
 }

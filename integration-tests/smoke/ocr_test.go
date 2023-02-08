@@ -16,8 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -27,7 +28,7 @@ import (
 
 func TestOCRBasic(t *testing.T) {
 	t.Parallel()
-	testEnvironment, testNetwork := setupOCRTest(t)
+	testEnvironment, testNetwork := setupEnvVarOCRTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -100,6 +101,38 @@ func setupOCRTest(t *testing.T) (testEnvironment *environment.Environment, testN
 		AddHelm(evmConfig).
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
+			"replicas": 6,
+		}))
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment, testNetwork
+}
+
+func setupEnvVarOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
+	testNetwork = networks.SelectedNetwork
+	evmConfig := ethereum.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
+		})
+	}
+	envVars := map[string]any{}
+	if !testNetwork.Simulated {
+		envVars["ETH_URL"] = testNetwork.URLs[0]
+		envVars["ETH_HTTP_URL"] = testNetwork.HTTPURLs[0]
+		envVars["ETH_CHAIN_ID"] = fmt.Sprint(testNetwork.ChainID)
+	}
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.NewVersioned(0, "0.0.11", map[string]interface{}{
+			"env":      envVars,
 			"replicas": 6,
 		}))
 	err := testEnvironment.Run()
