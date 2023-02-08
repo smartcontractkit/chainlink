@@ -55,6 +55,26 @@ var (
 		Name: "functions_request_confirmed",
 		Help: "Metric to track number of confirmed requests",
 	}, []string{"oracle", "responseType"})
+
+	promRequestDataSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_data_size",
+		Help: "Metric to track request data size",
+	}, []string{"oracle"})
+
+	promComputationResultSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_computation_result_size",
+		Help: "Metric to track computation result size in bytes",
+	}, []string{"oracle"})
+
+	promComputationErrorSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_computation_error_size",
+		Help: "Metric to track computation error size in bytes",
+	}, []string{"oracle"})
+
+	promComputationDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_request_computation_duration",
+		Help: "Metric to track computation duration in ms",
+	}, []string{"oracle"})
 )
 
 const (
@@ -65,6 +85,7 @@ const (
 type DRListener struct {
 	utils.StartStopOnce
 	oracle            *ocr2dr_oracle.OCR2DROracle
+	oracleHexAddr     string
 	job               job.Job
 	pipelineRunner    pipeline.Runner
 	jobORM            job.ORM
@@ -87,6 +108,7 @@ func formatRequestId(requestId [32]byte) string {
 func NewDRListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *DRListener {
 	return &DRListener{
 		oracle:         oracle,
+		oracleHexAddr:  oracle.Address().Hex(),
 		job:            jb,
 		pipelineRunner: runner,
 		jobORM:         jobORM,
@@ -257,9 +279,9 @@ func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc
 
 func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
 	if errType == INTERNAL_ERROR {
-		promRequestInternalErrors.WithLabelValues(l.oracle.Address().Hex()).Inc()
+		promRequestInternalErrors.WithLabelValues(l.oracleHexAddr).Inc()
 	} else {
-		promRequestComputationErrors.WithLabelValues(l.oracle.Address().Hex()).Inc()
+		promRequestComputationErrors.WithLabelValues(l.oracleHexAddr).Inc()
 	}
 	readyForProcessing := errType != INTERNAL_ERROR
 	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
@@ -273,6 +295,8 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		"requestID", formatRequestId(request.RequestId),
 		"data", fmt.Sprintf("%0x", request.Data),
 	)
+
+	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Add(float64(len(request.Data)))
 
 	requestData := make(map[string]interface{})
 	requestData["requestId"] = formatRequestId(request.RequestId)
@@ -299,6 +323,13 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 			"blockStateRoot":        lb.StateRoot(),
 		},
 	})
+
+	startTime := time.Now()
+	defer func() {
+		duration := time.Now().Sub(startTime)
+		promComputationDuration.WithLabelValues(l.oracleHexAddr).Add(float64(duration.Milliseconds()))
+	}()
+
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
@@ -344,8 +375,10 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
 		}
 		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
+		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Add(float64(len(computationError)))
 	} else {
-		promRequestComputationSuccess.WithLabelValues(l.oracle.Address().Hex()).Inc()
+		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
+		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Add(float64(len(computationResult)))
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
@@ -361,7 +394,7 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
-	promRequestConfirmed.WithLabelValues(l.oracle.Address().Hex(), responseType).Inc()
+	promRequestConfirmed.WithLabelValues(l.oracleHexAddr, responseType).Inc()
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 }
 
@@ -394,7 +427,7 @@ func (l *DRListener) timeoutRequests() {
 				break
 			}
 			if len(ids) > 0 {
-				promRequestTimeout.WithLabelValues(l.oracle.Address().Hex()).Add(float64(len(ids)))
+				promRequestTimeout.WithLabelValues(l.oracleHexAddr).Add(float64(len(ids)))
 				var idStrs []string
 				for _, id := range ids {
 					idStrs = append(idStrs, formatRequestId(id))
