@@ -159,6 +159,17 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	Avalanche = blockchain.EVMNetwork{
+		Name:                      "Avalanche Fuji",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   43113,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
 	mappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":   SimulatedEVM,
 		"SIMULATED_1": SimulatedEVMNonDev1,
@@ -172,6 +183,7 @@ var (
 		"OPTIMISM_GOERLI": OptimismGoerli,
 		"RSK":             RSKTestnet,
 		"MUMBAI":          PolygonMumbai,
+		"AVALANCHE_FUJI":  Avalanche,
 	}
 )
 
