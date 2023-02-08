@@ -13,6 +13,7 @@ import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../typ
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
+import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { KeeperRegistry20 as KeeperRegistry } from '../../../typechain/KeeperRegistry20'
 import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic20'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
@@ -21,6 +22,24 @@ import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
+
+// copied from AutomationRegistryInterface2_0.sol
+enum UpkeepFailureReason {
+  NONE,
+  UPKEEP_CANCELLED,
+  UPKEEP_PAUSED,
+  TARGET_CHECK_REVERTED,
+  UPKEEP_NOT_NEEDED,
+  PERFORM_DATA_EXCEEDS_LIMIT,
+  INSUFFICIENT_BALANCE,
+}
+
+// copied from AutomationRegistryInterface2_0.sol
+enum Mode {
+  DEFAULT,
+  ARBITRUM,
+  OPTIMISM,
+}
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
@@ -38,7 +57,7 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(65000)
+const registryGasOverhead = BigNumber.from(70_000)
 const registryPerSignerGasOverhead = BigNumber.from(7500)
 const registryPerPerformByteGasOverhead = BigNumber.from(20)
 const cancellationDelay = 50
@@ -291,7 +310,7 @@ describe('KeeperRegistry2_0', () => {
   }
 
   const verifyMaxPayment = async (
-    paymentModel: number,
+    mode: number,
     multipliers: BigNumber[],
     gasAmounts: number[],
     premiums: number[],
@@ -318,7 +337,7 @@ describe('KeeperRegistry2_0', () => {
     let registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(
-        paymentModel,
+        mode,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -542,9 +561,23 @@ describe('KeeperRegistry2_0', () => {
       optOracleCode,
     ])
 
+    const mockArbSys = await new MockArbSysFactory(owner).deploy()
+    const arbSysCode = await ethers.provider.send('eth_getCode', [
+      mockArbSys.address,
+    ])
+    await ethers.provider.send('hardhat_setCode', [
+      '0x0000000000000000000000000000000000000064',
+      arbSysCode,
+    ])
+
     registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+      .deploy(
+        Mode.DEFAULT,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+      )
 
     config = {
       paymentPremiumPPB,
@@ -962,7 +995,7 @@ describe('KeeperRegistry2_0', () => {
         let registryLogic = await keeperRegistryLogicFactory
           .connect(owner)
           .deploy(
-            1, // arbitrum
+            Mode.ARBITRUM,
             linkToken.address,
             linkEthFeed.address,
             gasPriceFeed.address,
@@ -1408,57 +1441,60 @@ describe('KeeperRegistry2_0', () => {
                 assert.equal(upkeepPerformedLogs.length, 1)
                 let upkeepPerformedLog = upkeepPerformedLogs[0]
 
-                let gasUsed = upkeepPerformedLog.args.gasUsed
-                let gasOverhead = upkeepPerformedLog.args.gasOverhead
+                let upkeepGasUsed = upkeepPerformedLog.args.gasUsed
+                let chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
+                let actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
 
-                assert.isTrue(gasUsed.gt(BigNumber.from('0')))
-                assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+                assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
+                assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
 
                 if (i == '0' && j == '0' && k == '0') {
                   console.log(
                     'Gas Benchmarking - sig verification ( f =',
                     newF,
                     '): calculated overhead: ',
-                    gasOverhead.toString(),
+                    chargedGasOverhead.toString(),
                     ' actual overhead: ',
-                    receipt.gasUsed.sub(gasUsed).toString(),
+                    actualGasOverhead.toString(),
                     ' margin over gasUsed: ',
-                    gasUsed.add(gasOverhead).sub(receipt.gasUsed).toString(),
+                    chargedGasOverhead.sub(actualGasOverhead).toString(),
                   )
                 }
 
                 // Overhead should not get capped
+                let gasOverheadCap = registryGasOverhead
+                  .add(
+                    registryPerSignerGasOverhead.mul(BigNumber.from(newF + 1)),
+                  )
+                  .add(
+                    BigNumber.from(
+                      registryPerPerformByteGasOverhead.toNumber() *
+                        performData.length,
+                    ),
+                  )
+                let gasCapMinusOverhead = gasOverheadCap.sub(chargedGasOverhead)
                 assert.isTrue(
-                  gasOverhead.lt(
-                    registryGasOverhead
-                      .add(
-                        registryPerSignerGasOverhead.mul(
-                          BigNumber.from(newF + 1),
-                        ),
-                      )
-                      .add(
-                        BigNumber.from(
-                          registryPerPerformByteGasOverhead.toNumber() *
-                            performData.length,
-                        ),
-                      ),
-                  ),
-                  'Gas overhead got capped, increase VERIFY_SIGN_TX_GAS_OVERHEAD / VERIFY_PER_SIGNER_GAS_OVERHEAD',
+                  gasCapMinusOverhead.gt(BigNumber.from(0)),
+                  'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD by atleast ' +
+                    gasCapMinusOverhead.toString(),
                 )
                 // total gas charged should be greater than tx gas but within gasCalculationMargin
                 assert.isTrue(
-                  gasUsed.add(gasOverhead).gt(receipt.gasUsed),
-                  'Gas overhead calculated is too low, increase account gas variables',
+                  chargedGasOverhead.gt(actualGasOverhead),
+                  'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD) by atleast ' +
+                    actualGasOverhead.sub(chargedGasOverhead).toString(),
                 )
 
                 assert.isTrue(
-                  gasUsed
-                    .add(gasOverhead)
-                    .lt(
-                      receipt.gasUsed.add(BigNumber.from(gasCalculationMargin)),
-                    ),
+                  chargedGasOverhead
+                    .sub(actualGasOverhead)
+                    .lt(BigNumber.from(gasCalculationMargin)),
                 ),
-                  'Gas overhead calculated is too high, decrease account gas variables'
+                  'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
+                    chargedGasOverhead
+                      .sub(chargedGasOverhead)
+                      .sub(BigNumber.from(gasCalculationMargin))
+                      .toString()
               }
             }
           }
@@ -1722,7 +1758,7 @@ describe('KeeperRegistry2_0', () => {
                 if (overheadsGotCapped) {
                   assert.isTrue(
                     overheadCanGetCapped,
-                    'Gas overheads are too low, increase REGISTRY_GAS_OVERHEAD/VERIFY_SIGN_TX_GAS_OVERHEAD/VERIFY_PER_SIGNER_GAS_OVERHEAD',
+                    'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD',
                   )
                 }
 
@@ -1805,7 +1841,7 @@ describe('KeeperRegistry2_0', () => {
         let registryLogic = await keeperRegistryLogicFactory
           .connect(owner)
           .deploy(
-            1, // arbitrum
+            Mode.ARBITRUM,
             linkToken.address,
             linkEthFeed.address,
             gasPriceFeed.address,
@@ -1990,7 +2026,10 @@ describe('KeeperRegistry2_0', () => {
         .callStatic.checkUpkeep(upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.INSUFFICIENT_BALANCE,
+      )
 
       await registry.connect(admin).addFunds(upkeepId, oneWei)
       checkUpkeepResult = await registry
@@ -2036,7 +2075,10 @@ describe('KeeperRegistry2_0', () => {
         .connect(zeroAddress)
         .callStatic.checkUpkeep(upkeepID1)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.INSUFFICIENT_BALANCE,
+      )
 
       checkUpkeepResult = await registry
         .connect(zeroAddress)
@@ -2262,7 +2304,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_CANCELLED,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2275,7 +2320,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_CANCELLED,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2288,7 +2336,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 2)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_PAUSED,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2299,7 +2350,10 @@ describe('KeeperRegistry2_0', () => {
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.INSUFFICIENT_BALANCE,
+      )
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
@@ -2309,15 +2363,22 @@ describe('KeeperRegistry2_0', () => {
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       })
 
-      it('returns false and error code if the target check reverts', async () => {
+      it('returns false, error code, and revert data if the target check reverts', async () => {
         await mock.setShouldRevertCheck(true)
         let checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(upkeepId)
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
-        assert.equal(checkUpkeepResult.performData, '0x')
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 3)
+        const revertReasonBytes = `0x${checkUpkeepResult.performData.slice(10)}` // remove sighash
+        assert.equal(
+          ethers.utils.defaultAbiCoder.decode(['string'], revertReasonBytes)[0],
+          'shouldRevertCheck should be false',
+        )
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
@@ -2329,7 +2390,10 @@ describe('KeeperRegistry2_0', () => {
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
         assert.equal(checkUpkeepResult.performData, '0x')
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 4)
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
@@ -2347,7 +2411,10 @@ describe('KeeperRegistry2_0', () => {
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
         assert.equal(checkUpkeepResult.performData, '0x')
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 5)
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
@@ -2380,7 +2447,10 @@ describe('KeeperRegistry2_0', () => {
           latestBlock.parentHash,
         )
         assert.equal(wrappedPerfromData[0].performData, randomBytes)
-        assert.equal(checkUpkeepResult.upkeepFailureReason, 0)
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.NONE,
+        )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
         assert.isTrue(checkUpkeepResult.fastGasWei.eq(gasWei))
         assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
@@ -2514,12 +2584,18 @@ describe('KeeperRegistry2_0', () => {
     const l1CostWeiOpt = BigNumber.from(2000000)
 
     it('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(0, multipliers, gasAmounts, premiums, flatFees)
+      await verifyMaxPayment(
+        Mode.DEFAULT,
+        multipliers,
+        gasAmounts,
+        premiums,
+        flatFees,
+      )
     })
 
     it('calculates the max fee appropriately for Arbitrum', async () => {
       await verifyMaxPayment(
-        1,
+        Mode.ARBITRUM,
         multipliers,
         gasAmounts,
         premiums,
@@ -2530,7 +2606,7 @@ describe('KeeperRegistry2_0', () => {
 
     it('calculates the max fee appropriately for Optimism', async () => {
       await verifyMaxPayment(
-        2,
+        Mode.OPTIMISM,
         multipliers,
         gasAmounts,
         premiums,
@@ -2647,7 +2723,7 @@ describe('KeeperRegistry2_0', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.1')
+      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.2')
     })
   })
 
@@ -3933,7 +4009,12 @@ describe('KeeperRegistry2_0', () => {
     beforeEach(async () => {
       registryLogic2 = await keeperRegistryLogicFactory
         .connect(owner)
-        .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+        .deploy(
+          Mode.DEFAULT,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
 
       const config = {
         paymentPremiumPPB,
