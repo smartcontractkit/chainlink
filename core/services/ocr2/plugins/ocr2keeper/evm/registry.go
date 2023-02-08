@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
@@ -729,11 +730,11 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 }
 
 func blockAndIdToKey(block *big.Int, id *big.Int) types.UpkeepKey {
-	return types.UpkeepKey(fmt.Sprintf("%s%s%s", block, separator, id))
+	return chain.UpkeepKey(fmt.Sprintf("%s%s%s", block, separator, id))
 }
 
 func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
-	parts := strings.Split(string(key), separator)
+	parts := strings.Split(key.String(), separator)
 	if len(parts) != 2 {
 		return nil, nil, fmt.Errorf("%w: missing data in upkeep key", ErrUpkeepKeyNotParsable)
 	}
