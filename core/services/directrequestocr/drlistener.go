@@ -31,20 +31,30 @@ var (
 		Help: "Metric to track oracle events",
 	}, []string{"oracle", "event"})
 
-	promRequestErrors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_request_errors",
-		Help: "Metric to track request errors",
-	}, []string{"oracle", "error"})
-
-	promTimedOutRequests = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_timed_out_requests",
-		Help: "Metric to track timed out requests",
+	promRequestInternalErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_internal_errors",
+		Help: "Metric to track internal errors",
 	}, []string{"oracle"})
 
-	promConfirmedRequests = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_confirmed_requests",
-		Help: "Metric to track confirmed requests",
+	promRequestComputationErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_computation_errors",
+		Help: "Metric to track computation errors",
 	}, []string{"oracle"})
+
+	promRequestComputationSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_computation_success",
+		Help: "Metric to track number of computed requests",
+	}, []string{"oracle"})
+
+	promRequestTimeout = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_timeout",
+		Help: "Metric to track number of timed out requests",
+	}, []string{"oracle"})
+
+	promRequestConfirmed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_confirmed",
+		Help: "Metric to track number of confirmed requests",
+	}, []string{"oracle", "responseType"})
 )
 
 const (
@@ -246,7 +256,11 @@ func (l *DRListener) getNewHandlerContext() (context.Context, context.CancelFunc
 }
 
 func (l *DRListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
-	promRequestErrors.WithLabelValues(l.oracle.Address().Hex(), errType.String()).Inc()
+	if errType == INTERNAL_ERROR {
+		promRequestInternalErrors.WithLabelValues(l.oracle.Address().Hex()).Inc()
+	} else {
+		promRequestComputationErrors.WithLabelValues(l.oracle.Address().Hex()).Inc()
+	}
 	readyForProcessing := errType != INTERNAL_ERROR
 	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(requestId), "err", err)
@@ -331,6 +345,7 @@ func (l *DRListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOrac
 		}
 		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
 	} else {
+		promRequestComputationSuccess.WithLabelValues(l.oracle.Address().Hex()).Inc()
 		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
@@ -346,7 +361,7 @@ func (l *DRListener) handleOracleResponse(responseType string, requestID [32]byt
 	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
-	promConfirmedRequests.WithLabelValues(l.oracle.Address().Hex()).Inc()
+	promRequestConfirmed.WithLabelValues(l.oracle.Address().Hex(), responseType).Inc()
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 }
 
@@ -379,7 +394,7 @@ func (l *DRListener) timeoutRequests() {
 				break
 			}
 			if len(ids) > 0 {
-				promTimedOutRequests.WithLabelValues(l.oracle.Address().Hex()).Add(float64(len(ids)))
+				promRequestTimeout.WithLabelValues(l.oracle.Address().Hex()).Add(float64(len(ids)))
 				var idStrs []string
 				for _, id := range ids {
 					idStrs = append(idStrs, formatRequestId(id))
