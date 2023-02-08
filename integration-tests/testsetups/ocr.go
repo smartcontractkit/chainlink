@@ -20,7 +20,6 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -164,9 +163,6 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 
 	testDuration := time.NewTimer(o.Inputs.TestDuration)
 
-	stopTestChannel := make(chan struct{}, 1)
-	testsetups.StartRemoteControlServer("OCR Soak Test", stopTestChannel)
-
 	// *********************
 	// ***** Test Loop *****
 	// *********************
@@ -178,10 +174,6 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 	testOver := false
 	for {
 		select {
-		case <-stopTestChannel:
-			o.TestReporter.UnexpectedShutdown = true
-			log.Warn().Msg("Received shut down signal. Soak test stopping early")
-			return
 		case <-testDuration.C:
 			testOver = true
 			log.Warn().Msg("Soak Test Duration Reached. Completing Final Round")
