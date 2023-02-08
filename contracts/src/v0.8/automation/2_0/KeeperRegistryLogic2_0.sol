@@ -15,17 +15,17 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   using EnumerableSet for EnumerableSet.UintSet;
 
   /**
-   * @param paymentModel one of Default, Arbitrum, Optimism
+   * @param mode one of Default, Arbitrum, Optimism
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
-    PaymentModel paymentModel,
+    Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed
-  ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {}
+  ) KeeperRegistryBase2_0(mode, link, linkNativeFeed, fastGasFeed) {}
 
   function checkUpkeep(uint256 id)
     external
@@ -62,23 +62,25 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
-    if (!success) return (false, bytes(""), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed, fastGasWei, linkNative);
-
-    bytes memory userPerformData;
-    (upkeepNeeded, userPerformData) = abi.decode(result, (bool, bytes));
-    if (!upkeepNeeded)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
-    if (userPerformData.length > s_storage.maxPerformDataSize)
-      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+    if (!success) {
+      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
+    } else {
+      (upkeepNeeded, result) = abi.decode(result, (bool, bytes));
+      if (!upkeepNeeded)
+        return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
+      if (result.length > s_storage.maxPerformDataSize)
+        return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+    }
 
     performData = abi.encode(
       PerformDataWrapper({
-        checkBlockNumber: uint32(block.number - 1),
-        checkBlockhash: blockhash(block.number - 1),
-        performData: userPerformData
+        checkBlockNumber: uint32(_blockNum() - 1),
+        checkBlockhash: _blockHash(_blockNum() - 1),
+        performData: result
       })
     );
-    return (true, performData, UpkeepFailureReason.NONE, gasUsed, fastGasWei, linkNative);
+
+    return (success, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
 
   /**
@@ -158,7 +160,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
-    id = uint256(keccak256(abi.encode(blockhash(block.number - 1), address(this), s_storage.nonce)));
+    id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
     s_storage.nonce++;
     s_upkeepOffchainConfig[id] = offchainConfig;
@@ -174,10 +176,10 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
-    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > block.number)) revert CannotCancel();
+    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > _blockNum())) revert CannotCancel();
     if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
-    uint256 height = block.number;
+    uint256 height = _blockNum();
     if (!isOwner) {
       height = height + CANCELLATION_DELAY;
     }
@@ -220,7 +222,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     Upkeep memory upkeep = s_upkeep[id];
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber > block.number) revert UpkeepNotCanceled();
+    if (upkeep.maxValidBlocknumber > _blockNum()) revert UpkeepNotCanceled();
 
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
